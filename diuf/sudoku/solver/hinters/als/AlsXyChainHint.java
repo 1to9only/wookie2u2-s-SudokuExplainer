@@ -45,9 +45,10 @@ public class AlsXyChainHint extends AHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			// nb: cast to Object[] for nonvargs call and suppress warning
-			+ (isBig ? " in "+Frmt.and(bases, covers) : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " in "+Frmt.and(bases, covers);
+		return s;
 	}
 
 	@Override
@@ -60,18 +61,18 @@ public class AlsXyChainHint extends AHint {
 
 	private String getAlssString() {
 		StringBuilder sb = Frmt.getSB();
-		int i = 0;
+		int i = 0, c; String r;
 		// NOTE: This HTML is inside a PRE-block.
 		for ( Als als : alss ) {
 			//Produces for example:
 			//     (a) <b1>row 1: A1 G1 I1</b1>\n
 			//     (b) <b2>col G: G1 G6</b2>\n
-			int j = 1 + (i%3); // there's only 3 colors, so cycle through them
+			if(als.region==null) r=""; else r=als.region.id+": ";
+			c = 1 + (i%3); // there's only 3 colors, so cycle through them
 			sb.append("    (").append(alpha((char)i)).append(") ") // nb: In Java calculating a char is a complete, total, and utter pain in the ____ing ass. Thank you Buggus Duckus for your charming comments. Your views have been noted, and will be completely ignored in due time. Sigh.
-			  .append("<b").append(j).append('>')
-			  .append(als.region==null ? "" : als.region.id+": ")
-			  .append(Frmt.and(als.cells))
-			  .append("</b").append(j).append('>').append(NL);
+			  .append("<b").append(c).append('>')
+			  .append(r).append(Frmt.and(als.cells))
+			  .append("</b").append(c).append('>').append(NL);
 			++i;
 		}
 		// remove the trailing NL (or you can't see whole hint of long chain)

@@ -90,7 +90,9 @@ public final class Regions {
 	}
 
 	public static String typeName(List<ARegion> rs) {
-		return rs!=null && rs.size()>0 && rs.get(0)!=null ? rs.get(0).typeName : "";
+		if ( rs!=null && rs.size()>0 && rs.get(0)!=null )
+			return rs.get(0).typeName;
+		return "";
 	}
 
 	public static int typeMask(List<ARegion> rs) {

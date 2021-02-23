@@ -89,8 +89,6 @@ public final class Coloring extends AHinter {
 	/** Idx used by the conjugate method only; contains the indices of the two
 	 * cells in the current ARegion which maybe the candidate value. */
 	private final Idx conjugateSet = new Idx();
-	/** Contains cells where a candidate can be eliminated. */
-	private final Idx deleteSet = new Idx();
 
 	/** This candidate: the one we're currently processing. This is a field
 	 * just to reduce the amount of stack-work: the handbrake of recursion. */
@@ -184,7 +182,7 @@ public final class Coloring extends AHinter {
 				if ( checkColorWrap(set1) )
 					any = redPots.addAll(set1.cells(grid), new Values(v));
 				if ( checkColorWrap(set2) )
-					any = redPots.addAll(set2.cells(grid), new Values(v));
+					any |= redPots.addAll(set2.cells(grid), new Values(v));
 				if ( any ) {
 					// build the hint and add it to accu
 					hint = new ColoringHint(this, Subtype.SimpleColorWrap
@@ -256,8 +254,7 @@ public final class Coloring extends AHinter {
 		a.forEach1((ai)->b.forEach1((bi)->cmnBuds.orAnd(buds[ai], buds[bi], vs)));
 		if ( cmnBuds.none() )
 			return false;
-		deleteSet.set(cmnBuds)
-			.forEach1((d)->redPots.put(grid.cells[d], new Values(v)));
+		cmnBuds.forEach(grid.cells, (c)->redPots.put(c, new Values(v)));
 		return true;
 	}
 	private final Idx cmnBuds = new Idx();
@@ -295,19 +292,17 @@ public final class Coloring extends AHinter {
 		numColorPairs[cand] = 0;
 		hintNumbers[cand] = AHint.hintNumber;
 		// nb: candidates and free are both used again by conjugate.
-		// candidateSet is an Idx of indices of grid.cells which maybe cand
+		// candidateSet is an Idx of grid.cells which maybe cand
 		candidateSet = idxs[cand];
 		// first: add all cells that may be part of a conjugate pair
 		startSet.clear(); // we start from an empty set, then
 		// add indice of each cell in a region with 2 positions for cand
 		candidateSet.forEach1((i) -> {
-			for ( ARegion r : grid.cells[i].regions ) {
+			for ( ARegion r : grid.cells[i].regions )
 				if ( r.indexesOf[cand].size == 2 ) {
 					startSet.add(i);
 					break;
 				}
-			}
-			
 		});
 		// now do the coloring.
 		int indice;
@@ -372,7 +367,10 @@ public final class Coloring extends AHinter {
 		if ( indice==-1 || !startSet.contains(indice) )
 			return;
 		// record the color of this index
-		colorSets[on ? C1 : C2].add(indice);
+		if ( on )
+			colorSets[C1].add(indice);
+		else
+			colorSets[C2].add(indice);
 		// and remove this index from the start set BEFORE we recurse
 		startSet.remove(indice);
 		// recursion

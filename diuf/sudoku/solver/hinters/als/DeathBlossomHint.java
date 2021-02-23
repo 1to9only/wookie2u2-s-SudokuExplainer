@@ -47,7 +47,10 @@ public class DeathBlossomHint extends AHint {
 		this.alssByValue = alssByValue.clone();
 		this.regions = regions;
 		// the Pots in the 3rd stem.maybe/ALS, if exists (rare)
-		this.yellows = stem.maybes.size>2 ? alsPots.get(2) : null;
+		if ( stem.maybes.size > 2 )
+			this.yellows = alsPots.get(2);
+		else
+			this.yellows = null;
 	}
 
 	@Override
@@ -142,11 +145,12 @@ public class DeathBlossomHint extends AHint {
 
 	@Override
 	public String toHtmlImpl() {
+		final String invalid; if(isInvalid) invalid="INVALID "; else invalid="";
 		return Html.produce(this, "DeathBlossomHint.html"
 			, stem.toFullString()			//{0}
 			, redPots.toString()			// 1
 			, alssToString()				// 2
-			, isInvalid ? "INVALID " : ""	// 3
+			, invalid						// 3
 		);
 	}
 

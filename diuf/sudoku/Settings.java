@@ -499,6 +499,9 @@ public final class Settings implements Cloneable {
 	//			I have no love for DeathBlossom, so I won't be using it.
 	// 6.30.107 2021-01-15 09:44:47 Ship DeathBlossom.
 	//			Last top1465 3:24 that's better, and a better test-case too.
+	// 6.30.108 2021-01-23 14:40:48 Faster align2.AlignedExclusion, which still
+	//			isn't competitive with the old align.Aligned*Exclusion classes
+	//			but it's getting there, and it's just SOOOO much more succinct.
 
 	// To Build:
 	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
@@ -534,8 +537,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.106";
-	public static final String BUILT = "2021-01-14 09:02:46";
+	public static final String VERSION = "6.30.108";
+	public static final String BUILT = "2021-01-23 14:40:48";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 
@@ -652,7 +655,9 @@ public final class Settings implements Cloneable {
 	// this get method (with defualt) is currently only used by the set method.
 	public boolean get(String name, boolean defualt) {
 		Boolean r = booleans.get(name);
-		return r==null ? defualt : r.booleanValue();
+		if ( r == null )
+			return defualt;
+		return r.booleanValue();
 	}
 	// if the registry entry does not exist yet we return value, as well as set
 	// the registry entry to value; which is a bit odd, but it works for me.

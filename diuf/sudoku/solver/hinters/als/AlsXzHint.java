@@ -6,8 +6,6 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
@@ -16,7 +14,6 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
-import java.util.List;
 import java.util.Set;
 
 
@@ -30,11 +27,11 @@ public class AlsXzHint extends AHint {
 
 	private final Als a;
 	private final Als b;
-	private final int redMaybes;
+	private final int pinkBits;
 	private final boolean anyDoubleLinked;
 	private final String debugMessage, rccMaybes, aCells, bCells;
 
-	public AlsXzHint(AHinter hinter, Als a, Als b, int redMaybes
+	public AlsXzHint(AHinter hinter, Als a, Als b, int pinkBits
 			, Pots orangePots, Pots bluePots, Pots redPots
 			, boolean anyDoubleLinked
 			, String rccMaybes // pass this in coz we need the rcc to get it
@@ -46,7 +43,7 @@ public class AlsXzHint extends AHint {
 				, Regions.list(a.region), Regions.list(b.region));
 		this.a = a;
 		this.b = b;
-		this.redMaybes = redMaybes;
+		this.pinkBits = pinkBits;
 		this.anyDoubleLinked = anyDoubleLinked;
 		this.rccMaybes = rccMaybes;
 		this.aCells = aCells;
@@ -62,18 +59,19 @@ public class AlsXzHint extends AHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ (isBig ? " on "+rccMaybes
-					 +" and "+Values.toString(redMaybes) : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " in "+a.region.id+" and "+b.region.id
+			  +" on "+rccMaybes;
+		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
 		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName()).append(": ")
-		  .append("in ").append(a.region.id).append(" and ").append(b.region.id)
-		  .append(" on ").append(rccMaybes)
-		  .append(" and ").append(Values.csv(redMaybes));
+		sb.append(getHintTypeName()).append(":")
+		  .append(" in ").append(a.region.id).append(" and ").append(b.region.id)
+		  .append(" on ").append(rccMaybes);
 		return sb.toString();
 	}
 
@@ -91,7 +89,7 @@ public class AlsXzHint extends AHint {
 			, a.region.id+": "+aCells	//{0}
 			, b.region.id+": "+bCells	// 1
 			, rccMaybes					// 2
-			, Values.andS(redMaybes)	// 3
+			, Values.andS(pinkBits)		// 3
 			, gonners					// 4
 			, debugMessage				// 5
 		);

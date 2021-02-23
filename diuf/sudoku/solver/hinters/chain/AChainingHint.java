@@ -160,7 +160,7 @@ public static int maxAncestorsSize = 0;
 		// presume that 40% of the hints are ons, and 60% are offs, which is
 		// pretty close to how it actually works out, from what I've seen.
 		// Remember that the map can grow, it's just less growth is faster.
-		double factor = wantOn ? 0.4D : 0.6D;
+		final double factor; if(wantOn) factor=0.4D; else factor=0.6D;
 		// Plus 0.51 to round up, and plus 2 for "a bit of wiggle room".
 		// Pots (a HashMap) constructor rounds capacity UP to the next base-2.
 		final int size = Math.max(Pots.MIN_CAPACITY, (int)(ancestors.size() * factor + 2.51));
@@ -178,13 +178,15 @@ public static int maxAncestorsSize = 0;
 	private Pots getNestedGreens(int nestedViewNum) {
 		assert hinter.tech.isNested;
 		Pair<AChainingHint, Integer> pair = getNestedChain(nestedViewNum);
-		return pair==null ? null : pair.a.getGreens(pair.b);
+		if ( pair == null )
+			return null;
+		return pair.a.getGreens(pair.b);
 	}
 	// overridden by BidirectionalCycleHint, all other subtypes use me.
 	public Pots getGreensImpl(int viewNum) {
-		return viewNum < flatViewCount
-				? getFlatGreens(viewNum)
-				: getNestedGreens(viewNum - flatViewCount);
+		if ( viewNum < flatViewCount )
+			return getFlatGreens(viewNum);
+		return getNestedGreens(viewNum - flatViewCount);
 	}
 
 	// overriden by BinaryChainingHint, all other subtypes use me.
@@ -194,12 +196,14 @@ public static int maxAncestorsSize = 0;
 	protected final Pots getNestedReds(int nestedViewNum) {
 		assert hinter.tech.isNested;
 		Pair<AChainingHint, Integer> pair = getNestedChain(nestedViewNum);
-		return pair==null ? null : pair.a.getReds(pair.b);
+		if ( pair == null )
+			return null;
+		return pair.a.getReds(pair.b);
 	}
 	public Pots getRedsImpl(int viewNum) {
-		return viewNum < flatViewCount
-				? getFlatReds(viewNum)
-				: getNestedReds(viewNum - flatViewCount);
+		if ( viewNum < flatViewCount )
+			return getFlatReds(viewNum);
+		return getNestedReds(viewNum - flatViewCount);
 	}
 
 	private void getColors(int viewNum) {
@@ -346,7 +350,9 @@ public static int maxAncestorsSize = 0;
 	public Set<Cell> getNestedAquaCells(int nestedViewNum) {
 		assert hinter.tech.isNested;
 		Pair<AChainingHint, Integer> pair = getNestedChain(nestedViewNum);
-		return pair==null ? null : pair.a.getAquaCells(0);
+		if ( pair == null )
+			return null;
+		return pair.a.getAquaCells(0);
 	}
 
 	/**
@@ -456,7 +462,9 @@ public static int maxAncestorsSize = 0;
 
 	protected final Collection<Link> getNestedLinks(int nestedViewNum) {
 		Pair<AChainingHint, Integer> pair = getNestedChain(nestedViewNum);
-		return pair==null ? null : pair.a.getLinks(pair.b);
+		if ( pair == null )
+			return null;
+		return pair.a.getLinks(pair.b);
 	}
 
 	/** Get the links - the brown arrow from a potential value to his effected
@@ -639,9 +647,12 @@ public static int maxAncestorsSize = 0;
 		int ceiling = 4;
 		int length = getComplexity() - flatViewCount;
 		boolean isOdd = false;
-		while (length > ceiling) {
+		while ( length > ceiling ) {
 			added += 0.1;
-			ceiling = isOdd ? ceiling*4/3 : ceiling*3/2;
+			if ( isOdd )
+				ceiling = ceiling * 4/3;
+			else
+				ceiling = ceiling * 3/2;
 			isOdd = !isOdd;
 		}
 		return added;
@@ -681,6 +692,15 @@ public static int maxAncestorsSize = 0;
 			}
 		}
 		return null; // we also get here if not found
+	}
+	
+	public String chainType() {
+		if ( isXChain ) 
+			if ( isYChain )
+				return "XY";
+			else
+				return "X";
+		return "Y";
 	}
 
 	protected String getNamePrefix() {
@@ -764,7 +784,10 @@ maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
 				// recursiveNumCalls * a.parents.size * O(ancestors.size/2) = a bit slow Redge
 				final int pi = ancestors.indexOf(p); // parentsIndex
 				if ( i < last ) // this is not the first parent
-					sb.append(i>0 ? ", " : " and "); // last when i==0
+					if ( i > 0 )
+						sb.append(", ");
+					else
+						sb.append(" and "); // last when i==0
 				sb.append(p.weak());
 				if ( m < 0 ) { // -1 meaning these are the parent of the initial assumption
 					if ( p.nestedChain != null ) // parent is a nested chain
@@ -868,7 +891,7 @@ maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
 	}
 
 	protected String getHinterName() {
-		if (hinterName == null) {
+		if ( hinterName == null ) {
 			hinterName = hinter.toString();
 			int i = hinterName.lastIndexOf(" Chain");
 			if ( i > -1 )
@@ -879,19 +902,21 @@ maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
 	private String hinterName = null;
 
 	protected String getPlusHtml() {
-		return ((AChainer)hinter).degree==0 ? "" :
-			"<p>Plus means that the standard Sudoku solving techniques:"+NL
-		  + " (Point &amp; Claim, Naked Pairs, Hidden Pairs, and Swampfish)"+NL
-		  + " are applied (only when no other chain-step is found).</p>";
+		if ( ((AChainer)hinter).degree == 0 )
+			return "";
+		return "<p>Plus means that the standard Sudoku solving techniques:"+NL
+		     + " (Point &amp; Claim, Naked Pairs, Hidden Pairs, and Swampfish)"+NL
+		     + " are applied (only when no other chain-step is found).</p>";
 	}
 
 	protected String getNestedHtml() {
-		return !((AChainer)hinter).tech.isNested ? "" :
-			"<p>Nested means that the gizmo which produced this hint is"+NL
-		  + " pretty advanced (even experimental); in that it parses its"+NL
-		  + " assumptions with a gizmo which itslef makes (slightly less"+NL
-		  + " complex) assumptions; so we're making assumptions on our"+NL
-		  + " assumptions. Don't try this at home kids.</p>";
+		if ( !((AChainer)hinter).tech.isNested )
+			return "";
+		return "<p>Nested means that the hinter which produced this hint"+NL
+		     + " parses its assumptions using a hinter which itself makes"+NL
+		     + " (less complex) assumptions; so we're making assumptions on"+NL
+		     + " our assumptions. Tequila AND hand-guns!"+NL
+			 + "</p><p> Don't try this at home kids.</p>";
 	}
 
 }

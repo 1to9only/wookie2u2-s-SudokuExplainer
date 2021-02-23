@@ -66,104 +66,93 @@ public final class WWing extends AHinter
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		// localise fields for speed
-		// dereference the grid.cells ONCE.
-		final Cell[] gridCells = grid.cells;
-		// the indices of cells which maybe each potential value
-		final Idx[] indicesOf = grid.getIdxs();
-		// Two pre-prepaired Idxs of siblings of cellA which maybe 0=v0, 1=v1
-		final Idx ppi0 = this.ppis[0];
-		final Idx ppi1 = this.ppis[1];
-		ppis[0].clear();
-		ppis[1].clear();
-		// local variables
-		// an index of the removable (red) cells
-		Idx redIdx = new Idx();
-		// we start the search with two cells, A and B, which may be the same
-		// two values v0 and v1
-		Cell cellA, cellB;
+		// The hint, if we ever find one
+		AHint hint;
 		// the easy way to read values from a Values bitset is into an array
-		int[] valsA;
+		int[] vA;
 		// the cellA.maybes.bits, cell index b, generic index.
-		int bitsA, b, i;
+		int bitsA;
+		// the indices of cells which maybe each potential value
+		final Idx[] candidates = grid.getIdxs();
+		// get an array (for speed) of bivalue (maybes.size==2) cells in grid
+		final Cell[] bivalueCells = grid.getBivalueCells().cells(grid);
+		// two pre-prepaired Idxs of buddies of cellA which maybe 0=v0, 1=v1
+		final Idx bud0 = this.bud0.clear();
+		final Idx bud1 = this.bud1.clear();
+		// an index of the (potentially) removable (red) cells
+		final Idx reds = new Idx();
 		// presume failure, ie that no hint will be found
 		boolean result = false;
-		AHint hint;
 		// foreach cell in the grid except the last one
-		MAIN_LOOP: for ( int a=0; a<80; ++a ) {
-			// which has exactly 2 potential values
-			if ( gridCells[a].maybes.size != 2 )
-				continue;
-			// BFIIK: it's actually faster without pre-caching this (above).
-			cellA = gridCells[a];
+		for ( Cell cA : bivalueCells ) {
 			// bivalue cell found, so prepare for the "pair" examination
 			// get the 2 potential values of cellA into an array
-			valsA = VALUESES[bitsA=cellA.maybes.bits];
-			// pre-prepair two indexes: siblings of cellA which maybe value0/1
+			vA = VALUESES[bitsA=cA.maybes.bits];
+			// pre-prepair 2 Idxs: buddies of cellA which maybe value0/1
 			// if either is empty then there's no W-Wing here.
-			if ( ppi0.set(cellA.buds).and(indicesOf[valsA[0]]).isEmpty() )
-				continue;
-			if ( ppi1.set(cellA.buds).and(indicesOf[valsA[1]]).isEmpty() )
-				continue;
-			// examine each subsequent cell to find a "pair" with same 2 maybes
-			for ( b=a+1; b<81; ++b ) {
-				if ( gridCells[b].maybes.bits != bitsA )
-					continue; // doesnt fit!
-				cellB = gridCells[b];
-//if ( cellA.id.equals("C6") && cellB.id.equals("H9") )
-//	Debug.breakpoint();
-				// ok, we have a pair; can anything be eliminated?
-				// find removable cells: siblings of both cellA and cellB
-				// which maybe v0 or v1
-				if ( redIdx.setAnd(ppi0, cellB.buds).any()
-				  // check for W-Wing for potential values valsA
-				  && (hint=checkLink(grid, valsA, a, b, redIdx)) != null ) {
-					result = true;
-					if ( accu.add(hint) ) //add ignores nulls
-						return true;
-				}
-				if ( redIdx.setAnd(ppi1, cellB.buds).any()
-				  // check for W-Wing for potential values valsA
-				  && (hint=checkLink(grid, valsA, a, b, redIdx)) != null ) {
-					result = true;
-					if ( accu.add(hint) ) //add ignores nulls
-						return true;
+			if ( bud0.setAndAny(cA.buds, candidates[vA[0]])
+			  && bud1.setAndAny(cA.buds, candidates[vA[1]]) ) {
+				// find a "pair" cell (with same 2 maybes)
+				for ( Cell cB : bivalueCells ) {
+					if ( cB.maybes.bits==bitsA && cB!=cA ) {
+	//if ( cellA.id.equals("C6") && cellB.id.equals("H9") )
+	//	Debug.breakpoint();
+						// ok, we have a pair; can anything be eliminated?
+						// find removable cells: siblings of both A and B
+						// which maybe v0 or v1
+						if ( reds.setAndAny(bud0, cB.buds)
+						  // check for W-Wing for potential values valsA
+						  && (hint=checkLink(grid, vA, cA, cB, reds)) != null ) {
+							result = true;
+							if ( accu.add(hint) ) //add ignores nulls
+								return true;
+						}
+						if ( reds.setAndAny(bud1, cB.buds)
+						  // check for W-Wing for potential values valsA
+						  && (hint=checkLink(grid, vA, cA, cB, reds)) != null ) {
+							result = true;
+							if ( accu.add(hint) ) //add ignores nulls
+								return true;
+						}
+					}
 				}
 			}
 		}
 		return result;
 	}
 	// Two preprepaired indexes of siblings of cellA which maybe 0=v0, 1=v1
-	private final Idx[] ppis = new Idx[]{new Idx(), new Idx()};
+	private final Idx bud0 = new Idx();
+	private final Idx bud1 = new Idx();
 
 	// check for W-Wing in cells[a]'s regions on values
-	private AHint checkLink(Grid grid, int[] values, int a, int b, Idx redIdx) {
+	private AHint checkLink(Grid grid, final int[] values, final Cell cA
+			, final Cell cB, final Idx reds) {
+		// BFIIK: the second value, yes really!
 		final int v1 = values[1];
 		final int sv1 = VSHFT[v1];
-		// the two bivalue cells
-		final Cell cA = grid.cells[a];
-		final Cell cB = grid.cells[b];
-		// the two cells required to complete the WWing pattern
+		// the two wing cells required to complete the WWing pattern
 		Cell wA, wB;
 		// foreach region with 2 possible positions for v1
 		for ( ARegion region : grid.regions ) {
-			if ( region.indexesOf[v1].size != 2 )
-				continue;
-			// strong link; but does it fit?
-			wA = wB = null; // ie wing-cells not found
-			for ( Cell c : region.cells ) {
-				if ( (c.maybes.bits & sv1)==0 || c==cA || c==cB )
-					continue;
-				// nb: If 'c' sees BOTH bivalue cells it's not a WWing pattern!
-				// This is handled with the if/else if.
-				if ( !c.notSees[a] ) {
-				  wA = c;
-				  if ( wB != null ) // W-Wing found!
-					return createHint(values, cA, cB, wA, wB, redIdx.cells(grid));
-				} else if ( !c.notSees[b] ) {
-				  wB = c;
-				  if ( wA != null ) // W-Wing found!
-					return createHint(values, cA, cB, wA, wB, redIdx.cells(grid));
+			if ( region.indexesOf[v1].size == 2 ) {
+				// strong link; but does it fit?
+				wA = wB = null; // not found
+				for ( Cell c : region.cells ) {
+					if ( (c.maybes.bits & sv1)!=0 && c!=cA && c!=cB ) {
+						// If 'c' sees BOTH bivalue cells it's NOT a WWing!
+						// This is handled sneakily with the if/elseIf.
+						if ( c.sees[cA.i] ) {
+							wA = c;
+							if ( wB != null ) // W-Wing found!
+								return createHint(values, cA, cB, wA, wB
+										, reds.cells(grid));
+						} else if ( c.sees[cB.i] ) {
+							wB = c;
+							if ( wA != null ) // W-Wing found!
+								return createHint(values, cA, cB, wA, wB
+										, reds.cells(grid));
+						}
+					}
 				}
 			}
 		}
@@ -171,7 +160,7 @@ public final class WWing extends AHinter
 	}
 
 	private AHint createHint(int[] values, Cell cA, Cell cB, Cell wA, Cell wB
-			, Cell[] redCells) {
+			, Cell[] reds) {
 		final int v0=values[0], v1=values[1];
 
 		// This is a nuts, logically, but it works. The fastest way to check
@@ -183,8 +172,8 @@ public final class WWing extends AHinter
 15,136,1568,2367,127,,2367,,2678,,36,,,37,,3567,357,,14,,1468,236,,1236,236,,268,125,,,245,,,456,125,456,1257,,157,235,,,3579,12357,579,,,57,,234,235,,237,457,,,4679,4567,47,56,,,4579,,,47,,13,13,247,,247,147,16,14679,24567,,256,4579,57,
 */
 		final int sv0 = VSHFT[v0];
-		for ( Cell redCell : redCells )
-			if ( (redCell.maybes.bits & sv0) == 0 )
+		for ( Cell red : reds )
+			if ( (red.maybes.bits & sv0) == 0 )
 				return null;
 
 		// build the highlighted (green) potential values
@@ -192,7 +181,7 @@ public final class WWing extends AHinter
 		// build the fins (blue) potential values
 		Pots bluePots = new Pots(v0, cA,cB);
 		// build the removeable (red) potential values
-		Pots redPots = new Pots(v0, redCells);
+		Pots redPots = new Pots(v0, reds);
 		// build and return the hint
 		return new WWingHint(this, v0, v1, cA, cB, wA, wB
 				, greenPots, bluePots, redPots);

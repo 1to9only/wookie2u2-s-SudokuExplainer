@@ -45,7 +45,10 @@ public final class HintsApplicumulator implements IAccumulator {
 	public final boolean isAutosolving;
 
 	public HintsApplicumulator(boolean isStringy, boolean isAutosolving) {
-		this.SB = isStringy ? new StringBuilder(256): null; // 256 just a guess
+		if ( isStringy )
+			this.SB = new StringBuilder(256); // 256 just a guess
+		else
+			this.SB = null;
 		this.isAutosolving = isAutosolving;
 	}
 

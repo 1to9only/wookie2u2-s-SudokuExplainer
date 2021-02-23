@@ -255,19 +255,19 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * where cell.maybes.bits & bits != 0
 	 * </pre>
 	 * <p>
-	 * NOTE: that the cells maybes are used instead of the just the values
-	 * that are in this Pots! So we're only using this Pots as a cell-list.
+	 * Note: actual cell.maybes are used instead of the values in this Pots,
+	 * so this Pots is used only as a cell-list.
 	 *
 	 * @param bits
 	 * @return a new Pots of my intersections with bits.
 	 */
 	public Pots withBits(int bits) {
 		Pots result = new Pots();
-		int myBits;
+		int cbits; // cells bits
 		for ( Cell cell : keySet() ) {
-			myBits = cell.maybes.bits & bits;
-			if ( myBits != 0 )
-				result.put(cell, new Values(myBits, false));
+			cbits = cell.maybes.bits & bits;
+			if ( cbits != 0 )
+				result.put(cell, new Values(cbits, false));
 		}
 		return result;
 	}

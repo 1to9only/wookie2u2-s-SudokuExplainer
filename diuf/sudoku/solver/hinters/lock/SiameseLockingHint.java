@@ -93,8 +93,10 @@ public class SiameseLockingHint extends AHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + hintTypeName
-			+(isBig ? " on <b>"+andedMaybesToRemove+"</b>" : "");
+		String s = "Look for a " + hintTypeName;
+		if ( isBig )
+			s += " on <b>"+andedMaybesToRemove+"</b>";
+		return s;
 	}
 
 	@Override

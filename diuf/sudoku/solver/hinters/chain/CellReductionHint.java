@@ -77,8 +77,10 @@ public final class CellReductionHint extends AChainingHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-				+(isBig ? " in <b>" + srcCell.id + "</b>" : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " in <b>" + srcCell.id + "</b>";
+		return s;
 	}
 
 	@Override
@@ -92,7 +94,9 @@ public final class CellReductionHint extends AChainingHint {
 		if ( orig==null || (orig.cell.hashCode != srcCell.hashCode) )
 			found = recurseSource(target, srcCell);
 		// We'll settle for orig if it's the best we can do, even if it's null!
-		return found!=null ? found : orig;
+		if ( found != null )
+			return found;
+		return orig;
 	}
 
 	private StringBuilder getAssertionsHtml() {
@@ -130,9 +134,7 @@ public final class CellReductionHint extends AChainingHint {
 
 	@Override
 	public String getHintTypeNameImpl() {
-		return "Cell Reduction "
-				+ (isXChain ? (isYChain ? "XY" : "X") : "Y")
-				+ " Chain"+typeID;
+		return "Cell Reduction "+chainType()+" Chain"+typeID;
 	}
 
 	@Override

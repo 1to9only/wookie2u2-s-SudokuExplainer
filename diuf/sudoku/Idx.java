@@ -8,10 +8,10 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Grid.CellFilter;
 import diuf.sudoku.solver.hinters.wing2.BitIdx;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 
@@ -160,7 +160,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Returns a new Idx containing the given cells.
 	 * @param cells
-	 * @return 
+	 * @return
 	 */
 	public static Idx of(Iterable<Cell> cells) {
 		Idx idx = new Idx();
@@ -172,7 +172,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Returns a new Idx containing the given cells.
 	 * @param cells
-	 * @return 
+	 * @return
 	 */
 	public static Idx of(Cell[] cells) {
 		Idx idx = new Idx();
@@ -187,7 +187,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param a1
 	 * @param a2
 	 * @param max
-	 * @return 
+	 * @return
 	 */
 	public static boolean sizeLTE(int a0, int a1, int a2, int max) {
 		int size = 0;
@@ -250,7 +250,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Returns (s1 & s2) == 0.
 	 * @param s1
 	 * @param s2
-	 * @return 
+	 * @return
 	 */
 	public static boolean andEmpty(Idx s1, Idx s2) {
 		return (s1.a0 & s2.a0) == 0
@@ -262,7 +262,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 //	 * Does s1 contain any cells except (s1 & s2)?
 //	 * @param s1
 //	 * @param s2
-//	 * @return 
+//	 * @return
 //	 */
 //	public static boolean anyOtherThan(Idx s1, Idx s2) {
 //		int r0 = s1.a0 & ~(s1.a0 & s2.a0)
@@ -278,7 +278,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * CAUTION: true if both sets are empty, or indeed full.
 	 * @param s1
 	 * @param s2
-	 * @return 
+	 * @return
 	 */
 	public static boolean andEqualsS2(Idx s1, Idx s2) {
 		return (s1.a0 & s2.a0) == s2.a0
@@ -293,7 +293,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Ie does either of these Sets contain all of the values in the other?
 	 * @param s1
 	 * @param s2
-	 * @return 
+	 * @return
 	 */
 	public static boolean andEqualsEither(Idx s1, Idx s2) {
 		int m0 = (s1.a0 & s2.a0)
@@ -307,19 +307,19 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Returns does (s1 | s2) == s2.
 	 * @param s1
 	 * @param s2
-	 * @return 
+	 * @return
 	 */
 	public static boolean orEqualsS2(Idx s1, Idx s2) {
 		return (s1.a0 | s2.a0) == s2.a0
 			&& (s1.a1 | s2.a1) == s2.a1
 			&& (s1.a2 | s2.a2) == s2.a2;
 	}
-	
+
 	/**
 	 * Returns does (s1 | s2) == either s1 or s2.
 	 * @param s1
 	 * @param s2
-	 * @return 
+	 * @return
 	 */
 	public static boolean orEqualsEither(Idx s1, Idx s2) {
 		return orEqualsS2(s1, s2) || orEqualsS2(s2, s1);
@@ -329,7 +329,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Constructs a new Idx(s1 & s2).
 	 * @param s1
 	 * @param s2
-	 * @return 
+	 * @return
 	 */
 	public static Idx newAnd(Idx s1, Idx s2) {
 		return new Idx(s1.a0&s2.a0, s1.a1&s2.a1, s1.a2&s2.a2);
@@ -339,7 +339,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Constructs a new Idx(s1 | s2).
 	 * @param s1
 	 * @param s2
-	 * @return 
+	 * @return
 	 */
 	public static Idx newOr(Idx s1, Idx s2) {
 		return new Idx(s1.a0|s2.a0, s1.a1|s2.a1, s1.a2|s2.a2);
@@ -419,7 +419,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Returns a new Idx containing a copy of the contents of this Idx.
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public Idx clone() {
@@ -528,6 +528,21 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
+	 * Set this = (aa & bb) and returns size()>=min.
+	 * @param aa
+	 * @param bb
+	 * @param min
+	 * @return 
+	 */
+	public boolean setAndMin(Idx aa, Idx bb, int min) {
+		a0 = aa.a0 & bb.a0;
+		a1 = aa.a1 & bb.a1;
+		a2 = aa.a2 & bb.a2;
+		modCount = 1; getMod = 0;
+		return (a0|a1|a2)!=0 && size(a0,a1,a2) >= min;
+	}
+
+	/**
 	 * Set this = (aa | bb).
 	 * @param aa
 	 * @param bb
@@ -559,7 +574,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Set this = aa & ~bb & ~cc.
 	 * @param aa
 	 * @param bb
-	 * @param cc 
+	 * @param cc
 	 * @return this Idx, for method chaining.
 	 */
 	public Idx setExcept(Idx aa, Idx bb, Idx cc) {
@@ -684,7 +699,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Mutate this &= ~aa and return any().
 	 * @param aa
-	 * @return 
+	 * @return
 	 */
 	public boolean andNotAny(Idx aa) {
 		a0 = (a0 & ~aa.a0) & ALL;
@@ -697,7 +712,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Mutate this &= ~(aa & bb).
 	 * @param aa
-	 * @param bb 
+	 * @param bb
 	 */
 	public void andNotAnd(Idx aa, Idx bb) {
 		a0 &= ~(aa.a0 & bb.a0) & ALL;
@@ -784,7 +799,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Returns size() {@code<=} max.
 	 * @param max
-	 * @return 
+	 * @return
 	 */
 	public boolean sizeLTE(int max) {
 		return sizeLTE(a0, a1, a2, max);
@@ -807,7 +822,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Returns !(this & aa).isEmpty()
+	 * Returns !(this & aa).isEmpty(), ie does this Idx intersect aa.
 	 * <p>
 	 * CAUTION: This is a query only! to actually DO the and returning any<br>
 	 * use {@code aa.and(bb).any()}, which is what you most typically want.
@@ -841,7 +856,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Returns this & ~other == other.
 	 * @param aa
-	 * @return 
+	 * @return
 	 */
     public boolean andNotEquals(Idx aa) {
         long m0 = a0 & ~aa.a0;
@@ -1016,9 +1031,9 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * <p>
 	 * Currently only used in DeathBlossom createHint.
 	 * @param grid
-	 * @return 
+	 * @return
 	 */
-	public Set<Cell> toBitIdx(Grid grid) {
+	public BitIdx toBitIdx(Grid grid) {
 		BitIdx result = new BitIdx(grid);
 		forEach1((indice) -> {
 			result.bits.set(indice);
@@ -1031,7 +1046,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	//                Welcome to the alien visitation centre.
 	//                             Bring Towel!
 	//
-
+	
 	/**
 	 * You implement Visitor2 (typically with a lambda expression) in order to
 	 * call my forEach method to invoke {@code visitor.visit(count, indice)}
@@ -1199,6 +1214,28 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 						return false;
 		return true;
 	}
+	
+	// --------------------- Just visit the cell ya putz! ---------------------
+
+	public interface CellVisitor {
+		void visit(Cell cell);
+	}
+	public int forEach(Cell[] cells, CellVisitor v) {
+		int bits, j, count = 0;
+		if ( (bits=a0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					v.visit(cells[j+k]);
+		if ( (bits=a1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					v.visit(cells[BITS_PER_ELEMENT+j+k]);
+		if ( (bits=a2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					v.visit(cells[BITS_TWO_ELEMENTS+j+k]);
+		return count;
+	}
 
 	// --------------------------------- cells --------------------------------
 
@@ -1265,14 +1302,17 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * This one returns the re-populated collection.
-	 * @param grid
-	 * @param cells
-	 * @return
+	 * Re-populate the collection with cells from src at my indices.
+	 * <p>
+	 * Note that dest is cleared before anything is copied (or not).
+	 *
+	 * @param src grid.cells
+	 * @param dest the Collection to add to
+	 * @return the number of cells added to dest, ie c.size()
 	 */
-	public int cells(Grid grid, Collection<Cell> cells) {
-		cells.clear();
-		return forEach1((i) -> cells.add(grid.cells[i]));
+	public int cells(Cell[] src, Collection<Cell> dest) {
+		dest.clear();
+		return forEach(src, (cell)->dest.add(cell));
 	}
 
 	// ----------------------------- stringy stuff ----------------------------
@@ -1331,7 +1371,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param a0
 	 * @param a1
 	 * @param a2
-	 * @return 
+	 * @return
 	 */
 	public static String toIndiceString(int a0, int a1, int a2) {
 		StringBuilder sb = getSB(size(a0,a1,a2) * 3);
@@ -1344,7 +1384,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Returns a String representation of this Idx.
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public String toString() {
@@ -1359,7 +1399,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Returns toFullString of each cell in this Idx. Space separated.
 	 * @param grid
-	 * @return 
+	 * @return
 	 */
 	public String toFullString(Grid grid) {
 		StringBuilder sb = getSB(size()*12);
@@ -1388,7 +1428,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Set this = ALL & ~aa
 	 * @param aa
-	 * @return 
+	 * @return
 	 */
 	public Idx setAllExcept(Idx aa) {
 		a0 = ALL & ~aa.a0;
@@ -1400,7 +1440,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Mutate this |= aa.
-	 * @param aa 
+	 * @param aa
 	 */
 	public void orNot(Idx aa) {
 		a0 = (a0 | ~aa.a0) & ALL;
@@ -1412,7 +1452,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Mutate this |= (aa & bb)
 	 * @param aa
-	 * @param bb 
+	 * @param bb
 	 */
 	public void orAnd(Idx aa, Idx bb) {
 		a0 |= (aa.a0 & bb.a0);
@@ -1425,7 +1465,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Mutate this |= (aa & bb) and return any()
 	 * @param aa
 	 * @param bb
-	 * @return 
+	 * @return
 	 */
 	public boolean orAndAny(Idx aa, Idx bb) {
 		a0 |= (aa.a0 & bb.a0);
@@ -1439,7 +1479,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Mutate this |= (aa & ~bb),<br>
 	 * Ie add aa except bb.
 	 * @param aa
-	 * @param bb 
+	 * @param bb
 	 */
 	public void orAndNot(Idx aa, Idx bb) {
 		a0 |= (aa.a0 & ~bb.a0);
@@ -1452,7 +1492,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Return this |= (aa & bb & cc)
 	 * @param aa
 	 * @param bb
-	 * @param cc 
+	 * @param cc
 	 */
 	public void orAnd(Idx aa, Idx bb, Idx cc) {
 		a0 |= (aa.a0 & bb.a0 & cc.a0);
@@ -1465,7 +1505,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * isEmpty by any other name smells like fish!
-	 * @return 
+	 * @return
 	 */
 	public boolean none() {
 		return (a0|a1|a2) == 0;
@@ -1479,9 +1519,9 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 //	}
 
 	/**
-	 * Return (this & aa) == this.
+	 * Return (this & aa) == this, ie is this a superset of aa?
 	 * @param aa
-	 * @return 
+	 * @return
 	 */
 	public boolean andEqualsThis(Idx aa) {
 		return (a0 & aa.a0) == a0
@@ -1494,7 +1534,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Returns -1, 0, 1 as this is less than, equal, or more than aa.
 	 * @param aa
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public int compareTo(Idx aa) {
@@ -1502,11 +1542,37 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		if ( (diff=a2 - aa.a2) == 0
 		  && (diff=a1 - aa.a1) == 0 )
 			diff = a0 - aa.a0;
-		if ( diff < 0 ) 
+		if ( diff < 0 )
 			return -1;
 		if ( diff > 0 )
 			return 1;
 		return 0;
+	}
+
+	/**
+	 * Returns a new Idx of all cells in this Idx which match the CellFilter.
+	 * @param cells
+	 * @param f any CellFilter to accept (or reject) each cell.
+	 * @return a new Idx of matching indices/cells in this Idx.
+	 */	
+	public Idx where(Cell[] cells, CellFilter f) {
+		int bits, j, r0=0,r1=0,r2=0; // the result
+		if ( (bits=a0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					if ( f.accept(cells[j+k]) )
+						r0 |= SHFT[j+k];
+		if ( (bits=a1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					if ( f.accept(cells[BITS_PER_ELEMENT+j+k]) )
+						r1 |= SHFT[j+k];
+		if ( (bits=a2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					if ( f.accept(cells[BITS_TWO_ELEMENTS+j+k]) )
+						r2 |= SHFT[j+k];
+		return new Idx(r0,r1,r2);
 	}
 
 	// ------------------------------- plumbing -------------------------------
@@ -1533,7 +1599,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Note that the returned hashCode is cached, so it will NOT change after
-	 * it's gotten, and so will not reflect any changes in this Idx; which 
+	 * it's gotten, and so will not reflect any changes in this Idx; which
 	 * breaks the {@code equals <-> hashCode} contract... so DO NOT modify an
 	 * Idx AFTER you've added it a hash-anything. Clear! Which, luckily enough
 	 * is how things tend to work anyways. You get it, you modify it, you stash
@@ -1541,11 +1607,11 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * consequence because they're special, when they're not: the requirement
 	 * for respect of the laws of physics is universal. This is just another
 	 * annoying rule, like the zeroeth law of thermodynamics: if you piss the
-	 * smart people off enough, they'll kill you, and ALL of your friends, 
+	 * smart people off enough, they'll kill you, and ALL of your friends,
 	 * your family, your neighborhood, your city, it's sister city, all the
 	 * capital cities, and then set-about kicking the absolute living s__t out
 	 * of the Pauline voters. Straight to the meat works.
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public int hashCode() {
@@ -1560,7 +1626,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param m0
 	 * @param m1
 	 * @param m2
-	 * @return 
+	 * @return
 	 */
 	public boolean equals(int m0, int m1, int m2) {
 		return a0==m0 && a1==m1 && a2==m2;
@@ -1569,7 +1635,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Does this equal the given Object.
 	 * @param o
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public boolean equals(Object o) {
@@ -1579,7 +1645,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Return does this == aa.
 	 * @param aa
-	 * @return 
+	 * @return
 	 */
 	public boolean equals(Idx aa) {
 		return a0 == aa.a0

@@ -74,7 +74,7 @@ public final class HintNode extends DefaultMutableTreeNode {
 			recurseChildren(hns);
 		return hns;
 	}
-	private List<HintNode> hns;
+	private List<HintNode> hns; // hintNodes
 
 	private void recurseChildren(List<HintNode> result) {
 		assert this.hint == null; // ie: this is NOT a leaf
@@ -87,13 +87,17 @@ public final class HintNode extends DefaultMutableTreeNode {
 	}
 
 	private int countHints() {
-		if(this.hint != null) return 1;
+		if ( this.hint != null )
+			return 1;
 		return getHintNodes().size();
 	}
 
 	void appendHintsCountToName() {
-		int count = countHints();
-		this.name += " (" + count + " hint"+(count>1?"s":"")+")";
+		final int count = countHints();
+		if ( count == 1 )
+			this.name += " (" + count + " hint)";
+		else
+			this.name += " (" + count + " hints)";
 	}
 
 	@Override

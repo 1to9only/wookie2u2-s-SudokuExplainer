@@ -70,7 +70,9 @@ public abstract class ADirectHint extends AHint implements IActualHint {
 	/** @return An array of the Regions of this hint. */
 	@Override
 	public List<ARegion> getBases() {
-		return region==null ? null : Regions.list(region);
+		if ( region == null )
+			return null;
+		return Regions.list(region);
 	}
 
 	/**

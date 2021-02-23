@@ -20,10 +20,8 @@ public abstract class ABugHint extends AHint implements IActualHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		if (isBig) {
-			return "Look for a " + getHintTypeName();
-		} else {
-			return "Look for a Bivalue Universal Grave (BUG)";
-		}
+		// don't care if you want Big or not!
+		return "Look for a " + getHintTypeName();
 	}
+
 }

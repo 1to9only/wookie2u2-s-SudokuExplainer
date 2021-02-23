@@ -57,9 +57,10 @@ public class AlsXyWingHint extends AHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			// nb: cast to Object[] for nonvargs call and suppress warning
-			+ (isBig ? " in "+Frmt.interleave(bases, covers) : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " in "+Frmt.interleave(bases, covers);
+		return s;
 	}
 
 	@Override

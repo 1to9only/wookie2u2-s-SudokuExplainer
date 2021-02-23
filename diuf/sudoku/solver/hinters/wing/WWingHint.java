@@ -47,8 +47,10 @@ public final class WWingHint extends AHint implements IActualHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ (isBig ? " on "+value0+" and "+value1 : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " on "+value0+" and "+value1;
+		return s;
 	}
 
 	@Override

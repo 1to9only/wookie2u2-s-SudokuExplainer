@@ -134,8 +134,10 @@ public final class BasicFishHint extends AHint
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+(isBig ? " on <b>"+valueToRemove+"</b>" : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " on <b>"+valueToRemove+"</b>";
+		return s;
 	}
 
 	@Override
@@ -165,12 +167,13 @@ public final class BasicFishHint extends AHint
 
 	@Override
 	public String toHtmlImpl() {
+		final String nn; if(degree<2) nn=""; else nn=NUMBER_NAMES[degree-2];
 		return Html.produce(this, "BasicFishHint.html"
 			, getHtmlHintTypeName()					// {0} "Swampfish (nee X-Wing)"
 			, Integer.toString(valueToRemove)		//  1
 			, Regions.typeName(bases)				//  2
 			, Regions.typeName(covers)				//  3
-			, degree<2?"":NUMBER_NAMES[degree-2]	//  4 BasicFishHint only
+			, nn									//  4 number name; BasicFishHint only
 			, debugMessage							//  5 debugMessage is always an empty String by default
 			, redPots.toString()					//  6
 		);

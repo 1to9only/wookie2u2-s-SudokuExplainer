@@ -660,11 +660,11 @@ public final class Locking extends AHinter {
 		// A: Pass down the frickin point/claim region ya putz! Sigh.
 		final Values hdnSetVals = hisHint.hdnSetValues;
 		final Idx tmp = new Idx(); // just working storage for r.idxOf
-		final Cell[] cells = grid.cells;
+		final Cell[] cells = grid.cells; // just working storage for r.idxOf
 		// foreach region common to all the cells in theseHints
 		for ( ARegion r : commonRegions(cells, idx) )
-			r.idxOf(hdnSetVals.bits, tmp).andNot(idx).forEach1((i) ->
-				hisReds.upsert(cells[i], cells[i].maybes.intersect(hdnSetVals)));
+			r.idxOf(hdnSetVals.bits, tmp).andNot(idx).forEach(cells, (cell) ->
+				hisReds.upsert(cell, cell.maybes.intersect(hdnSetVals)));
 		// and add hisHint to newHints.
 		newHints.add(hisHint);
 		return true;

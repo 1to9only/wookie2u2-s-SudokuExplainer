@@ -51,7 +51,7 @@ public final class MultipleSolutionsHint extends AWarningHint {
 	@Override
 	public Pots getGreens(int viewNum) {
 		Pots result = new Pots(81, 1F);
-		Grid sol = (viewNum == 0 ? solution1 : solution2);
+		final Grid sol; if(viewNum==0) sol=solution1; else sol=solution2;
 		for ( Cell c : grid.cells )
 			result.put(c, new Values(sol.cells[c.i].value));
 		lastViewNum = viewNum;

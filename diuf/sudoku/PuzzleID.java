@@ -47,7 +47,10 @@ public final class PuzzleID {
 
 	public PuzzleID(File file, int lineNumber) {
 		this.file = file;
-		this.fileName = file!=null ? file.getName() : "";
+		if ( file != null)
+			this.fileName = file.getName();
+		else
+			this.fileName = "";
 		this.isTop1465 = fileName.startsWith("top1465");
 		this.lineNumber = lineNumber;
 	}
@@ -56,8 +59,9 @@ public final class PuzzleID {
 	public String toString() {
 		if ( file == null )
 			return "";
-		return (lineNumber>0?Integer.toString(lineNumber)+"#":"")
-				+ file.getAbsolutePath();
+		if ( lineNumber > 0 ) // lineNumber is 1 based!
+			return Integer.toString(lineNumber)+"#"+file.getAbsolutePath();
+		return file.getAbsolutePath();
 	}
 
 	@Override

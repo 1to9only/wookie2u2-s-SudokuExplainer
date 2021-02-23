@@ -96,8 +96,12 @@ public final class AggregatedHint extends AHint {
 	@Override
 	public int getNumElims() {
 		int score = 0;
-		for ( AHint hint : hints )
-			score += (hint.cell==null ? 0 : 10) + hint.redPots.totalSize();
+		for ( AHint hint : hints ) {
+			// include both for mixed-hints which eliminate to set a cell.
+			if ( hint.cell != null )
+				score += 10;
+			score += hint.redPots.totalSize();
+		}
 		return score;
 	}
 
@@ -170,9 +174,10 @@ public final class AggregatedHint extends AHint {
 	/** @return distinctCellsToSet + allRedPots. */
 	@Override
 	public String toFullString() {
-		String c = distinctCellsToSet();
-		String r = allRedPots().toString();
-		return toStringImpl()+" ("+c+(c.length()>0&&r.length()>0?", ":"")+r+")";
+		final String c = distinctCellsToSet();
+		final String r = allRedPots().toString();
+		final String sep; if(!c.isEmpty()&&!r.isEmpty()) sep=", "; else sep="";
+		return toStringImpl()+" ("+c+sep+r+")";
 	}
 
 	/** @return "Aggregate of "+hints.size()+" "+hintTypeName+" hints". */

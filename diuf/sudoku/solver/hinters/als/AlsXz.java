@@ -60,8 +60,8 @@ public final class AlsXz extends AAlsHinter {
 	private boolean anyDoubleLinked;
 
 	public AlsXz() {
-		// see param explanations in the AlsXyChain constructor.
-		// NB: I don't call the valid method, so I don't need a LogicalSolver
+		// NB: I don't use HintValidator, so I don't need a LogicalSolver.
+		// See super param explanations in the AlsXyChain constructor.
 		// Tech, allowLockedSets, findRCCs, allowOverlaps, forwardOnly, useStartAndEnd
 		super(Tech.ALS_XZ, true, true, true, true, false);
 	}
@@ -90,8 +90,7 @@ public final class AlsXz extends AAlsHinter {
 	 * KRC edited hobiwan's explanation.
 	 *
 	 * @param grid the Grid to search
-	 * @param candidates An array 1..9 of Idx of indices of grid cells which
-	 * maybe this value.
+	 * @param vs array of Idx of grid cells which maybe each value 1..9.
 	 * @param rccs The list of Restricted Common Candidates (RCCs) which is the
 	 * intersection of two Almost Locked Sets (ALSs) on one-or-more Restricted
 	 * Common (RC) value. The restriction is that all instances of the RC value
@@ -104,156 +103,146 @@ public final class AlsXz extends AAlsHinter {
 	 * when the first hint is found)
 	 */
 	@Override
-	protected boolean findHints(Grid grid, Idx[] candidates, Rcc[] rccs
-			, Als[] alss, IAccumulator accu) {
-		// local references to constants and fields for speed
-		final List<Cell> redCells = this.redCells; // temporary storage
-		// my variables (all of them, ansi-C style, for speed)
+	protected boolean findHints(Grid grid, Idx[] vs, Rcc[] rccs, Als[] alss
+			, IAccumulator accu) {
+		Als a, b; // the two ALSs to which each RCC is common
+		// removeable (red) potentials Cell->Values
+		// highlighted (orange) potential Cell->Values
+		// fins (blue) In this case the Z potential Cell->Values
+		Pots reds, oranges, blues;
+		AHint hint; // the AlsXzHint (if any)
+		String debugMessage; // appears below hint in the GUI
+		int v1, v2 // restricted candidate values
+		  , zMaybes // remaining common maybes to be the z in ALS-XZ
+		  , pinkBits; // a bitset of the RC-values removed by single-link
+		final List<Cell> redsList = this.redsList; // temporary storage
 		final Idx both = this.both; // indices of cells in both ALSs
 		final Idx zBuds = this.zBuds; // indices of buds of zAlss
-		Als[] twoAlss; // the two ALSs to which each RCC is common
-		Als alsA;
-		Als alsB; // the two ALSs to which each RCC is common
-		Pots redPots; // red (removeable) potentials Cell->Values
-		Pots orangePots; // highlighted (orange) potential Cell->Values
-		Pots bluePots; // (fins) In this case the Z potential Cell->Values
-		AHint hint; // the AlsXzHint (if any)
-		int rc1, rc2; // restricted candidate values
-		int zMaybes; // remaining common maybes to be the z in ALS-XZ
-		int numRcValues; // number of Restricted Common Candidates (1 or 2 or 3?)
-		int redMaybes; // a bitset of the RCC-values removed by single-link
-		int bits; // a general purpose bitset
-		String debugMessage; // appears below hint in the GUI
+
+		// presume that no Double Linked ALS-XZs will be found
+		// NOTE: anyDoubleLinked is set to true down in the add helper method.
+		anyDoubleLinked = false;
 
 		// presume that no hints will be found
 		boolean result = false;
-		// presume that no Double Linked ALS-XZs will be found
-		anyDoubleLinked = false;
 
 		// the Restricted Common Candidate/s (rccs) were precalculated.
 		// there is 1 hint possible per RCC.
+		// NOTE: I've avoided using continue is loop because continue, for
+		// reasons I do not understand, can be very slow!
 		for ( Rcc rcc : rccs ) {
 
-			// unpack the two AlmostLockedSets (ALSs) from this RCC.
-			twoAlss = new Als[] {
-				  alsA = alss[rcc.getAls1()]
-				, alsB = alss[rcc.getAls2()]
-			};
+			// unpack the two ALSs (Almost Locked Sets) from this RCC.
+			a = alss[rcc.getAls1()];
+			b = alss[rcc.getAls2()];
 
 			// unpack the RC values from the RCC
-			rc1 = rcc.getCand1();
-			rc2 = rcc.getCand2();
-			// get the z values: the non-RC values common to both ALSs.
-			zMaybes = alsA.maybes & alsB.maybes & ~VSHFT[rc1] & ~VSHFT[rc2];
-			// get the number of RC values (ie is this RCC Double Linked)
-			numRcValues = rc2==0 ? 1 : 2;
-			// "Anything to eliminate on" is a bit tricky. The rules are:
-			// 1. single-linked XZs require a z value, but
-			// 2. double-linked XZs do not (RC values might be eliminated)
-			// 3. a double-linked XZ may still have z value/s.
-			if ( zMaybes==0 && numRcValues==1 )
-				continue; // single-linked XZ has no z
+			v1 = rcc.getCand1();
+			v2 = rcc.getCand2();
 
-			// clear the hint-cumulator fields
-			redMaybes = 0;
-			redPots = null;
+			// get zMaybes: the non-RC values common to both ALSs.
+			zMaybes = a.maybes & b.maybes & ~VSHFT[v1] & ~VSHFT[v2];
 
-			if ( zMaybes != 0 ) {
-				// look for single-linked eliminations on the z values
-				// get indices of all cells in both ALSs
-				both.setOr(alsA.idx, alsB.idx);
-				// foreach z: the non-RC values common to both ALSs
-				for ( int z : VALUESES[zMaybes] ) { // examine 1 or 2 z's
-					// rip z from non-ALS cells that see all z's in both ALSs.
-					// get zBuds: buds of z's in both ALSs, which maybe z
-					// themselves, except those in both ALSs. Skip if none.
-					if ( zBuds.setAnd(alsA.vBuds[z], alsB.vBuds[z])
-							.andNot(both).none() )
-						continue; // there are no zBuds
-					// now prefabricate the parts of the hint which require z.
-					// redCells = non-ALS cells which see all z's in both ALSs.
-					zBuds.cells(grid, redCells);
-					if ( redPots == null )
-						redPots = new Pots(redCells, z);
-					else
-						redPots.upsertAll(redCells, z);
-					// then build the removeable (red) potential values.
-					redMaybes |= VSHFT[z];
+			// single-linked ALS-XZs require zMaybes, but double-linked ALS-XZs
+			// may still produce eliminations without any "normal" eliminations
+			if ( zMaybes!=0 || v2!=0 ) {
+				// there's something to possibly eliminate on atleast
+
+				// clear the hint-cumulator fields
+				pinkBits = 0; // a bitset of the red (removable) values
+				reds = null; // null until there's something to eliminate
+
+				if ( zMaybes != 0 ) {
+					// look for single-linked eliminations on each zMaybes
+					// get indices of all cells in both ALSs
+					both.setOr(a.idx, b.idx);
+					// foreach z: the non-RC values common to both ALSs
+					for ( int z : VALUESES[zMaybes] ) { // examine 1 or 2 z's
+						// rip z off nonALS's that see all z's in both ALSs.
+						// get zBuds: buds of z's in both ALSs, which maybe z
+						// themselves, except those in both ALSs. Skip if none.
+						if ( zBuds.setAnd(a.vBuds[z], b.vBuds[z])
+								.andNot(both).any() // z has buddies
+						  // redsList = nonALSs which see all z's in both ALSs
+						  && zBuds.cells(grid.cells, redsList) > 0 ) {
+							// z can be eliminated from redsList
+							if ( reds == null )
+								reds = new Pots(redsList, z);
+							else
+								reds.upsertAll(redsList, z);
+							redsList.clear();
+							// build-up the removeable (red) values
+							pinkBits |= VSHFT[z];
+						}
+					}
 				}
-				// single-linked RCCs can skip here (doubles must wait)
-				if ( redPots==null && numRcValues==1 )
-					continue; // this RCC has no eliminations
-			}
 
-			// look for double-linked eliminations (if RCC is double-linked)
-			if ( numRcValues > 1
-			  && (redPots=addDoubleLinkedElims(grid, candidates, rcc, alss
-						, redPots)) == null ) {
-				redCells.clear();
-				continue; // this RCC has no eliminations
-			}
-			assert redPots != null; // suppress Nutbeans possible NPE warning
-			
-			// check to avoid DEAD_CAT: does any elimination actually exist?
-			// NOTE: Generator doesn't do DEAD_CAT. Maybe it should. Sigh.
-			if ( !redPots.anyCurrent() )
-				continue; // dead cat
+				// look for double-linked elims (if RCC is double-linked)
+				if ( v2 != 0 )
+					reds = addDoubleLinkedElims(grid, vs, rcc, alss, reds);
 
-			//
-			// ALS-XZ found! create the hint and add it to accu
-			//
+				// ignore this RCC if it has no eliminations.
+				if ( reds != null
+				  // avert DEAD_CAT: do any eliminations actually exist?
+				  // NB: This is a pretty slow crappy solution, but it works.
+				  && reds.clean() ) {
 
-			// build the highlighted (orange) potential values: the values in
-			// both ALSs except the z/s.
-			orangePots = new Pots();
-			for ( Als als : twoAlss )
-				for ( Cell cell : als.cells(grid) ) {
-					bits = cell.maybes.bits & ~redMaybes;
-					orangePots.put(cell, new Values(bits, true));
+					//
+					// ALS-XZ found! create the hint and add it to accu
+					//
+
+					// build the highlighted (orange) pots: values in both ALSs
+					// except the z/s.
+					oranges = new Pots();
+					for ( Cell c : a.cells(grid) )
+						oranges.put(c, new Values(c.maybes.bits & ~pinkBits, F));
+					for ( Cell c : b.cells(grid) )
+						oranges.put(c, new Values(c.maybes.bits & ~pinkBits, F));
+					// ALL removed values should ALWAYS be displayed in RED, but
+					// orange overwrites red, so remove the reds from oranges.
+					// Need this to cater for any double-bloody-linked elims.
+					oranges.removeAll(reds);
+
+					// build the fin (blue) pots: z values in both ALSs.
+					// Blues red-values in orange-cells; to show the user the
+					// candidates which caused these eliminations.
+					// We get the gonners from redPots because redMaybes may be 0
+					// meaning that there is no Z value, ie all eliminations are
+					// X values from double-linked ALSs. This way we need not care
+					// where they come from: if a value is eliminated anywhere then
+					// it's feeling a bit blue.
+					blues = oranges.withBits(reds.valuesOf());
+					// remove reds from blues so that they appear RED.
+					blues.removeAll(reds);
+
+					// valuesString
+					String values; if(v2==0) values=""+v1; else values=""+v1+" and "+v2;
+
+					// set the bloody debugMessage
+					debugMessage = "";
+
+					// build the hint, and add it to the IAccumulator
+					hint = new AlsXzHint(
+						  this, a, b, pinkBits
+						, oranges, blues, reds
+						, anyDoubleLinked // field set true by add method
+						, values
+						, Frmt.and(a.cells(grid))
+						, Frmt.and(b.cells(grid))
+						, debugMessage
+					);
+					result = true;
+					if ( accu.add(hint) )
+						return true; // we're using a SingleHintAccumulator (in batch)
 				}
-			// if the cell-value is removed it must ALWAYS be displayed in RED,
-			// but orange overwrites RED, hence we remove reds from oranges.
-			orangePots.removeAll(redPots);
-			// build the fin (blue) potential values: z values in both ALSs.
-			// The blues help the user see candidates which effect the elims.
-			// The blue values are cells in the oranges with a red-value. We
-			// get the gonners from redPots because redMaybes may be 0 meaning
-			// that there is no Z value, ie all eliminations are X values from
-			// double-linked ALSs. This way we need not care where they come
-			// from: if value is eliminated anywhere then it's feeling blue.
-			bluePots = orangePots.withBits(redPots.valuesOf());
-			// The only elimination is a blue, so remove the redPots from the
-			// bluePots so that they appear RED.
-			// .1.4.7.....785.9....31...74.2..41..775.962...1...78.2..762........7..236...6.57.8
-			// 2689,,25,,239,,358,68,235,246,46,,,,36,,16,123,25689,89,,,29,69,58,,,36,,89,35,,,568,589,,,,48,,,,1348,148,13,,36,49,35,,,46,,59,38,,,,389,349,145,1459,159,59,489,15,,18,49,,,,234,349,12,,13,,,49,
-			// 50#C:\Users\User\Documents\NetBeansProjects\DiufSudoku\top1465.d5.mt
-			bluePots.removeAll(redPots);
-// changed the order of SudokuGridPanel.POTS_COLORS to paint blue last!
-//			// if a candidate is orange AND blue it comes out orange (sigh).
-//			orangePots.removeAll(bluePots);
-			// build and return the hint
-//			debugMessage = MyStrings.isNullOrEmpty(invalidity) ? "" : "<br><h2>"+invalidity+"</h2>";
-			debugMessage = "";
-			hint = new AlsXzHint(
-				  this, alsA, alsB, redMaybes
-				, orangePots, bluePots, redPots
-				, anyDoubleLinked // this field is set by the add method
-				, ""+rc1+(rc2==0?"":", "+rc2)
-				, Frmt.and(alsA.cells(grid))
-				, Frmt.and(alsB.cells(grid))
-				, debugMessage
-			);
-			redCells.clear();
-			result = true;
-			if ( accu.add(hint) )
-				return true; // we're using a SingleHintAccumulator (in batch)
+			}
 		}
 		// in GUI (you can't get here if we're using a SingleHintAccumulator)
 		if ( result )
 			accu.sort(); // the highest scoring hint comes first
 		return result;
 	}
-	private final List<Cell> redCells = new LinkedList<>(); // cells with redValues
+	private final List<Cell> redsList = new LinkedList<>(); // cells with redValues
 	private final Idx both = new Idx(); // indices of cells in both ALSs
 	private final Idx zBuds = new Idx(); // indices of buds of zAlss
 
@@ -265,35 +254,38 @@ public final class AlsXz extends AAlsHinter {
 	 * NOTE: There are no double-linked ALS-XZ's in top1465, ie my standard
 	 * test-cases are deficient. Sigh.
 	 * <p>
+	 * hobiwans explanation: http://hodoku.sourceforge.net/en/tech_als.php
+	 * <p>
 	 * <b>Doubly Linked ALS-XZ</b>
 	 * <p>
-	 * If the two ALS have two RCCs, things get really interesting. Remember
-	 * that an RCC digit can only be placed in one ALS, thus turning the other
-	 * ALS into a locked set. If we have two RCCs, one of them has to be placed
-	 * in ALS A, turning ALS B into a locked set, and the other must be in
-	 * ALS B, turning ALS A into a locked set (which RCC will be in which ALS,
-	 * is as yet unknown). Both RCCs in one ALS is impossible, coz both RCCs
-	 * would be eliminated from the other ALS leaving only N-1 candidates for
-	 * N cells, which is invalid.
+	 * If the two ALSs have two RC values then things get really interesting.
+	 * Recall that an RC value can only be placed in one ALS, thus turning the
+	 * other ALS into a locked set. If we have two RCs, one of them has to be
+	 * placed in ALS A, turning ALS B into a locked set, and the other must be
+	 * in ALS B, turning ALS A into a locked set; which RC is in which ALS, is
+	 * as yet unknown. Both RC values in one ALS is impossible, coz both RCs
+	 * would be eliminated from the other ALS leaving only N-1 candidates to
+	 * fill N cells, which is invalid.
 	 * <p>
-	 * What can be concluded from a Doubly Linked ALS-XZ? Both RCCs are locked
-	 * into opposing ALSs, so the RCCs can be eliminated from all non ALS cells
-	 * in the houses providing the RCCs. But more importantly, all non RCC
-	 * digits get locked within their respective ALS, eliminating all digits
-	 * outside the ALS which can see all instances of the digit in the ALS.
-	 * The elimination can even be done in a cell belonging to the other ALS,
-	 * so the ALS-XZ becomes cannibalistic (sharks!).
-	 * <p>
-	 * KRC rephrased hobiwans explanation:
-	 * see: http://hodoku.sourceforge.net/en/tech_als.php
+	 * What can be concluded from a Doubly Linked ALS-XZ? Both RCs are locked
+	 * into opposing ALSs, so the RCs can be eliminated from all non ALS cells
+	 * in the regions hosting the ALSs; but more importantly, each non RC value
+	 * is locked into its ALS, eliminating all values outside the ALS which see
+	 * all instances of this value in the ALS, including cells in da other ALS;
+	 * hence the ALS-XZ becomes cannibalistic.
 	 *
 	 * @param grid The Grid to search
-	 * @param candidates the indices in Grid.cells of each potential value.
+	 * @param vs array of Idx of grid cells which maybe each value 1..9
 	 * @param rcc The RCC that we're processing.
 	 * @param reds Pots to add any extra eliminations to
+	 * @return reds, if there are any eliminations, else null.<br>
+	 *  Note that reds is passed in, so if the passed-in reds is not null then
+	 *  double-linked eliminations are added to the existing Pots;<br>
+	 *  but if the passed-in reds is null then a new Pots is created and
+	 *  returned if double-linked eliminations are found. Pretty tricky!
 	 */
-	private Pots addDoubleLinkedElims(Grid grid, Idx[] candidates
-			, Rcc rcc, Als[] alss, Pots reds) {
+	private Pots addDoubleLinkedElims(Grid grid, Idx[] vs, Rcc rcc, Als[] alss
+			, Pots reds) {
 
 		final Idx[] buds = Grid.BUDDIES;
 		// nb: rc2 is not 0, else we wouldn't be here!
@@ -320,9 +312,9 @@ public final class AlsXz extends AAlsHinter {
 		// foreach RC value (ie the x in ALS-XZ)
 		for ( int x : rcValues ) {
 			// get all the x's in both ALSs
-			vAls.setAnd(both, candidates[x]);
+			vAls.setAnd(both, vs[x]);
 			// get ALL the x's except those in the ALSs
-			vOthers.setAnd(others, candidates[x]);
+			vOthers.setAnd(others, vs[x]);
 			// remove those which do NOT see all x's in both the ALSs
 			// does buds[xo] contain all x's in both ALSs?
 			vOthers.forEach1((xo) -> {
@@ -346,7 +338,7 @@ public final class AlsXz extends AAlsHinter {
 				// and repeated vs-array look-ups, and to keep code same.
 				vAls.set(als.vs[z]);
 				// get z's outside the ALS (including in other ALS)
-				vOthers.set(candidates[z]).andNot(als.idx);
+				vOthers.set(vs[z]).andNot(als.idx);
 				// remove those which do NOT see all z's in this ALS
 				vOthers.forEach1((zo) -> {
 					if ( !Idx.andEqualsS2(buds[zo], vAls) )

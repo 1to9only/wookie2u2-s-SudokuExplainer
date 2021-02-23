@@ -7,6 +7,7 @@
 package diuf.sudoku.solver.hinters.align2;
 
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
 import java.util.Collection;
 
 
@@ -19,26 +20,32 @@ import java.util.Collection;
  */
 public class CellSet extends LinkedMatrixCellSet {
 
-	/** Constructs a new empty CellSet. */
+	/**
+	 * Constructs a new empty CellSet.
+	 */
 	CellSet() {
-		super();
 	}
 
-	/** Constructs new CellSet populated with the given collection.
+	/**
+	 * Constructs new CellSet populated with the given collection.
 	 * <p>I do the addAll manually, which is faster for sets of less than 32
 	 * elements, which is pretty normal in Sudoku land.
-	 * @param c {@code Collection<Cell>} to addAll to this Set. */
+	 *
+	 * @param c {@code Collection<Cell>} to addAll to this Set.
+	 */
 	public CellSet(Collection<Cell> c) {
-		super();
 		for ( Cell cell : c )
 			add(cell);
 	}
 
-	/** Constructs a new CellSet containing those cells which are common to both
+	/**
+	 * Constructs a new CellSet containing those cells which are common to both
 	 * Sets 'a' and 'b'. Use this rather than set.addAll(a) only to immediately
 	 * remove most of them with set.retaimAll(b). This is faster.
+	 *
 	 * @param a the cells to add (if also in 'b') whose iterator we shall use.
-	 * @param b the set whose contains method we shall hammer. */
+	 * @param b the set whose contains method we shall hammer.
+	 */
 	CellSet(CellSet a, CellSet b) {
 		for ( Cell cell : a )
 			if ( b.contains(cell) )
@@ -46,8 +53,18 @@ public class CellSet extends LinkedMatrixCellSet {
 	}
 
 	/**
-	 * Returns a string, separated by sep, of the ID's of the cells in this
-	 * CellSet.
+	 * Constructs a new CellSet of the cells in the Idx.
+	 *
+	 * @param cells the cells to be added (grid.cells)
+	 * @param idx the indices of cells to add
+	 */
+	CellSet(Cell[] cells, Idx idx) {
+		idx.forEach1((i)->add(cells[i]));
+	}
+
+	/**
+	 * Returns the id's, separated by sep, of cells in this CellSet.
+	 *
 	 * @param sep
 	 * @return
 	 */

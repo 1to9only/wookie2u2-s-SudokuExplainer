@@ -73,9 +73,11 @@ public final class UnaryChainHint extends AChainingHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-				+ ( isBig ? " in <b>" + resultAss.cell.id
-				+ "</b> on the value <b>" + resultAss.value + "</b>" : "" );
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " in <b>" + resultAss.cell.id;
+		s += "</b> on <b>" + resultAss.value + "</b>";
+		return s;
 	}
 
 	@Override

@@ -72,7 +72,10 @@ public final class HashA {
 			//     allow us to handle upto 16 values, hence the above assert.
 			//     If you need 17-or-more values than create a hashCode3, or
 			//     it might be better with an array of hashCodes.
-			hc = (e=vals[1])>0 ? hc<<4 ^ e : hc<<2;
+			if ( (e=vals[1]) > 0 )
+				hc = hc<<4 ^ e;
+			else
+				hc<<=2;
 			this.hashCode2 = hc; // may be 0, which is OK.
 
 			hc = 0;

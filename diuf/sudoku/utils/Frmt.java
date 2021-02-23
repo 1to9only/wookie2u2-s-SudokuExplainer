@@ -791,6 +791,9 @@ public final class Frmt {
 		return sb.toString();
 	}
 
+	public static StringBuilder basesAndCovers(List<ARegion> bases, List<ARegion> covers) {
+		return basesAndCovers(new StringBuilder(), bases, covers);
+	}
 	public static StringBuilder basesAndCovers(StringBuilder sb, List<ARegion> bases, List<ARegion> covers) {
 		return sb.append(csv(bases)).append(" and ").append(csv(covers));
 	}

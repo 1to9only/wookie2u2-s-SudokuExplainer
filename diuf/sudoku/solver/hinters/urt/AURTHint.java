@@ -125,8 +125,10 @@ public abstract class AURTHint extends AHint implements IActualHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ (isBig ? " on <b>"+v1+"</b> and <b>"+v2+"</b>" : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " on <b>"+v1+"</b> and <b>"+v2+"</b>";
+		return s;
 	}
 
 	@Override

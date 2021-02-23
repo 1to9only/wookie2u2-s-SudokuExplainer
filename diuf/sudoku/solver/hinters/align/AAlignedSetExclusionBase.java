@@ -13,7 +13,6 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.ALL_BITS;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSIZE;
@@ -38,66 +37,6 @@ import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.utils.IntIntHashMap;
 
-
-/*
-
-// The fields in this class exist to be overridden, so that I can evaluate them
-// in debugger expressions (when debugging subclasses) before they really exist.
-// Using expressions to group variables makes it all much more legible.
-//
-// Expression lists to debug A7E and A10E are given below. I do (most of)
-// my development in a A7E, and then promulgate it elsewhere; trying to
-// keep Aligned*Exclusion as similar as possible.
-
-// A7E watch expressions
-diuf.sudoku.utils.Frmt.toFullString(cells)
-diuf.sudoku.utils.Frmt.toFullString(scells)
-diuf.sudoku.utils.Frmt.toFullString(c0,c1,c2,c3,c4,c5,c6)
-diuf.sudoku.utils.Frmt.toFullString(numCmnExcls, cmnExcls)
-diuf.sudoku.Values.csv(false, numCmnExclBits, cmnExclBits)
-diuf.sudoku.Values.csv(false, sv0,sv1,sv2,sv3,sv4,sv5,sv6)
-diuf.sudoku.Values.csv(false, avb0,avb1,avb2,avb3,avb4,avb5,avb6)
-diuf.sudoku.Values.csv(false, c0.maybes.bits, c1.maybes.bits, c2.maybes.bits, c3.maybes.bits, c4.maybes.bits, c5.maybes.bits, c6.maybes.bits)
-diuf.sudoku.Values.csv(false, c0b,c1b,c2b,c3b,c4b,c5b,c6b)
-
-// Aligned8Exclusion_1C
-diuf.sudoku.Values.csv(false, c0b,  c1b0,c2b0,c3b0,c4b0,c5b0,c6b0,c7b0)
-diuf.sudoku.Values.csv(false, c0b,c1b0,  c2b1,c3b1,c4b1,c5b1,c6b1)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,  c3b2,c4b2,c5b2,c6b2)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,  c4b3,c5b3,c6b3)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b3,  c5b4,c6b4)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b3,c5b4,  c6b5)
-
-diuf.sudoku.utils.Frmt.toFullString(c0,c1,c2,c3,c4,c5,c6)
-
-diuf.sudoku.Values.csv(false, c6b0, c5b0, c4b0, c3b0, c2b0, c1b0)
-diuf.sudoku.Values.csv(false, c6b1, c5b1, c4b1, c3b1, c2b1)
-diuf.sudoku.Values.csv(false, c6b2, c5b2, c4b2, c3b2)
-diuf.sudoku.Values.csv(false, c6b3, c5b3, c4b3)
-diuf.sudoku.Values.csv(false, c6b4, c5b4)
-diuf.sudoku.Values.csv(false, c6b5)
-
-
-// A10E watch expressions
-diuf.sudoku.utils.Frmt.toFullString(cells)
-diuf.sudoku.utils.Frmt.toFullString(scells)
-diuf.sudoku.utils.Frmt.toFullString(c0,c1,c2,c3,c4,c5,c6,c7,c8,c9)
-diuf.sudoku.utils.Frmt.toFullString(numCmnExcls, cmnExcls)
-diuf.sudoku.Values.csv(false, numCmnExcls, cmnExclBits)
-diuf.sudoku.Values.csv(false, numCmnExclBits, cmnExclBits)
-diuf.sudoku.Values.csv(false, sv0,sv1,sv2,sv3,sv4,sv5,sv6,sv7,sv8,sv9)
-diuf.sudoku.Values.csv(false, avb0,avb1,avb2,avb3,avb4,avb5,avb6,avb7,avb8,avb9)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b0,c3b0,c4b0,c5b0,c6b0,c7b0,c8b0,c9b0)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b1,c4b1,c5b1,c6b1,c7b1,c8b1,c9b1)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b2,c5b2,c6b2,c7b2,c8b2,c9b2)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b3,c5b3,c6b3,c7b3,c8b3,c9b3)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b3,c5b4,c6b4,c7b4,c8b4,c9b4)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b3,c5b4,c6b5,c7b5,c8b5,c9b5)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b3,c5b4,c6b5,c7b6,c8b6,c9b6)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b3,c5b4,c6b5,c7b6,c8b7,c9b7)
-diuf.sudoku.Values.csv(false, c0b,c1b0,c2b1,c3b2,c4b3,c5b4,c6b5,c7b6,c8b7,c9b8)
-
-*/
 
 /**
  * AAlignedSetExclusionBase is the abstract base class of all Aligned*Exclusion.
@@ -518,8 +457,7 @@ public abstract class AAlignedSetExclusionBase
 			assert useHits == hits.fileExists();
 			loadedFileName = grid.source.fileName; // load ONCE per file
 		}
-//		Log.teef("%s.prepare: %s%s\n", classNameOnly, useHits
-//				, useHits ? " "+hits.size() : "");
+//		Log.teef("%s.prepare: %s%s\n", classNameOnly, useHits, useHits ? " "+hits.size() : "");
 	}
 
 	/**
@@ -1383,8 +1321,9 @@ public abstract class AAlignedSetExclusionBase
 		 */
 		@Override
 		public Cell put(HashA key, Cell value) {
-			return AlignedExclusionHint.isRelevant(cells, redPots, key.array)
-					? super.put(key, value) : null;
+			if ( !AlignedExclusionHint.isRelevant(cells, redPots, key.array) )
+				return null;
+			return super.put(key, value);
 		}
 
 		public LinkedHashSet<Cell> getUsedCommonExcluders(Cell cmnExcls[], int numCmnExcls) {
@@ -1426,7 +1365,7 @@ KEEP4DOC: The only known example of set.isEmpty():
 	 * practical), so I try to speed it up.
 	 * @author Keith Corlett 2020-12-06 (IIRC) created
 	 */
-	public static class NonHinters {
+	protected static class NonHinters {
 		// IntIntHashMap does NOT grow so its size really matters.
 		// Observed 84 thousand in A8E: FMS BIG. No wonder it takes for ever.
 		private int hc; // hashCode

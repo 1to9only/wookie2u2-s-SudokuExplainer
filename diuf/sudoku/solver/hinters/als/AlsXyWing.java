@@ -54,7 +54,7 @@ import java.util.Arrays;
  * This is a localised-copy of the HoDoKu code which implements ALS-XY-Wing.
  * Everything from HdkGrid, AlsSolver, SudokuStepFinder, etc; all fields are
  * all drawn into this one class. All HdkAlsXyWing types are copies of HoDoKu
- * classes, with minimal changes required to bring just the ALS-XY-Wing 
+ * classes, with minimal changes required to bring just the ALS-XY-Wing
  * functionality of HoDoKu into DIUF. "HoDoKuAdapter" methods (search term)
  * have been added to my Grid, Idx, HdkSet in order to translate from my model
  * into hobiwans (and vice versa "DiufAdapter"), and I raise a
@@ -77,155 +77,148 @@ public final class AlsXyWing extends AAlsHinter
 	@Override
 	protected boolean findHints(Grid grid, Idx[] candidates
 			, Rcc[] rccs, Als[] alss, IAccumulator accu) {
-		boolean result = false;
-		final int n = rccs.length;
-		// used for various checks
-		final Idx tmp = new Idx();
-		// all buds of v (including the ALSs).
-		final Idx zBuds = new Idx();
-		final Pots redPots=new Pots(), bluePots=new Pots();
-		final Cell[] cells = grid.cells;
-		Rcc rccA;
-		Rcc rccB;
-		Als a;
-		Als b, c;
-		int i,I, j, zMaybes;
-		int rcA1,rcA2, rcB1,rcB2;
-		int alsA1,alsA2, alsB1,alsB2;
+		Rcc rccA, rccB;
+		Als a, b, c;
+		int i,I, j, zMaybes, vA1,vA2, vB1,vB2, a1,a2, b1,b2;
 		boolean any;
+		final Idx tmp = this.tmp; // for various checks
+		final Idx zBuds = this.zBuds; // all buds of v (including the ALSs).
+		final Pots redPots = this.redPots;
+		final Pots bluePots = this.bluePots;
+		final int n = rccs.length;
+
+		// presume that no hint will be found
+		boolean result = false;
+
 		// foreach distinct pair of RCCs
 		for ( i=0,I=n-1; i<I; ++i ) {
 			rccA = rccs[i]; // rccs is an ArrayList whose get is O(1)
-			rcA1 = rccA.getCand1();
-			rcA2 = rccA.getCand2();
+			vA1 = rccA.getCand1();
+			vA2 = rccA.getCand2();
 			for ( j=i+1; j<n; ++j ) {
 
 				rccB = rccs[j];
-				rcB1 = rccB.getCand1();
-				rcB2 = rccB.getCand2();
+				vB1 = rccB.getCand1();
+				vB2 = rccB.getCand2();
 
 				// need at least two different candidates in rcc1 and rcc2,
 				// which can't be true if they have same single value.
-				if ( rcA1==rcB1 && rcA2==0 && rcB2==0 )
-					continue; // both RCs have the same single candidate
+				if ( vA1!=vB1 || vA2!=0 || vB2!=0 ) {
 
-				// get the indexes of my ALSs in alss
-				alsA1=rccA.getAls1(); alsA2=rccA.getAls2();
-				alsB1=rccB.getAls1(); alsB2=rccB.getAls2();
+					// get the indexes of my ALSs in alss
+					a1=rccA.getAls1(); a2=rccA.getAls2();
+					b1=rccB.getAls1(); b2=rccB.getAls2();
 
-				// the two RCCs have to connect 3 different ALSs; since
-				//     rcc1.als1!=rcc1.als2 && rcc2.als1!=rcc2.als2
-				// not too many possibilites remain, thankfully
-				if ( !( (alsA1==alsB1 && alsA2!=alsB2)
-					 || (alsA1==alsB2 && alsA2!=alsB1)
-					 || (alsA2==alsB1 && alsA1!=alsB2)
-					 || (alsA2==alsB2 && alsA1!=alsB1) ) )
-					continue; // cant be an XY-Wing
+					// the two RCCs have to connect 3 different ALSs; since
+					//     rcc1.als1!=rcc1.als2 && rcc2.als1!=rcc2.als2
+					// not too many possibilites remain, thankfully
+					if ( (a1==b1 && a2!=b2)
+					  || (a1==b2 && a2!=b1)
+					  || (a2==b1 && a1!=b2)
+					  || (a2==b2 && a1!=b1) ) {
 
-				// identify c so we can check for eliminations
-				a = b = c = null;
-				if (alsA1 == alsB1) {
-					a = alss[alsA2]; // alss is an ArrayList with O(1) get
-					b = alss[alsB2];
-					c = alss[alsA1];
-				}
-				if (alsA1 == alsB2) {
-					a = alss[alsA2];
-					b = alss[alsB1];
-					c = alss[alsA1];
-				}
-				if (alsA2 == alsB1) {
-					a = alss[alsA1];
-					b = alss[alsB2];
-					c = alss[alsA2];
-				}
-				if (alsA2 == alsB2) {
-					a = alss[alsA1];
-					b = alss[alsB1];
-					c = alss[alsA2];
-				}
-				assert a!=null && b!=null && c!=null; // supress Nutbeans warnings
+						// identify c so we can check for eliminations
+						a = b = c = null;
+						if (a1 == b1) {
+							a = alss[a2]; // alss is an ArrayList with O(1) get
+							b = alss[b2];
+							c = alss[a1];
+						}
+						if (a1 == b2) {
+							a = alss[a2];
+							b = alss[b1];
+							c = alss[a1];
+						}
+						if (a2 == b1) {
+							a = alss[a1];
+							b = alss[b2];
+							c = alss[a2];
+						}
+						if (a2 == b2) {
+							a = alss[a1];
+							b = alss[b1];
+							c = alss[a2];
+						}
+						assert a!=null && b!=null && c!=null; // no warnings
 
-				// check there are common buds to eliminate from
-				if ( Idx.andEmpty(a.buddies, b.buddies) )
-					continue; // no common buds means no eliminations
+						// check there are common buds to eliminate from
+						if ( !Idx.andEmpty(a.buddies, b.buddies)
+						  // get maybes common to these two ALSs except RCs;
+						  // there must be at least one of them.
+						  && (zMaybes=a.maybes & b.maybes & ~VSHFT[vA1]
+							  & ~VSHFT[vA2] & ~VSHFT[vB1] & ~VSHFT[vB2]) != 0
+						  // check overlaps: RCs already done, so just a and b
+						  && (allowOverlaps || tmp.setAnd(a.idx, b.idx).none())
+						  // one can't contain other, even if allowOverlaps
+						  && !Idx.orEqualsEither(a.idx, b.idx)
+						) {
+							// examine each z value
+							any = false;
+							for ( int z : VALUESES[zMaybes] ) {
+								// get cells that see all occurrences of z in both ALSs
+								if ( zBuds.setAnd(a.vBuds[z], b.vBuds[z]).any() ) {
+									// z can be eliminated
+									zBuds.forEach(grid.cells
+										, (x) -> redPots.upsert(x, z)
+									);
+									// add the z's themselves as fins (for display only)
+									tmp.setOr(a.vs[z], b.vs[z]).forEach(grid.cells
+										, (x) -> bluePots.upsert(x, z)
+									);
+									any = true;
+								}
+							}
+							if ( any ) {
 
-				// There has been some confusion, so I must insist that:
-				assert rcA1!=-1 && rcA2!=-1 && rcB1!=-1 && rcB2!=-1
-						: "RC's \"none\" value is 0, not -1, ya putz!";
+								// validate the bastard
+								if ( HintValidator.ALS_USES ) {
+									// Reject elimination of the solution value.
+									if ( !HintValidator.isValid(grid, redPots) ) {
+										HintValidator.report(this.getClass().getSimpleName()
+												, grid, Arrays.asList(a, b, c));
+//											// clear the pots, else they all go bad from here on.
+//											redPots.clear();
+//											bluePots.clear();
+//											// for now just skip hint with invalid elimination/s
+//											continue;
+										// I think I'm on top of invalid hints so I die-early
+										StdErr.exit(StdErr.me()+": invalid hint", new Throwable());
+									}
+								}
 
-				// get maybes common to these two ALSs, except the RC values,
-				// and check that there is at least one of them.
-				if ( (zMaybes=a.maybes & b.maybes & ~VSHFT[rcA1] & ~VSHFT[rcA2]
-						 & ~VSHFT[rcB1] & ~VSHFT[rcB2]) == 0 )
-					continue; // no common maybes to search
+								//
+								// ALS-XY-Wing found! build the hint
+								//
 
-				// check overlaps: RCs already done, so just a and b
-				if ( !allowOverlaps && tmp.setAnd(a.idx, b.idx).any() )
-					continue; // overlap supressed
-
-				// one can't be a subset of the other, even if ALLOW_OVERLAP
-				if ( Idx.orEqualsEither(a.idx, b.idx) )
-					continue;
-
-				// examine each z value
-				any = false;
-				for ( int z : VALUESES[zMaybes] ) {
-					// get cells that see all occurrences of z in both ALSs
-					if ( zBuds.setAnd(a.vBuds[z], b.vBuds[z]).none() )
-						continue;
-					// z can be eliminated
-					zBuds.forEach1((zBud)->redPots.upsert(cells[zBud], z));
-					// add the z's themselves as fins (for display only)
-					tmp.setOr(a.vs[z], b.vs[z]);
-					tmp.forEach1((t)->bluePots.upsert(cells[t], z));
-					any = true;
-				}
-				if ( !any )
-					continue;
-
-				if ( HintValidator.ALS_USES ) {
-					// Reject elimination of the solution value.
-					if ( !HintValidator.isValid(grid, redPots) ) {
-						HintValidator.report(this.getClass().getSimpleName()
-								, grid, Arrays.asList(a, b, c));
-//						// clear the pots, else they all go bad from here on.
-//						redPots.clear(); bluePots.clear();
-//						// for now just skip hint with invalid elimination/s
-//						continue;
-						// I think I'm on top of invalid hints so I die-early
-						StdErr.exit(StdErr.me()+": invalid hint", new Throwable());
+								int zBits = redPots.valuesOf(); // z values as a bitset
+								AHint hint = new AlsXyWingHint(
+									  this
+									, new Pots(redPots)
+									, orangePots(grid, a.idx, b.idx, c.idx)
+										.removeAll(bluePots).removeAll(redPots)
+									// nb: blue overwrites everything incl red; some reds are
+									// in other ALSs, so remove reds from blues so they're red
+									// nb: and we want only values that're removed to be blue
+									, new Pots(bluePots.removeAll(redPots).retainAll(zBits))
+									, Regions.list(a.region, c.region)
+									, Regions.list(b.region)
+									, a, b, c
+									, vA1 // x value
+									, vB1 // y value
+									, Values.toString(zBits, ", ", " and ") // z value/s
+								);
+								// clear the pots for the next hint (if any)
+								redPots.clear();
+								bluePots.clear();
+								// we found a hint (for in the GUI)
+								result = true;
+								// add the hint to accu, and exit early in batch mode.
+								if ( accu.add(hint) )
+									return true;
+							}
+						}
 					}
 				}
-
-				//
-				// ALS-XY-Wing found! build the hint and add it to accu
-				//
-
-				int zBits = redPots.valuesOf(); // z values as a bitset
-				AHint hint = new AlsXyWingHint(
-					  this
-					, new Pots(redPots)
-					, orangePots(grid, a.idx, b.idx, c.idx)
-							.removeAll(bluePots).removeAll(redPots)
-					// nb: blue overwrites everything incl red; some reds are
-					// in other ALSs, so remove reds from blues so they're red
-					// nb: and we want only values that're removed to be blue
-					, new Pots(bluePots.removeAll(redPots).retainAll(zBits))
-					, Regions.list(a.region, c.region)
-					, Regions.list(b.region)
-					, a, b, c
-					, rcA1 // x value
-					, rcB1 // y value
-					, Values.toString(zBits, ", ", " and ") // z value/s
-				);
-				// clear the pots for the next hint (if any)
-				redPots.clear();  bluePots.clear();
-				// we found a hint (for in the GUI)
-				result = true;
-				// add the hint to accu, and exit early in batch mode.
-				if ( accu.add(hint) )
-					return true;
 			}
 		}
 		// GUI mode: sort hints by score (elimination count) descending
@@ -233,5 +226,12 @@ public final class AlsXyWing extends AAlsHinter
 			accu.sort();
 		return result;
 	}
+	// used for various checks
+	private final Idx tmp = new Idx();
+	// all buds of v (including the ALSs).
+	private final Idx zBuds = new Idx();
+	// a couple of lazy Pot heads.
+	private final Pots redPots = new Pots();
+	private final Pots bluePots = new Pots();
 
 }

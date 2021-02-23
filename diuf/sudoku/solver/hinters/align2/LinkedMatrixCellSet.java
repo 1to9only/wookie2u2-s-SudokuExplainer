@@ -94,7 +94,9 @@ public class LinkedMatrixCellSet
 		}
 		@Override
 		public String toString() {
-			return cell==null ? "null" : cell.toString()+"=>"+next;
+			if ( cell == null )
+				return "null";
+			return cell.toString()+"=>"+next;
 		}
 	}
 
@@ -147,7 +149,9 @@ public class LinkedMatrixCellSet
 	 */
 	@Override
 	public Cell poll() {
-		return head==null ? null : remove(head.cell);
+		if ( head == null )
+			return null;
+		return remove(head.cell);
 	}
 
 	@Override

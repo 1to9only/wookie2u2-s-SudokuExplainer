@@ -18,10 +18,10 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.MyLinkedHashSet;
 import diuf.sudoku.utils.Permutations;
 import java.util.Arrays;
 import java.util.LinkedList;
-import java.util.List;
 
 
 /**
@@ -111,7 +111,10 @@ abstract class AAlsHinter extends AHinter
 		super(tech);
 		this.allowLockedSets = allowLockedSets;
 		// unused if allowLockedSets, else an array for each of the 27 regions
-		this.inLockedSet = allowLockedSets ? null : new boolean[27][];
+		if ( allowLockedSets )
+			this.inLockedSet = null;
+		else
+			this.inLockedSet = new boolean[27][];
 		this.findRCCs = findRCCs;
 		this.allowOverlaps = allowOverlaps;
 		this.forwardOnly = forwardOnly;
@@ -194,79 +197,69 @@ abstract class AAlsHinter extends AHinter
 			findLockedSets(grid);
 		// the List of ALSs to populate and return.
 		// nb: add ignores an ALS with duplicate indices.
-		@SuppressWarnings("serial")
-		LinkedList<Als> alss = new LinkedList<Als>() {
-			@Override
-			public boolean add(Als e) {
-				if ( contains(e) )
-					return false;
-				return super.add(e);
-			}
-		};
+		alss = new AlsSet(); // add ignores duplicates
 		// start recursion once for each cell in each region
-		for ( ARegion region : grid.regions )
+		for ( ARegion r : grid.regions ) {
+			region = r; // set a field rather than pass it down on the stack
 			for ( int i=0; i<9; ++i ) {
 				indices.clear();
 				maybes[0] = 0;
-				recurseAlss(1, i, region, alss);
+				recurseAlss(1, i);
 			}
+		}
 		// compute fields
 		for ( Als als : alss )
 			als.computeFields(grid, candidates);
-		return toHdkAlsArray(alss);
+		return alss.toArray();
 	}
+	// the list of ALS's to populate
+	private AlsSet alss;
+	// the current region, a field rather than pass it down on the stack
+	private ARegion region;
 	// the indices in the Set that we're currently recursing (below)
 	private final Idx indices = new Idx();
 	// an element for each cell in the set which we're recursing (below);
 	// each element contains the aglomeration of all maybes upto this point.
 	private final int[] maybes = new int[9];
 
-	// List.toArray was slow, so I roll my own to see if I can do better.
-	private Als[] toHdkAlsArray(LinkedList<Als> list) {
-		Als[] array = new Als[list.size()];
-		Als e;
-		int cnt = 0;
-		while ( (e=list.poll()) != null )
-			array[cnt++] = e;
-		return array;
-	}
-
 	/**
-	 * Does a recursive ALS search in region starting at startIndex.
+	 * Does a recursive ALS search in region starting at first.
+	 * <p>
+	 * The region field is pre-set to the region we're currently searching.
+	 * <p>
+	 * The alss field is pre-set to the ALS-Set to populate.
+	 *
 	 * @param N Number of cells in the current set, starts at 1
-	 * @param first first index in the region to be examined
-	 * @param region the current region to search
-	 * @param alss List of ALSs to populate
+	 * @param first first index in the region to be examined, starts at i
 	 */
-	private void recurseAlss(int N, int first, ARegion region
-			, List<Als> alss) {
+	private void recurseAlss(int N, int first) {
 		Cell cell;
 		// foreach cell in this 'region', starting at 'first'
-		for ( int i=first; i<9; ++i ) {
-			// ignore set cells
-			if ( (cell=region.cells[i]).value != 0
-			  // ignore cells that take part in a Locked Set (if suppressed)
-			  || (!allowLockedSets && inLockedSet[region.index][cell.i]) )
-				continue; // ignore this cell
-			indices.add(cell.i);
-			maybes[N] = maybes[N-1] | cell.maybes.bits;
-			// it's an ALS if these N cells have N+1 maybes between them.
-			if ( VSIZE[maybes[N]] == N+1 && (INCL_SINGLE_CELLS || N>1) )
-				alss.add(new Als(indices, maybes[N], region));
-			// continue recursion
-			if ( N < 8 )
-				recurseAlss(N+1, i+1, region, alss);
-			// remove current cell
-			indices.remove(cell.i);
-		}
+		for ( int i=first; i<9; ++i )
+			// skip set cells
+			if ( (cell=region.cells[i]).value == 0
+			  // skip cells that are part of a Locked Set (if suppressed)
+			  && (allowLockedSets || !inLockedSet[region.index][cell.i]) ) {
+				indices.add(cell.i);
+				maybes[N] = maybes[N-1] | cell.maybes.bits;
+				// it's an ALS if these N cells have N+1 maybes between them.
+				if ( VSIZE[maybes[N]]==N+1 && (INCL_SINGLE_CELLS || N>1) )
+					// nb: add ignores duplicate ALS's (same indices)
+					alss.add(new Als(indices, maybes[N], region));
+				// continue recursion unless this is the last cell
+				if ( N < 8 )
+					recurseAlss(N+1, i+1);
+				// remove current cell
+				indices.remove(cell.i);
+			}
 	}
 
 	// Find the Locked Sets (Naked Pair/Triple/etc) in each region in the grid,
 	// and stash them in the lockedSets array, and the anyLockedSets array.
 	private void findLockedSets(Grid grid) {
-		for ( ARegion region : grid.regions ) {
-			final int n = region.emptyCellCount; // the size of the master set
-			Cell[] rEmptyCells = region.emptyCells(Grid.cas(n));
+		for ( ARegion r : grid.regions ) {
+			final int n = r.emptyCellCount; // the size of the master set
+			Cell[] rEmptyCells = r.emptyCells(Grid.cas(n));
 			// for speed: unpack maybes.bits of empty cells into an array
 			final int[] maybeses = diuf.sudoku.Idx.IAS_A[n];
 			for ( int i=0; i<n; ++i )
@@ -288,38 +281,40 @@ abstract class AAlsHinter extends AHinter
 							array[rEmptyCells[perm[i]].i] = true;
 				}
 			// cache the lockedSet
-			this.inLockedSet[region.index] = array;
+			this.inLockedSet[r.index] = array;
 		}
 	}
 
 	/**
-	 * See if each distinct pair of ALSs have one or two RC values. An RC value
-	 * is one that is common to both ALSs where all instances of that value
-	 * in both ALSs see each other. Two ALSs can have a maximum of two RCs.
+	 * See if each distinct pair of ALSs have one or possibly two RC values.
+	 * An RC value is one that is common to both ALSs where all instances of
+	 * that value in both ALSs see each other (that's the restriction).
 	 * <p>
-	 * ALS with RC(s) may overlap as long as the overlapping area doesn't
-	 * contain an RC.
+	 * Two ALSs can have a maximum of two RC values, which are both stored in
+	 * the one Rcc.
 	 * <p>
-	 * I'm only called locally, but I'm package visible for my test-case.
+	 * ALSs can overlap as long as the overlapping area doesn't contain an RC.
+	 * <p>
+	 * I'm only called locally, but I'm package visible for my test-case. sigh.
 	 *
 	 * @param alss
 	 * @return
 	 */
 	Rcc[] getRccs(final Als[] alss) {
-		// final local reference to field for speed (top1465 4 seconds faster)
+		Als a, b; // two ALSs intersect on a Restricted Common value/s (RCC)
+		Rcc rcc;
+		int j, cmnMaybes;
+		// do we examine only alss to my right? or all of them?
 		final boolean forwardOnly = this.forwardOnly;
-		// the list if RCCs to populate and return
+		// the list of RCCs to populate and return the array of
 		final LinkedList<Rcc> rccs = new LinkedList<>();
 		// the number of ALSs to process
 		final int n = alss.length;
-		// my variables
-		Als als1;
-		Als als2;
-		Rcc rcc;
-		Idx overlap = new Idx();
-		Idx bothVs = new Idx();
-		Idx bothVBuds = new Idx();
-		int j, cmnMaybes;
+		// get and clear the Idx fields rather than wear cost of creatining.
+		// did I mention that I'm tighter than a fishes asshole?
+		final Idx overlap = this.overlap.clear();
+		final Idx bothVs = this.bothVs.clear();
+		final Idx bothVBuds = this.bothVBuds.clear();
 		// recompute start and end indices if required
 		if ( useStartAndEnd && (startIndices==null || startIndices.length<n) ) {
 			int newCapacity = (int)(n * 1.5);
@@ -328,51 +323,48 @@ abstract class AAlsHinter extends AHinter
 		}
 		// foreach distinct pair of ALSs (a forward only search)
 		for ( int i=0; i<n; ++i ) {
-			als1 = alss[i]; // nb: alss is an ArrayList with O(1) get
+			a = alss[i]; // nb: alss is an ArrayList with O(1) get
 			if ( useStartAndEnd )
 				startIndices[i] = rccs.size();
-			for ( j=forwardOnly?i+1:0; j<n; ++j ) {
-				als2 = alss[j];
+			if(forwardOnly) j = i + 1; else j = 0; // terniaries are slow!
+			while ( j < n ) {
+				b = alss[j];
 				// get maybes common to als1 and als2, skip if none
-				if ( (cmnMaybes=(als1.maybes & als2.maybes)) == 0 )
-					continue; // nothing to do!
-				if ( als2 == als1 ) // reference equals OK
-					continue;
-				// see if the ALSs overlap (we need overlap later anyway)
-				overlap.setAnd(als1.idx, als2.idx);
-				if ( !allowOverlaps && overlap.any() )
-					continue; // overlaps are supressed
-				// set my rcc to null so that we can differentiate between the
-				// first and second RC value of each RCC
-				rcc = null;
-				// foreach maybe common to als1 and als2
-				for ( int v : VALUESES[cmnMaybes] ) {
-					// get indices of v in both ALSs
-					// none of these may be in the overlap
-					if ( bothVs.setOr(als1.vs[v], als2.vs[v]).andAny(overlap) )
-						continue; // at least one v is in overlap
-					// if all v's in both ALSs see each other then v is RCC
-					bothVBuds.setAnd(als1.vAll[v], als2.vAll[v]);
-					// BEFORE THE LOOP
-					// overlap.setAnd(als1.indices, als2.indices);
-					// IN THE LOOP
-					// rcIndices.setOr(als1.vs[v], als2.vs[v]);
-                    // if ( !rcIndices.andEmpty(overlap) )
-                    //    continue; // forbidden
-					// rcBuds.setAnd(als1.vBuds[v], als2.vBuds[v]);
-					// if (rcIndices.andEquals(rcBuds)) { // ((rcIndices & rcBuds) == rcBuds)
-					if ( bothVs.andEqualsThis(bothVBuds) )
-						if ( rcc == null )
-							rccs.add(rcc=new Rcc(i, j, v));
-						else
-							rcc.setCand2(v);
+				if ( (cmnMaybes=(a.maybes & b.maybes)) != 0
+				  && b != a ) { // reference equals OK
+					// see if the ALSs overlap (we need overlap later anyway)
+					overlap.setAnd(a.idx, b.idx);
+					if ( allowOverlaps || overlap.none() ) {
+						// to tell between 1st and 2nd RC value of each RCC
+						rcc = null;
+
+	// <OUTDENT comment="no wrapping">
+	// foreach maybe common to a and b
+	for ( int v : VALUESES[cmnMaybes] ) {
+		// get indices of v in both ALSs
+		// none of these may be in the overlap
+		if ( !bothVs.setOr(a.vs[v], b.vs[v]).andAny(overlap)
+		  // if all v's in both ALSs see each other then v is an RC
+		  && bothVs.andEqualsThis(bothVBuds.setAnd(a.vAll[v], b.vAll[v])) )
+			if ( rcc == null )
+				rccs.add(rcc=new Rcc(i, j, v));
+			else // a rare second RC value in the one RCC
+				rcc.setCand2(v);
+	}
+	// </OUTDENT>
+
+					}
 				}
+				++j;
 			}
 			if ( useStartAndEnd )
 				endIndices[i] = rccs.size();
 		}
 		return rccs.toArray(new Rcc[rccs.size()]);
 	}
+	private final Idx overlap = new Idx();
+	private final Idx bothVs = new Idx();
+	private final Idx bothVBuds = new Idx();
     /** The indices of the first RC in {@code rccs} for each ALS in
 	 * {@code alss}. This field is set by getRccs and used by HdkAlsXyChain. */
     protected int[] startIndices = null;
@@ -382,7 +374,7 @@ abstract class AAlsHinter extends AHinter
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~ helper methods ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	protected static Pots orangePots(Grid grid, Iterable<Idx> sets) {
+	protected static Pots oranges(Grid grid, Iterable<Idx> sets) {
 		Pots pots = new Pots();
 		for ( Idx set : sets )
 			for ( Cell cell : set.cells(grid) )
@@ -391,7 +383,40 @@ abstract class AAlsHinter extends AHinter
 	}
 	// wrapper to convert args-array into a List, which is Iterable
 	protected static Pots orangePots(Grid grid, Idx... sets) {
-		return orangePots(grid, Arrays.asList(sets));
+		return oranges(grid, Arrays.asList(sets));
 	}
+
+	/**
+	 * Extend {@code MyLinkedHashSet<Als>} to make the add method check that
+	 * the given ALS does not already exist in this Set.
+	 * <p>
+	 * Note that add uses the contains method, which is much faster in a Set
+	 * than in a List, especially a LinkedList, as this was previously.
+	 * <p>
+	 * I extend MyLinkedHashSet instead of java.util.HashSet for the poll
+	 * method, which is used in toArray.
+	 */
+	private static class AlsSet extends MyLinkedHashSet<Als> {
+		private static final long serialVersionUID = 3356942459562L;
+		@Override
+		public boolean add(Als e) {
+			if ( contains(e) )
+				return false;
+			return super.add(e);
+		}
+		/**
+		 * WARNING: This toArray method clears this Set!
+		 */
+		@Override
+		public Als[] toArray() {
+			Als e;
+			final Als[] array = new Als[super.size()];
+			int cnt = 0;
+			while ( (e=super.poll()) != null )
+				array[cnt++] = e;
+			return array;
+		}
+	};
+
 
 }

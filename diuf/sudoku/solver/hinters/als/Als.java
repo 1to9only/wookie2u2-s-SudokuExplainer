@@ -149,9 +149,9 @@ public class Als {
 	 * Note that if region is null then "^[^:]+: " goes MIA.
 	 */
 	public String format() {
-		return (region==null ? "" : region.id+": ") // it shouldn't be null
-			 + Frmt.and(cells)
-			 + " {"+Values.toString(maybes, ", ", " and ")+"}";
+		// region should never be null. Never say never.
+		final String s; if(region==null) s=""; else s=region.id+": ";
+		return s+Frmt.and(cells)+" {"+Values.andS(maybes)+"}";
 	}
 
 	/**

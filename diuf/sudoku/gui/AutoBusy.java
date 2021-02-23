@@ -60,17 +60,16 @@ public final class AutoBusy {
 	}
 
 	public static void setBusy(Component cmp, boolean busy) {
-		Cursor cmpCursor = Cursor.getPredefinedCursor(
-				busy ? Cursor.WAIT_CURSOR : Cursor.DEFAULT_CURSOR);
-		Cursor txtCursor = Cursor.getPredefinedCursor(
-				busy ? Cursor.WAIT_CURSOR : Cursor.TEXT_CURSOR);
-		if (cmp == null) {
-			Frame[] frames = Frame.getFrames();
-			for (int i = 0; i < frames.length; i++)
-				AutoBusy.setCursor(frames[i], cmpCursor, txtCursor);
-		} else {
+		int cc;
+		if(busy) cc=Cursor.WAIT_CURSOR; else cc=Cursor.DEFAULT_CURSOR;
+		Cursor cmpCursor = Cursor.getPredefinedCursor(cc);
+		if(busy) cc=Cursor.WAIT_CURSOR; else cc=Cursor.TEXT_CURSOR;
+		Cursor txtCursor = Cursor.getPredefinedCursor(cc);
+		if ( cmp == null )
+			for ( Frame frame : Frame.getFrames() )
+				AutoBusy.setCursor(frame, cmpCursor, txtCursor);
+		else
 			AutoBusy.setCursor(cmp, cmpCursor, txtCursor);
-		}
 	}
 
 	private static void setCursor(Component cmp, Cursor cmpCursor, Cursor txtCursor) {

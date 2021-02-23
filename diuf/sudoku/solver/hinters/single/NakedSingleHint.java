@@ -28,8 +28,10 @@ public final class NakedSingleHint extends ADirectHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ (isBig ? " in cell <b>" + cell.id + "</b>" : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " at <b>" + cell.id + "</b>";
+		return s;
 	}
 
 	@Override

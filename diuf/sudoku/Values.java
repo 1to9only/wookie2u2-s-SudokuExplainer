@@ -163,6 +163,12 @@ public final class Values implements Iterable<Integer> {
 		for ( int i=0; i<512; ++i )
 			VSIZE[i] = (VALUESES[i]=toValuesArrayNew(i)).length;
 	}
+	
+	public static final int[] FIRST_VALUE = Indexes.FIRST_INDEX.clone();
+	static {
+		for ( int i=0; i<FIRST_VALUE.length; ++i )
+			++FIRST_VALUE[i];
+	}
 
 	/** The minimum value storable in this 1-based Values Set is 1. */
 	private static final int MIN = 1;
@@ -203,7 +209,9 @@ public final class Values implements Iterable<Integer> {
 		for ( Values values : valueses )
 			if ( values.size<2 || VSIZE[bits|=values.bits]>degree )
 				return null;
-		return VSIZE[bits]==degree ? new Values(bits, degree, false) : null;
+		if ( VSIZE[bits] == degree )
+			return new Values(bits, degree, false);
+		return null;
 	}
 
 	/** Creates a new filled (1,2,3,4,5,6,7,8,9) Values Set. */
@@ -636,7 +644,9 @@ public final class Values implements Iterable<Integer> {
 	/** @return the first (right-most) index in this Values Set,
 	 * else NONE (-1). */
 	public int first() {
-		return bits==0 ? 0 : FIRST_INDEX[bits]+1;
+		if ( bits == 0 )
+			return NONE; // WTF: was 0 pre KRC 2021-01-22
+		return FIRST_VALUE[bits];
 	}
 
 //not used 2020-11-23, but there's solid logic for keeping it anyway
@@ -644,7 +654,9 @@ public final class Values implements Iterable<Integer> {
 	 * else NONE (-1). */
 	public int last() {
 		// this is a tad faster than numberOfLeadingZeros on my box.
-		return bits==0 ? NONE : (int)(Math.log(bits)/LOG2)+1;
+		if ( bits == 0 )
+			return NONE;
+		return (int)(Math.log(bits)/LOG2)+1;
 	}
 
 	/** Returns the next value in this Values Set that is greater-than-or-
@@ -655,7 +667,9 @@ public final class Values implements Iterable<Integer> {
 		assert v > 0;
 		int b = bits & (ONES << v-1);
 		// let it AIOOBE if v is too big!
-		return b==0 ? NONE : FIRST_INDEX[b]+1;
+		if ( b == 0 )
+			return NONE;
+		return FIRST_VALUE[b];
 	}
 
 //not used 2020-11-23, but there's solid logic for keeping it anyway
@@ -678,10 +692,10 @@ public final class Values implements Iterable<Integer> {
 	 * @return the other value in this Set.
 	 */
 	public int otherThan(int zValue) {
-		assert Integer.bitCount(bits) == 2;
-		assert (bits & ~VSHFT[zValue]) != 0;
-		assert Integer.bitCount(bits & ~VSHFT[zValue]) == 1;
-		return FIRST_INDEX[bits & ~VSHFT[zValue]]+1;
+//		assert Integer.bitCount(bits) == 2;
+//		assert (bits & ~VSHFT[zValue]) != 0;
+//		assert Integer.bitCount(bits & ~VSHFT[zValue]) == 1;
+		return FIRST_VALUE[bits & ~VSHFT[zValue]];
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ toArray & friends ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -841,12 +855,19 @@ public final class Values implements Iterable<Integer> {
 	 * @return
 	 */
 	public static String toString(int bits, String sep, String lastSep) {
-		if(bits==0) return "-";
+		if ( bits == 0 )
+			return "-";
 		SB.setLength(0);
-		int[] array = VALUESES[bits];
-		for ( int i=0,n=array.length,m=n-1; i<n; ++i ) {
-			if(i>0) SB.append(i<m ? sep : lastSep);
-			SB.append(array[i]);
+		final int[] array = VALUESES[bits];
+		final int n = array.length;
+		int i = 0; // a 1 based index
+		for ( int e : array ) {
+			if ( ++i > 1 )
+				if ( i < n )
+					SB.append(sep);
+				else
+					SB.append(lastSep);
+			SB.append(e);
 		}
 		return SB.toString();
 	}

@@ -31,7 +31,9 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * 
  * @author Keith Corlett
  */
-public final class LogicalAnalyser extends AWarningHinter {
+public final class LogicalAnalyser extends AWarningHinter
+		implements IPreparer
+{
 
 	private final LogicalSolver logicalSolver;
 
@@ -100,6 +102,11 @@ public final class LogicalAnalyser extends AWarningHinter {
 	@Override
 	public String toString() {
 		return "Logical Analyser";
+	}
+
+	@Override
+	public void prepare(Grid grid, LogicalSolver logicalSolver) {
+		// A no-op required for the bloody test case: LogicalAnalyserTester.
 	}
 
 }

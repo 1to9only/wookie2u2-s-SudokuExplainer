@@ -51,6 +51,8 @@ public class SueDeCoq extends AHinter {
 	private final Idx boxSet = new Idx();
 	/** All final indices in the current intersection (only cells that are not set yet) */
 	private final Idx interSet = new Idx();
+	// the atmost 3 empty cells in the intersection between line and box
+	private final Cell[] interCells = new Cell[3];
 	/** All indices in row/col that can hold additional cells (row/col - set cells - intersection) */
 	private final Idx lineSrcSet = new Idx();
 	/** All indices in box that can hold additional cells (box - set cells - intersection) */
@@ -89,8 +91,6 @@ public class SueDeCoq extends AHinter {
 	// These are all set and cleaned-up by each findHints call.
 	// the Grid to search
 	private Grid grid;
-	// the grid.cells
-	private Cell[] cells;
 	// the IAccumulator to which I add hints. If accu.add returns true then I
 	// exit-early, abandoning the search for any subsequent hints
 	private IAccumulator accu;
@@ -109,7 +109,6 @@ public class SueDeCoq extends AHinter {
 		// WARN: A single exit method, to clean-up the grid field.
 		boolean result;
 		this.grid = grid;
-		this.cells = grid.cells;
 		this.accu = accu;
 		this.onlyOne = accu.isSingle();
 		try {
@@ -122,7 +121,6 @@ public class SueDeCoq extends AHinter {
 		} finally {
 			// clean-up after myself
 			this.grid = null;
-			this.cells = null;
 			this.accu = null;
 			this.line = null;
 			this.box = null;
@@ -152,8 +150,11 @@ public class SueDeCoq extends AHinter {
 				if ( interSet.setAndAny(lineSet, boxSet.setAnd(box.idx, empties))
 				  && interSet.size() > 1
 				  // check the intersection
-				  && (result|=checkIntersection()) && onlyOne )
-					return true;
+				  && checkIntersection() ) {
+					result = true;
+					if ( onlyOne )
+						return result;
+				}
 			}
 		}
 		return result;
@@ -170,42 +171,47 @@ public class SueDeCoq extends AHinter {
 	 * @return
 	 */
 	private boolean checkIntersection() {
-		int nPlus;
-		final int n = interSet.size();
+		Cell c1, c2, c3;
+		int nPlus, cands1, cands2, cands3;
+		final int n = interSet.cellsN(grid, interCells);
 		final int m = n - 1;
 		boolean result = false;
 		interActSet.clear();
 		for ( int i1=0; i1<m; ++i1 ) {
 			// all candidates of the first cell
-			int index1 = interSet.get(i1);
-			interActSet.add(index1);
-			int cands1 = cells[index1].maybes.bits;
+			cands1 = (c1=interCells[i1]).maybes.bits;
+			interActSet.add(c1.i);
 			// now try the second cell
 			for ( int i2=i1+1; i2<n; ++i2 ) {
-				int index2 = interSet.get(i2);
-				int cands2 = cands1 | cells[index2].maybes.bits;
-				interActSet.add(index2);
+				cands2 = cands1 | (c2=interCells[i2]).maybes.bits;
+				interActSet.add(c2.i);
 				// we have two cells in the intersection
-				if ( (nPlus=VSIZE[cands2] - 2) > 1
-				  // possible SDC -> check
-				  && (result|=checkHouses(nPlus, cands2)) && onlyOne )
-					return result;
-				// and the third cell
-				for ( int i3=i2+1; i3<n; ++i3 ) {
-					int index3 = interSet.get(i3);
-					int cand3 = cands2 | cells[index3].maybes.bits;
-					// now we have three cells in the intersection
-					if ( (nPlus=VSIZE[cand3] - 3) > 1 ) {
-						// possible SDC -> check
-						interActSet.add(index3);
-						if ( (result|=checkHouses(nPlus, cand3)) && onlyOne )
+				if ( (nPlus=VSIZE[cands2] - 2) > 1 ) {
+					// possible SDC -> check
+					if ( checkHouses(nPlus, cands2) ) {
+						result = true;
+						if ( onlyOne )
 							return result;
-						interActSet.remove(index3);
 					}
 				}
-				interActSet.remove(index2);
+				// and the third cell
+				for ( int i3=i2+1; i3<n; ++i3 ) {
+					cands3 = cands2 | (c3=interCells[i3]).maybes.bits;
+					// now we have three cells in the intersection
+					if ( (nPlus=VSIZE[cands3] - 3) > 1 ) {
+						// possible SDC -> check
+						interActSet.add(c3.i);
+						if ( checkHouses(nPlus, cands3) ) {
+							result = true;
+							if ( onlyOne )
+								return result;
+						}
+						interActSet.remove(c3.i);
+					}
+				}
+				interActSet.remove(c2.i);
 			}
-			interActSet.remove(index1);
+			interActSet.remove(c1.i);
 		}
 		return result;
 	}
@@ -278,10 +284,9 @@ public class SueDeCoq extends AHinter {
 			// ok, calculate next try
 			p = stack[level - 1];
 			c = stack[level];
-			c.index++;
 			c.idx.set(p.idx);
-			c.idx.add(indice=src.get(c.index));
-			c.cands = p.cands | cells[indice].maybes.bits;
+			c.idx.add(indice=src.get(++c.index));
+			c.cands = p.cands | grid.cells[indice].maybes.bits;
 			// the current cell combo must eliminate at least one candidate in
 			// the current intersection or we dont have to look further.
 			// the cells must not contain candidates that are not in okCands;
@@ -317,11 +322,12 @@ public class SueDeCoq extends AHinter {
 						// nb: & Values.ALL_BITS to chop-off extranious hi-bits
 						boxOkCands = ~(lineActCands & ~tmpCands) & Values.ALL_BITS;
 						// and now pass2 (a recursive call)
-						if ( result |= checkLine(
-								  nPlus - (lineActSet.size() - anzExtra )
-								, boxSrcSet, boxOkCands, false)
-						  && onlyOne )
-							return result;
+						if ( checkLine(nPlus - (lineActSet.size() - anzExtra)
+								, boxSrcSet, boxOkCands, false) ) {
+							result = true;
+							if ( onlyOne )
+								return result;
+						}
 					}
 				// pass2: number of candidates has to be exactly nPlus
 				} else if ( c.idx.size()-anzExtra == nPlus ) {
@@ -384,11 +390,11 @@ public class SueDeCoq extends AHinter {
 	 */
 	private void eliminate(Idx idx, int cands, Pots pots) {
 		if ( VSIZE[cands]>0 && idx.size()>0 )
-			idx.forEach1((indice) -> {
-				int elims = cells[indice].maybes.bits & cands;
+			idx.forEach(grid.cells, (c) -> {
+				int elims = c.maybes.bits & cands;
 				if ( elims != 0 )
-					for ( int cand : VALUESES[elims] )
-						pots.upsert(cells[indice], cand);
+					for ( int v : VALUESES[elims] )
+						pots.upsert(c, v);
 			});
 	}
 
@@ -404,9 +410,11 @@ public class SueDeCoq extends AHinter {
 	 * @param dest
 	 */
 	private Pots potify(Idx a, Idx b, int cands, Pots pots) {
-		tmpSet.setOr(a, b).forEach1((indice) -> {
-			for ( int v : VALUESES[cells[indice].maybes.bits & cands] )
-				pots.upsert(cells[indice], v);
+		tmpSet.setOr(a, b).forEach(grid.cells, (c) -> {
+			int elims = c.maybes.bits & cands;
+			if ( elims != 0 )
+				for ( int v : VALUESES[elims] )
+					pots.upsert(c, v);
 		});
 		return pots;
 	}

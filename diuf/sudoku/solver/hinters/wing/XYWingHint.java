@@ -37,9 +37,7 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 	private final Cell xz;
 	private final Cell yz;
 	private final int zValue;
-	private int xValue, yValue; // caches for the getter methods
 	private Collection<Link> links;
-	private String clueHtml;
 
 	public XYWingHint(XYWing hinter, Pots redPots, boolean isXYZ
 			, Cell xy, Cell xz, Cell yz, int zValue) {
@@ -51,24 +49,16 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 		this.zValue = zValue;
 	}
 
-	// getXValue() is a cached getter because we don't need to calculate the
-	// xValue at all in LogicalSolverTester, so we delay-until-we-need-it.
-	private int getXValue() {
-		if ( xValue == 0 ) {
-			// Cell yz has exactly two values, so: xz - z = x
-			xValue = xz.maybes.otherThan(zValue);
-		}
-		return xValue;
+	// x() not used in LogicalSolverTester so delay-until-we-need-it.
+	private int x() {
+		// xz has two values, so: xz - z = x
+		return xz.maybes.otherThan(zValue);
 	}
 
-	// getYValue() is a cached getter because we don't need to calculate the
-	// yValue at all in LogicalSolverTester, so we delay-until-we-need-it.
-	private int getYValue() {
-		if ( yValue == 0 ) {
-			// Cell yz has exactly two values, so: yz - z = y
-			yValue = yz.maybes.otherThan(zValue);
-		}
-		return yValue;
+	// y() not used in LogicalSolverTester so delay-until-we-need-it.
+	private int y() {
+		// yz has two values, so: yz - z = y
+		return yz.maybes.otherThan(zValue);
 	}
 
 	@Override
@@ -92,9 +82,9 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 	@Override
 	public Pots getOranges(int viewNum) {
 		if ( orangePots == null ) {
-			orangePots = new Pots(xy, new Values(getXValue(), getYValue()));
-			orangePots.put(xz, new Values(getXValue()));
-			orangePots.put(yz, new Values(getYValue()));
+			orangePots = new Pots(xy, new Values(x(), y()));
+			orangePots.put(xz, new Values(x()));
+			orangePots.put(yz, new Values(y()));
 		}
 		return orangePots;
 	}
@@ -151,11 +141,10 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		if ( clueHtml == null )
-			clueHtml = "Look for a " + getHintTypeName()
-				+ (isBig ? " on " + getXValue() + ", " + getYValue()
-					+ " and <b>" + zValue + "</b>" : "");
-		return clueHtml;
+		 String s = "Look for a " + getHintTypeName();
+		 if ( isBig )
+			 s += " on "+x()+", "+y()+" and <b>"+zValue+"</b>";
+		return s;
 	}
 
 	@Override
@@ -175,8 +164,8 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 				, xz.id			//  1
 				, yz.id			//  2
 				, zValue		//  3
-				, getXValue()	//  4
-				, getYValue()	//  5
+				, x()	//  4
+				, y()	//  5
 		);
 	}
 

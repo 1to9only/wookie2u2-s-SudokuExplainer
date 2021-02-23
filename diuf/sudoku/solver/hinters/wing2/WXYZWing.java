@@ -48,9 +48,7 @@ public class WXYZWing extends ABigWingHinter {
 		boolean xWing, zWing;
 		// the yz cell must have 2 maybes
 		// a constant: contents do not change.
-		final BitIdx bivalueCells = grid.getBitIdx((c) -> {
-			return c.maybes.size == 2;
-		});
+		final BitIdx bivalueCells = grid.getBitIdxBivalue();
 		// candidates are cells with maybes.size 2..4
 		// a constant: contents do not change.
 		final BitIdx candidates = grid.getBitIdx((c) -> {

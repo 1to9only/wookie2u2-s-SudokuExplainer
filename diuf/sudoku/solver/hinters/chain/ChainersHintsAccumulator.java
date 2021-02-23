@@ -90,8 +90,11 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 		}
 		boolean result = false;
 		final Pots redPots = hint.redPots;
-		final AChainingHint nestedChain = hint instanceof AChainingHint
-				? (AChainingHint)hint : null;
+		final AChainingHint nestedChain;
+		if ( hint instanceof AChainingHint )
+			nestedChain = (AChainingHint)hint;
+		else
+			nestedChain = null;
 		for ( Cell cell : redPots.keySet() )
 			for ( int v : VALUESES[redPots.get(cell).bits] )
 				result |= effects.add(new Ass(cell, v, false, parents

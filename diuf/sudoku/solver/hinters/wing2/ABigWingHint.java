@@ -124,9 +124,9 @@ public abstract class ABigWingHint extends AHint implements IChildHint {
 
 	@Override
     public String getClueHtmlImpl(boolean isBig) {
-		String s = "Look for a "+getHintTypeNameImpl();
+		String s = "Look for a "+getHintTypeName();
         if ( isBig )
-			s += " on the values "+wingValues()+" and <b>"+z+"</b>";
+			s += " on "+wingValues()+" and <b>"+z+"</b>";
 		return s;
     }
 

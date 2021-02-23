@@ -45,8 +45,10 @@ public class TwoStringKiteHint extends AHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ (isBig ? " on "+Frmt.and(new Values(oranges.values())) : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " on "+Frmt.and(new Values(oranges.values()));
+		return s;
 	}
 
 	@Override

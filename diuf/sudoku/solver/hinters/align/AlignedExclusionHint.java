@@ -105,8 +105,10 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for an " + getHintTypeName()
-			+ (isBig ? " at " + Frmt.csv(selectedCellsSet) : "");
+		String s = "Look for an " + getHintTypeName();
+		if ( isBig )
+			s += " at " + Frmt.csv(selectedCellsSet);
+		return s;
 	}
 
 	@Override

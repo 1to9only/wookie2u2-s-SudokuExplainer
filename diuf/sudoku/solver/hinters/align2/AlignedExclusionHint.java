@@ -58,11 +58,11 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 		return isRelevant(cells, redPots, combo);
 	}
 
-	static boolean isRelevant(Cell[] cells, Pots redPots, int[] combo) {
+	static boolean isRelevant(Cell[] cells, Pots reds, int[] combo) {
 		Values redVals;
 		for ( int i=0,n=cells.length; i<n; ++i )
 			if ( combo[i] != 0 // most combos are mostly 0's
-			  && (redVals=redPots.get(cells[i])) != null
+			  && (redVals=reds.get(cells[i])) != null
 			  && (redVals.bits & VSHFT[combo[i]]) != 0 )
 				return true;
 		return false;
@@ -105,8 +105,10 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for an " + getHintTypeName()
-			+ (isBig ? " at " + Frmt.csv(selectedCellsSet) : "");
+		String s = "Look for an " + getHintTypeName();
+		if ( isBig )
+			s += " at " + Frmt.csv(selectedCellsSet);
+		return s;
 	}
 
 	/** Gets the color of the given 'cell' and 'value', as a single char, which
@@ -121,7 +123,10 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 	private char getColorOf(Cell cell, int value) {
 		Values redVals = redPots.get(cell);
 		if ( redVals != null )
-			return redVals.contains(value) ? 'r' : (char)0; // Red or default black
+			if ( redVals.contains(value) )
+				return 'r';
+			else
+				return (char)0; // Red or default black
 		if ( selectedCellsSet.contains(cell) )
 			return 'o'; // Orange
 		return (char)0; // meaning default to black.
@@ -141,8 +146,12 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 		// <o><b>2</b></o>, <o><b>6</b></o>, <o><b>5</b></o> and <r><b>3</b></r>
 		final int n = Math.min(cells.length, combo.length); // in case the combo is too long (has happened)
 		for ( int i=0,m=n-1; i<n; ++i ) {
-			if (i > 0) // just not the first one
-				sb.append(i<m ? ", " : " and "); // "1, 2 and 3"
+			// "1, 2 and 3"
+			if ( i > 0 ) // not the first
+				if ( i < m )
+					sb.append(", ");
+				else
+					sb.append(" and ");
 			char c = getColorOf(cells[i], combo[i]);
 			if(c!=0) sb.append('<').append(c).append('>');
 			sb.append("<b>").append(combo[i]).append("</b>");
@@ -161,9 +170,9 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 	 * @param sb to append to
 	 * @param combosMap a Map of HashA (the combo) to Cell (the lockCell)
 	 * @return a StringBuilder which is full of HTML. Yummy!
-	 * @throws diuf.sudoku.solver.hinters.align.AlignedExclusionHint.IrrelevantHintException */
-	private StringBuilder appendTo(StringBuilder sb
-			, Map<HashA, Cell> combosMap) throws IrrelevantHintException {
+	 * @throws {@link diuf.sudoku.solver.IrrelevantHintException} */
+	private StringBuilder appendTo(StringBuilder sb, Map<HashA, Cell> combosMap)
+			throws IrrelevantHintException {
 		// first we get an "index" (keys) of the combos sorted by there values.
 		Set<HashA> keySet = combosMap.keySet();
 		HashA[] keyArray = keySet.toArray(new HashA[keySet.size()]);

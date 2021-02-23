@@ -6024,6 +6024,77 @@ package diuf.sudoku.solver;
  * 3. Dunno what to do next. I shall download some other open source Sudoku
  *    solvers to riffle for boostable hinters.
  * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.108 2021-01-23 14:40:48 Faster align2.AlignedExclusion, which still
+ * isn't competitive with the old align.Aligned*Exclusion classes but it's
+ * getting there, and it's just SOOOO much more succinct.
+ * <pre>
+ * This is an oldish log (ran 2021-01-23.13-25-10) coz Im in a hurry to package
+ * this release to get to the library/shops before closing; and I tried running
+ * it again AFTER testing the GUI (which was fine) and its runs like a dog, but
+ * it's a hot afternoon so Im blaming HOT BOX SYNDROME, and releasing anyway.
+ * SOLVED: A half-run LogicalAnalyserTest changes wantedHinters to all.
+ *
+ *       time (ns)  calls  time/call  elims      time/elim hinter
+ *      21,125,200 116292        181 667090             31 Naked Single
+ *      16,621,500  49583        335 169080             98 Hidden Single
+ *      92,180,800  32675      2,821   5868         15,709 Direct Naked Pair
+ *      82,174,600  32262      2,547  12333          6,662 Direct Hidden Pair
+ *     205,395,300  31320      6,557    816        251,709 Direct Naked Triple
+ *     190,588,800  31270      6,094   1800        105,882 Direct Hidden Triple
+ *     101,525,000  31133      3,261  18590          5,461 Locking
+ *      52,321,900  21943      2,384   4479         11,681 Naked Pair
+ *      48,947,400  20780      2,355   8523          5,742 Hidden Pair
+ *     106,841,500  19154      5,578   1304         81,933 Naked Triple
+ *      97,264,000  18785      5,177   1012         96,110 Hidden Triple
+ *      63,165,800  18586      3,398   1390         45,443 Two String Kite
+ *      38,141,400  17196      2,218    488         78,158 Swampfish
+ *      82,990,400  16984      4,886    662        125,363 XY-Wing
+ *      60,639,200  16514      3,671    308        196,880 XYZ-Wing
+ *      92,817,600  16223      5,721    442        209,994 W-Wing
+ *      50,235,200  15916      3,156    380        132,197 Skyscraper
+ *      56,050,900  15716      3,566    480        116,772 Empty Rectangle
+ *      70,440,600  15236      4,623    250        281,762 Swordfish
+ *     169,792,900  15165     11,196    105      1,617,075 Naked Quad
+ *     143,311,200  15144      9,463     12     11,942,600 Hidden Quad
+ *      19,086,600  15142      1,260      8      2,385,825 Jellyfish
+ *     546,476,500  15140     36,094   1553        351,884 WXYZ-Wing
+ *     692,102,400  14093     49,109   1197        578,197 VWXYZ-Wing
+ *     914,003,400  13400     68,209    625      1,462,405 UVWXYZ-Wing
+ *   1,074,391,300  13055     82,297    130      8,264,548 TUVWXYZ-Wing
+ *   1,282,416,600  12974     98,845    771      1,663,315 Unique Rectangle
+ *   1,737,675,000  12614    137,757    472      3,681,514 Finned Swampfish
+ *   4,177,086,200  12215    341,963    404     10,339,322 Finned Swordfish
+ *   5,175,381,700  11890    435,271     20    258,769,085 Finned Jellyfish
+ *     393,965,100  11873     33,181    102      3,862,402 Coloring
+ *  17,219,673,000  11796  1,459,789   1482     11,619,212 ALS-XZ
+ *  28,629,366,000  11457  2,498,853   7806      3,667,610 ALS-Wing
+ *   8,952,429,400   4952  1,807,841    791     11,317,862 ALS-Chain
+ *   3,833,370,200   4302    891,066    235     16,312,213 Death Blossom
+ *   1,159,507,200   4093    283,290     14     82,821,942 Sue De Coq
+ *  12,742,933,400   4090  3,115,631    164     77,700,813 Franken Swordfish
+ *  33,212,806,500   3952  8,404,050     97    342,400,067 Franken Jellyfish
+ *   1,621,026,600   3863    419,628      4    405,256,650 Aligned Triple
+ *   6,202,209,900   3859  1,607,206      6  1,033,701,650 Aligned Quad
+ *  14,955,416,100   3853  3,881,499      4  3,738,854,025 Aligned Pent (H)
+ *  25,158,004,300   3849  6,536,244      2 12,579,002,150 Aligned Hex (H)
+ *  33,476,126,200   3847  8,701,878      6  5,579,354,366 Aligned Sept (H)
+ *  35,599,522,400   3841  9,268,295      2 17,799,761,200 Aligned Oct (H)
+ *  12,096,878,500   3839  3,151,049   1443      8,383,145 Unary Chain
+ *   5,009,014,900   3240  1,545,992     27    185,519,070 Nishio Chain
+ *   8,602,214,700   3213  2,677,315   4931      1,744,517 Multiple Chain
+ *  11,209,682,400   1387  8,081,962   7603      1,474,376 Dynamic Chain
+ *     107,329,100      3 35,776,366     30      3,577,636 Dynamic Plus
+ * 277,642,666,800
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465   328,779,553,500 (05:28)       224,422,903
+ * NOTES:
+ * 1. Last top1465 5:28 isn't too bad considering I'm using the BIG excluders.
+ * 2. Release 6.30.108 2021-01-23 14:40:48 =>
+ *    DiufSudoku_V6_30.108.2021-01-23.7z
+ * 3. Next I keep trying to find a magic bullet for AlignedExclusion, I guess.
+ * </pre>
  */
 final class LogicalSolverTimings {
 

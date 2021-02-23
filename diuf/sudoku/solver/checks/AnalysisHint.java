@@ -56,8 +56,11 @@ public final class AnalysisHint extends AWarningHint implements IActualHint {
 	}
 
 	private void appendUsage(StringBuilder mySB, IHinter myHinter, Usage usage) {
-		String difficulty = usage.maxDifficulty>0.0
-				? " "+Frmt.dbl(usage.maxDifficulty) : "";
+		final String difficulty;
+		if ( usage.maxDifficulty > 0.0 )
+			difficulty = " "+Frmt.dbl(usage.maxDifficulty);
+		else
+			difficulty = "";
 		int numHints = usage.numHints;
 		if ( numHints > 0 ) {
 			if(numHints < 10) mySB.append(' ');

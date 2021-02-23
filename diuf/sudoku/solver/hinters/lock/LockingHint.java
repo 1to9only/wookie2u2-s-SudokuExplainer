@@ -18,12 +18,10 @@ import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.Ass;
-import diuf.sudoku.Regions;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedList;
-import java.util.List;
 import java.util.Set;
 
 
@@ -105,7 +103,7 @@ public final class LockingHint extends AHint
 	// coz (I think) it's more efficient to produce both all in one.
 	@Override
 	public String getHintTypeNameImpl() {
-		return (isPointing ? "Pointing" : "Claiming");
+		return isPointing ? "Pointing" : "Claiming";
 	}
 
 	@Override
@@ -168,8 +166,11 @@ public final class LockingHint extends AHint
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+(isBig ? " on <b>"+valueToRemove+"</b>" : "");
+		// nb: use Impl to swap types, I think. Sigh.
+		String s = "Look for a " + getHintTypeNameImpl();
+		if ( isBig )
+			s += " on <b>"+valueToRemove+"</b>";
+		return s;
 	}
 
 	@Override

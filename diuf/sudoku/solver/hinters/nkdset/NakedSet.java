@@ -9,13 +9,13 @@ package diuf.sudoku.solver.hinters.nkdset;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.ALL_BITS;
+import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -277,9 +277,11 @@ public final class NakedSet
 			  // if sib has the nkdSetValues plus ONE other
 			  && VSIZE[redBits=sib.maybes.bits & ~nkdSetValsBits] == 1 )
 				// then we can create the hint and add it to the accumulator
-				return createNakedSetDirectHint(grid, region
+				return createNakedSetDirectHint(
+					  grid
+					, region
 					, sib						// cellToSet
-					, FIRST_INDEX[redBits]+1	// valueToSet
+					, FIRST_VALUE[redBits]		// valueToSet
 					, nkdSetIdxBits				// nkdSetIdxBits
 					, nkdSetValsBits			// nkdSetValsBits
 				);

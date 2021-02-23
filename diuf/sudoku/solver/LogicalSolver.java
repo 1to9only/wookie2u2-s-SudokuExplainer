@@ -146,64 +146,15 @@ import java.util.Set;
  */
 public final class LogicalSolver {
 
+	/**
+	 * true uses the new align2 package, which is a MUCH slower (it gets worse
+	 * as set-size increases) than the old "align" package. Normal people would
+	 * chuck align2 to the dump, but I can't because I just love how succinct
+	 * and therefore frightfully clever it is, by comparison. sigh.
+	 */
+	private static final boolean USE_ALIGN2 = false; // @check false (align2 is slower)
+
 	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
-
-	public static final boolean CARE_ABOUT_ALIGNED_HINTS = true;
-
-	/** If true && VERBOSE_3_MODE then I log some debugging stuff, these noise*
-	 * calls should be removed once the bug is dealt with.
-	 * <p>NB: always check IS_NOISY before you call a noise* method, so that
-	 * the JIT compiler can just snip it out when IS_NOISY is false. */
-	private static final boolean IS_NOISY = false; // @check false
-
-	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
-	 * NB: always check IS_NOISY before you call me. */
-	private static void noise(String msg) {
-		if (Log.MODE >= Log.VERBOSE_3_MODE)
-			Log.print(msg);
-	}
-
-	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
-	 * NB: always check IS_NOISY before you call me. */
-	private static void noiseln(String msg) {
-		if (Log.MODE >= Log.VERBOSE_3_MODE)
-			Log.println(msg);
-	}
-
-	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
-	 * NB: always check IS_NOISY before you call me. */
-	private static void noisef(String fmt, Object... args) {
-		if (Log.MODE >= Log.VERBOSE_3_MODE)
-			Log.format(fmt, args);
-	}
-
-	/** singlesSolution is weird: it's set by LS.solveWithSingles and then read
-	 * back by SudokuExplainer.getTheNextHint. */
-	public Grid singlesSolution;
-
-	/**
-	 * Krakens go bugger-up in generate.
-	 * @param enabled
-	 * @param degree
-	 */
-	public void enableKrakens(boolean enabled, int degree) {
-		for ( IHinter h : wantedHinters )
-			if ( h instanceof KrakenFisherman && h.getDegree()>=degree )
-				h.setIsEnabled(enabled);
-	}
-
-	/**
-	 * Get the hinter which implements targetTech from wantedHinters list.
-	 * @param targetTech
-	 * @return the hinter; else null if the hinter which implements targetTech
-	 *  is not wanted, or (improbable) no hinter implements targetTech.
-	 */
-	public IHinter findWantedHinter(Tech targetTech) {
-		for ( IHinter hinter : wantedHinters )
-			if ( hinter.getTech() == targetTech )
-				return hinter;
-		return null;
-	}
 
 	/** Enum for a self-documenting Mode parameter in the Constructor/s. */
 	public enum Mode {
@@ -312,6 +263,10 @@ public final class LogicalSolver {
 	 * challenge of doing so, not because it's useful for anything. It was/is
 	 * its own Sudoku Puzzle, for a programmer. */
 	private final boolean isUsingStats;
+
+	/** singlesSolution is weird: it's set by LS.solveWithSingles and then read
+	 * back by SudokuExplainer.getTheNextHint. */
+	public Grid singlesSolution;
 
 	/**
 	 * Constructs a new LogicalSolver in the given Mode using the given
@@ -510,7 +465,7 @@ public final class LogicalSolver {
 		want(indirects, new BasicFisherman(Tech.Swordfish, h?2:1));
 
 		// heavies is the heavy weight division. Slow/er indirect hinters.
-		heavies = new ArrayList<>(isAccurate ? 32 : 0); // 10 short Dougie!
+		heavies = new ArrayList<>(isAccurate ? 38 : 0); // Just 4 short Dougie!
 		if ( isAccurate ) {
 			want(heavies, new NakedSet(Tech.NakedQuad));
 			want(heavies, new HiddenSet(Tech.HiddenQuad)); // 0 in top1465
@@ -520,13 +475,13 @@ public final class LogicalSolver {
 			want(heavies, new WXYZWing()); // limited fast ALS-XZ
 			want(heavies, new VWXYZWing()); // limited fast ALS-XZ
 			want(heavies, new UVWXYZWing()); // limited fast ALS-XZ
+			want(heavies, new TUVWXYZWing()); // limited ALS-XZ (slower than ALS-XZ)
 			want(heavies, new UniqueRectangle(h?5:1));
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedSwordfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedJellyfish));
 			want(heavies, new Coloring());
-			want(heavies, new TUVWXYZWing()); // limited fast ALS-XZ (that's actually slower per elimination than ALS-XZ, but finds some double-linked elims, which ALS-XZ does not seek, so retained anyways)
 			want(heavies, new AlsXz());
 			want(heavies, new AlsXyWing());
 			want(heavies, new AlsXyChain());
@@ -546,63 +501,46 @@ public final class LogicalSolver {
 
 			// Coloring finds a superset of BUG hints!
 			want(heavies, new BivalueUniversalGrave(h?25:1));
-// the new AlignedExclusion class is slower than the old ones!
-if ( false ) {
+
+			// new align2.AlignedExclusion is faster than the old align package
+			// for A2E, A3E, and A4E, which are all "relatively fast".
+			// But takes 3 times A5E, 4 times A6E, 5 times A7E; presumably and
+			// so on for A8E, A9E, and A10E; which is TOO LONG!
 			want(heavies, new AlignedExclusion(Tech.AlignedPair));
 			want(heavies, new AlignedExclusion(Tech.AlignedTriple));
 			want(heavies, new AlignedExclusion(Tech.AlignedQuad));
-} else {
-			// A2E is fast! even "correct", so I'm here to stay.
-			// 2019-10-02 A2E 1465 in   146,269,339,836 (02:26) @    99,842,552
-			// nb: A2E is fast so it's here and here it stays.
-			want(heavies, new Aligned2Exclusion(h?9:1)); // <<<================= THE LOGICAL PLACE for A*E
-			// A3E fast enough! even "correct", so I'm here to stay too.
-			// 2019-10-26 A3E 1465 in   153,242,810,658 (02:33)	@   104,602,601
-			// FYI: Juillerat takes 21:54 with (roughly) these same hinters.
-			want(heavies, new Aligned3Exclusion(h?4:1)); // <<<================= HOME AGAIN
-			// A4E is acceptable! even "correct", so I'm here to stay too now.
-			// 2019-10-02 A4E 1465 in   344,699,776,511 (05:45) @   235,289,949
-			want(heavies, new Aligned4Exclusion(h?3:1, im)); // <<<============= JIGGITY JIG
-			// NB: A5E, A6E, A7E, A8E, A9E, A10E are down with the chainers.
-}
+			if ( USE_ALIGN2 ) {
+				// The user chooses if A5+E is correct (slow) or hacked (fast).
+				// The hacked version is about ten times faster.
+				// The hacked version finds about a third of the hints.
+				// AlignedExclusion constr read "isa"+degree+"ehacked" Setting.
+				want(heavies, new AlignedExclusion(Tech.AlignedPent));
+				want(heavies, new AlignedExclusion(Tech.AlignedHex));
+				want(heavies, new AlignedExclusion(Tech.AlignedSept));
+				want(heavies, new AlignedExclusion(Tech.AlignedOct));
+				want(heavies, new AlignedExclusion(Tech.AlignedNona));
+				want(heavies, new AlignedExclusion(Tech.AlignedDec));
+			} else {
+//				want(heavies, new Aligned2Exclusion(h?9:1)); // fast enough.
+//				want(heavies, new Aligned3Exclusion(h?4:1)); // fast enough.
+//				want(heavies, new Aligned4Exclusion(h?3:1, im)); // acceptable.
+				// The user chooses if A5+E is correct (slow) or hacked (fast).
+				// The hacked version is about ten times faster.
+				// The hacked version finds about a third of the hints.
+				// wantAE read "isa"+degree+"ehacked" Setting to constr appr.
+				wantAE(heavies, 5, h?4:1, im);   // isabeet slow! User choice.
+				wantAE(heavies, 6, h?6:1, im);	 // reeally slow! User choice.
+				wantAE(heavies, 7, h?5:1, im);   // ____ing slow! User choice.
+				wantAE(heavies, 8, h?5:1, im);   // 16yr old dog! User choice.
+				wantAE(heavies, 9, h?8:1, im);   // old tortoise! User choice.
+				wantAE(heavies, 10, h?19:1, im); // conservative! User choice.
+			}
+
 		}
 
 		// Heavy, meh! Chainers rip Heavies balls off! Exclusion is slow!
-		chainers = new ArrayList<>(isAccurate ? 11 : 1); //nearly an Oils album
+		chainers = new ArrayList<>(isAccurate ? 5 : 1); //nearly an Oils album
 		if (isAccurate) {
-// the new AlignedExclusion class is slower than the old ones!
-if ( false ) {
-			want(chainers, new AlignedExclusion(Tech.AlignedPent));
-			want(chainers, new AlignedExclusion(Tech.AlignedHex));
-			want(chainers, new AlignedExclusion(Tech.AlignedSept));
-			want(chainers, new AlignedExclusion(Tech.AlignedOct));
-			want(chainers, new AlignedExclusion(Tech.AlignedNona));
-			want(chainers, new AlignedExclusion(Tech.AlignedDec));
-} else {
-			// The programmer decides if he CARE_ABOUT_ALIGNED_HINTS or not.
-			// The user chooses if A5+E is correct (slow) or hacked (fast).
-			// A5E is slow! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
-			// 2019-10-02 A5E 1465 in   514,473,381,962 (08:34) @   351,176,369
-			wantAE(chainers, 5, h?4:1, im); //<<<=============================== OUTTA MIND
-			// A6E really slow! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
-			// 2019-10-02 A6E 1465 in 1,247,960,738,508 (20:48) @   851,850,333
-			wantAE(chainers, 6, h?6:1, im); //<<<=============================== OUTTA SIGHT
-			// A7E ____ing slow! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
-			// 2019-10-02 A7E 1465 in 1,982,338,601,321 (33:02) @ 1,353,132,151
-			// nb: A7+E are all too slow correct, tick the "Hacked" CheckBox's!
-			// A4567E_1C took 7:46 on conceptis's worlds hardest Sudoku
-			// A4567E_1C on top1465.d5.mt took 7 hrs 53 mins
-			wantAE(chainers, 7, h?5:1, im); //<<<=============================== GOTTA KEEP-MY
-			// A8E 12yr old dog! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
-			// 2019-10-05 A8E 1465 in 2,401,487,875,247 (40:01) @ 1,639,240,870
-			wantAE(chainers, 8, h?5:1, im); //<<<=============================== CODE TIGHT
-			// A9E old tortoise! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
-			wantAE(chainers, 9, h?8:1, im); //<<<=============================== THIS IS JUST SILLY
-			// ATE conservative! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
-			// 2020-02-27 !IS_HACKY A45678910E_1C 1465 in 5:10:37
-			// 2020-02-28  IS_HACKY A45678910E_2H 1465 in    3:38
-			wantAE(chainers, 10, h?19:1, im); //<<<============================= JESUS SHOT MY ____ING DOG, TOOK OVER THE GOVERMENT, AND BURNT HALF THE ____ING COUNTRY TO THE GROUND. WELCOME TO PARADISE! IRE-LOL-IC, DON'T YOU THINK? MAYBE JUST A LITTLE TOO MORONIC, BECAUSE YOU'RE REALLY TOO THICK? DJAWAN FIRES WITH THAT? FREE SCOTTIES PINEAPPLE RING! HERE'S A FEW BILLION I FRIED EARLIER. BREAK INTO THE WHITE HOUSE AND DROP A DIRTY GREAT TURD ON THE PRESIDENTS DESK. RETURN OF ____ING SERVICE. LOCK DOG BONG WOCK UP IN HIS OWN MOZZIE PRISON. SWIPE! SWISH! BANG! FURY LOOKIN' ANIMAL. TAKE THE OZIE PARLIAMENT TO THE DUMP. TOO LITTLE TO LATE BOYS. YAKANNOO PUSH ER ANY ARDER KAPTIN! DON'T TELL ME ABOUT BOATS I KNOW BOATS. SHIP SCOTTIE BACK TO HAWAHI WITH THAT SOUR UNDERSIZED PINEAPPLE UP HIS ____ING ARSE. ____ IT, I'M MOVING TO NEW ZEALAND! FUSH AND CHUPS ALL ROUND! THIS PLANET IS RUN BY EXTREMIST WANKERS, AND SHE'S JUST LESS OF A NUT-BURGHER THAN THE REST, WHICH MAKES HER LOOK GOOD BY COMPARISON. WHEN THE SPINNIFEX HIT SYDNEY IT WAS THE LAST THING WE EXPECTED. WHEN THE DESERT REACHED THE GLADES THEN WE TRIED TO TAME IT. I WEEP AT THE WHOLE INSANE MESS, AND IT JUST KEEPS ROLLING ON. BIG SIGH.
-}
 			// single value forcing chains and bidirectional cycles.
 			want(chainers, new UnaryChainer(F, h?1:1));
 			// contradictory consequences of a single (bad) assumption.
@@ -617,15 +555,6 @@ if ( false ) {
 		// Naked Pairs, Hidden Pairs, and Swampfish). It only misses on hardest
 		// puzzles, so hardcoded as safery-net, so user can't unwant it.
 		chainers.add(new MultipleChainer(Tech.DynamicPlus, isAgg, h?1:1)); // safety-net
-
-		if ( !CARE_ABOUT_ALIGNED_HINTS ) {
-			// relegate big A*E's to just before DynamicPlus to run less often,
-			// ie hardly ever. sigh.
-			for ( Tech t : new Tech[]{Tech.AlignedPent, Tech.AlignedHex
-					, Tech.AlignedSept, Tech.AlignedOct, Tech.AlignedNona
-					, Tech.AlignedDec} )
-				move(chainers, t, Tech.DynamicPlus);
-		}
 
 		// Nested means imbedded chainers: assumptions on assumptions.
 		// The only way to ever see a nested hint is with Shift-F5 in the GUI.
@@ -865,25 +794,6 @@ if ( false ) {
 		, "Nona", "Dec"
 	};
 
-	private static void move(List<IHinter> hinters, Tech movee, Tech before) {
-		int im = indexOf(hinters, movee);
-		if ( im > -1 ) {
-			int ib = indexOf(hinters, before);
-			if ( ib > -1 )
-				hinters.add(ib, hinters.remove(im));
-		}
-	}
-
-	private static int indexOf(List<IHinter> hinters, Tech target) {
-		int index = 0;
-		for ( IHinter hinter : hinters ) {
-			if ( hinter.getTech() == target )
-				return index;
-			++index;
-		}
-		return -1;
-	}
-
 	private static final IFormatter<IHinter> TECH_NAME = (IHinter h) -> h==null
 			? ""
 			: h.getTech().name();
@@ -961,8 +871,6 @@ if ( false ) {
 		  || getFirstCat(grid, prev, curr, accu, "Chains", chainers)
 		  || getFirstCat(grid, prev, curr, accu, "Nesters", nesters) )
 			return true;
-		if ( LogicalSolver.IS_NOISY )
-			noiseln("====================");
 		return false;
 	}
 
@@ -979,12 +887,9 @@ if ( false ) {
 	private boolean getFirstCat(Grid grid, List<AHint> prev, List<AHint> curr
 			, IAccumulator accu, String catName, List<IHinter> hinters) {
 		assert prev!=null;
-		if ( LogicalSolver.IS_NOISY && catName!=null )
-			noiseln(catName + ": ");
 		boolean result = false;
-		long t0 = System.nanoTime();
 		// get the prevTech, to see if it's already passed on all its hints
-		// WTWTF: in debugger =?: appears to evaluate BOTH paths -> AIOOBE
+		// WTWTF: in debugger terniary evaluates BOTH paths -> AIOOBE
 		final Tech prevTech;
 		if ( prev.isEmpty() ) // nb: prev List may not be null
 			prevTech = null;
@@ -1008,11 +913,6 @@ if ( false ) {
 			// found nada in the cache, so search now.
 			if ( !result )
 				result = hinter.findHints(grid, accu);
-			if ( LogicalSolver.IS_NOISY ) {
-				long t1 = System.nanoTime();
-				noisef("\t%,11d\t%s%s", t1-t0, hinter, NL);
-				t0 = t1;
-			}
 			if ( result )
 				break;
 		}
@@ -1046,8 +946,8 @@ if ( false ) {
 		++AHint.hintNumber;
 		if (Log.MODE>=Log.VERBOSE_2_MODE) {
 			Log.println();
-			Log.teef(">getAllHints%s %d/%s%s", wantMore?" MORE":""
-					, AHint.hintNumber, grid.source, NL);
+			final String more; if(wantMore) more=" MORE"; else more="";
+			Log.teef(">getAllHints%s %d/%s%s", more, AHint.hintNumber, grid.source, NL);
 			Log.println(grid);
 		}
 		final LinkedList<AHint> hints = new LinkedList<>();
@@ -1083,9 +983,11 @@ if ( false ) {
 			// and don't forget to revert doSiamese or Generate goes mad
 			locking.clearSiamese();
 		}
-		if (Log.MODE >= Log.VERBOSE_2_MODE)
+		if (Log.MODE >= Log.VERBOSE_2_MODE) {
+			final String more; if(wantMore) more=" MORE"; else more="";
 			System.out.format("<getAllHints %b %,15d%s%s"
-				, any, System.nanoTime()-t0, wantMore?" MORE":"", NL);
+				, any, System.nanoTime()-t0, more, NL);
+		}
 		return hints; // empty if I was interrupted, or didn't find a hint
 	}
 
@@ -1132,6 +1034,30 @@ if ( false ) {
 			}
 		}
 		return hinter.findHints(grid, accu); // just do it quietly
+	}
+
+	/**
+	 * Krakens go bugger-up in generate.
+	 * @param enabled
+	 * @param degree
+	 */
+	public void enableKrakens(boolean enabled, int degree) {
+		for ( IHinter h : wantedHinters )
+			if ( h instanceof KrakenFisherman && h.getDegree()>=degree )
+				h.setIsEnabled(enabled);
+	}
+
+	/**
+	 * Get the hinter which implements targetTech from wantedHinters list.
+	 * @param targetTech
+	 * @return the hinter; else null if the hinter which implements targetTech
+	 *  is not wanted, or (improbable) no hinter implements targetTech.
+	 */
+	public IHinter findWantedHinter(Tech targetTech) {
+		for ( IHinter hinter : wantedHinters )
+			if ( hinter.getTech() == targetTech )
+				return hinter;
+		return null;
 	}
 
 	/**
@@ -1217,8 +1143,11 @@ if ( false ) {
 		// execute just the puzzle validators.
 		if ( getFirst(puzzleValidators, grid, accu, false) )
 			return accu.getHint();
-		LogicalAnalyser analyser = new LogicalAnalyser(this);
-		if ( analyser.findHints(grid, accu) ) { // should allways be true
+		LogicalAnalyser logicalAnalyser = new LogicalAnalyser(this);
+		if ( logicalAnalyser.findHints(grid, accu) ) {
+			// logicalAnalyser.findHints allways returns true, 
+			// only the type of hint returned varies for success or failure;
+			// and they're both WarningHints; so s__t gets sticky downstream.
 			long t1 = System.nanoTime();
 			AHint hint = accu.getHint();
 			if (Log.MODE >= Log.NORMAL_MODE) {
@@ -1622,15 +1551,17 @@ if ( false ) {
 			return grid.solutionHints;
 		IHinter analyser = new RecursiveAnalyser(); // SolutionMode.WANTED
 		IAccumulator accu = new SingleHintsAccumulator();
+		// WTWTF: grid.solutionHints is an object with no boolean value, yeah?
 		return grid.solutionHints = analyser.findHints(grid, accu)
-				? AHint.list(accu.getHint())
-				: null; // WTF? No solution is available. Your options are:
-						// 1. check expected hinters are in wantedHinters; or
-						// 2. you've broken the hinter you were working on; or
-						// 3. you've broken the solve method itself; or
-						// 4. the Grid really is unsolvable; in which case it
-						//    should not have passed upstream validation; or
-						// 5. you're just plain old ____ed!
+			? AHint.list(accu.getHint())
+			// WTF? No solution is available. Your options are:
+			// 1. check expected hinters are in wantedHinters; or
+			// 2. you've broken the hinter you were working on; or
+			// 3. you've broken the solve method itself; or
+			// 4. the Grid really is unsolvable; in which case it
+			//    should not have passed upstream validation; or
+			// 5. you're just plain ole ____ed!
+			: null;
 	}
 
 	/** Can this grid be solved just by filling in naked and hidden singles?

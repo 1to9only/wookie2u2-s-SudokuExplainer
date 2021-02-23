@@ -130,7 +130,10 @@ public final class RecursiveAnalyser extends AWarningHinter {
 			return 0; // no solution
 		Grid grid2 = new Grid(grid);
 		doRecursiveSolve(grid2, BACKWARDS, isNoisy);
-		return grid1.equals(grid2) ? 1 : 2; // 2 means 2-or-more.
+		if ( grid1.equals(grid2) )
+			return 1;
+		else
+			return 2; // 2 means 2-or-more.
 	}
 
 	/**
@@ -272,9 +275,10 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 			// is invalid somehow.
 			isSolved = false;
 		}
-		if ( IS_NOISY )
-			noiseln("\t\t\tRecursiveAnalyser.doRecursiveSolve "
-			  +(isReverse?"back":"for")+"wards returns "+isSolved+NL+grid);
+		if ( IS_NOISY ) {
+			final String s; if(isReverse) s="back"; else s="for";
+			noiseln("doRecursiveSolve "+s+"wards returns "+isSolved+NL+grid);
+		}
 		return isSolved;
 	}
 
@@ -442,9 +446,9 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 		// The upside is generating a random puzzle is already the fast part.
 		// Mrs Sudoku is a Lincoln Continental: Easy to fill. Bitch to strip.
 		final int[] values = new int[leastCell.maybes.size];
-		final int start = isReverse ?  8 : 0; // INCLUSIVE
-		final int stop  = isReverse ? -1 : 9; // EXCLUSIVE
-		final int delta = isReverse ? -1 : 1; // backwards or forwards
+		final int start; if(isReverse) start=8; else start=0; // INCLUSIVE
+		final int stop; if(isReverse) stop=-1; else stop=9; // EXCLUSIVE
+		final int delta; if(isReverse) delta=-1; else delta=1; // back/forwards
 		int count, v, value;
 		if ( rnd == null ) {
 			// populate 'values' array with the cells maybes (potential values)

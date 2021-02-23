@@ -704,29 +704,28 @@ public class KrakenFisherman extends AHinter
 						continue; // should never happen
 					// build the eliminations (reds) and the chains
 					final Pots reds = new Pots();
-					final int fv2 = v2;
+					final int fv2 = v2; // for lambda. sigh.
 					final List<Ass> chains = new LinkedList<>();
-					kFins.forEach1((kf) -> {
-						Cell kfc = grid.cells[kf]; // krakenFinCell
-						reds.put(kfc, new Values(fv2));
+					kFins.forEach(grid.cells, (c) -> {
+						reds.put(c, new Values(fv2));
 						// kt2sets is populated by isKrakenTypeTwo
 						kDeletes.forEach1((kd) ->
-								chains.add(kt2sets[kd].getAss(kfc, fv2)));
+								chains.add(kt2sets[kd].getAss(c, fv2)));
 					});
 					Values valsToRemove = new Values(v2);
 					// build the actual hint, which "wraps" the base hint.
 					kraken = new KrakenFishHint(this, reds, base, valsToRemove
 							, KrakenFishHint.Type.TWO, chains, new Idx(kFins));
-if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
-	// the generator trips over invalid Kraken Swordfish (and-up, presumably)
-	// but Swampfish are fine: so analyseDifficulty excludes Kraken Swordfish+
-	// but the Validator has to stay. sigh.
-	if ( degree>2 && !HintValidator.isValid(grid, kraken.redPots) ) {
-		kraken.isInvalid = true;
-		HintValidator.report("KF2", grid, kraken.squeeze());
-		continue; // Sigh.
-	}
-}
+
+					if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+						// generator trips over invalid Kraken Swordfish+
+						if ( degree > 2 && !HintValidator.isValid(grid, kraken.redPots) ) {
+							kraken.isInvalid = true;
+							HintValidator.report("KF2", grid, kraken.squeeze());
+							continue; // Sigh.
+						}
+					}
+
 					// clean-up for next time (was a nasty GUI only bug)
 					for ( int j=0,J=kt2sets.length; j<J; ++j )
 						this.kt2sets[j].clear();
@@ -1225,9 +1224,9 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 		// add the deletes (if any) and sharks (if any) to reds
 		final Pots reds = new Pots();
 		if ( deletes.any() )
-			deletes.forEach1((i) -> reds.put(grid.cells[i], new Values(candidate)));
+			deletes.forEach(grid.cells, (c)->reds.put(c, new Values(candidate)));
 		if ( sharks.any() )
-			sharks.forEach1((i) -> reds.put(grid.cells[i], new Values(candidate)));
+			sharks.forEach(grid.cells, (c)->reds.put(c, new Values(candidate)));
 
 		baseMask = getRegionTypesMask(basesUsed);
 		coverMask = getRegionTypesMask(coversUsed);
@@ -1278,12 +1277,14 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 		// endoFins = purple
 		final Pots purple = new Pots(endoFinsIdx.cells(grid), cv);
 		// sharks = yellow
-		final Pots yellow = sharks.any() ? new Pots(sharks.cells(grid), cv) : null;
-
-		// paint all sharks yellow (except eliminations which stay red)!
-		if ( yellow!=null && !yellow.isEmpty() ) {
-			yellow.removeFromAll(green, blue, purple);
-		}
+		final Pots yellow;
+		if ( sharks.any() ) {
+			yellow = new Pots(sharks.cells(grid), cv);
+			// paint all sharks yellow (except eliminations which stay red)!
+			if ( !yellow.isEmpty() )
+				yellow.removeFromAll(green, blue, purple);
+		} else
+			yellow = null;
 
 		// paint all eliminations red (including sharks)!
 		reds.removeFromAll(green, blue, purple, yellow);

@@ -106,14 +106,18 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass> implements IAssSe
 	@Override
 	public Ass getAss(Cell cell, int value) {
 		final Node n = nodes[cell.i][value];
-		return n!=null ? n.ass : null;
+		if ( n == null )
+			return null;
+		return n.ass;
 	}
 
 	/** @return remove and return the first Assumption, else null meaning that
 	 * this Set is empty. */
 	@Override
 	public Ass poll() {
-		return head==null ? null : remove(head.ass);
+		if ( head == null )
+			return null;
+		return remove(head.ass);
 	}
 
 	/** Remove and return the first element of this Set, throwing
@@ -134,7 +138,9 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass> implements IAssSe
 	@Override
 	public Ass get(Ass a) {
 		final Node n = nodes[a.i][a.value];
-		return n!=null ? n.ass : null;
+		if ( n == null )
+			return null;
+		return n.ass;
 	}
 
 	@Override

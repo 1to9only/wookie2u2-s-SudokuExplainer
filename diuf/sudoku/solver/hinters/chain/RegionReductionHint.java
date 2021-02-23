@@ -83,8 +83,10 @@ public final class RegionReductionHint extends AChainingHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a "+getHintTypeName()
-		+(isBig ? " on "+theValue+" in <b1>"+region.id+"</b1>" : "");
+		String s = "Look for a "+getHintTypeName();
+		if ( isBig )
+			s += " on "+theValue+" in <b1>"+region.id+"</b1>";
+		return s;
 	}
 
 	@Override

@@ -1,5 +1,5 @@
-The classes in the lock2 package were boosted from the latest Sukaku by Nicolas
-Juillerat, into Sudoku Explainer by Keith Corlett in Jan 2021.
+LockingGeneralised was boosted from the latest Sukaku by Nicolas Juillerat,
+into my version of Sudoku Explainer by Keith Corlett in Jan 2021.
 
 I believe LockingGeneralised originates from SudokuMonster, which is another
 open-source Sudoku solver. Sukaku called it VLocking, which is nonsensical to
@@ -13,14 +13,8 @@ itself. The old "I am not my own sibling" rule.
 
 Then the original removed each given cell, which is NEVER there! then added a
 removable potential for each cell which maybe value; where-as I started with
-them, so I create a HashMap of any/all remaining.
+them, so I create redPots (removable Cell=>Values) of any/all remaining.
 
 So yeah, mines a bit more efficient WITH getIdxs caching; without the cache the
 original is probably faster, coz you'd have to get cells in grid which maybe
 value 27 times more often. sigh.
-
-Also: Mine just adds a red for each remaining cell. Mine also doesn't create a
-new Pots (HashMap) that's going to remain empty, and creates ONE BitIdx victims.
-The original creates one for each search, ie up to 27 regions times 9 values is
-243 times more BitIdx's. Hammering the GC! Reduce. Re-use. Re-cycle. The GC is
-a recycler! We MUST reduce and re-use our waste! Don't blame your garbo!

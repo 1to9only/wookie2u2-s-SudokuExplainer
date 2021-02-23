@@ -50,7 +50,9 @@ public final class BinaryChainHint extends AChainingHint {
 
 	@Override
 	protected Ass getChainTarget(int viewNum) {
-		return viewNum==0 ? dstOn : dstOff;
+		if ( viewNum == 0 )
+			return dstOn;
+		return dstOff;
 	}
 
 	@Override
@@ -70,9 +72,11 @@ public final class BinaryChainHint extends AChainingHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ (isBig ? " starting on the cell <b>" + source.cell.id
-				+ "</b> with the value <b>" + source.value + "</b>" : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " at <b>"+source.cell.id+"</b>"
+			  + " on <b>"+source.value+"</b>";
+		return s;
 	}
 
 	@Override

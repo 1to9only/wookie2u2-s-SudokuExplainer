@@ -96,17 +96,23 @@ public class ColoringHint extends AHint implements IActualHint {
 
 	@Override
 	public Pots getYellows() {
-		return pots.length>2 ? pots[2] : null;
+		if ( pots.length > 2 )
+			return pots[2];
+		return null;
 	}
 
 	@Override
 	public Pots getPurples() {
-		return pots.length>3 ? pots[3] : null;
+		if ( pots.length > 3 )
+			return pots[3];
+		return null;
 	}
 
 	@Override
 	public Pots getBrowns() {
-		return pots.length>4 ? pots[4] : null;
+		if ( pots.length > 4 )
+			return pots[4];
+		return null;
 	}
 
 	@Override
@@ -137,8 +143,10 @@ public class ColoringHint extends AHint implements IActualHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+(isBig ? " on <b>"+valueToRemove+"</b>" : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " on <b>"+valueToRemove+"</b>";
+		return s;
 	}
 
 	@Override

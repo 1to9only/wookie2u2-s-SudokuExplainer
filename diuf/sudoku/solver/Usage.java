@@ -36,8 +36,17 @@ public final class Usage {
 			= new Comparator<Usage>() {
 		@Override
 		public int compare(Usage a, Usage b) {
-			long aa = a.numElims==0 ? Long.MAX_VALUE : a.time / a.numElims;
-			long bb = b.numElims==0 ? Long.MAX_VALUE : b.time / b.numElims;
+			// WARNING: terniaries are slow!
+			final long aa;
+			if ( a.numElims == 0 ) 
+				aa = Long.MAX_VALUE;
+			else
+				aa = a.time / a.numElims;
+			final long bb;
+			if ( b.numElims == 0 )
+				bb = Long.MAX_VALUE;
+			else
+				bb = b.time / b.numElims;
 			if ( aa < bb )
 				return -1; // ASCENDING
 			if ( aa > bb )
@@ -76,13 +85,15 @@ public final class Usage {
 
 	// I hate division by zero errors. The answer's 0 ya putz! If you divide 11
 	// bananas amonst your 0 kids then you're just not ____ing hard enough, so
-	// you can ____ right off to bedlam, crash, and burn like a dirty MO-FO!
+	// you can ____ right off to bedlam to continue ____ing like a dirty MO-FO!
 	// Yeah, yeah, na... it just means that nobody gets any bananas, ie 0, and
 	// I fail to see the motivation for differentiating this case from sharing
-	// 0 bananas amonst 11 kids, except that the later case has been utterly
-	// normalised by tight old ___holes like Donald.
+	// 0 bananas amonst 11 kids, except that the later case has been totally
+	// and utterly normalised by you manky inbred whitewings tight old ___wits.
 	private int div(long a, int b) {
-		return b==0 ? 0 : (int)a/b;
+		if ( b == 0 )
+			return 0;
+		return (int) a / b;
 	}
 
 	@Override

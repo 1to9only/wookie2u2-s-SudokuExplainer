@@ -72,7 +72,9 @@ public final class SingleHintsAccumulator implements IAccumulator {
 
 	@Override
 	public int size() {
-		return theHint==null ? 0 : 1;
+		if ( theHint == null )
+			return 0;
+		return 1;
 	}
 
 	@Override

@@ -9,10 +9,10 @@ package diuf.sudoku;
 import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Idx.BITS;
 import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
-import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.ISIZE;
+import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
@@ -883,7 +883,10 @@ public final class Grid {
 		final int n = Math.min(line.length(),81);
 		for ( int i=0; i<n; ++i ) {
 			ch = line.charAt(i);
-			cells[i].value = ch>='1' && ch<='9' ? ch-'0' : 0;
+			if ( ch>='1' && ch<='9' )
+				cells[i].value = ch-'0';
+			else
+				cells[i].value = 0;
 		}
 		return n == 81;
 	}
@@ -1300,29 +1303,26 @@ if ( true ) { // @check true
 			return c.maybes.size == 2;
 		}
 	};
-	private BitIdx getBitIdxBivalueImpl() {
-		if ( bivs == null ) {
-			bivs = getBitIdx(BIVALUE_FILTER);
-		} else if ( bivsHintNumber!=AHint.hintNumber || bivsPuzzleID!=puzzleID ) {
-			bivs.clear();
-			getBitIdx(bivs, BIVALUE_FILTER);
-		}
-		bivsHintNumber = AHint.hintNumber;
-		bivsPuzzleID = puzzleID;
-		return bivs;
-	}
-	private BitIdx bivs; // bivalueCells
-	private int bivsHintNumber;
-	private long bivsPuzzleID;
 	/**
 	 * Get the cells in the grid with two potential values.
 	 * @return cached BitIdx of cells with maybes.size == 2.
 	 */
 	public BitIdx getBitIdxBivalue() {
-		if ( bivsHintNumber!=AHint.hintNumber || bivsPuzzleID!=puzzleID )
-			getBitIdxBivalueImpl(); // refresh
+		if ( bivs == null ) {
+			bivs = getBitIdx(BIVALUE_FILTER);
+			bivsHintNumber = AHint.hintNumber;
+			bivsPuzzleID = puzzleID;
+		} else if ( bivsHintNumber!=AHint.hintNumber || bivsPuzzleID!=puzzleID ) {
+			bivs.clear();
+			getBitIdx(bivs, BIVALUE_FILTER);
+			bivsHintNumber = AHint.hintNumber;
+			bivsPuzzleID = puzzleID;
+		}
 		return bivs; // pre-cached
 	}
+	private BitIdx bivs; // bivalueCells
+	private int bivsHintNumber;
+	private long bivsPuzzleID;
 
 	// ------- candidates ------
 	/**
@@ -1574,9 +1574,45 @@ if ( true ) { // @check true
 		}
 		return emptyCells;
 	}
-	private IdxL emptyCells;
+	private IdxL emptyCells; // emptyCells
 	private int emptyCellsHintNumber;
 	private long emptyCellsPuzzleID;
+
+	/**
+	 * Returns a new Idx of empty cells matching the given CellFilter.
+	 * @param f
+	 * @return 
+	 */
+	public Idx getEmptiesWhere(CellFilter f) {
+		return getEmptyCells().where(cells, f);
+	}
+
+	public Idx getIdx(Idx result, CellFilter f) {
+		for ( Cell c : cells )
+			if ( f.accept(c) )
+				result.add(c.i);
+		return result;
+	}
+
+	/**
+	 * Get an Idx of cells in this grid with maybes.size == 2.
+	 * @return a CACHED Idx of bivalue cells in this grid.
+	 */
+	public Idx getBivalueCells() {
+		if ( bivis == null ) {
+			bivis = ((IdxL)getIdx(new IdxL(), BIVALUE_FILTER)).lock();
+			bivisHintNumber = AHint.hintNumber;
+			bivisPuzzleID = puzzleID;
+		} else if ( bivisHintNumber!=AHint.hintNumber || bivisPuzzleID!=puzzleID ) {
+			((IdxL)getIdx(bivis.unlock().clear(), BIVALUE_FILTER)).lock();
+			bivisHintNumber = AHint.hintNumber;
+			bivisPuzzleID = puzzleID;
+		}
+		return bivis; // pre-cached
+	}
+	private IdxL bivis; // bivalueCells
+	private int bivisHintNumber;
+	private long bivisPuzzleID;
 
 	/**
 	 * commonBuddiesNew: a new Idx of buds common to all given cells.
@@ -1743,8 +1779,11 @@ if ( true ) { // @check true
 		List<ARegion> cmnRgns = commonRegions(cells, new ArrayList<>(2));
 		if ( cmnRgns.size() == 2 ) {
 			// find the other common region
-			ARegion cr0 = cmnRgns.get(0);
-			return cr0==region ? cmnRgns.get(1) : cr0;
+			ARegion r = cmnRgns.get(0);
+			if ( r == region )
+				return cmnRgns.get(1);
+			else
+				return r;
 		}
 		return null;
 	}
@@ -2187,7 +2226,7 @@ if ( true ) { // @check true
 					break;
 				case 1:
 					// this just means values.first(); but it's a tad faster
-					final int v = FIRST_INDEX[values.bits]+1;
+					final int v = FIRST_VALUE[values.bits];
 					removeMeFromMyRegionsIndexesOfValue(v);
 					break;
 				default:
@@ -2468,8 +2507,12 @@ if ( true ) { // @check true
 		 * <p>toString may be called BEFORE the Cell is done initialising. */
 		@Override
 		public String toString() {
-			if(maybes==null) return id; // Cell is initialising
-			return id+(value!=0 ? "="+value : ":"+maybes.size+"{"+maybes+"}");
+			if ( maybes == null )
+				return id; // Cell is initialising
+			if ( value != 0 )
+				return id+"="+value;
+			else
+				return id+":"+maybes.size+"{"+maybes+"}";
 		}
 
 		/** @return String representation of this cell: A1=5 or A2:3{368}.<br>
@@ -2477,7 +2520,10 @@ if ( true ) { // @check true
 		 * toString returns the same, but don't rely on that not changing when
 		 * you really want the full string, so you call me explicitly. */
 		public String toFullString() {
-			return id+(value!=0 ? "="+value : ":"+maybes.size+"{"+maybes+"}");
+			if ( value != 0 )
+				return id+"="+value;
+			else
+				return id+":"+maybes.size+"{"+maybes+"}";
 		}
 
 		/** Does this Cell identity-equals the given Object?
@@ -2505,7 +2551,10 @@ if ( true ) { // @check true
 		// If you need to use this method anyway then good luck.
 		// You MUST finally disarrayonateMaybes.
 		private void arrayonateShiftedMaybes() {
-			shiftedMaybes = maybes.bits==0 ? null : VSHIFTED[maybes.bits];
+			if ( maybes.bits == 0 )
+				shiftedMaybes = null;
+			else
+				shiftedMaybes = VSHIFTED[maybes.bits];
 		}
 
 		private void disarrayonateMaybes() {
@@ -2514,10 +2563,12 @@ if ( true ) { // @check true
 
 		@Override
 		public int compareTo(Cell other) {
-			final int oc = other.hashCode;
-			return oc<hashCode ? -1
-				 : oc>hashCode ? 1
-				 : 0;
+			final int ohc = other.hashCode;
+			if ( ohc < hashCode )
+				return -1;
+			if ( ohc > hashCode )
+				return 1;
+			return 0;
 		}
 	}
 
@@ -2846,8 +2897,8 @@ if ( true ) { // @check true
 		 * Return the cells in this region which maybe 'bits'.
 		 * <p>
 		 * This method only used by UniqueRectangle.createType4Hint.
-		 * Called 382,984 times in top1465, so efficiency matters, but
-		 * only a bit, not a real lot.
+		 * <p>
+		 * Called 382,984 times in top1465: efficiency matters a bit, not lots.
 		 * <p>
 		 * Also this is the only use of local CellSet + LinkedHashCellSet;
 		 * so another way of doing this efficiently could eradicate lots of

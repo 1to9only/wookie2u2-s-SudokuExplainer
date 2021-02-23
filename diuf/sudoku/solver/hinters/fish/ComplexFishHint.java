@@ -196,15 +196,20 @@ public class ComplexFishHint extends AHint {
 
 	@Override
 	protected String getClueHtmlImpl(boolean isBig) {
-		return "Look for a "+getHintTypeName()
-			+ (isBig ? " on <b>"+candidate+"</b>" : "");
+		String s = "Look for a "+getHintTypeName();
+		if ( isBig )
+			s += " on <b>"+candidate+"</b>";
+		return s;
 	}
 
 	@Override
 	protected String toStringImpl() {
-		return (isInvalid?"#":"")+getHintTypeName()+": "+Frmt.csv(bases)
-				 // sashimi fins replace a corner
-				 + (isSashimi ? " (fins "+blues.cells()+")" : "")
+		// is this bastard invalid
+		final String s; if(isInvalid) s="#"; else s="";  
+		// sashimi fins replace a corner
+		final String f; if(isSashimi) f=" (fins "+blues.cells()+")"; else f="";
+		return s+getHintTypeName()+": "+Frmt.csv(bases)
+				 + f
 				 + " and "+Frmt.csv(covers)
 				 + " on "+candidate;
 	}
@@ -225,12 +230,13 @@ public class ComplexFishHint extends AHint {
 				: hType.isFranken ? "FrankenFishHint.html"
 				: hType.isFinned||hType.isSashimi ? "FinnedFishHint.html"
 				: "BasicFishHint.html";
+			final String nn; if(degree<2) nn=""; else nn=NUMBER_NAMES[degree-2];
 			return Html.produce(this, filename
 					, getHintTypeName()						// {0}
 					, Integer.toString(candidate)			//  1
 					, Regions.typeNames(bases)				//  2
 					, Regions.typeNames(covers)				//  3
-					, degree<2?"":NUMBER_NAMES[degree-2]	//  4
+					, nn									//  4 number name
 					, debugMessage							//  5
 					, redPots.toString()					//  6
 					, blues.toString()					//  7 fins

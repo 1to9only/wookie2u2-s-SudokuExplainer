@@ -83,7 +83,11 @@ public class Ass {
 //	}
 
 	public static int hashCode(int x, int y, int value, boolean isOn) {
-		return (isOn?4096:0) ^ LSH8[value] ^ LSH4[y] ^ x;
+		// NOTE: terniaries are slow!
+		//return (isOn?4096:0) ^ LSH8[value] ^ LSH4[y] ^ x;
+		if ( isOn )
+			return 4096 ^ LSH8[value] ^ LSH4[y] ^ x;
+		return LSH8[value] ^ LSH4[y] ^ x;
 	}
 
 	/**
@@ -179,7 +183,11 @@ public class Ass {
 		this.isOn = isOn;
 		// 1,2,4,8,16,32,64,128,256,512,1024,2048,4096 = 1<<12
 		// 1 2 3 4  5  6  7   8   9  10   11   12,  13
-		hashCode = (isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
+		// NOTE: terniaries are slow!
+		if ( isOn )
+			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
+		else
+			hashCode = LSH8[value] ^ cell.hashCode;
 //		parents = new MyLinkedList<>();
 		parents = null; // we now always create the list when you populate it!
 		// NB: parents remains an empty collection
@@ -210,8 +218,11 @@ public class Ass {
 		this.cell = cell;
 		this.value = value;
 		this.isOn = isOn;
-		hashCode = (isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
-
+		// NOTE: terniaries are slow!
+		if ( isOn )
+			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
+		else
+			hashCode = LSH8[value] ^ cell.hashCode;
 		// nullable non-final parents is 1.4 seconds faster top1465
 		if ( parent == null ) { // there are 4,024,758 null parents
 			parents = null;
@@ -255,7 +266,11 @@ public class Ass {
 		this.cell = cell;
 		this.value = value;
 		this.isOn = isOn;
-		hashCode = (isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
+		// NOTE: terniaries are slow!
+		if ( isOn )
+			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
+		else
+			hashCode = LSH8[value] ^ cell.hashCode;
 		parents = completeParents;
 		// NB: use addParent if nulls ever occur!
 		this.cause = cause;
@@ -279,7 +294,12 @@ public class Ass {
 		this.cell = cell;
 		this.value = value;
 		this.isOn = isOn;
-		this.hashCode = (isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
+		// NOTE: terniaries are slow!
+		//this.hashCode = (isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
+		if ( isOn )
+			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
+		else
+			hashCode = LSH8[value] ^ cell.hashCode;
 		this.parents = new MyLinkedList<>(); // list created even if parent is null!
 		if ( parent != null )
 			this.parents.linkLast(parent);
@@ -422,11 +442,8 @@ public class Ass {
 		if ( true ) { // @check true
 			if(ts!=null) return ts;
 			return ts = cell.id + (isOn?"+":"-") + value;
-		} else {
-			// DEBUG: NO_CACHE, instance
+		} else { // DEBUG: no caching
 			return cell.id + (isOn?"+":"-") + value;
-//				 // show instance, not just identity
-//				 + " at " + Integer.toHexString(super.hashCode());
 		}
 	}
 	private String ts;

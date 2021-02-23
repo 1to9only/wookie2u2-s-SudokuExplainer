@@ -8,6 +8,7 @@ package diuf.sudoku.solver.hinters.align2;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.hinters.align2.AlignedExclusion.CellStackEntry;
+import static diuf.sudoku.solver.hinters.align2.AlignedExclusion.EXCLUDERS_MAYBES;
 import diuf.sudoku.utils.LongLongHashMap;
 
 
@@ -81,25 +82,38 @@ class NonHinters {
 	 * where we (pretty obviously) never skip, but it was actually slower.
 	 *
 	 * @param cellStack the CellStackEntry array
-	 * @param size the degree (the number of cells that need to align in order
-	 *  to form an aligned set: 2..10)
+	 * @param degree the number of cells (2..10) in an aligned set
+	 * @param numExcls the number of excluder-cells whose maybes.bits are 
+	 * currently in the AlignedExclusion.EXCLUDERS_MAYBES array.
 	 * @return should we skip searching the cells in the given stack
 	 */
-	boolean skip(final CellStackEntry[] cellStack, final int size) {
+	boolean skip(final CellStackEntry[] cellStack, final int degree
+			, final int numExcls, boolean firstPass) {
 		// calculate my hashCode and totalMaybes
 		// and remember these for the presumed future call to put
 		// the cellStack always contains atleast 2 cells; it is NEVER empty!
 		Cell c = cellStack[0].cell;
 		long hc = c.hashCode; // hashCode
 		long mb = c.maybes.bits; // totalMaybes
-		for ( int i=1; i<size; ++i ) {
+		for ( int i=1; i<degree; ++i ) {
 			c = cellStack[i].cell;
 			// NOTE: shift is set by my constructor; it varies for $degree
 			hc = (hc<<shift) ^ c.hashCode;
 			mb += c.maybes.bits;
 		}
+		// if the number of excluders has changed, or any of there maybes
+		// have changed, then we will re-examine this aligned-set.
+		for ( int i=0; i<numExcls; ++i )
+			mb += EXCLUDERS_MAYBES[i];
 		this.hashCode = hc;
 		this.totalMaybes = mb;
+		if ( firstPass ) {
+			// do store.get 50 times to JIT compile it then don't bother, coz
+			// they're all gonna return false anyway coz it's the first pass!
+			if ( ++cnt < 51 )
+				return store.get(hc) == mb; // ie stored mb == current mb
+			return false;
+		}
 		// now return is the totalMaybes unchanged since last time we saw them;
 		// else (virgin cells) then get returns NOT_FOUND (-1) which is NEVER
 		// equal to the current total maybes, so skip returns false.
@@ -108,6 +122,7 @@ class NonHinters {
 		// I think get not JIT compiled, so all the subsequent calls slower.
 		return store.get(hc) == mb; // ie stored mb == current mb
 	}
+	private int cnt;
 
 	// put is called after skip when we do NOT hint, coz either hc was not in
 	// in the map (a "virgin"), or the cells maybes have changed, so we update

@@ -303,7 +303,7 @@ public final class UnaryChainer extends AChainer {
 
 	/**
 	 * Follow the forcing chains from the given "on" or "off" assumption.
-	 * @param initialAss an "On" or an "Off" assumption to follow
+	 * @param initAss an "On" or an "Off" assumption to follow
 	 * @param toOn a Set of the On assumptions for my use. This wouldn't be a
 	 *  parameter if creating a Set with a fast add-only method was fast.
 	 *  This set is cleared before (and after by my caller) use.
@@ -317,7 +317,7 @@ public final class UnaryChainer extends AChainer {
 	 * @param chains the Set of chains to which I add Cyclic Contradictions (ie
 	 *  hinty Ass's).
 	 */
-	private void doUnary( Ass initialAss
+	private void doUnary( Ass initAss
 		, IAssSet toOn, IAssSet toOff
 		, boolean isYChain
 		, IMyPollSet<Ass> effects
@@ -329,37 +329,50 @@ public final class UnaryChainer extends AChainer {
 		// Assumption ONCE so that we can compare it directly with each
 		// potential conjugates hashCode field. Much faster than the old way
 		// of creating a conjugate Ass just to equals it, ie it's hashCode!
-//KEEP4DOC: final int conjugatesHC = initialAss.conjugatesHashCode();
-		final int conjugatesHC = (!initialAss.isOn?4096:0) // NOTE THAT NOT
-				^ LSH8[initialAss.value] ^ initialAss.cell.hashCode;
+		// NOTE: 4096 is 1<<12 (13th bit) denoting ON=1 or OFF=0; so to flip
+		// an Assumption all we need do is XOR its hashCode with 4096. Simples!
+		final int conjugatesHC = initAss.hashCode ^ 4096; // ON=>OFF, OFF=>ON
+//		if ( initAss.isOn)
+//			conjugatesHC = LSH8[initAss.value] ^ initAss.cell.hashCode;
+//		else
+//			conjugatesHC = 4096 ^ LSH8[initAss.value] ^ initAss.cell.hashCode;
+		
 		int ancestorsHC;
 		Ass a, e; // an assumption and it's effect
-		if ( initialAss.isOn ) {
-			toOn.clear();  toOn.add(initialAss);
+		boolean found;
+		if ( initAss.isOn ) {
+			toOn.clear();  toOn.add(initAss);
 			toOff.clear();
 		} else {
 			toOn.clear();
-			toOff.clear();  toOff.add(initialAss);
+			toOff.clear();  toOff.add(initAss);
 		}
-		duQ.add(initialAss);
-		while ( (a=duQ.poll()) != null ) { // remove head, else null
+		a = initAss;
+		do {
 			if ( a.isOn ) {
-				onToOffs(a, isYChain, effects); //allways finds an effect
-				EFFECT_LOOP: while ( (e=effects.poll()) != null ) {
+				// ONs (pretty much) allways cause atleast 1 OFF
+				onToOffs(a, isYChain, effects);
+				while ( (e=effects.poll()) != null ) {
 					// if the Conjugate equals our initial assumption.
 					// NB: relies on Ass hashcodes being dictinctive
 					if ( e.hashCode == conjugatesHC )
 						// Cyclic Contradiction found
 						chains.add(e); // add only, no update
-					//KEEP4DOC: if ( !a.hasAncestor(e)
+					// enque e only if none of a's parents are e,
+					// ie: if ( !a.hasAncestor(e) ) duQ.add(e)
+					// otherwise we go into an infinite loop.
 					ancestorsHC = e.hashCode;
+					found = false;
 					for ( Ass p=a; p.parents!=null && p.parents.size>0; )
-						if ( (p=p.parents.first.item).hashCode == ancestorsHC )
-							continue EFFECT_LOOP; // a already hasAncestor(e)
-					if ( toOff.add(e) ) // Not processed yet
+						if ( (p=p.parents.first.item).hashCode == ancestorsHC ) {
+							found = true;
+							break;
+						}
+					if ( !found && toOff.add(e) ) // Not processed yet
 						duQ.add(e);
 				} // wend
-			} else if ( offToOns(a, toOff, true, isYChain, effects) ) { //returns are there any effects?
+			// about 1 in 3 OFFs causes an ON, so offToOns returns any?
+			} else if ( offToOns(a, toOff, true, isYChain, effects) ) { 
 				while ( (e=effects.poll()) != null ) {
 					// if the Conjugate equals our initial assumption...
 					if ( e.hashCode == conjugatesHC )
@@ -369,7 +382,7 @@ public final class UnaryChainer extends AChainer {
 						duQ.add(e);
 				}
 			}
-		}
+		} while ( (a=duQ.poll()) != null ); // remove head, else stop
 	}
 	private final MyLinkedFifoQueue<Ass> duQ = new MyLinkedFifoQueue<>();
 

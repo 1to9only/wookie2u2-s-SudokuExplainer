@@ -48,8 +48,10 @@ public class EmptyRectangleHint extends AHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ (isBig ? " on "+redValue : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " on "+redValue;
+		return s;
 	}
 
 	@Override

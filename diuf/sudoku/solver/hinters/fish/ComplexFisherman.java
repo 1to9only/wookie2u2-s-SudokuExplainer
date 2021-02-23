@@ -820,23 +820,22 @@ public class ComplexFisherman extends AHinter
 			}
 			// check that each delete exists
 			if ( deletes.any() ) { // there may occasionally only be sharks
-				deletes.forEach1((d) -> {
-					Cell cell = grid.cells[d]; // the delete (a potential elimination) cell
-					if ( (cell.maybes.bits & sc) != 0 ) {
-						reds.put(cell, new Values(candidate));
+				deletes.forEach(grid.cells, (c) -> {
+					if ( (c.maybes.bits & sc) != 0 ) {
+						reds.put(c, new Values(candidate));
 					} else { // the "missing" delete was NOT added
-						carp("MIA delete: "+cell.toFullString()+"-"+candidate);
+						carp("MIA delete: "+c.toFullString()+"-"+candidate);
 					}
 				});
 			}
 			// check that each shark exists
 			if ( sharks.any() ) { // there's usually only deletes
-				sharks.forEach1((s) -> {
-					Cell cell = grid.cells[s]; // the shark (cannibalistic) cell
-					if ( (cell.maybes.bits & sc) != 0 ) {
-						reds.put(cell, new Values(candidate));
+				// foreach shark (cannibalistic) cell in grid.cells
+				sharks.forEach(grid.cells, (c) -> {
+					if ( (c.maybes.bits & sc) != 0 ) {
+						reds.put(c, new Values(candidate));
 					} else { // the "missing" shark was NOT added
-						carp("MIA shark: "+cell.toFullString()+"-"+candidate);
+						carp("MIA shark: "+c.toFullString()+"-"+candidate);
 					}
 				});
 			}
@@ -848,9 +847,9 @@ public class ComplexFisherman extends AHinter
 			// normal operation: just add the deletes and sharks to reds,
 			// and then return null (no hint) if reds come-out null or empty.
 			if ( deletes.any() )
-				deletes.forEach1((d)-> reds.put(grid.cells[d], new Values(candidate)));
+				deletes.forEach(grid.cells, (c)-> reds.put(c, new Values(candidate)));
 			if ( sharks.any() )
-				sharks.forEach1((s) -> reds.put(grid.cells[s], new Values(candidate)));
+				sharks.forEach(grid.cells, (c) -> reds.put(c, new Values(candidate)));
 			if ( reds.isEmpty() )
 				return null;
 		}
@@ -920,17 +919,19 @@ public class ComplexFisherman extends AHinter
 		// endoFins = purple
 		final Pots purple = new Pots(endoFinsIdx.cells(grid), cv);
 		// sharks = yellow
-		final Pots yellow = sharks.any() ? new Pots(sharks.cells(grid), cv) : null;
-
-		// paint all sharks yellow (except eliminations which stay red)!
-		if ( yellow!=null && !yellow.isEmpty() ) {
-			yellow.removeFromAll(green, blue, purple);
-		}
+		final Pots yellow;
+		if ( sharks.any() ) {
+			yellow = new Pots(sharks.cells(grid), cv);
+			// paint all sharks yellow (except eliminations which stay red)!
+			if ( !yellow.isEmpty() )
+				yellow.removeFromAll(green, blue, purple);
+		} else
+			yellow = null;
 
 		// paint all eliminations red (including sharks)!
 		reds.removeFromAll(green, blue, purple, yellow);
 
-		// paint the endo-fins purple, not corners (green) or exo-fins (blue).
+		// paint endo-fins purple, not corners (green) or exo-fins (blue).
 		purple.removeFromAll(green, blue);
 
 		String debugMessage = "ComplexFisherman";
@@ -960,13 +961,10 @@ public class ComplexFisherman extends AHinter
 	/**
 	 * find the bases and allCovers for a Fish of my type and {@link #degree}.
 	 * The actual covers are calculated in searchCovers because eligibility
-	 * depends on which bases are currently used.
-	 * <p>
-	 * If this Fisherman is NOT {@link #withFins} then bases cannot have more
-	 * than {@link #degree} candidates).
+	 * depends on the current bases.
 	 *
-	 * @return are there atleast degree bases and allCovers; so we skip the
-	 * Fish search when I return false.
+	 * @return are there at least degree bases and allCovers; else we can skip
+	 * this Fish search when I return false.
 	 */
 	private boolean findEligibleBasesAndCovers() {
 		numBases = numAllCovers = 0;

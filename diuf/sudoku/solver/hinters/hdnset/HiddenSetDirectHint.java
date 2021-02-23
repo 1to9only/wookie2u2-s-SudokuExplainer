@@ -17,7 +17,6 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -60,13 +59,6 @@ public final class HiddenSetDirectHint extends AHint implements IActualHint {
 		return greenPots;
 	}
 	private Pots greenPots;
-
-	@Override
-	public String getClueHtmlImpl(boolean isBig) {
-		String regionID = isBig ? getFirstRegionId() : null;
-		return "Look for a " + getHintTypeName()
-			+ (regionID!=null ? " in <b1>" + regionID + "</b1>" : "");
-	}
 
 	@Override
 	public String toStringImpl() {

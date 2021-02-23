@@ -95,13 +95,6 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 	}
 
 	@Override
-	public String getClueHtmlImpl(boolean isBig) {
-		String regionID = isBig ? getFirstRegionId() : null;
-		return "Look for a " + getHintTypeName()
-			+ (regionID!=null ? " in <b1>" + regionID + "</b1>" : "");
-	}
-
-	@Override
 	public String toStringImpl() {
 		if ( ts != null )
 			return ts;

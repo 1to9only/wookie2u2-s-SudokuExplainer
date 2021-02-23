@@ -39,8 +39,10 @@ public final class HiddenSingleHint extends ADirectHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ (isBig ? " in <b1>" + getRegion().id + "</b1>" : "");
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " in <b1>" + getRegion().id + "</b1>";
+		return s;
 	}
 
 	@Override

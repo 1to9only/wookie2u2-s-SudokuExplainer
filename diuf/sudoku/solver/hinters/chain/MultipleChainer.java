@@ -55,6 +55,19 @@ public final class MultipleChainer
 		extends AChainer
 		implements ICleanUp
 {
+	/**
+	 * Return num hinters in the hinters array of this degree.
+	 * @param degree
+	 * @return 1=4, even=5, or odd=6
+	 */
+	private static int numHinters(int degree) {
+		if ( degree == 1 )
+			return 4;
+		else if ( degree%2 == 0 )
+			return 5;
+		return 6;
+	}
+
 	/** An array of Four Quick Foxes (et al) used by the
 	 * {@code getHintersEffects(...)} method. Populated in constructor. */
 	protected final IHinter[] hinters;
@@ -97,7 +110,7 @@ public final class MultipleChainer
 			return;
 		}
 		// Create and populate the hinters array.
-		this.hinters = new IHinter[degree==1 ? 4 : degree%2==0 ? 5 : 6];
+		this.hinters = new IHinter[numHinters(degree)];
 		// imbed the Four Quick Foxes					// ns/call
 		hinters[0] = new Locking();				//   3,026
 		hinters[1] = new HiddenSet(Tech.HiddenPair);	//   2,858
@@ -265,7 +278,7 @@ public final class MultipleChainer
 		boolean doBinaryReductions; // set later to doReduction && card>2
 		boolean doCellReductions; // set later when we know the card
 
-		final int minCard = isDynamic ? 2 : 3; // 3 is multiple?
+		final int minCard; if(isDynamic) minCard=2; else minCard=3; // 3 is multiple?
 		// foreach empty cell (except naked/hidden singles)
 		for ( Cell cell : grid.cells ) {
 			// cell.skip means naked/hidden single that's not yet applied
@@ -798,8 +811,9 @@ public final class MultipleChainer
 				: new Pots(target.cell, target.value);
 		if ( redPots == null )
 			return null;
+		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid="";
 		return new BinaryChainHint(this, redPots, source, dstOn, dstOff
-				, isNishio, isContradiction, WANT_TYPE_ID?" ("+typeID+")":"");
+				, isNishio, isContradiction, tid);
 	}
 
 	private CellReductionHint createCellReductionHint(
@@ -844,8 +858,8 @@ public final class MultipleChainer
 		} // next v
 		if(chains.isEmpty()) return null; // should never happen AFAIK
 		// Build & return the hint
-		return new CellReductionHint(this, redPots, srcCell, chains
-				, WANT_TYPE_ID?" ("+typeID+")":"");
+		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid="";
+		return new CellReductionHint(this, redPots, srcCell, chains, tid);
 	}
 
 	private RegionReductionHint createRegionReductionHint(
@@ -854,16 +868,16 @@ public final class MultipleChainer
 		, Ass target
 		, IMySet<Ass>[] positionEffects
 	) {
-		final int typeID = target.isOn ? 0 : 1;
+		final int typeID; if(target.isOn) typeID=0; else typeID=1;
 		// build removable potentials
-		final Pots redPots;
+		final Pots reds;
 		if ( target.isOn ) {
 			if ( target.cell.maybes.bits == VSHFT[target.value] )
 				return null; // naked singles are not my problem
-			redPots = new Pots(target.cell
+			reds = new Pots(target.cell
 					, target.cell.maybes.minus(target.value));
 		} else
-			redPots = new Pots(target.cell, target.value);
+			reds = new Pots(target.cell, target.value);
 		// build chains
 		LinkedHashMap<Integer, Ass> chains = null;
 		IMySet<Ass> effects; // the effects of r.cells[i] being v
@@ -876,8 +890,8 @@ public final class MultipleChainer
 				chains.put(i, targetWithParents);
 			}
 		if(chains==null) return null;
-		return new RegionReductionHint(this, redPots, region
-				, value, chains, WANT_TYPE_ID?" ("+typeID+")":"");
+		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid="";
+		return new RegionReductionHint(this, reds, region, value, chains, tid);
 	}
 
 	/**

@@ -200,7 +200,11 @@ public abstract class AHint implements Comparable<AHint> {
 			}
 			if ( redPots != null ) {
 				int pinkBits; // Paul Hogan said "No comment".
-				final Deque<Cell> nakedSingles = isAutosolving ? SINGLES_QUEUE : null;
+				final Deque<Cell> nakedSingles;
+				if ( isAutosolving )
+					nakedSingles = SINGLES_QUEUE;
+				else
+					nakedSingles = null;
 				for ( Cell pc : redPots.keySet() ) // pinkCell
 					// if pinkCell still has any of these red values?
 					if ( (pinkBits=pc.maybes.bits & redPots.get(pc).bits) != 0 )
@@ -255,7 +259,11 @@ public abstract class AHint implements Comparable<AHint> {
 			}
 			if ( redPots != null ) {
 				int pinkBits; // Paul's already covered this one, thanks Cecil.
-				final Deque<Cell> nakedSingles = isAuto ? SINGLES_QUEUE : null;
+				final Deque<Cell> nakedSingles;
+				if ( isAuto )
+					nakedSingles = SINGLES_QUEUE;
+				else
+					nakedSingles = null;
 				System.out.print(" [");
 				String sep = ""; // no leading space for the first one
 				for ( Cell pc : redPots.keySet() ) { // pinkCell
@@ -334,6 +342,7 @@ public abstract class AHint implements Comparable<AHint> {
 	public List<ARegion> getBases() {
 		return bases;
 	}
+
 	/** @return array of bases coz jUnit !compare List. */
 	public final ARegion[] getBasesArray() {
 		List<ARegion> list = getBases();
@@ -346,6 +355,7 @@ public abstract class AHint implements Comparable<AHint> {
 	public List<ARegion> getCovers() {
 		return covers;
 	}
+
 	/** @return array of bases coz jUnit !compare List. */
 	public ARegion[] getCoversArray() {
 		List<ARegion> list = getCovers();
@@ -357,25 +367,42 @@ public abstract class AHint implements Comparable<AHint> {
 	/** @return the id of the first Region, else null. */
 	protected String getFirstRegionId() {
 		List<ARegion> rs = getBases();
-		return rs==null || rs.size()<1 ? null : rs.get(0).id;
+		if ( rs==null || rs.size()<1 )
+			return null;
+		return rs.get(0).id;
 	}
 
-	/** Subtypes override this one to implement getClueHtml - gets the HTML
+	/** 
+	 * Subtypes override this one to implement getClueHtml - gets the HTML
 	 * for {@code (Shift)F6} or {@code Menu: Options ~ Get a (Big) Clue}.<p>
 	 * Just remember that a hint is pointer towards a hint, not a hint itself.
+	 * 
 	 * @param isBig <tt>true</tt> gets more information.
-	 * @return a clue, in HTML. */
+	 * @return a clue, in HTML.
+	 */
 	protected String getClueHtmlImpl(boolean isBig) {
-		String regionID = isBig ? getFirstRegionId() : null;
-		return "Look for a " + getHintTypeName()
-			 + (regionID==null ? "" : " in <b1>" + regionID + "</b1>");
+		final String rid; // regionID
+		if ( isBig )
+			rid = getFirstRegionId(); // may return null (may take ages)
+		else
+			rid = null;
+		String s = "Look for a "+getHintTypeName();
+		if ( rid != null )
+			s += " in <b1>"+rid+"</b1>";
+		return s;
 	}
-	/** Callers get a clue (directions towards a hint) as a HTML string.<p>
+
+	/**
+	 * Callers get a clue (directions towards a hint) as a HTML string.<p>
 	 * I am final, I just cache the result of {@link #getClueHtmlImpl(boolean)}.
+	 * 
 	 * @param isBig <tt>true</tt> gets more information.
-	 * @return a clue, in HTML. */
+	 * @return a clue, in HTML.
+	 */
 	public final String getClueHtml(boolean isBig) {
-		return clueHtml!=null ? clueHtml : (clueHtml=getClueHtmlImpl(isBig));
+		if ( clueHtml == null )
+			clueHtml = getClueHtmlImpl(isBig);
+		return clueHtml;
 	}
 	private String clueHtml; // get clue html
 
@@ -593,9 +620,21 @@ public abstract class AHint implements Comparable<AHint> {
 	 */
 	public String toFullString() {
 		if(fullString!=null) return fullString;
-		String cv = cell==null ? "" : cell.id+"+"+value; // cell value
-		String rp = redPots==null ? "" : redPots.toString(); // red pots
-		String sep = cv.isEmpty() || rp.isEmpty() ? "" : " ";
+		final String cv;  // cell value
+		if ( cell == null )
+			cv = "";
+		else
+			cv = cell.id+"+"+value;
+		final String rp;  // red pots
+		if (redPots == null )
+			rp = "";
+		else
+			rp = redPots.toString();
+		final String sep;
+		if ( cv.isEmpty() || rp.isEmpty() )
+			sep = "";
+		else
+			sep = " ";
 		return fullString = toString()+" ("+cv+sep+rp+")";
 	}
 	private String fullString; // toFullStrings cache

@@ -99,45 +99,46 @@ public enum Tech {
 	, WXYZ_Wing			(4.21, 4, "WXYZ-Wing")			// limited-ALSs
 	, VWXYZ_Wing		(4.22, 4, "VWXYZ-Wing")			// limited-ALSs
 	, UVWXYZ_Wing		(4.23, 6, "UVWXYZ-Wing")		// limited-ALSs
+	, TUVWXYZ_Wing		(4.24, 7, "TUVWXYZ-Wing")		// limited-ALSs
 	, FinnedSwampfish	(4.30, 2, "Finned Swampfish")	// Finned & Sashimi Fish (fast)
 	, FinnedSwordfish	(4.31, 3, "Finned Swordfish")
 	, FinnedJellyfish	(4.32, 4, "Finned Jellyfish")
-	, Coloring			(4.40, 2, "Coloring", "or BUG (below)")	// Coloring (BUG++)
-	, TUVWXYZ_Wing		(4.24, 7, "TUVWXYZ-Wing")		// limited-ALSs
-	, SueDeCoq			(4.48, 0, "Sue De Coq")
-	, DeathBlossom		(4.49, 0, "Death Blossom", "produces invalid hints!")
+	, Coloring			(4.40, 2, "Coloring", "or BUG (below)")	// (BUG+)
 	, ALS_XZ			(4.50, 0, "ALS-XZ")				// ALSs
 	, ALS_Wing			(4.51, 0, "ALS-Wing")
 	, ALS_Chain			(4.52, 0, "ALS-Chain")
+	, DeathBlossom		(4.53, 0, "Death Blossom")		// stem + ALSs
+	, SueDeCoq			(4.54, 0, "Sue De Coq")			// AALSs
 	, FrankenSwampfish	(4.60, 2, "Franken Swampfish")
 	, FrankenSwordfish	(4.61, 3, "Franken Swordfish")
 	, FrankenJellyfish	(4.62, 4, "Franken Jellyfish")
 // 1,764 seconds for 20 hints is just too slow to be allowed. Mutants are dead.
 // Having said that Mutant Swampfish was fast enough, for 0 hints. sigh.
-	, MutantSwampfish	(4.70, 2, "Mutant Swampfish", "top1465 NONE")		// SLOW
-	, MutantSwordfish	(4.71, 3, "Mutant Swordfish", "top1465 45 seconds")	// VERY SLOW
-	, MutantJellyfish	(4.72, 4, "Mutant Jellyfish", "top1465 5 minutes")	// SUPER SLOW
+	, MutantSwampfish	(4.70, 2, "Mutant Swampfish", "top1465 NONE")		// NONE
+	, MutantSwordfish	(4.71, 3, "Mutant Swordfish", "top1465 45 seconds")	// OK
+	, MutantJellyfish	(4.72, 4, "Mutant Jellyfish", "top1465 5 minutes")	// VERY SLOW
 	, NakedQuad			(5.0, 4, "Naked Quad")
-	, HiddenQuad		(5.1, 4, "Hidden Quad", "top1465 NONE")
+	, HiddenQuad		(5.1, 4, "Hidden Quad")
 	, NakedPent			(5.2, 5, "Naked Pent", "top1465 NONE")
 	, HiddenPent			(5.3, 5, "Hidden Pent", "top1465 NONE")
 	, URT				(5.4, 0, "Unique Rectangle")
-	, KrakenSwampfish	(5.80, 2, "Kraken Swampfish")	// SLOW
+	, KrakenSwampfish	(5.80, 2, "Kraken Swampfish")						// OK
 	, KrakenSwordfish	(5.81, 3, "Kraken Swordfish", "top1465 2 minutes")	// SLOW
 	, KrakenJellyfish	(5.82, 4, "Kraken Jellyfish", "top1465 5 minutes")	// VERY SLOW
 
 // Diabolical
-	, BUG				(6.0, 0, "Bi-Uni Grave", "or Coloring (above)") // Type 1=6.0, 2=6.1, 3={2=6.2, 3=6.3, 4=6.4}, 4=6.0
+	// Type 1=6.0, 2=6.1, 3={2=6.2, 3=6.3, 4=6.4}, 4=6.0
+	, BUG				(6.0, 0, "Bivalue Universal Grave", "or Coloring (above)")
 
 	, AlignedPair		(6.1, 2, "Aligned Pair")
 	, AlignedTriple		(6.2, 3, "Aligned Triple")
 	, AlignedQuad		(6.3, 4, "Aligned Quad")
-	, AlignedPent		(6.4, 5, "Aligned Pent", "top1465 01:16 m:s correct")
-	, AlignedHex		(6.5, 6, "Aligned Hex", "top1465 03:28 m:s correct")
-	, AlignedSept		(6.6, 7, "Aligned Sept", "top1465 06:17 m:s correct")
-	, AlignedOct			(6.7, 8, "Aligned Oct", "top1465 19 minutes correct")
-	, AlignedNona		(6.8, 9, "Aligned Nona", "top1465 3 hours correct")
-	, AlignedDec			(6.9,10, "Aligned Dec", "top1465 6 hours correct")
+	, AlignedPent		(6.4, 5, "Aligned Pent", "top1465 1 minute unhacked")	// SLOW
+	, AlignedHex		(6.5, 6, "Aligned Hex",  "top1465 3 minutes unhacked")	// SLOW
+	, AlignedSept		(6.6, 7, "Aligned Sept", "top1465 6 minutes unhacked")	// VERY SLOW
+	, AlignedOct			(6.7, 8, "Aligned Oct",  "top1465 19 minutes unhacked")	// TOO SLOW
+	, AlignedNona		(6.8, 9, "Aligned Nona", "top1465 3 hours unhacked")	// WAY TOO SLOW
+	, AlignedDec			(6.9,10, "Aligned Dec",  "top1465 6 hours unhacked")	// WAY TOO SLOW
 
 	// chains           level                      Multi,Dynam,Nishi
 	, UnaryChain		(7.0, 0, "Unary Chain",    false,false,false)

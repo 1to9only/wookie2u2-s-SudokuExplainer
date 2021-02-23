@@ -252,7 +252,7 @@ public class IdxL extends Idx implements Cloneable {
 		if ( true ) // @check true
 			return super.toString();
 		else // debug only
-			return (isLocked?"SHUT ":"OPEN ") + super.toString(); //To change body of generated methods, choose Tools | Templates.
+			return (isLocked?"LOKD ":"OPEN ") + super.toString();
 	}
 
 }

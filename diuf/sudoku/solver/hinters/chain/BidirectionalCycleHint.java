@@ -54,7 +54,9 @@ public final class BidirectionalCycleHint extends AChainingHint {
 
 	@Override
 	protected Ass getChainTarget(int viewNum) {
-		return viewNum==0 ? this.dstOn : this.dstOff;
+		if ( viewNum == 0 )
+			return dstOn;
+		return dstOff;
 	}
 
 	@Override
@@ -121,15 +123,18 @@ public final class BidirectionalCycleHint extends AChainingHint {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		return "Look for a " + getHintTypeName()
-			+ ( !isBig ? "" : isXChain && !isYChain
-				? " on <b>" + dstOn.value + "</b>"
-				: " at <b>" + dstOn.cell.id + "</b>" );
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			if ( isXChain && !isYChain )
+				s += " on <b>" + dstOn.value + "</b>";
+			else
+				s += " at <b>" + dstOn.cell.id + "</b>";
+		return s;
 	}
 
 	private boolean isSwampfish() {
 		return isXChain && !isYChain
-			// NB: We're not calling the nasty getNestedAquaCells()
+			// NB: We're NOT calling the nasty getNestedAquaCells()
 			&& getAquaCells(0).size() == 4;
 	}
 
@@ -137,10 +142,15 @@ public final class BidirectionalCycleHint extends AChainingHint {
 	protected String getNamePrefix() { return "Bidirectional "; }
 	@Override
 	protected String getNameMiddle() {
-		if ( isYChain )
-			return isXChain ? "XY Cycle" : "Y Cycle";
+		if ( isYChain ) {
+			if ( isXChain )
+				return "XY Cycle";
+			return "Y Cycle";
+		}
 		assert isXChain;
-		return getAquaCells(0).size()==4 ? "Swamp Cycle" : "X Cycle";
+		if ( getAquaCells(0).size() == 4 )
+			return "Swamp Cycle";
+		return "X Cycle";
 	}
 	@Override
 	protected String getNameSuffix() { return ""; }
@@ -156,10 +166,15 @@ public final class BidirectionalCycleHint extends AChainingHint {
 				= isXChain && isYChain ? "BidirectionalCycleHintXY.html"
 				: isXChain ? "BidirectionalCycleHintX.html"
 				: "BidirectionalCycleHintY.html";
+		final String swamp;
+		if ( isSwampfish() )
+			swamp = " (Generalized Swampfish)";
+		else
+			swamp = "";
 		return Html.produce(this, fileName
 				, Frmt.and(getAquaCells(0))		//{0}
 				, Integer.toString(dstOn.value)	// 1
-				, isSwampfish() ? " (Generalized Swampfish)" : "" // 2
+				, swamp							// 2
 				, getChainHtml(dstOn)			// 3
 				, getChainHtml(dstOff)			// 4
 		);

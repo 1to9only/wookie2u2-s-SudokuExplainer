@@ -62,10 +62,10 @@ public final class NakedSetDirectHint extends AHint implements IActualHint {
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a "+getHintTypeName();
-		if (isBig) {
-			String regionID = getFirstRegionId();
-			if(regionID==null) regionID="regnoto";
-			s+=" in <b1>"+regionID+"</b1>";
+		if ( isBig ) {
+			String rid = getFirstRegionId();
+			if(rid==null) rid="regnoto";
+			s += " in <b1>"+rid+"</b1>";
 		}
 		return s;
 	}

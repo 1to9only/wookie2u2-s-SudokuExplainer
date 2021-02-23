@@ -144,7 +144,9 @@ public class LinkedMatrixCellSet
 	 */
 	@Override
 	public Cell poll() {
-		return head==null ? null : remove(head.cell);
+		if ( head == null )
+			return null;
+		return remove(head.cell);
 	}
 
 	@Override

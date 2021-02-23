@@ -32,10 +32,10 @@ import java.util.logging.Logger;
 
 
 /**
- * An RCC is a Restricted Common Candidate, which is the one-or-two values that
- * two ALS's have in common, which all see each other (that's the nominative
- * restriction); and optionally cannot be in the intersection of the two ALS's;
- * and optionally must be more than one cell (no bivalue cells as ALS's).
+ * An RCC is a Restricted Common Candidate/s: one-or-two values that two ALS's
+ * have in common, which all see each other (the nominative restriction);<br>
+ * and optionally cannot be in the intersection of the two ALS's;<br>
+ * and optionally must be more than one cell (no bivalue cells).
  *
  * @author hobiwan originally but this ones a bit of a KRC hack, with fruit
  * juice, but no gannets.
@@ -117,14 +117,21 @@ public class Rcc implements Comparable<Rcc>, Cloneable, Serializable {
      * @return true if an actual RC remains, false otherwise
      */
     public boolean checkRC(Rcc prevRC, boolean firstTry) {
-        actualRC = cand2==0 ? 1 : 3;
+		// NOTE: terniaries are slow!
+		if ( cand2 == 0 )
+			actualRC = 1;
+		else
+			actualRC = 3;
         if ( prevRC == null ) { // previous rc is not provided
 			// start of chain: pick your RC
             if ( cand2 != 0 )
-                actualRC = firstTry ? 1 : 2;
+				if ( firstTry )
+					actualRC = 1;
+				else
+					actualRC = 2;
         } else
 			switch ( prevRC.actualRC ) {
-				case 0: break; // already done
+				case 0: break; // actualRC is already set
 				case 1: actualRC = checkRCInt(prevRC.cand1, 0, cand1, cand2); break;
 				case 2: actualRC = checkRCInt(prevRC.cand2, 0, cand1, cand2); break;
 				case 3: actualRC = checkRCInt(prevRC.cand1, prevRC.cand1, cand1, cand2); break;
@@ -144,21 +151,36 @@ public class Rcc implements Comparable<Rcc>, Cloneable, Serializable {
      * @return
      */
     private int checkRCInt(int c11, int c12, int c21, int c22) {
-        if ( c12 == 0 ) // one ARC
-            if (c22 == 0) // one ARC one PRC
-                return c11 == c21 ? 0 : 1;
+		// NOTE: terniaries are slow!
+        if ( c12 == 0 ) { // one ARC
+            if ( c22 == 0 ) // one ARC one PRC
+                if ( c11 == c21 )
+					return 0;
+				else
+					return 1;
 			else // one ARC two PRCs
-                return c11 == c22 ? 1
-					 : c11 == c21 ? 2
-					 : 3;
-		else // two ARCs
+                if ( c11 == c22 )
+					return 1;
+				else if ( c11 == c21 )
+					return 2;
+				else
+					return 3;
+		} else { // two ARCs
             if (c22 == 0) // two ARCs one PRC
-                return c11==c21 || c12==c21 ? 0 : 1;
+                if ( c11==c21 || c12==c21 )
+					return 0;
+				else
+					return 1;
             else // two ARCs two PRCs
-                return ((c11==c21 && c12==c22) || (c11==c22 && c12==c21)) ? 0
-					 : (c11==c22 || c12==c22) ? 1
-					 : (c11==c21 || c12==c21) ? 2
-				     : 3;
+                if ( (c11==c21 && c12==c22) || (c11==c22 && c12==c21) )
+					return 0;
+				else if ( c11==c22 || c12==c22 )
+					return 1;
+				else if ( c11==c21 || c12==c21 )
+					return 2;
+				else
+					return 3;
+		}
     }
 
     /**

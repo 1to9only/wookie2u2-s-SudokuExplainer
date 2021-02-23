@@ -303,19 +303,25 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	/** @return index of the first (rightmost) set (1) bit, else NONE (-1). */
 	public int first() {
-		return bits==0 ? NONE : FIRST_INDEX[bits];
+		if ( bits == 0 )
+			return NONE;
+		return FIRST_INDEX[bits];
 	}
 
 	/** @return index of the last (leftmost) set (1) bit, else NONE (-1). */
 	public int last() {
 		// this is/seems faster than numberOfLeadingZeros on my i7.
-		return bits==0 ? NONE : (int)(Math.log(bits)/LOG2);
+		if ( bits == 0 )
+			return NONE;
+		return (int)(Math.log(bits)/LOG2);
 	}
 
 	/** @return the next index from 'i' inclusive, else NONE (-1). */
 	public int next(int i) {
-		int b = bits & (ONES<<i);
-		return b==0 ? NONE : FIRST_INDEX[b];
+		final int b = bits & (ONES<<i);
+		if ( b == 0 )
+			return NONE;
+		return FIRST_INDEX[b];
 	}
 
 	// ---------------- toArray ----------------
@@ -391,10 +397,13 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @return the given 'sb' so that you can chain method calls. */
 	public static StringBuilder appendTo(StringBuilder sb, int bits, int n
 			, String sep, String lastSep) {
-		int count=0;
+		int count = 0;
 		for ( int i : INDEXES[bits] ) {
-			if (++count > 1) // 1 based count, so compare with n (not m)
-				sb.append(count<n? sep : lastSep);
+			if ( ++count > 1 ) // 1 based count
+				if ( count < n ) // 1 based, so n (not m)
+					sb.append(sep);
+				else
+					sb.append(lastSep);
 			sb.append(i);
 		}
 		return sb;

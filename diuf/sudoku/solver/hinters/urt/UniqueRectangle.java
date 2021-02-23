@@ -11,13 +11,13 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
-import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.ALL_BITS;
+import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
@@ -393,7 +393,7 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 		// extraValues = extraValues - v1 - v2
 		evs = evs & ~VSHFT[v1] & ~VSHFT[v2];
 		assert Integer.bitCount(evs) == 1; // there can only be one
-		int theExtraValue = FIRST_INDEX[evs]+1; // get first
+		int theExtraValue = FIRST_VALUE[evs]; // get first
 		// get extraBuds := buds common to all extraCells, except the
 		// extraCells themselves, which maybe theExtraValue, and if there
 		// are none then there's no hint here. Move along!
@@ -716,16 +716,17 @@ The first URT Type 4
 
 	/**
 	 * Used only by UniqueRectangle, but the CellSet reference type is used by
-	 * {@link Grid#maybe(int bits, CellSet result)} to fetch the cells in this
-	 * region which maybe 'bits'.
+	 * {@link Grid.ARegion#maybe(int bits, IUrtCellSet results)} to fetch the
+	 * cells in this region which maybe 'bits'.
 	 */
 	public static interface IUrtCellSet extends Set<Cell> {
 		/**
 		 * Removes the given cells from this CellSet.
-		 * @param cells an arguements array of the Cell/s to remove
-		 * @return this CellSet, for method chaining.
+		 * @param a first Cell to remove
+		 * @param b second Cell to remove
+		 * @return this IUrtCellSet, for method chaining.
 		 */
-		public IUrtCellSet remove(Cell... cells);
+		public IUrtCellSet remove(Cell a, Cell b);
 	}
 
 	/**
@@ -768,9 +769,9 @@ The first URT Type 4
 		 * {@InheritDoc}
 		 */
 		@Override
-		public IUrtCellSet remove(Cell... cells) {
-			for ( Cell c : cells )
-				super.remove(c);
+		public IUrtCellSet remove(Cell a, Cell b) {
+			super.remove(a);
+			super.remove(b);
 			return this;
 		}
 

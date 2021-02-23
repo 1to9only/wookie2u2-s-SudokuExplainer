@@ -134,7 +134,7 @@ import java.util.TreeSet;
  * @see     Hashtable
  * @since   1.4
  */
-public final class MyLinkedHashSet<E>
+public class MyLinkedHashSet<E>
 	extends MyHashSet<E>
 	implements IMyPollSet<E>, Cloneable, java.io.Serializable {
 

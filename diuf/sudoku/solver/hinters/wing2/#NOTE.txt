@@ -20,6 +20,13 @@ KRC 2020-01-04 16:41 I've just fitted all three "big wings" up with the elim
 method, to do the actual eliminations, because it's MUCH shorter (less boiler
 plate code), and also a tiny bit faster.
 
+KRC 2021-01-21 I should note that wing2 is the first, but not the only place
+that uses BitIdx. It has to be in the grid, obviously, to get the bastards,
+from whence it has spread to (currently) Idx (translate); als.DeathBlossom,
+and lock2.LockingGeneralised. I am attempting to minimise it's usage because
+each instance holds the whole grid, so it must be cleaned-up after use.
+
+
 NOTE: TUVWXYZWing is actually slower than ALS-XZ per elimination. It's been
 retained only coz it finds a few hints which ALS-XZ does not, thanks to its
 ability to detect additional eliminations on double-links, I think.
