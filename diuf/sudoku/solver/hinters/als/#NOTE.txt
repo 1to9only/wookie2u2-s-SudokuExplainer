@@ -1,0 +1,103 @@
+NOTE: Almost Locked Sets is based on HoDoKu code by Bernhard Hobiger.
+
+Here is hobiwan's licence statement:
+
+/*
+ * Copyright (C) 2008-12  Bernhard Hobiger
+ *
+ * HoDoKu is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * HoDoKu is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+als means Almost Locked Sets
+============================
+
+2020-09-23 renamed alshdk package diuf.sudoku.solver.hinters.als because
+           it's HoDoKu origin doesn't seem so important any longer.
+
+While many of the hint-types in DIUF are inspired by HoDoKu, I outright stole
+the ALS implementation code from HoDoKu after having a go at it myself (four
+times now) and failing miserably.
+
+1. Hdk types: are (mostly) boosted from HoDoKu. By mostly I mean that some
+   additional fields and some translator code has been added; and some HoDoKu
+   code (esp groupedBuddies) has been imported into these classes to remove
+   there dependencies on HoDoKu's large web of classes.
+
+2. Diuf types: are native to DIUF Sudoku Explainer (this project).
+
+3. If neither it's probably "boosted clean" out of HoDoKu, with no dependency
+   on the HoDoKu types... but you never know, so "unspecified" is probably the
+   best definition.
+
+So internally I'm all HoDoKu, but externally I'm all DIUF Sudoku Explainer.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Compare and contrast HoDoKu and Sudoku Explainer
+================================================
+
+Some equivalences exist between HoDoKu (hdk) and Sudoku Explainer (SE). In the
+following text the hdk name is always given first, then the SE name.
+
+Hdks SudokuStepFinder is roughly equivalent to SE's LogicalSolver in that it
+exists to be an interface to all the solver/hinter classes. In hdk a step in
+solving the puzzle is called a SolutionStep or "step" and in SE's it a AHint
+or plain "hint". Classes that produce steps/hints are called Solver/Hinters.
+
+Sudoku Explainer is MUCH more "region focused" than HoDoKu, I suppose because
+the regions are designed and coded early in the development process they take
+on an importance which they do not necessarily deserve in my thinking about
+Sudoku problems. Regardless of why, Sudoku Explainer almost always attributes
+a hint to region/s which own or atleast contribute to a hint; and the regions
+are displayed in all hints where they're relevant. HoDoKu doesn't display
+regions in it's hints, at all. So most of the thinking isn't so "regional".
+
+Sudoku Explainer attempts to provide the user with a human readable explanation
+(instance) and justification of (logic behind) every hint. HoDoKu just gives
+the user a hard-to-read string which defines but does not explain or justify
+the hint, so a user can't use HoDoKu to learn how to solve Sudokus themselves;
+which is what I think the real challenge is, or atleast should be. We pay it
+forward. That's the open source ethos. Because it works.
+
+HoDoKu has gone all-out to remove statefulness from Sudoku solving by stashing
+everything possible in static arrays; and calling "get" methods to fetch cell
+attributes from the sudoku (Sudoku2) instance. Sudoku Explainer is a lot more
+laid-back in it's design, it's Grid contains all state in attributes which are
+accessed directly (many times not through any method). SE's raw attributes are
+much faster but (I guess) you run into problems when you take Sudoku solving
+to lengths that hobiwan has gone to. Be in no doubt that hobiwans algorithms
+are "more advanced" (hobiwans algorithms are researched, mine are just mine and
+Nicolas Juillerat's) it's just that, mainly thanks to my "everything at hand"
+model Sudoku Explainer is actually faster despite (or maybe because of?) using 
+"less intelligent" and therefore "harder work" algorithms. Simpler is faster,
+even when it's actually more work. Go figure.
+
+SE still relies heavily on it's super-fact Chainers. But it's now adopted many
+of HoDoKu's "mid range" solving techniques to hopefully provide a much better
+answer to the question:
+
+    How can any Sudoku puzzle be solved as simply and quickly as possible?
+
+~ Keith Corlett 2020-08-04
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+PS: DIUF Sudoku Explainer's hodoku package relies on HoDoKu (slightly modified)
+which is now linked-in as a library. But not alshdk: here I boosted just the
+required code out of HoDoKu, and put it in Sudoku Explainer. Adopting the whole
+damn project came later when I hit "complex" Fish; banged my head repeatedly on
+an unyielding wall; gave up, and just used what was in front of me instead of
+insisting on "boosting" everything (adapting hobiwans algorithms to my model).

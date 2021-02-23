@@ -1,0 +1,28 @@
+NOTE: The package name: sdp stands for Single Digit Pattern, because these
+solving techniques all revolve around a single potential value.
+
+SingleDigitPatternSolver is the name of the HoDoKu class which contained all
+the concepts that the hinters in this directory were based on. I have not
+copied hobiwans code, just the concepts there-in, but the concepts are the
+important part, so kudos should flow back to hobiwan. All mistakes are mine.
+
+Here is hobiwan's licence statement:
+
+/*
+ * Copyright (C) 2008-12  Bernhard Hobiger
+ *
+ * This file is part of HoDoKu.
+ *
+ * HoDoKu is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * HoDoKu is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
+ */

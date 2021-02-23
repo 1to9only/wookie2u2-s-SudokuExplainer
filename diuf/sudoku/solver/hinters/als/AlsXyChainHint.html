@@ -1,0 +1,46 @@
+<html>
+<!-- 
+/*
+ * Copyright (C) 2008-12  Bernhard Hobiger
+ *
+ * Bernhard Hobiger wrote this description so I include his standard licence
+ * statement. Any kudos should go to him. I barely understand this carp. KRC.
+ *
+ * HoDoKu is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * HoDoKu is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
+ */
+-->
+ <body>
+  <h2>HoDoKu ALS-XY-Chain</h2>{3}
+  <p>
+  The Chain of Almost Locked Sets (ALSs):
+<pre>{0}</pre> share the Restricted Common Candidates (RCCs) such that they
+  "push" each other along the chain resulting in the z value (<b>{1}</b>)
+  being in either the first or the last ALS, hence <b>{1}</b> can be eliminated
+  from any cell/s which see all <b>{1}</b>'s in both the first and last ALSs.
+  <p>
+  Therefore <r><b>{1}</b> can be removed from <b>{2}</b></r>. 
+  <p>
+  The logic of an ALS-XY-Chain is a bit complex. Each pair of ALSs in the chain
+  (A and B, B and C, and so on) share a common restricted candidate, and if an
+  <b>Almost</b> Locked Set, by definition, looses just one of it's values then
+  it becomes a Locked Set, so that when we chain ALSs using there common RC's
+  we know that each RC will be in this ALS or that ALS; which means that one
+  of the other values in "the recieving ALS" is "pushed" into the next ALS in
+  the chain, and so on around the chain; so they all fall-down like dominoes
+  IN EITHER DIRECTION; so with a "loop" of ALSs that meet back at the first and
+  last ALS, we can remove all values common to the first and last ALS from
+  any cells outside of both ALSs which see all occurrences of that value in
+  both ALSs. Simples! Not!
+ </body>
+</html>

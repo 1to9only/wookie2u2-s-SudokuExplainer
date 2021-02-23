@@ -1,0 +1,50 @@
+<html>
+<!-- 
+/*
+ * Copyright (C) 2008-12  Bernhard Hobiger
+ *
+ * Bernhard Hobiger wrote this description so I include his standard licence
+ * statement. Any kudos should go to him. I barely understand this shit. KRC.
+ *
+ * HoDoKu is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * HoDoKu is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
+ */
+-->
+ <body>
+  <h2>HoDoKu ALS-XZ Double Linked</h2>
+  <p>
+    The two Almost Locked Sets (ALSs):<pre>
+     (a) <b1>{0}</b1>
+     (b) <b2>{1}</b2>
+    </pre>
+    share the Restricted Common Candidate (RCC) X = {2}<br>
+    and another (non-restricted) common candidate Z = <b>{3}</b>.
+  <p>
+    Because these two ALSs are Double Linked (have two RC values) all common
+    values may be eliminated from any cells which see all instances of that
+    value in both ALSs. Note that these eliminations are in addition to the
+    normal eliminations on the Z value (if any).
+  <p>
+    The logic is that one of the RC values must be one of the ALSs, so the
+    second RC is pushed into the other ALS, and so on for each additional
+    common value; regardless of weather or not it's in the overlap of the
+    two ALSs (ie regardless of weather or not it's an RCC or just a "CC").
+    Therefore cells which see all occurrences of each common value in both
+    ALSs cannot be that value.
+  <p>
+    Therefore we can remove <r><b>{4}</b></r>. 
+  <p>
+  <!-- debugMessage is normally an empty string -->
+  {5}
+ </body>
+</html>

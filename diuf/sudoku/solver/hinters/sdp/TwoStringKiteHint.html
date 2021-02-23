@@ -1,0 +1,22 @@
+<html>
+ <body>
+  <h2>HoDoKu Two String Kite</h2>
+  <p>
+    There are only two positions for <b>{0}</b> in both <g><b>{1}</b></g> and
+    <g><b>{2}</b></g> (the two strings), and they both hit <b1><b>{3}</b></b1>
+    (the kite), therefore <b>{4}</b> cannot be <b>{0}</b>.
+  <p>
+    The logic is: There are only two possible positions for {0} in {1}:
+    <ol>
+    <li>If cell {5} is {0} then {7} cannot be {0} (same box),
+    therefore {8} must be {0} (only remaining position in col),
+    and therefore {4} cannot be {0} (same row).</li>
+    <li>Alternately, if {6} is {0} then {4} cannot be {0} (same col).</li>
+    </ol>
+    So there are only two possible configurations for the placement of {0}
+    in {1}, neither of which allow {4} to be {0},
+    therefore <r><b>{4}</b> cannot be <b>{0}</b></r>.
+  <p>
+    Note that similar logic still holds if you start with the col.
+ </body>
+</html>
