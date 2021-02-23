@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -125,13 +126,7 @@ public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
 		// that are packed into your maybes.bits 0..511. See Values for more.
 		// We create the local reference just for speed of access.
-		final int[][] SVS = Values.SHIFTED;
-
-		// Integer.bitCount of the bitsets 0..511, ie the size of each array
-		// in the SVS (Values.SHIFTED) array-of-arrays. We use an array because
-		// it's much faster than calling Integer.bitCount billions of times.
-		// We create the local reference just for speed of access.
-		final int[] SIZE = Values.SIZE;
+		final int[][] SVS = Values.VSHIFTED;
 
 		// the populate populateCandidatesAndExcluders fields: a candidate has
 		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
@@ -332,7 +327,7 @@ public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
 							anyLevel = degree; // meaning that avb4 != c4b
 
 							// should we test if 3/4 values cover ceb0
-							ces0 = SIZE[ceb0=cmnExclBits[0]];
+							ces0 = VSIZE[ceb0=cmnExclBits[0]];
 							do30 = ces0 <= 3;
 							do40 = ces0 <= 4;
 
@@ -433,7 +428,7 @@ public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
 								// we still don't need a common excluders loop
 								//  w/o HitSet: 2 = 30,306,821 of 47,578,398 = 63.70%
 								// with HitSet: 2 = 775 of 882 = 87.87%
-								ces1 = SIZE[ceb1=cmnExclBits[1]];
+								ces1 = VSIZE[ceb1=cmnExclBits[1]];
 								do31 = ces1 <= 3;
 								do41 = ces1 <= 4;
 								// nb: col2 is as per col, so not implemented
@@ -506,10 +501,10 @@ public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
 								// we still don't need a common excluders loop
 								//  w/o HitSet: 3 = 2,293,660 of 47,578,398 = 4.82%
 								// with HitSet: 3 = 49 of 882 = 5.56%
-								ces1 = SIZE[ceb1=cmnExclBits[1]];
+								ces1 = VSIZE[ceb1=cmnExclBits[1]];
 								do31 = ces1 <= 3;
 								do41 = ces1 <= 4;
-								ces2 = SIZE[ceb2 = cmnExclBits[2]];
+								ces2 = VSIZE[ceb2 = cmnExclBits[2]];
 								do32 = ces2 <= 3;
 								do42 = ces2 <= 4;
 								// nb: col2 is as per col, so not implemented
@@ -589,7 +584,7 @@ public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
 								// with HitSet: 4 = 15 of 882 = 1.70%
 								// with HitSet: 5 =  3 of 882 = 0.34%
 								// suspect this may be allways true, so waste of time.
-								do40 = SIZE[cmnExclBits[0]] <= 4;
+								do40 = VSIZE[cmnExclBits[0]] <= 4;
 								DOG_1c: for ( int sv0 : SVS[c0b] ) {
 									c4b0 = ns40 ? c4b : c4b & ~sv0;
 									c3b0 = ns30 ? c3b : c3b & ~sv0;

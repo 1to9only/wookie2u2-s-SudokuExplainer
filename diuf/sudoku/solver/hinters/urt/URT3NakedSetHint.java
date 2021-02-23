@@ -90,16 +90,6 @@ public final class URT3NakedSetHint extends AURTHint {
 	private Pots orangePots;
 
 	@Override
-	public Pots getGreens(int viewNum) {
-		return super.getGreens(viewNum);
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
 	public List<ARegion> getBases() {
 		return Regions.list(region);
 	}

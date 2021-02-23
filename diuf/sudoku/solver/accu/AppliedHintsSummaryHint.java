@@ -39,7 +39,7 @@ public final class AppliedHintsSummaryHint extends AHint {
 	 * so apcu.sb==null within RecursiveAnalyser.
 	 */
 	public AppliedHintsSummaryHint(int numElims, HintsApplicumulator apcu) {
-		super(null, AHint.INDIRECT, null, 0, null);
+		super(null, AHint.INDIRECT, null, 0, null, null, null, null, null, null);
 		this.numElims = numElims;
 		this.toString = apcu!=null && apcu.sb!=null && apcu.numHints>0
 				? apcu.sb.toString()
@@ -47,7 +47,7 @@ public final class AppliedHintsSummaryHint extends AHint {
 	}
 
 	@Override
-	public int apply(boolean isAutosolvingUnused) {
+	public int apply(boolean isAutosolvingUnused, boolean isNoisyUnused) {
 		return numElims;
 	}
 

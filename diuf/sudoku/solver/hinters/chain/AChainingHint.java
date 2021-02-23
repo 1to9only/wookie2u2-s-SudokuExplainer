@@ -15,12 +15,13 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.Ass.Cause;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.MyFunkyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedFifoQueue;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import diuf.sudoku.solver.hinters.IChildHint;
+import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.HashMap;
 
@@ -62,7 +64,7 @@ public static int maxAncestorsSize = 0;
 		super(hinter, AHint.INDIRECT
 				, resultAss!=null && resultAss.isOn ? resultAss.cell : null // cell
 				, resultAss!=null && resultAss.isOn ? resultAss.value : 0 // value
-				, redPots
+				, redPots, null, null, null, null, null
 		);
 		this.flatViewCount = flatViewCount;
 		this.isYChain = isYChain;
@@ -394,7 +396,6 @@ public static int maxAncestorsSize = 0;
 			, Grid initGrid, Grid currGrid
 			, Set<Ass> theRents, Queue<Ass> todo) {
 		assert a.isOn;
-		final int[] SHFT = Values.SHFT;
 		final Cell[] ic = initGrid.cells; // initial matrix
 		Cause cause = a.cause; // the type of the cause of this Assumption
 		if ( cause == null ) { // This is the initial assumption
@@ -413,8 +414,8 @@ public static int maxAncestorsSize = 0;
 				// removed maybes = initial maybes - current maybes
 				final int rmvdBits;
 				if ( (rmvdBits=ic[i].maybes.bits & ~cc.maybes.bits) != 0 )
-					for ( int v : Values.ARRAYS[rmvdBits] )
-						if ( (rmvdBits & SHFT[v]) != 0 )
+					for ( int v : VALUESES[rmvdBits] )
+						if ( (rmvdBits & VSHFT[v]) != 0 )
 							theRents.add(new Ass(cc, v, false));
 			} else { // HiddenSingle
 				// this'll throw an AIOOBE if cause is not Hidden*
@@ -424,7 +425,7 @@ public static int maxAncestorsSize = 0;
 				Cell cc; // current cell
 				// if values possible positions have changed
 				if ( ir[cr.index].indexesOf[v].bits != cr.indexesOf[v].bits ) {
-					final int sv = SHFT[v];
+					final int sv = VSHFT[v];
 					for ( int i=0; i<9; ++i )
 						// if any (removed = initial - current) maybes
 						if ( (ic[(cc=cr.cells[i]).i].maybes.bits
@@ -464,8 +465,16 @@ public static int maxAncestorsSize = 0;
 	 * @return the links to draw, or <tt>null</tt> if none. */
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
-		return viewNum<flatViewCount ? getFlatLinks(getChainTarget(viewNum))
-				: getNestedLinks(viewNum - flatViewCount);
+		try {
+			if ( viewNum < flatViewCount )
+				return getFlatLinks(getChainTarget(viewNum));
+			else
+				return getNestedLinks(viewNum - flatViewCount);
+		} catch (Throwable ex) {
+			// I'm only ever called in the GUI, so just log it.
+			Log.println("AChainingHint.getLinks: "+ ex);
+			return null;
+		}
 	}
 
 	/**
@@ -522,7 +531,6 @@ public static int maxAncestorsSize = 0;
 				cause = ((RegionReductionHint)this).getRegion().cause;
 		}
 		if ( cause != null ) {
-			final int[] SHFT = Values.SHFT;
 			final Cell[] ic = initGrid.cells; // initial matrix
 			final Cell c = a.cell;
 			if ( cause == Cause.NakedSingle ) { // Naked Single
@@ -531,13 +539,13 @@ public static int maxAncestorsSize = 0;
 				// removed = initial maybes - current maybes
 				int rmvdBits; // removedBits
 				if ( (rmvdBits=ic[i].maybes.bits & ~cc.maybes.bits) != 0 )
-					for ( int v : Values.ARRAYS[rmvdBits] )
+					for ( int v : VALUESES[rmvdBits] )
 						resultSet.add(prntOffs.getAss(cc, v));
 			} else { // Hidden Single
 //slow:			assert cause.name().startsWith("Hidden");
 				// this'll throw an AIOOBE if cause is not Hidden*
 				final Cell[] rc = c.regions[cause.regionTypeIndex].cells; // cells in the region which contains c
-				final int v=a.value, sv=SHFT[v]; // shiftedValue
+				final int v=a.value, sv=VSHFT[v]; // shiftedValue
 				Cell cc; // currGrid's cell
 				for ( int i=0; i<9; ++i ) // removed = initial - current
 					if ( (ic[(cc=rc[i]).i].maybes.bits

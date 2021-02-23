@@ -113,16 +113,16 @@ public final class RecursiveSolver {
 	 * @param grid Grid to solve.
 	 * @return true if it can be solved, else false.
 	 */
-	public boolean solve(Grid grid) {
+	public boolean solve(Grid grid, boolean isNoisy) {
 		numGuesses = 0;
 		locking.reset();
-		return recursiveSolve(grid, 1);
+		return recursiveSolve(grid, 1, isNoisy);
 	}
 
 	// WARNING: DO NOT RENAME THIS METHOD! IT'S LOOKED FOR IN THE CALLSTACK
 	//          TO FILTER OUT SUPERFLOUS ERROR MESSAGES WHEN A CELLS MAYBES
 	//          GET ZEROED BECAUSE WE'RE JUST GUESSING AT A CELLS VALUE.
-	private boolean recursiveSolve(Grid g, int depth) { // throws UnsolvableException, but only from the top-level, before any cell values have been guessed!
+	private boolean recursiveSolve(Grid g, int depth, boolean isNoisy) { // throws UnsolvableException, but only from the top-level, before any cell values have been guessed!
 //uncomment the logging code to debug. It's faster without.
 //		indentf('>',depth, "%d %s%s", depth, "solveRecursively", NL);
 //		String result = "exhuasted"; // used in finally block
@@ -131,7 +131,7 @@ public final class RecursiveSolver {
 //				result = "unsolvableA: "+g.invalidity;
 				return false;
 			}
-			if ( solveLogically(g) ) { // throws UnsolvableException
+			if ( solveLogically(g, isNoisy) ) { // throws UnsolvableException
 //				result = "solved";
 				return true;
 			}
@@ -155,7 +155,7 @@ public final class RecursiveSolver {
 //						result = "solverated";
 						return true;
 					}
-					if ( recursiveSolve(g, depth+1) ) { // throws UnsolvableException
+					if ( recursiveSolve(g, depth+1, isNoisy) ) { // throws UnsolvableException
 //						result = "already solved";
 						return true;
 					}
@@ -176,7 +176,7 @@ public final class RecursiveSolver {
 	 * is only enough logic to solve really basic Sudoku puzzles; and for the
 	 * remainder we guess cell values, which is frightfully bloody fast.
 	 */
-	private boolean solveLogically(Grid grid) { // throws UnsolvableException
+	private boolean solveLogically(Grid grid, boolean isNoisy) { // throws UnsolvableException
 		SingleHintsAccumulator accu = new SingleHintsAccumulator();
 		AHint hint;
 		for ( AHinter fox : fourQuickFoxes ) {
@@ -203,7 +203,7 @@ public final class RecursiveSolver {
 				// @stretch if recursionDepth==0 or something like that.
 				// nb: My hinters are wrapped in timers
 				// nb: pass hardcoded true in case Grid.AUTOSOLVE is false
-				((Timer)fox).getTiming().numElims += hint.apply(true);
+				((Timer)fox).getTiming().numElims += hint.apply(true, isNoisy);
 			if ( grid.isFull() )
 				return true;
 		}

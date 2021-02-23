@@ -8,6 +8,7 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.utils.Frmt;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -83,7 +84,7 @@ public final class Regions {
 	public static List<ARegion> select(int size, ARegion[] regions
 			, Indexes indexes) {
 		List<ARegion> result = new ArrayList<>(size);
-		for ( int i : Indexes.ARRAYS[indexes.bits] )
+		for ( int i : INDEXES[indexes.bits] )
 			result.add(regions[i]);
 		return result;
 	}

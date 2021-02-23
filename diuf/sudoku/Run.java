@@ -7,12 +7,19 @@
 package diuf.sudoku;
 
 /**
- * I need a way to differentiate running in the GUI 
+ * I need a way to differentiate running in the GUI
  *                          from running in the LogicalSolverTester
  * and this is a bit s__t (TM) but it'll do.
  * @author Keith Corlett 2020 Mar 22
  */
 public final class Run {
+
+	public static Type setRunType(Type type) {
+		Type prev = Run.type;
+		Run.type = type;
+		return prev;
+	}
+
 	public enum Type {
 		  TestCase
 		, GUI
@@ -24,7 +31,7 @@ public final class Run {
 	 * that everywhere we need to know can just find out.
 	 * <p>
 	 * Note that there's existing hacks in the GUI (SudokuExplainer) to workout
-	 * whether or not we're running in the GUI, as apposed to one of the 
+	 * whether or not we're running in the GUI, as apposed to one of the
 	 * test-cases or the LogicalSolverTester.
 	 * <p>
 	 * A Better solution might be to have a Run.Type enum {
@@ -40,5 +47,7 @@ public final class Run {
 //	 * the Run class so that Templates (Trebors Tables) are loaded from disk
 //	 * ONCE when the application starts-up. */
 //	public static final Templates templates = Templates.THE;
-	
+
+	private Run() { } // Never used!
+
 }

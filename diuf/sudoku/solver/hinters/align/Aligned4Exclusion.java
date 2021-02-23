@@ -12,6 +12,7 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -137,10 +138,7 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
 		// that are packed into a maybes.bits 0..511. See Values.SHIFTED.
-		final int[][] SVS = Values.SHIFTED;
-
-//		// Integer.bitCount of the bitsets 0..511
-//		final int[] SIZE = Values.SIZE;
+		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
 		// maybes.size>=2 and has 1 excluders with maybes.size 2..$degree
@@ -623,7 +621,6 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 	 */
 	private static ExcludedCombosMap buildExcludedCombosMap(Cell[] cmnExcls, int numCmnExcls
 			, Cell[] cells, Pots redPots) {
-		final int[] SHFT = Values.SHFT; // a local shortcut
 		final ExcludedCombosMap map = new ExcludedCombosMap(cells, redPots);
 		final Cell c0=cells[0], c1=cells[1], c2=cells[2], c3=cells[3];
 
@@ -640,13 +637,13 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 		// NB: Performance isn't a problem. This method is called maybe ?50?
 		// times in top1465, only when we're producing a hint.
 		DOG_2: for ( int v0 : c0.maybes ) { // anything is fast enough for a small enough n, even an iterator
-			sv0 = SHFT[v0];
+			sv0 = VSHFT[v0];
 			for ( int v1 : c1.maybes ) {
 				if ( v1==v0 && !c1.notSees[c0.i] ) {
 					map.put(new HashA(v0,v1,0,0), null);
 					continue;
 				}
-				sv01 = sv0 | SHFT[v1];
+				sv01 = sv0 | VSHFT[v1];
 				for ( int v2 : c2.maybes ) {
 					if ( v2==v0 && !c2.notSees[c0.i] ) {
 						map.put(new HashA(v0,0,v2,0), null);
@@ -655,7 +652,7 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 						map.put(new HashA(0,v1,v2,0), null);
 						continue;
 					}
-					sv02 = sv01 | SHFT[v2];
+					sv02 = sv01 | VSHFT[v2];
 					for ( int v3 : c3.maybes ) {
 						if ( v3==v0 && !c3.notSees[c0.i] ) {
 							map.put(new HashA(v0,0,0,v3), null);
@@ -667,7 +664,7 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 							map.put(new HashA(0,0,v2,v3), null);
 							continue;
 						}
-						combo = sv02 | SHFT[v3];
+						combo = sv02 | VSHFT[v3];
 						for ( i=0; i<numCmnExcls; ++i )
 							if ( (cmnExcls[i].maybes.bits & ~combo) == 0 ) {
 								map.put(new HashA(v0,v1,v2,v3)

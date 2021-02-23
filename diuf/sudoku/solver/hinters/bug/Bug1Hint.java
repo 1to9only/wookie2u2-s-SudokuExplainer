@@ -52,11 +52,6 @@ public final class Bug1Hint extends ABugHint implements IActualHint {
 	private Pots greenPots;
 
 	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
 	public String getHintTypeNameImpl() {
 		return "BUG type 1";
 	}

@@ -134,7 +134,7 @@ public final class RecursiveSolverTester {
 
 		long start = System.nanoTime();
 		try {
-			result = solver.solve(grid); // either solves or throws an exception
+			result = solver.solve(grid, true); // either solves or throws an exception
 			long took = System.nanoTime() - start;
 			assert result;
 			++numSolved;

@@ -33,9 +33,10 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.als.HintValidator;
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 import java.util.List;
@@ -163,7 +164,6 @@ import java.util.List;
 public class ComplexFisherman extends AHinter
 //		implements diuf.sudoku.solver.IReporter
 {
-
 	/** switch on/off logging in findHints. */
 	public static boolean FIND_HINTS_IS_NOISY = false;
 
@@ -536,7 +536,7 @@ public class ComplexFisherman extends AHinter
 					doSearch = true; // there's no endos to check, so it passed.
 				} else if ( Idx.sizeLTE(cB.efM0,cB.efM1,cB.efM2, MAX_FINS) ) {
 					// buds = cells which see all the endo-fins
-					grid.cmnBuds(endoFins.set(cB.efM0,cB.efM1,cB.efM2), buds);
+					Grid.cmnBuds(endoFins.set(cB.efM0,cB.efM1,cB.efM2), buds);
 					// doSearch = does any candidate see all the endo-fins?
 					doSearch = ( (buds.a0 & vs.a0)
 							   | (buds.a1 & vs.a1)
@@ -706,11 +706,12 @@ public class ComplexFisherman extends AHinter
 							return true;
 					}
 				// complex fish needs fins, but not too many of them
-				} else if ( (finsM0|finsM1|finsM2) != 0
+				} else
+				if ( (finsM0|finsM1|finsM2) != 0
 				  && Idx.sizeLTE(finsM0,finsM1,finsM2, MAX_FINS)
 				  // finBuds: cells which see (same box/row/col) all fins
 				  // if any finBuds then we try to eliminate
-				  && grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
+				  && Grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
 				) {
 					// ***************** FINNED/SASHIMI FISCH *************
 					// Candidate is deletable if in covers except bases, or
@@ -812,7 +813,7 @@ public class ComplexFisherman extends AHinter
 		// and throw IllegalStateException if reds come-out empty.
 		final Pots reds = new Pots(); // set-of-Cell=>Values to be eliminated
 		if ( MIA_REDS ) {
-			final int sc = Values.SHFT[candidate]; // shiftedCandidate: the Fish candidate value as a left-shifted bitset, as per cell.maybes.bits
+			final int sc = VSHFT[candidate]; // shiftedCandidate: the Fish candidate value as a left-shifted bitset, as per cell.maybes.bits
 			// skip if there's no deletes and no sharks.
 			if ( deletes.isEmpty() && sharks.isEmpty() ) {
 				carp("no deletes and no sharks");
@@ -858,7 +859,7 @@ public class ComplexFisherman extends AHinter
 		baseMask = getRegionTypesMask(basesUsed);
 		coverMask = getRegionTypesMask(coversUsed);
 
-		// basic fish contains row->col or col->row (no boxs)
+		// a basic fish contains row->col or col->row (no boxs)
 		final boolean basicFish = (baseMask==ROW_MASK && coverMask==COL_MASK)
 							   || (baseMask==COL_MASK && coverMask==ROW_MASK);
 
@@ -957,13 +958,6 @@ public class ComplexFisherman extends AHinter
 		Log.teeln("ComplexFisherman: "+msg);
 	}
 
-	// create reds if null, add cell=>value to reds, and return reds
-	private Pots add(Pots reds, Cell cell, int value) {
-		if(reds==null) reds=new Pots();
-		reds.put(cell, new Values(value));
-		return reds;
-	}
-
 	/**
 	 * find the bases and allCovers for a Fish of my type and {@link #degree}.
 	 * The actual covers are calculated in searchCovers because eligibility
@@ -977,23 +971,20 @@ public class ComplexFisherman extends AHinter
 	 */
 	private boolean findEligibleBasesAndCovers() {
 		numBases = numAllCovers = 0;
-		// ROWS
-		final boolean rowsAreBases = baseType==ROW;
-		if ( rowsAreBases || seekMutant ) // add bases (and covers if isMutant)
-			addRegions(grid.rows, BASE, seekMutant);
-		else if ( !rowsAreBases ) // just add covers
-			addRegions(grid.rows, COVER, false);
-		// COLS
-		if ( !rowsAreBases || seekMutant ) // add bases (and covers if isMutant)
-			addRegions(grid.cols, BASE, seekMutant);
-		else if ( rowsAreBases ) // just add covers
-			addRegions(grid.cols, COVER, false);
-		// BOXS in Franken, Mutant, and Kraken (not basic or finned)
-		if ( seekFranken || seekMutant )
-			// add bases, and covers if isMutant
+		if ( seekMutant ) {
+			addRegions(grid.rows, BASE, true);
+			addRegions(grid.cols, BASE, true);
 			addRegions(grid.boxs, BASE, true);
+		} else {
+			addRegions(grid.rows, baseType==ROW, false);
+			addRegions(grid.cols, baseType==COL, false);
+			// BOXS in Franken, Mutant, and Kraken (not basic or finned)
+			if ( !seekBasic || !seekFinned )
+				addRegions(grid.boxs, BASE, false);
+		}
 		return numBases>=degree && numAllCovers>=degree;
 	}
+	
 	private void addRegions(ARegion[] regions, boolean isBase, boolean andConverse) {
 		for ( ARegion region : regions )
 			// ignore regions which already have the Fish candidate set.
@@ -1001,6 +992,7 @@ public class ComplexFisherman extends AHinter
 			if ( !region.containsValue[candidate] )
 				addRegion(region, isBase, andConverse);
 	}
+
 	private void addRegion(ARegion region, boolean isBase, boolean andConverse) {
 		// indices of cells which maybe the fish candidate value in this region
 		final Idx vs = region.idxs[candidate];

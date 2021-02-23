@@ -37,6 +37,8 @@ import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.Col;
 import diuf.sudoku.Grid.Row;
 import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
@@ -230,8 +232,6 @@ public class EmptyRectangle extends AHinter {
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		final int[] ISHFT = Indexes.SHFT;
-		final int[][] INDEXES = Indexes.ARRAYS;
 		Box erBox;  Row erRow;  Col erCol;  Cell redCell;
 		int card, boxVBits, erR, erC;
 		// these are for the first verse (read on McDuff).

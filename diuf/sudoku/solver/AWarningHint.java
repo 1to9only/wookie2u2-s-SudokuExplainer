@@ -19,11 +19,11 @@ import java.util.Set;
 public abstract class AWarningHint extends AHint {
 
 	public AWarningHint(AHinter hinter) {
-		super(hinter, AHint.WARNING, null, 0, null);
+		super(hinter, AHint.WARNING, null, 0, null, null, null, null, null, null);
 	}
 
 	@Override
-	public int apply(boolean isAutosolving) {
+	public int apply(boolean isAutosolving, boolean isNoisy) {
 		return 0;
 	}
 

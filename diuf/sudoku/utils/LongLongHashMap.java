@@ -61,12 +61,26 @@ public class LongLongHashMap {
 	// readonly to public or I kill you.
 	public int size;
 
+	/**
+	 * Construct a new LongLongHashMap to hold upto capacity entries. Unlike
+	 * java.util.HashMap this data-structure does NOT grow, so getting the
+	 * capacity right really matters! To do that guess, run it, and max the
+	 * size() before you clear the map in cleanUp after each puzzle. That tells
+	 * you ABOUT how big to make it: choose a power-of-2 around there, it may
+	 * be a bit more or less; so long as it's in the vacinity you'll be OK.
+	 * Then test it for speed; I was surprised to find that under-sized maps
+	 * are faster overall, coz I guess I must be running out of RAM. Too many
+	 * fat-bastards like this: buying CPU-time with profligate RAM usage.
+	 *
+	 * @param capacity is always a power of 2
+	 */
 	public LongLongHashMap(int capacity) {
 		table = new Entry[capacity];
 		mask = capacity - 1;
 		size = 0;
 	}
 
+	// convert a long key into an int, for the table index
 	protected static int hash(long key) {
 		return (int)(key ^ (key >>> 32));
 	}

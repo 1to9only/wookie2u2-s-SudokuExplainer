@@ -29,7 +29,7 @@ public abstract class Aligned7ExclusionBase extends AAlignedSetExclusionBase {
 
 	protected static ExcludedCombosMap buildExcludedCombosMap(Grid.Cell[] cmnExcls
 			, int numCmnExcls, Grid.Cell[] cells, Pots redPots) {
-		final int[] SHFT = Values.SHFT;
+		final int[] SHFT = Values.VSHFT;
 		final ExcludedCombosMap exclCmbs = new ExcludedCombosMap(cells, redPots);
 
 		// unpack the cells from there array

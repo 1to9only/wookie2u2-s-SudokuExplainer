@@ -27,11 +27,6 @@ public final class URT2Hint extends AURTHint {
 	}
 
 	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
 	public Pots getOranges(int viewNum) {
 		if ( orangePots == null ) {
 			Pots pots = new Pots(cellsWithExtraValues.length, 1F);

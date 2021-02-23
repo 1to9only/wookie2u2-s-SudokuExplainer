@@ -13,6 +13,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
+import diuf.sudoku.utils.Log;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -66,18 +67,24 @@ public final class BidirectionalCycleHint extends AChainingHint {
 		return super.getFlatReds(viewNum).putAll2(redPots); // Orangonate
 	}
 
-	// To the best of my knowledge THERE ARE NO ORANGES in BidirectionCycleHints
-	// but I think it's safer to override getOranges (minimallu) just in case
-	// there are, now OR in the future. Note that oranges are NOT removed from
-	// reds and greens, which is currently required to make them appear orange!
-	@Override
-	public Pots getOranges(int viewNum) {
-		return getReds(viewNum).intersection(getGreens(viewNum));
-	}
+//	// AFAIK there are no oranges in BidirectionCycleHints but I it's safer to
+//	// override getOranges (minimally) just in case (now OR in the future).
+//	// Note that oranges NOT removed from reds and greens, which is required to
+//	// make them appear orange!
+//	@Override
+//	public Pots getOranges(int viewNum) {
+//		return getReds(viewNum).intersection(getGreens(viewNum));
+//	}
 
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
-		return super.getFlatLinks(getChainTarget(viewNum));
+		try {
+			return super.getFlatLinks(getChainTarget(viewNum));
+		} catch (Throwable ex) {
+			// I'm only ever called in the GUI, so just log it.
+			Log.println("BidirectionalCycleHint.getLinks: "+ ex);
+			return null;
+		}
 	}
 
 	@Override

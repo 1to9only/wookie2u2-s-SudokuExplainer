@@ -9,17 +9,20 @@ package diuf.sudoku.solver.hinters.fish;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.utils.Permutations;
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -121,9 +124,6 @@ public final class BasicFisherman extends AHintNumberActivatableHinter
 	private boolean findFish(ARegion[] bases, ARegion[] covers
 			, IAccumulator accu, int[] occurances) {
 
-		// localise constants and fields for performance
-		final int[] ISHFT = Indexes.SHFT; // left-shift an index (not a Value!)
-		final int[] SIZE = Values.SIZE; // Integer.bitCount(0..511)
 		// candiIdxs := the index of each base (in bases) which has 2..$degree
 		// possible positions for value. They're only "candidates" for now.
 		final int[] candiIdxs = this.coreIdxs;
@@ -164,7 +164,7 @@ public final class BasicFisherman extends AHintNumberActivatableHinter
 				// if not $degree positions for $v in these $degree bases then
 				// there's no fish here (well there might be later, with fins,
 				// but not now, coz we're keeping it as simple as possible.)
-				if ( SIZE[vs] != degree )
+				if ( VSIZE[vs] != degree )
 					continue; // Empty net!
 
 				// ------------------------------------------------------------
@@ -205,7 +205,7 @@ public final class BasicFisherman extends AHintNumberActivatableHinter
 		// foreach index of the covers EXCEPT the indexes of bases
 		ARegion cover; // the col/row
 		int red; // indices of the red (removable) v's in this cover
-		for ( int i : Indexes.ARRAYS[coversIdxs.bits] )
+		for ( int i : INDEXES[coversIdxs.bits] )
 			if ( (red=(cover=covers[i]).indexesOf[v].bits & ~baseBits) != 0 ) {
 				if(reds==null) reds = new Pots(16); // observed 9
 				reds.populate(cover.cells, red, v);
@@ -221,8 +221,8 @@ public final class BasicFisherman extends AHintNumberActivatableHinter
 		// build highlighted (green) potentials
 		Pots greens = new Pots(degree*degree, 1F);
 		// Populate greenPots with coversIdxs cells (in covers and bases).
-		final int sv = Values.SHFT[v]; // shiftedValue: the int who walks
-		for ( int i : Indexes.ARRAYS[basesIdxs.bits] )
+		final int sv = VSHFT[v]; // shiftedValue: the int who walks
+		for ( int i : INDEXES[basesIdxs.bits] )
 			greens.populate(bases[i].cells, coversIdxs.bits, sv, v);
 		// build the bases and covers collections
 		List<ARegion> baseL = Regions.select(degree, bases, basesIdxs);

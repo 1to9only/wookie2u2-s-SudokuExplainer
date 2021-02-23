@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -106,10 +107,7 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
 		// that are packed into your maybes.bits 0..511. See Values for more.
-		final int[][] SVS = Values.SHIFTED;
-
-		// Integer.bitCount of the bitsets 0..511
-		final int[] SIZE = Values.SIZE;
+		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate Cell
 		// has maybes.size>=2 and >1 excluders with maybes.size 2..$degree
@@ -385,7 +383,7 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 											anyLevel = degree; // meaning that avb8 != c8b
 
 											// should we test if 3/4/5 values cover ceb0
-											ces0 = SIZE[ceb0=cmnExclBits[0]];
+											ces0 = VSIZE[ceb0=cmnExclBits[0]];
 											do30 = ces0 <= 3;
 											do40 = ces0 <= 4;
 											do50 = ces0 <= 5;
@@ -567,7 +565,7 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 												// there's no need for a common excluders loop
 												//  w/o HitSet: 2 = 1,971,292 of 2,423,889 = 81.33%
 												// with HitSet: 2 = 21 of 22 = 95.45%
-												ces1 = SIZE[ceb1=cmnExclBits[1]];
+												ces1 = VSIZE[ceb1=cmnExclBits[1]];
 												do41 = ces1 <= 4;
 												do51 = ces1 <= 5;
 												DOG_1b: for ( int sv0 : SVS[c0b] ) {
@@ -718,8 +716,8 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 												// we need a common excluders loop
 												//  w/o HitSet: 3 = 49,511 of 2,423,889 = 2.04%
 												// with HitSet: 3 = 1 of 22 = 4.55%
-												do40 = SIZE[ceb0] <= 4;
-												do50 = SIZE[ceb0] <= 5;
+												do40 = VSIZE[ceb0] <= 4;
+												do50 = VSIZE[ceb0] <= 5;
 												DOG_1c: for ( int sv0 : SVS[c0b] ) {
 													c8b0 = ns80 ? c8b : c8b & ~sv0;
 													c7b0 = ns70 ? c7b : c7b & ~sv0;

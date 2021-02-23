@@ -9,21 +9,21 @@ package diuf.sudoku.solver.hinters.single;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.accu.HintsAccumulator;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 
 
 /**
- * Implementation of the Naked Hidden Single Sudoku solving technique, ie
- * singles that are the last (only) unset Cell in a Box (only).
+ * Implementation of the Naked Hidden Single Sudoku solving technique,
+ * ie naked singles that are the only unset Cell in a Box.
  * <p>
- * NOTE: I tried seeking LonelySingles in all regions (box, row, and col) but I
- * found the resulting hint-path bloody confusing, so restricted LonelySingles
- * to searching Boxes only, so it jumps around less, ie is more predictable.
+ * NOTE: I tried seeking LonelySingles in all regions (box, row, and col) but
+ * found the results pretty bloody confusing, so restricted LonelySingles to
+ * searching Boxes only, so it jumps around less, ie is more predictable.
  */
 public final class LonelySingles extends AHinter {
 
@@ -72,11 +72,11 @@ public final class LonelySingles extends AHinter {
 				// check I have one potential value (ie I'm naked).
 				assert cell.maybes.size == 1;
 				// check that my maybes ARE that value
-				assert cell.maybes.bits == Values.SHFT[value];
+				assert cell.maybes.bits == VSHFT[value];
 				// check region has one position for value (ie I'm hidden).
 				assert r.indexesOf[value].size == 1;
 				// check I am the regions position for value.
-				assert r.indexesOf[value].bits == Indexes.SHFT[cell.indexIn[r.typeIndex]];
+				assert r.indexesOf[value].bits == ISHFT[cell.indexIn[r.typeIndex]];
 				// </I am back to being me> Sigh.
 				
 				// nb: [Default]HintsAccumulator.add never returns true, and 

@@ -11,8 +11,8 @@ package diuf.sudoku.solver;
  * IrrelevantHintException is thrown when AlignedExclusionHint appendTo (while 
  * generating HTML for display) trips overs a hint with 0 relevant combo/s in
  * combosMap (ie the whole hint is irrelevant), which shouldn't happen, but has
- * due to bugs upstream, so we're defensive programming here... dealing with the
- * situation as best we can.
+ * due to bugs upstream, so we're reactive programming here, dealing with the
+ * situation as best we can at this stage.
  * <p>2019-09-13 KRC We had the same situation in CellReductionHint, so I 
  * promoted this class out of AlignedExclusionHint into the solver package.
  * @stretch Why are these happening? Make Them Stop! Make Them Stop!

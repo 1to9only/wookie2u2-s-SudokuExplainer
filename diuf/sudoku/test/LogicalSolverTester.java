@@ -233,7 +233,7 @@ public final class LogicalSolverTester {
 //					if ( redo )
 //						logicalSolver.reconfigureToUse(hintyHinters[pid-1]);
 					System.out.println("processing pid "+pid+" ...");
-					process(readALine(inputFile, pid), solver, totalUsageMap, redo, true);
+					process(readALine(inputFile, pid), solver, totalUsageMap, redo, true, false, true);
 					// print running-total usages (for A*E monitoring)
 					printTotalUsageMap(totalUsageMap);
 				}
@@ -245,7 +245,7 @@ public final class LogicalSolverTester {
 					// just run solve coz calling process buggers-up the count
 					Grid g = new Grid(readALine(inputFile, 1).contents);
 					solver.prepare(g);
-					solver.solve(g, new UsageMap(), true, false);
+					solver.solve(g, new UsageMap(), true, false, false);
 				}
 
 				// now the actual run
@@ -259,7 +259,7 @@ public final class LogicalSolverTester {
 						if ( redo ) // ie LogicalSolver.usesJustHintyHinters
 							solver.reconfigureToUse(hintyHinters[line.index]);
 						// totalUsageMap += process line with solver
-						if ( !process(line, solver, totalUsageMap, redo, true) )
+						if ( !process(line, solver, totalUsageMap, redo, true, false, true) )
 							break;
 						// print running total usages (for A*E monitoring)
 						printTotalUsageMap(totalUsageMap);
@@ -338,6 +338,7 @@ public final class LogicalSolverTester {
 	private static long ttlTook = 0L;
 	private static boolean process(Line line, LogicalSolver solver
 			, UsageMap totalUsage, boolean redo, boolean isNoisy
+			, boolean showHints, boolean logHints
 	) {
 		if ( isNoisy ) {
 			++procCount;
@@ -363,7 +364,7 @@ public final class LogicalSolverTester {
 
 			// solve the puzzle!
 			UsageMap usageMap = new UsageMap(); // Hinter usages
-			boolean isSolved = solver.solve(grid, usageMap, true, isNoisy);
+			boolean isSolved = solver.solve(grid, usageMap, true, showHints, logHints);
 			if ( isNoisy )
 				ttlTook += took = System.nanoTime() - start;
 			if ( !isSolved )

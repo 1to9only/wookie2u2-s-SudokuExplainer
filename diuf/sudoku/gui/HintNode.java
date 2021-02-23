@@ -65,27 +65,25 @@ public final class HintNode extends DefaultMutableTreeNode {
 	}
 
 	public List<HintNode> getHintNodes() {
-		if(_hns != null) return _hns;
-		_hns = new LinkedList<>();
-		if(this.hint != null) {_hns.add(this); return _hns;}
-		HintNode child;
-		for ( int i=0, n=getChildCount(); i<n; ++i )
-			if ( (child=(HintNode)getChildAt(i)).hint != null )
-				_hns.add(child);
-			else
-				child.recursivelyGetChildHintNodes(_hns);
-		return _hns;
+		if ( hns != null )
+			return hns; // cached!
+		hns = new LinkedList<>();
+		if ( this.hint != null )
+			hns.add(this);
+		else
+			recurseChildren(hns);
+		return hns;
 	}
-	private List<HintNode> _hns;
+	private List<HintNode> hns;
 
-	private void recursivelyGetChildHintNodes(List<HintNode> result) {
+	private void recurseChildren(List<HintNode> result) {
 		assert this.hint == null; // ie: this is NOT a leaf
 		HintNode child;
-		for ( int i=0, n=getChildCount(); i<n; ++i )
+		for ( int i=0,n=getChildCount(); i<n; ++i )
 			if ( (child=(HintNode)getChildAt(i)).hint != null )
 				result.add(child);
 			else
-				child.recursivelyGetChildHintNodes(result);
+				child.recurseChildren(result);
 	}
 
 	private int countHints() {

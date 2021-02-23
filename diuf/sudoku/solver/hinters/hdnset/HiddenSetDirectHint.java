@@ -29,7 +29,6 @@ public final class HiddenSetDirectHint extends AHint implements IActualHint {
 
 	private final Cell[] cells;
 	private final int[] hdnSetValuesArray;
-	private final Pots orangePots;
 	private final ARegion region;
 
 	/** Used by Locking. */
@@ -40,15 +39,13 @@ public final class HiddenSetDirectHint extends AHint implements IActualHint {
 	public HiddenSetDirectHint(AHinter hinter, Cell[] cells, Values hdnSetValues
 			, Pots orangePots, Pots redPots, ARegion region, int valueToSet
 			, Cell cellToSet) {
-		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots);
+		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots, null
+				, orangePots, null, Regions.list(region), null);
 		this.cells = cells;
 		this.hdnSetValues = hdnSetValues;
 		this.hdnSetIdx = Idx.of(cells);
 		this.hdnSetValuesArray = hdnSetValues.toArrayNew();
-		this.orangePots = orangePots;
 		this.region = region;
-//		if ( values.length == 3 )
-//			Debug.breakpoint();
 	}
 
 	@Override
@@ -63,21 +60,6 @@ public final class HiddenSetDirectHint extends AHint implements IActualHint {
 		return greenPots;
 	}
 	private Pots greenPots;
-
-	@Override
-	public Pots getOranges(int viewNum) {
-		return orangePots;
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(this.region);
-	}
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {

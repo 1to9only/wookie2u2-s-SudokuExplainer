@@ -37,6 +37,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -63,7 +64,6 @@ public class TwoStringKite extends AHinter {
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		// localise fields for speed
-		final int[] SHFT = Values.SHFT;
 		final Cell[][] rowPairs = this.rowPairs;
 		final Cell[][] colPairs = this.colPairs;
 		// local variables
@@ -77,7 +77,7 @@ public class TwoStringKite extends AHinter {
 		for ( int v=1; v<10; ++v ) {
 //			if ( v == 9 )
 //				Debug.breakpoint();
-			sv = SHFT[v];
+			sv = VSHFT[v];
 			// get all rows and cols with only two values and the cells
 			if ( (rowCnt=getPairs(grid.rows, v, rowPairs)) == 0 )
 				continue;

@@ -26,6 +26,7 @@ import diuf.sudoku.utils.MyLinkedList;
 import java.util.List;
 import java.util.Set;
 
+
 /**
  * A LockingHint is raised by Locking <b>OR</b> the Fisherman. You can
  * tell by the degree:
@@ -41,7 +42,6 @@ public final class LockingHint extends AHint
 
 	final int valueToRemove;
 	final Set<Cell> cellSet;
-	final Pots greenPots;
 	final ARegion base;
 	final ARegion cover;
 	final boolean isPointing; //true=Pointing, false=Claiming
@@ -60,10 +60,10 @@ public final class LockingHint extends AHint
 	public LockingHint(AHinter hinter, int valueToRemove, Pots greenPots
 			, Pots redPots, ARegion base, ARegion cover
 			, String debugMessage) {
-		super(hinter, AHint.INDIRECT, null, 0, redPots);
+		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null, null
+				, Grid.regionList(base), Grid.regionList(cover));
 		this.valueToRemove = valueToRemove;
 		this.cellSet = greenPots.keySet();
-		this.greenPots = greenPots;
 		this.base = base;
 		this.cover = cover;
 		this.isPointing = base instanceof Box;
@@ -80,7 +80,7 @@ public final class LockingHint extends AHint
 	public Idx idx() {
 		if ( idx == null )
 			idx = new Idx();
-		else 
+		else
 			idx.clear();
 		for ( Cell cell : cellSet )
 			idx.add(cell.i);
@@ -91,26 +91,6 @@ public final class LockingHint extends AHint
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
 		return cellSet;
-	}
-
-	@Override
-	public Pots getGreens(int viewNum) {
-		return greenPots;
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(base);
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return Regions.list(cover);
 	}
 
 	// Weird: only place we use one Tech for two distinct hint-types,

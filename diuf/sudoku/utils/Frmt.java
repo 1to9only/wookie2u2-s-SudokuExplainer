@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.hinters.align.CellSet;
 import java.text.DecimalFormat;
 import java.util.Collection;
@@ -419,7 +420,7 @@ public final class Frmt {
 	public static StringBuilder appendTo(StringBuilder sb, int bits, int size
 			, String sep, String lastSep) {
 		int i = 0;
-		for ( int v : Values.ARRAYS[bits] ) {
+		for ( int v : VALUESES[bits] ) {
 			if ( ++i > 1 ) //nb: i is now effectively 1-based, so i<size is correct
 				sb.append(i<size ? sep : lastSep);
 			sb.append(v);
@@ -573,8 +574,9 @@ public final class Frmt {
 //	}
 
 	public static String csv(Cell... cells) { return Frmt.frmt(cells, cells.length, comma, comma); }
-	public static String ssv(Cell... cells) { return Frmt.frmt(cells, cells.length, space, space); }
 	public static String csv(int n, Cell... cells) { return Frmt.frmt(cells, n, comma, comma); }
+	public static String ssv(Cell... cells) { return Frmt.frmt(cells, cells.length, space, space); }
+	public static String ssv(int n, Cell... cells) { return Frmt.frmt(cells, n, space, space); }
 	public static String and(Cell... cells) { return Frmt.frmt(cells, cells.length, comma, and); }
 	public static String or(Cell... cells) { return Frmt.frmt(cells, cells.length, comma, or); }
 	public static String frmt(Cell[] cells, int n, final String sep, final String lastSep) {
@@ -614,6 +616,7 @@ public final class Frmt {
 //	}
 
 	public static String csv(Collection<Cell> cells) { return Frmt.frmt(cells, comma, comma); }
+	public static String ssv(Collection<Cell> cells) { return Frmt.frmt(cells, space, space); }
 	public static String and(Collection<Cell> cells) { return Frmt.frmt(cells, comma, and); }
 	public static String or(Collection<Cell> cells) { return Frmt.frmt(cells, comma, or); }
 	public static String frmt(Collection<Cell> cells, final String sep, final String lastSep) {

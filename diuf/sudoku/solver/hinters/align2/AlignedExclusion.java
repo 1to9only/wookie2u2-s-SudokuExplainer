@@ -13,27 +13,28 @@ import static diuf.sudoku.Idx.CELLS_MAYBES_VISITOR;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Settings;
 import diuf.sudoku.Tech;
-import static diuf.sudoku.Values.ARRAYS;
-import static diuf.sudoku.Values.SHIFTED;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.als.HintValidator;
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.MyArrays;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHIFTED;
 
 
 /**
- * AlignedExclusion implements the aligned exclusion Sudoku solving technique
+ * AlignedExclusion implements the Aligned Exclusion Sudoku solving technique
  * for sets of between 2 and 10 cells.
  * <p>
  * Aligned Exclusion eliminates potential values of "candidate cells" that are
- * grouped around the "excluder cell/s". The candidate cells form "the aligned
- * set" and the "excluders" are the cells they're aligned around.
+ * aligned around the "excluder cell/s". The candidate cells form "the aligned
+ * set" and the "common excluders" are the cells they're aligned around.
  * <p>
  * There's only one way to do exclusion, and it's expensive. We must go through
  * all the possible combinations of the potential values of each aligned set to
@@ -43,7 +44,7 @@ import java.util.LinkedHashSet;
  * "exclusion", so we raise a hint. It sounds simple enough; but the actual
  * implementation is mega-confundussed by details, trying to make an inherently
  * combinatorial-times-combinatorial process (ie bloody slow) a bit faster; to
- * bring it up to "usable" speed.
+ * bring it up to "usable" speed, which I have thus far failed to do. sigh.
  * <p>
  * There are two exclusion rules:<ul>
  * <li>Candidate cells which see each other cannot contain the same value; a
@@ -58,14 +59,14 @@ import java.util.LinkedHashSet;
  *  excluder cell (which MUST have A value) then the combo is not allowed.
  * </ul>
  * <p>
- * I talked about "candidate" cells without defining them: A "candidate" is an
- * unset cell which sees the requisite number of excluder cells. An excluder
- * cell is one with 2..degree potential values. The "requisite number" of
- * excluder cells depends on the size of the aligned set, and also on the users
- * "hacked" setting. An aligned set of 2 or 3 cells can only produce hints when
- * those cells are aligned around atleast two excluder cells. Aligned sets of 4
- * to 10 cells CAN still produce a hint when aligned around a single cell, it's
- * just that a hint from a single excluder cell is much much rarer.
+ * I mentioned "candidate" cells without defining them: A "candidate" is an
+ * unset cell which sees (same box, row, or col) the requisite number of
+ * excluder cells. An excluder cell is one with 2..degree potential values.
+ * The "requisite number" of excluder cells depends on the size of the aligned
+ * set, and also on the users "hacked" setting. An aligned set of 2 or 3 cells
+ * only produces hints when those cells are aligned around two excluder cells.
+ * Aligned sets of 4 to 10 cells CAN still produce a hint when aligned around a
+ * single cell, but hints from a single excluder cell are MUCH rarer.
  * <p>
  * Aligned4Exclusion is always "correct": aligned around a single cell, because
  * it's still "fast enough" when done that way.
@@ -83,13 +84,16 @@ import java.util.LinkedHashSet;
  * <p>
  * Note that this implementation of AlignedExclusion uses the "stack iteration"
  * technique (twice) that I have boosted from the ALS's in HoDoKu, by hobiwan.
- * HoDoKu is another open source Sudoku solver.
+ * HoDoKu is another open source Sudoku solver. Download my version from the
+ * Sudoku Explainer homepage on SourceFroge: it's faster.
  * <p>
- * This implementation is more compact than the existing A*E classes, which are
- * a pile of boiler-plate code. This version is maintainable, but it's complex,
- * and it's slower. Existing Aligned5Exclusion runs in 70 seconds (1:10), and
- * this new version runs in 1,133 seconds (18:53).
+ * AlignedExclusion is MUCH more compact than the Aligned*Exclusion classes,
+ * which are "mass boiler-plate" code. AlignedExclusion is maintainable, but it
+ * is tricky and slower. The old Aligned5Exclusion runs in 70 seconds, and this
+ * version runs in 211 seconds (A5E top1465), ie THREE TIMES as long! BFFIIK!
  * <p>
+ * Be warned that I found this class to be a complete and utter pain in the ass
+ * to develop and debug. It's just too complex. So ____ with it at your peril!
  * <hr>
  * <pre>
  * 2020-12-14..16 speed comparison with the old Aligned2345Exclusion classes
@@ -118,7 +122,7 @@ import java.util.LinkedHashSet;
  *     2,877,032,900 4419     651,059  15     191,802,193 Aligned Triple
  *   163,270,592,000 4405  37,064,833  54   3,023,529,481 Aligned Quad
  * a bit faster than "new" version, but still nowhere near the "old".
- * 
+ *
  * 2020-12-17 24:?? It's faster now with workLevel, but still FAR too slow!
  * The old version is still SHIP-LOADS faster!
  * We're down two Pents, which I presume explains why we're up two Hexs.
@@ -168,6 +172,7 @@ import java.util.LinkedHashSet;
  */
 public class AlignedExclusion extends AHinter
 		implements diuf.sudoku.solver.IPreparer
+				 , diuf.sudoku.solver.hinters.ICleanUp
 {
 
 	//1 2 3 4 5  6  7  8   9   10  11   12   13   14   15    16    17    18
@@ -186,6 +191,7 @@ public class AlignedExclusion extends AHinter
 	//AlignedOct   : maxNonHinters=513336 4#top1465.d5.mt 80:47
 	// The capacity of the NonHinters LongLongHashMap, which does NOT grow.
 	// The index of this array is the degree, so 0 and 1 are never used.
+	// NOOB: The degree is the number of cells in the aligned set.
 	private static final int[] MAP_SIZE = new int[] {
 	//  0  1  2       3       4        5         6         7         8         9         10
 		0, 0, 2*1024, 8*1024, 32*1024, 128*1024, 256*1024, 512*1024, 512*1024, 512*1024, 512*1024
@@ -209,20 +215,33 @@ public class AlignedExclusion extends AHinter
 	// so that this "combo" (distinct potential values of $degree cells) is
 	// not allowed. Having examined all "combos", if no "combo" allows a
 	// candidate cells potential value then that value has been "excluded",
-	// so it can and will be removed.
+	// so it will be removed by the hint we produce.
 	private final Cell[] candidates;
+	// the cells candidate can use as an excluder; so to build an aligned set
+	// we're looking for the minimum required "common" excluders, which all
+	// candidates in the set can "see" (ie same box, row, or col).
 	private final CellSet[] excluderSets = new CellSet[81]; // 1 per candidate
 	// an array of $degree cells: rightmost is each available candidate cell,
-	// then the next-left is each available candidate cell, and so on, all the
-	// way to the bottom (left) of the jar.
+	// then the next-left is each available candidate cell of the current set
+	// of cells which is one smaller than this "level", and so on, all the way
+	// to the bottom of the jar. You could call this variable cellsStack.
+	// The cellsStack is populated left-to-right; then we "zero in on" the
+	// workLevel, which is the leftmost level which still has values that have
+	// not yet been allowed, and we try the next value at the work-level,
+	// instead of wasting time repeatedly checking values that've already all
+	// been allowed. All potential values of all cells to the right of the
+	// "workLevel" have already been allowed. So we hammer away at da workLevel
+	// until all of it's potential values are allowed, and then we move the
+	// workLevel left one, and hammer away at his values, and so on, til done.
 	private final CellStackEntry[] cells;
 	// an array of $degree bitsets of the current presumed values of cells in
-	// the aligned set.
+	// the aligned set. You could call this variable valuesStack.
 	private final ValsStackEntry[] vals;
 	// a bitset of the values which have been allowed in each candidate cell in
 	// the aligned set.
 	private final int[] allowed;
-	// aligned sets around 2+ excluder cells?
+	// do we needTwoExcluderCells: aligned sets around 2+ excluder cells?
+	// Always true for A23E; false for A4E; "hacked" setting for A5+E.
 	private final boolean needTwo;
 	// calls excluders.idx1(...) or idx2(...)
 	private final Excluderator excluderator;
@@ -232,11 +251,15 @@ public class AlignedExclusion extends AHinter
 	private final NonHinters nonHinters;
 
 	/**
-	 * The constructor.
+	 * The constructor. I read my degree (number of cells in an aligned set)
+	 * from the given Tech, which MUST be a Tech.Aligned*.
+	 *
 	 * @param tech
 	 */
 	public AlignedExclusion(Tech tech) {
 		super(tech);
+		assert tech.name().startsWith("Aligned");
+		// my super.degree comes from the passed Tech.
 		degreeMinus1 = degree - 1;
 		candidates = new Cell[64]; // 64 = 81 - 17 minimum clues
 		cells = new CellStackEntry[degree];
@@ -259,12 +282,13 @@ public class AlignedExclusion extends AHinter
 		// but 4-or-more aligned cells require just one excluder, but the user
 		// can select "hacked" for Aligned5+Exclusion, to produce about a third
 		// of the hints in about a tenth of the time. This matters because A*E
-		// is inherently a heavy process, because it does combinatorial TIMES 
-		// combinatorial comparisons.
+		// is inherently a heavy process, because it does combinatorial TIMES
+		// combinatorial comparisons. Hacked takes about a tenth of the time,
+		// and misses about two thirds of the hints. sigh.
 		needTwo = degree<4 || Settings.THE.get("isa"+degree+"ehacked");
 		// optimisation: create an "Excluderator" ONCE per AlignedExclusion
 		// intead of deciding to call idx1 or idx2 repeatedly: once for each
-		// cell in each possible combination of $degree cells, ie lots a times.
+		// cell in each possible combination of $degree cells, ie many times.
 		if ( needTwo )
 			excluderator = new Excluderator2();
 		else
@@ -274,11 +298,14 @@ public class AlignedExclusion extends AHinter
 		// overloaded it runs like a three-legged dog; and (for reasons I do
 		// not fully understand) it slows EVERYthing down when it's too big,
 		// so aim for the fastest OVERALL; not the fastest for this hinter.
+		// Using multiple AlignedExclusion instances concurrently takes so much
+		// RAM the whole app bogs; so never use 7, 8, 9, and 10 concurrently!
 		nonHinters = new NonHinters(MAP_SIZE[degree], 4);
 	}
 
 	/**
-	 * We prepare ONCE, before the first findHints on each puzzle.
+	 * We prepare ONCE, after the puzzle is loaded and before the first call to
+	 * findHints. The prepare method is defined by the IPreparer interface.
 	 *
 	 * @param grid
 	 * @param logicalSolver
@@ -299,18 +326,43 @@ public class AlignedExclusion extends AHinter
 	}
 
 	/**
+	 * The cleanUp method is called after each Grid has been solved, to allow
+	 * hinters to release Cell references, each of which holds the whole grid
+	 * in memory. This is the cost of NOT creating array/structs on the fly.
+	 * The cleanUp method is defined by the ICleanUp interface.
+	 */
+	@Override
+	public void cleanUp() {
+		Arrays.fill(candidates, null);
+		Arrays.fill(excluderSets, null);
+		Arrays.fill(cells, null); // cellStack
+		Arrays.fill(vals, null); // valsStack
+	}
+
+	/**
+	 * Find first/all Aligned Exclusion hints of $degree size (degree is passed
+	 * to my constructor via the Tech) depending on the passed IAccumulator; if
+	 * accu.add returns true then I exit-early returning just the first hint
+	 * found, else I keep searching to find all available hints.
+	 * <p>
+	 * Noobs should see class comments for a summary of aligned exclusion, then
+	 * study the below pseudocode, then study the code; it'll make eff-all
+	 * sense otherwise. It's ungrokable raw... too complicated, so you cook
+	 * yourself up to it.
+	 * <p>
 	 * <pre>
 	 * The Aligned Exclusion Sudoku solving technique.
 	 * HIGH LEVEL PSEUDOCODE:
-	 * foreach aligned set of $degree cells (aligned around the excluder cell/s)
-	 * 	 foreach possible combination of the potential values of the cells in the aligned set
-	 *   skipping this presumed value if it is already taken by a preceeding sibling cell
-	 *     if this combo is NOT a superset of any excluder cells potential values then
-	 *       add this combo allowedValues
+	 * foreach set of $degree cells aligned around there common excluder cell/s
+	 *   // "combo" ONLY means a possible combination of potential values.
+	 * 	 foreach combo of the potential values of the cells in the aligned set
+	 *   skipping this presumed value if it is already taken by a sibling cell
+	 *     if this combo does NOT contain all of any excluder cells maybes then
+	 *       add this combo to allowedValues (the values allowed in each cell)
 	 * 	   endif
 	 * 	 next combo
-	 * 	 for i = 1 .. degreePlus1
-	 *     if allowedValues[i] != cellStack[i].maybes.bits then
+	 * 	 for i in 0..degree
+	 *     if allowedValues[i] != cells[i].maybes.bits then
 	 * 	     houston we have an exclusion
 	 *     endif
 	 * 	 next
@@ -328,51 +380,56 @@ public class AlignedExclusion extends AHinter
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 
-		// ALL variables are pre-declared, to reduce stack-work.
-		// My "struct" variables are fields, to create them ONCE.
+		// ANSI-C style variables, to reduce stack-work.
+		// My "struct" variables are all fields, so they're created ONCE.
 		Cell cell; // the current cell
-		// NOTE: We loop thrue the cellsStack first, and then the valsStack for
-		// each aligned set of $degree cells. By "loop thrue" I mean we use the
-		// stack (which is just an array of structs) to look at each possible
-		// combination of first the cells, then the potential values of those
-		// cells, which I call a "combo".
+		// We use the cellsStack (an array of structs) to examine each possible
+		// combination of $degree cells (an "aligned set"); then the valsStack
+		// examines each possible combination of the potential values of the
+		// cells in each aligned set (a "combo").
+		// COMBINATORIAL * COMBINATORIAL == SLOW!
 		CellStackEntry ce; // cellEntry: cells stack entry pointer
 		ValsStackEntry ve; // valsEntry: values stack entry pointer
 		// the number of cells currently actually in the excluders array. The
-		// excluders array is a SINGLE cells array; rather than create a new
-		// array for each aligned-set, because it is MUCH faster to just stop
-		// at numExcluders than it is to hammer the GC.
+		// excluders array is re-used; rather than create a new array for each
+		// aligned-set, coz it's faster to avoid creating excessive garbage.
 		int numExcluders;
-		// theExcludersMaybes is only used when there is ONE common excluder
-		// cell, to hold a bitset of it's potential values, just because its
-		// a bit faster to have it in it's own variable instead of repeatedly
-		// looking it up in the excludersMaybes array.
-		int theExcluderCellsMaybes;
+		// theExcludersMaybes is only used when there is ONE common excluder.
+		// It's a bitset of the common excluder cells potential values.
+		// This is faster than iterating an array of 1 element repeatedly.
+		int theExcludersMaybes;
 		int cl; // cellLevel: the current level in the cell stack
 		int vl; // valsLevel: the current level in the values stack
 		int i; // general purpose index
 		// workLevel: all potential values of all the cells to the right of the
 		// workLevel have already been allowed, so we don't need to waste time
-		// examining them repeatedly repeatedly, so when first combo is allowed
-		// that's enough to enable us to JUMP directly to examining the next
-		// potential value of the cell at the "workLevel". So the workLevel is
-		// the rightmost level which has maybes that have not yet been allowed.
+		// examining them again, so when the first combo is allowed it's enough
+		// to enable us to JUMP directly to examining the next potential value
+		// of the cell at the "workLevel". So the workLevel is the rightmost
+		// level which has maybes that have not yet been allowed.
 		int wl;
-
-		boolean b; // I told him we've already got one
+		// I told him we've already got one (a multi-purpose boolean)
+		boolean b;
 
 		// presume that no hints will be found
 		boolean result = false;
 
 		// find cells that are candidates to participate in exclusion sets,
-		// and get the possible excluder-cells of each candidate.
+		// and get the possible excluder-cells of each candidate. A candidate
+		// is just an unset cell which has sufficient excluders. An excluder
+		// cell is one with 2..degree maybes; so it's maybes can be "covered"
+		// by a set of $degree cells. "Sufficient" excluders is determined by
+		// the degree and users "hacked" settings. A23E only hint with two
+		// excluders, A4+E can hint with one. A4E is correct only. A5+E has a
+		// "hacked" registry Setting: 1=correct; 2=hacked is 10 times faster,
+		// but produces only about a third of the hints.
 		final int lastCandidate = populateCandidatesAndExcluders(grid) - 1;
 		if ( lastCandidate < degreeMinus1 )
 			return result; // rare but required (else CELL loop is endless)
 
 		// cellStackLevel = the first level
 		cl = 0;
-		// the first cell at each level is it's index: trixie.
+		// the first cell at each level is the levels index: trixie.
 		for ( i=0; i<degree; ++i )
 			cells[i].index = i;
 
@@ -386,51 +443,59 @@ public class AlignedExclusion extends AHinter
 					cells[cl].index = cells[cl-1].index + 1;
 				else
 					cells[cl].index = 0;
-				// then move left one to test the next index
+				// move left one level, to test the next index at that level
 				if ( --cl < 0 )
 					return result; // done all combinations of degree cells
 			}
 			// get this cell, and move index along to the next candidate cell
 			cell = candidates[cells[cl].index++];
-//if ( "E4".equals(cell.id) )
-//	Debug.breakpoint();
 			// cl == 0 means this is the first cell in the aligned set, so we
-			// set the idx field to the CACHED idx returned by the idx method.
+			// HARD set excluders to the CACHED idx returned by idx().
 			if ( cl == 0 ) { // the first cell in the aligned set
 				// set this cell up in the cellsStack
 				(ce=cells[cl]).cell = cell;
 				// note that excluders Idx is set directly to the CACHED Idx
-				// returned by the idx() method, so the Idx will be reused next
-				// time we examine the excludersSet of this cell.
+				// returned by the idx() method, the Idx is reused next time
+				// we examine the excludersSet of this cell.
 				ce.excluders = excluderSets[cell.i].idx();
 				// set-up this cell in the valsStack
-				// and increment the cellLevel to 1
+				// and increment the cellStackLevel to 1
 				ve=vals[cl++];
 				ve.set(cell);
-			// does this cell align with others already in the aligned set?
+			// does this cells excluders align with those common to the other
+			// cells that are already in this aligned set (cells[cl-1])?
 			// if cl > 0 then cl must be 1..degreeMinus1, so see if this cell
 			// has atleast the minimum number of required excluders in common
 			// with all the cells that are already in this aligned set.
-			} else if ( !excluderator.common(excluderSets[cell.i]
-					, cells[cl].excluders, cells[cl-1].excluders) ) {
+			// NB: the excluderator was set by the constructor for 1 or 2 cells
+			} else if ( excluderator.common(excluderSets[cell.i]
+							, cells[cl].excluders, cells[cl-1].excluders) ) {
 				// set-up this cell in the cellsStack
 				(ce=cells[cl]).cell = cell;
 				// set-up this cell in the valsStack
 				ve = vals[cl];
 				ve.set(cell);
-				if ( cl == degreeMinus1 ) { // its a complete "aligned set"
+				if ( cl < degreeMinus1 ) { // incomplete "aligned set"
+					// the next level starts with the next cell (forward-only
+					// search). Note that cellStack[cl].index has already been
+					// pre-incremented to the index of my next candidate cell.
+					cells[cl+1].index = cells[cl].index;
+					// move right to the next level in the cellStack
+					++cl;
+				} else { // complete "aligned set"
+					// of $degree cells, aligned around the common excluders.
 //					assert unique(cells) : dump(cells);
 					// skip this aligned-set if it's already known to not hint, in
-					// its current state; ie if cell.maybes have changed since last
+					// its current state; but if cell.maybes have changed since last
 					// examination then re-examine them; elims like 99.3% re-exams.
 					if ( !nonHinters.skip(cells, degree) ) {
 						// set this aligned sets excludersMaybes, a static field.
 						// The "excluder cells" are the siblings of all the cells in this
 						// aligned set having maybes.size 2..degree, so that these $degree
-						// cells can "cover" there upto $degree maybes.
+						// cells can "cover" there upto $degree maybes. Got it?
 						numExcluders = ce.excluders.cellsMaybes();
 						// remove duplicate/superset excluders, and also remove
-						// excluders which do not intersect with aligned set.
+						// excluders which do not intersect with the aligned set.
 						if ( (numExcluders=clean(excludersMaybes, numExcluders, cells)) == 0 ) {
 							nonHinters.put(); // no repeats
 							continue;
@@ -442,7 +507,7 @@ public class AlignedExclusion extends AHinter
 							allowed[i] = 0;
 						// reset the first valsStack entry to its first value.
 						vals[0].index = 0;
-						// reset workLevel to the rightmost level
+						// reset the workLevel to the rightmost level
 						wl = degreeMinus1;
 						if ( numExcluders == 1 ) {
 							// theres 1 excluder cell which is 98% of cases
@@ -452,7 +517,7 @@ public class AlignedExclusion extends AHinter
 							// the else branches, except the "excluders covers"
 							// statement/loop.
 							// shortcut maybes.bits of the single excluder cell
-							theExcluderCellsMaybes = excludersMaybes[0];
+							theExcludersMaybes = excludersMaybes[0];
 							// DOG_____ING_LOOP (slow): populates allowed.
 							// There are two rules used to disallow a combo:
 							// 1. if an aligned cell has no maybes then all
@@ -461,9 +526,10 @@ public class AlignedExclusion extends AHinter
 							// 2. if a combo contains all of a common excluder
 							//    cells maybes then this combo is not allowed,
 							//    ie just skip the bastard.
+							// combos that aren't skipped are allowed.
 							//
-							// foreach possible combination of potential values of the
-							// degree cells in this aligned set of candidate cells.
+							// foreach possible combination of potential values
+							// of the degree cells in this aligned set
 							VAL1: for(;;) {
 								// fallback levels while this level is out of values.
 								while ( vals[vl].index > vals[vl].last )
@@ -483,17 +549,22 @@ public class AlignedExclusion extends AHinter
 								} else { // subseqent level
 									// skip value if already taken by a sibling cell.
 									for ( i=0; i<vl; ++i )
-										// WARN: ve does NOT work here!
+										// BFIIK: ve does NOT work, so we use
+										// vals[vl] instead, which does.
 										if ( vals[i].value == vals[vl].value
 										  && vals[vl].sees[vals[i].i] )
 											continue VAL1;
 									// build-up the "combo" (a combination of
 									// the potential values of the aligned set)
 									ve.combo = vals[vl-1].combo | ve.value;
-									if ( vl == degreeMinus1 ) {
+									if ( vl < degreeMinus1 ) { // incomplete combo
+										// move right to the next values-level
+										// and start with its first maybe
+										vals[++vl].index = 0;
+									} else { // complete combo
 										// if combo does NOT cover the excluder cell
 										//   add this combo to allowedValues
-										if ( (theExcluderCellsMaybes & ~ve.combo) != 0 ) {
+										if ( (theExcludersMaybes & ~ve.combo) != 0 ) {
 											// all vals right of "workLevel" are already allowed.
 											for ( i=0; i<=wl; ++i )
 												allowed[i] |= vals[i].value;
@@ -506,24 +577,25 @@ public class AlignedExclusion extends AHinter
 											// down to a 10 *  1* 1* 1 *  1* 1* 1 *  1* 1* 1 problem.
 											// Note that actual performance for A10E is
 											// more like  3 *  3* 3* 3 *  3* 3* 3 *  3* 3* 3,
-											// which is still "slow", but not "impossible".
-											if ( allowed[wl] == cells[wl].cell.maybes.bits ) {
-												if ( (vl=--wl) < 0 ) { // all values allowed!
+											// or maybe   4 *  4* 4* 4 *  4* 4* 4 *  4* 4* 4,
+											// which is still "too slow", but no longer "impossible".
+											if ( allowed[wl] == cells[wl].cell.maybes.bits )
+												// move the workLevel left one place,
+												// and test the next value at that level
+												if ( (vl=--wl) < 0 ) {
+													// all values are allowed, ie no hint.
 													// record this aligned set did not hint.
 													nonHinters.put();
+													// try the next aligned set
 													continue CELL;
 												}
-											} else
+											else
 												// test the next value at the workLevel!
 												vl = wl;
 										}
-									} else { // its a complete combo
-										// move right to the next level
-										// starting with it's first maybe
-										vals[++vl].index = 0;
 									}
 								}
-							} // next combo of potential values
+							} // next potential value
 						} else {
 							// only about 2% of aligned sets have 2 or more excluder
 							// cells, so we just loop thrue them, which is slower, but
@@ -556,16 +628,16 @@ public class AlignedExclusion extends AHinter
 								} else { // subsequent level
 									// skip value if already taken by a sibling.
 									for ( i=0; i<vl; ++i )
-										// WARN: ve does NOT work here!
+										// BFIIK: ve does NOT work, so we use
+										// vals[vl] instead, which does.
 										if ( vals[i].value == vals[vl].value
 										  && vals[vl].sees[vals[i].i] )
 											continue VAL2;
 									// build-up the combo of values
 									ve.combo = vals[vl-1].combo | ve.value;
-									if ( vl == degreeMinus1 ) { // final level
-										// so now we test our completed combo
+									if ( vl == degreeMinus1 ) { // the combo is complete
 										// if this combo doesnt cover any excluder cell
-										//   add this combo to allowed
+										//   add this combo to the allowedValues array
 										b = true;
 										for ( i=0; i<numExcluders; ++i )
 											if ( (excludersMaybes[i] & ~ve.combo) == 0 ) {
@@ -590,6 +662,7 @@ public class AlignedExclusion extends AHinter
 												if ( (vl=--wl) < 0 ) { // all values allowed!
 													// record this aligned set did not hint.
 													nonHinters.put();
+													// try the next aligned set
 													continue CELL;
 												}
 											} else
@@ -598,14 +671,18 @@ public class AlignedExclusion extends AHinter
 										}
 									} else {
 										// move right to the next values-level
-										// and start with its first value
+										// and start with its first maybe
 										vals[++vl].index = 0;
 									}
 								}
 							} // next combo of potential values
 						}
-						// NB: when we get here, the following is just a double-check
-						// which is "almost guaranteed" to be true!
+						// NB: when we get here, this check just a double-check
+						// which is "guaranteed" true! If all vals are allowed
+						// we have already continued, to skip this aligned set.
+						// The performance impact of the double-check is minimal
+						// BECAUSE it's not executed UNLESS we're going to hint!
+						
 						// if any of potential values of the cells in this aligned set
 						// have not been allowed by atleast one combo, then that value
 						// may be eliminated from that cell, ie we found an exclusion.
@@ -645,16 +722,10 @@ public class AlignedExclusion extends AHinter
 							// record the fact that this aligned set did not produce a
 							// hint, so that we can skip-it the next time we see it if
 							// all of its maybes are unchanged.
+							// NOTE: This should never be executed, but safety first!
 							nonHinters.put();
 						}
-					}
-				} else {
-					// the next level starts with the next cell (ie a forward-only
-					// search). Note that cellStack[cl].index has already been
-					// "pre-incremented" to the index of the next candidate cell!
-					cells[cl+1].index = cells[cl].index;
-					// move right to the next level in the cellStack
-					++cl;
+					} // fi
 				}
 			}
 		}
@@ -733,7 +804,7 @@ public class AlignedExclusion extends AHinter
 					// sib is an excluder if it has maybes.size 2..degree
 					// opt: do the < first because it's more deterministic.
 					if ( (card=sib.maybes.size)<degreePlus1 && card>1 ) {
-						// we needTwo in A23E or user says "hacked" in A5+E
+						// we needTwo in A23E, or user chooses "hacked" in A5+E
 						if ( needTwoExcluders ) {
 							if ( firstExcluder == null )
 								firstExcluder = sib;
@@ -777,10 +848,10 @@ public class AlignedExclusion extends AHinter
 			// does cell have any maybes that are not allowed at this position?
 			if ( (bits=(cells[i].cell.maybes.bits & ~allowed[i])) != 0 )
 				// foreach cell maybe that is not allowed
-				for ( int v : ARRAYS[bits] )
+				for ( int v : VALUESES[bits] )
 					// Yeah, 'v' can be excluded from 'cell'
 					redPots.upsert(cells[i].cell, v);
-		assert !redPots.isEmpty(); // asserts are for developers only
+		assert !redPots.isEmpty(); // asserts for techies only: java -ea
 		return redPots;
 	}
 
@@ -788,7 +859,7 @@ public class AlignedExclusion extends AHinter
 	// excluded combos map, which we need for the hint. This takes "some time",
 	// mainly because HashMap insertion is a bit slow Redge), but this loop is
 	// executed < 1000 times for top1465, not bloody billions of times, like
-	// the real dog____ing loop.
+	// the real dog____ing loop, so performance is NOT critical here.
 	private ExcludedCombosMap buildExcludedCombosMap(Cell[] cmnExcluders
 			, Cell[] alignedSet, Pots reds) {
 		ValsStackEntry e; // the current values stack entry (ie stack[l])
@@ -804,7 +875,7 @@ public class AlignedExclusion extends AHinter
 		stack[0].index = 0; // start from the cells first potential value
 		// copy immutable cell-data from the given cells to the valsStack (vs)
 		for ( i=0; i<degree; ++i ) {
-			stack[i].maybes = SHIFTED[alignedSet[i].maybes.bits];
+			stack[i].maybes = VSHIFTED[alignedSet[i].maybes.bits];
 			stack[i].last = alignedSet[i].maybes.size - 1;
 		}
 		VAL: for(;;) {
@@ -819,16 +890,17 @@ public class AlignedExclusion extends AHinter
 			// set the "presumed value" of this cell
 			// and advance the index to the next potential value of this cell
 			e.value = e.maybes[e.index++];
-			// skip this value if it's already taken by a preceeding sibling
+			// skip this value if it's already taken by a sibling to my left
 			for ( i=0; i<l; ++i ) {
 				if ( e.value == stack[i].value
 				  && alignedSet[l].sees[alignedSet[i].i] ) {
 					// all combos containing both of these values are excluded,
 					// so unpack the two equal-values into an array at da index
-					// of the two sibling cells that cannot have the same value
+					// of the two sibling cells that cannot have the same valu.
+					// NOTE: We create a new array because HashA retains it!
 					int[] a = new int[degree];
-					a[l] = ARRAYS[stack[l].value][0];
-					a[i] = ARRAYS[stack[i].value][0];
+					a[l] = VALUESES[stack[l].value][0];
+					a[i] = VALUESES[stack[i].value][0];
 					// null means exclusion not specific to an excluder cell.
 					map.put(new HashA(a), null);
 					continue VAL;
@@ -846,7 +918,7 @@ public class AlignedExclusion extends AHinter
 					if ( (x.maybes.bits & ~e.combo) == 0 ) {
 						int[] a = new int[degree];
 						for ( i=0; i<degree; ++i )
-							a[i] = ARRAYS[stack[i].value][0];
+							a[i] = VALUESES[stack[i].value][0];
 						map.put(new HashA(a), x);
 						break; // we want only the first excluder of each combo
 					}
@@ -860,17 +932,18 @@ public class AlignedExclusion extends AHinter
 	}
 
 	// clean-out all defective excludersMaybes
-	// 1. remove excluders which contain all values in any other excluder, 
+	// 1. remove excluders which contain all values in any other excluder,
 	//    including any duplicates.
 	// 2. remove excluders which do not intersect with any cell in the aligned
 	//    set (ie do not have atleast one common maybe).
 	private int clean(int[] excludersMaybes, int numExcluders, CellStackEntry[] stack) {
 		boolean any;
 		for ( int i=0; i<numExcluders; ++i ) {
-			// 1. if j is a superset of i then remove j
+			// 1. if j contains all values in i then remove j, retaining the
+			//    smaller of the two sets. j may have other values besides.
 			for ( int j=i+1; j<numExcluders; ++j ) {
 				if ( (excludersMaybes[i] & ~excludersMaybes[j]) == 0 ) {
-					// move j and all to it's right up one.
+					// remove j: move j-and-all-to-its-right left one spot.
 					for ( int k=j,K=numExcluders-1; k<K; ++k )
 						excludersMaybes[k] = excludersMaybes[k+1];
 					--numExcluders;
@@ -885,7 +958,7 @@ public class AlignedExclusion extends AHinter
 				}
 			}
 			if ( !any ) {
-				// move i and all to it's right up one.
+				// remove i: move i-and-all-to-its-right left one spot.
 				for ( int k=i,K=numExcluders-1; k<K; ++k )
 					excludersMaybes[k] = excludersMaybes[k+1];
 				--numExcluders;
@@ -924,46 +997,78 @@ public class AlignedExclusion extends AHinter
 
 	class ValsStackEntry {
 		// Values.SHIFTED[cell.maybes.bits] of the current cell at level
-		// 1..degree in the cellsStack.
+		// 1..degree in the cellsStack. We use shifted values for the
+		// convenience of just "or-ing" them into the combo.
 		int[] maybes;
 		// the index of the current/next presumedValue in maybes
 		int index;
 		// the last valid index (ie maybes.size-1)
 		int last;
 		// the potential value we presume this cell holds.
-		// This value is a left-shifted bitset representaton
+		// This value is, confusingly, a left-shifted bitset representation,
+		// for the convenience of just "or-ing" it into the combo.
 		int value;
 		// a bitset of the value of this and all cells to my left
 		int combo;
-		// ---- additions for speed ----
-		// the indice of my cell in the grid: cells[i].cell.i
+		// ---- additions for speed, and comfort ----
+		// the indice of my cell in the grid: cells[i].cell.i, rather than
+		// repeatedly do the ugly dereferencing; so we can process the vals
+		// without needing to refer back to the cellStack.
 		int i;
-		// my cell's sees array
+		// my cell's sees array, rather than repeatedly cells[vl].cell.sees.
 		boolean[] sees;
-		// set this ValsStackEntry to the given cell.
+		// set the given cells attributes in this ValsStackEntry.
 		void set(Cell cell) {
 			i = cell.i;
-			maybes = SHIFTED[cell.maybes.bits];
+			maybes = VSHIFTED[cell.maybes.bits];
 			last = cell.maybes.size - 1;
 			sees = cell.sees;
 		}
 	}
 
+	/**
+	 * The Excluderator interface allows us to do "hacked" or "correct" without
+	 * too much bother in the rest of the code. There's two implementations:
+	 * Excluderator1 or Excluderator2; each instance consistently uses either
+	 * of these implementations; there's no swapping on the fly. To change a
+	 * "hacked" setting we need to recreate the whole LogicalSolver. sigh.
+	 */
 	private static interface Excluderator {
+		/**
+		 * common is {@code return !excluders.idx1(dest, src);}<br>
+		 * or {@code return !excluders.idx2(dest, src);}.
+		 * <p>
+		 * So we call idx1/2 on the given CellSet, and negate it's return value
+		 * to return "are there sufficient common excluders between src and
+		 * dest, setting dest to the union (and) of src and excluders.idx().
+		 * @param excluders
+		 * @param dest
+		 * @param src
+		 * @return
+		 */
 		boolean common(CellSet excluders, Idx dest, Idx src);
 	}
 
+	/**
+	 * This excluderator aligns around a single cell, which I call "correct".
+	 */
 	private static class Excluderator1 implements Excluderator {
 		@Override
 		public boolean common(CellSet excluders, Idx dest, Idx src) {
-			return excluders.idx1(dest, src);
+			return !excluders.idx1(dest, src);
 		}
 	}
 
+	/**
+	 * This excluderator aligns around two cells, which I call "hacked".
+	 * Aligned 2 and 3 exclusion actually require 2 cells. A4+E can (rarely)
+	 * produce hints using a single excluder cell; so the user chooses this
+	 * one for A5+E using the "hacked" check box in the GUI.
+	 */
 	private static class Excluderator2 implements Excluderator {
 		@Override
 		public boolean common(CellSet excluders, Idx dest, Idx src) {
-			return excluders.idx2(dest, src);
+			return !excluders.idx2(dest, src);
 		}
 	}
 

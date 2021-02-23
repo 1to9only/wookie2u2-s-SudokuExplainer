@@ -1,4 +1,7 @@
-NOTE: Almost Locked Sets is based on HoDoKu code by Bernhard Hobiger.
+NOTE: ALS (Almost Locked Sets) is based on HoDoKu code by Bernhard Hobiger.
+
+SueDeCoq is from MiscellaneousSolver. It's a two-or-three digit pattern
+reminiscent of ALS's, so it sort-of-fits here.
 
 Here is hobiwan's licence statement:
 
@@ -21,7 +24,7 @@ Here is hobiwan's licence statement:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-als means Almost Locked Sets
+ALS means Almost Locked Sets
 ============================
 
 2020-09-23 renamed alshdk package diuf.sudoku.solver.hinters.als because
@@ -66,7 +69,7 @@ are displayed in all hints where they're relevant. HoDoKu doesn't display
 regions in it's hints, at all. So most of the thinking isn't so "regional".
 
 Sudoku Explainer attempts to provide the user with a human readable explanation
-(instance) and justification of (logic behind) every hint. HoDoKu just gives
+(example) and justification of (logic behind) every hint. HoDoKu just gives
 the user a hard-to-read string which defines but does not explain or justify
 the hint, so a user can't use HoDoKu to learn how to solve Sudokus themselves;
 which is what I think the real challenge is, or atleast should be. We pay it

@@ -37,9 +37,9 @@ public final class Html {
 
 	public static void save(Object caller, String filename, String content
 			, boolean wantCache) throws ResourceException {
-		String key = getKey(caller, filename);
-		String classpath = "test\\" + caller.getClass().getPackage().getName().replace('.', '\\');
-		String filepath = IO.HOME + classpath + '\\' + filename;
+		final String key = getKey(caller, filename);
+		final String classpath = "test\\" + caller.getClass().getPackage().getName().replace('.', '\\');
+		final String filepath = IO.HOME + classpath + '\\' + filename;
 		try ( PrintStream output = new PrintStream(filepath) ) {
 			if ( output == null )
 				throw new ResourceException("Resource not found: "+key);
@@ -168,23 +168,25 @@ public final class Html {
 		return format(load(hint, fileName), args);
 	}
 
-	//                             fontElementIndex
+	// indexes of "<font color ="?"> elements in COLORS
 	private static final int RED    = 1;
 	private static final int CYAN1  = 5;
 	private static final int GREEN  = 9;
 	private static final int ORANGE = 13;
-	private static final int BLUE1  = 17;
-	private static final int BLUE2  = 21;
-	private static final int CYAN2  = 25;
+	private static final int PINK   = 17;
+	private static final int BLUE1  = 21;
+	private static final int BLUE2  = 25;
+	private static final int CYAN2  = 29;
 
 	private static final String[] COLORS = new String[] {  // startIndex
 	 "<r>", "<font color=\"red\">"     ,"</r>", "</font>"  //  0 red (candidate)
 	,"<c>", "<font color=\"#00AAAA\">" ,"</c>", "</font>"  //  4 cyan (cell background)
 	,"<g>", "<font color=\"#009000\">" ,"</g>", "</font>"  //  8 green (candi)
 	,"<o>", "<font color=\"#E08000\">" ,"</o>", "</font>"  // 12 orange (candi)
-	,"<b1>","<font color=\"#0000A0\">" ,"</b1>","</font>"  // 16 blue (region)
-	,"<b2>","<font color=\"#009000\">" ,"</b2>","</font>"  // 20 green (region)
-	,"<b3>","<font color=\"#0090A0\">" ,"</b3>","</font>"  // 24 cyan (region) // for ALS-XY-Wing which needs 3 colors
+	,"<k>", "<font color=\"#FF00FF\">" ,"</k>", "</font>"  // 16 pink (candi)
+	,"<b1>","<font color=\"#0000A0\">" ,"</b1>","</font>"  // 20 blue (region)
+	,"<b2>","<font color=\"#009000\">" ,"</b2>","</font>"  // 24 green (region)
+	,"<b3>","<font color=\"#0090A0\">" ,"</b3>","</font>"  // 28 cyan (region) // for ALS-XY-Wing which needs 3 colors
 	};
 
 	private static String color(String html, int i) {

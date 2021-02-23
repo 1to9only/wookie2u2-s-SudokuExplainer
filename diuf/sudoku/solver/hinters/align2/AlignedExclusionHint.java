@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters.align2;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IrrelevantHintException;
@@ -58,12 +59,11 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 	}
 
 	static boolean isRelevant(Cell[] cells, Pots redPots, int[] combo) {
-		final int[] SHFT = Values.SHFT;
 		Values redVals;
 		for ( int i=0,n=cells.length; i<n; ++i )
 			if ( combo[i] != 0 // most combos are mostly 0's
 			  && (redVals=redPots.get(cells[i])) != null
-			  && (redVals.bits & SHFT[combo[i]]) != 0 )
+			  && (redVals.bits & VSHFT[combo[i]]) != 0 )
 				return true;
 		return false;
 	}
@@ -89,11 +89,6 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 		return greenPots;
 	}
 	private Pots greenPots;
-
-	@Override
-	public Pots getReds(int viewNumUnused) {
-		return redPots;
-	}
 
 	@Override
 	public Pots getOranges(int viewNumUnused) {

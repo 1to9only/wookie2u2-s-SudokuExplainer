@@ -16,6 +16,7 @@ import java.util.Objects;
 /**
  * AHinter (Abstract Hinter) is the base-type for all classes which produce
  * AHints (Abstract Hints) through the getHints method.
+ *
  * @author Keith Corlett 2018 Jan - previously it was an ugly interface tree.
  */
 public abstract class AHinter implements IHinter {

@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -150,10 +151,7 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
 		// that are packed into your maybes.bits 0..511. See Values for more.
-		final int[][] SVS = Values.SHIFTED;
-
-		// Integer.bitCount of the bitsets 0..511
-		final int[] SIZE = Values.SIZE;
+		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
 		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
@@ -457,7 +455,7 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 									ns60 = c6.notSees[c0.i];
 
 									// should we test if 3/4/5 values cover ceb0
-									ces0 = SIZE[ceb0=cmnExclBits[0]];
+									ces0 = VSIZE[ceb0=cmnExclBits[0]];
 									do30 = ces0 <= 3;
 									do40 = ces0 <= 4;
 									do50 = ces0 <= 5;
@@ -667,7 +665,7 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 										// there's still no need for a common excluders loop
 										//  w/o HitSet: 2 = 14,773,394 of 1,231,143,645 = 1.20%
 										// with HitSet: 2 = 91 of 592 = 15.37%
-										ces1 = SIZE[ceb1=cmnExclBits[1]];
+										ces1 = VSIZE[ceb1=cmnExclBits[1]];
 										do31 = ces1 <= 3;
 										do41 = ces1 <= 4;
 										do51 = ces1 <= 5;
@@ -821,11 +819,11 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 										// there's still no need for a common excluders loop
 										//  w/o HitSet: 3 = 635,993 of 1,231,143,645 = 0.05%
 										// with HitSet: 3 = 1 of 592 = 0.17%
-										ces1 = SIZE[ceb1=cmnExclBits[1]];
+										ces1 = VSIZE[ceb1=cmnExclBits[1]];
 										do31 = ces1 <= 3;
 										do41 = ces1 <= 4;
 										do51 = ces1 <= 5;
-										ces2 = SIZE[ceb2=cmnExclBits[2]];
+										ces2 = VSIZE[ceb2=cmnExclBits[2]];
 										do32 = ces2 <= 3;
 										do42 = ces2 <= 4;
 										do52 = ces2 <= 5;

@@ -9,16 +9,18 @@ package diuf.sudoku.solver.hinters.wing;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.FIRST_INDEX;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
 
 
 /**
- * XYWing Implements both the XY-Wing and XYZ-Wing Sudoku solving techniques.
+ * XYWing implements both the XY-Wing and XYZ-Wing Sudoku solving techniques.
  * <p>
  * I found the XY/Z techniques near impossible to get my head around, so
  * here's an <b>explanation</b> for those who come after me.
@@ -46,7 +48,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * code, which is shared with XY-Wings; and xy is distinct, just not complete,
  * and therefore only demi-descriptive... but it works, so don't ____ with it.
  * <p>
- * Confused yet? Read it again, and again; then take a geezer at the codez.
+ * Confused yet? Read it again, and again; then look at the code.
  */
 public final class XYWing extends AHintNumberActivatableHinter
 //		implements diuf.sudoku.solver.IReporter
@@ -72,7 +74,6 @@ public final class XYWing extends AHintNumberActivatableHinter
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		// localise for speed
-		final int[] SIZE = Values.SIZE;
 		final int degree = this.degree;
 		final int intersectionSize = this.intersectionSize;
 		// local variables
@@ -91,14 +92,14 @@ public final class XYWing extends AHintNumberActivatableHinter
 				for ( Cell xz : xy.siblings ) {
 					if ( (xzm=xz.maybes).size == 2
 					  // this means: xy.maybes - xz.maybes == 1 maybe (ie z)
-					  && SIZE[xyb & ~xzm.bits] == 1 ) {
+					  && VSIZE[xyb & ~xzm.bits] == 1 ) {
 						xzb = xzm.bits;
 						// foreach sibling of the locus cell (again)
 						for ( Cell yz : xy.siblings ) {
 							if ( (yzm=yz.maybes).size == 2
 							  && yz != xz // reference-equals OK
-							  && SIZE[xyb | xzb | yzm.bits] == 3 // union
-							  && SIZE[xyb & xzb & yzm.bits] == intersectionSize ) { // XY=0 or XYZ=1
+							  && VSIZE[xyb | xzb | yzm.bits] == 3 // union
+							  && VSIZE[xyb & xzb & yzm.bits] == intersectionSize ) { // XY=0 or XYZ=1
 								// XY/Z found, but does it remove any maybes?
 								hint = createHint(grid, xy, xz, yz);
 								result |= (hint != null);
@@ -182,11 +183,11 @@ public final class XYWing extends AHintNumberActivatableHinter
 		// ----------------------------------------------------------
 
 		// Create and return the hint
-		final int zValue = Indexes.NUM_TRAILING_ZEROS[zMaybes]+1;
-		assert zMaybes == Values.SHFT[zValue]; // AIOOBE means its really ____ed
+		final int zValue = FIRST_INDEX[zMaybes]+1;
+		assert zMaybes == VSHFT[zValue]; // AIOOBE means its really ____ed
 		return new XYWingHint(this, redPots, isXYZ, xy, xz, yz, zValue);
 	}
-	// it's faster to re-use a fixed array than it is to clean, allocate, free; 
+	// it's faster to re-use a fixed array than it is to clean, allocate, free;
 	// clean, allocate, free; clean, allocate, free; are we there yet?
 	// especially when (like this one) there's no requirement to clean it.
 	private final Cell[] victims = new Cell[18]; // max possible number of common siblings

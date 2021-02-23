@@ -32,11 +32,10 @@ import java.util.logging.Logger;
 
 
 /**
- * An RCC is a Restricted Common Candidate, which is the one-or-two values
- * that two ALS's have in common, which all see each other (that's the
- * nominative restriction); and optionally cannot be in the intersection of
- * the two ALS's; and optionally must be more than one cell (no bi-value cells
- * as ALS's); and optionally some other bloody rule which currently eludes me.
+ * An RCC is a Restricted Common Candidate, which is the one-or-two values that
+ * two ALS's have in common, which all see each other (that's the nominative
+ * restriction); and optionally cannot be in the intersection of the two ALS's;
+ * and optionally must be more than one cell (no bivalue cells as ALS's).
  *
  * @author hobiwan originally but this ones a bit of a KRC hack, with fruit
  * juice, but no gannets.

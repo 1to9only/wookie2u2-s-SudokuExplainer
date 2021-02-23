@@ -28,6 +28,7 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
@@ -61,7 +62,7 @@ public final class AlsXyChain extends AAlsHinter {
 
 	// singleHintMode=true when findHints is passed a SingleHintsAccumulator.
 	// This determines if search-recursion should exit-early upon hint.
-	private boolean singleHintMode;
+	private boolean oneOnly;
 
 	/**
 	 * Constructs a new HdkAlsXyChain hinter.
@@ -81,6 +82,8 @@ public final class AlsXyChain extends AAlsHinter {
 					// Allowing a cell that is part of an actual Locked Set
 					// in this region to be part of an Almost Locked Set
 					// was producing invalid hints, so KRC supressed them.
+			, true  // findRCCs: true runs getRccs as per "normal" ALS use.
+					// this is only ever false in DeathBlossom.
 			, false // forwardOnly: false makes getRccs do a full search of
 					// all possible combinations of ALSs, instead of the
 					// faster forwardOnly search for XZ's and XyWing's.
@@ -98,7 +101,7 @@ public final class AlsXyChain extends AAlsHinter {
 		this.rccs = rccs;
 		this.alss = alss;
 		this.accu = accu;
-		this.singleHintMode = accu.isSingle();
+		this.oneOnly = accu.isSingle();
 		boolean result = false;
 		try {
 			deletesMap.clear();
@@ -113,7 +116,7 @@ public final class AlsXyChain extends AAlsHinter {
 				isAlsInChain[i] = true;
 				firstRCC = null;
 				result |= recurseChains(i, null, 0);
-				if ( result && singleHintMode )
+				if ( result && oneOnly )
 					break; // we found one already!
 			}
 		} finally {
@@ -124,7 +127,7 @@ public final class AlsXyChain extends AAlsHinter {
 			this.accu = null;
 		}
 		// GUI mode, so sort hints by score descending
-		if ( result && !singleHintMode )
+		if ( result && !oneOnly )
 			accu.sort();
 		return result;
 	}
@@ -161,7 +164,7 @@ public final class AlsXyChain extends AAlsHinter {
 	private boolean recurseChains(final int index, final Rcc prevRC, int chainIndex) {
 
 		// localise references, for speed.
-		final int[] SHFT = AAlsHinter.SHFT;
+		final int[] SHFT = AAlsHinter.VSHFT;
 		final Idx tmp = this.set1; // used for various checks
 		final Idx vBuds = this.set2; // all buds of v (incl the ALSs).
 		final Pots redPots = this.redPots;
@@ -226,7 +229,7 @@ public final class AlsXyChain extends AAlsHinter {
 			// Note that chainAlss is populated upto <= chainIndex (not the
 			// more usual upto < chainIndex) coz [0] is the startAls.
 			for ( int j=0; j<=chainIndex; ++j )
-				if ( Idx.andEqualsEither(chainAlss[j].set, currAls.set) )
+				if ( Idx.andEqualsEither(chainAlss[j].idx, currAls.idx) )
 					continue LOOP;
 
 			// ok, currALS can be added
@@ -287,7 +290,7 @@ public final class AlsXyChain extends AAlsHinter {
 				}
 
 				// check overlaps: RCs already done, so just a and b
-				if ( !allowOverlaps && tmp.setAnd(startAls.set, currAls.set).any() ) {
+				if ( !allowOverlaps && tmp.setAnd(startAls.idx, currAls.idx).any() ) {
 					--chainIndex;
 					continue; // overlaps are supressed
 				}
@@ -350,7 +353,7 @@ public final class AlsXyChain extends AAlsHinter {
 						bases.add(x.region);
 					else
 						covers.add(x.region);
-					setsList.add(x.set);
+					setsList.add(x.idx);
 					alssList.add(x);
 				}
 
@@ -389,7 +392,7 @@ public final class AlsXyChain extends AAlsHinter {
 			// else no space left so we stop recursing and bail out
 
 			// and back one level
-			if ( result && singleHintMode )
+			if ( result && oneOnly )
 				return true; // and-so-on all the way back-up the recursive callstack!
 			isAlsInChain[als2] = false;
 			chainAlss[chainIndex--] = null;

@@ -133,8 +133,8 @@ public class Skyscraper extends AHinter {
 		// build the removeable (red) potential values map Cell/s->Value
 		// Skyscraper is producing hints with no eliminations!
 		Pots redPots = new Pots(v, idx.cells(grid));
-		if ( redPots.clean() )
-			return null;
+		if ( !redPots.clean() ) // !!redPots.isEmpty(). sigh.
+			return null; // Never happens. Never say never.
 		// workout the region type from the other-region-type (weird huh?)
 		final int r = o==0 ? 1 : 0;
 		// build the regions

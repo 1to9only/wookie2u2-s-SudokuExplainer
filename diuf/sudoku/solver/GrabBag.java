@@ -38,6 +38,4 @@ public class GrabBag {
 
 	public static final Object ANALYSE_LOCK = new Object();
 
-	public static volatile boolean isGenerating;
-
 }

@@ -50,7 +50,6 @@ public class KrakenFishHint extends AHint implements IActualHint {
 	final Values valsToRemove;
 	final List<Ass> chains;
 	final Idx fins;
-	boolean isInvalid; // set by KrakenFisherman after creation only when HintValidator detects eliminations of potential values that are part of the solution
 	KrakenFishHint(AHinter hinter, Pots reds, ComplexFishHint cause
 			, Values valsToRemove, Type type, List<Ass> chains, Idx fins) {
 		super(hinter, reds);
@@ -68,11 +67,6 @@ public class KrakenFishHint extends AHint implements IActualHint {
 		redPots.addAll(cause.redPots)
 			   .removeFromAll(getGreens(0), getOranges(0)
 					, getBlues(null, 0), getPurples(), getYellows());
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
 	}
 
 	@Override

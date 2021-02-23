@@ -38,7 +38,7 @@ public final class SingleHintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean addAll(Collection<AHint> hints) {
+	public boolean addAll(Collection<? extends AHint> hints) {
 		if ( hints.size() > 0 ) {
 			theHint = hints.iterator().next();
 			return true;

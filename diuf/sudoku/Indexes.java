@@ -47,11 +47,10 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	public static final int ALL_BITS = ARRAY_SIZE-1; // 511
 
 	/** An array of the "shifted" bitset-values (faster than {@code 1<<v)}. */
-	public static final int[] SHFT = new int[NUM_BITS];
+	public static final int[] ISHFT = new int[NUM_BITS];
 	/** An array-of-arrays of the unshifted values. The first index is your
-	 * bitset => array of the values in that bitset.<br>
-	 * FYI: Values.SIZE is the number of elements in each ARRAY element. */
-	public static int[][] ARRAYS = new int[ARRAY_SIZE][];
+	 * bitset => array of the values in that bitset. */
+	public static int[][] INDEXES = new int[ARRAY_SIZE][];
 //not used
 //	/** An array-of-arrays of the left-shifted-bitset-values. The first index
 //	 * is your bitset => array of the SHFT'ed values in that bitset. */
@@ -59,19 +58,25 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	/** An array of Integer.numberOfTrailingZeros is faster than repeatedly
 	 * calling the sucker on these same values. We can do this because there
 	 * is only 512 values in question. */
-	public static final int[] NUM_TRAILING_ZEROS = new int[ARRAY_SIZE];
+	public static final int[] FIRST_INDEX = new int[ARRAY_SIZE];
 	static {
 		for ( int i=0; i<NUM_BITS; ++i )
-			SHFT[i] = 1<<i;
+			ISHFT[i] = 1<<i;
 		for ( int i=0; i<ARRAY_SIZE; ++i) {
-			ARRAYS[i] = toValuesArray(i);
+			INDEXES[i] = toValuesArray(i);
 //			SHIFTED[i] = toShiftedArray(i);
-			NUM_TRAILING_ZEROS[i] = Integer.numberOfTrailingZeros(i);
+			FIRST_INDEX[i] = Integer.numberOfTrailingZeros(i);
 		}
 	}
 
-	/** An array of the Integer.bitCount of 0..511, for speed. */
-	public static final int[] SIZE = Values.SIZE;
+	/**
+	 * An array of the Integer.bitCount of 0..511, for speed.<br>
+	 * NOTE: that the number of bits in a bitset is the same regardless of
+	 * whether the first bit represents 0 (Indexes) or 1 (Values); hence
+	 * Indexes.ISIZE = Values.VSIZE, that is Indexes.ISIZE is just a pseudonym
+	 * for the single array, which is kept in Values.
+	 */
+	public static final int[] ISIZE = Values.VSIZE;
 
 	/** this static factory method is currently only used in test cases. */
 	static Indexes empty() {
@@ -138,7 +143,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	/** Constructs a new Indexes Set containing the given raw 'bits'.
 	 * @param bits to set (a left-shifted bitset). */
 	public Indexes(int bits) {
-		this.size = (this.bits=bits)==0 ? 0 : SIZE[bits];
+		this.size = (this.bits=bits)==0 ? 0 : ISIZE[bits];
 	}
 
 	/** Constructs a new Indexes Set containing the given 'indexes'.
@@ -149,15 +154,15 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * left-shifted) indexes. */
 	public Indexes(int... indexes) {
 		for ( int i=0,n=indexes.length; i<n; ++i )
-			bits |= SHFT[indexes[i]]; // add idx to my bits
-		this.size = SIZE[bits]; // safety first, in case 2 idxs weren't distinct
+			bits |= ISHFT[indexes[i]]; // add idx to my bits
+		this.size = ISIZE[bits]; // safety first, in case 2 idxs weren't distinct
 	}
 
 	/** Constructs a new Indexes Set containing the digits in 's'.
 	 * @param s String of digits EG: "01238" to set. */
 	public Indexes(String s) {
 		for ( int i=0, n=this.size=s.length(); i<n; ++i )
-			this.bits |= SHFT[s.charAt(i)-'0'];
+			this.bits |= ISHFT[s.charAt(i)-'0'];
 	}
 
 	/** Copy-con: Constructs a new Indexes Set containing the indexes in 'src'.
@@ -192,7 +197,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @param bits
 	 */
 	void set(int bits) {
-		this.size = SIZE[this.bits = bits];
+		this.size = ISIZE[this.bits = bits];
 	}
 
 	/**
@@ -206,13 +211,13 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 */
 	public void set(int i, boolean value) {
 		if ( value ) { // add 'i' to bits
-			if ( (bits & SHFT[i]) == 0 ) { // 'i' is not already in bits
-				bits |= SHFT[i]; // set the bit
+			if ( (bits & ISHFT[i]) == 0 ) { // 'i' is not already in bits
+				bits |= ISHFT[i]; // set the bit
 				++size; // bump-up the count
 			}
 		} else { // remove 'i' from bits
-			if ( (bits & SHFT[i]) != 0 ) { // 'i' is in bits
-				bits &= ~SHFT[i]; // unset the bit
+			if ( (bits & ISHFT[i]) != 0 ) { // 'i' is in bits
+				bits &= ~ISHFT[i]; // unset the bit
 				--size; // knock-down the count
 			}
 		}
@@ -227,8 +232,8 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @return this Indexes. */
 	public Indexes add(int i) {
 		// if 'i' is unset (0) in bits
-		if ( (bits & SHFT[i]) == 0 ) { // 'i' is not already in bits
-			bits |= SHFT[i]; // set the bit
+		if ( (bits & ISHFT[i]) == 0 ) { // 'i' is not already in bits
+			bits |= ISHFT[i]; // set the bit
 			++size; // bump-up the count
 		}
 		return this;
@@ -238,7 +243,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @param other {@code Indexes}.
 	 * @return this Indexes. */
 	public Indexes add(Indexes other) {
-		this.size = SIZE[bits |= other.bits];
+		this.size = ISIZE[bits |= other.bits];
 		return this;
 	}
 
@@ -246,8 +251,8 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @param i int to clear. */
 	public void remove(int i) {
 		// if 'i' is set (1) in bits
-		if ( (bits & SHFT[i]) != 0 ) {
-			bits &= ~SHFT[i]; // unset the bit
+		if ( (bits & ISHFT[i]) != 0 ) {
+			bits &= ~ISHFT[i]; // unset the bit
 			--size; // knock-down the count
 		}
 	}
@@ -262,7 +267,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @return boolean.
 	 */
 	public boolean contains(int i) {
-		return (bits & SHFT[i]) != 0;
+		return (bits & ISHFT[i]) != 0;
 	}
 
 	/** Does this Indexes Set contain all these values?
@@ -271,7 +276,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @return boolean. */
 	public boolean containsAll(int... values) {
 		for ( int v : values )
-			if ( (bits & SHFT[v]) == 0 )
+			if ( (bits & ISHFT[v]) == 0 )
 				return false;
 		return true;
 	}
@@ -283,7 +288,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	/** @return the number of indexes in this Indexes Set. */
 	public int size() {
-		return size = SIZE[bits];
+		return size = ISIZE[bits];
 	}
 
 	/** @return the binary String representation of this Indexes Set. */
@@ -298,7 +303,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	/** @return index of the first (rightmost) set (1) bit, else NONE (-1). */
 	public int first() {
-		return bits==0 ? NONE : NUM_TRAILING_ZEROS[bits];
+		return bits==0 ? NONE : FIRST_INDEX[bits];
 	}
 
 	/** @return index of the last (leftmost) set (1) bit, else NONE (-1). */
@@ -310,7 +315,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	/** @return the next index from 'i' inclusive, else NONE (-1). */
 	public int next(int i) {
 		int b = bits & (ONES<<i);
-		return b==0 ? NONE : NUM_TRAILING_ZEROS[b];
+		return b==0 ? NONE : FIRST_INDEX[b];
 	}
 
 	// ---------------- toArray ----------------
@@ -332,7 +337,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 */
 	public int toArray(final int[] array) {
 		int count = 0;
-		for ( int i : ARRAYS[bits] )
+		for ( int i : INDEXES[bits] )
 			array[count++] = i;
 		for ( int j=count, N=array.length; j<N; ++j )
 			array[j] = 0;
@@ -380,14 +385,14 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @param sb to append to.
 	 * @param bits the bitset of the index to be appended
 	 * @param n the number of set (1) bits in the index to append. If you don't
-	 * know then just pass me Indexes.SIZE[bits].
+	 * know then just pass me Indexes.ISIZE[bits].
 	 * @param sep values separator.
 	 * @param lastSep the last values separator.
 	 * @return the given 'sb' so that you can chain method calls. */
 	public static StringBuilder appendTo(StringBuilder sb, int bits, int n
 			, String sep, String lastSep) {
 		int count=0;
-		for ( int i : ARRAYS[bits] ) {
+		for ( int i : INDEXES[bits] ) {
 			if (++count > 1) // 1 based count, so compare with n (not m)
 				sb.append(count<n? sep : lastSep);
 			sb.append(i);
@@ -410,7 +415,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * @param sb to append to.
 	 * @return the given 'sb' so that you can chain method calls. */
 	public StringBuilder appendTo(StringBuilder sb) {
-		for ( int i : ARRAYS[bits] )
+		for ( int i : INDEXES[bits] )
 			sb.append(i);
 		return sb;
 	}
@@ -478,7 +483,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 			@Override
 			public boolean hasNext(){
 				for ( int i=curr+1; i<9; ++i )
-					if ( (SHFT[i] & bits) != 0 ) {
+					if ( (ISHFT[i] & bits) != 0 ) {
 						next = i;
 						return true;
 					}
@@ -495,7 +500,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 // first-and-only-element from a collection, so you just call next; which will
 // FAIL with this dodgy setup, but I'm not going to do that! So: I'm sure this
 // is all bad practice, but I'm doing it anyway. If you needed speed you would
-// NOT be using an iterator: you'd iterate ARRAY[bits] instead, so long as you
+// NOT use an iterator, you'd iterate INDEXES[bits] instead, so long as you
 // don't need the iterator to reflect bitset changes. The iterator should be
 // reliable UNDER ANY AND ALL FORSEEABLE CIRCUMSTANCES, and this one isn't.
 // So "yeah, yeah, na": I'm not real sure about this Tim!

@@ -8,6 +8,7 @@ package diuf.sudoku.solver.hinters.align;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.utils.IMyPollSet;
 import java.util.AbstractSet;
 import java.util.Iterator;
@@ -304,7 +305,7 @@ public class LinkedMatrixCellSet
 		if ( idx == null ) { // created once then cached (until you change set)
 			a[0]=a[1]=a[2]=0; // zero THE static array
 			for ( Node n=head; n!=null; n=n.next ) // O(size) faster than O(81)
-				a[n.cell.idxdex] |= n.cell.shft;  // add n.cell.i to idx
+				a[n.cell.idxdex] |= n.cell.idxshft;  // add n.cell.i to idx
 			idx = new Idx(a);
 		}
 		return idx;
@@ -363,11 +364,10 @@ public class LinkedMatrixCellSet
 			only = result.a2;
 		// return does the result index contain LESS THAN 2 set (1) bits?
 		return cnt==0
-			|| (cnt==1 && SIZE[ only       & 511]
-				        + SIZE[(only>>>9)  & 511]
-				        + SIZE[(only>>>18) & 511] == 1);
+			|| (cnt==1 && VSIZE[ only       & 511]
+				        + VSIZE[(only>>>9)  & 511]
+				        + VSIZE[(only>>>18) & 511] == 1);
 	}
-	private static final int[] SIZE = diuf.sudoku.Values.SIZE;
 
 	public static interface CellVisitor {
 		public boolean visit(Cell c);

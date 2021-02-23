@@ -16,7 +16,6 @@ import diuf.sudoku.Values;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Debug;
-import diuf.sudoku.utils.Log;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -37,6 +36,17 @@ import java.util.Set;
  * @see {@link IndirectHint}
  */
 public abstract class AHint implements Comparable<AHint> {
+
+	/**
+	 * Returns a new Cell[] of the first n cells.
+	 * @param n the number of cells to copy
+	 * @param cells the cells to copy from
+	 * @return a new Cell[] containing a copy of the first n cells. */
+	public static Cell[] copy(int n, Cell[] cells) {
+		Cell[] result = new Cell[n];
+		System.arraycopy(cells, 0, result, 0, n);
+		return result;
+	}
 
 	/**
 	 * Returns a real <b>java.util.</b>ArrayList of the given hint.
@@ -66,21 +76,6 @@ public abstract class AHint implements Comparable<AHint> {
 		return list;
 	}
 
-	public static final boolean IS_NOISY = false; // @check false
-
-	// set true by generate to suppress logging by AHint and LogicalSolver.
-	public static boolean SHUT_THE______UP = false;
-
-	public static boolean setShutThe____Up(boolean stfu) {
-		boolean formerSTFU = SHUT_THE______UP;
-		SHUT_THE______UP = stfu;
-		return formerSTFU;
-	}
-
-	public static void noiseln(String msg) {
-		if(AHint.IS_NOISY) System.out.println(msg);
-	}
-
 	protected static final boolean IS_CACHING_HTML = true; // @check true
 
 	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
@@ -102,58 +97,70 @@ public abstract class AHint implements Comparable<AHint> {
 	public final int type; // DIRECT, WARNING, INDIRECT, AGGREGATE
 	public final Cell cell; // The cell to be set
 	public final int value; // The value to set the cell to
-	public final Pots redPots; // The cells=>values to be removed are painted red in the GUI
+	public final Pots redPots; // The Cell=>Values to be removed are painted red in the GUI
+	public final Pots greens; // Cell=>Values to be painted green in the GUI
+	public final Pots oranges; // Cell=>values to be painted orange in the GUI
+	public final Pots blues; // Cell=>values to be painted blue in the GUI
+	public final List<ARegion> bases; // regions to paint blue
+	public final List<ARegion> covers; // regions to paint green
+
+	/** set to true when HintValidator#isValid finds eliminations of one-or-more
+	 * potential value/s that are in the solution, before toString is called. */
+	public boolean isInvalid;
 
 	/** sb is a weird variable specifically for the HintsApplicumulator and
 	 * AHint.apply->Cell.set. It's ugly but it's nicest way I can think of. */
 	public StringBuilder sb;
 
+	// for direct hints
 	public AHint(AHinter hinter, Cell cell, int value) {
-		this(hinter, AHint.DIRECT, cell, value, null);
+		this(hinter, AHint.DIRECT, cell, value, null, null, null, null, null, null);
 	}
 
+	// basic indirect hints
 	public AHint(AHinter hinter, Pots redPots) {
-		this(hinter, AHint.INDIRECT, null, 0, redPots);
+		this(hinter, AHint.INDIRECT, null, 0, redPots, null, null, null, null, null);
 	}
 
-	public AHint(AHinter hinter, int type, Cell cell, int value, Pots redPots) {
-//		if ( hinter==null && !Debug.isClassNameInTheCallStack(5, "AppliedHintsSummaryHint") )
-//			Debug.breakpoint();
+	// indirect hints with pots-to-highlight and bases/covers
+	public AHint(AHinter hinter, Pots redPots, Pots greens, Pots oranges
+			, Pots blues, List<ARegion> bases, List<ARegion> covers) {
+		this(hinter, AHint.INDIRECT, null, 0, redPots, greens, oranges, blues
+				, bases, covers);
+	}
 
+	// the actual constructor
+	public AHint(AHinter hinter, int type, Cell cell, int value, Pots redPots
+			, Pots greens, Pots oranges, Pots blues, List<ARegion> bases
+			, List<ARegion> covers) {
 		this.hinter = hinter;
-
 		// AHinter.degree is a mild hack: it's allmost allways just shorthand
 		// for the AHinter.tech.degree, except in URT's where it's set to the
 		// size of the hidden/naked set.
-		this.degree = hinter==null ? 0 : hinter.degree;
-
+		if ( hinter == null )
+			this.degree = 0;
+		else
+			this.degree = hinter.degree;
 		this.type = type;
 		this.cell = cell;
 		this.value = value;
 		this.redPots = redPots;
+		this.greens = greens;
+		this.oranges = oranges;
+		this.blues = blues;
+		this.bases = bases;
+		this.covers = covers;
 	}
 
 	void logHint() {
-		// This is too verbose when generating!
-		// nb: SHUT_THE______UP also suppresses LogicalSolver's logging.
-		if ( SHUT_THE______UP )
-			return;
-		//TRICK: only SudokuExplainer constructor sets GrabBag.logicalSolver,
-		//	and it's only used in the GUI, so GrabBag.logicalSolver!=null
-		//	translates to "We are running in the GUI."
-		//WARN: RecursiveAnalyser sets GrabBag.logicalSolver=null and restores
-		//  it upon completion, thus avoiding the need for the smelly code:
-		//if ( !Debug.isClassNameInTheCallStack(10, "RecursiveAnalyser") )
-		if ( GrabBag.logicalSolver != null ) { // We are running in the GUI.
-			System.out.println();
-			if ( GrabBag.grid != null ) {
-				System.out.format("%d/%s\n", hintNumber, GrabBag.grid.source);
-				System.out.println(GrabBag.grid);
-			}
-			long now = System.nanoTime();
-			System.out.format("%,15d\t%s\n", now-GrabBag.time, toFullString());
-			GrabBag.time = now;
+		System.out.println();
+		if ( GrabBag.grid != null ) {
+			System.out.format("%d/%s\n", hintNumber, GrabBag.grid.source);
+			System.out.println(GrabBag.grid);
 		}
+		long now = System.nanoTime();
+		System.out.format("%,15d\t%s\n", now-GrabBag.time, toFullString());
+		GrabBag.time = now;
 	}
 	public static int hintNumber = 1;
 
@@ -168,10 +175,10 @@ public abstract class AHint implements Comparable<AHint> {
 	 * subsequent hidden singles, and I don't think I will, coz I dunno HOW.
 	 * @return numElims = 10*numCellsSet + numMaybesEliminated.
 	 */
-	public int apply(boolean isAutosolving) { // throws UnsolvableException on the odd occassion
-		assert cell!=null || redPots!=null : "Possum Giblets: apply both null!";
-		if ( Log.MODE >= Log.VERBOSE_5_MODE && !GrabBag.isGenerating ) // note the new Log.MODE
-			logHint();
+	public int apply(boolean isAutosolving, boolean isNoisy) { // throws UnsolvableException on the odd occassion
+		assert cell!=null || redPots!=null : "AHint.apply: cell=null AND redPots=null";
+		if ( isInvalid )
+			return 0; // invalid hints are dead cats!
 		// =====================================================================
 		// BEWARE: change both methods, or remove IS_NOISY completely.
 		// I got damn sick of the mess of debug code which I'm no longer using.
@@ -179,8 +186,10 @@ public abstract class AHint implements Comparable<AHint> {
 		// need to debug down to that level. I haven't needed to for kenages.
 		// BEWARE: IS_NOISY is too verbose for generate.
 		// =====================================================================
-		if ( IS_NOISY )
-			return apply_NOISILY(isAutosolving);
+		if ( isNoisy ) {
+			logHint();
+			return applyNoisily(isAutosolving);
+		}
 
 		int myNumElims = 0;
 		try {
@@ -234,8 +243,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @param isAuto ie isAutosolving
 	 * @return
 	 */
-	private int apply_NOISILY(boolean isAuto) {
-		assert IS_NOISY;
+	private int applyNoisily(boolean isAuto) {
 		int myNumElims = 0;
 		try {
 			System.out.format("%,13d %s", took(), toString());
@@ -312,6 +320,7 @@ public abstract class AHint implements Comparable<AHint> {
 	protected String getHintTypeNameImpl() {
 		return hinter.toString();
 	}
+
 	/** @return the name of the Hinter which discovered this hint.<p>
 	 * EG: "Naked Single", "Hidden Single", "Naked Pair", "Swampfish",
 	 * "Ultra-Right-Wing Square Dance Dissociation (with twin aardvarks)". */
@@ -323,10 +332,10 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/** @return the base (blue) regions of this hint. */
 	public List<ARegion> getBases() {
-		return null;
+		return bases;
 	}
 	/** @return array of bases coz jUnit !compare List. */
-	public ARegion[] getBasesArray() {
+	public final ARegion[] getBasesArray() {
 		List<ARegion> list = getBases();
 		if ( list == null)
 			return null;
@@ -335,7 +344,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/** @return the cover (green) regions of this hint. */
 	public List<ARegion> getCovers() {
-		return null;
+		return covers;
 	}
 	/** @return array of bases coz jUnit !compare List. */
 	public ARegion[] getCoversArray() {
@@ -401,9 +410,9 @@ public abstract class AHint implements Comparable<AHint> {
 	/** @return the result cell, causing the maybe to be displayed in a slightly
 	 * larger bold font, to distinguish it from a plethora of also-rans. */
 	public Result getResult() {
-		return cell != null
-				? new Result(cell, value, true)
-				: null;
+		if ( cell == null )
+			return null;
+		return new Result(cell, value, true);
 	}
 
 	/**
@@ -412,6 +421,17 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @return A Set of the selected Cells.
 	 */
 	public Set<Cell> getAquaCells(int viewNum) {
+		if ( greens==null || greens.isEmpty() )
+			return null;
+		return greens.keySet();
+	}
+
+	/**
+	 * Get the cells to be highlighted with a pink background.
+	 * @param viewNum 1..128
+	 * @return A Set of the pink (highlighted) Cells.
+	 */
+	public Set<Cell> getPinkCells(int viewNum) {
 		return null;
 	}
 
@@ -420,7 +440,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @param viewNum the view number, zero-based.
 	 * @return the green Pots, else <tt>null</tt> */
 	public Pots getGreens(int viewNum) {
-		return null;
+		return greens;
 	}
 
 	/** Get the red (eliminated) cells=&gt;values.
@@ -428,7 +448,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @param viewNum the view number, zero-based
 	 * @return the red Pots, else <tt>null</tt> */
 	public Pots getReds(int viewNum) {
-		return null;
+		return redPots;
 	}
 
 	/** Get the orange (highlighted) cells=&gt;values.
@@ -436,7 +456,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @param viewNum the view number, zero-based
 	 * @return the red Pots, else <tt>null</tt> */
 	public Pots getOranges(int viewNum) {
-		return null;
+		return oranges;
 	}
 
 	/** Get the blue (chains=pre-eliminated, ALS=eliminated-value, fish=fin)
@@ -445,7 +465,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @param viewNum the view number, zero-based
 	 * @return the red Pots, else <tt>null</tt> */
 	public Pots getBlues(Grid grid, int viewNum) {
-		return null;
+		return blues;
 	}
 
 	public Pots getYellows() {
@@ -507,100 +527,87 @@ public abstract class AHint implements Comparable<AHint> {
 	 */
 	protected abstract String toStringImpl();
 
-	/** @return A string representation of this hint to display in the GUI's
-	 * hint tree (ie to the user).
+	/**
 	 * This method exists to cache the result of the toStringImpl() method.
 	 * Implementors should override the abstract toStringImpl() method, not
-	 * the toString method (as is "traditional"), unless of course your
-	 * toString result is dynamic and therefore really can't be cached,
-	 * in which case you override toString(). */
+	 * this final toString method (against tradition), unless of course your
+	 * toString result is dynamic and therefore really can't be cached, in
+	 * which case you make me not final and you override me. sigh.
+	 * <p>
+	 * All hints are immutable DTO's (except the isInvalid attribute), so it
+	 * just makes sense to build stuff like toString ONCE, and cache it.
+	 *
+	 * @return A string representation of this hint to display in the GUI's
+	 * hint tree (ie to the user).
+	 */
 	@Override
-//	public final String toString() { // you SHOULD override toStringImpl!
-	public String toString() {
-		return toString!=null ? toString : (toString=toStringImpl());
-		//return toStringImpl();
+	public final String toString() {
+		if ( toString == null )
+			toString = toStringImpl();
+		return toString;
 	}
 	private String toString; // toStrings cache
 
 	/**
 	 * The {@code toFullString()} method is called only by logging/debugging
 	 * code, to display the hint and it's effects on the grid.
+	 *
 	 * @return String of hint type: hint description, the cell to set (if any),
 	 * and removable potentials (if any).
 	 */
 	public String toFullString() {
 		if(fullString!=null) return fullString;
 		String cv = cell==null ? "" : cell.id+"+"+value; // cell value
-		String rp = redPots==null ? "" : redPots.toString(); // removable potentials
-		return fullString = toString()+" ("+cv+(cv.length()>0&&rp.length()>0?" ":"")+rp+")";
+		String rp = redPots==null ? "" : redPots.toString(); // red pots
+		String sep = cv.isEmpty() || rp.isEmpty() ? "" : " ";
+		return fullString = toString()+" ("+cv+sep+rp+")";
 	}
 	private String fullString; // toFullStrings cache
 
 	/**
 	 * Overridden to prevent a huge number of equivalent chains.
 	 * <p>
- Two chaining hints are equal as soon as they are from the same hinter
- and the removable potential values are the same, despite any/all
- differences on how we came to those conclusions.
- <p>
+	 * Two chaining hints are equal as soon as they are from the same hinter
+	 * and the removable potential values are the same, despite any/all
+	 * differences on how we came to those conclusions.
+	 * <p>
 	 * This is not dramatic, because we naturally create the hints in order of
 	 * increasing complexity; so only more complex hints will be filtered out.
+	 *
 	 * @param o Object other
 	 * @return is this hint equivalent the given Object (presumably a hint).
 	 */
 	@Override
 	public boolean equals(Object o) {
-		if (o == null)
-			return false;
-		if (!(o instanceof AHint))
-			return false;
-		if (!o.getClass().equals(this.getClass())) // not same subtype of AHint
-			return false;
-		AHint other = (AHint)o;
-		if ( this instanceof IActualHint )
-			return hinter==other.hinter
-				&& redPots==null
-					? (cell==other.cell && value==other.value) // direct hint
-					: redPots.equals(other.redPots); // indirect hint
-		else // messages, warnings, and analysis
-			return hashCode() == other.hashCode();
+		return o instanceof AHint
+			&& o.getClass().equals(this.getClass())
+			&& equals((AHint) o);
 	}
 
-//RANDOM hashCode defeats DEAD_CAT detector!
-//	/**
-//	 * Get an integer which identifies this hint, which is used as an index into
-//	 * HashMaps internal array. Objects that are equal must produce the same
-//	 * hashCode, but objects produce the same hashCode may not be equal.
-//	 * <br><b>WARN:</b> many subtypes override this "crap" implementation.
-//	 * @return the bitwise-or of cell, hinter, and value hashCodes.
-//	 */
-//	@Override
-//	public int hashCode() {
-//		if(hashCode!=0) return hashCode;
-//		if ( this instanceof IActualHint ) {
-//			// all subtype that constitute "actual" puzzle solving hints;
-//			// except the SolutionHint, which I solves the puzzle. Sigh.
-//			if ( hinter == null )
-//				return hashCode = redPots==null
-//						? RANDOM.nextInt()+1
-//						: redPots.hashCode();
-//			else
-//				return hashCode = hinter.hashCode()<<4 |
-//					(redPots==null
-//						? RANDOM.nextInt()+1
-//						: redPots.hashCode());
-//		} else
-//			// messages, warnings, and analysis: Hinter and redPots are both
-//			// null, so we revert to the random integer trick.
-//			return hashCode = RANDOM.nextInt()+1;
-//	}
-//	private int hashCode; // hashCode
+	public boolean equals(AHint o) {
+		if ( o == null )
+			return false; // sigh.
+		if ( o == this )
+			return true;
+		if ( this instanceof IActualHint ) {
+			if ( hinter != o.hinter )
+				return false;
+			if ( redPots == null )
+				return cell==o.cell && value==o.value;
+			else
+				return redPots.equals(o.redPots); // indirect hint
+		} else // messages, warnings, and analysis
+			// slow, but it's all I can think of. Random numbers are OUT!
+			return toString().equals(o.toString());
+	}
 
 	/**
-	 * Get an integer which identifies this hint, which is used as an index into
-	 * HashMaps internal array. Objects that are equal must produce the same
-	 * hashCode, but objects produce the same hashCode may not be equal.
-	 * <br><b>WARN:</b> many subtypes override this "crap" implementation.
+	 * Get an integer which identifies this hint, which is my index in HashMaps
+	 * internal array. Objects that are equal must produce the same hashCode,
+	 * but objects produce the same hashCode may not be equal.
+	 * <p>
+	 * <b>WARN:</b> Soveral subtypes override this "crap" implementation.
+	 *
 	 * @return a hash of cell, value, and redPots hashCodes.
 	 * @throws IllegalStateException rather than set a 0 hashCode.
 	 */
@@ -609,11 +616,12 @@ public abstract class AHint implements Comparable<AHint> {
 		// cached
 		if ( hashCode != 0 )
 			return hashCode;
-		// direct hint
 		int hc;
 		if ( redPots == null ) {
-			if ( cell==null && value==0 ) // not a "real" hint
-				hc = toString().hashCode(); // slow, but it's only thing I can think of. Random numbers are OUT!
+			// a direct hint, or a warning
+			if ( cell==null && value==0 ) // a warning
+				// slow, but it's all I can think of. Random numbers are OUT!
+				hc = toString().hashCode();
 			else // a direct hint
 				hc = (value<<8) ^ cell.hashCode;
 		} else {
@@ -632,7 +640,8 @@ public abstract class AHint implements Comparable<AHint> {
 	private int hashCode; // hashCode
 
 	/** Formerly Used by getHints, see BY_SCORE_DESC_AND_INDICE. */
-	public static final Comparator<AHint> BY_SCORE_DESC = (AHint h1, AHint h2) -> {
+	public static final Comparator<AHint> BY_SCORE_DESC
+			= (AHint h1, AHint h2) -> {
 		// short circuit
 		if ( h1 == h2 )
 			return 0;
@@ -640,7 +649,7 @@ public abstract class AHint implements Comparable<AHint> {
 		return h2.getNumElims() - h1.getNumElims();
 	};
 
-	// this does not add elims to a set cell, so that the comparator then 
+	// this does not add elims to a set cell, so that the comparator then
 	// orders two hints which both set a cell value by there toStrings
 	private int getScore() {
 		if(score != 0) return score;
@@ -660,7 +669,8 @@ public abstract class AHint implements Comparable<AHint> {
 	private int indice = -1;
 
 	/** Used by getHints. */
-	public static final Comparator<AHint> BY_SCORE_DESC_AND_INDICE = (AHint h1, AHint h2) -> {
+	public static final Comparator<AHint> BY_SCORE_DESC_AND_INDICE
+			= (AHint h1, AHint h2) -> {
 		// short circuit
 		if ( h1 == h2 )
 			return 0;

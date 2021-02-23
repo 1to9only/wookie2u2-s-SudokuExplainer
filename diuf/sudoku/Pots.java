@@ -7,6 +7,10 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.MyLinkedHashMap;
 import java.util.Arrays;
@@ -31,6 +35,22 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	public static final int MIN_CAPACITY = 8;
 	/** the EMPTY Pots is currently used only by test-cases. */
 	public static final Pots EMPTY = new Pots(MIN_CAPACITY, 1F);
+
+	/**
+	 * deepCopy copies the src and all of it's Values, so that the returned
+	 * copy is mutatable independently of the source. The key-cells are same
+	 * objects, but then there's never a need to have more than one instance
+	 * of any Cell object; there's only ever 81 of them in the Grid. So yeah,
+	 * new Values, so you can ____ with them.
+	 * @param src
+	 * @return 
+	 */
+	public static Pots deepCopy(Pots src) {
+		Pots copy = new Pots();
+		for ( Cell c : src.keySet() )
+			copy.put(c, new Values(src.get(c)));
+		return copy;
+	}
 
 	/** Constructor. */
 	public Pots() {
@@ -103,7 +123,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 */
 	public Pots(int value, Cell... cells) {
 		super(Math.max(MIN_CAPACITY,cells.length), 1F);
-		int sv = Values.SHFT[value];
+		int sv = VSHFT[value];
 		for ( Cell cell : cells )
 			if ( (cell.maybes.bits & sv) != 0 )
 				put(cell, new Values(value));
@@ -145,6 +165,24 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		this(cells.size(), 1F);
 		for (Cell c : cells)
 			put(c, new Values(value));
+	}
+
+	/**
+	 * Constructor: Constructs a new Pots from a re-usable cells array, all
+	 * to the given value (used for LockingGeneralised greenPots only).
+	 * @param value
+	 * @param numCells
+	 * @param cells 
+	 */
+	public Pots(int value, int numCells, Cell[] cells) {
+		this(numCells, 1F);
+		for ( int i=0; i<numCells; ++i )
+			upsert(cells[i], value);
+	}
+
+	public Pots(Grid grid, Idx idx, int cands) {
+		for ( Cell c : idx.cells(grid) )
+			put(c, new Values(c.maybes.bits & cands, false));
 	}
 
 	/**
@@ -305,13 +343,19 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 *
 	 * @param cell Cell key to add/insert
 	 * @param value int value to add/insert
+	 * @return true if this Pots was modified, so if the cell is added I always
+	 *  return true, but if another value is added to an existing cell then I
+	 *  return was the value actually added; ie I return false if the value was
+	 *  already in cells values. This allows you to keep count of the values
+	 *  actually added to a Pots using the upsert method; or you could just
+	 *  count the bastards afterwards. sigh.
 	 */
-	public void upsert(Cell cell, int value) {
+	public boolean upsert(Cell cell, int value) {
 		final Values existing = get(cell);
-		if ( existing == null )
-			put(cell, new Values(value));
-		else
-			existing.add(value);
+		if ( existing != null )
+			return existing.add(value);
+		put(cell, new Values(value));
+		return true;
 	}
 
 	/**
@@ -354,7 +398,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 */
 	public void populate(Cell[] cells, int idxs, int value) {
 		assert idxs != 0;
-		for ( int i : Indexes.ARRAYS[idxs] )
+		for ( int i : INDEXES[idxs] )
 			put(cells[i], new Values(value));
 	}
 
@@ -368,7 +412,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @param value of each pot.
 	 */
 	public void populate(Cell[] cells, int idxs, int shiftedValue, int value) {
-		for ( int i : Indexes.ARRAYS[idxs] )
+		for ( int i : INDEXES[idxs] )
 			if ( (cells[i].maybes.bits & shiftedValue) != 0 )
 				put(cells[i], new Values(value));
 	}
@@ -389,12 +433,14 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @return
 	 */
 	public Pots removeAll(Pots others) {
-		Values mine;
-		for ( Cell c : others.keySet() )
-			// remove others values from my values, and if that leaves the my 
-			// values empty then remove my cell also
-			if ( (mine=get(c))!=null && mine.remove(others.get(c)).size==0 )
-				remove(c);
+		if ( others != null ) {
+			Values mine;
+			for ( Cell c : others.keySet() )
+				// remove others values from my values, and if that leaves the my 
+				// values empty then remove my cell also
+				if ( (mine=get(c))!=null && mine.remove(others.get(c)).size==0 )
+					remove(c);
+		}
 		return this; // may be empty
 	}
 
@@ -475,8 +521,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @return
 	 */
 	public boolean anyCurrent() {
-		final int[][] VALUESES = Values.ARRAYS;
-		final int[] SHFT = Values.SHFT;
+		final int[] SHFT = VSHFT;
 		for ( Cell cell : keySet() ) // there's one for the advertisers
 			for ( int v : VALUESES[get(cell).bits] )
 				if ( (cell.maybes.bits & SHFT[v]) != 0 )
@@ -493,6 +538,10 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		return sb;
 	}
 
+	/**
+	 * Returns CSV of "$cell.id-$values"
+	 * @return 
+	 */
 	@Override
 	public String toString() {
 		final int n = size();
@@ -510,24 +559,24 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		// order by cell.id
 		Arrays.sort(strings);
 		// stringify the Pots-strings
-		StringBuilder sb = getSB();
+		StringBuilder mySB = getSB();
 		i = 0;
 		for ( String s : strings ) {
 			if ( ++i > 1 )
-				sb.append(", ");
-			sb.append(s);
+				mySB.append(", ");
+			mySB.append(s);
 		}
-		return sb.toString();
+		return mySB.toString();
 	}
 
 	public String cells() {
-		return Frmt.csv(keySet());
+		return Frmt.ssv(keySet());
 	}
 
 	public String format() {
 		int redBits = valuesOf();
-		return Values.SIZE[redBits] == 1
-			? "the value <b>"+Values.ARRAYS[redBits][0]+"</b> can be removed"
+		return VSIZE[redBits] == 1
+			? "the value <b>"+VALUESES[redBits][0]+"</b> can be removed"
 					+ " from <b>"+Frmt.and(keySet())+"</b>"
 			: "<b>"+toString()+"</b> can be removed"; // "CELL_ID-Values ..."
 	}
@@ -556,32 +605,31 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * Does this Pots equal the given Object? Returns true if obj is a Pots (or
 	 * a subclass thereof) with the same hashCode as this Pots, which upholds
 	 * the {@link java.lang.Object#hashCode equals-hashCode contract}.
-	 * @param obj
+	 * @param o
 	 * @return
 	 */
 	@Override
-	public boolean equals(Object obj) {
-		if ( this == obj )
-			return true;
-		return obj != null
-			&& (obj instanceof Pots)
-			&& hashCode == ((Pots)obj).hashCode;
+	public boolean equals(Object o) {
+		return o instanceof Pots && equals((Pots)o);
+	}
+	public boolean equals(Pots o) {
+		return hashCode == o.hashCode;
 	}
 
 	/**
-	 * Remove eliminations which are not in grid. Only called on redPots.
-	 * @return isEmpty()
+	 * Only called on redPots to remove eliminations that are not in the grid.
+	 * @return !isEmpty() ie any remaining
 	 */
 	public boolean clean() {
-		for ( Iterator<Cell> it=keySet().iterator(); it.hasNext(); ) {
-			Cell c = it.next();
-			Values vs = get(c);
-			for ( int v : Values.ARRAYS[vs.bits])
-				if ( (c.maybes.bits & Values.SHFT[v]) == 0 
-				  && vs.remove(v) == 0 )
-					it.remove();
-		}
-		return isEmpty();
+		Cell c;
+		Values vs;
+		// use an Iterator to delete as we go
+		for ( Iterator<Cell> it=keySet().iterator(); it.hasNext(); )
+			// remove any elims which aren't in this cells maybes
+			// and if that leaves no values then remove this cell as well
+			if ( (vs=get(c=it.next())).removeBits(vs.bits & ~c.maybes.bits) == 0 )
+				it.remove();
+		return !isEmpty(); // ie any remaining
 	}
 
 	public int firstCellIndice() {

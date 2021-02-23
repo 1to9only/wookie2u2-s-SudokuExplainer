@@ -15,6 +15,8 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.utils.MyLinkedFifoQueue;
 import diuf.sudoku.utils.MyLinkedHashSet;
@@ -135,7 +137,6 @@ public final class UnaryChainer extends AChainer {
 			, Grid grid, HintsList hints) {
 		// NB: either isXChain or isYChain, or both, but not neither.
 		assert isXChain || isYChain;
-		final int[][] VALUESES = Values.ARRAYS;
 		final IFilter<Cell> filter = createUcacCellFilter(isXChain);
 		// FunkyAssSet has add() only method: doesn't update existing entries.
 		final IAssSet onToOn = new FunkyAssSet(128, 1F, true); // observed 94
@@ -381,7 +382,6 @@ public final class UnaryChainer extends AChainer {
 	 */
 	private BidirectionalCycleHint createBidirectionalCycleHint(Ass dstOn
 			, boolean isYChain, boolean isXChain) {
-		final int[] SHFT = Values.SHFT;
 		assert dstOn.isOn; // Cycles start and end with an "on" assumption.
 
 		// build a contains-array of the cells in the chain
@@ -411,7 +411,7 @@ public final class UnaryChainer extends AChainer {
 				cancel = cancelOn;
 			else
 				cancel = cancelOff;
-			sv = SHFT[a.value];
+			sv = VSHFT[a.value];
 			for ( Cell sib : a.cell.siblings )
 				if ( (sib.maybes.bits & sv)!=0 && !isInChain[sib.i] )
 					cancel.add(new Ass(sib, a.value, false));

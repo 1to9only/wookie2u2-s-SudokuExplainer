@@ -14,6 +14,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.PuzzleID;
 import diuf.sudoku.Run;
 import diuf.sudoku.Settings;
+import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
@@ -28,7 +29,7 @@ import diuf.sudoku.solver.accu.SingleHintsAccumulator;
 import diuf.sudoku.solver.checks.SolutionHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.align.LinkedMatrixCellSet;
-import diuf.sudoku.solver.hinters.als.HintValidator;
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.solver.accu.AggregatedHint;
 import diuf.sudoku.solver.checks.SolvedHint;
 import diuf.sudoku.utils.IAsker;
@@ -109,7 +110,7 @@ final class SudokuExplainer implements Closeable {
 	private final IAsker asker;			// an aspect of the main GUI frame
 	private final SudokuGridPanel gridPanel;	// The Sudoku grid panel
 
-	// The raw un-filtered hints, and the cooked filtered version
+	// The raw un-filtered hints, and the cooked filtered version.
 	private List<AHint> unfilteredHints = null; // all hints (unfiltered)
 	private List<AHint> filteredHints = null; // filtered hints (by effects)
 	// Cells which have already been filtered-out.
@@ -179,14 +180,30 @@ final class SudokuExplainer implements Closeable {
 		filteredHints = null;
 		if ( unfilteredHints == null )
 			return;
-		if ( Settings.THE.get(Settings.isFilteringHints) ) { // filter hints
+		if ( !Settings.THE.get(Settings.isFilteringHints) )
+			// copy "as is"
+			filteredHints = new ArrayList<>(unfilteredHints);
+		else { 
+			// unfiltered -> filter -> filtered
 			filteredHints = new ArrayList<>(unfilteredHints.size());
 			for ( AHint hint : unfilteredHints )
 				if ( filterAccepts(hint) )
 					addFilteredHint(hint);
-		} else // copy "as is"
-			filteredHints = new ArrayList<>(unfilteredHints);
+		}
 		filteredHints.sort(AHint.BY_SCORE_DESC_AND_INDICE);
+	}
+
+	/**
+	 * Run only when user presses delete to "kill" hint in hintsTree TreeView.
+	 * @param deadTech
+	 */
+	void removeHintsFrom(Tech deadTech) {
+		if ( unfilteredHints == null )
+			return;
+		unfilteredHints.removeIf((hint) -> {
+			return hint.hinter.tech == deadTech;
+		});
+		filterAndSortHints();
 	}
 
 	// returns Does this hint remove any NEW cells or maybes?
@@ -325,7 +342,29 @@ final class SudokuExplainer implements Closeable {
 			int howMany;  char ch;
 			for ( int i=startLine; i<n; ++i ) {
 				line = logLines.get(i);
-				if ( line.indexOf('#', 0) > -1 )
+				if ( line.startsWith("WARN: ")  ) {
+					// WARN: Death Blossom invalidity I3-9 in #Death Blossom: G2-67 (I3-9)!
+					try {
+						String hintText = line.substring(line.indexOf(" in ")+4);
+						Matcher matcher = pattern.matcher(hintText);
+						if ( !matcher.matches() )
+							continue;
+						grid.load(logLines.get(i-2)+NL+logLines.get(i-1)+NL);
+						getAllHints(false, false);
+						if ( filteredHints.size() > 1 ) {
+							for ( AHint h : filteredHints )
+								if ( h.toString().equals(hintText) ) {
+									selectedHints.clear();
+									selectedHints.add(h);
+								}
+						}
+						startLine = i + 1;
+						return regex;
+					} catch ( Exception eaten ) {
+						beep();
+						continue;
+					}
+				} else if ( line.indexOf('#', 0) > -1 )
 					// remember this line in case we match, in a field
 					// to handle multiple-matches in a puzzle.
 					puzzleIdLine = line;
@@ -684,11 +723,11 @@ final class SudokuExplainer implements Closeable {
 
 	/** Validate the puzzle and the grid and display any warning/s.
 	 * @return is the grid valid? */
-	boolean validatePuzzleAndGrid(boolean quite) {
+	boolean validatePuzzleAndGrid(boolean isNoisy) {
 		selectedHints.clear();
 		unfilteredHints = new ArrayList<>();
-		AHint hint = solver.validatePuzzleAndGrid(grid, quite);
-		if (hint != null) {
+		AHint hint = solver.validatePuzzleAndGrid(grid, isNoisy);
+		if ( hint != null ) {
 			unfilteredHints.add(hint);
 			selectedHints.add(hint);
 		}
@@ -738,7 +777,7 @@ final class SudokuExplainer implements Closeable {
 				accu.add(new SolutionHint(new DummySolutionHinter(), grid
 						, solver.singlesSolution, false));
 		} else if ( wantMore )
-			solver.getAllHints(grid, wantMore);
+			solver.getAllHints(grid, wantMore, true);
 		else
 			solver.getFirstHint(grid, unfilteredHints, currHints, accu);
 		// move the hint from accu to unfilteredHints
@@ -798,7 +837,7 @@ final class SudokuExplainer implements Closeable {
 								, solver.singlesSolution, true) );
 			else
 				// find the next hint
-				unfilteredHints = solver.getAllHints(grid, wantMore);
+				unfilteredHints = solver.getAllHints(grid, wantMore, true);
 			selectedHints.clear();
 			resetHintsFilter();
 			filterAndSortHints();
@@ -833,7 +872,7 @@ final class SudokuExplainer implements Closeable {
 				GrabBag.grid = grid; // used to log grid + hint in VERBOSE mode
 				for ( AHint hint : selectedHints ) {
 					undos.addFirst(grid.toString());
-					hint.apply(Grid.NO_AUTOSOLVE);
+					hint.apply(Grid.NO_AUTOSOLVE, true);
 					if ( grid.isFull() )
 						break;
 // This is temporary code to deal with a bug where the application of multiple
@@ -844,11 +883,17 @@ final class SudokuExplainer implements Closeable {
 // applying multiple hints! Sigh on that sigh. May I borrow your cheese grater?
 // 2020-10-21 It also detects my dodgy Skycrapper hints. Good!
 if ( GOT_DODGY_HINTS ) {
-	if ( solver.recursiveAnalyser.countSolutionsQuietly(grid) != 1 ) {
+	if ( solver.recursiveAnalyser.countSolutions(grid, false) != 1 ) {
 		Log.print(NL+"Funky grid:"+NL+grid+NL);
 		grid.restore(backup);
 		Log.print(NL+"Restored (previous) grid:"+NL+grid+NL);
-		throw new IllegalStateException("invalid after: "+hint.toFullString());
+		IllegalStateException ex =
+			new IllegalStateException("invalid after: "+hint.toFullString());
+		// pucker-up folks
+		beep(); beep(); beep();
+		gridPanel.flashBackgroundPink();
+		displayError(ex);
+		throw ex;
 	}
 }
 				}
@@ -908,8 +953,11 @@ if ( GOT_DODGY_HINTS ) {
 			frame.clearHintsTree();
 		else {
 			final HintNode root = new HintsTreeBuilder().build(fh);
-			final HintNode selected = fh.isEmpty() ? null // Never say never
-					: root.getNodeFor(fh.get(0));
+			final HintNode selected;
+			if ( fh.isEmpty() )
+				selected = null; // Never say never
+			else
+				selected = root.getNodeFor(fh.get(0));
 			frame.setHintsTree(root, selected, fh.size()>1);
 		}
 	}

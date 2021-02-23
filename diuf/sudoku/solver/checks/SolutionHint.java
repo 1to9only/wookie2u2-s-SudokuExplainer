@@ -66,14 +66,14 @@ public final class SolutionHint extends AWarningHint {
 	}
 
 	@Override
-	public int apply(boolean notUsed) {
+	public int apply(boolean notUsed, boolean isNoisy) {
 		int result = (81 - grid.countFilledCells()) * 10;
 		solution.copyTo(grid);
 		return result;
 	}
 
-	public Grid getSolution() {
-		return solution;
-	}
+//	public Grid getSolutionGrid() {
+//		return solution;
+//	}
 
 }

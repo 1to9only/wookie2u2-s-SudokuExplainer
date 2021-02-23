@@ -11,9 +11,16 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.FIRST_INDEX;
+import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.ALL_BITS;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.utils.Permutations;
 import java.util.ArrayList;
@@ -37,8 +44,6 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 		implements diuf.sudoku.solver.hinters.ICleanUp
 //				 , diuf.sudoku.solver.IReporter
 {
-	private static final int[] SIZE = Values.SIZE;
-
 	// Int ArrayS ~ We need 9 of them
 	// to save on creating an array for each call (garbage eradication)
 	private static final int[][] ias1 = new int[9][];
@@ -196,9 +201,9 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 					Cell c1=extraCells.get(0), c2=extraCells.get(1);
 					// a bitset of the extra values
 					final int extraValsBits = (c1.maybes.bits | c2.maybes.bits)
-									    & ~Values.SHFT[v1] & ~Values.SHFT[v2];
+									    & ~VSHFT[v1] & ~VSHFT[v2];
 					// the number of extra values
-					final int numExtraValues = SIZE[extraValsBits];
+					final int numExtraValues = VSIZE[extraValsBits];
 					if ( numExtraValues == 1 ) // Try type 2 hint
 						hintsSet.add(createType2Hint(grid, v1, v2, loop));
 					else if ( numExtraValues >= 2 ) // Try type 3 hint
@@ -319,7 +324,7 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 					//   cells with extra values (2) is not exceeded; or
 					// * The cell has 1 extra value which is the same as all
 					//   previous cells with an extra value (for type 2 only)
-					if ( maybes.size==2 || numXs>0 || SIZE[extraVals]==1 )
+					if ( maybes.size==2 || numXs>0 || VSIZE[extraVals]==1 )
 						result |= recurseLoops(cell, rgn.typeIndex, extraVals
 								, maybes.size>2 ? numXs-1 : numXs);
 				} // fi
@@ -386,9 +391,9 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 		for (Cell c : extraCells)
 			evs |= c.maybes.bits;
 		// extraValues = extraValues - v1 - v2
-		evs = evs & ~Values.SHFT[v1] & ~Values.SHFT[v2];
+		evs = evs & ~VSHFT[v1] & ~VSHFT[v2];
 		assert Integer.bitCount(evs) == 1; // there can only be one
-		int theExtraValue = Indexes.NUM_TRAILING_ZEROS[evs]+1; // get first
+		int theExtraValue = FIRST_INDEX[evs]+1; // get first
 		// get extraBuds := buds common to all extraCells, except the
 		// extraCells themselves, which maybe theExtraValue, and if there
 		// are none then there's no hint here. Move along!
@@ -483,9 +488,8 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 			, Cell c1, Cell c2, Values[] maybes, ARegion region
 			, ArrayList<Cell> loop, int v1, int v2
 			, final Collection<AURTHint> hints) {
-		// Look at each combination of $degree cells in this region which
+		// We look at each combination of $degree cells in this region which
 		// includes c1 but not c2
-		final int[] SIZE = Values.SIZE;
 		// get the indexes of c1 and c2 in this regions cells array
 		final int idxOfC1=region.indexOf(c1), idxOfC2=region.indexOf(c2);
 		// ensure extraVals+c1+c2==fullSet or not a NakedSet with c1 and c2
@@ -521,7 +525,7 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 			assert cnt == otherCells.length;
 			// look for $degree common potential values
 			// ensure extraVals+c1+c2==fullSet or not a NakedSet with c1 and c2
-			if ( SIZE[nkdSetValuesBits] == n
+			if ( VSIZE[nkdSetValuesBits] == n
 			  && (cmnMaybes=Values.common(maybes, n)) != null )
 				// naked set found, but does it eliminate anything?
 				// note that hints.add ignores nulls
@@ -598,11 +602,10 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 			, final Collection<AURTHint> hints
 	) {
 		// constants
-		final int[] SIZE = Values.SIZE;
-		final int shftIdxOfC2 = Indexes.SHFT[idxOfC2];
+		final int shftIdxOfC2 = ISHFT[idxOfC2];
 		// get the removable values array := {1..9} - extraVals - v1 - v2
-		final int[] rmvVals = Values.ARRAYS[Values.ALL_BITS & ~extraVals.bits
-				& ~Values.SHFT[v1] & ~Values.SHFT[v2]];
+		final int[] rmvVals = VALUESES[ALL_BITS & ~extraVals.bits
+				& ~VSHFT[v1] & ~VSHFT[v2]];
 		// the values of the hidden set
 		final int[] hdnSetVals = ias2[N];
 		// set sizes
@@ -629,7 +632,7 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 				if(b==0) continue P_LOOP;
 			}
 			// look for $N possible locations for these $N values
-			if ( SIZE[bits] == N )
+			if ( VSIZE[bits] == N )
 				// Hidden set found, but does it remove any maybes?
 				// nb: hints.add ignores nulls (it'll just return false)
 				hints.add( createType3HiddenSetHint(loop, v1, v2
@@ -647,7 +650,7 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 		hdnSetIdxs.remove(r.indexOf(c2));
 		// Build the red (removeable) potential values
 		Pots redPots=null;  Cell cell;  int redBits;
-		for ( int i : Indexes.ARRAYS[hdnSetIdxs.bits] )
+		for ( int i : INDEXES[hdnSetIdxs.bits] )
 			if ( (redBits=(cell=r.cells[i]).maybes.bits & ~hdnSetValues.bits) != 0 ) {
 				if(redPots == null) redPots=new Pots();
 				redPots.put(cell, new Values(redBits, false));
@@ -684,7 +687,6 @@ The first URT Type 4
 		//
 		// ERGO: Me no groc this code! Grug strong! Grug good!
 		//
-		final int[] SHFT = Values.SHFT;
 		ARegion r1=null, r2=null;
 		for ( ARegion r : c1.regions ) { // c1's Box, Row, Col
 			// ensure region r is common to both c1 and c2
@@ -693,8 +695,8 @@ The first URT Type 4
 			// find r with no v1 or v2 outside of c1 or c2.
 			// nb: there's a whole mess of code underneath these two lines.
 //++type4Cnt; // 382,984 for top1465.d5.mt
-			if(r.maybe(SHFT[v1], cellSet).remove(c1, c2).isEmpty()) r1 = r;
-			if(r.maybe(SHFT[v2], cellSet).remove(c1, c2).isEmpty()) r2 = r;
+			if(r.maybe(VSHFT[v1], cellSet).remove(c1, c2).isEmpty()) r1 = r;
+			if(r.maybe(VSHFT[v2], cellSet).remove(c1, c2).isEmpty()) r2 = r;
 		}
 		// one of the two r's must be null.
 		if ( (r1==null && r2==null) || (r1!=null && r2!=null) )
@@ -710,47 +712,47 @@ The first URT Type 4
 		return new URT4Hint(this, loop, lockValue, rmvValue, redPots, c1, c2
 				, region);
 	}
-	private final MyCellSet cellSet = new MyCellSet();
+	private final UrtCellSet cellSet = new UrtCellSet();
 
 	/**
 	 * Used only by UniqueRectangle, but the CellSet reference type is used by
 	 * {@link Grid#maybe(int bits, CellSet result)} to fetch the cells in this
 	 * region which maybe 'bits'.
 	 */
-	public static interface CellSet extends Set<Cell> {
+	public static interface IUrtCellSet extends Set<Cell> {
 		/**
 		 * Removes the given cells from this CellSet.
 		 * @param cells an arguements array of the Cell/s to remove
 		 * @return this CellSet, for method chaining.
 		 */
-		public CellSet remove(Cell... cells);
+		public IUrtCellSet remove(Cell... cells);
 	}
 
 	/**
 	 * Used only by UniqueRectangle, once
 	 */
-	private static class MyCellSet extends LinkedHashSet<Cell> implements CellSet {
+	private static class UrtCellSet extends LinkedHashSet<Cell> implements IUrtCellSet {
 
 		private static final long serialVersionUID = 609192873L;
 
 		/**
 		 * {@InheritDoc}
 		 */
-		public MyCellSet(int initialCapacity, float loadFactor) {
+		public UrtCellSet(int initialCapacity, float loadFactor) {
 			super(initialCapacity, loadFactor);
 		}
 
 		/**
 		 * {@InheritDoc}
 		 */
-		public MyCellSet(int initialCapacity) {
+		public UrtCellSet(int initialCapacity) {
 			super(initialCapacity);
 		}
 
 		/**
 		 * Constructs a LinkedHashCellSet of 16 capacity with 0.75F loadFactor
 		 */
-		public MyCellSet() {
+		public UrtCellSet() {
 			super(16, 0.75F);
 		}
 
@@ -758,7 +760,7 @@ The first URT Type 4
 		 * The Copy Constructor.
 		 * @param src a LinkedHashCellSet to copy
 		 */
-		public MyCellSet(MyCellSet src) {
+		public UrtCellSet(UrtCellSet src) {
 			super(src);
 		}
 
@@ -766,7 +768,7 @@ The first URT Type 4
 		 * {@InheritDoc}
 		 */
 		@Override
-		public CellSet remove(Cell... cells) {
+		public IUrtCellSet remove(Cell... cells) {
 			for ( Cell c : cells )
 				super.remove(c);
 			return this;

@@ -25,55 +25,29 @@ import java.util.Set;
  */
 public class SkyscraperHint extends AHint implements IActualHint {
 
-	private final Pots orangePots;
-	private final List<ARegion> bases;
-	private final List<ARegion> covers;
 	private final int valueToRemove;
 	public SkyscraperHint(AHinter hinter, int value, List<ARegion> bases
 			, List<ARegion> covers, Pots redPots, Pots orangePots) {
-		super(hinter, redPots);
-		this.orangePots = orangePots;
-		this.bases = bases;
-		this.covers = covers;
+		super(hinter, redPots, null, orangePots, null, bases, covers);
 		this.valueToRemove = value;
 	}
 
 	@Override
 	public Set<Cell> getAquaCells(int unusedViewNum) {
-		return orangePots.keySet();
-	}
-
-	@Override
-	public Pots getOranges(int unusedViewNum) {
-		return orangePots;
-	}
-
-	@Override
-	public Pots getReds(int unusedViewNum) {
-		return redPots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return bases;
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return covers;
+		return oranges.keySet();
 	}
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		return "Look for a " + getHintTypeName()
-			+ (isBig ? " on "+Frmt.and(new Values(orangePots.values())) : "");
+			+ (isBig ? " on "+Frmt.and(new Values(oranges.values())) : "");
 	}
 
 	@Override
 	public String toStringImpl() {
 		StringBuilder sb = Frmt.getSB();
 		sb.append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(orangePots.keySet()))
+		  .append(": ").append(Frmt.csv(oranges.keySet()))
 		  .append(" on ").append(Integer.toString(valueToRemove));
 		return sb.toString();
 	}

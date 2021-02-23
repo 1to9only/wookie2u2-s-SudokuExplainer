@@ -14,6 +14,7 @@ import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
@@ -22,6 +23,7 @@ import java.util.Collection;
 import java.util.Set;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.solver.hinters.IChildHint;
+import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedList;
 
 
@@ -88,11 +90,6 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 	private Pots greenPots;
 
 	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
 	public Pots getOranges(int viewNum) {
 		if ( orangePots == null ) {
 			orangePots = new Pots(xy, new Values(getXValue(), getYValue()));
@@ -105,14 +102,20 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
-		if ( links == null ) {
-			links = new ArrayList<>(2);
-			int xValue = xz.maybes.minus(zValue).first();
-			links.add(new Link(xy, xValue, xz, xValue));
-			int yValue = yz.maybes.minus(zValue).first();
-			links.add(new Link(xy, yValue, yz, yValue));
+		try {
+			if ( links == null ) {
+				links = new ArrayList<>(2);
+				int xValue = xz.maybes.minus(zValue).first();
+				links.add(new Link(xy, xValue, xz, xValue));
+				int yValue = yz.maybes.minus(zValue).first();
+				links.add(new Link(xy, yValue, yz, yValue));
+			}
+			return links;
+		} catch (Throwable ex) {
+			// I'm only ever called in the GUI, so just log it.
+			Log.println("XYWingHint.getLinks: "+ ex);
+			return null;
 		}
-		return links;
 	}
 
 	/**
@@ -127,7 +130,6 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 	@Override
 	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
 			, IAssSet prntOffs) {
-		final int[] SHFT = Values.SHFT;
 		final Cell[] ic = initGrid.cells; // initialCell
 		// the bitsets representing the maybes that've been removed.
 		final int rmvdXy = ic[xy.i].maybes.bits & ~xy.maybes.bits;
@@ -138,7 +140,7 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 		if ( rmvdXy!=0 || rmvdXz!=0 || rmvdYz!=0 ) {
 			int v, sv; // value, shiftedValue
 			for ( v=1; v<10; ++v ) {
-				sv = SHFT[v];
+				sv = VSHFT[v];
 				if((rmvdXy & sv)!=0) result.linkLast(prntOffs.getAss(xy, v));
 				if((rmvdXz & sv)!=0) result.linkLast(prntOffs.getAss(xz, v));
 				if((rmvdYz & sv)!=0) result.linkLast(prntOffs.getAss(yz, v));

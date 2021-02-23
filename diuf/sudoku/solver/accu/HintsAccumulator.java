@@ -54,7 +54,7 @@ public final class HintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean addAll(Collection<AHint> hints) {
+	public boolean addAll(Collection<? extends AHint> hints) {
 		if ( hints==null || hints.size()==0 )
 			return false;
 		list.addAll(hints);

@@ -13,6 +13,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -35,8 +36,6 @@ import java.util.Set;
 public final class NakedSetHint extends AHint implements IActualHint, IChildHint {
 
 	private final List<Cell> nkdSetCellList;
-	private final Pots greenPots;
-	private final List<ARegion> bases;
 	private final String regionIds;
 
 	/* Used by Locking. */
@@ -51,12 +50,10 @@ public final class NakedSetHint extends AHint implements IActualHint, IChildHint
 			, Pots redPots
 			, List<ARegion> bases
 	) {
-		super(hinter, redPots);
+		super(hinter, redPots, greenPots, null, null, bases, null);
 		this.nkdSetCellList = nkdSetCellList;
 		this.nkdSetValues = nkdSetValues;
 		assert super.degree == nkdSetValues.size;
-		this.greenPots = greenPots;
-		this.bases = bases;
 		this.regionIds = Frmt.and(bases);
 		this.nkdSetIdx = Idx.of(nkdSetCellList);
 	}
@@ -67,24 +64,8 @@ public final class NakedSetHint extends AHint implements IActualHint, IChildHint
 	}
 
 	@Override
-	public Pots getGreens(int viewNum) {
-		return greenPots;
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return bases;
-	}
-
-	@Override
 	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
 			, IAssSet parentOffs) {
-		final int[][] VALUESES = Values.ARRAYS;
 		final int bits = nkdSetValues.bits;
 		final Cell[] initGridCells = initGrid.cells;
 		MyLinkedList<Ass> result = new MyLinkedList<>(); // the result

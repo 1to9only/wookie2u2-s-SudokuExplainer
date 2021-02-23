@@ -25,53 +25,22 @@ import java.util.Set;
  */
 public class AlsXyChainHint extends AHint {
 
-	private final Pots orangePots;
-	private final Pots bluePots; // common candidates
-	private final List<ARegion> bases; // blue
-	private final List<ARegion> covers; // green
 	private final List<Als> alss;
 	private final String debugMessage;
 
 	public AlsXyChainHint(AHinter hinter, Pots redPots, Pots orangePots
 			, Pots bluePots, List<ARegion> bases, List<ARegion> covers
 			, List<Als> alss, String debugMessage) {
-		super(hinter, redPots);
-		this.orangePots = orangePots;
-		this.bluePots = bluePots;
-		this.bases = bases;
-		this.covers = covers;
+		// nb: what are normally greens and oranges here
+		super(hinter, redPots, null, orangePots, bluePots, bases, covers);
 		this.alss = alss;
 		this.debugMessage = debugMessage;
 	}
 
 	@Override
 	public Set<Grid.Cell> getAquaCells(int viewNumUnused) {
-		return orangePots.keySet();
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return bases;
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return covers;
-	}
-
-	@Override
-	public Pots getOranges(int viewNumUnused) {
-		return orangePots;
-	}
-
-	@Override
-	public Pots getReds(int viewNumUnused) {
-		return redPots;
-	}
-
-	@Override
-	public Pots getBlues(Grid gridUnused, int viewNumUnused) {
-		return bluePots; // common candidates
+		// nb: what are normally greens and oranges here
+		return oranges.keySet();
 	}
 
 	@Override

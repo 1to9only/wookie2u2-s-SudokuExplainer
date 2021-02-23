@@ -11,9 +11,12 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.HintsList;
@@ -229,7 +232,6 @@ public final class MultipleChainer
 	 */
 	private void findMultipleOrDynamicChains(HintsList hints) {
 		// NB: isNishio implies isDynamic. Nishio means dynamic contradiction.
-		final int[][] VALUESES = Values.ARRAYS;
 		final boolean doBinaryContradictions = isDynamic;
 		final boolean doReduction = isDynamic && !isNishio; // actual value depends on cardinality of current cell.
 
@@ -548,7 +550,6 @@ public final class MultipleChainer
 		, IMyPollSet<Ass> effects	// populated by onToOffs & offToOns.
 		, HintsList hints
 	) {
-		final int[][] INDEXES = Indexes.ARRAYS;
 		int[] riv; // indexes of value in this region
 		int n; // n is the number of possible positions for value in region
 		int i; // i is the current possible position for value in region
@@ -857,7 +858,7 @@ public final class MultipleChainer
 		// build removable potentials
 		final Pots redPots;
 		if ( target.isOn ) {
-			if ( target.cell.maybes.bits == Values.SHFT[target.value] )
+			if ( target.cell.maybes.bits == VSHFT[target.value] )
 				return null; // naked singles are not my problem
 			redPots = new Pots(target.cell
 					, target.cell.maybes.minus(target.value));
@@ -902,7 +903,7 @@ public final class MultipleChainer
 		if ( currBits != initBits ) {
 			// foreach value of cell that has been removed
 			Ass p; // parent
-			for ( int v : Values.ARRAYS[initBits & ~currBits] )
+			for ( int v : VALUESES[initBits & ~currBits] )
 				if ( (p=prntOffs.getAss(cell,v)) != null )
 					// nb: we call the addParent method despite it being slower
 					// because it is required to create a missing parents list
@@ -937,7 +938,7 @@ public final class MultipleChainer
 			return; // Nothing has been erased
 		Ass p; // parent
 		// foreach possible position of v in the region that has been erased
-		for ( int i : Indexes.ARRAYS[initBits & ~currBits] )
+		for ( int i : INDEXES[initBits & ~currBits] )
 			// nb: parentOffs is a LinkedMatrixAssSet with the strange getAss
 			// method (java.util.Set has no get) defined in IAssSet to fetch
 			// the Ass from the Set at this cell with this value; whether or

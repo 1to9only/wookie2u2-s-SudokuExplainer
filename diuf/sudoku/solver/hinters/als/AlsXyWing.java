@@ -29,6 +29,7 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
@@ -65,8 +66,9 @@ public final class AlsXyWing extends AAlsHinter
 {
 
 	public AlsXyWing() {
-		// Tech, LogicalSolver, allowOverlaps, lockedSets, forwardOnly
-		super(Tech.ALS_Wing, true, true, true, false);
+		// see param explanations in the AlsXyChain constructor.
+		// Tech, allowOverlaps, allowLockedSets, findRccs, lockedSets, forwardOnly
+		super(Tech.ALS_Wing, true, true, true, true, false);
 	}
 
 	// findHints was boosted mainly from HoDoKu AlsSolver.getAlsXYWingInt
@@ -85,7 +87,7 @@ public final class AlsXyWing extends AAlsHinter
 		Rcc rccB;
 		Als a;
 		Als b, c;
-		int i,I, j, k,K, zMaybes;
+		int i,I, j, zMaybes;
 		int rcA1,rcA2, rcB1,rcB2;
 		int alsA1,alsA2, alsB1,alsB2;
 		boolean any;
@@ -152,16 +154,16 @@ public final class AlsXyWing extends AAlsHinter
 
 				// get maybes common to these two ALSs, except the RC values,
 				// and check that there is at least one of them.
-				if ( (zMaybes=a.maybes & b.maybes & ~SHFT[rcA1] & ~SHFT[rcA2]
-						 & ~SHFT[rcB1] & ~SHFT[rcB2]) == 0 )
+				if ( (zMaybes=a.maybes & b.maybes & ~VSHFT[rcA1] & ~VSHFT[rcA2]
+						 & ~VSHFT[rcB1] & ~VSHFT[rcB2]) == 0 )
 					continue; // no common maybes to search
 
 				// check overlaps: RCs already done, so just a and b
-				if ( !allowOverlaps && tmp.setAnd(a.set, b.set).any() )
+				if ( !allowOverlaps && tmp.setAnd(a.idx, b.idx).any() )
 					continue; // overlap supressed
 
 				// one can't be a subset of the other, even if ALLOW_OVERLAP
-				if ( Idx.orEqualsEither(a.set, b.set) )
+				if ( Idx.orEqualsEither(a.idx, b.idx) )
 					continue;
 
 				// examine each z value
@@ -202,7 +204,7 @@ public final class AlsXyWing extends AAlsHinter
 				AHint hint = new AlsXyWingHint(
 					  this
 					, new Pots(redPots)
-					, orangePots(grid, a.set, b.set, c.set)
+					, orangePots(grid, a.idx, b.idx, c.idx)
 							.removeAll(bluePots).removeAll(redPots)
 					// nb: blue overwrites everything incl red; some reds are
 					// in other ALSs, so remove reds from blues so they're red

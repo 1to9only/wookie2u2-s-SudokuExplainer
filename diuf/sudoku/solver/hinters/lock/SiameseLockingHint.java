@@ -12,6 +12,7 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
@@ -35,7 +36,7 @@ public class SiameseLockingHint extends AHint {
 	final int maybesToRemove;
 	final Set<Cell> cellSet;
 	final Idx idx = new Idx();
-	final Pots highPots = new Pots();
+	final Pots greenPots = new Pots();
 	final ARegion base;
 	final ARegion cover;
 	final String andedMaybesToRemove;
@@ -54,13 +55,13 @@ public class SiameseLockingHint extends AHint {
 		int maybes = 0;
 		cellSet = new HashSet<>();
 		for ( LockingHint pfh : hints ) {
-			maybes |= Values.SHFT[pfh.valueToRemove];
+			maybes |= VSHFT[pfh.valueToRemove];
 			cellSet.addAll(pfh.cellSet);
 			idx.or(pfh.idx());
-			highPots.upsertAll(pfh.greenPots);
+			greenPots.upsertAll(pfh.greens);
 			redPots.upsertAll(pfh.redPots);
 		}
-		andedMaybesToRemove = Values.and(maybesToRemove = maybes);
+		andedMaybesToRemove = Values.andS(maybesToRemove = maybes);
 		base = hints[0].base;
 		cover = hints[0].cover;
 	}
@@ -72,12 +73,7 @@ public class SiameseLockingHint extends AHint {
 
 	@Override
 	public Pots getGreens(int viewNum) {
-		return highPots;
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
+		return greenPots;
 	}
 
 	@Override

@@ -33,10 +33,7 @@ public final class BasicFishHint extends AHint
 		implements IActualHint, IChildHint {
 
 	final int valueToRemove;
-	final Set<Cell> aquaCells;
-	final Pots greenPots;
-	final List<ARegion> bases;
-	final List<ARegion> covers;
+	final Set<Cell> cells;
 	String debugMessage;
 
 	/**
@@ -53,38 +50,15 @@ public final class BasicFishHint extends AHint
 	public BasicFishHint(AHinter hinter, Pots redPots, int valueToRemove
 			, Pots greenPots, List<ARegion> bases, List<ARegion> covers
 			, String debugMessage) {
-		super(hinter, AHint.INDIRECT, null, 0, redPots);
+		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null, null, bases, covers);
 		this.valueToRemove = valueToRemove;
-		this.aquaCells = greenPots.keySet();
-		this.greenPots = greenPots;
-		this.bases = bases;
-		this.covers = covers;
+		this.cells = greenPots.keySet();
 		this.debugMessage = debugMessage;
 	}
 
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
-		return aquaCells;
-	}
-
-	@Override
-	public Pots getGreens(int viewNum) {
-		return greenPots;
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return bases;
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return covers;
+		return cells;
 	}
 
 	@Override
@@ -134,7 +108,7 @@ public final class BasicFishHint extends AHint
 	public int complexity() {
 		// nb: degree should be same for all hints in complexity() comparison,
 		//     coz that's done in a hinter. It's included just to be thorough.
-		return this.degree * 10 + aquaCells.size();
+		return this.degree * 10 + cells.size();
 	}
 
 	@Override
@@ -144,15 +118,15 @@ public final class BasicFishHint extends AHint
 		BasicFishHint other = (BasicFishHint)o;
 		if (this.valueToRemove != other.valueToRemove)
 			return false;
-		if (this.aquaCells.size() != other.aquaCells.size())
+		if (this.cells.size() != other.cells.size())
 			return false;
-		return this.aquaCells.containsAll(other.aquaCells);
+		return this.cells.containsAll(other.cells);
 	}
 
 	@Override
 	public int hashCode() {
 		int result = 0;
-		for ( Cell c : aquaCells )
+		for ( Cell c : cells )
 			result = result<<4 ^ c.hashCode;
 		result = result<<4 ^ valueToRemove;
 		return result;

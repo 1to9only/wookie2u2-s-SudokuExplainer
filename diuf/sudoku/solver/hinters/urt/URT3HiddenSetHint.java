@@ -75,11 +75,6 @@ public final class URT3HiddenSetHint extends AURTHint {
 	private Pots orangePots;
 
 	@Override
-	public Pots getReds(int viewNum) {
-		return super.redPots;
-	}
-
-	@Override
 	public List<ARegion> getBases() {
 		return Regions.list(region);
 	}

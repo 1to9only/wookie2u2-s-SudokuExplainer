@@ -30,7 +30,7 @@ import java.util.Set;
 public final class AlignedExclusionHint extends AHint implements IActualHint {
 
 	private final Cell[] cells;
-	private final String commonExcluderCellsString;
+	private final String commonExcluders;
 	// iteration order is significant to user understanding explanation
 	private final MyLinkedHashSet<Cell> selectedCellsSet;
 	// iteration order is significant to user understanding explanation
@@ -41,7 +41,7 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 			, LinkedHashMap<HashA, Cell> excludedCombosMap) {
 		super(hinter, redPots);
 		this.cells = cells.clone();
-		this.commonExcluderCellsString = Frmt.toFullString(" ", numCmnExcls, cmnExcls);
+		this.commonExcluders = Frmt.ssv(numCmnExcls, cmnExcls);
 		// NB: iteration order is significant to user understanding explanation
 		this.selectedCellsSet = new MyLinkedHashSet<>(cells);
 		this.excludedCombosMap = excludedCombosMap;
@@ -58,7 +58,7 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 	}
 
 	static boolean isRelevant(Cell[] cells, Pots redPots, int[] combo) {
-		final int[] SHFT = Values.SHFT;
+		final int[] SHFT = Values.VSHFT;
 		Values redVals;
 		for ( int i=0,n=cells.length; i<n; ++i )
 			if ( combo[i] != 0 // most combos are mostly 0's
@@ -91,11 +91,6 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 	private Pots greenPots;
 
 	@Override
-	public Pots getReds(int viewNumUnused) {
-		return redPots;
-	}
-
-	@Override
 	public Pots getOranges(int viewNumUnused) {
 		if ( orangePots == null ) {
 			Pots pots = new Pots();
@@ -112,6 +107,12 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 	public String getClueHtmlImpl(boolean isBig) {
 		return "Look for an " + getHintTypeName()
 			+ (isBig ? " at " + Frmt.csv(selectedCellsSet) : "");
+	}
+
+	@Override
+	public String toStringImpl() {
+		return getHintTypeName() + ": " + Frmt.csv(selectedCellsSet) + " on "
+			 + commonExcluders;
 	}
 
 	/** Gets the color of the given 'cell' and 'value', as a single char, which
@@ -132,17 +133,17 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 		return (char)0; // meaning default to black.
 	}
 
-	/** Append the HTML of the potential values combo (with optional lockCell)
+	/**
+	 * Append the HTML of the potential values combo (with optional lockCell)
 	 * to the given StringBuilder. A null lockCell just means that "the value
-	 *  can occur only once in the region".
-	 * @maybe I'm still struggling to understand Aligned*Exclusion, so maybe
-	 *  finding a better explanation from an "expert" will help a bit?
+	 * can occur only once in the region".
+	 *
 	 * @param sb to append to
 	 * @param combo An int array of the potential values of the $degree cells
 	 *  in this combo. Simultaneous with my cells array.
 	 * @param lockCell the cell which disallows this combo because it's maybes
 	 *  are a subset of this combos values. */
-	private void appendTo(StringBuilder sb, int[] combo, Cell lockCell) {
+	private void frmt(StringBuilder sb, int[] combo, Cell lockCell) {
 		// <o><b>2</b></o>, <o><b>6</b></o>, <o><b>5</b></o> and <r><b>3</b></r>
 		final int n = Math.min(cells.length, combo.length); // in case the combo is too long (has happened)
 		for ( int i=0,m=n-1; i<n; ++i ) {
@@ -162,15 +163,17 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 			  .append(Frmt.or(lockCell.maybes)).append("</b></g>");
 	}
 
-	/** Append the HTML representing the given combosMap to the StringBuilder.
+	/**
+	 * Append the HTML representing the given combosMap to the StringBuilder.
 	 * @param sb to append to
-	 * @param combosMap a Map of HashA (the combo) to Cell (the lockCell)
+	 * @param map of HashA (the combo) to Cell (the lockCell, nullable)
 	 * @return a StringBuilder which is full of HTML. Yummy!
-	 * @throws diuf.sudoku.solver.hinters.align.AlignedExclusionHint.IrrelevantHintException */
-	private StringBuilder appendTo(StringBuilder sb
-			, Map<HashA, Cell> combosMap) throws IrrelevantHintException {
+	 * @throws diuf.sudoku.solver.IrrelevantHintException
+	 */
+	private StringBuilder frmt(Map<HashA, Cell> map) throws IrrelevantHintException {
+		StringBuilder sb = Frmt.getSB();
 		// first we get an "index" (keys) of the combos sorted by there values.
-		Set<HashA> keySet = combosMap.keySet();
+		Set<HashA> keySet = map.keySet();
 		HashA[] keyArray = keySet.toArray(new HashA[keySet.size()]);
 		Arrays.sort(keyArray, HashA.BY_VALUES_ASC);
 		// now we'll append the HTML for each combo to the StringBuilder
@@ -178,7 +181,7 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 		for ( HashA key : keyArray )
 			if ( isRelevent(key.array) ) {
 				++relevantCount;
-				appendTo(sb, key.array, combosMap.get(key)); // get lockCell, maybe null
+				frmt(sb, key.array, map.get(key)); // get lockCell, maybe null
 				sb.append("<br>").append(NL);
 			}
 		if ( relevantCount == 0 )
@@ -191,6 +194,27 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 		for ( Values vs : redPots.values() )
 			bits |= vs.bits;
 		return new Values(bits, true);
+	}
+
+	@Override
+	public String toHtmlImpl() {
+		String filename = degree==2
+				? "AlignedExclusionHintPair.html"
+				: "AlignedExclusionHint.html";
+		try {
+			// NOTE: frmt (unusually) throws IrrelevantHintException
+			String excl = frmt(excludedCombosMap).toString();
+			return Html.produce(this, filename
+				, GROUP_NAMES[degree-2]				//{0}
+				, Frmt.and(selectedCellsSet)		// 1
+				, Html.colorIn(excl)				// 2
+				, Frmt.and(super.redPots.keySet())	// 3
+				, Frmt.csv(getRemovableValues())	// 4
+			);
+		} catch (IrrelevantHintException ex) { // from frmt
+			// see IrrelevantHintException declaration for discussion
+			return Html.load(ex, "IrrelevantHintException.html");
+		}
 	}
 
 	@Override
@@ -210,30 +234,5 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 			result = result<<4 ^ c.hashCode;
 		return result;
 	}
-
-	@Override
-	public String toStringImpl() {
-		return getHintTypeName()
-				+ ": " + Frmt.csv(selectedCellsSet)
-				+ " on " + commonExcluderCellsString;
-	}
-
-	@Override
-	public String toHtmlImpl() {
-		String filename = degree==2
-				? "AlignedExclusionHintPair.html"
-				: "AlignedExclusionHint.html";
-		try {
-			return Html.produce(this, filename
-				, GROUP_NAMES[degree-2]				//{0}
-				, Frmt.and(selectedCellsSet)		// 1
-				, Html.colorIn(appendTo(Frmt.getSB(), excludedCombosMap).toString())//2 // throws IrrelevantHintException
-				, Frmt.and(super.redPots.keySet())	// 3
-				, Frmt.csv(getRemovableValues())	// 4
-			);
-		} catch (IrrelevantHintException ex) { // from appendTo(Frmt.getSB(), excludedCombos)
-			// see IrrelevantHintException declaration for discussion
-			return Html.load(ex, "IrrelevantHintException.html");
-		}
-	}
+	
 }

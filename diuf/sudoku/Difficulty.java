@@ -11,7 +11,7 @@ import diuf.sudoku.utils.ResourceException;
 
 
 /**
- * The Difficulty enum.
+ * The Difficulty enum, used when generating Sudokus.
  * <p>
  * The Difficulty of a Sudoku Puzzle is closely aligned with the difficulty
  * field of the Tech(nique) enum, but there's also a smattering of "custom"

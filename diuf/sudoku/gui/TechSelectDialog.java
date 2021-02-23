@@ -23,6 +23,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.border.TitledBorder;
 
@@ -153,10 +154,20 @@ class TechSelectDialog extends JDialog {
 				chk.addActionListener(new ActionListener() {
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						if ( chk.isSelected() )
+						if ( chk.isSelected() ) {
+							// Display any tip as a warning
+							if ( tech.tip != null ) {
+								JOptionPane.showMessageDialog(
+								  TechSelectDialog.this
+								, tech.nom+" "+tech.tip
+								, "WARNING"
+								, JOptionPane.WARNING_MESSAGE
+								);
+							}
 							wantedTechs.add(tech);
-						else
+						} else
 							wantedTechs.remove(tech);
+						
 					}
 				});
 			}

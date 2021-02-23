@@ -376,7 +376,7 @@ public final class MyTester {
 //		long t1 = System.nanoTime();
 //		// shiftedValueses: an array of jagged-arrays of the shifted-values
 //		// that are packed into your maybes.bits 0..511. See field for more.
-//		final int[][] SVS = AAlignedSetExclusionBase.Values.SHIFTED;
+//		final int[][] SVS = Values.SHIFTED;
 //		int cnt1 = 0;
 //		for ( int times=0; times<TIMES; ++times )
 //			for ( Cell cell : grid.cells )
@@ -459,13 +459,13 @@ public final class MyTester {
 //	private static int oldV(String s) {
 //		int bits = 0;
 //		for ( int i=0; i<s.length(); ++i )
-//			bits |= Values.SHFT[s.charAt(i)-'0'];
+//			bits |= SHFT[s.charAt(i)-'0'];
 //		return bits;
 //	}
 //	private static int newV(String s) {
 //		int bits = 0;
 //		for ( int i=0, n=s.length(); i<n; ++i )
-//			bits |= Values.SHFT[s.charAt(i)-'0'];
+//			bits |= SHFT[s.charAt(i)-'0'];
 //		return bits;
 //	}
 
@@ -592,7 +592,7 @@ public final class MyTester {
 //// KRC2017-12-12 Performance test iterating an Indexes bitset.
 //	private static final int TIMES = 1000 * 1000;
 //	public static void main(String[] args) {
-//		final int[] SHIFTED_VALUES = Indexes.SHFT;
+//		final int[] SHIFTED_VALUES = ISHFT;
 //		final Indexes idxs = new Indexes(0,2,3,5,7,8);
 //		final int bits = idxs.bits;
 //
@@ -619,7 +619,7 @@ public final class MyTester {
 //		long t3 = System.nanoTime();
 //
 //		int cnt3 = 0;
-//		final int[] ISHFT = Indexes.SHFT;
+//		final int[] ISHFT = ISHFT;
 //		for ( int t=0; t<TIMES; ++t )
 //			for ( int i=0; i<9; ++i )
 //				if ( (bits & ISHFT[i]) != 0 )
@@ -780,7 +780,7 @@ public final class MyTester {
 //
 //			// Actually do it ONCE, so all subsequents are equal no-ops:
 //			// ie: Cell.canNotBe will go through:
-//			//		if ((maybes.bits & Values.SHFT[theValueToRemove])==0)
+//			//		if ((maybes.bits & SHFT[theValueToRemove])==0)
 //			//			return 0; // do nothing
 //			// NB: this priming read creates the siblingsSet + siblingsArray
 //			for ( Cell sib : cell.getSiblingsArray())

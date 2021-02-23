@@ -24,22 +24,27 @@ import diuf.sudoku.utils.LongLongHashMap;
  * KRC 2020-12-15 Exhumed from AAlignedSetExclusionBase into own class, and
  * now pass in the "native" AlignedExclusion.CellStackEntry array, instead of
  * translating that into a Cell[] just for my purposes.
+ * <p>
+ * KRC 2020-12-16 Use LongLongHashMap so that shift is always 4 to eradicate
+ * mass-collisions in A8+E when the uniqueness of a 32 bit hashCode gives way
+ * under pressure. It's a bit (not a lot) faster, which is still too slow!
  *
  * @author Keith Corlett 2020-12-06 (IIRC) created
  */
 class NonHinters {
 	private long hashCode; // hashCode
 	private long totalMaybes; // total maybes
-	// nb: Use a LongLongHashMap to cater for larger A*E sets,
-	//     for which a 32 bit hashCode is simply too small.
-	//     totalMaybes is always int-sized but bugger it: LongLong it is.
+	// nb: Use a LongLongHashMap to cater for larger A*E sets, for which a 32
+	// bit hashCode is simply too small. totalMaybes is always int-sized but
+	// bugger it: LongLong it is, coz I'm too lazy to write a LongIntHashMap
+	// just for this.
 	private final LongLongHashMap store; // map hashCode => totalMaybes
 	private final int shift; // number of bits to left-shift hashCode
 
 	/**
 	 * Construct a new NonHinters.
 	 *
-	 * @param capacity the size of the totalMaybes IntIntHashMap.
+	 * @param capacity the size of the totalMaybes LongLongHashMap.
 	 * @param shift the number of bits to left-shift the hashCode.<br>
 	 *  Left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24 and
 	 *  cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.<br>
@@ -68,41 +73,45 @@ class NonHinters {
 	 * <p>
 	 * The result is that each combo that doesn't hint is checked ONCE.
 	 * <p>
-	 * Note that we rely upon the IntIntHashMap class KRC wrote for HoDoKu,
+	 * Note that we rely upon the LongLongHashMap class KRC wrote for HoDoKu,
 	 * which is a (simplified) {@code HashMap<int, int>} so we do not need
 	 * to create millions of Integers, so it's a bit faster.
 	 * <p>
 	 * 2020-12-07 tried skipping the skipper on the first pass of the grid,
 	 * where we (pretty obviously) never skip, but it was actually slower.
 	 *
-	 * @param cells the CellStackEntry array
+	 * @param cellStack the CellStackEntry array
 	 * @param size the degree (the number of cells that need to align in order
 	 *  to form an aligned set: 2..10)
 	 * @return should we skip searching the cells in the given stack
 	 */
-	boolean skip(CellStackEntry[] cells, final int size) {
-		// the stack always contains atleast 2 cells; it is NEVER empty!
-		Cell c = cells[0].cell;
+	boolean skip(final CellStackEntry[] cellStack, final int size) {
+		// calculate my hashCode and totalMaybes
+		// and remember these for the presumed future call to put
+		// the cellStack always contains atleast 2 cells; it is NEVER empty!
+		Cell c = cellStack[0].cell;
 		long hc = c.hashCode; // hashCode
 		long mb = c.maybes.bits; // totalMaybes
 		for ( int i=1; i<size; ++i ) {
-			c = cells[i].cell;
+			c = cellStack[i].cell;
+			// NOTE: shift is set by my constructor; it varies for $degree
 			hc = (hc<<shift) ^ c.hashCode;
 			mb += c.maybes.bits;
 		}
-//		assert mb > 0L; // ie != -1
-		// remember these for the presumed future call to put
 		this.hashCode = hc;
 		this.totalMaybes = mb;
 		// now return is the totalMaybes unchanged since last time we saw them;
 		// else (virgin cells) then get returns NOT_FOUND (-1) which is NEVER
 		// equal to the current total maybes, so skip returns false.
+		// BFIIK: That I tried skipping get in first getHints on each puzzle,
+		// when it always returns -1 coz they're all "virgins"; but was SLOWER,
+		// I think get not JIT compiled, so all the subsequent calls slower.
 		return store.get(hc) == mb; // ie stored mb == current mb
 	}
 
-	// put is called after get (when we do NOT hint) coz either hc is not
-	// already in the map or the cells maybes have changed so that totalMb
-	// != storedMb, so we update the storedMb with the totalMaybes (mb).
+	// put is called after skip when we do NOT hint, coz either hc was not in
+	// in the map (a "virgin"), or the cells maybes have changed, so we update
+	// the storedMb with the new totalMaybes (mb).
 	void put() {
 		store.put(hashCode, totalMaybes);
 	}

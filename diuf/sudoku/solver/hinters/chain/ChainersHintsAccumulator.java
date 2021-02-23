@@ -17,6 +17,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.AppliedHintsSummaryHint;
 import diuf.sudoku.Ass.Cause;
+import static diuf.sudoku.Values.VALUESES;
 import java.util.List;
 import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.utils.MyLinkedList;
@@ -87,7 +88,6 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 			// Creating a chain from non-chained hints is NUTTY!
 			return false;
 		}
-		final int[][] VALUESES = Values.ARRAYS;
 		boolean result = false;
 		final Pots redPots = hint.redPots;
 		final AChainingHint nestedChain = hint instanceof AChainingHint
@@ -101,7 +101,7 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean addAll(Collection<AHint> hints) {
+	public boolean addAll(Collection<? extends AHint> hints) {
 		boolean result = false;
 		for ( AHint hint : hints )
 			result |= add(hint);

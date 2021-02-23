@@ -11,9 +11,11 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -122,7 +124,7 @@ public final class BivalueUniversalGrave
 				// search this region for the newBugCell: the only one which
 				// maybe value in this region and has 3+ maybes.
 				Cell newBugCell = null; // a field to save on passing it around
-				for ( int i : Indexes.ARRAYS[region.indexesOf[v].bits] ) {
+				for ( int i : INDEXES[region.indexesOf[v].bits] ) {
 					if ( region.cells[i].maybes.size > 2 ) {
 						// if there are multiple positions we can't decide
 						// which is the BUG cell, so we just leave it for
@@ -244,7 +246,7 @@ public final class BivalueUniversalGrave
 			return false;
 		assert allBugValues.size == 1;
 		int v = allBugValues.first(); // theBugValue
-		final int sv = Values.SHFT[v];
+		final int sv = VSHFT[v];
 		Pots redPots = null;
 		for ( Cell sib : cmnSibsIdx.cells(grid) )
 			if ( (sib.maybes.bits & sv) != 0 ) {

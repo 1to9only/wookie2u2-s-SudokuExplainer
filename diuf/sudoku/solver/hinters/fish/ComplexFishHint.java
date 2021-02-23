@@ -6,7 +6,6 @@
  */
 package diuf.sudoku.solver.hinters.fish;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
@@ -165,49 +164,20 @@ public class ComplexFishHint extends AHint {
 	final boolean isSashimi; // is this fish Sashimi.
 	final int candidate; // the Fish candidate value 1..9 (aka just v)
 	// we search the bases, but remove candidates from the covers
-	final List<ARegion> bases; // the base regions in this Fish
-	final List<ARegion> covers; // the cover regions in this Fish
-	final Pots greenPots; // the corner (base & covers) Cell=>Values
-	final Pots fins; // the exoFins Cell=>Values
 	final Pots endoFins; // the endoFins Cell=>Values
 	final Pots sharks; // the shark (canniblistic) Cell=>Values
 	String debugMessage; // the techies debug message, else "" (never null)
-	boolean isInvalid = false; // set to true BEFORE toString is called when the HintValidator finds me invalid, when the HintValidator is used, which I hope will soon be never!
 	ComplexFishHint(AHinter hinter, Type hintType, boolean isSashimi
 			, int candidate, List<ARegion> bases, List<ARegion> covers
 			, Pots redPots, Pots greenPots, Pots fins, Pots endoFins
 			, Pots sharks, String debugMessage) {
-		super(hinter, redPots);
+		super(hinter, redPots, greenPots, null, fins, bases, covers);
 		this.hType = hintType;
 		this.isSashimi = isSashimi;
 		this.candidate = candidate;
-		this.bases = bases;
-		this.covers = covers;
-		this.greenPots = greenPots;
-		this.fins = fins;
 		this.endoFins = endoFins;
 		this.sharks = sharks;
 		this.debugMessage = debugMessage;
-	}
-
-	@Override
-	public Set<Cell> getAquaCells(int viewNumUnused) {
-		return greenPots.keySet();
-	}
-
-	@Override
-	public Pots getGreens(int viewNumUnused) {
-		return greenPots;
-	}
-
-	@Override
-	public Pots getReds(int viewNumUnused) {
-		return redPots;
-	}
-
-	@Override
-	public Pots getBlues(Grid gridUnused, int viewNumUnused) {
-		return fins;
 	}
 
 	@Override
@@ -218,16 +188,6 @@ public class ComplexFishHint extends AHint {
 	@Override
 	public Pots getYellows() {
 		return sharks;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return bases;
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return covers;
 	}
 
 	@Override
@@ -245,7 +205,7 @@ public class ComplexFishHint extends AHint {
 	protected String toStringImpl() {
 		return (isInvalid?"#":"")+getHintTypeName()+": "+Frmt.csv(bases)
 				 // sashimi fins replace a corner
-				 + (isSashimi ? " (fins "+fins.cells()+")" : "")
+				 + (isSashimi ? " (fins "+blues.cells()+")" : "")
 				 + " and "+Frmt.csv(covers)
 				 + " on "+candidate;
 	}
@@ -260,7 +220,7 @@ public class ComplexFishHint extends AHint {
 			// Finned/Sashimi: hijack debugMessage = names of finned regions
 			if ( (hType.isFinned || hType.isSashimi)
 			  && !hType.isFranken && !hType.isMutant )
-				debugMessage = Regions.finned(bases, fins.keySet());
+				debugMessage = Regions.finned(bases, blues.keySet());
 			final String filename =
 				hType.isMutant ? "MutantFishHint.html"
 				: hType.isFranken ? "FrankenFishHint.html"
@@ -274,14 +234,14 @@ public class ComplexFishHint extends AHint {
 					, degree<2?"":NUMBER_NAMES[degree-2]	//  4
 					, debugMessage							//  5
 					, redPots.toString()					//  6
-					, fins.toString()					//  7 fins
+					, blues.toString()					//  7 fins
 			);
 		} else {
 			// Developers only: HoDoKuFisherman#squeeze parses this into a log
 			// line, so we use this to find any invalid hints.
 			return "<html><body><pre>"
 				 + NL+toString()+" ("+redPots+")" // "$#$hintType: $bases and $covers on $candidate ($redPots)"
-				 + (fins.isEmpty() ? "" : NL+"exoFins (blue): "+fins)
+				 + (blues.isEmpty() ? "" : NL+"exoFins (blue): "+blues)
 				 + (endoFins.isEmpty() ? "" : NL+"endoFins (purple): "+endoFins)
 				 + (sharks==null||sharks.isEmpty() ? "" : NL+"sharks (yellow): "+sharks)
 				 + NL+"</pre></body></html>";

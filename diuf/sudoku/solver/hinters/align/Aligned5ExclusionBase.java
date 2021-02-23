@@ -28,7 +28,7 @@ abstract class Aligned5ExclusionBase extends AAlignedSetExclusionBase {
 
 	protected static ExcludedCombosMap buildExcludedCombosMap(Cell[] cmnExcls
 			, int numCmnExcls, Cell[] cells, Pots redPots) {
-		final int[] SHFT = Values.SHFT;
+		final int[] SHFT = Values.VSHFT;
 		final ExcludedCombosMap map = new ExcludedCombosMap(cells, redPots);
 
 		Cell c0=cells[0], c1=cells[1], c2=cells[2], c3=cells[3], c4=cells[4];

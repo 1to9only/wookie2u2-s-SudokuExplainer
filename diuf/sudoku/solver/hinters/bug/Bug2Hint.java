@@ -50,11 +50,6 @@ public final class Bug2Hint extends ABugHint implements IActualHint {
 	private Pots greenPots;
 
 	@Override
-	public Pots getReds(int viewNum) {
-		return super.redPots;
-	}
-
-	@Override
 	public double getDifficulty() {
 		// get my base difficulty := hinter.tech.difficulty
 		double d = super.getDifficulty();

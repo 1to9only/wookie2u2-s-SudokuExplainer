@@ -181,7 +181,6 @@ public class MyLinkedHashMap<K,V>
 	extends MyHashMap<K,V>
 	implements Map<K,V>
 {
-
 	private static final long serialVersionUID = 3801124242820219131L;
 
 	/**
@@ -190,7 +189,6 @@ public class MyLinkedHashMap<K,V>
 	 * (NB: Natural order is lost in an unlinked HashMap, it's pseudo-random.)
 	 */
 	protected transient AnEntry<K,V> header;
-
 
 	/**
 	 * Constructs an empty insertion-ordered <tt>MyLinkedHashMap</tt> instance

@@ -16,7 +16,9 @@ import java.util.ArrayList;
 
 
 /**
- * An Ass(umption) is an Assumption that a Cell will/not be a value.
+ * An Ass(umption) is an assumption that a Cell will/not be a value. The class
+ * name is shortened just for convenience, and comedic effect. Wait until we
+ * wewease the Kraken.
  * <p>
  * This class is used in diuf.sudoku.solver.hinters.chain (everywhere)
  * and diuf.sudoku.solver.hinters.fish.FrankenFisherman.
@@ -75,7 +77,7 @@ public class Ass {
 
 //not used: retained for documentation: HERE is how to make a hashCode.
 //Note that the hashCode field is now calculated in-situ everywhere it needs to
-//be, rather than waste time on a method call. The boat is pushed right out.
+//be, rather than waste time on a method call. This boat is right out.
 //	public static int hashCode(Cell cell, int value, boolean isOn) {
 //		return (isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
 //	}
@@ -345,30 +347,22 @@ public class Ass {
 	}
 
 	/**
-	 * Add the given parent to this Assumptions list of parents. Caters for
-	 * a parent being added to an Ass that was created with a null parent,
-	 * and therefore has a null parents list.
-	 * <p>This is only used in Chainer.reverseCycle, where it's essential.
+	 * Add the given parent to this Assumptions list of parents. Caters for a
+	 * parent being added to an Ass that was created with a null parent, and
+	 * therefore has a null parents list.
+	 * <p>
+	 * I'm now ONLY used in UnaryChainer.reverseCycle, where I'm essential.
+	 * UnaryChainer.reverseCycle is ONLY place where new parents list created;
+	 * and he only in createBidirectionalCycleHint (ie not too often) so there
+	 * is nothing to worry about, except ALL other calls to addParent should
+	 * call parents.linkLast(parent) directly, which I do now with a... sigh.
 	 *
 	 * @param parent Ass to add
-	 * @return always returns true if parent is not null. It'll never return
-	 *  false for any other reason, and doesn't throw any RuntimeExceptions.
+	 * @return always returns true, and does NOT throw any RuntimeExceptions.
 	 */
 	public final boolean addParent(Ass parent) {
-//		assert parent != null;
-//		if ( parent == null )
-//			return false;
-		if ( parents == null ) {
-//// nb: LogicalSolverTester top1465.F10.mt UnaryChainer.reverseCycle is the
-//// only place where a new parents list is created; and it's only called in
-//// createBidirectionalCycleHint (ie not too often) so there's nothing to
-//// worry about... except ALL other calls to addParent should probably just
-//// call parents.linkLast(parent) instead! So that is what I am currently
-//// engaged in doing. sigh.
-//if ( !Debug.isMethodNameInTheCallStack(5, "reverseCycle") )
-//	Debug.breakpoint();
+		if ( parents == null )
 			parents = new MyLinkedList<>();
-		}
 		parents.linkLast(parent);
 		return true;
 	}

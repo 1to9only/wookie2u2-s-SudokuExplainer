@@ -11,6 +11,8 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHIFTED;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -160,13 +162,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
 		// that are packed into your maybes.bits 0..511. See Values.SHIFTED.
 		// We create the local reference just for speed of access.
-		final int[][] SVS = Values.SHIFTED;
-
-		// Integer.bitCount of the bitsets 0..511, ie the size of each element
-		// in the SVS (Values.SHIFTED) array-of-arrays. We use this array coz
-		// it's much faster than calling Integer.bitCount billions of times.
-		// We create the local reference just for speed of access.
-		final int[] SIZE = Values.SIZE;
+		final int[][] SVS = VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
 		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
@@ -566,7 +562,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 							anyLevel = degree; // meaning that avb4 != c4b
 
 							// should we test if 3/4 values cover ceb0
-							ces0 = SIZE[ceb0 = cmnExclBits[0]];
+							ces0 = VSIZE[ceb0 = cmnExclBits[0]];
 							do30 = ces0 <= 3;
 							do40 = ces0 <= 4;
 
@@ -974,7 +970,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 								// we still don't need a common excluders loop
 								//  w/o HitSet: 2 = 30,504,193 of 661,506,417 = 4.61%
 								// with HitSet: 2 = 349 of 1,192 = 29.28%
-								ces1 = SIZE[ceb1=cmnExclBits[1]];
+								ces1 = VSIZE[ceb1=cmnExclBits[1]];
 								do31 = ces1 <= 3;
 								do41 = ces1 <= 4;
 
@@ -1091,10 +1087,10 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 								// we still don't need a common excluders loop
 								//  w/o HitSet: 3 = 2,313,827 of 661,506,417 = 0.35%
 								// with HitSet: 3 = 14 of 1,192 = 1.17%
-								ces1 = SIZE[ceb1=cmnExclBits[1]];
+								ces1 = VSIZE[ceb1=cmnExclBits[1]];
 								do31 = ces1 <= 3;
 								do41 = ces1 <= 4;
-								ces2 = SIZE[ceb2=cmnExclBits[2]];
+								ces2 = VSIZE[ceb2=cmnExclBits[2]];
 								do32 = ces2 <= 3;
 								do42 = ces2 <= 4;
 

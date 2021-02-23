@@ -6,6 +6,7 @@
  */
 package diuf.sudoku;
 
+import static diuf.sudoku.Indexes.FIRST_INDEX;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.utils.Frmt;
 import java.util.Iterator;
@@ -36,8 +37,8 @@ public final class Values implements Iterable<Integer> {
 	/** get last() a tad faster than numberOfLeadingZeros on my box. */
 	private static final double LOG2 = Math.log(2);
 
-	/** Shifted left for a partial word mask. */
-	private static final int ONES = 0xffffffff; // 4 FF's
+	/** 32 1's: to left-shift for a partial word mask. */
+	private static final int ONES = 0xffffffff; // 8 F's = 8 * 4 1's = 32 1's
 
 	/**
 	 * Produces a new int-array of the left-shifted bitset representation of
@@ -118,10 +119,10 @@ public final class Values implements Iterable<Integer> {
 	 *   SVS[511] = {256,128,64,32,16,8,4,2,1} ie {9,8,7,6,5,4,3,2,1}
 	 * }</pre>
 	 */
-	public static final int[][] SHIFTED = new int[512][];
+	public static final int[][] VSHIFTED = new int[512][];
 	static {
 		for ( int i=0; i<512; ++i ) // 512 for 9 bits
-			SHIFTED[i] = Values.toShiftedArrayNew(i);
+			VSHIFTED[i] = Values.toShiftedArrayNew(i);
 	}
 
 	/** An array of jagged-arrays of the values (unshifted) that are packed
@@ -150,17 +151,17 @@ public final class Values implements Iterable<Integer> {
 	 *   SVS[511] = {9,8,7,6,5,4,3,2,1}
 	 * }</pre>
 	 */
-	public static final int[][] ARRAYS = new int[512][];
-	/** The number of elements in this element of the SHIFTED/ARRAY array, ie:
+	public static final int[][] VALUESES = new int[512][];
+	/** The number of elements in this element of the SHIFTED/VALUESES array:
 	 * <pre>{@code
-	 *   assert SIZE[c.maybes.bits] == ARRAY[c.maybes.bits].length;
+	 *   assert SIZE[c.maybes.bits] == VALUESES[c.maybes.bits].length;
 	 *   assert SIZE[c.maybes.bits] == SHIFTED[c.maybes.bits].length;
 	 *   assert SIZE[c.maybes.bits] == Integer.bitCount(c.maybes.bits);
 	 * }</pre> */
-	public static final int[] SIZE = new int[512];
+	public static final int[] VSIZE = new int[512];
 	static {
 		for ( int i=0; i<512; ++i )
-			SIZE[i] = (ARRAYS[i]=Values.toValuesArrayNew(i)).length;
+			VSIZE[i] = (VALUESES[i]=toValuesArrayNew(i)).length;
 	}
 
 	/** The minimum value storable in this 1-based Values Set is 1. */
@@ -170,6 +171,9 @@ public final class Values implements Iterable<Integer> {
 
 	/** The number of all values == 9 */
 	public static final int ALL_SIZE = MAX-1;
+	
+	// Note that ALL_BITS also works for Indexes. It's just 9 (1) bits,
+	// regardless of whether those bits represent 1..9 or 0..8.
 	/** The bits of all values (1,2,3,4,5,6,7,8,9) == 111,111,111 == 511 */
 	public static final int ALL_BITS = (1<<ALL_SIZE)-1;
 
@@ -178,11 +182,11 @@ public final class Values implements Iterable<Integer> {
 	 * value of 1, as you'd expect. Ie: without 0 in the array you'd have to do
 	 * SHFT[value-1] instead of just SHFT[value], which'd suck even more than
 	 * this small brown lump of ____. */
-	public static final int[] SHFT = new int[MAX]; // 10
+	public static final int[] VSHFT = new int[MAX]; // 10
 	/** An array of "negated" bitset-values (faster than ~(1&lt;&lt;v-1)) */
 	static {
 		for ( int v=MIN; v<MAX; ++v )
-			SHFT[v] = 1<<v-1;
+			VSHFT[v] = 1<<v-1;
 	}
 
 	/**
@@ -197,9 +201,9 @@ public final class Values implements Iterable<Integer> {
 	public static Values common(Values[] valueses, int degree) {
 		int bits = 0;
 		for ( Values values : valueses )
-			if ( values.size<2 || SIZE[bits|=values.bits]>degree )
+			if ( values.size<2 || VSIZE[bits|=values.bits]>degree )
 				return null;
-		return SIZE[bits]==degree ? new Values(bits, degree, false) : null;
+		return VSIZE[bits]==degree ? new Values(bits, degree, false) : null;
 	}
 
 	/** Creates a new filled (1,2,3,4,5,6,7,8,9) Values Set. */
@@ -209,6 +213,26 @@ public final class Values implements Iterable<Integer> {
 	/** Creates a new empty () Values Set. */
 	static Values none() {
 		return new Values(0, 0, false);
+	}
+
+	public static Values newOr(Values a, Values b) {
+		return new Values(a.bits|b.bits, false);
+	}
+
+	/**
+	 * Return a new array of the values in bits: a Values.bits.
+	 * @param bits a bitset of values
+	 * @return a new array of the values in bits.
+	 */
+	public static int[] arrayOf(int bits) {
+		int cnt = 0;
+		int[] array = new int[VSIZE[bits]];
+		for ( int v : VALUESES[bits] )
+			array[cnt++] = v;
+		// null terminate the array (if length > size)
+		if ( cnt < array.length )
+			array[cnt] = 0;
+		return array;
 	}
 
 	// ------------------------------ attributes ------------------------------
@@ -229,7 +253,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param value the value (unshifted) to store. */
 	public Values(int value) {
 		assert value>0 && value<10;
-		bits = SHFT[value];
+		bits = VSHFT[value];
 		size = 1;
 	}
 
@@ -239,7 +263,7 @@ public final class Values implements Iterable<Integer> {
 	public Values(int v1, int v2) {
 		assert v1!=0 && v2!=0 : "Zero: v1="+v1+" v2="+v2;
 		// nb: v1==v2 in an XYZ-Wing, and it's valid.
-		size = SIZE[bits = SHFT[v1] | SHFT[v2]];
+		size = VSIZE[bits = VSHFT[v1] | VSHFT[v2]];
 	}
 
 	/** Constructs a new Values Set containing the given values.
@@ -247,8 +271,8 @@ public final class Values implements Iterable<Integer> {
 	public Values(int[] values) {
 		int bits = 0;
 		for ( int i=0,n=values.length; i<n; ++i )
-			bits |= SHFT[values[i]]; // set value bit
-		this.size = SIZE[this.bits=bits];
+			bits |= VSHFT[values[i]]; // set value bit
+		this.size = VSIZE[this.bits=bits];
 	}
 
 	/** Constructs a new Values containing the given bits. Size is calculated,
@@ -261,7 +285,7 @@ public final class Values implements Iterable<Integer> {
 	public Values(int bits, boolean dummy) {
 		if ( bits<0 || bits>511 ) // is 0 to 9 set bits
 			throw new IllegalArgumentException("bits "+bits+" not 0..511");
-		size = SIZE[this.bits=bits];
+		size = VSIZE[this.bits=bits];
 		assert size > -1;
 		assert size < 10;
 	}
@@ -286,7 +310,7 @@ public final class Values implements Iterable<Integer> {
 		int b = 0;
 		for ( Values values : valueses )
 			b |= values.bits;
-		this.size = SIZE[this.bits=b];
+		this.size = VSIZE[this.bits=b];
 	}
 
 	/** Constructs a new Values containing the values in 's'.
@@ -294,8 +318,8 @@ public final class Values implements Iterable<Integer> {
 	public Values(String s) {
 		int b = 0;
 		for ( int i=0,n=s.length(); i<n; ++i )
-			b |= SHFT[s.charAt(i)-'0'];
-		this.size = SIZE[this.bits=b];
+			b |= VSHFT[s.charAt(i)-'0'];
+		this.size = VSIZE[this.bits=b];
 	}
 
 	/** Constructs a new Values Set containing the 'src' values.
@@ -332,8 +356,8 @@ public final class Values implements Iterable<Integer> {
 	 * @param value to remove.
 	 * @return the subsequent (post removal) size of this Values Set. */
 	public int remove(int value) {
-		if ( (bits & SHFT[value]) != 0 ) {
-			bits &= ~SHFT[value]; // unset the value'th bit
+		if ( (bits & VSHFT[value]) != 0 ) {
+			bits &= ~VSHFT[value]; // unset the value'th bit
 			--size;
 		}
 		return size;
@@ -343,7 +367,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param values to clear.
 	 * @return this Values, for chaining. */
 	public Values remove(Values values) {
-		size = SIZE[bits &= ~values.bits];
+		size = VSIZE[bits &= ~values.bits];
 		return this;
 	}
 
@@ -351,16 +375,32 @@ public final class Values implements Iterable<Integer> {
 	 * @param bits to clear.
 	 * @return the new size. */
 	public int removeBits(int bits) {
-		return size = SIZE[this.bits &= ~bits];
+		return size = VSIZE[this.bits &= ~bits];
 	}
 
+	/**
+	 * Set this Values to the given value only, and adjust size to 1.
+	 * @param value
+	 */
+	public void set(int value) {
+		this.bits = VSHFT[value];
+		size = 1;
+	}
+
+	/**
+	 * Set this Values to the given bits, and adjust size accordingly.
+	 * @param bits
+	 */
+	public void setBits(int bits) {
+		size = VSIZE[this.bits=bits];
+	}
 
 	/** Add this 'value' to this Values Set.
 	 * @param value to add.
 	 * @return was the value actually added (or did it already exist)? */
 	public boolean add(int value) {
-		if ( (bits & SHFT[value]) == 0 ) {
-			bits |= SHFT[value]; // set the value'th bit
+		if ( (bits & VSHFT[value]) == 0 ) {
+			bits |= VSHFT[value]; // set the value'th bit
 			++size;
 			return true;
 		}
@@ -372,7 +412,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param v1
 	 * @return this Values. */
 	public Values add(int v0, int v1) {
-		size = SIZE[bits |= SHFT[v0] | SHFT[v1]];
+		size = VSIZE[bits |= VSHFT[v0] | VSHFT[v1]];
 		return this;
 	}
 
@@ -382,7 +422,7 @@ public final class Values implements Iterable<Integer> {
 	public Values add(int[] values) {
 		int sv; // shiftedValue
 		for ( int i=0,n=values.length; i<n; ++i ) {
-			sv = SHFT[values[i]];
+			sv = VSHFT[values[i]];
 			if ( (bits & sv) == 0 ) {
 				bits |= sv; // set the value'th bit
 				++size;
@@ -399,7 +439,7 @@ public final class Values implements Iterable<Integer> {
 		bits = 0;
 		// NB: charAt(i) is faster than s.toCharArray() for small strings
 		for ( int i=0; i<n; ++i )
-			bits |= SHFT[s.charAt(i)-'0'];
+			bits |= VSHFT[s.charAt(i)-'0'];
 	}
 
 //2020-10-23 not used, but clever, so keep it for a while
@@ -414,7 +454,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param other
 	 * @return this Values. */
 	public Values add(Values other) {
-		size = SIZE[bits |= other.bits];
+		size = VSIZE[bits |= other.bits];
 		return this;
 	}
 
@@ -423,7 +463,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param value to look for and remember.
 	 * @return was value'th bit unset before we visited it? It's set now! */
 	public boolean visit(int value) {
-		final int sv = SHFT[value]; // shiftedValue: the bitset value of value.
+		final int sv = VSHFT[value]; // shiftedValue: the bitset value of value.
 		final boolean result = (bits & sv) == 0; // is the value'th bit NOT set
 		if ( result ) { // if the value'th bit is NOT set
 			bits |= sv; // set the value'th bit
@@ -460,7 +500,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param value int
 	 * @return a new Values. */
 	public Values intersect(int value) {
-		return new Values(bits & SHFT[value], false);
+		return new Values(bits & VSHFT[value], false);
 	}
 
 	/** Create a new Values containing the intersection of this and 'bitset'.
@@ -475,7 +515,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param value int to clear.
 	 * @return a new Values. */
 	public Values minus(int value) {
-		return new Values(bits & ~SHFT[value], false);
+		return new Values(bits & ~VSHFT[value], false);
 	}
 
 	/** Create a new Values Set containing the values that are in this Values
@@ -494,7 +534,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param value int to clear.
 	 * @return a new Values. */
 	public Values minus(Values a, int value) {
-		return new Values(bits & ~a.bits & ~SHFT[value], false);
+		return new Values(bits & ~a.bits & ~VSHFT[value], false);
 	}
 
 	/** Create a new Values Set containing the values that in this Values Set,
@@ -504,7 +544,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param v1 to clear.
 	 * @return a new Values. */
 	public Values minus(int v0, int v1) {
-		return new Values(bits & ~SHFT[v0] & ~SHFT[v1], false);
+		return new Values(bits & ~VSHFT[v0] & ~VSHFT[v1], false);
 	}
 
 	/** Create a new Values Set containing the values in this Values Set
@@ -535,7 +575,7 @@ public final class Values implements Iterable<Integer> {
 	 * @param v2 to clear.
 	 * @return a new Values. */
 	public Values plusClear(Values a, int v1, int v2) {
-		return new Values((bits | a.bits) & ~SHFT[v1] & ~SHFT[v2], false);
+		return new Values((bits | a.bits) & ~VSHFT[v1] & ~VSHFT[v2], false);
 	}
 
 	/** Retain only those values which are in the keepers bitset, removing
@@ -543,7 +583,11 @@ public final class Values implements Iterable<Integer> {
 	 * @param keepers
 	 */
 	int retainAll(int keepers) {
-		return size = SIZE[bits &= keepers];
+		return size = VSIZE[bits &= keepers];
+	}
+
+	public void and(Values a) {
+		size = VSIZE[bits & a.bits];
 	}
 
 	// -------------------------------- queries -------------------------------
@@ -552,14 +596,14 @@ public final class Values implements Iterable<Integer> {
 	 * @param value to query.
 	 * @return boolean. */
 	public boolean contains(int value) {
-		return (bits & SHFT[value]) != 0;
+		return (bits & VSHFT[value]) != 0;
 	}
 
 	/** Is the given 'value' <b>NOT</b> in this Values Set?
 	 * @param value to query.
 	 * @return boolean. */
 	public boolean no(int value) {
-		return (bits & SHFT[value]) == 0;
+		return (bits & VSHFT[value]) == 0;
 	}
 
 	/**
@@ -587,11 +631,12 @@ public final class Values implements Iterable<Integer> {
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ iterator ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// these methods can be combined as an alternative to an iterator.
 
 	/** @return the first (right-most) index in this Values Set,
 	 * else NONE (-1). */
 	public int first() {
-		return bits==0 ? 0 : Indexes.NUM_TRAILING_ZEROS[bits]+1;
+		return bits==0 ? 0 : FIRST_INDEX[bits]+1;
 	}
 
 //not used 2020-11-23, but there's solid logic for keeping it anyway
@@ -602,6 +647,30 @@ public final class Values implements Iterable<Integer> {
 		return bits==0 ? NONE : (int)(Math.log(bits)/LOG2)+1;
 	}
 
+	/** Returns the next value in this Values Set that is greater-than-or-
+	 * equal-to the given 'v', else NONE (-1).
+	 * @param v to look from <b>(INCLUSIVE)</b>.
+	 * @return int the next value. */
+	public int next(int v) {
+		assert v > 0;
+		int b = bits & (ONES << v-1);
+		// let it AIOOBE if v is too big!
+		return b==0 ? NONE : FIRST_INDEX[b]+1;
+	}
+
+//not used 2020-11-23, but there's solid logic for keeping it anyway
+	/** Return the next value (1..9) that is <b>NOT</b> in this Values Set which
+	 * is greater-than-or-equal-to the given 'v', else NONE (-1).
+	 * @param v 1..10: is presumed be a value that is in this set
+	 * @return next missing value */
+	public int next0(int v) {
+		assert v>0 && v<=MAX; // nb MAX is invalid but allowed
+		for ( int z=v; z<MAX; ++z )
+			if ( (bits & VSHFT[z]) == 0 )
+				return z;
+		return NONE;
+	}
+
 	/**
 	 * Get the other value in this Values Set (which contains 2 values).
 	 * Used by XYWingHint to get the x and y values from xz and yz.
@@ -610,32 +679,9 @@ public final class Values implements Iterable<Integer> {
 	 */
 	public int otherThan(int zValue) {
 		assert Integer.bitCount(bits) == 2;
-		assert (bits & ~SHFT[zValue]) != 0;
-		assert Integer.bitCount(bits & ~SHFT[zValue]) == 1;
-		return Indexes.NUM_TRAILING_ZEROS[bits & ~SHFT[zValue]]+1;
-	}
-
-	/** Returns the next value in this Values Set that is greater-than-or-
-	 * equal-to the given 'v', else NONE (-1).
-	 * @param v to look from <b>(INCLUSIVE)</b>.
-	 * @return int the next value. */
-	public int next(int v) {
-		assert v > 0;
-		int b = bits & (ONES << v-1);
-		return b==0 ? NONE : Indexes.NUM_TRAILING_ZEROS[b]+1;
-	}
-
-//not used 2020-11-23, but there's solid logic for keeping it anyway
-	/** Return the next value (1..9) that is <b>NOT</b> in this Values Set which
-	 * is greater-than-or-equal-to the given 'v', else NONE (-1).
-	 * @param v is presumed be a value that is in this set
-	 * @return next missing value */
-	public int next0(int v) {
-		assert v>0 && v<=MAX; // nb MAX is invalid but allowed
-		for ( int z=v; z<MAX; ++z )
-			if ( (bits & SHFT[z]) == 0 )
-				return z;
-		return NONE;
+		assert (bits & ~VSHFT[zValue]) != 0;
+		assert Integer.bitCount(bits & ~VSHFT[zValue]) == 1;
+		return FIRST_INDEX[bits & ~VSHFT[zValue]]+1;
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ toArray & friends ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -651,12 +697,27 @@ public final class Values implements Iterable<Integer> {
 	 * one array in a loop, instead of creating garbage arrays willy-nilly.
 	 */
 	public int toArray(final int[] array) {
-		int count = 0;
-		for ( int v : ARRAYS[bits] )
-			array[count++] = v;
-		if ( count < array.length )
-			array[count] = 0; // null terminate the array
-		return count;
+		int cnt = 0;
+		for ( int v : VALUESES[bits] )
+			array[cnt++] = v;
+		// null terminate the array (if length > size)
+		if ( cnt < array.length )
+			array[cnt] = 0;
+		return cnt;
+	}
+
+	/**
+	 * Let's pretend that the given bits is already a values, and read it into
+	 * a values array already, because I'm a lazy sneeky cheating bastard.
+	 * @param bits
+	 * @return 
+	 */
+	public static int[] toArrayNew(final int bits) {
+		int[] array = new int[VSIZE[bits]];
+		int i = 0;
+		for ( int v : VALUESES[bits] )
+			array[i++] = v;
+		return array;
 	}
 
 	/**
@@ -710,7 +771,7 @@ public final class Values implements Iterable<Integer> {
 	 * @return the given 'sb' so that you can chain method calls. */
 	public static StringBuilder appendTo(StringBuilder sb, int bits) {
 		if(bits==0) return sb.append("-");
-		for ( int v : ARRAYS[bits] )
+		for ( int v : VALUESES[bits] )
 			sb.append(v);
 		return sb;
 	}
@@ -782,7 +843,7 @@ public final class Values implements Iterable<Integer> {
 	public static String toString(int bits, String sep, String lastSep) {
 		if(bits==0) return "-";
 		SB.setLength(0);
-		int[] array = ARRAYS[bits];
+		int[] array = VALUESES[bits];
 		for ( int i=0,n=array.length,m=n-1; i<n; ++i ) {
 			if(i>0) SB.append(i<m ? sep : lastSep);
 			SB.append(array[i]);
@@ -802,7 +863,7 @@ public final class Values implements Iterable<Integer> {
 		SB.setLength(0);
 		for ( int i=0; i<numValueses; ++i ) {
 			if(i>0) SB.append(',');
-			for ( int v : ARRAYS[valueses[i]] )
+			for ( int v : VALUESES[valueses[i]] )
 				SB.append(v);
 		}
 		return SB.toString();
@@ -819,12 +880,12 @@ public final class Values implements Iterable<Integer> {
 	}
 
 	/**
-	 * Format bits into an and list: "1, 2 and 3".
+	 * andString: Format bits into an and list: "1, 2 and 3".
 	 * @param bits your Values.bits (called maybes, bitset, or just bits) to
 	 *  format
 	 * @return 7 => "1, 2, and 3"
 	 */
-	public static String and(int bits) {
+	public static String andS(int bits) {
 		return Values.toString(bits, Frmt.comma, Frmt.and);
 	}
 
@@ -863,7 +924,7 @@ public final class Values implements Iterable<Integer> {
 			@Override
 			public boolean hasNext(){
 				for ( nv=cv+1; nv<10; ++nv ) // start at currentValue+1
-					if ( (SHFT[nv] & bits) != 0 )
+					if ( (VSHFT[nv] & bits) != 0 )
 						return true;
 				return false;
 			}

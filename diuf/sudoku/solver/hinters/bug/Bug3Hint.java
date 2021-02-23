@@ -88,7 +88,6 @@ public final class Bug3Hint extends ABugHint implements IActualHint {
 			Pots pots = new Pots(bugCells.size()+nkdSetCells.length, 1F);
 			for ( Cell c : nkdSetCells )
 				pots.put(c, new Values(nkdSetVals)); // orange
-//				pots.put(c, nkdSetVals.intersect(allExtraValues)); // orange
 			orangePots = pots;
 		}
 		return orangePots;

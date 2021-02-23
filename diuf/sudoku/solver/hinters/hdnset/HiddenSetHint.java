@@ -10,14 +10,15 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
-import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Regions;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
@@ -25,7 +26,6 @@ import java.util.Set;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.utils.MyLinkedList;
-import java.util.List;
 
 
 /**
@@ -40,8 +40,7 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 	private final Cell[] cells;
 	private final int hdnSetRegionIdxBits;
 	private final int[] hdnSetValuesArray;
-	private final Pots greenPots;
-	private final Grid.ARegion region;
+	private final ARegion region;
 
 	/** Used by Locking */
 	public final Values hdnSetValues;
@@ -51,9 +50,10 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 	private String ts;
 
 	public HiddenSetHint(AHinter hinter, Cell[] cells, Values hdnSetValues
-			, Pots greenPots, Pots redPots, Grid.ARegion region
+			, Pots greenPots, Pots redPots, ARegion region
 			, int hdnSetRegionIdxBits) {
-		super(hinter, redPots);
+		super(hinter, redPots, greenPots, null, null, Regions.list(region)
+				, null);
 		this.cells = cells;
 		this.hdnSetRegionIdxBits = hdnSetRegionIdxBits;
 		this.hdnSetValues = hdnSetValues;
@@ -61,7 +61,6 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 		assert super.degree == hdnSetValuesArray.length
 				: " degree "+degree+" != length "+hdnSetValuesArray.length
 				+ " " + diuf.sudoku.utils.Frmt.csv(hdnSetValuesArray);
-		this.greenPots = greenPots;
 		this.region = region;
 		this.hdnSetIdx = Idx.of(cells);
 	}
@@ -72,28 +71,11 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 	}
 
 	@Override
-	public Pots getGreens(int viewNum) {
-		return greenPots;
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(this.region);
-	}
-
-	@Override
 	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
 			, IAssSet prntOffs) {
 		final MyLinkedList<Ass> result = new MyLinkedList<>(); // the result
 		final Cell[] ic = initGrid.cells; // initialCells
 		final Cell[] rc = this.region.cells; // regionCells
-		final int[] ISHFT = Indexes.SHFT;
-		final int[] SHFT = Values.SHFT;
 		final int[] hdnSetVals = this.hdnSetValuesArray;
 		final int bits = this.hdnSetRegionIdxBits;
 		Cell cc; // currentCell ie currGrid.cell
@@ -105,7 +87,7 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 				// for each hidden-set-value of this cell in the initGrid
 				if ( (initBits=ic[(cc=rc[i]).i].maybes.bits) != 0 )
 					for ( j=0,J=degree; j<J; ++j )
-						if ( (initBits & SHFT[v=hdnSetVals[j]]) != 0
+						if ( (initBits & VSHFT[v=hdnSetVals[j]]) != 0
 						  && (p=prntOffs.getAss(cc, v)) != null )
 							// This assumption must be true before I am applicable
 							result.add(p);
@@ -141,4 +123,5 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 				, getHintTypeName()			//  4
 		);
 	}
+
 }

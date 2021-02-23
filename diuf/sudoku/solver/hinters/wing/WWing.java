@@ -9,6 +9,7 @@
  * The algorithm for the WWing solving technique was boosted from the current
  * release (AFAIK) of HoDoKu by Keith Corlett in March 2020, so here's hobiwans
  * licence statement. Any kudos should flow back to the algorithms originator.
+ * The mistakes are all mine. ~KRC.
  *
  * Copyright (C) 2008-12  Bernhard Hobiger
  *
@@ -35,7 +36,8 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -65,13 +67,13 @@ public final class WWing extends AHinter
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		// localise fields for speed
-		final int[][] VALUESES = Values.ARRAYS;
 		// dereference the grid.cells ONCE.
 		final Cell[] gridCells = grid.cells;
 		// the indices of cells which maybe each potential value
 		final Idx[] indicesOf = grid.getIdxs();
 		// Two pre-prepaired Idxs of siblings of cellA which maybe 0=v0, 1=v1
-		final Idx[] ppis = this.ppis;
+		final Idx ppi0 = this.ppis[0];
+		final Idx ppi1 = this.ppis[1];
 		ppis[0].clear();
 		ppis[1].clear();
 		// local variables
@@ -92,16 +94,16 @@ public final class WWing extends AHinter
 			// which has exactly 2 potential values
 			if ( gridCells[a].maybes.size != 2 )
 				continue;
-			// hit rate too low to make pre-caching this (above) inefficient
+			// BFIIK: it's actually faster without pre-caching this (above).
 			cellA = gridCells[a];
 			// bivalue cell found, so prepare for the "pair" examination
 			// get the 2 potential values of cellA into an array
 			valsA = VALUESES[bitsA=cellA.maybes.bits];
 			// pre-prepair two indexes: siblings of cellA which maybe value0/1
 			// if either is empty then there's no W-Wing here.
-			if ( ppis[0].set(cellA.buds).and(indicesOf[valsA[0]]).isEmpty() )
+			if ( ppi0.set(cellA.buds).and(indicesOf[valsA[0]]).isEmpty() )
 				continue;
-			if ( ppis[1].set(cellA.buds).and(indicesOf[valsA[1]]).isEmpty() )
+			if ( ppi1.set(cellA.buds).and(indicesOf[valsA[1]]).isEmpty() )
 				continue;
 			// examine each subsequent cell to find a "pair" with same 2 maybes
 			for ( b=a+1; b<81; ++b ) {
@@ -111,16 +113,21 @@ public final class WWing extends AHinter
 //if ( cellA.id.equals("C6") && cellB.id.equals("H9") )
 //	Debug.breakpoint();
 				// ok, we have a pair; can anything be eliminated?
-				for ( i=0; i<2; ++i ) {
-					// find removable cells: siblings of both cellA and cellB
-					// which maybe v0 or v1
-					if ( redIdx.setAnd(ppis[i], cellB.buds).any()
-					  // check for W-Wing for potential values valsA
-					  && (hint=checkLink(grid, valsA, a, b, redIdx)) != null ) {
-						result = true;
-						if ( accu.add(hint) ) //add ignores nulls
-							return true;
-					}
+				// find removable cells: siblings of both cellA and cellB
+				// which maybe v0 or v1
+				if ( redIdx.setAnd(ppi0, cellB.buds).any()
+				  // check for W-Wing for potential values valsA
+				  && (hint=checkLink(grid, valsA, a, b, redIdx)) != null ) {
+					result = true;
+					if ( accu.add(hint) ) //add ignores nulls
+						return true;
+				}
+				if ( redIdx.setAnd(ppi1, cellB.buds).any()
+				  // check for W-Wing for potential values valsA
+				  && (hint=checkLink(grid, valsA, a, b, redIdx)) != null ) {
+					result = true;
+					if ( accu.add(hint) ) //add ignores nulls
+						return true;
 				}
 			}
 		}
@@ -132,7 +139,7 @@ public final class WWing extends AHinter
 	// check for W-Wing in cells[a]'s regions on values
 	private AHint checkLink(Grid grid, int[] values, int a, int b, Idx redIdx) {
 		final int v1 = values[1];
-		final int sv1 = Values.SHFT[v1];
+		final int sv1 = VSHFT[v1];
 		// the two bivalue cells
 		final Cell cA = grid.cells[a];
 		final Cell cB = grid.cells[b];
@@ -175,7 +182,7 @@ public final class WWing extends AHinter
 .....9.4.9.28.4..1.7..5..9..83.97....4..68...69.1..8..32....18.85.9...6.....8...3
 15,136,1568,2367,127,,2367,,2678,,36,,,37,,3567,357,,14,,1468,236,,1236,236,,268,125,,,245,,,456,125,456,1257,,157,235,,,3579,12357,579,,,57,,234,235,,237,457,,,4679,4567,47,56,,,4579,,,47,,13,13,247,,247,147,16,14679,24567,,256,4579,57,
 */
-		final int sv0 = Values.SHFT[v0];
+		final int sv0 = VSHFT[v0];
 		for ( Cell redCell : redCells )
 			if ( (redCell.maybes.bits & sv0) == 0 )
 				return null;

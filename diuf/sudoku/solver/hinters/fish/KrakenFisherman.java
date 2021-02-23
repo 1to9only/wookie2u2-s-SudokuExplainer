@@ -34,10 +34,12 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.als.HintValidator;
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Ass;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Run;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.hinters.LinkedMatrixAssSet;
@@ -399,7 +401,7 @@ public class KrakenFisherman extends AHinter
 				doSearch = true; // there's no endos to check, so it passed.
 			} else if ( Idx.sizeLTE(cB.efM0,cB.efM1,cB.efM2, maxFins) ) {
 				// buds = cells which see all the endo-fins
-				grid.cmnBuds(endoFins.set(cB.efM0,cB.efM1,cB.efM2), buds);
+				Grid.cmnBuds(endoFins.set(cB.efM0,cB.efM1,cB.efM2), buds);
 				// doSearch = does any candidate see all the endo-fins?
 				doSearch = ( (buds.a0 & candidates.a0)
 						   | (buds.a1 & candidates.a1)
@@ -538,7 +540,7 @@ public class KrakenFisherman extends AHinter
 				  && Idx.sizeLTE(finsM0,finsM1,finsM2, maxFins)
 				  // finBuds: cells which see (same box/row/col) all fins
 				  // if any finBuds then we try to eliminate
-				  && grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
+				  && Grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
 				) {
 					// nb: fins are already set in the above if statement
 
@@ -656,14 +658,14 @@ public class KrakenFisherman extends AHinter
 					});
 					kraken = new KrakenFishHint(this, reds, base, valsToRemove
 							, KrakenFishHint.Type.ONE, chains, new Idx(fins));
-if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
-	// swampfish are fine, it's swordfish an up that I'm having trouble with.
-	if ( degree>2 && !HintValidator.isValid(grid, kraken.redPots) ) {
-		kraken.isInvalid = true;
-		HintValidator.report("KF1", grid, kraken.squeeze());
-		continue; // Sigh.
-	}
-}
+//if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+//	// swampfish are fine, it's swordfish an up that I'm having trouble with.
+//	if ( degree>2 && !HintValidator.isValid(grid, kraken.redPots) ) {
+//		kraken.isInvalid = true;
+//		HintValidator.report("KF1", grid, kraken.squeeze());
+//		continue; // Sigh.
+//	}
+//}
 					result = true;
 					if ( accu.add(kraken) ) // exit-early if accu says so
 						return true;
@@ -1129,8 +1131,6 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 	 */
 	private void kt2Produce(Ass initialOn, final LinkedMatrixAssSet set
 			, final Idx[] elims) {
-		final int[][] VALUESES = Values.ARRAYS;
-		final int[] SHFT = Values.SHFT;
 		final Cell[] cells = grid.cells;
 		final Deque<Ass> queue = this.kt2assQueue;
 		Ass e; // the effect of Ass a (the next Ass in the consequences chain)
@@ -1151,7 +1151,7 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 			x = a.value;
 			c = a.cell;
 			if ( a.isOn ) {
-				sx = SHFT[x];
+				sx = VSHFT[x];
 				// 1. add an OFF for each other potential value of a.cell.
 				vals = VALUESES[c.maybes.bits & ~sx];
 				for ( j=0,J=vals.length; j<J; ++j ) {
@@ -1173,7 +1173,7 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 				// 1. if a.cell has only two potential values then it must
 				//    be the other potential value, so add an ON to the queue.
 				if ( c.maybes.size == 2
-				  && set.add(e=new Ass(c, VALUESES[c.maybes.bits & ~SHFT[x]][0], ON, a)) )
+				  && set.add(e=new Ass(c, VALUESES[c.maybes.bits & ~VSHFT[x]][0], ON, a)) )
 					queue.add(e);
 				// 2. foreach of a.cell's 3 regions: if region has 2 places for
 				//    a.value then the other cell must be a.value, so add an ON
@@ -1297,14 +1297,14 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 				, usedBases, usedCovers, reds, green, blue, purple, yellow
 				, debugMessage);
 
-//		if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
-//			// swampfish are fine, it's swordfish an up that I'm having trouble with.
-//			if ( degree>2 && !HintValidator.isValid(grid, hint.redPots) ) {
-//				hint.isInvalid = true;
-//				HintValidator.report("KrakenFisherman1_Base", grid, hint.squeeze());
-//				return null; // Sigh.
-//			}
-//		}
+		if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+			// swampfish are fine, it's swordfish an up that I'm having trouble with.
+			if ( degree>2 && !HintValidator.isValid(grid, hint.redPots) ) {
+				hint.isInvalid = true;
+				HintValidator.report("KrakenFisherman1_Base", grid, hint.squeeze());
+				return null; // Sigh.
+			}
+		}
 
 		// just return the hint coz my caller may upgrade to HdkKrakenFishHint
 		// and then add it to the accu. Sigh.
@@ -1522,8 +1522,6 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 				return false;
 
 //			final long start = System.nanoTime();
-			final int[][] VALUESES = Values.ARRAYS;
-			final int[] SHFT = Values.SHFT;
 			Eff[] myOns, myOffs;
 			Eff on, off, kid;
 			int i, bits, sv, o;
@@ -1552,7 +1550,7 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 				for ( int v : VALUESES[bits] ) {
 					on = myOns[v];
 					off = myOffs[v];
-					sv = SHFT[v];
+					sv = VSHFT[v];
 
 					// Assuming that cell is set to value
 					// 1. add an OFF for each other potential value of this cell

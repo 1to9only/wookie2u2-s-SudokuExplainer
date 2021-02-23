@@ -7,11 +7,19 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Ass.Cause;
+import static diuf.sudoku.Idx.BITS;
+import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
+import static diuf.sudoku.Indexes.FIRST_INDEX;
+import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Indexes.ISHFT;
+import static diuf.sudoku.Indexes.ISIZE;
+import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.hinters.urt.UniqueRectangle.CellSet;
+import diuf.sudoku.solver.hinters.wing2.BitIdx;
+import diuf.sudoku.solver.hinters.urt.UniqueRectangle.IUrtCellSet;
 import diuf.sudoku.utils.Hash;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyStrings;
@@ -22,10 +30,15 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSHIFTED;
+import static diuf.sudoku.Values.VSIZE;
 
 
 /**
@@ -42,6 +55,7 @@ import java.util.Random;
  * need to be aware of everything that uses everything. Adding new stuff
  * usually works-out less painful.
  */
+// it's actually faster to copy small arrays into collections "manually"
 @SuppressWarnings("ManualArrayToCollectionCopy")
 public final class Grid {
 
@@ -58,11 +72,11 @@ public final class Grid {
 	 * If true Naked and Hidden Singles are set by Cell.set in AHint.apply,
 	 * which is faster, but then LogicalSolver.solve doesn't count them as
 	 * Naked/Hidden Singles, instead ascribing them to whichever hinter is
-	 * lucky enough to side-swipe a dominoe; funkating ALL the counts, not
-	 * just those for Naked Single and Hidden Single.
+	 * lucky enough to hit the domino; funkenating ALL the counts, not just
+	 * those for Naked Single and Hidden Single.
 	 * <p>
-	 * If false then Singles are left-alone for the hinters to find, report,
-	 * and apply. The recursive solver always uses AUTOSOLVE.
+	 * If false then Singles are left for the NakedSingle/HiddenSingle hinters
+	 * to find, report, and apply. The recursive solver always uses AUTOSOLVE.
 	 * SO: If Singles are unimportant to you then YOU change AUTOSOLVE to true.
 	 * Everything that needs-to references it. Beware that LogicalSolver.solve
 	 * hint/elim counts are then borken.
@@ -123,6 +137,267 @@ public final class Grid {
 					buds.add(b);
 			buds.lock(); // so any attempt to mutate throws a LockedException
 		}
+	}
+
+	/**
+	 * Group Buddies for the cmnBuds method: buddies common to all in each
+	 * group of upto 9 cells.<br>
+	 * First index: 0..8 because there are 9 groups.<br>
+	 * Second index: 0..511 for a group of upto 9 cells (ie 9 bits).
+	 */
+	private static final Idx[][] GRP_BUDS = new Idx[9][512];
+	static {
+		// the indices of a group of upto 9 cells.
+		Idx group = new Idx();
+		// gi: group index: 0..8
+		// go: group offset (start of group) in the Grid: 0, 9, 18... 72
+		// combo: this combination of upto 9 cells: 0..511
+		// bi: bits index 0..8, so BITS[bi] is 1,2,4,8,16,32,64,128,256
+		int gi, go, combo, bi; // there's gi go joke in there somewhere
+		// foreach group
+		for ( gi=0,go=0; gi<9; ++gi,go+=9 ) { // 0..8
+			// foreach combo of up to 9 cells
+			for ( combo=0; combo<512; ++combo ) { // 0..511
+				// build a group bitset, to 'and' ALL of them at once
+				group.clear();
+				// foreach set (1) bit in combo, add groupOffset+bit
+				for ( bi=0; bi<9; ++bi )
+					if ( (combo & BITS[bi]) != 0 )
+						group.add(go+bi);
+				// calculate buddies common to all cells in this combo
+				final Idx gb = GRP_BUDS[gi][combo] = new Idx(true); // FULL
+				group.forEach1((indice) -> gb.and(BUDDIES[indice]));
+			}
+		}
+	}
+
+	/**
+	 * cmnBuds (commonBuddies): sets result to the buddies common to ALL cells
+	 * in the given idx, and returns it.
+	 * <p>
+	 * Note that the result set is reset (ie cleared) by each call.
+	 * <p>
+	 * Note: I'm only called privately, except in the test-cases, hence I'm
+	 * package visible.
+	 * <p>
+	 * Note: I've tried a couple of times to do this with an Idx.forEach and
+	 * failed miserably. I don't know how to make forEach exit early if the
+	 * result Idx isEmpty already.
+	 * <p>
+	 * Provenance: cmnBuds was Sudoku2.getBuddies, but Sudoku2 has too many
+	 * type-refs, so I copy-paste him here.
+	 *
+	 * @param idx indices of cells to get the common buddies of
+	 * @param result to set to indices of common buddies
+	 * @return the result SudokuSet for method chaining
+	 */
+	public static Idx cmnBuds(Idx idx, Idx result) {
+		// we start with a full result set
+		result.fill();
+		if ( idx.a0 != 0 )
+			for ( int i=0,j=0; i<3; ++i,j+=9 )
+				if ( result.and(GRP_BUDS[i][(idx.a0>>j) & 0x1FF]).none() )
+					return result;
+		if ( idx.a1 != 0 )
+			for ( int i=3,j=0; i<6; ++i,j+=9 )
+				if ( result.and(GRP_BUDS[i][(idx.a1>>j) & 0x1FF]).none() )
+					return result;
+		if ( idx.a2 != 0 )
+			for ( int i=6,j=0; i<9; ++i,j+=9 )
+				if ( result.and(GRP_BUDS[i][(idx.a2>>j) & 0x1FF]).none() )
+					return result;
+		return result;
+	}
+
+	/** Indices of siblings: The indices of cells which are in the same box,
+	 * row, or col, as the index cell, except the index cell itself. */
+	public static int[][] visibleIndices  = new int[][] {
+			{ 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,27,36,45,54,63,72},
+			{ 0, 2, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,28,37,46,55,64,73},
+			{ 0, 1, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,29,38,47,56,65,74},
+			{ 0, 1, 2, 4, 5, 6, 7, 8,12,13,14,21,22,23,30,39,48,57,66,75},
+			{ 0, 1, 2, 3, 5, 6, 7, 8,12,13,14,21,22,23,31,40,49,58,67,76},
+			{ 0, 1, 2, 3, 4, 6, 7, 8,12,13,14,21,22,23,32,41,50,59,68,77},
+			{ 0, 1, 2, 3, 4, 5, 7, 8,15,16,17,24,25,26,33,42,51,60,69,78},
+			{ 0, 1, 2, 3, 4, 5, 6, 8,15,16,17,24,25,26,34,43,52,61,70,79},
+			{ 0, 1, 2, 3, 4, 5, 6, 7,15,16,17,24,25,26,35,44,53,62,71,80},
+			{ 0, 1, 2,10,11,12,13,14,15,16,17,18,19,20,27,36,45,54,63,72},
+			{ 0, 1, 2, 9,11,12,13,14,15,16,17,18,19,20,28,37,46,55,64,73},
+			{ 0, 1, 2, 9,10,12,13,14,15,16,17,18,19,20,29,38,47,56,65,74},
+			{ 3, 4, 5, 9,10,11,13,14,15,16,17,21,22,23,30,39,48,57,66,75},
+			{ 3, 4, 5, 9,10,11,12,14,15,16,17,21,22,23,31,40,49,58,67,76},
+			{ 3, 4, 5, 9,10,11,12,13,15,16,17,21,22,23,32,41,50,59,68,77},
+			{ 6, 7, 8, 9,10,11,12,13,14,16,17,24,25,26,33,42,51,60,69,78},
+			{ 6, 7, 8, 9,10,11,12,13,14,15,17,24,25,26,34,43,52,61,70,79},
+			{ 6, 7, 8, 9,10,11,12,13,14,15,16,24,25,26,35,44,53,62,71,80},
+			{ 0, 1, 2, 9,10,11,19,20,21,22,23,24,25,26,27,36,45,54,63,72},
+			{ 0, 1, 2, 9,10,11,18,20,21,22,23,24,25,26,28,37,46,55,64,73},
+			{ 0, 1, 2, 9,10,11,18,19,21,22,23,24,25,26,29,38,47,56,65,74},
+			{ 3, 4, 5,12,13,14,18,19,20,22,23,24,25,26,30,39,48,57,66,75},
+			{ 3, 4, 5,12,13,14,18,19,20,21,23,24,25,26,31,40,49,58,67,76},
+			{ 3, 4, 5,12,13,14,18,19,20,21,22,24,25,26,32,41,50,59,68,77},
+			{ 6, 7, 8,15,16,17,18,19,20,21,22,23,25,26,33,42,51,60,69,78},
+			{ 6, 7, 8,15,16,17,18,19,20,21,22,23,24,26,34,43,52,61,70,79},
+			{ 6, 7, 8,15,16,17,18,19,20,21,22,23,24,25,35,44,53,62,71,80},
+			{ 0, 9,18,28,29,30,31,32,33,34,35,36,37,38,45,46,47,54,63,72},
+			{ 1,10,19,27,29,30,31,32,33,34,35,36,37,38,45,46,47,55,64,73},
+			{ 2,11,20,27,28,30,31,32,33,34,35,36,37,38,45,46,47,56,65,74},
+			{ 3,12,21,27,28,29,31,32,33,34,35,39,40,41,48,49,50,57,66,75},
+			{ 4,13,22,27,28,29,30,32,33,34,35,39,40,41,48,49,50,58,67,76},
+			{ 5,14,23,27,28,29,30,31,33,34,35,39,40,41,48,49,50,59,68,77},
+			{ 6,15,24,27,28,29,30,31,32,34,35,42,43,44,51,52,53,60,69,78},
+			{ 7,16,25,27,28,29,30,31,32,33,35,42,43,44,51,52,53,61,70,79},
+			{ 8,17,26,27,28,29,30,31,32,33,34,42,43,44,51,52,53,62,71,80},
+			{ 0, 9,18,27,28,29,37,38,39,40,41,42,43,44,45,46,47,54,63,72},
+			{ 1,10,19,27,28,29,36,38,39,40,41,42,43,44,45,46,47,55,64,73},
+			{ 2,11,20,27,28,29,36,37,39,40,41,42,43,44,45,46,47,56,65,74},
+			{ 3,12,21,30,31,32,36,37,38,40,41,42,43,44,48,49,50,57,66,75},
+			{ 4,13,22,30,31,32,36,37,38,39,41,42,43,44,48,49,50,58,67,76},
+			{ 5,14,23,30,31,32,36,37,38,39,40,42,43,44,48,49,50,59,68,77},
+			{ 6,15,24,33,34,35,36,37,38,39,40,41,43,44,51,52,53,60,69,78},
+			{ 7,16,25,33,34,35,36,37,38,39,40,41,42,44,51,52,53,61,70,79},
+			{ 8,17,26,33,34,35,36,37,38,39,40,41,42,43,51,52,53,62,71,80},
+			{ 0, 9,18,27,28,29,36,37,38,46,47,48,49,50,51,52,53,54,63,72},
+			{ 1,10,19,27,28,29,36,37,38,45,47,48,49,50,51,52,53,55,64,73},
+			{ 2,11,20,27,28,29,36,37,38,45,46,48,49,50,51,52,53,56,65,74},
+			{ 3,12,21,30,31,32,39,40,41,45,46,47,49,50,51,52,53,57,66,75},
+			{ 4,13,22,30,31,32,39,40,41,45,46,47,48,50,51,52,53,58,67,76},
+			{ 5,14,23,30,31,32,39,40,41,45,46,47,48,49,51,52,53,59,68,77},
+			{ 6,15,24,33,34,35,42,43,44,45,46,47,48,49,50,52,53,60,69,78},
+			{ 7,16,25,33,34,35,42,43,44,45,46,47,48,49,50,51,53,61,70,79},
+			{ 8,17,26,33,34,35,42,43,44,45,46,47,48,49,50,51,52,62,71,80},
+			{ 0, 9,18,27,36,45,55,56,57,58,59,60,61,62,63,64,65,72,73,74},
+			{ 1,10,19,28,37,46,54,56,57,58,59,60,61,62,63,64,65,72,73,74},
+			{ 2,11,20,29,38,47,54,55,57,58,59,60,61,62,63,64,65,72,73,74},
+			{ 3,12,21,30,39,48,54,55,56,58,59,60,61,62,66,67,68,75,76,77},
+			{ 4,13,22,31,40,49,54,55,56,57,59,60,61,62,66,67,68,75,76,77},
+			{ 5,14,23,32,41,50,54,55,56,57,58,60,61,62,66,67,68,75,76,77},
+			{ 6,15,24,33,42,51,54,55,56,57,58,59,61,62,69,70,71,78,79,80},
+			{ 7,16,25,34,43,52,54,55,56,57,58,59,60,62,69,70,71,78,79,80},
+			{ 8,17,26,35,44,53,54,55,56,57,58,59,60,61,69,70,71,78,79,80},
+			{ 0, 9,18,27,36,45,54,55,56,64,65,66,67,68,69,70,71,72,73,74},
+			{ 1,10,19,28,37,46,54,55,56,63,65,66,67,68,69,70,71,72,73,74},
+			{ 2,11,20,29,38,47,54,55,56,63,64,66,67,68,69,70,71,72,73,74},
+			{ 3,12,21,30,39,48,57,58,59,63,64,65,67,68,69,70,71,75,76,77},
+			{ 4,13,22,31,40,49,57,58,59,63,64,65,66,68,69,70,71,75,76,77},
+			{ 5,14,23,32,41,50,57,58,59,63,64,65,66,67,69,70,71,75,76,77},
+			{ 6,15,24,33,42,51,60,61,62,63,64,65,66,67,68,70,71,78,79,80},
+			{ 7,16,25,34,43,52,60,61,62,63,64,65,66,67,68,69,71,78,79,80},
+			{ 8,17,26,35,44,53,60,61,62,63,64,65,66,67,68,69,70,78,79,80},
+			{ 0, 9,18,27,36,45,54,55,56,63,64,65,73,74,75,76,77,78,79,80},
+			{ 1,10,19,28,37,46,54,55,56,63,64,65,72,74,75,76,77,78,79,80},
+			{ 2,11,20,29,38,47,54,55,56,63,64,65,72,73,75,76,77,78,79,80},
+			{ 3,12,21,30,39,48,57,58,59,66,67,68,72,73,74,76,77,78,79,80},
+			{ 4,13,22,31,40,49,57,58,59,66,67,68,72,73,74,75,77,78,79,80},
+			{ 5,14,23,32,41,50,57,58,59,66,67,68,72,73,74,75,76,78,79,80},
+			{ 6,15,24,33,42,51,60,61,62,69,70,71,72,73,74,75,76,77,79,80},
+			{ 7,16,25,34,43,52,60,61,62,69,70,71,72,73,74,75,76,77,78,80},
+			{ 8,17,26,35,44,53,60,61,62,69,70,71,72,73,74,75,76,77,78,79}
+	};
+
+
+	/** Indices of "forward" siblings: The indices of sibling cells whose
+	 * index is greater than the current cell; so that we can loop through
+	 * this array, and search for sibling relationships which we have not
+	 * already been examined. Supports a forward only siblings search. */
+	public static final int[][] forwardIndices = new int [][] {
+			  {1,2,3,4,5,6,7,8,9,10,11,18,19,20,27,36,45,54,63,72}
+			, {2,3,4,5,6,7,8,9,10,11,18,19,20,28,37,46,55,64,73}
+			, {3,4,5,6,7,8,9,10,11,18,19,20,29,38,47,56,65,74}
+			, {4,5,6,7,8,12,13,14,21,22,23,30,39,48,57,66,75}
+			, {5,6,7,8,12,13,14,21,22,23,31,40,49,58,67,76}
+			, {6,7,8,12,13,14,21,22,23,32,41,50,59,68,77}
+			, {7,8,15,16,17,24,25,26,33,42,51,60,69,78}
+			, {8,15,16,17,24,25,26,34,43,52,61,70,79}
+			, {15,16,17,24,25,26,35,44,53,62,71,80}
+			, {10,11,12,13,14,15,16,17,18,19,20,27,36,45,54,63,72}
+			, {11,12,13,14,15,16,17,18,19,20,28,37,46,55,64,73}
+			, {12,13,14,15,16,17,18,19,20,29,38,47,56,65,74}
+			, {13,14,15,16,17,21,22,23,30,39,48,57,66,75}
+			, {14,15,16,17,21,22,23,31,40,49,58,67,76}
+			, {15,16,17,21,22,23,32,41,50,59,68,77}
+			, {16,17,24,25,26,33,42,51,60,69,78}
+			, {17,24,25,26,34,43,52,61,70,79}
+			, {24,25,26,35,44,53,62,71,80}
+			, {19,20,21,22,23,24,25,26,27,36,45,54,63,72}
+			, {20,21,22,23,24,25,26,28,37,46,55,64,73}
+			, {21,22,23,24,25,26,29,38,47,56,65,74}
+			, {22,23,24,25,26,30,39,48,57,66,75}
+			, {23,24,25,26,31,40,49,58,67,76}
+			, {24,25,26,32,41,50,59,68,77}
+			, {25,26,33,42,51,60,69,78}
+			, {26,34,43,52,61,70,79}
+			, {35,44,53,62,71,80}
+			, {28,29,30,31,32,33,34,35,36,37,38,45,46,47,54,63,72}
+			, {29,30,31,32,33,34,35,36,37,38,45,46,47,55,64,73}
+			, {30,31,32,33,34,35,36,37,38,45,46,47,56,65,74}
+			, {31,32,33,34,35,39,40,41,48,49,50,57,66,75}
+			, {32,33,34,35,39,40,41,48,49,50,58,67,76}
+			, {33,34,35,39,40,41,48,49,50,59,68,77}
+			, {34,35,42,43,44,51,52,53,60,69,78}
+			, {35,42,43,44,51,52,53,61,70,79}
+			, {42,43,44,51,52,53,62,71,80}
+			, {37,38,39,40,41,42,43,44,45,46,47,54,63,72}
+			, {38,39,40,41,42,43,44,45,46,47,55,64,73}
+			, {39,40,41,42,43,44,45,46,47,56,65,74}
+			, {40,41,42,43,44,48,49,50,57,66,75}
+			, {41,42,43,44,48,49,50,58,67,76}
+			, {42,43,44,48,49,50,59,68,77}
+			, {43,44,51,52,53,60,69,78}
+			, {44,51,52,53,61,70,79}
+			, {51,52,53,62,71,80}
+			, {46,47,48,49,50,51,52,53,54,63,72}
+			, {47,48,49,50,51,52,53,55,64,73}
+			, {48,49,50,51,52,53,56,65,74}
+			, {49,50,51,52,53,57,66,75}
+			, {50,51,52,53,58,67,76}
+			, {51,52,53,59,68,77}
+			, {52,53,60,69,78}
+			, {53,61,70,79}
+			, {62,71,80}
+			, {55,56,57,58,59,60,61,62,63,64,65,72,73,74}
+			, {56,57,58,59,60,61,62,63,64,65,72,73,74}
+			, {57,58,59,60,61,62,63,64,65,72,73,74}
+			, {58,59,60,61,62,66,67,68,75,76,77}
+			, {59,60,61,62,66,67,68,75,76,77}
+			, {60,61,62,66,67,68,75,76,77}
+			, {61,62,69,70,71,78,79,80}
+			, {62,69,70,71,78,79,80}
+			, {69,70,71,78,79,80}
+			, {64,65,66,67,68,69,70,71,72,73,74}
+			, {65,66,67,68,69,70,71,72,73,74}
+			, {66,67,68,69,70,71,72,73,74}
+			, {67,68,69,70,71,75,76,77}
+			, {68,69,70,71,75,76,77}
+			, {69,70,71,75,76,77}
+			, {70,71,78,79,80}
+			, {71,78,79,80}
+			, {78,79,80}
+			, {73,74,75,76,77,78,79,80}
+			, {74,75,76,77,78,79,80}
+			, {75,76,77,78,79,80}
+			, {76,77,78,79,80}
+			, {77,78,79,80}
+			, {78,79,80}
+			, {79,80}
+			, {80}
+			, {}
+	};
+
+	public static final BitIdx[] visibleCells = new BitIdx[81];
+	public static BitIdx[] forwardCells = new BitIdx[81];
+	static {
+		for ( int i=0; i<81; ++i ) {
+			visibleCells[i] = new BitIdx(visibleIndices[i]);
+			forwardCells[i] = new BitIdx(forwardIndices[i]);
+		}
+	}
+
+	public static Set<Cell> cellSet(Cell... cells) {
+		Set<Cell> result = new HashSet<>(cells.length, 1.0F);
+		for ( Cell c : cells )
+			result.add(c);
+		return result;
 	}
 
 	/**
@@ -204,6 +479,26 @@ public final class Grid {
 		return cells;
 	}
 
+	/**
+	 * Convenience method to get a new List of a re-usable cells array.
+	 * @param cells
+	 * @param numCells
+	 * @return
+	 */
+	public static ArrayList<Cell> list(Cell[] cells, int numCells) {
+		ArrayList<Cell> result = new ArrayList<>(numCells);
+		for ( int i=0; i<numCells; ++i )
+			result.add(cells[i]);
+		return result;
+	}
+
+	public static List<ARegion> regionList(ARegion... regions) {
+		List<ARegion> result = new ArrayList<>(regions.length);
+		for ( ARegion r : regions )
+			result.add(r);
+		return result;
+	}
+
 	// ============================= instance land ============================
 
 	/** A flat view of the cells in the matrix */
@@ -266,20 +561,10 @@ public final class Grid {
 	/** isInvalidated()'s region which is invalid. Nullable. */
 	public ARegion invalidRegion;
 
-	/** idxs[value] is the indices in this Grid which maybe value 1..9.
-	 * You {@code Idx[] idxs = grid.getIdxs()}. The idxs are private and remain
-	 * empty until YOU call getIdxs(), unlike most Grid fields. */
-	private final IdxL[] idxs = new IdxL[] {
-		  null      , new IdxL(), new IdxL(), new IdxL(), new IdxL()
-		, new IdxL(), new IdxL(), new IdxL(), new IdxL(), new IdxL()
-	};
-	private long idxsPuzzleID = -1; // an invalid value, to fire first time
-	private int idxsHintNumber = -1; // an invalid value, to fire first time
-
 	/** prepare sets grid.isPrepared, to avert unnecessary repetitions. */
 	private boolean isPrepared = false;
 
-	// ---------------- constructors ----------------
+	// ----------------------------- constructors -----------------------------
 
 	/** Construct a new 9x9 Sudoku grid. All cells are set to empty. */
 	public Grid() {
@@ -360,7 +645,7 @@ public final class Grid {
 
 	/**
 	 * Constructor: Loads the given puzzle (in lines) into a new Grid.
-	 * @param lines 
+	 * @param lines
 	 */
 	private Grid(String[] lines) {
 		this(); // run the default constructor first
@@ -395,8 +680,10 @@ public final class Grid {
 	private void initialise() {
 		// populate the grids regions arrays
 		int i, x, y;  Row row;  Col col;
+		// create boxs first so that rows and cols can intersectingBoxs them.
+		for ( i=0; i<9; ++i )
+			regions[i] = boxs[i] = new Box(i);
 		for ( i=0; i<9; ++i ) {
-			regions[i   ] = boxs[i] = new Box(i);
 			regions[i+ 9] = rows[i] = new Row(i);
 			regions[i+18] = cols[i] = new Col(i);
 		}
@@ -431,7 +718,7 @@ public final class Grid {
 		this.puzzleID = RANDOM.nextLong();
 	}
 
-	// ---------------- demi-constructors ----------------
+	// -------------------------- demi-constructors ---------------------------
 
 	/**
 	 * Copy the contents of this grid to the 'dest' Grid.
@@ -457,14 +744,12 @@ public final class Grid {
 		IO.copyToClipboard(s);
 	}
 
-	// ---------------- clear ----------------
+	// ------------------------------ mutators --------------------------------
 
 	public void clear() {
 		for ( Cell cell : cells )
 			cell.clear();
 	}
-
-	// ---------------- load and restore ----------------
 
 	/**
 	 * Load this grid from these 1, 2 or 3 lines in the format produced by
@@ -561,6 +846,7 @@ public final class Grid {
 			rebuildAllMyS__t();
 			// remember isMaybesLoaded to avoid any future rebuilds.
 			isMaybesLoaded = wereMaybesLoaded;
+			AHint.hintNumber = 0; // before first
 			return true; // meaning load succeeded
 		} catch (Exception ex) {
 			StdErr.whinge("Critical Grid.load", ex);
@@ -618,7 +904,7 @@ public final class Grid {
 //		}
 //	}
 
-	// ---------------- Rob the rebuilder ----------------
+	// -------------------------- Rob the rebuilder ---------------------------
 
 	/**
 	 * Rebuild everything: reset the maybes and then call rebuildAllMyS__t.
@@ -715,8 +1001,6 @@ public final class Grid {
 	 * Rebuild ARegion.indexesOf[value] arrays (not confusing r.idxs[v]!)
 	 */
 	private void rebuildAllRegionsIndexsOfAllValues() {
-		final int[] iSHFT = Indexes.SHFT;
-		final int[] vSHFT = Values.SHFT;
 		boolean[] rContains;
 		Indexes[] rIndexesOf;
 		Cell[] rCells;
@@ -735,12 +1019,12 @@ public final class Grid {
 					rIndexesOf[v].clear();
 				else {
 					// set Indexes with bits built locally coz it's faster
-					// than 
-					sv = vSHFT[v];
+					// than
+					sv = VSHFT[v];
 					bits = 0;
 					for ( i=0; i<9; ++i )
 						if ( (rCellsMaybesBits[i] & sv) != 0 )
-							bits |= iSHFT[i];
+							bits |= ISHFT[i];
 					rIndexesOf[v].set(bits);
 				}
 			}
@@ -753,7 +1037,7 @@ public final class Grid {
 			cell.cancelMaybes();
 	}
 
-	// ------------------------ the invalidated zone -------------------------
+	// ------------------------- the invalidated zone -------------------------
 
 	/**
 	 * isInvalidated returns true if this grid is invalid for:<ul>
@@ -841,13 +1125,13 @@ if ( true ) { // @check true
 	int bits, i;
 	Cell[] rCells;
 	for ( int v=1; v<10; ++v ) {
-		int sv = Values.SHFT[v];
+		int sv = VSHFT[v];
 		for ( ARegion r : regions ) {
 			rCells = r.cells; // regions cells array
 			bits = 0; // a bitset of this regions indexes of v
 			for ( i=0; i<9; ++i )
 				if ( (rCells[i].maybes.bits & sv) != 0 )
-					bits |= Indexes.SHFT[i];
+					bits |= ISHFT[i];
 			// note this is an outright set, overwriting existing contents!
 			// if there are no cells in r which maybe v then bits is still 0.
 			r.indexesOf[v].set(bits);
@@ -867,7 +1151,7 @@ if ( true ) { // @check true
 		return false;
 	}
 
-	// ---------------- stateful queries ----------------
+	// --------------------------- stateful queries ---------------------------
 
 	/** This is a convenience method for JUnit test cases.
 	 * Translating from "E4" to [y][x] is a pain in the ass, and I've
@@ -955,98 +1239,7 @@ if ( true ) { // @check true
 		return occurances;
 	}
 
-	// ---------------- effing around with Regions ----------------
-
-	/**
-	 * Return the ARegion of regionTypeIndex that's common to all cells,
-	 * else null.
-	 * @param cells {@code Iterable<Cell>} which I presume to contain at least
-	 *  two cells.
-	 *
-	 * @param regionTypeIndex Grid.BOX, Grid.ROW, or Grid.COL (ie 0..2).
-	 *  If it isn't one of these values I'll throw an AIOOBE
-	 * @return the common ARegion, else null.<br>
-	 *  If cells is empty then null is always returned.<br>
-	 *  If cells contains only one cell then it's regions[regionTypeIndex] is
-	 *  always returned.<br>
-	 *  If cells is null then you're here because of the NPE which is my bloody
-	 *  callers fault, not mine, so change my bloody caller to ensure cells
-	 *  isn't bloody null before you bloody call me, not me. I only frow s__t
-	 *  at idjits. If you absolutely need a null check then wrap this method
-	 *  to provide it. Or, let's face it, you can just do it all here and
-	 *  delete this nice little rant. It's your ____in code! Just shoot me!
-	 */
-	public ARegion commonRegion(Iterable<Cell> cells, int regionTypeIndex) {
-		ARegion commonRegion=null, cellsRegion;
-		for ( Cell cell : cells ) {
-			cellsRegion = cell.regions[regionTypeIndex];
-			if ( commonRegion == null ) // the first cell
-				commonRegion = cellsRegion;
-			else if ( cellsRegion != commonRegion )
-				return null; // not all cells share a region of this type
-		}
-		return commonRegion; // will still be null if cells is empty
-	}
-
-	/**
-	 * Return the regions (expect 1 or 2 of them) common to all these cells.
-	 * Note that cells should be a Set of at least 2 cells. If there's only
-	 * one then "common" regions is nonsensical. The result is indeterminate
-	 * if cells contains duplicates, because again that's just nonsensical.
-	 * @param cells
-	 * @param result {@code ArrayList<ARegion>} is not cleared first.
-	 * @return a {@code ArrayList<ARegion>} may be empty, but never null.
-	 */
-	public ArrayList<ARegion> commonRegions(Collection<Cell> cells, ArrayList<ARegion> result) {
-		Iterator<Cell> it = cells.iterator();
-		// for first cell in cells
-		Cell cell = it.next();
-		int box = cell.boxId;
-		int row = cell.y;
-		int col = cell.x;
-		// foreach subsequent cell in cells
-		while ( it.hasNext() ) {
-			cell = it.next();
-			if(box!=cell.boxId) box=-1;
-			if(row!=cell.y) row=-1;
-			if(col!=cell.x) col=-1;
-		}
-		// re-populate the result
-//		result.clear();
-		if(box > -1) result.add(boxs[box]);
-		if(row > -1) result.add(rows[row]);
-		if(col > -1) result.add(cols[col]);
-		return result;
-	}
-
-	/**
-	 * Returns the other ARegion that is common to all cells. Cells is expected
-	 * to contain two or three cells, which CAN have one "other" common region.
-	 * <p>
-	 * A List of less than two Cells always returns null coz "common" makes no
-	 * sense.
-	 * <p>
-	 * A list of four-or-more cells always returns null coz four cells can have
-	 * only one common region, so an "other" common region cannot exist.
-	 *
-	 * @param cells
-	 * @param region
-	 * @return the other ARegion common to all cells.
-	 */
-	public ARegion otherCommonRegion(List<Cell> cells, ARegion region) {
-		final int n = cells.size();
-		if ( n<2 || n>3 )
-			return null; // You shouldn't have called me!
-		List<ARegion> cmnRgns = commonRegions(cells, new ArrayList<>(2));
-		if ( cmnRgns.size() == 2 ) {
-			// find the other common region
-			ARegion cr0 = cmnRgns.get(0);
-			return cr0==region ? cmnRgns.get(1) : cr0;
-		}
-		return null;
-	}
-
-	// ---------------- IS_HACKY stuff ----------------
+	// ---------------------------- IS_HACKY stuff ----------------------------
 
 	/**
 	 * hackTop1465() is a HACK controller: It returns: is Settings.isHacky and
@@ -1056,6 +1249,114 @@ if ( true ) { // @check true
 	public boolean hackTop1465() {
 		return Settings.THE.get(Settings.isHacky) && source!=null && source.isTop1465;
 	}
+
+	// ----------------------------- BitIdx-ville -----------------------------
+	// Get BitIdx's for the diuf.sudoku.solver.hinters.wing2 package.
+
+	public interface CellFilter {
+		boolean accept(Cell c);
+	}
+	public BitIdx getBitIdx(CellFilter f) {
+		return getBitIdx(new BitIdx(this), f);
+	}
+	public BitIdx getBitIdx(BitIdx result, CellFilter f) {
+		for ( Cell c : cells )
+			if ( f.accept(c) )
+				result.add(c);
+		return result;
+	}
+
+	// ------ empty cells ------
+	private static final CellFilter EMPTY_FILTER = new CellFilter() {
+		@Override
+		public boolean accept(Cell c) {
+			return c.value == 0;
+		}
+	};
+	/**
+	 * The "empties" BitIdx is re-read whenever a cell value is set.
+	 * @return a cached BitIdx of the empty (value == 0) cells in this grid.
+	 */
+	public BitIdx getBitIdxEmpty() {
+		if ( empties == null ) {
+			empties = getBitIdx(EMPTY_FILTER);
+		} else if ( emptiesHintNumber!=AHint.hintNumber || emptiesPuzzleID!=puzzleID ) {
+			empties.clear();
+			getBitIdx(empties, EMPTY_FILTER);
+		}
+		emptiesHintNumber = AHint.hintNumber;
+		emptiesPuzzleID = puzzleID;
+		return empties;
+	}
+	private BitIdx empties; // the empty (value == 0) cells in this grid
+	private int emptiesHintNumber;
+	private long emptiesPuzzleID;
+
+	// ------ bivalue cells ------
+	private static final CellFilter BIVALUE_FILTER = new CellFilter() {
+		@Override
+		public boolean accept(Cell c) {
+			return c.maybes.size == 2;
+		}
+	};
+	private BitIdx getBitIdxBivalueImpl() {
+		if ( bivs == null ) {
+			bivs = getBitIdx(BIVALUE_FILTER);
+		} else if ( bivsHintNumber!=AHint.hintNumber || bivsPuzzleID!=puzzleID ) {
+			bivs.clear();
+			getBitIdx(bivs, BIVALUE_FILTER);
+		}
+		bivsHintNumber = AHint.hintNumber;
+		bivsPuzzleID = puzzleID;
+		return bivs;
+	}
+	private BitIdx bivs; // bivalueCells
+	private int bivsHintNumber;
+	private long bivsPuzzleID;
+	/**
+	 * Get the cells in the grid with two potential values.
+	 * @return cached BitIdx of cells with maybes.size == 2.
+	 */
+	public BitIdx getBitIdxBivalue() {
+		if ( bivsHintNumber!=AHint.hintNumber || bivsPuzzleID!=puzzleID )
+			getBitIdxBivalueImpl(); // refresh
+		return bivs; // pre-cached
+	}
+
+	// ------- candidates ------
+	/**
+	 * Actually get an array of BitIdxs containing the cells which maybe each
+	 * potential value 1..9 in this Grid.
+	 * @return the CACHED bitIdxs array. Don't modify it's contents!
+	 */
+	private BitIdx[] getBitIdxsImpl() {
+		if ( bitIdxs[1] == null )
+			for ( int v=1; v<10; ++v )
+				bitIdxs[v] = new BitIdx(this);
+		else
+			for ( int v=1; v<10; ++v )
+				bitIdxs[v].clear();
+		for ( Cell c : cells )
+			for ( int v : VALUESES[c.maybes.bits] )
+				bitIdxs[v].bits.set(c.i);
+		bitIdxsHintNumber = AHint.hintNumber;
+		bitIdxsPuzzleID = puzzleID;
+		return bitIdxs;
+	}
+	private BitIdx[] bitIdxs = new BitIdx[10];
+	private int bitIdxsHintNumber;
+	private long bitIdxsPuzzleID;
+	/**
+	 * Get an array of BitIdxs containing the cells which maybe each potential
+	 * value 1..9 in this Grid.
+	 * @return the CACHED bitIdxs array. Don't modify it's contents!
+	 */
+	public BitIdx[] getBitIdxs() {
+		if ( bitIdxsHintNumber!=AHint.hintNumber || bitIdxsPuzzleID!=puzzleID )
+			getBitIdxsImpl(); // refresh
+		return bitIdxs; // pre-cached
+	}
+
 
 	// ---------------- toString and friends ----------------
 
@@ -1073,14 +1374,26 @@ if ( true ) { // @check true
 		return sb.toString();
 	}
 
-	/** @return a String representation of the contents of this grid, including
-	 * a first line of 81 cell values, with 0's (empty cells) represented by a
-	 * period character (.); plus a second line of the maybes (potential cell
-	 * values) as a comma separated list of 81 fields.
-	 * <p>For example:<pre>
+	/**
+	 * Returns a String representation of this Grid.
+	 * <p>
+	 * This String is only-sort-of human readable. It's primary focus is
+	 * technical. It probably shouldn't be displayed to non-expert users.
+	 * <p>
+	 * EXAMPLE:<pre>
 	 * 1...9..3...2..3.5.7..8.......3..7...9.........48...6...2..........14..79...7.68..
 	 * ,568,456,2456,,245,247,,24678,468,689,,46,167,,1479,,14678,,3569,4569,,1256,1245,1249,12469,1246,256,156,,24569,12568,,12459,12489,12458,,1567,1567,23456,123568,12458,123457,1248,1234578,25,,,2359,1235,1259,,129,12357,34568,,145679,359,358,589,1345,146,13456,3568,3568,56,,,258,235,,,345,1359,1459,,235,,,124,12345
 	 * </pre>
+	 * FORMAT:<pre>
+	 * Line 1 is 81 cell values, with an an empty cell as a period (.).
+	 * Line 2 is 81 potential values as a comma separated values list.
+	 * </pre>
+	 * NOTES:<ul>
+	 * <li>You can get Line 1 only using the {@link #toShortString} method.
+	 * <li>If this grid isFull (ie puzzle is complete) then I return Line 1
+	 * only, because Line 2 is just 80 commas (useless).
+	 * </ul>
+	 * @return a String representation of this Grid.
 	 */
 	@Override
 	public String toString() {
@@ -1088,7 +1401,6 @@ if ( true ) { // @check true
 		if ( isFull() )
 			return shortString;
 		// append the maybes to the same SB used by toShortString
-		final int[][] VALUESES = Values.ARRAYS;
 		SB.append(NL);
 		int i = 0;
 		for ( Cell cell : cells ) {
@@ -1172,20 +1484,7 @@ if ( true ) { // @check true
 			cell.disarrayonateMaybes();
 	}
 
-	// ---------------- getIdxs ----------------
-
-	/**
-	 * Returns the existing indices if the AHint.hintNumber is the same (ie
-	 * this Grid is the same) as last time indices were calculated, otherwise
-	 * return getIdxsActual() to calculate the new indices and return them.
-	 * @return the indices for the current grid
-	 */
-	public Idx[] getIdxs() {
-		// re-populate idxs when grid has changed, or it's a new puzzle
-		if ( idxsHintNumber==AHint.hintNumber && idxsPuzzleID==puzzleID )
-			return idxs;
-		return actuallyGetIdxs();
-	}
+	// -------------------------------- getIdxs -------------------------------
 
 	/**
 	 * The guts of {@link #getIdxs}: Returns an array of Idx's, one per value
@@ -1194,8 +1493,7 @@ if ( true ) { // @check true
 	 *
 	 * @return Idx[potential value 1..9]
 	 */
-	private Idx[] actuallyGetIdxs() {
-		final int[][] VALUESES = Values.ARRAYS;
+	private Idx[] getIdxsImpl() {
 		for ( int v=1; v<10; ++v )
 			idxs[v].unlock().clear();
 		for ( Cell cell : cells )
@@ -1210,6 +1508,28 @@ if ( true ) { // @check true
 		// return the array (which is cached in a private field)
 		return idxs;
 	}
+
+	/**
+	 * Returns the existing indices if the AHint.hintNumber is the same (ie
+	 * this Grid is the same) as last time indices were calculated, otherwise
+	 * return getIdxsActual() to calculate the new indices and return them.
+	 * @return the indices for the current grid
+	 */
+	public Idx[] getIdxs() {
+		// re-populate idxs when grid has changed, or it's a new puzzle
+		if ( idxsHintNumber==AHint.hintNumber && idxsPuzzleID==puzzleID )
+			return idxs;
+		return getIdxsImpl();
+	}
+	/** idxs[value] is the indices in this Grid which maybe value 1..9.
+	 * You {@code Idx[] idxs = grid.getIdxs()}. The idxs are private and remain
+	 * empty until YOU call getIdxs(), unlike most Grid fields. */
+	private final IdxL[] idxs = new IdxL[] {
+		  null      , new IdxL(), new IdxL(), new IdxL(), new IdxL()
+		, new IdxL(), new IdxL(), new IdxL(), new IdxL(), new IdxL()
+	};
+	private long idxsPuzzleID; // 0 is invalid, to fire first time
+	private int idxsHintNumber; // 0 is invalid, to fire first time
 
 	/**
 	 * Re-index the values in the regions. Sets each regions.idxsOf array field
@@ -1229,46 +1549,31 @@ if ( true ) { // @check true
 				r.idxs[v].setAnd(r.idx, this.idxs[v]);
 	}
 
-	// ---------------- cells at indices ----------------
-
-	// MOST at methods have been replaced by Idx.cells methods.
+	// -------------------------------- Idx's ---------------------------------
+	// NB: My at methods have been replaced by Idx.cells methods.
 
 	/**
-	 * commonBuddies: sets the result Idx to indices of cells that are buddies
-	 * of every cell in the given idx, and returns the result Idx.
-	 * <p>
-	 * Note that 'result' is effectively cleared beforehand, because that's
-	 * always what's wanted everywhere this method is used.
-	 * <p>
-	 * A "buddy" is a cell in same box, row, or col as this cell, ie the two
-	 * cells "see" each other, meaning that they directly effect each others
-	 * potential values.
-	 *
-	 * @param idx to search for common buddies of
-	 * @param result is populated with the common buddies
-	 * @return the result Idx, for method chaining
+	 * Get an Idx of all empty (value == 0) cells in this grid.
+	 * @return a CACHED Idx of all empty cells in this grid.
 	 */
-	public Idx cmnBuds(Idx idx, Idx result) {
-		int bits, j;
-		final int[][] INDICESES = Idx.ARRAYS;
-		result.fill();
-		if ( (bits=idx.a0) != 0 )
-			for ( j=0; j<27; j+=9 )
-				for ( int k : INDICESES[(bits>>j)&511] )
-					if ( result.and(BUDDIES[j+k]).isEmpty() )
-						return result;
-		if ( (bits=idx.a1) != 0 )
-			for ( j=0; j<27; j+=9 )
-				for ( int k : INDICESES[(bits>>j)&511] )
-					if ( result.and(BUDDIES[27+j+k]).isEmpty() )
-						return result;
-		if ( (bits=idx.a2) != 0 )
-			for ( j=0; j<27; j+=9 )
-				for ( int k : INDICESES[(bits>>j)&511] )
-					if ( result.and(BUDDIES[54+j+k]).isEmpty() )
-						return result;
-		return result;
+	public Idx getEmptyCells() {
+		boolean doGet;
+		if ( doGet=(emptyCells == null) )
+			emptyCells = new Idx();
+		else if ( doGet=(emptyCellsHintNumber!=AHint.hintNumber || emptyCellsPuzzleID!=puzzleID) )
+			emptyCells.clear();
+		if ( doGet ) {
+			for ( Cell c : cells )
+				if ( c.value == 0 )
+					emptyCells.add(c.i);
+			emptyCellsHintNumber = AHint.hintNumber;
+			emptyCellsPuzzleID = puzzleID;
+		}
+		return emptyCells;
 	}
+	private Idx emptyCells;
+	private int emptyCellsHintNumber;
+	private long emptyCellsPuzzleID;
 
 	/**
 	 * commonBuddiesNew: a new Idx of buds common to all given cells.
@@ -1322,7 +1627,7 @@ if ( true ) { // @check true
 		final Values theValues = new Values(value);
 		// theValueBit is value as a left-shifted bitset. Note that it's always
 		// a single bit, ie 1 << (value - 1)
-		final int theValueBit = Values.SHFT[value];
+		final int theValueBit = VSHFT[value];
 		for ( Cell cell : cells )
 			if ( (cell.maybes.bits & theValueBit) != 0 )
 				result.put(cell, theValues);
@@ -1337,6 +1642,117 @@ if ( true ) { // @check true
 	}
 	public void setPrepared(boolean isPrepared) {
 		this.isPrepared = isPrepared;
+	}
+
+	// ---------------------- effing around with Regions ----------------------
+
+	/**
+	 * Return the ARegion of regionTypeIndex that's common to all cells,
+	 * else null.
+	 * <p>
+	 * RANT: If cells is null then you're here because of the NPE which is my
+	 * callers fault, not mine; so change my caller to ensure cells isn't null
+	 * before you call me. If you absolutely need a null check then wrap this
+	 * method to provide it. Or, let's face it, you can just do it all here and
+	 * just delete this nice little rant. It's your code!
+	 *
+	 * @param cells {@code Iterable<Cell>} which I presume to contain at least
+	 *  two cells.
+	 * @param regionTypeIndex Grid.BOX, Grid.ROW, or Grid.COL (ie 0..2).
+	 *  If it isn't one of these values I'll throw an AIOOBE
+	 * @return the common ARegion, else null.<br>
+	 *  If cells is null then I throw a NullPointerException.<br>
+	 *  If cells is empty then I always return null.<br>
+	 *  If cells contains only one cell then I just return it's
+	 *  regions[regionTypeIndex].
+	 */
+	public ARegion commonRegion(Iterable<Cell> cells, int regionTypeIndex) {
+		if(cells == null) throw new NullPointerException("cells is null!");
+		assert hasTwo(cells) : "cells contains less than 2 cells!";
+		ARegion commonRegion=null, cellsRegion;
+		for ( Cell cell : cells ) {
+			cellsRegion = cell.regions[regionTypeIndex];
+			if ( commonRegion == null ) // the first cell
+				commonRegion = cellsRegion;
+			else if ( cellsRegion != commonRegion )
+				return null; // not all cells share a region of this type
+		}
+		return commonRegion; // will still be null if cells is empty
+	}
+
+	// Method coz you can't define a variable in an assert, which sux!
+	private static final boolean hasTwo(Iterable<?> cells) {
+		Iterator<?>it=cells.iterator();
+		return it.hasNext()
+			&& it.next()!=null
+			&& it.hasNext();
+	}
+
+	/**
+	 * Return the regions (expect 1 or 2 of them) common to all these cells.
+	 * Note that cells should be a Set of at least 2 cells. If there's only
+	 * one then "common" regions is nonsensical. The result is indeterminate
+	 * if cells contains duplicates, because again that's just nonsensical.
+	 * @param cells
+	 * @param result {@code ArrayList<ARegion>} is not cleared first.
+	 * @return a {@code ArrayList<ARegion>} may be empty, but never null.
+	 */
+	public ArrayList<ARegion> commonRegions(Collection<Cell> cells, ArrayList<ARegion> result) {
+		Iterator<Cell> it = cells.iterator();
+		// for first cell in cells
+		Cell cell = it.next();
+		int box = cell.boxId;
+		int row = cell.y;
+		int col = cell.x;
+		// foreach subsequent cell in cells
+		while ( it.hasNext() ) {
+			cell = it.next();
+			if(box!=cell.boxId) box=-1;
+			if(row!=cell.y) row=-1;
+			if(col!=cell.x) col=-1;
+		}
+		// re-populate the result
+//		result.clear();
+		if(box > -1) result.add(boxs[box]);
+		if(row > -1) result.add(rows[row]);
+		if(col > -1) result.add(cols[col]);
+		return result;
+	}
+
+	/**
+	 * Returns the other ARegion that is common to all cells. Cells is expected
+	 * to contain two or three cells, which CAN have one "other" common region.
+	 * <p>
+	 * A List of less than two Cells always returns null coz "common" makes no
+	 * sense.
+	 * <p>
+	 * A list of four-or-more cells always returns null coz four cells can have
+	 * only one common region, so an "other" common region cannot exist.
+	 *
+	 * @param cells
+	 * @param region
+	 * @return the other ARegion common to all cells.
+	 */
+	public ARegion otherCommonRegion(List<Cell> cells, ARegion region) {
+		final int n = cells.size();
+		if ( n<2 || n>6 )
+			return null; // You shouldn't have called me!
+		List<ARegion> cmnRgns = commonRegions(cells, new ArrayList<>(2));
+		if ( cmnRgns.size() == 2 ) {
+			// find the other common region
+			ARegion cr0 = cmnRgns.get(0);
+			return cr0==region ? cmnRgns.get(1) : cr0;
+		}
+		return null;
+	}
+
+	public ARegion[] getRegions(int regionTypeIndex) {
+		switch (regionTypeIndex) {
+		case BOX: return boxs;
+		case ROW: return rows;
+		case COL: return cols;
+		}
+		throw new IllegalArgumentException("Unkown regionTypeIndex="+regionTypeIndex);
 	}
 
 	// ============================ the Cell class ===========================
@@ -1442,13 +1858,17 @@ if ( true ) { // @check true
 		 */
 		public final int idxdex; // 0..2
 
-		/** shft to add this cell to a idx. The left-shifted-bitset value of
-		 * my i (my Grid.cells array index) within my idx array element.<pre>
-		 * so: {@code shft = 1<<(i%27);}
-		 * eg: {@code idx[cell.idxdex] |= cell.shft; // add cell to idx faster}
-		 * ie: {@code idx[cell.i/27] |= 1<<(cell.i%27); // add cell to idx}
-		 * </pre> */
-		public final int shft;
+		/** The shft to add this cell to a idx. The left-shifted bitset-value
+		 * of i (my Grid.cells array index) within my idx array element.<pre>
+		 * so: {@code idxshft = 1<<(i%27);}
+		 * was: {@code idx[cell.i/27] |= 1<<(cell.i%27); // add cell to idx}
+		 * now: {@code idx[cell.idxdex] |= cell.idxshft; // add cell faster}
+		 * </pre>
+		 * <p>
+		 * idxdex and idxshift used only by LinkedMatrixCellSet.idx() that's
+		 * hammered by aligned exclusion. Saved 28 secs in A1234E per top1465.
+		 */
+		public final int idxshft;
 
 		/** the 3 regions which contain this Cell: 0=box, 1=row, 2=col. */
 		public final ARegion[] regions = new ARegion[3]; // set by Grid constructor
@@ -1539,8 +1959,8 @@ if ( true ) { // @check true
 			// super-charge LinkedMatrixCellSet.idx() with:
 			//     a[n.cell.idxdex] |= n.cell.shft; // add n.cell.i to idx
 			// coz it's faster than calculating idxdex and shft repeatedly
-			this.idxdex = i/Idx.BITS_PER_ELEMENT;
-			this.shft = 1<<(i%Idx.BITS_PER_ELEMENT);
+			this.idxdex = i/BITS_PER_ELEMENT;
+			this.idxshft = 1<<(i%BITS_PER_ELEMENT);
 
 			this.hashCode = Hash.LSH4[y] ^ x; // see also Ass.hashCode()
 			this.buds = Grid.BUDDIES[i];
@@ -1559,7 +1979,7 @@ if ( true ) { // @check true
 			this.value = value;
 		}
 
-		/** Copy Constructor: Constructs a new Cell that is a clone of 'src'.
+		/** Copy Constructor: Constructs a new Cell that is a "clone" of src.
 		 * @param src */
 		public Cell(Cell src) {
 			this(src.x, src.y, new Values(src.maybes));
@@ -1639,12 +2059,12 @@ if ( true ) { // @check true
 				return 1; // 1 for me only
 
 			// Autosolve: Seek and set any consequent singles.
-			int count = 1; // 1 for me
-			int i, v, first;
 			Cell sib;
+			int v, first;
+			int count = 1; // 1 for me
 			for ( ARegion r : regions ) {
 				// look for any subsequent naked singles
-				for ( i=0; i<9; ++i ) {
+				for ( int i=0; i<9; ++i ) {
 					if ( r.cells[i].maybes.size == 1 ) {
 						if ( (v=(sib=r.cells[i]).maybes.first()) < 1 ) { // invalid
 							sib.maybes.clear(); // I shot my sibling, but I didno shoot no diputy!
@@ -1660,7 +2080,7 @@ if ( true ) { // @check true
 					if ( r.indexesOf[v].size == 1 ) {
 						if ( (first=r.indexesOf[v].first()) < 0 ) { // invalid
 							r.indexesOf[v].clear(); // I shot my sibling, but I didno shoot no diputy!
-							continue;            // He say, hey man, nar nar, argh argh argh.
+							continue;				// He say, hey man, nar nar, argh argh argh.
 						}
 						if ( (sib=r.cells[first]) != this ) { // oops!
 							if ( sb != null )
@@ -1733,7 +2153,7 @@ if ( true ) { // @check true
 			final PrintStream out = System.out;
 			int i = -1;
 			boolean result = false;
-			for ( int v : Values.ARRAYS[maybes.bits] ) {
+			for ( int v : VALUESES[maybes.bits] ) {
 				if ( ( box.indexesOf[v].contains(b) && (i=0)==i )
 				  && ( row.indexesOf[v].contains(x) && (i=1)==i )
 				  && ( col.indexesOf[v].contains(y) && (i=2)==i )
@@ -1764,7 +2184,7 @@ if ( true ) { // @check true
 					break;
 				case 1:
 					// this just means values.first(); but it's a tad faster
-					final int v = Indexes.NUM_TRAILING_ZEROS[values.bits]+1;
+					final int v = FIRST_INDEX[values.bits]+1;
 					removeMeFromMyRegionsIndexesOfValue(v);
 					break;
 				default:
@@ -1788,7 +2208,7 @@ if ( true ) { // @check true
 
 		// clear the idxsOf[values 'bits'] of this cells box, row, and col.
 		private void removeMeFromMyRegionsIndexesOfBits(final int valuesBits) {
-			for ( int v : Values.ARRAYS[valuesBits] ) {
+			for ( int v : VALUESES[valuesBits] ) {
 				box.indexesOf[v].remove(b);
 				row.indexesOf[v].remove(x);
 				col.indexesOf[v].remove(y);
@@ -1830,7 +2250,7 @@ if ( true ) { // @check true
 		public void removeFromMySiblingsMaybes(int theValue) {
 			if ( theValue == 0 ) // actually happened.
 				throw new UnsolvableException("WTF: Desibonate 0?");
-			final int sv = Values.SHFT[theValue];
+			final int sv = VSHFT[theValue];
 			for ( Cell sib : siblings )
 				if ( (sib.maybes.bits & sv) != 0 )
 					sib.canNotBe(theValue);
@@ -1872,7 +2292,7 @@ if ( true ) { // @check true
 		 *  or 0 if you're dumb enough to call me when I'm not needed.
 		 */
 		public int canNotBe(int theValueToRemove) {
-			if ( (maybes.bits & Values.SHFT[theValueToRemove]) == 0 )
+			if ( (maybes.bits & VSHFT[theValueToRemove]) == 0 )
 				return 0; // do nothing
 			removeMeFromMyRegionsIndexesOfValue(theValueToRemove);
 			if ( maybes.remove(theValueToRemove) == 0 ) // clear returns new size
@@ -1913,7 +2333,7 @@ if ( true ) { // @check true
 			int preBits = maybes.bits; // just for the exception message
 			removeMeFromMyRegionsIndexesOfBits(pinkBits);
 			// this must be calculated BEFORE we remove the pinkBits
-			int numRmvd = Values.SIZE[maybes.bits & pinkBits];
+			int numRmvd = VSIZE[maybes.bits & pinkBits];
 			// remove the pinkBits from the maybes of this cell, and
 			// switch on the number of maybes now remaining in this cell
 			switch ( maybes.removeBits(pinkBits) ) { // returns the new size
@@ -1966,7 +2386,7 @@ if ( true ) { // @check true
 //		 * value, else false.
 //		 */
 //		public boolean maybe(int value) {
-//			return (maybes.bits & Values.SHFT[value]) != 0;
+//			return (maybes.bits & SHFT[value]) != 0;
 //		}
 
 		/**
@@ -1979,6 +2399,62 @@ if ( true ) { // @check true
 				if ( sib.value == value )
 					return true;
 			return false;
+		}
+
+		/**
+		 * Get the cell indexes that form the "house" of this cell. The cell
+		 * indexes have to be greater than this cell index. The "house" cells
+		 * are all the cells that are in the same block, row or column.
+		 * <p>
+		 * The iteration order is guaranteed to be the same on each invocation
+		 * of this method for the same cell. This is necessary to ensure that
+		 * hints of the same difficulty are always returned in the same order.
+		 *
+		 * @return array of the cell indexes that are controlled by this cell
+		 */
+		public int[] forwardIndices() {
+			return Grid.forwardIndices[i];
+		}
+
+		/**
+		 * Get siblings with indexes greater than mine.
+		 * <p>
+		 * The iteration order is guaranteed to be the same on each invocation
+		 * of this method for the same cell. This is necessary to ensure that
+		 * hints of the same difficulty are always returned in the same order.
+		 *
+		 * @return an index of my "forward" siblings
+		 */
+		public BitIdx forwards() {
+			BitIdx result = Grid.forwardCells[i];
+			result.grid = Grid.this;
+			return result;
+		}
+
+		/**
+		 * Get a Set of the cells in the same box, row or col as this cell,
+		 * excluding this cell itself.
+		 * <p>
+		 * @return the cells that are controlled by this cell
+		 */
+		public BitIdx visible() {
+			BitIdx result = Grid.visibleCells[i];
+			result.grid = Grid.this;
+			return result;
+		}
+
+		/**
+		 * Returns does this cells potential values contain 'v'?
+		 * <p>
+		 * Don't hammer me. It's faster to check yourself with
+		 * {@code (cell.maybes.bits & SHFT[v]) != 0}
+		 * I only exist for convenience, like in hints and s__t.
+		 *
+		 * @param v the potential value to test for
+		 * @return does this cells potential values contain 'v'
+		 */
+		public boolean maybe(int v) {
+			return (maybes.bits & VSHFT[v]) != 0;
 		}
 
 		/** @return String representation of this cell: A1=5 or A2:3{368}.<br>
@@ -2026,7 +2502,7 @@ if ( true ) { // @check true
 		// If you need to use this method anyway then good luck.
 		// You MUST finally disarrayonateMaybes.
 		private void arrayonateShiftedMaybes() {
-			shiftedMaybes = maybes.bits==0 ? null : Values.SHIFTED[maybes.bits];
+			shiftedMaybes = maybes.bits==0 ? null : VSHIFTED[maybes.bits];
 		}
 
 		private void disarrayonateMaybes() {
@@ -2144,6 +2620,9 @@ if ( true ) { // @check true
 		 */
 		public final boolean[] containsValue = new boolean[10];
 
+		/** The 3 boxs which intersect this row or col; null for box. */
+		public Box[] intersectingBoxs;
+
 		/**
 		 * The A(bstract)Region Constructor. I'm a Box, or a Row, or a Col.
 		 *
@@ -2214,7 +2693,7 @@ if ( true ) { // @check true
 		 * @return a new {@code Cell[]}.
 		 */
 		public Cell[] atNew(int bits) {
-			final int n = Indexes.SIZE[bits];
+			final int n = ISIZE[bits];
 			Cell[] array = new Cell[n];
 			int cnt = at(bits, array);
 			assert cnt == n;
@@ -2232,8 +2711,8 @@ if ( true ) { // @check true
 		 * @return a new {@code ArrayList<Cell>} containing the requested cells
 		 */
 		public ArrayList<Cell> atNewArrayList(int bits) {
-			ArrayList<Cell> list = new ArrayList<>(Indexes.SIZE[bits]);
-			for ( int i : Indexes.ARRAYS[bits] )
+			ArrayList<Cell> list = new ArrayList<>(ISIZE[bits]);
+			for ( int i : INDEXES[bits] )
 				list.add(this.cells[i]);
 			return list;
 		}
@@ -2253,7 +2732,7 @@ if ( true ) { // @check true
 		 * @return the selected cas-array (of the correct size)
 		 */
 		public Cell[] at(int bits, boolean dummy) {
-			final int n = Indexes.SIZE[bits];
+			final int n = ISIZE[bits];
 			Cell[] array = cas(n);
 			int cnt = at(bits, array);
 			assert cnt == n;
@@ -2274,7 +2753,7 @@ if ( true ) { // @check true
 		 */
 		public int at(int bits, Cell[] array) {
 			int cnt = 0;
-			for ( int i : Indexes.ARRAYS[bits] )
+			for ( int i : INDEXES[bits] )
 				array[cnt++] = this.cells[i];
 			return cnt;
 		}
@@ -2375,7 +2854,7 @@ if ( true ) { // @check true
 		 * @param results a LinkedHashCellSet as a CellSet to which I add
 		 * @return a new {@code LinkedHashCellSet} as a {@code CellSet}.
 		 */
-		public CellSet maybe(int bits, CellSet results) {
+		public IUrtCellSet maybe(int bits, IUrtCellSet results) {
 			// all current calls require a "clean" result set. If you want
 			// otherwise then roll-your-own method by copy-pasting this one
 			// to add a clearResult parameter, then change me to call him.
@@ -2495,6 +2974,11 @@ if ( true ) { // @check true
 			this.vNum = y / 3;
 			for ( int i=0; i<9; ++i )
 				(cells[i]=Grid.this.cells[y*9+i]).regions[ROW] = cells[i].row = this;
+			intersectingBoxs = new Box[] {
+					  Grid.this.boxs[vNum]
+					, Grid.this.boxs[vNum+1]
+					, Grid.this.boxs[vNum+2]
+			};
 		}
 		/** Returns the index of the given Cell in this regions cells array.
 		 * @param cell Cell to get the index of.
@@ -2526,6 +3010,11 @@ if ( true ) { // @check true
 			this.hNum = x / 3;
 			for ( int i=0; i<9; ++i )
 				(cells[i]=Grid.this.cells[i*9+x]).regions[COL] = cells[i].col = this;
+			intersectingBoxs = new Box[] {
+					  Grid.this.boxs[hNum]
+					, Grid.this.boxs[hNum+3]
+					, Grid.this.boxs[hNum+6]
+			};
 		}
 		/** Returns the index of the given Cell in this regions cells array.
 		 * @return the y (vertical index) of the given Cell, we check that
@@ -2654,8 +3143,8 @@ if ( true ) { // @check true
 					differs(""+i+": hashCode "+c0.hashCode+" != "+c1.hashCode);
 				if ( c0.idxdex != c1.idxdex )
 					differs(""+i+": idxdex "+c0.idxdex+" != "+c1.idxdex);
-				if ( c0.shft != c1.shft )
-					differs(""+i+": shft "+c0.shft+" != "+c1.shft);
+				if ( c0.idxshft != c1.idxshft )
+					differs(""+i+": shft "+c0.idxshft+" != "+c1.idxshft);
 				if ( c0.skip != c1.skip )
 					differs(""+i+": skip "+c0.skip+" != "+c1.skip);
 				for ( int j=0; j<3; ++j )

@@ -35,11 +35,6 @@ public final class URT4Hint extends AURTHint {
 	}
 
 	@Override
-	public Pots getReds(int viewNum) {
-		return super.redPots;
-	}
-
-	@Override
 	public List<ARegion> getBases() {
 		return Regions.list(region);
 	}

@@ -14,7 +14,7 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
 import diuf.sudoku.Settings;
-import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -38,12 +38,16 @@ import javax.swing.SwingUtilities;
 
 
 /**
- * The SudokuPanel is the JPanel which represents the Sudoku grid in the GUI,
- * including its legends (row and column labels). I know how to paint!
- * <p>User actions are redirected to {@link diuf.sudoku.gui.SudokuExplainer}
- *  which is here-in referred to as the 'engine'.
- * <p>I "glom on" to my 'parent' JFrame (which contains me in the GUI).
- * <p>I also "glom on" to the Sudoku 'grid' to be displayed.
+ * The SudokuGridPanel is the JPanel which represents the Sudoku grid in the
+ * GUI, including its legends (row and column labels).
+ * <p>
+ * User actions are redirected to {@link diuf.sudoku.gui.SudokuExplainer}
+ * which is here-in referred to as the 'engine'.
+ * <p>
+ * I "glom on" to my 'parent' JFrame (which contains me in the GUI).
+ * <p>
+ * I also "glom on" to the Sudoku 'grid' to be displayed.
+ *
  * @see diuf.sudoku.gui.SudokuFrame
  * @see diuf.sudoku.gui.SudokuExplainer
  */
@@ -63,6 +67,8 @@ class SudokuGridPanel extends JPanel {
 	private static final Color COLOR_LEGEND	= new Color(0, 32, 64);
 	// the aqua (bluey green) cell background color.
 	private static final Color COLOR_AQUA = new Color(192, 255, 255);
+	// the pink (light red) cell background color.
+	private static final Color COLOR_PINK = new Color(255, 204, 255);
 	// the pink cell background color.
 	private static final Color COLOR_ORANGY_BLACK = orangy(Color.BLACK);
 	private static final Color COLOR_GREY = new Color(222, 222, 222);
@@ -77,7 +83,7 @@ class SudokuGridPanel extends JPanel {
 	// COLOR_POTS are in reverse order of importance because the last color set
 	// is the one rendered (he who laughs last), so BLUE overwrites everything.
 	// NB: Orange is now independant of red and green. Juillerat defined orange
-	//     as the combination of red and green.
+	//     as the combination of red and green, which was crap!
 	// NB: all COLOR_POTS index-references must use these constants, otherwise
 	//     it renders them basically useless.
 	private static final int CI_BROWN = 0;	// COLOR_INDEX
@@ -152,6 +158,7 @@ class SudokuGridPanel extends JPanel {
 	private Cell selectedCell = null;
 
 	private Set<Cell> auqaBGCells;
+	private Set<Cell> pinkBGCells;
 	private Set<Cell> redBGCells;
 	private Set<Cell> greyBGCells;
 	private Result result;
@@ -252,8 +259,11 @@ class SudokuGridPanel extends JPanel {
 									// cell.value := the value that was clicked-on
 									if ( cell.maybes.contains(value) )
 										engine.setTheCellsValue(cell, value);
-									else
-										java.awt.Toolkit.getDefaultToolkit().beep();
+// Annoying when you're navigating around the grid with the mouse.
+// Not annoying when you're trying to set a cells value and miss.
+// There's more navigating than there is setting-and-missing, so it's out!
+//									else
+//										java.awt.Toolkit.getDefaultToolkit().beep();
 								} else {
 									// just remove/restore the maybe value
 									engine.maybeTyped(cell, value);
@@ -440,6 +450,11 @@ class SudokuGridPanel extends JPanel {
 	/** Set the aqua cell backgrounds. */
 	void setAquaBGCells(Set<Cell> aquaCells) {
 		this.auqaBGCells = aquaCells;
+	}
+
+	/** Set the aqua cell backgrounds. */
+	void setPinkBGCells(Set<Cell> pinkCells) {
+		this.pinkBGCells = pinkCells;
 	}
 
 	/** Set the red cell backgrounds. */
@@ -682,6 +697,8 @@ class SudokuGridPanel extends JPanel {
 				col = COLOR_GREY;
 			else if ( auqaBGCells!=null && auqaBGCells.contains(cell) )
 				col = COLOR_AQUA;
+			else if ( pinkBGCells!=null && pinkBGCells.contains(cell) )
+				col = COLOR_PINK;
 			else if ( redBGCells!=null && redBGCells.contains(cell) )
 				col = Color.RED;
 			g.setColor(col);
@@ -740,7 +757,7 @@ class SudokuGridPanel extends JPanel {
 	 * <p>NOTE: formerly green+red=orange. Now oranges are separate!
 	 * @return
 	 */
-	private Color[][] getMaybesColors() {
+	private Color[][] initMaybesColors() {
 		// clear all MAYBES_COLORS (a matrix[cellIndex][value-1])
 		for ( int i=0; i<81; ++i )
 			Arrays.fill(MAYBES_COLORS[i], null);
@@ -753,7 +770,7 @@ class SudokuGridPanel extends JPanel {
 				for ( Cell cell : pots.keySet() ) {
 					cellsColors = MAYBES_COLORS[cell.i];
 					// nb: array-iterator is MUCH faster than any Iterator
-					for ( int value : Values.ARRAYS[pots.get(cell).bits] )
+					for ( int value : VALUESES[pots.get(cell).bits] )
 						// one-based-value to zero-based-array
 						cellsColors[value-1] = color;
 				}
@@ -767,8 +784,11 @@ class SudokuGridPanel extends JPanel {
 	private boolean setMaybeColor(Graphics g, Cell cell, int value) {
 		// one-based-value to zero-based-array
 		Color c = MAYBES_COLORS[cell.i][value-1];
-		g.setColor(c!=null ? c : Color.GRAY);
-		return c!=null;
+		boolean ret = c != null;
+		if ( !ret )
+			c = Color.GRAY;
+		g.setColor(c);
+		return ret;
 	}
 
 	/**
@@ -776,9 +796,8 @@ class SudokuGridPanel extends JPanel {
 	 * @param g The Graphics to paint on.
 	 */
 	private void paintCellValues(Graphics g) {
-		final int[][] VALUESES = Values.ARRAYS;
 		final boolean isShowingMaybes = Settings.THE.get(Settings.isShowingMaybes);
-		getMaybesColors(); // sets MAYBES_COLORS
+		initMaybesColors(); // sets MAYBES_COLORS
 		int x,y, cx,cy, i;
 		boolean isHighlighted;
 		for ( Cell cell : grid.cells ) {

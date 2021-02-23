@@ -64,11 +64,19 @@ public class ColoringHint extends AHint implements IActualHint {
 	// cells to highlight with an aqua background, ie ALL cells in pots.
 	private final Set<Cell> aquaCells;
 
+	/**
+	 *
+	 * @param hinter
+	 * @param subtype
+	 * @param pots must be at-least length 2
+	 * @param valueToRemove
+	 * @param redPots
+	 */
 	public ColoringHint(AHinter hinter, Subtype subtype, Pots[] pots
 			, int valueToRemove, Pots redPots) {
 		// nb: Coloring uses ONE instance of Pots, so when we create a hint we
 		// clone them, and then clear the ONE instance. Simples!
-		super(hinter, redPots.cloneAndClear());
+		super(hinter, redPots.cloneAndClear(), pots[0], null, pots[1], null, null);
 		this.subtype = subtype;
 		this.pots = clean(pots, this.redPots); // must pass the field!
 		this.valueToRemove = valueToRemove;
@@ -78,21 +86,6 @@ public class ColoringHint extends AHint implements IActualHint {
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
 		return aquaCells;
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
-	public Pots getGreens(int viewNum) {
-		return pots[0];
-	}
-
-	@Override
-	public Pots getBlues(Grid grid, int viewNum) {
-		return pots[1];
 	}
 
 	/*
@@ -155,7 +148,7 @@ public class ColoringHint extends AHint implements IActualHint {
 		if ( toStringImpl == null ) {
 			StringBuilder sb = Frmt.getSB();
 			sb.append(Frmt.csv(pots));
-			int start=0, len=sb.length(); 
+			int start=0, len=sb.length();
 			// remove leading ", "
 			if ( len>2 && sb.charAt(0) == ',' && sb.charAt(1) == ' ' )
 				start += 2;

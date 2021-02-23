@@ -13,11 +13,11 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Regions;
-import diuf.sudoku.Run;
 import diuf.sudoku.Settings;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.AppliedHintsSummaryHint;
 import diuf.sudoku.solver.accu.HintsAccumulator;
@@ -64,13 +64,13 @@ import java.util.Set;
  * Single/Default/Chains IAccumulator to pass the eliminatedMaybesCount back
  * to the {@code apply()} method (to keep track of "the score").
  * <p>
- * NB: If you implement Resetable you'll need to put a null apcu check in
- * the existing reset method, because LogicalSolver reset will invoke it when
+ * NB: If you implement Resetable you'll need to put a null apcu check in the
+ * existing reset method, because LogicalSolver reset will invoke it when
  * there is nothing to be reset because apcu remains null when I'm created
  * outside of the RecursiveAnaylser (ie in "normal" mode).
  * <p>
- * KRC 2020-02-29 Added mergeSiameseHints and eliminateSubsets to this
- * already-too-complex class. Used only in the GUI when !wantMore && !isFilter.
+ * KRC 2020-02-29 Added mergeSiameseHints and eliminateSubsets to this already
+ * too-complex class. Used only in the GUI when !wantMore && !isFilter.
  * A "Siamese" hint is when multiple pointing hints are generated for multiple
  * values in the same region, whose redPots are all in a common region.
  * Example: {@code C:/Users/User/Documents/SodukuPuzzles/Test/ClaimingFromABoxWith3EmptyCells_001.txt}
@@ -137,11 +137,10 @@ public final class Locking extends AHinter {
 	 * setSiamese in order to locate a puzzle which causes a BUG that I've
 	 * misplaced. The bug is in mergeSiameseHints when multiple-pointClaims
 	 * finds a hidden triple on the top row, but there's TWO hidden triples
-	 * there and it's finding the wrong one, and so totally buggering up
-	 * the eliminations resulting in all potential values being removed from
-	 * Cell H1 (if memory serves me correctly). I just didn't record which
-	 * bloody puzzle it was so I must go through this rigmarole just to find
-	 * it again.
+	 * there and it's finding the wrong one, and so totally buggering up the
+	 * eliminations resulting in all potential values being removed from Cell
+	 * H1 (if memory serves me correctly). I just didn't record which puzzle
+     * it was so I must go through this rigmarole just to find it again.
 	 */
 	private boolean doSiamese;
 	private HiddenSet hiddenPair, hiddenTriple;
@@ -302,7 +301,6 @@ public final class Locking extends AHinter {
 	private boolean pointing(Grid grid, IAccumulator accu) {
 //if ( doSiamese ) // ie we're not in the RecursiveAnalyser
 //	Debug.breakpoint();
-		final int[] SHFT = Values.SHFT;
 		Box box; // the current Box
 		Indexes[] bio; // box.idxsOf array, indexed by value
 		ARegion cover; // the region we eliminate from, either a Row or a Col
@@ -355,7 +353,7 @@ public final class Locking extends AHinter {
 					// nb: when we get here we're ALWAYS gonna create a hint,
 					// so it's OK to create the cells array which we'll need.
 					cells = Grid.cas(card);
-					cnt = box.maybe(SHFT[v], cells);
+					cnt = box.maybe(VSHFT[v], cells);
 					assert cnt == card;
 					hint = createHint("Point", box, cover, cells, card, v, grid);
 					if ( hint != null ) {
@@ -440,7 +438,7 @@ public final class Locking extends AHinter {
 //	Debug.breakpoint();
 					// borrow the cells array
 					cells = Grid.cas(card);
-					cnt = base.maybe(Values.SHFT[v], cells);
+					cnt = base.maybe(VSHFT[v], cells);
 					assert cnt == card;
 					// create the hint and add it to the accumulator
 					hint = createHint("Claim", base, crossingBoxes[offset]
@@ -475,7 +473,7 @@ public final class Locking extends AHinter {
 	// @param type is "Point" or "Claim" (lazy coding)
 	private LockingHint createHint(String type, ARegion base, ARegion cover
 			, Cell[] cells, int card, int valueToRemove, Grid grid) {
-		final int sv = Values.SHFT[valueToRemove]; // shiftedValueToRemove
+		final int sv = VSHFT[valueToRemove]; // shiftedValueToRemove
 		// Build removable (red) potentials
 		Pots redPots = new Pots();
 		// foreach cell which maybe valueToRemove in covers except bases
@@ -734,7 +732,7 @@ public final class Locking extends AHinter {
 		Cell[] cells;
 		int b, card, offset;
 		boolean result = false;
-		for ( int v : Values.ARRAYS[maybesBits] ) {
+		for ( int v : VALUESES[maybesBits] ) {
 			if ( (card=box.indexesOf[v].size)<2 || card>3 )
 				continue;
 			b = box.indexesOf[v].bits;
@@ -749,7 +747,7 @@ public final class Locking extends AHinter {
 			else
 				continue;
 			if ( r2.indexesOf[v].size > card ) {
-				box.maybe(Values.SHFT[v], cells=Grid.cas(card));
+				box.maybe(VSHFT[v], cells=Grid.cas(card));
 				hint = createHint("PointFrom", box, r2, cells, card, v, grid);
 				if ( hint != null ) {
 					result |= true;
@@ -765,7 +763,7 @@ public final class Locking extends AHinter {
 		AHint hint;
 		int card, b, offset;
 		boolean result = false;
-		for ( int v : Values.ARRAYS[maybesBits] ) {
+		for ( int v : VALUESES[maybesBits] ) {
 			if ( (card=line.indexesOf[v].size)<2 || card>3 )
 				continue;
 			b = line.indexesOf[v].bits;
@@ -773,7 +771,7 @@ public final class Locking extends AHinter {
 				|| ((b & ROW2)==b && (offset=1)==1)
 				|| ((b & ROW3)==b && (offset=2)==2) )
 			  && line.crossingBoxs[offset].indexesOf[v].size > card ) {
-				line.maybe(Values.SHFT[v], cells=Grid.cas(card));
+				line.maybe(VSHFT[v], cells=Grid.cas(card));
 //// java.lang.AssertionError: BAD Claim: empty redPots at row 4 -> box 4 on 3 in [D1:2{15}, D2:2{45}]
 //if ( line==grid.rows[3] && line.crossingBoxs[offset]==grid.boxs[3] && v==3 )
 //	Debug.breakpoint();

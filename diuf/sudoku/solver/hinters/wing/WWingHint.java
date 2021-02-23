@@ -26,40 +26,23 @@ public final class WWingHint extends AHint implements IActualHint {
 
 	private final Cell cellA, cellB, wCellA, wCellB;
 	private final int value0, value1;
-	private final Pots bluePots, greenPots;
 
 	public WWingHint(AHinter hinter, int value0, int value1
 			, Cell cellA, Cell cellB, Cell wCellA, Cell wCellB
 			, Pots greenPots, Pots bluePots, Pots redPots) {
-		super(hinter, AHint.INDIRECT, null, 0, redPots);
+		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null
+				, bluePots, null, null);
 		this.value0 = value0;
 		this.value1 = value1;
 		this.cellA = cellA;
 		this.cellB = cellB;
 		this.wCellA = wCellA;
 		this.wCellB = wCellB;
-		this.greenPots = greenPots;
-		this.bluePots = bluePots;
 	}
 
 	@Override
 	public Set<Cell> getAquaCells(int viewNumUnused) {
 		return new MyLinkedHashSet<>(cellA, cellB, wCellA, wCellB);
-	}
-
-	@Override
-	public Pots getGreens(int viewNumUnused) {
-		return greenPots;
-	}
-
-	@Override
-	public Pots getBlues(Grid gridUnused, int viewNumUnused) {
-		return bluePots; // the "fins"
-	}
-
-	@Override
-	public Pots getReds(int viewNumUnused) {
-		return redPots;
 	}
 
 	@Override
@@ -72,7 +55,7 @@ public final class WWingHint extends AHint implements IActualHint {
 	public String toStringImpl() {
 		StringBuilder sb = Frmt.getSB();
 		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.csv(greenPots.keySet()))
+		  .append(Frmt.csv(greens.keySet()))
 		  .append(" on ").append(value0)
 		  .append(" and ").append(value1);
 		return sb.toString();

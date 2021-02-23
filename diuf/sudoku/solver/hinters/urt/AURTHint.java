@@ -13,6 +13,7 @@ import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -79,15 +80,21 @@ public abstract class AURTHint extends AHint implements IActualHint {
 
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
-		final List<Cell> loop = this.loop;
-		final int n = this.loopSize;
-		final Collection<Link> links = new ArrayList<>(n); // the result
-		for ( int i=0; i<n; ++i ) {
-			Cell curr = loop.get(i);
-			Cell next = loop.get((i+1) % n);
-			links.add(new Link(curr, 0, next, 0));
+		try {
+			final List<Cell> loop = this.loop;
+			final int n = this.loopSize;
+			final Collection<Link> links = new ArrayList<>(n); // the result
+			for ( int i=0; i<n; ++i ) {
+				Cell curr = loop.get(i);
+				Cell next = loop.get((i+1) % n);
+				links.add(new Link(curr, 0, next, 0));
+			}
+			return links;
+		} catch (Throwable ex) {
+			// I'm only ever called in the GUI, so just log it.
+			Log.println("AURTHint.getLinks: "+ ex);
+			return null;
 		}
-		return links;
 	}
 
 	@Override

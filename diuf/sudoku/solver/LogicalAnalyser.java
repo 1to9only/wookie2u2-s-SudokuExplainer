@@ -63,7 +63,7 @@ public final class LogicalAnalyser extends AWarningHinter {
 		try {
 			// run the puzzleValidators and the gridValidators seperately
 			// here because differentiating a WarningHint is complicated.
-			AHint hint = logicalSolver.validatePuzzleAndGrid(grid, true);
+			AHint hint = logicalSolver.validatePuzzleAndGrid(grid, false);
 			if ( hint != null )
 				return accu.add(hint);
 			// NB: synchronized so that the generator thread waits for the
@@ -83,8 +83,8 @@ public final class LogicalAnalyser extends AWarningHinter {
 			boolean result;
 			synchronized ( GrabBag.ANALYSE_LOCK ) {
 				// call-back the logicalSolver which created me.
-				// solve(Grid grid, UsageMap usage, boolean validate, boolean noisy)
-				result = logicalSolver.solve(grid, usageMap, false, true);
+				// solve(grid, usage, validate, isNoisy, logHints)
+				result = logicalSolver.solve(grid, usageMap, false, false, false);
 			}
 			if ( result )
 				accu.add(new AnalysisHint(this, usageMap));

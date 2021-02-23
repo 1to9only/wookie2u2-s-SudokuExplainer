@@ -35,7 +35,7 @@ public final class MultipleSolutionsHint extends AWarningHint {
 	}
 
 	@Override
-	public int apply(boolean isAutosolvingUnused) {
+	public int apply(boolean isAutosolvingUnused, boolean isNoisy) {
 		if (lastViewNum == 0)
 			solution1.copyTo(grid);
 		else

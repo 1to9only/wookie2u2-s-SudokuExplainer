@@ -4,32 +4,34 @@
  * Copyright (C) 2013-2020 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
-package diuf.sudoku.solver.hinters.als;
+package diuf.sudoku.solver.hinters;
 
 import diuf.sudoku.Grid;
+import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
+import diuf.sudoku.solver.hinters.als.Als;
 import diuf.sudoku.utils.Log;
 import java.util.HashMap;
 
 /**
- * The valid class exposes static helper methods to validate a hint against
- * the precalculated Sudoku solution. It's a way to debug hinters by logging
- * all it's invalid hints; to find the commonality and work-out what's causing
+ * HintValidator exposes static helper methods to validate a hint against the
+ * precalculated Sudoku solution. It's a way to debug hinters by logging all
+ * it's invalid hints; to find the commonality and work-out what's causing
  * them, to make them go away. This class is NOT intended to ever be used in
  * a production system: so make sure you've taken me out BEFORE you release;
- * which is pretty easy, just check that all my *_USES settings are false.
+ * which happens if you follow the release procedure: check they're all false!
  * <p>
- * Most of this code was exhumed from HdkAlsHinter so that I can use the same
- * technique in HdkFisherman to find the problem in/with HoDoKu's FishSolver.
+ * Most of this code was exhumed from AlsXz so that I can use the same approach
+ * to find the problem with other hinters.
  * <p>
  * All of this class is a nasty hack. It would be better to not rely on the
  * solution to the puzzle in order to solve the puzzle. BUT because I can solve
  * the puzzle quickly I do so to validate the hints produced by hinters that I
  * am having trouble with... but ONLY those I am having trouble with; and I am
- * having a LOT of trouble with HoDoKu, especially when I hack the s__t out of
- * it to make it faster. It's all my bad. Sigh.
+ * having a LOT of trouble with HoDoKu's hinters, especially when I hack the
+ * s__t out of them to make them faster. It's all my bad. Sigh.
  *
  * @author Keith Corlett 2020-07-14
  */
@@ -56,9 +58,14 @@ public class HintValidator {
 	public static final boolean COLORING_USES = false; // @check false
 
 	/**
-	 * Do AlsXyWing and AlsXyChain use HintValidator.isValid?
+	 * Do AlsXyWing and AlsXyChain use HintValidator?
 	 */
 	public static final boolean ALS_USES = false; // @check false
+
+	/**
+	 * Does DeathBlossom use HintValidator?
+	 */
+	public static final boolean DEATH_BLOSSOM_USES = true; // @check false
 
 	/**
 	 * Does AlignedExclusion use HintValidator?
@@ -68,12 +75,12 @@ public class HintValidator {
 	/**
 	 * Does ComplexFisherman (for Franken and Mutant only) use HintValidator?
 	 */
-	public static final boolean COMPLEX_FISHERMAN_USES = true; // @check false
+	public static final boolean COMPLEX_FISHERMAN_USES = false; // @check false
 
 	/**
 	 * Does KrakenFisherman use HintValidator?
 	 */
-	public static final boolean KRAKEN_FISHERMAN_USES = true; // @check false
+	public static final boolean KRAKEN_FISHERMAN_USES = false; // @check false
 
 	/**
 	 * Does AChainer (for Nested hints only) use HintValidator?
@@ -86,6 +93,7 @@ public class HintValidator {
 	public static final boolean ANY_USES = false
 			| COLORING_USES
 			| ALS_USES
+			| DEATH_BLOSSOM_USES
 			| ALIGNED_EXCLUSION_USES
 			| COMPLEX_FISHERMAN_USES
 			| KRAKEN_FISHERMAN_USES
@@ -173,9 +181,9 @@ public class HintValidator {
 		// presume that the hint (ie redPots) is valid;
 		checkSolutionValues(grid);
 		invalidity = "";
-		for ( Grid.Cell cell : redPots.keySet() ) {
+		for ( Cell cell : redPots.keySet() ) {
 			if ( redPots.get(cell).contains(solutionValues[cell.i]) )
-				// note the preceeding space
+				// note the leading space on the first
 				invalidity += " "+cell.id+"-"+solutionValues[cell.i];
 		}
 		return invalidity.isEmpty();
@@ -202,6 +210,11 @@ public class HintValidator {
 	// the ID of the puzzle which provided my solutionValues.
 	private static long solutionValuesPuzzleId;
 
+	public static int[] getSolutionValues(Grid grid) {
+		checkSolutionValues(grid);
+		return solutionValues;
+	}
+
 	// for use when invalid returns true: log s__t in a standard way.
 	// return was it reported, or swallowed as a repeat?
 	public static boolean report(String reporterName, Grid grid, Iterable<Als> alss) {
@@ -220,8 +233,9 @@ public class HintValidator {
 		}
 		return false;
 	}
-	
+
 	public static void clear() {
 		invalidities.clear();
 	}
+
 }

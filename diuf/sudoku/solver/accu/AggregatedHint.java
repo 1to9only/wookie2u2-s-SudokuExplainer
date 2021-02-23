@@ -37,7 +37,6 @@ public final class AggregatedHint extends AHint {
 	public final String hintTypeName;
 
 	private double maxDifficulty;
-	private Pots greenPots;
 
 	/** Constructs a new aggregate of the given AChainingHint's.
 	 * 
@@ -46,7 +45,8 @@ public final class AggregatedHint extends AHint {
 	 * @param hintTypeName The name of the hinter which created me; used as the
 	 * name of hint-types in my toString method. */
 	public AggregatedHint(AHinter hinter, Collection<AHint> hints, String hintTypeName) {
-		super(hinter, AHint.AGGREGATE, null, 0, new Pots(128, 1F)); // 128 is next power of 2 from 81
+		// 128 is next power of 2 from 81
+		super(hinter, AHint.AGGREGATE, null, 0, new Pots(128, 1F), null, null, null, null, null);
 		this.hints = hints;
 		this.hintTypeName = hintTypeName;
 	}
@@ -55,12 +55,12 @@ public final class AggregatedHint extends AHint {
 	 * @param isAutosolving
 	 * @return the total number of eliminations. */
 	@Override
-	public int apply(boolean isAutosolving) {
+	public int apply(boolean isAutosolving, boolean isNoisy) {
 		int sumElims = 0;
 		for ( AHint hint : hints ) {
-			if ( Log.MODE >= Log.VERBOSE_4_MODE && !AHint.SHUT_THE______UP )
+			if ( Log.MODE >= Log.VERBOSE_4_MODE )
 				Log.format("%32s%s%s", "", MyStrings.squeeze(hint.toFullString()), NL);
-			sumElims += hint.apply(isAutosolving);
+			sumElims += hint.apply(isAutosolving, isNoisy);
 		}
 		return sumElims;
 	}
@@ -78,6 +78,7 @@ public final class AggregatedHint extends AHint {
 				greenPots.put(hint.cell, new Values(hint.value));
 		return greenPots;
 	}
+	private Pots greenPots;
 
 	/** @return the red Pots that'll be removed by these hints (no oranges). */
 	@Override
@@ -88,16 +89,6 @@ public final class AggregatedHint extends AHint {
 		// Deorangify coz there are commonly too many of them to be useful.
 		redPots.removeAll(getGreens(viewNum));
 		return redPots;
-	}
-
-	/**
-	 * @param grid
-	 * @param viewNum
-	 * @return null
-	 */
-	@Override
-	public Pots getBlues(Grid grid, int viewNum) {
-		return null;
 	}
 
 	/** @return the total score of all these hints - irrelevant anyway because

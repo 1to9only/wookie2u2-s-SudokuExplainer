@@ -7,8 +7,10 @@
 package diuf.sudoku.solver;
 
 // Sudoku Explainer (local) classes
-// Tip: .* import local classes, but never foreigners, because
+// Tip: .* import local classes, but NEVER foreigners, because
 // you can't change foreign class-names to resolve collisions.
+import diuf.sudoku.solver.hinters.als.SueDeCoq;
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.*;
 import diuf.sudoku.gen.*;
 import diuf.sudoku.io.*;
@@ -16,7 +18,7 @@ import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.checks.*;
 import diuf.sudoku.solver.hinters.*;
 import diuf.sudoku.solver.hinters.align.*;
-import diuf.sudoku.solver.hinters.align2.AlignedExclusion;
+import diuf.sudoku.solver.hinters.align2.*;
 import diuf.sudoku.solver.hinters.als.*;
 import diuf.sudoku.solver.hinters.bug.*;
 import diuf.sudoku.solver.hinters.chain.*;
@@ -27,8 +29,10 @@ import diuf.sudoku.solver.hinters.lock.*;
 import diuf.sudoku.solver.hinters.nkdset.*;
 import diuf.sudoku.solver.hinters.single.*;
 import diuf.sudoku.solver.hinters.sdp.*;
+import diuf.sudoku.solver.hinters.lock2.LockingGeneralised;
 import diuf.sudoku.solver.hinters.urt.*;
 import diuf.sudoku.solver.hinters.wing.*;
+import diuf.sudoku.solver.hinters.wing2.*;
 import diuf.sudoku.utils.*;
 // JAPI
 import java.io.BufferedReader;
@@ -190,18 +194,35 @@ public final class LogicalSolver {
 				h.setIsEnabled(enabled);
 	}
 
+	/**
+	 * Get the hinter which implements targetTech from wantedHinters list.
+	 * @param targetTech
+	 * @return the hinter; else null if the hinter which implements targetTech
+	 *  is not wanted, or (improbable) no hinter implements targetTech.
+	 */
+	public IHinter findWantedHinter(Tech targetTech) {
+		for ( IHinter hinter : wantedHinters )
+			if ( hinter.getTech() == targetTech )
+				return hinter;
+		return null;
+	}
+
 	/** Enum for a self-documenting Mode parameter in the Constructor/s. */
 	public enum Mode {
-		/** ACCURACY mode uses the simplest (lowest difficulty) hinter to produce
-		 * the next hint, which is slower than SPEED mode, but yields a far more
-		 * accurate assessment of the difficulty involved in solving a Sudoku
-		 * puzzle. If you're unsure then just use this one. */
+		/**
+		 * ACCURACY mode uses the simplest (lowest difficulty) hinter to
+		 * produce the next hint, which is slower than SPEED mode, but yields
+		 * a far more accurate assessment of the difficulty involved in solving
+		 * a Sudoku puzzle. If you're unsure then just use this one.
+		 */
 		ACCURACY
 
-		/** SPEED mode throws all the toys out of the pram and attempts to solve
-		 * each Sudoku puzzle as quickly as possible using logic, but if all you
-		 * really want is the solutions then try the RecursiveSolverTester,
-		 * which left it's leftover lightning in your knicker draw. */
+		/**
+		 * SPEED mode throws all the toys out of the pram and attempts to solve
+		 * each Sudoku puzzle as quickly as possible using logic, but if all
+		 * you really want is the solutions then try the RecursiveSolverTester,
+		 * which just left it's leftover lightning in your knicker draw.
+		 */
 		, SPEED
 	}
 
@@ -425,14 +446,14 @@ public final class LogicalSolver {
 
 		// the validators list is just a convenience because most of the time
 		// we want to just "run all the validators", so here's a list of them.
-		validators = new IHinter[] { // Why does Goderick have that Cup up his ...?
+		validators = new IHinter[] {
 				  puzzleValidators[0]
 				, puzzleValidators[1]
 				, puzzleValidators[2]
 				, gridValidators[0]
 				, gridValidators[1]
 				, gridValidators[2]
-		};
+		}; // What's Goderick doing with that cup up his ...?
 
 		// Regarding hinter selection:
 		// In ACCURACY mode we include many nice-but-unnecessary hinters, but
@@ -443,6 +464,14 @@ public final class LogicalSolver {
 		// types in the GUI, which changes the Settings (persist in registry),
 		// which the want method reads via the wantedTechs field, which I
 		// refresh at the start of this method.
+
+		// Regarding execution order:
+		// The solve/etc methods just loop-through the wantedHinters calling
+		// each in the order that it appears in that list, which is MOSTLY the
+		// order in which they are added to the list, ie the order in which
+		// they appear in this method. Aligned*Exclusion are re-ordered if you
+		// don't CARE_ABOUT_ALIGNED_HINTS. sigh. So, the run-order is (mostly)
+		// the same as the order they're added in this method. Clear?
 
 		// directs are hinters which set cell values directly
 		directs = new ArrayList<>(isAccurate ? 7 : 2); // Tree point five?
@@ -458,8 +487,9 @@ public final class LogicalSolver {
 		}
 
 		// indirects just remove maybes, setting cell values only indirectly
-		indirects = new ArrayList<>(13); // The Luckiest Number!
-		want(indirects, locking = new Locking()); // aka Pointing and Claiming
+		indirects = new ArrayList<>(14); // one too many!
+		want(indirects, new LockingGeneralised()); // Locking Generalised
+		want(indirects, locking = new Locking()); // Pointing and Claiming
 		want(indirects, new NakedSet(Tech.NakedPair));
 		// nb: hiddenPair used (cheekily) by Locking to upgrade siamese
 		// locking hints to the full HiddenSet hint, with extra eliminations.
@@ -469,7 +499,7 @@ public final class LogicalSolver {
 		// locking hints to the full HiddenSet hint, with additional elims.
 		want(indirects, hiddenTriple = new HiddenSet(Tech.HiddenTriple));
 		want(indirects, new TwoStringKite());
-		want(indirects, new BasicFisherman(Tech.Swampfish, h?2:1)); // aka X-Wing
+		want(indirects, new BasicFisherman(Tech.Swampfish, h?2:1)); //aka X-Wing
 		want(indirects, new XYWing(Tech.XY_Wing, h?4:1));
 		want(indirects, new XYWing(Tech.XYZ_Wing, h?4:1));
 		want(indirects, new WWing());
@@ -477,20 +507,30 @@ public final class LogicalSolver {
 		want(indirects, new EmptyRectangle());
 		want(indirects, new BasicFisherman(Tech.Swordfish, h?2:1));
 
-		// heavies is the heavy weight division. Slow indirect hinters.
-		heavies = new ArrayList<>(isAccurate ? 33 : 0); // Because it was there!
+		// heavies is the heavy weight division. Slow/er indirect hinters.
+		heavies = new ArrayList<>(isAccurate ? 32 : 0); //size 10 shorts Dougie!
 		if ( isAccurate ) {
 			want(heavies, new NakedSet(Tech.NakedQuad));
 			want(heavies, new HiddenSet(Tech.HiddenQuad)); // 0 in top1465
 			want(heavies, new BasicFisherman(Tech.Jellyfish, h?24:1));
 			want(heavies, new NakedSet(Tech.NakedPent));	   // 0 in top1465
 			want(heavies, new HiddenSet(Tech.HiddenPent)); // 0 in top1465
+			want(heavies, new WXYZWing()); // limited fast ALS-XZ
+			want(heavies, new VWXYZWing()); // limited fast ALS-XZ
+			want(heavies, new UVWXYZWing()); // limited fast ALS-XZ
 			want(heavies, new UniqueRectangle(h?5:1));
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedSwordfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedJellyfish));
 			want(heavies, new Coloring());
+			want(heavies, new TUVWXYZWing()); // limited fast ALS-XZ (that's actually slower per elimination than ALS-XZ, but finds some double-linked elims, which ALS-XZ does not seek, so retained anyways)
+			want(heavies, new SueDeCoq());
+// KRC 2021-01-06 DeathBlossom is broken so commented out.
+// KRC 2021-01-07 DeathBlossom still broken but I'm still swinging.
+// KRC 2021-01-08 DeathBlossom dead-cat->disable, prepare->enable.
+// KRC 2021-01-09 DeathBlossom still incomprehensibly rooted!
+//			want(heavies, new DeathBlossom());
 			want(heavies, new AlsXz());
 			want(heavies, new AlsXyWing());
 			want(heavies, new AlsXyChain());
@@ -507,8 +547,8 @@ public final class LogicalSolver {
 
 			// Coloring finds a superset of BUG hints!
 			want(heavies, new BivalueUniversalGrave(h?25:1));
-// the AlignedExclusion class is too slow
-if ( true ) {
+// the new AlignedExclusion class is slower than the old ones!
+if ( false ) {
 			want(heavies, new AlignedExclusion(Tech.AlignedPair));
 			want(heavies, new AlignedExclusion(Tech.AlignedTriple));
 			want(heavies, new AlignedExclusion(Tech.AlignedQuad));
@@ -529,10 +569,10 @@ if ( true ) {
 		}
 
 		// Heavy, meh! Chainers ripped Heavies balls off! These are really slow.
-		chainers = new ArrayList<>(isAccurate ? 10 : 1); // That's an Oils album!
+		chainers = new ArrayList<>(isAccurate ? 10 : 1); // An Oils album!
 		if (isAccurate) {
-// the AlignedExclusion class is too slow
-if ( true ) {
+// the new AlignedExclusion class is slower than the old ones!
+if ( false ) {
 			want(chainers, new AlignedExclusion(Tech.AlignedPent));
 			want(chainers, new AlignedExclusion(Tech.AlignedHex));
 			want(chainers, new AlignedExclusion(Tech.AlignedSept));
@@ -541,7 +581,7 @@ if ( true ) {
 			want(chainers, new AlignedExclusion(Tech.AlignedDec));
 } else {
 			// The programmer decides if he CARE_ABOUT_ALIGNED_HINTS or not.
-			// The user chooses if the big A*E's are correct or hacked (fast).
+			// The user chooses if A5+E is correct (slow) or hacked (fast).
 			// A5E is slow! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
 			// 2019-10-02 A5E 1465 in   514,473,381,962 (08:34) @   351,176,369
 			wantAE(chainers, 5, h?4:1, im); //<<<=============================== OUTTA MIND
@@ -554,12 +594,12 @@ if ( true ) {
 			// A4567E_1C took 7:46 on conceptis's worlds hardest Sudoku
 			// A4567E_1C on top1465.d5.mt took 7 hrs 53 mins
 			wantAE(chainers, 7, h?5:1, im); //<<<=============================== GOTTA KEEP-MY
-			// A8E conservative! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
+			// A8E 12yr old dog! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
 			// 2019-10-05 A8E 1465 in 2,401,487,875,247 (40:01) @ 1,639,240,870
 			wantAE(chainers, 8, h?5:1, im); //<<<=============================== CODE TIGHT
-			// A9E dead cat! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
+			// A9E old tortoise! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
 			wantAE(chainers, 9, h?8:1, im); //<<<=============================== THIS IS JUST SILLY
-			// ATE dead tortoise! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
+			// ATE conservative! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
 			// 2020-02-27 !IS_HACKY A45678910E_1C 1465 in 5:10:37
 			// 2020-02-28  IS_HACKY A45678910E_2H 1465 in    3:38
 			wantAE(chainers, 10, h?19:1, im); //<<<============================= JESUS SHOT MY ____ING DOG, TOOK OVER THE GOVERMENT, AND BURNT HALF THE ____ING COUNTRY TO THE GROUND. WELCOME TO PARADISE! IRE-LOL-IC, DON'T YOU THINK? MAYBE JUST A LITTLE TOO MORONIC, BECAUSE YOU'RE REALLY TOO THICK? DJAWAN FIRES WITH THAT? FREE SCOTTIES PINEAPPLE RING! HERE'S A FEW BILLION I FRIED EARLIER. BREAK INTO THE WHITE HOUSE AND DROP A DIRTY GREAT TURD ON THE PRESIDENTS DESK. RETURN OF ____ING SERVICE. LOCK DOG BONG WOCK UP IN HIS OWN MOZZIE PRISON. SWIPE! SWISH! BANG! FURY LOOKIN' ANIMAL. TAKE THE OZIE PARLIAMENT TO THE DUMP. TOO LITTLE TO LATE BOYS. YAKANNOO PUSH ER ANY ARDER KAPTIN! DON'T TELL ME ABOUT BOATS I KNOW BOATS. SHIP SCOTTIE BACK TO HAWAHI WITH THAT SOUR UNDERSIZED PINEAPPLE UP HIS ____ING ARSE. ____ IT, I'M MOVING TO NEW ZEALAND! FUSH AND CHUPS ALL ROUND! THIS PLANET IS RUN BY EXTREMIST WANKERS, AND SHE'S JUST LESS OF A NUT-BURGHER THAN THE REST, WHICH MAKES HER LOOK GOOD BY COMPARISON. WHEN THE SPINNIFEX HIT SYDNEY IT WAS THE LAST THING WE EXPECTED. WHEN THE DESERT REACHED THE GLADES THEN WE TRIED TO TAME IT. I WEEP AT THE WHOLE INSANE MESS, AND IT JUST KEEPS ROLLING ON. BIG SIGH.
@@ -575,12 +615,13 @@ if ( true ) {
 			want(chainers, new MultipleChainer(Tech.DynamicChain, F, h?2:1));
 		} // fi isAccurate
 		// DynamicPlus is Dynamic Chaining + Four Quick Foxes (Point & Claim,
-		// Naked Pairs, Hidden Pairs, and Swampfish). I've never seen it NOT
-		// find a hint. It's hardcoded as a safery-net, user can't unwant it.
-		chainers.add(new MultipleChainer(Tech.DynamicPlus, isAgg, h?1:1)); // my safety-nets allways run
+		// Naked Pairs, Hidden Pairs, and Swampfish). It only misses on hardest
+		// puzzles, so hardcoded as safery-net, so user can't unwant it.
+		chainers.add(new MultipleChainer(Tech.DynamicPlus, isAgg, h?1:1)); // safety-net
 
 		if ( !CARE_ABOUT_ALIGNED_HINTS ) {
-			// relegate big A*E's to just before DynamicPlus to run less often
+			// relegate big A*E's to just before DynamicPlus to run less often,
+			// ie hardly ever. sigh.
 			for ( Tech t : new Tech[]{Tech.AlignedPent, Tech.AlignedHex
 					, Tech.AlignedSept, Tech.AlignedOct, Tech.AlignedNona
 					, Tech.AlignedDec} )
@@ -597,12 +638,14 @@ if ( true ) {
 		// experimental
 		want(nesters, new MultipleChainer(Tech.NestedDynamic, isAgg, 1));		//15 secs
 		// NestedPlus is Dynamic + Dynamic + Four Quick Foxes => confusing!
-		// I use NestedPlus as a secondary safety-net (so it's allways on), but
-		// it's only invoked in Shift-F5 coz NestedUnary always hints first.
+		// NestedPlus is the real safety-net (so user can't unwant it), but
+		// it's (mostly) only invoked in Shift-F5 coz NestedUnary hints first.
+		// Only THE HARDEST puzzles get through to NestedUnary; so if it's on
+		// it always hints before we get through to the ultimate keeper.
 		// @bug 2020 AUG: NestedPlus produced invalid hints, so now uses da		// PRODUCED INVALID HINTS!
 		// HintValidator to log and ignore them. NOT adequate! Needs fixing!
 		// I'm just ignoring this bug for now coz IT'S NEVER USED in anger.
-		nesters.add(new MultipleChainer(Tech.NestedPlus, isAgg, 1));				//70 secs
+		nesters.add(new MultipleChainer(Tech.NestedPlus, isAgg, 1));				//70 secs, safety-net
 
 		populateTheWantedHintersList(); // => wantedHinters
 
@@ -873,18 +916,11 @@ if ( true ) {
 	 * @param grid Grid to validate.
 	 * @param quite if true don't log, if false I'm noisy
 	 * @return the first warning hint, else null. */
-	public AHint validatePuzzleAndGrid(Grid grid, boolean quite) {
-		boolean prevSTFU = AHint.setShutThe____Up(quite);
-		LogicalSolver prevLS = GrabBag.setLogicalSolver(quite ? null : GrabBag.logicalSolver);
+	public AHint validatePuzzleAndGrid(Grid grid, boolean isNoisy) {
+		IAccumulator accu = new SingleHintsAccumulator();
 		AHint problem = null;
-		try {
-			IAccumulator accu = new SingleHintsAccumulator();
-			if ( getFirst(validators, grid, accu) )
-				problem = accu.getHint();
-		} finally {
-			AHint.SHUT_THE______UP = prevSTFU;
-			GrabBag.logicalSolver = prevLS;
-		}
+		if ( getFirst(validators, grid, accu, isNoisy) )
+			problem = accu.getHint();
 		return problem;
 	}
 
@@ -919,7 +955,7 @@ if ( true ) {
 		++AHint.hintNumber;
 		grid.rebuildAllRegionsEmptyCellCounts();
 		grid.rebuildAllRegionsIdxsOfAllValues();
-		if ( getFirst(validators, grid, accu)
+		if ( getFirst(validators, grid, accu, false)
 		  || getFirstCat(grid, prev, curr, accu, "Directs", directs)
 		  || getFirstCat(grid, prev, curr, accu, "Indirects", indirects)
 		  || getFirstCat(grid, prev, curr, accu, "Heavies", heavies)
@@ -958,7 +994,10 @@ if ( true ) {
 		for ( IHinter hinter : hinters ) {
 			// get the last previousHints: in case this hinter has not already
 			//                             passed-back all its hints
-			if ( hinter.getTech()==prevTech && curr.size()<prev.size() ) {
+			if ( hinter.getTech() == prevTech
+			  && curr.size() < prev.size()
+			  && curr.size() > 0
+			) {
 				// pass-back the next previousHints from this hinter, if any
 				AHint h;
 				while ( (h=prev.get(curr.size()-1)).getHinter() == hinter ) {
@@ -1006,10 +1045,11 @@ if ( true ) {
 	 * is already demonstrably ____ed. The speed of a Sudoku solver really does
 	 * NOT matter worth a pinch of goat s__t. Fundamentally, there is no future
 	 * and c__ksnaps are still fighting over three-parts of ____all. sigh.
+	 * @param isNoisy should I print hints as they're applied.
 	 *
 	 * @return List of AHint
 	 */
-	public List<AHint> getAllHints(Grid grid, boolean wantMore) {
+	public List<AHint> getAllHints(Grid grid, boolean wantMore, boolean isNoisy) {
 		final boolean isFilteringHints = Settings.THE.getBoolean(Settings.isFilteringHints, false);
 		++AHint.hintNumber;
 		if (Log.MODE>=Log.VERBOSE_2_MODE) {
@@ -1038,7 +1078,7 @@ if ( true ) {
 		// executed, coz DyamicPlus finds a hint. But If you Shift-F5 (ie
 		// wantMore=true) you get the lot, including nesters. It takes about
 		// 15 seconds on my i7. Be a bit patient.
-		boolean any = getFirst(validators, grid, accu);
+		boolean any = getFirst(validators, grid, accu, false);
 		if ( !any ) {
 			// tell locking to merge/upgrade any siamese hints
 			// when the GUI wantsLess (F5/Enter) and isFilteringHints
@@ -1047,7 +1087,7 @@ if ( true ) {
 			// run prepare AFTER validators and BEFORE wantedHinters
 			if ( !grid.isPrepared() ) // when we get the first hint from this grid
 				prepare(grid); // prepare the wanted IPreparer's to process da grid
-			any = getAll(wantedHinters, grid, accu, !wantMore);
+			any = getAll(wantedHinters, grid, accu, !wantMore, isNoisy);
 			// and don't forget to revert doSiamese or Generate goes mad
 			locking.clearSiamese();
 		}
@@ -1061,11 +1101,14 @@ if ( true ) {
 	// I exit-early returning accu.hasAny(), ie false.
 	// called by: solve, checkValidity, getAllHints, analyseDifficulty,
 	// analyse, solveRecursively
-	private boolean getFirst(IHinter[] hinters, Grid grid, IAccumulator accu) {
-		for ( IHinter hinter : hinters )
+	private boolean getFirst(IHinter[] hinters, Grid grid, IAccumulator accu, boolean isNoisy) {
+		for ( IHinter hinter : hinters ) {
+//if ( hinter.getTech() == Tech.SingleSolutions )
+//	Debug.breakpoint();
 			if ( interrupt()
-			  || (hinter.isEnabled() && getHinter(hinter, grid, accu)) )
+			  || (hinter.isEnabled() && getHinter(hinter, grid, accu, isNoisy)) )
 				break;
+		}
 		return accu.hasAny();
 	}
 
@@ -1077,19 +1120,19 @@ if ( true ) {
 	// Hinters are only called then they are enabled. A Hinter is disabled if
 	// it's a very naughty boy and produces the same DEAD_CAT twice.
 	private boolean getAll(List<IHinter> hinters, Grid grid, IAccumulator accu
-			, boolean less) {
+			, boolean less, boolean isNoisy) {
 		for ( IHinter hinter : hinters )
 			if ( interrupt()
-			  || (hinter.isEnabled() && (getHinter(hinter, grid, accu) && less)) )
+			  || (hinter.isEnabled() && (getHinter(hinter, grid, accu, isNoisy) && less)) )
 				break;
 		return accu.hasAny() && less;
 	}
 
 	// getHinter calls the getHints method of the given hinter, and log it.
 	// Called by: getAll, and getAll. Work that s__t out Scoobie.
-	private boolean getHinter(IHinter hinter, Grid grid, IAccumulator accu) {
-		if ( Log.MODE<Log.VERBOSE_2_MODE || AHint.SHUT_THE______UP )
-			return hinter.findHints(grid, accu);
+	private boolean getHinter(IHinter hinter, Grid grid, IAccumulator accu, boolean isNoisy) {
+		if ( !isNoisy || Log.MODE<Log.VERBOSE_2_MODE )
+			return hinter.findHints(grid, accu); // do it quietly
 		long t0 = System.nanoTime();
 		Log.format("%-40s ", hinter.getTech().name());
 		boolean result = hinter.findHints(grid, accu);
@@ -1130,7 +1173,7 @@ if ( true ) {
 		grid.rebuildAllRegionsEmptyCellCounts();
 		grid.rebuildAllRegionsIdxsOfAllValues();
 		for ( int pre=grid.countMaybes(),now; pre>0; pre=now ) { // ie !grid.isFull
-			if ( getFirst(enabledHinters, grid, accu) ) {
+			if ( getFirst(enabledHinters, grid, accu, false) ) {
 				if ( interrupt() )
 					return puzDif; // not sure what I should return
 				AHint hint = accu.getHint();
@@ -1142,7 +1185,7 @@ if ( true ) {
 				if ( dif>puzDif && (puzDif=dif)>maxDif )
 					return puzDif; // maximum desired difficulty exceeded
 				try {
-					hint.apply(Grid.NO_AUTOSOLVE);
+					hint.apply(Grid.NO_AUTOSOLVE, false);
 				} catch (UnsolvableException ex) {
 //					// flick-pass UE to log the causal hint
 //					Log.println("analyseDifficulty: "+ex+" applying "+hint);
@@ -1178,7 +1221,7 @@ if ( true ) {
 			return new WarningHint(recursiveAnalyser
 					, "The Sudoku has been solved", "SudokuSolved.html");
 		// execute just the puzzle validators.
-		if ( getFirst(puzzleValidators, grid, accu) )
+		if ( getFirst(puzzleValidators, grid, accu, false) )
 			return accu.getHint();
 		LogicalAnalyser analyser = new LogicalAnalyser(this);
 		if ( analyser.findHints(grid, accu) ) { // should allways be true
@@ -1237,7 +1280,7 @@ if ( true ) {
 		// get all the validators, including the recursiveAnalyser. We expect
 		// that no hint will be returned, if one is then the grid is invalid,
 		// so we return the validators hint
-		if ( getFirst(validators, grid, accu) )
+		if ( getFirst(validators, grid, accu, false) )
 			return accu.getHint();
 		// it's a valid grid, so we return recursiveAnalyser.solutionHint
 		AHint result = recursiveAnalyser.solutionHint;
@@ -1279,12 +1322,12 @@ if ( true ) {
 	 *  won't make you struggle to access the error message. Sigh.
 	 */
 	public boolean solve(Grid grid, UsageMap usage, boolean validate
-			, boolean isNoisy) { // throws UnsolvableException
+			, boolean isNoisy, boolean logHints) { // throws UnsolvableException
 		assert grid!=null && usage!=null;
 //if(grid.source.lineNumber==6)
 //	Debug.breakpoint();
 		grid.invalidity = null; // assume sucess
-		if ( isNoisy && AHint.IS_NOISY )
+		if ( isNoisy )
 			System.out.println(">solve "+Settings.now()+"\n"+grid+"\n");
 		final IAccumulator accu = new SingleHintsAccumulator();
 		// time between hints incl activate and apply
@@ -1320,7 +1363,7 @@ if ( true ) {
 			grid.rebuildAllRegionsEmptyCellCounts();
 			grid.rebuildAllRegionsIdxsOfAllValues();
 			// detect invalid grid, meaning a hinter is probably borken!
-			if ( (problem=validatePuzzleAndGrid(grid, true)) != null )
+			if ( (problem=validatePuzzleAndGrid(grid, false)) != null )
 				throw new UnsolvableException("Houston: "+problem);
 			// activate the hintNumber activated hinters
 			if(anyNumbered) activate(numbereds, hintNum);
@@ -1331,11 +1374,11 @@ if ( true ) {
 			hint = accu.getHint();
 			now = System.nanoTime();
 			// apply may throw UnsolvableException from Cell.set
-			apply(hint, hintNum, now-start, grid, usage, isNoisy);
+			apply(hint, hintNum, now-start, grid, usage, isNoisy, logHints);
 			start = now;
 			AHint.hintNumber = ++hintNum;
 		} // wend
-		if ( isNoisy && AHint.IS_NOISY )
+		if ( isNoisy )
 			System.out.println("<solve "+Settings.took()+"\n"+grid+"\n");
 		AHint.hintNumber = 1;
 		return true;
@@ -1371,23 +1414,22 @@ if ( true ) {
 	// @param usage UsageMap for the updateUsage method (below)
 	// @param noisy if true log progress, else do it quietly
 	private int apply(AHint hint, int hintCount, long took, Grid grid
-			, UsageMap usage, boolean noisy) { // throws UnsolvableException
+			, UsageMap usage, boolean isNoisy, boolean logHints) { // throws UnsolvableException
 		if ( hint == null )
 			return 0;
-//			throw new UnsolvableException("WTF: null Hint");
 		if ( hint instanceof AWarningHint ) // NoDoubleValues or NoMissingMaybes
 			throw new UnsolvableException("Warning: " + hint);
 		assert hint.getDifficulty() >= 1.0; // 0.0 has occurred. Bug!
 		// + the grid (2 lines per hint)
-		if ( Log.MODE >= Log.VERBOSE_3_MODE && !GrabBag.isGenerating && noisy )
+		final boolean logIt = isNoisy || logHints;
+		if ( Log.MODE>=Log.VERBOSE_3_MODE && logIt )
 			Log.println(grid);
 		int numElims = -1;
 		try {
-			// AUTOSOLVE true sets subsequent naked and hidden singles
-			boolean stfu = AHint.setShutThe____Up(!noisy);
 			// apply throws UnsolvableException on the odd occassion
-			numElims = hint.apply(Grid.AUTOSOLVE);
-			AHint.SHUT_THE______UP = stfu;
+			// AUTOSOLVE true sets subsequent naked and hidden singles
+			// isNoisy logs crap when true (for debugging only, really)
+			numElims = hint.apply(Grid.AUTOSOLVE, isNoisy);
 		} catch (UnsolvableException ex) { // probably from Cell.set
 			// stop the UnsolvableException obscuring the causal hint.
 			Log.teeln("LogicalSolver.apply: "+hint.toFullString());
@@ -1395,7 +1437,7 @@ if ( true ) {
 			throw ex;
 		}
 		// + 1 line per Hint (detail)
-		if ( Log.MODE>=Log.VERBOSE_2_MODE && !GrabBag.isGenerating && noisy )
+		if ( Log.MODE>=Log.VERBOSE_2_MODE && logIt )
 			printHintDetailsLine(Log.out, hintCount, took, grid, numElims, hint, true);
 		// NB: usage was inserted by doHinters2, we just update it
 		if ( usage != null )
@@ -1405,8 +1447,12 @@ if ( true ) {
 		// if the hint yields 0-cells-set and 0-maybes-eliminated, then we have
 		// a problem, which we ignore until it happens twice.
 		// nb: DEAD_CATS.add is "addOnly"; returns false if already exists.
-		if ( numElims==0 && !DEAD_CATS.add(hint) )
-			throw new UnsolvableException("DeadCat: "+hint.toFullString());
+		if ( numElims==0 && !DEAD_CATS.add(hint) ) {
+			// tell-em it's rooted
+			Log.teeln("WARN: DEAD_CAT disabled "+hint.hinter.tech.name()+" "+hint.toFullString());
+			// disable the offender
+			hint.hinter.setIsEnabled(false);
+		}
 		return numElims;
 	}
 
@@ -1475,7 +1521,7 @@ if ( true ) {
 
 	public void prepare(Grid grid) {
 		if ( grid == null )
-			return;
+			return; // safety first!
 		if ( HintValidator.ANY_USES ) { // is anyone using the HintValidator?
 			if ( grid.solutionValues == null ) // expect null
 				solveQuicklyAndQuietly(grid); // sets grid.solutionValues

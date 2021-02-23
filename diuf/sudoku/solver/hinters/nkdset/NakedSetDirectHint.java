@@ -25,7 +25,6 @@ public final class NakedSetDirectHint extends AHint implements IActualHint {
 
 	private final List<Cell> nkdSetCellsList;
 	private final Values nkdSetValues;
-	private final Pots orangePots;
 	private final ARegion region;
 
 	public NakedSetDirectHint(
@@ -40,10 +39,10 @@ public final class NakedSetDirectHint extends AHint implements IActualHint {
 	) {
 		// this "Direct" hint is rendered INDIRECT so it's grouped with the
 		// other indirect hint types in the GUI's HintsTree; and it has redPots.
-		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots);
+		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots, null
+				, orangePots, null, Regions.list(region), null);
 		this.nkdSetCellsList = nkdSetCellsList;
 		this.nkdSetValues = nkdSetValues;
-		this.orangePots = orangePots;
 		this.region = region;
 	}
 
@@ -59,21 +58,6 @@ public final class NakedSetDirectHint extends AHint implements IActualHint {
 		return greenPots;
 	}
 	private Pots greenPots;
-
-	@Override
-	public Pots getOranges(int viewNum) {
-		return orangePots;
-	}
-
-	@Override
-	public Pots getReds(int viewNum) {
-		return redPots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(region);
-	}
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {

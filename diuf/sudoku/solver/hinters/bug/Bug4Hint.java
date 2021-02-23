@@ -68,11 +68,6 @@ public final class Bug4Hint extends ABugHint implements IActualHint {
 	}
 
 	@Override
-	public Pots getReds(int viewNum) {
-		return super.redPots;
-	}
-
-	@Override
 	public List<ARegion> getBases() {
 		return Regions.list(region);
 	}

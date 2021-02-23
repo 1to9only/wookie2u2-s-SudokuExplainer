@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
@@ -47,18 +48,23 @@ abstract class AAlsHinter extends AHinter
 	// the default rccs List capacity
 	protected static final int NUM_RCCS = 2000;
 
+	// DeathBlossom uses this to mark unused params; for self-doc'ing code.
+	protected static final boolean UNUSED = false;
+
 	// local references to constants
-	protected static final int[][] VALUESES = Values.ARRAYS;
-	protected static final int[] SIZE = Values.SIZE;
-	protected static final int[] SHFT = Values.SHFT;
+	protected static final int[][] VALUESES = Values.VALUESES;
+	protected static final int[] VSIZE = Values.VSIZE;
+	protected static final int[] VSHFT = Values.VSHFT;
 
 	/** include ALSs which overlap in my findHints method? */
 	protected final boolean allowOverlaps;
 	/** include ALSs which include cells that are part of a Locked Set? */
 	protected final boolean allowLockedSets;
+	/** should I run getRccs; false means I pass you rccs=null in findHints */
+	private final boolean findRCCs;
 	/** should getRccs do a fast forwardOnly search, or a full search? */
 	protected final boolean forwardOnly;
-	/** should getRccs populate startIndices and endIndices. */
+	/** should getRccs populate startIndices and endIndices */
 	private final boolean useStartAndEnd;
 
 	// inLockedSet[region][cell.i]: findLockedSets => recurseAlss when
@@ -89,6 +95,9 @@ abstract class AAlsHinter extends AHinter
 	 * region (ie treats the cell as if it were a set cell).
 	 * <br>HdkAlsXz and HdkAlsXyWing both use true
 	 * <br>HdkAlsXyChain uses false because locked sets bugger it up
+	 * @param findRCCs true for "normal" ALS-use, false for DeathBlossom.<br>
+	 * When false AAlsHinter does NOT run getRccs, so findHints rccs=null, and
+	 * the following two parameters (effecting getRccs) have no effect.
 	 * @param forwardOnly if true then getRccs does a faster forward-only
 	 * search of the ALS-list, but if false it does a full search of all the
 	 * possible combinations of ALSs.
@@ -99,14 +108,14 @@ abstract class AAlsHinter extends AHinter
 	 * <br>HdkAlsXz and HdkAlsXyWing both use false
 	 * <br>HdkAlsXyChain uses true because it's awkward
 	 */
-	public AAlsHinter(Tech tech, boolean allowOverlaps
-			, boolean allowLockedSets, boolean forwardOnly
-			, boolean useStartAndEnd) {
+	public AAlsHinter(Tech tech, boolean allowOverlaps, boolean allowLockedSets
+			, boolean findRCCs, boolean forwardOnly, boolean useStartAndEnd) {
 		super(tech);
 		this.allowOverlaps = allowOverlaps;
 		this.allowLockedSets = allowLockedSets;
 		// unused if allowLockedSets, else an array for each of the 27 regions
 		this.inLockedSet = allowLockedSets ? null : new boolean[27][];
+		this.findRCCs = findRCCs;
 		this.forwardOnly = forwardOnly;
 		this.useStartAndEnd = useStartAndEnd;
 	}
@@ -158,7 +167,12 @@ abstract class AAlsHinter extends AHinter
 		// get the Almost Locked Sets (N cells with N+1 values)
 		final Als[] alss = getAlss(grid, candidates);
 		// get the Restricted Common Candidates of those ALSs
-		final Rcc[] rccs = getRccs(alss);
+		// if my subclass said I should in my constructor
+		final Rcc[] rccs;
+		if ( findRCCs )
+			rccs = getRccs(alss); // for all ALS's
+		else
+			rccs = null; // for DeathBlossom
 		// call my sub-types ALS hint search: rummage the RCCs to see if any
 		// of them fit the pattern, and if so raise a hint and add it to accu.
 		return findHints(grid, candidates, rccs, alss, accu);
@@ -239,7 +253,7 @@ abstract class AAlsHinter extends AHinter
 			indices.add(cell.i);
 			maybes[N] = maybes[N-1] | cell.maybes.bits;
 			// it's an ALS if these N cells have N+1 maybes between them.
-			if ( SIZE[maybes[N]] == N+1 && (INCL_SINGLE_CELLS || N>1) )
+			if ( VSIZE[maybes[N]] == N+1 && (INCL_SINGLE_CELLS || N>1) )
 				alss.add(new Als(indices, maybes[N], region));
 			// continue recursion
 			if ( N < 8 )
@@ -256,7 +270,7 @@ abstract class AAlsHinter extends AHinter
 			final int n = region.emptyCellCount; // the size of the master set
 			Cell[] rEmptyCells = region.emptyCells(Grid.cas(n));
 			// for speed: unpack maybes.bits of empty cells into an array
-			final int[] maybeses = diuf.sudoku.Idx.iasA[n];
+			final int[] maybeses = diuf.sudoku.Idx.IAS_A[n];
 			for ( int i=0; i<n; ++i )
 				maybeses[i] = rEmptyCells[i].maybes.bits;
 			// an array of indices of cells in any lockedSet to be cached
@@ -265,11 +279,11 @@ abstract class AAlsHinter extends AHinter
 			// foreach setSize 2..emptyCellCount-1
 			for ( int ss=2; ss<n; ++ss ) // the current setSize
 				// foreach possible combo of ss cells in our n empty cells
-				for ( int[] perm : new Permutations(n, diuf.sudoku.Idx.iasB[ss]) ) {
+				for ( int[] perm : new Permutations(n, diuf.sudoku.Idx.IAS_B[ss]) ) {
 					maybes = 0;
 					for ( int i=0; i<ss; ++i )
 						maybes |= maybeses[perm[i]];
-					if ( SIZE[maybes] == ss )
+					if ( VSIZE[maybes] == ss )
 						// ss positions for ss values is a locked set.
 						for ( int i=0; i<ss; ++i )
 							// cooincident with Grid.cells
@@ -327,7 +341,7 @@ abstract class AAlsHinter extends AHinter
 				if ( als2 == als1 ) // reference equals OK
 					continue;
 				// see if the ALSs overlap (we need overlap later anyway)
-				overlap.setAnd(als1.set, als2.set);
+				overlap.setAnd(als1.idx, als2.idx);
 				if ( !allowOverlaps && overlap.any() )
 					continue; // overlaps are supressed
 				// set my rcc to null so that we can differentiate between the

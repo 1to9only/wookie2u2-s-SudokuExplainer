@@ -10,6 +10,7 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.GrabBag;
 import diuf.sudoku.solver.LogicalSolver;
@@ -87,7 +88,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * @return the solution Grid. */
 	public Grid buildRandomPuzzle(Random rnd) {
 		Grid solution = new Grid();
-		boolean success = recursiveSolve(solution, 1, false, rnd);
+		boolean success = recursiveSolve(solution, 1, false, rnd, false);
 		assert success;
 		return solution;
 	}
@@ -123,55 +124,13 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * @param grid the Sudoku grid
 	 * @return int the number of solutions to this puzzle (see above)
 	 */
-	public int countSolutions(Grid grid) {
+	public int countSolutions(Grid grid, boolean isNoisy) {
 		Grid grid1 = new Grid(grid);
-		if ( !doRecursiveSolve(grid1, FORWARDS) )
+		if ( !doRecursiveSolve(grid1, FORWARDS, isNoisy) )
 			return 0; // no solution
 		Grid grid2 = new Grid(grid);
-		doRecursiveSolve(grid2, BACKWARDS);
+		doRecursiveSolve(grid2, BACKWARDS, isNoisy);
 		return grid1.equals(grid2) ? 1 : 2; // 2 means 2-or-more.
-	}
-
-	/**
-	 * Quietly find the number of ways that this Sudoku grid can be solved.
-	 * <p>
-	 * See the {@link #countSolutions} method documentation.
-	 * <p>
-	 * Quietly means suppress {@code RecursiveAnalyser.countSolutions} logging
-	 * from {@code AHint.apply}, {@code Cell.set} and any/all other places
-	 * where stuff is logged from inside countSolutions. If you have a bug in
-	 * countSolutions then call the {@link countSolutionsNoisily} method in
-	 * place of countSolutions/Quietly, debug it, and then revert the call.
-	 *
-	 * @param grid the Sudoku grid
-	 * @return int the number of solutions to this puzzle (see above)
-	 */
-	public int countSolutionsQuietly(Grid grid) {
-		return wrapCountSolutions(grid, null, true);
-	}
-	/**
-	 * Noisily find the number of ways that this Sudoku grid can be solved.
-	 * <p>
-	 * See the {@link #countSolutions} method documentation.
-	 * <p>
-	 * Noisily means that logging inside RecursiveAnalyser is switched on.
-	 * This version of the method is used for <b>DEBUGGING ONLY!</b>.
-	 */
-	public int countSolutionsNoisily(Grid grid) {
-		return wrapCountSolutions(grid, LogicalSolverFactory.get(), false);
-	}
-	// wrap countSolutions to turn logging on/off
-	public int wrapCountSolutions(Grid grid, LogicalSolver ls, boolean stfu) {
-		LogicalSolver prevLS = GrabBag.setLogicalSolver(ls);
-		boolean prevSTFU = AHint.setShutThe____Up(stfu);
-		int result;
-		try {
-			result = countSolutions(grid);
-		} finally {
-			GrabBag.logicalSolver = prevLS;
-			AHint.SHUT_THE______UP = prevSTFU;
-		}
-		return result;
 	}
 
 	/**
@@ -197,19 +156,12 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	public Grid solveQuicklyAndQuietly(Grid grid) {
 		// Trixie: setting GrabBag.logicalSolver=null suppresses AHint.logHint
 		// within the doRecursiveSolve method, where it's just NOISE.
-		final LogicalSolver formerLS = GrabBag.setLogicalSolver(null);
-		final boolean formerSTFU = AHint.setShutThe____Up(true);
-		Grid solution; // a copy of the given Grid to solve
-		try {
-			solution = new Grid(grid);
-			if ( !doRecursiveSolve(solution, FORWARDS) )
-				throw new UnsolvableException("recursiveSolve failed. Puzzle is invalid (probable) or recursiveSolve is rooted again.");
-			// set the given grid's solution field to my solved copy
-			grid.solutionValues = solution.toValuesArray();
-		} finally {
-			GrabBag.logicalSolver = formerLS;
-			AHint.SHUT_THE______UP = formerSTFU;
-		}
+		// get a copy of the given Grid to solve
+		Grid solution = new Grid(grid);
+		if ( !doRecursiveSolve(solution, FORWARDS, false) )
+			throw new UnsolvableException("recursiveSolve failed. Puzzle is invalid (probable) or recursiveSolve is rooted again.");
+		// set the given grid's solution field to my solved copy
+		grid.solutionValues = solution.toValuesArray();
 		return solution;
 	}
 
@@ -255,9 +207,9 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 		System.out.println("...same...");
 }
 
-			if ( doRecursiveSolve(grid1, FORWARDS) ) {
+			if ( doRecursiveSolve(grid1, FORWARDS, false) ) {
 				Grid grid2 = new Grid(grid); // constructor rebuildsEverything
-				doRecursiveSolve(grid2, BACKWARDS);
+				doRecursiveSolve(grid2, BACKWARDS, false);
 				if ( grid2.equals(grid1) ) {
 					// the Sudoku is valid
 					// store the solution to this puzzle in the grid itself
@@ -281,7 +233,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 				// restore any missing maybes
 				grid1.rebuildMaybesAndS__t();
 				// if maybes were restored then solve it again Sam.
-				if ( !grid1.equals(grid) && doRecursiveSolve(grid1, BACKWARDS) ) {
+				if ( !grid1.equals(grid) && doRecursiveSolve(grid1, BACKWARDS, false) ) {
 					// Just missing some maybe/s, ie a cells solution value has
 					// been eliminated from its potential values, rendering the
 					// puzzle unsolvable.
@@ -307,13 +259,14 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	 * the sudoku has exactly one solution.
 	 * @param grid the grid to solve
 	 * @param isReverse whether to solve in reverse direction
+	 * @param isNoisy true to log, false to shut the ____ up.
 	 * @return <tt>true</tt> if the grid has been solved successfully
 	 * (in which case the grid is filled with the solution), or
 	 * <tt>false</tt> if the grid has no solution. */
-	private boolean doRecursiveSolve(Grid grid, boolean isReverse) {
+	private boolean doRecursiveSolve(Grid grid, boolean isReverse, boolean isNoisy) {
 		boolean isSolved;
 		try {
-			isSolved = recursiveSolve(grid, 1, isReverse, null);
+			isSolved = recursiveSolve(grid, 1, isReverse, null, isNoisy);
 		} catch (UnsolvableException unexpected) {
 			// from the top level of recursiveSolve, meaning that the puzzle
 			// is invalid somehow.
@@ -333,13 +286,13 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	 * puzzle.
 	 */
 	private boolean recursiveSolve(Grid grid, int depth, boolean isReverse
-			, Random rnd) {
+			, Random rnd, boolean isNoisy) {
 		assert depth < 81;
 		// hasMissingMaybes() || firstDoubledValue()!=0 || hasHomelessValues()
 		if ( grid.isInvalidated() )
 			return false;
 		// (1) Fill-in whatever you can logically (faster than just guessing)
-		if ( solveLogically(grid) )
+		if ( solveLogically(grid, isNoisy) )
 			return true;
 		// (2) Find the cell with the smallest number of potential values.
 		//     nb: the first cell with two potential values is returned, which
@@ -368,7 +321,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 				// nb: cell.set(... true) also sets any subsequent naked
 				//     or hidden singles, and may throw UnsolvableException
 				leastCell.set(values[i], 0, true, null); // Grid.AUTOSOLVE
-				if ( recursiveSolve(grid, depth+1, isReverse, rnd) )
+				if ( recursiveSolve(grid, depth+1, isReverse, rnd, isNoisy) )
 					return true;
 			} catch (UnsolvableException meh) {
 				// guessed wrong, so guess again.
@@ -423,7 +376,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	/** (1) Fill all naked and hidden singles.
 	 * Again, not necessary in theory (pure brute-force will suffice), but
 	 * some 17-clued Sudoku would require (too?) many iterations without. */
-	private boolean solveLogically(Grid grid) {
+	private boolean solveLogically(Grid grid, boolean isNoisy) {
 		// localise fields for speed
 		final HintsApplicumulator myApcu = apcu;
 		final IAccumulator myAccu = accu;
@@ -452,7 +405,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 				if ( hinter.findHints(grid, myAccu) // throws UnsolvableException
 				  && (hint=myAccu.getHint()) != null
 				  && (any|=true)
-				  && hint.apply(true) > 0 // Grid.AUTOSOLVE // throws UnsolvableException
+				  && hint.apply(true, isNoisy) > 0 // Grid.AUTOSOLVE // throws UnsolvableException
 				  && grid.isFull() )
 					return true;
 		} while ( any );
@@ -483,7 +436,6 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	 * Note that isReverse has no effect when rnd!=null. */
 	private int[] getValuesToGuess(Cell leastCell, Random rnd
 			, boolean isReverse) {
-		final int[] SHFT = Values.SHFT;
 		final int maybesBits = leastCell.maybes.bits;
 		// nb: values is a new array, or we need a big cache! So I tried a big
 		// cache, but it was SLOWER than new, and I can't figure out WHY!?!?
@@ -497,14 +449,14 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 		if ( rnd == null ) {
 			// populate 'values' array with the cells maybes (potential values)
 			for ( count=0, v=start; v!=stop; v+=delta )
-				if ( (maybesBits & SHFT[value=v+1]) != 0 )
+				if ( (maybesBits & VSHFT[value=v+1]) != 0 )
 					values[count++] = value;
 		} else {
 			// random generator given so combine with a random value.
 			int randomValue = rnd.nextInt(9); // a random start point
 			for ( count=0, v=start; v!=stop; v+=delta ) {
 				value = ((v+randomValue) % 9) + 1;
-				if ( (maybesBits & SHFT[value]) != 0 )
+				if ( (maybesBits & VSHFT[value]) != 0 )
 					values[count++] = value;
 			}
 			// Shuffle the values into random order before returning them.

@@ -9,10 +9,14 @@ package diuf.sudoku.solver.hinters.nkdset;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.FIRST_INDEX;
+import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.ALL_BITS;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -39,13 +43,13 @@ public final class NakedSet
 	private static final String ChainersHintsAccumulatorName =
 		ChainersHintsAccumulator.class.getCanonicalName();
 
-	private final int[] thePA; // for Permutations
+	private final int[] thePA; // the Permutations Array
 	private final Cell[] candidateCells = new Cell[9];
 
 	public NakedSet(Tech tech) {
 		super(tech);
 		assert degree>=2 && degree<=5; // Pair, Triple, Quad, Pent
-		this.thePA = new int[degree]; // for Permutations
+		this.thePA = new int[degree]; // the Permutations Array
 	}
 
 //	@Override
@@ -61,10 +65,13 @@ public final class NakedSet
 	}
 
 	/**
+	 * <pre>
 	 * For each region: find $degree cells which maybe $degree potential values.
 	 * IE seek 2 cells which have the same 2 potential values;
 	 * OR seek 3 cells whose combined maybes number just 3;
 	 * OR seek 4 cells which can only be these 4 values (ie 1 each).
+	 * </pre>
+	 *
 	 * @return was a hint/s found?
 	 */
 	@Override
@@ -94,11 +101,12 @@ public final class NakedSet
 	}
 
 	/**
-	 * Strap in, this one's weird. The Locking hinter has a habit of
- finding Naked Pairs and Naked Triples, but the "Locking" algorithms find
- only a subset of the possible eliminations, so he needs a way of asking
- NakedSet "Is this a NakedSet? And if so can you do the eliminations for
- me, because that's your specialty?"... and this method is how he asks.
+	 * Strap in, this one's weird. The Locking hinter has a habit of finding
+	 * Naked Pairs/Triples, but Locking finds only a subset of the possible
+	 * eliminations, so Locking asks NakedSet.search "Is this a NakedSet?
+	 * And if so please do the eliminations for me, coz that's your gig?";
+	 * and also does the "normal" search.
+	 *
 	 * @param r
 	 * @param grid
 	 * @param accu
@@ -106,8 +114,6 @@ public final class NakedSet
 	 */
 	public boolean search(ARegion r, Grid grid, IAccumulator accu) {
 		// localise everything for speed
-		final int[] SIZE = Values.SIZE;
-		final int[] ISHFT = Indexes.SHFT;
 		final int degreePlus1 = this.degreePlus1;
 		final int degree = this.degree;
 		final Cell[] candi = this.candidateCells;
@@ -116,19 +122,16 @@ public final class NakedSet
 		int i, n, card, nkdSetValsBits, nkdSetIdxBits;
 		// presume failure, ie that no hint will be found
 		boolean result = false;
-
-		// We need 3 empty cells in the region for a Naked Pair to do any
-		// good: 2 in the Pair and atleast 1 other to remove maybes from.
+		// we need 3 empty cells in the region for a Naked Pair to do any good:
+		// 2 in the Pair, plus atleast 1 other to remove maybes from.
 		if ( r.emptyCellCount < degreePlus1 )
 			return false;
 		// candidates := region.cells with 2..$degree maybes
 		n = 0; // number of candidate cells
-		for ( Cell cell : r.cells ) {
-			card = cell.maybes.size;
-			if ( card>1 && card<degreePlus1 )
+		for ( Cell cell : r.cells )
+			if ( (card=cell.maybes.size)>1 && card<degreePlus1 )
 				candi[n++] = cell;
-		}
-		if ( n < degree ) // 2 cells required for a naked pair
+		if ( n < degree ) // 2 cells for a naked pair, 3 for triple, 4 for quad
 			return false;
 		// foreach combination of $degree cells among the candidate cells
 		for ( int[] perm : new Permutations(n, thePA) ) {
@@ -136,12 +139,12 @@ public final class NakedSet
 			nkdSetValsBits = 0;
 			for ( i=0; i<degree; ++i )
 				nkdSetValsBits |= candi[perm[i]].maybes.bits;
-			if ( SIZE[nkdSetValsBits] != degree )
+			if ( VSIZE[nkdSetValsBits] != degree )
 				continue;
 			//
-			// Yeah! We found a Naked Set, but does it remove any maybes?
+			// Yeah! Naked Set found, but does it remove any maybes?
 			//
-			// But first create a bitset of the positions of the naked set
+			// but first create a bitset of the positions of the naked set
 			// cells in the region.cells array, to pass to the methods.
 			nkdSetIdxBits = 0;
 			for ( i=0; i<degree; ++i )
@@ -183,7 +186,7 @@ public final class NakedSet
 		Pots reds = null;
 		Cell sib;
 		// foreach cell (sib) in the region except the-naked-set-cells
-		for ( int i : Indexes.ARRAYS[Indexes.ALL_BITS & ~nkdSetIdxBits] )
+		for ( int i : INDEXES[ALL_BITS & ~nkdSetIdxBits] )
 			if ( ((sib=region.cells[i]).maybes.bits & nkdSetValsBits) != 0 ) {
 				// sib maybe any nkdSetValue
 				if(reds==null) reds = new Pots(9-degree, 1F);
@@ -261,63 +264,55 @@ public final class NakedSet
 		return any;
 	}
 
-	// If this Naked Set causes any sibling-cells maybes to be "stripped naked"
-	// (ie down to 1 potential value) then create a Direct hint and return it.
+	// If this NakedSet strips any victim "naked" (ie down to 1) then
+	// create a Direct hint and return it; else null.
 	private AHint searchForSubsequentNakedSingle(Grid grid, ARegion region
 			, int nkdSetValsBits, int nkdSetIdxBits) {
 		assert tech.isDirect;
-		final int[] SIZE = Values.SIZE;
-		final int[] FIRST_INDEX = Indexes.NUM_TRAILING_ZEROS;
 		Cell sib;  int redBits;
 		// foreach cell in the region EXCEPT the cells in this naked set
-		for ( int i : Indexes.ARRAYS[Indexes.ALL_BITS & ~nkdSetIdxBits] ) {
+		for ( int i : INDEXES[ALL_BITS & ~nkdSetIdxBits] )
 			// skip if sib doesn't have $degreePlus1 maybes
-			if ( (sib=region.cells[i]).maybes.size != degreePlus1 )
-				continue;
-			// if the cell has the nkdSetValues plus ONE other
-			if ( SIZE[redBits=sib.maybes.bits & ~nkdSetValsBits] == 1 ) {
+			if ( (sib=region.cells[i]).maybes.size == degreePlus1
+			  // if sib has the nkdSetValues plus ONE other
+			  && VSIZE[redBits=sib.maybes.bits & ~nkdSetValsBits] == 1 )
 				// then we can create the hint and add it to the accumulator
-				return createNakedSetDirectHint(
-					  grid, region, sib //cellToSet
-					, FIRST_INDEX[redBits]+1 //valueToSet
-					, nkdSetIdxBits //nkdSetIdxBits
-					, nkdSetValsBits //nkdSetValsBits
+				return createNakedSetDirectHint(grid, region
+					, sib						// cellToSet
+					, FIRST_INDEX[redBits]+1	// valueToSet
+					, nkdSetIdxBits				// nkdSetIdxBits
+					, nkdSetValsBits			// nkdSetValsBits
 				);
-			}
-		}
 		return null;
 	}
 
 	// NB: This method is called in DIRECT mode only (ie only in the GUI)
-	// so performance isn't and issue.
+	// only when creating a hint, so performance isn't really and issue.
 	private AHint createNakedSetDirectHint(Grid grid, ARegion region
 			, Cell cellToSet, int valueToSet, int nkdSetIdxBits
 			, int nkdSetValsBits) {
 		assert tech.isDirect;
 		// build removable (red) potentials
-		Pots redPots = new Pots(9-degree, 1F);
+		Pots reds = new Pots(9-degree, 1F);
 		// foreach cell in the region EXCEPT the naked set cells
-		Cell sib;
-		for ( int i : Indexes.ARRAYS[Indexes.ALL_BITS & ~nkdSetIdxBits] )
+		Cell sib;  int redBits; // bitset of values to remove from sib
+		for ( int i : INDEXES[ALL_BITS & ~nkdSetIdxBits] )
 			// if sib maybe any of the naked set values
-			if ( ((sib=region.cells[i]).maybes.bits & nkdSetValsBits) != 0 )
-				redPots.put(sib, sib.maybes.intersectBits(nkdSetValsBits));
-		assert !redPots.isEmpty();
+			if ( (redBits=(sib=region.cells[i]).maybes.bits & nkdSetValsBits) != 0 )
+				reds.put(sib, new Values(redBits, false));
+		assert !reds.isEmpty();
 		// claim the NakedSet values from the other common region (if any)
-		List<Cell> ndkSetCellsList = region.atNewArrayList(nkdSetIdxBits);
-		ARegion ocr = grid.otherCommonRegion(ndkSetCellsList, region);
+		List<Cell> ndkSetCells = region.atNewArrayList(nkdSetIdxBits);
+		ARegion ocr = grid.otherCommonRegion(ndkSetCells, region);
 		if ( ocr != null )
-			claimFrom(ocr.otherThan(ndkSetCellsList), nkdSetValsBits, redPots);
-		Pots orangePots = new Pots();
-		for ( Cell cell : ndkSetCellsList )
-			orangePots.put(cell, new Values(cell.maybes));
+			claimFrom(ocr.otherThan(ndkSetCells), nkdSetValsBits, reds);
+		Pots oranges = new Pots();
+		for ( Cell cell : ndkSetCells )
+			oranges.put(cell, new Values(cell.maybes));
 		// build the hint
-		return new NakedSetDirectHint(
-			  this, cellToSet, valueToSet, ndkSetCellsList
+		return new NakedSetDirectHint(this, cellToSet, valueToSet, ndkSetCells
 			, new Values(nkdSetValsBits, degree, false) // nkdSetValues
-			, orangePots
-			, redPots, region
-		);
+			, oranges, reds, region);
 	}
 
 }

@@ -25,66 +25,35 @@ import java.util.Set;
 public class TwoStringKiteHint extends AHint {
 
 	private final int redValue;
-	private final List<ARegion> bases;
-	private final List<ARegion> covers;
-	private final Pots orangePots;
-	private final Pots bluePots;
 	private final Cell[] rowPair;
 	private final Cell[] colPair;
 	public TwoStringKiteHint(AHinter hinter, int value, List<ARegion> bases
 			, List<ARegion> covers, Pots orangePots, Pots bluePots, Pots redPots
 			, Cell[] rowPair, Cell[] colPair) {
-		super(hinter, redPots);
+		// nb: what are normally greens are oranges here
+		super(hinter, redPots, null, orangePots, bluePots, bases, covers);
 		this.redValue = value;
-		this.bases = bases;
-		this.covers = covers;
-		this.orangePots = orangePots;
-		this.bluePots = bluePots;
 		this.rowPair = rowPair;
 		this.colPair = colPair;
 	}
 
 	@Override
 	public Set<Grid.Cell> getAquaCells(int unusedViewNum) {
-		return orangePots.keySet();
-	}
-
-	@Override
-	public Pots getOranges(int unusedViewNum) {
-		return orangePots;
-	}
-
-	@Override
-	public Pots getReds(int unusedViewNum) {
-		return redPots;
-	}
-
-	@Override
-	public Pots getBlues(Grid gridUnused, int viewNum) {
-		return bluePots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return bases;
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return covers;
+		// nb: what are normally greens are oranges here
+		return oranges.keySet();
 	}
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		return "Look for a " + getHintTypeName()
-			+ (isBig ? " on "+Frmt.and(new Values(orangePots.values())) : "");
+			+ (isBig ? " on "+Frmt.and(new Values(oranges.values())) : "");
 	}
 
 	@Override
 	public String toStringImpl() {
 		StringBuilder sb = Frmt.getSB();
 		sb.append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(orangePots.keySet()))
+		  .append(": ").append(Frmt.csv(oranges.keySet()))
 		  .append(" on ").append(Integer.toString(redValue));
 		return sb.toString();
 	}

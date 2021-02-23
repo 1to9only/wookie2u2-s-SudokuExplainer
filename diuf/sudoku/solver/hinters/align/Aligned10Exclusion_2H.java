@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -108,10 +109,7 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
 		// that are packed into your maybes.bits 0..511. See Values for more.
-		final int[][] SVS = Values.SHIFTED;
-
-		// Integer.bitCount of the bitsets 0..511
-		final int[] SIZE = Values.SIZE;
+		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
 		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
@@ -389,7 +387,7 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 												avb0=avb1=avb2=avb3=avb4=avb5=avb6=avb7=avb8=avb9 = 0;
 
 												// should we test if 3/4/5/6/7 values cover ceb0
-												ces0 = SIZE[ceb0=cmnExclBits[0]];
+												ces0 = VSIZE[ceb0=cmnExclBits[0]];
 												do30 = ces0 <= 3;
 												do40 = ces0 <= 4;
 												do50 = ces0 <= 5;
@@ -607,7 +605,7 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 													// we still don't need a common excluders loop
 													//  w/o HitSet: 2 = 330,048 of 385,289 = 85.66%
 													// with HitSet: 2 = 8 of 8 = 100.00%
-													ces1 = SIZE[ceb1=cmnExclBits[1]];
+													ces1 = VSIZE[ceb1=cmnExclBits[1]];
 													do31 = ces1 <= 3;
 													do41 = ces1 <= 4;
 													do51 = ces1 <= 5;

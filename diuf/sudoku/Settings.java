@@ -485,6 +485,15 @@ public final class Settings implements Cloneable {
 	//			succinct class using hobiwans stack iteration technique twice:
 	//			once for cells, and again for vals.
 	//			Last top1465 12:43 with A234E A5E correct and A678910E hacked.
+	// 6.30.103 2021-01-01 15:17:43 Release "wing2" package with WXYZWing,
+	//			UVWXYZWing, and TUVWXYZWing boosted from Sukaku, by Nicolas
+	//          Juillerat (the original authors rewrite of Sudoku Explainer)
+	//			who boosted them from SudokuMonster.
+	// 6.30.104 2021-01-06 19:06:44 I'm releasing just to clean-up the logs.
+	//			I've implemented SueDeCoq in the als package, and also tried
+	//			but failed at DeathBlossom. 
+	// 6.30.105 2021-01-12 10:05:45 Ship SueDeCoq. Failed at DeathBlossom.
+	//			Last top1465 3:04 is OK.
 
 	// To Build:
 	// 1. search for @check and fix any settings you've changed
@@ -519,8 +528,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.102";
-	public static final String BUILT = "2020-12-17 06:03:42";
+	public static final String VERSION = "6.30.105";
+	public static final String BUILT = "2021-01-06 19:06:44";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

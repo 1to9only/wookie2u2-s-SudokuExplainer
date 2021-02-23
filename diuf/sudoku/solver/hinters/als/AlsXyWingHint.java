@@ -6,7 +6,6 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
@@ -26,10 +25,6 @@ import java.util.Set;
  */
 public class AlsXyWingHint extends AHint {
 
-	private final Pots orangePots;
-	private final Pots bluePots; // common candidates
-	private final List<ARegion> bases;
-	private final List<ARegion> covers;
 	private final Als a;
 	private final Als b;
 	private final Als c;
@@ -44,11 +39,8 @@ public class AlsXyWingHint extends AHint {
 			, Als a, Als b, Als c
 			, int x, int y, String z
 	) {
-		super(hinter, redPots);
-		this.orangePots = orangePots;
-		this.bluePots = bluePots;
-		this.bases = bases;
-		this.covers = covers;
+		// nb: what are normally greens are oranges here.
+		super(hinter, redPots, null, orangePots, bluePots, bases, covers);
 		this.a = a;
 		this.b = b;
 		this.c = c;
@@ -59,32 +51,8 @@ public class AlsXyWingHint extends AHint {
 
 	@Override
 	public Set<Cell> getAquaCells(int viewNumUnused) {
-		return orangePots.keySet();
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return bases;
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return covers;
-	}
-
-	@Override
-	public Pots getOranges(int viewNumUnused) {
-		return orangePots; // note that our only greens are the oranges
-	}
-
-	@Override
-	public Pots getReds(int viewNumUnused) {
-		return redPots;
-	}
-
-	@Override
-	public Pots getBlues(Grid gridUnused, int viewNumUnused) {
-		return bluePots; // common candidates
+		// nb: what are normally greens are oranges here.
+		return oranges.keySet();
 	}
 
 	@Override

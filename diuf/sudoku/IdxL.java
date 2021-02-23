@@ -41,9 +41,9 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public IdxL clone() throws CloneNotSupportedException {
+	public IdxL clone() {
 		IdxL copy = (IdxL)super.clone();
-		copy.isLocked = isLocked;
+		copy.isLocked = false; // you clone an Idx BECAUSE it's locked!
 		return copy;
 	}
 
@@ -156,9 +156,9 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public void orAnd(Idx s1, Idx s2) {
+	public boolean orAndAny(Idx s1, Idx s2) {
 		checkLock();
-		super.orAnd(s1, s2);
+		return super.orAndAny(s1, s2);
 	}
 
 	@Override
@@ -221,6 +221,12 @@ public class IdxL extends Idx implements Cloneable {
 	public Idx andNot(Idx other) {
 		checkLock();
 		return super.andNot(other);
+	}
+
+	@Override
+	public boolean andNotAny(Idx other) {
+		checkLock();
+		return super.andNotAny(other);
 	}
 
 	@Override

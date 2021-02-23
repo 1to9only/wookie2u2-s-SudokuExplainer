@@ -67,9 +67,9 @@ public interface IAccumulator {
 	 * validation.
 	 * 
 	 * @param hints the hint to add
-	 * @return has this collection changed, ie !hints.size()==0.
+	 * @return has this collection changed, ie hints.size()>0.
 	 */
-	public boolean addAll(Collection<AHint> hints);
+	public boolean addAll(Collection<? extends AHint> hints);
 
 	/**
 	 * Removes and returns the next hint, as per a pollable set.

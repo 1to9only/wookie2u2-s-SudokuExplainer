@@ -10,9 +10,15 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.FIRST_INDEX;
+import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.ALL_BITS;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Permutations;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -85,8 +91,6 @@ public final class HiddenSet extends AHinter {
 			return false;
 
 		// localise everything for speed
-		final int[] SIZE = Values.SIZE;
-		final int[] SHFT = Values.SHFT;
 		final int degree = this.degree;
 		final int[] thePA = this.thePA;
 		Pots redPots;
@@ -108,7 +112,7 @@ public final class HiddenSet extends AHinter {
 			hdnSetIdx = 0;
 			for ( i=0; i<degree; ++i )
 				hdnSetIdx |= rio[candidateValues[perm[i]]].bits;
-			if ( SIZE[hdnSetIdx] != degree )
+			if ( VSIZE[hdnSetIdx] != degree )
 				continue; // there aren't degree positions for degree values
 
 //// KRC BUG 2020-08-20 888#top1465.d5.mt apply canNotBeBits UnsolvableException
@@ -129,7 +133,7 @@ public final class HiddenSet extends AHinter {
 			// previously because the hit-rate is too for it to pay-off.
 			hdnSetMaybes = 0;
 			for ( i=0; i<degree; ++i )
-				hdnSetMaybes |= SHFT[candidateValues[perm[i]]];
+				hdnSetMaybes |= VSHFT[candidateValues[perm[i]]];
 
 			// build the removable (red) potentials, to see if there are any.
 			if ( (redPots=reds(r, hdnSetMaybes, hdnSetIdx)) == null )
@@ -156,7 +160,7 @@ public final class HiddenSet extends AHinter {
 	private Pots reds(ARegion r, int hdnSetMaybes, int hdnSetIdx) {
 		Pots redPots=null;  Cell cell;  int redBits;
 		// foreach index-of-a-cell-in-the-hidden-set
-		for ( int i : Indexes.ARRAYS[hdnSetIdx] )
+		for ( int i : INDEXES[hdnSetIdx] )
 			// redBits := cell.maybes.bits - hdnSetValuesBits
 			if ( (redBits=((cell=r.cells[i]).maybes.bits & ~hdnSetMaybes)) != 0 ) {
 //if ( tech == Tech.HiddenTriple
@@ -179,7 +183,7 @@ public final class HiddenSet extends AHinter {
 		// build the highlighted (green) Cell=>Values
 		final Pots greenPots = new Pots();
 		Cell cell;
-		for ( int i : Indexes.ARRAYS[hdnSetIdx] )
+		for ( int i : INDEXES[hdnSetIdx] )
 			greenPots.put((cell=region.cells[i])
 					, cell.maybes.intersect(hdnSetValues));
 
@@ -211,14 +215,12 @@ public final class HiddenSet extends AHinter {
 //	diuf.sudoku.utils.Debug.breakpoint();
 
 		// figure-out if my eliminations result in a hidden single
-		final int[] SIZE = Values.SIZE;
-		final int[] FIRST_INDEX = Indexes.NUM_TRAILING_ZEROS;
 		final Indexes[] riv = region.indexesOf;
 		int bits;
 		// foreach value EXCEPT the hiddenSetValues
-		for ( int v : Values.ARRAYS[Values.ALL_BITS & ~hdnSetMaybes] ) {
+		for ( int v : VALUESES[ALL_BITS & ~hdnSetMaybes] ) {
 			// means: region.idxsOf[v].minus(hdnSetIdxBits).size == 1
-			if ( SIZE[bits=riv[v].bits & ~hdnSetIdx] == 1 ) // zero garbage
+			if ( VSIZE[bits=riv[v].bits & ~hdnSetIdx] == 1 ) // zero garbage
 				// the aligned set causes a Hidden Single
 				return new HiddenSetDirectHint(
 					  this, cells, hdnSetValues, greenPots, redPots, region, v

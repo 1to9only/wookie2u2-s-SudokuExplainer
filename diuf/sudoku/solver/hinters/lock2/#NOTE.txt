@@ -1,0 +1,27 @@
+The classes in the lock2 package were boosted from the latest Sukaku by Nicolas
+Juillerat, into Sudoku Explainer by Keith Corlett in Jan 2021.
+
+I believe LockingGen originates from SudokuMonster, which is yet another open
+source Sudoku solver. Sukaku called this class VLocking, a name which makes no
+sense to me, so I renamed it LockingGen as in LockingGeneralised; which is what
+it does: both Pointing and Claiming hints, and also supports additional region
+types (which I do not have, or want). sigh.
+
+I've retained this technique but "refined" how it works: the original code was
+inefficient. My implementation first gets all cells in the grid which maybe
+value, and retainsAll those seen by each cell, noting the that cell.visible()
+purposely excludes the cell itself. The I am not my own sibling rule. sigh. 
+
+Then the original removed each given cell, which is NEVER there! and then
+added a removable potential for each cell which maybe value; where-as I started
+with them, so I create a Cell=>Value map of all remaining.
+
+So yeah, mines a bit more efficient WITH getMaybes caching; without the cache
+original probably faster, coz you'd have to get cells in grid which maybe value
+atleast 27 times more often. sigh.
+
+Also: Mine just adds a red for each remaining cell. Mine also doesn't create a
+new Pots (HashMap) unless it's going to actually be used! Mine also creates ONE
+BitIdx to use as victims. The original creates one for each search, ie up to
+27 regions times 9 values is 243 times more BitIdx's. He's hammering the GC!
+Reduce. Re-use. Re-cycle. The GC is a recycler! We MUST reduce waste!

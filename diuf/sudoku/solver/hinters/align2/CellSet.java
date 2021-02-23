@@ -11,15 +11,10 @@ import java.util.Collection;
 
 
 /**
- * CellSet is just an alias to allow us to swap-out LinkedMatrixCellSet.
- * LinkedMatrixCellSet has O(1) contains & remove, + fast iterator;
- * at the expense of more memory and therefore slow construction, ergo:
- * <tt>2,432,277,297 ns / 771,672 = 3,151 each for top1465</tt>.
- * <p>KRC 2019-09-04 exhumed from AlignedTripleExlusion for use in
- * AlignedPairExlusiion, AlignedSetExclusion, and  AlignedPentExclusion
- * (currently deceased).
- * <p>KRC 2019-09-10 had to make CellSet public to use it in the Debug class.
- * <p>KRC 2020-12-10 copied over to new align2 package that'll replace align.
+ * CellSet is just an alias to allow us to swap between LinkedMatrixCellSet
+ * and the other implementation of {@code Set<Cell>} whose name currently
+ * alludes me.
+ *
  * @author Keith Corlett
  */
 public class CellSet extends LinkedMatrixCellSet {
@@ -51,10 +46,10 @@ public class CellSet extends LinkedMatrixCellSet {
 	}
 
 	/**
-	 * Returns a string, seperated by sep, of the ID's of the cells in this
+	 * Returns a string, separated by sep, of the ID's of the cells in this
 	 * CellSet.
 	 * @param sep
-	 * @return 
+	 * @return
 	 */
 	String toFullString(String sep) {
 		Node n = head;

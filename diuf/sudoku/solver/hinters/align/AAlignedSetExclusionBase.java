@@ -14,6 +14,9 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.ALL_BITS;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -860,7 +863,7 @@ public abstract class AAlignedSetExclusionBase
 		assert numCmnExclBits>0 && allMaybesBits!=0;
 		// if allBits is all potential values then we're done, because no
 		// reduction of common excluders will be possible.
-		if ( allMaybesBits == Values.ALL_BITS )
+		if ( allMaybesBits == ALL_BITS )
 			return numCmnExclBits; // never occurs. Never say never.
 		// subtract allBits from each common excluders maybes, and if there
 		// are any left-overs then we remove that excluder.
@@ -949,7 +952,7 @@ public abstract class AAlignedSetExclusionBase
 //	 */
 //	protected static int disuselessenate(final int[] cmnExclBits, final int numCmnExclBits,
 //			final int allMaybesBits, final int... maybeses) {
-//		final int[][] SVS = Values.SHIFTED;
+//		final int[][] SVS = SHIFTED;
 //		int n = numCmnExclBits;
 //		int ceb;
 //		int i = 0;
@@ -1004,7 +1007,7 @@ public abstract class AAlignedSetExclusionBase
 //	private static boolean recursiveCoversAny(final int ceb, final int[] maybeses) {
 //		if ( ceb == 0 ) // common excluder bits is covered by these maybeses
 //			return true;
-//		final int[][] SVS = Values.SHIFTED;
+//		final int[][] SVS = SHIFTED;
 //		for ( int m=0,M=maybeses.length; m<M; ++m )
 //			for ( int collision : SVS[ceb & maybeses[m]] ) {
 //				// pre check this just so we don't call except to create a new
@@ -1069,7 +1072,6 @@ public abstract class AAlignedSetExclusionBase
 	 * Never null or empty.
 	 */
 	protected static Pots createRedPotentials(Cell[] cells, int... avbs) {
-		final int[][] VALUESES = Values.ARRAYS;
 		int i,n, bits; // index, bits, value
 		Pots redPots = new Pots();
 		// foreach candidate cell in this aligned set
@@ -1095,7 +1097,6 @@ public abstract class AAlignedSetExclusionBase
 	 * @return the number of values common to siblings.
 	 */
 	protected static int countCollisions(Cell[] cells) {
-		final int[] SIZE = Values.SIZE;
 		final int n = cells.length;
 		int sib=0, col=0, mbs=0;
 		Cell ci, cj;
@@ -1106,7 +1107,7 @@ public abstract class AAlignedSetExclusionBase
 				cj = cells[j];
 				if ( !ci.notSees[cj.i] ) {
 					++sib;
-					col += SIZE[ci.maybes.bits & cj.maybes.bits];
+					col += VSIZE[ci.maybes.bits & cj.maybes.bits];
 				}
 			}
 		}
@@ -1125,12 +1126,11 @@ public abstract class AAlignedSetExclusionBase
 	 * @return
 	 */
 	protected static int countHits(int[] cmnExclBits, int numCmnExclBits, Cell[] cells) {
-		final int[] SIZE = Values.SIZE;
 		int bits, i, hitCnt = 0;
 		for ( Cell cell : cells ) {
 			bits = cell.maybes.bits;
 			for ( i=0; i<numCmnExclBits; ++i )
-				hitCnt += SIZE[cmnExclBits[i] & bits];
+				hitCnt += VSIZE[cmnExclBits[i] & bits];
 		}
 		return hitCnt;
 	}
@@ -1226,7 +1226,6 @@ public abstract class AAlignedSetExclusionBase
 		 */
 		void set(Cell[] cells, int[] cmnExclBits, int numCmnExclBits) {
 			// local all field references for speed
-			final int[] SIZE = Values.SIZE;
 			int[] myScores = this.scores;
 			// create my variables
 			final int m = cells.length - 1; // m is the one before n
@@ -1245,7 +1244,7 @@ public abstract class AAlignedSetExclusionBase
 					if ( !aIsNotSiblingOf[(b=cells[j]).i] ) {
 //						++sibCnt;
 						// score = 4 for each value that a & b have in common
-						score = SIZE[bits & b.maybes.bits] << 2;
+						score = VSIZE[bits & b.maybes.bits] << 2;
 						// add score to both a & b, because each sibling
 						// relationship is counted only once.
 						myScores[ai] += score;
@@ -1264,7 +1263,7 @@ public abstract class AAlignedSetExclusionBase
 				// add 2 for each collision with cmnExclBits
 				bits = cell.maybes.bits;
 				for ( int i=0; i<numCmnExclBits; ++i )
-					score += SIZE[bits & cmnExclBits[i]] << 1;
+					score += VSIZE[bits & cmnExclBits[i]] << 1;
 				// set my local variables
 				myScores[cell.i] = score;
 //				ttlSc += score;

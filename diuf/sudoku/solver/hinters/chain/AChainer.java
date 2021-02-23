@@ -19,9 +19,13 @@ import diuf.sudoku.solver.accu.AggregatedHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.Ass.Cause;
+import static diuf.sudoku.Indexes.FIRST_INDEX;
+import static diuf.sudoku.Indexes.ISHFT;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.solver.hinters.ICleanUp;
-import diuf.sudoku.solver.hinters.als.HintValidator;
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMySet;
 import diuf.sudoku.utils.FunkyAssSet;
@@ -294,15 +298,15 @@ public abstract class AChainer
 		if ( isYChain ) { // Y-Chain: look for consequent naked singles
 			final int ovb; // otherValuesBits
 			// nb: "empty test" for dynamic mode where grid has naked singles
-			if ( (ovb=cell.maybes.bits & ~Values.SHFT[value]) != 0 )
-				for ( int v : Values.ARRAYS[ovb] )
+			if ( (ovb=cell.maybes.bits & ~VSHFT[value]) != 0 )
+				for ( int v : VALUESES[ovb] )
 					effects.add(new Ass(cell, v, false, anOn, Cause.NakedSingle
 							, "the cell can contain only one value"));
 		}
 		// Rule 2: X-Chain: other possible positions for value get "off"ed.
 		// NB: done this way because we need to know which region we're in;
 		// and it is faster to "repeat" the "same" code three times. YMMV.
-		final int sv = Values.SHFT[value]; // shiftedValue
+		final int sv = VSHFT[value]; // shiftedValue
 		for ( Cell sib : cell.box.cells )
 			if ( (sib.maybes.bits & sv)!=0 && sib!=cell )
 				effects.add(new Ass(sib, value, false, anOn, cell.box.cause
@@ -376,7 +380,6 @@ public abstract class AChainer
 		assert !anOff.isOn;
 		assert isXChain || isYChain;
 		assert effects.isEmpty();
-		final int[] FIRST_INDEX = Indexes.NUM_TRAILING_ZEROS;
 		final Cell cell = anOff.cell;
 		boolean result = false;
 
@@ -397,7 +400,6 @@ public abstract class AChainer
 		// the region then the other position gets "on"ed.
 		if ( !isXChain )
 			return result;
-		final int[] ISHFT = Indexes.SHFT; // ~(1<<i)
 		final int value = anOff.value; // the value of the initial "off" Ass
 		ARegion region;
 		Cell otherCell;
@@ -418,7 +420,7 @@ public abstract class AChainer
 			//   a method which calls 1-or-2 methods, each calling a method,
 			//   which is all a bit slow Redge, so we do it inline instead.
 			// HAMMERED: top1465 ACCURACY: 209,704,756 iterations
-			// FYI: Created Cell.indexIn and Indexes.NUM_TRAILING_ZEROS
+			// FYI: Created Cell.indexIn and Indexes.FIRST_INDEX
 			//   especially for this, then promulgated them both everywhere.
 			// (1) region.idxsOf[value] - cell.idxInRegion[rti]
 			i = (currBits=region.indexesOf[value].bits)
@@ -479,7 +481,7 @@ public abstract class AChainer
 		final Values redVals;
 		if ( target.isOn ) { // target is an "On"
 			// chaining a NakedSingle nulled all my pinkBits! Hmmm.
-			if ( target.cell.maybes.bits == Values.SHFT[target.value] )
+			if ( target.cell.maybes.bits == VSHFT[target.value] )
 				return null; // I don't think this ever happens
 			// NB: target is an "On" -> all other cells potential values
 			redVals = target.cell.maybes.minus(target.value);

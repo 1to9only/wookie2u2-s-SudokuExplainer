@@ -12,6 +12,7 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -189,12 +190,6 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 		final boolean hitMe = hitCells != null;
 		if ( useHits && !hitMe )
 			return false; // no hints for this puzzle/hintNumber
-
-//		// used to left-shift values quickly. Eg: shft[6] == 1<<(6-1)
-//		final int[] SHFT = Values.SHFT;
-//
-//		// Integer.bitCount of the bitsets 0..511
-//		final int[] SIZE = Values.SIZE;
 
 		// The populateCandidatesAndExcluders fields: a candidate Cell has
 		// maybes.size>1 and >0 excluders (siblings) with maybes.size==2
@@ -521,7 +516,6 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 	 */
 	private static ExcludedCombosMap buildExcludedCombosMap(Cell[] cmnExcls
 			, int numCmnExcls, Cell[] cells, Pots redPots) {
-		final int[] SHFT = Values.SHFT; // a local shortcut
 		final ExcludedCombosMap map = new ExcludedCombosMap(cells, redPots);
 		final Cell c0=cells[0], c1=cells[1];
 
@@ -529,13 +523,13 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 
 		// Foreach distinct combination of 3 potential values of (c0,c1,c2)
 		for ( int v0 : c0.maybes ) { // even an iterator is fast enough here
-			sv0 = SHFT[v0];
+			sv0 = VSHFT[v0];
 			for ( int v1 : c1.maybes ) {
 				if ( v1==v0 && !c1.notSees[c0.i] ) {
 					map.put(new HashA(v0,v1,0),null);
 					continue;
 				}
-				combo = sv0 | SHFT[v1];
+				combo = sv0 | VSHFT[v1];
 				for ( i=0; i<numCmnExcls; ++i )
 					if ( (cmnExcls[i].maybes.bits & ~combo) == 0 ) {
 						map.put(new HashA(v0,v1), cmnExcls[i]);

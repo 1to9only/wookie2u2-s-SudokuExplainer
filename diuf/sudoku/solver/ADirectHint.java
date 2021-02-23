@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Log;
 import java.util.Collections;
@@ -99,12 +100,10 @@ public abstract class ADirectHint extends AHint implements IActualHint {
 	 * just 10 when isAutosolving is false, ie we're in "normal" mode.
 	 */
 	@Override
-	public int apply(boolean isAutosolving) {
-//		if ( !Debug.isInTheCallStack(10, "RecursiveAnalyser") )
-//			Debug.breakpoint();
-		if ( !GrabBag.isGenerating ) {
-			if(Log.MODE>=Log.VERBOSE_5_MODE) logHint(); // new Log.MODE for this
-			if(IS_NOISY) System.out.format("%,13d ADirectHint:%s (%s=%d)\n", took(), toString(), cell.id, value);
+	public int apply(boolean isAutosolving, boolean isNoisy) {
+		if ( isNoisy ) {
+			logHint();
+			System.out.format("%,13d ADirectHint:%s (%s=%d)\n", took(), toString(), cell.id, value);
 		}
 		// returns number of cells set (may be >1 when isAutosolving)
 		int score = 10 * cell.set(value, 0, isAutosolving, sb); // throws UnsolvableException
@@ -131,15 +130,15 @@ public abstract class ADirectHint extends AHint implements IActualHint {
 
 	@Override
 	public Pots getGreens(int viewNum) {
-//if ( value < 1 || value > 9 )
-//	Debug.breakpoint();
 		return new Pots(cell, new Values(value));
 	}
 
 	@Override
 	public Pots getReds(int viewNum) {
-		int bits = cell.maybes.bits & ~Values.SHFT[value];
-		return bits==0 ? null : new Pots(cell, new Values(bits, false));
+		int bits = cell.maybes.bits & ~VSHFT[value];
+		if ( bits == 0  )
+			return null;
+		return new Pots(cell, new Values(bits, false));
 	}
 
 	/** @param o Object other

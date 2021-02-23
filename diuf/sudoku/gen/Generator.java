@@ -104,27 +104,14 @@ public final class Generator implements IInterruptMonitor {
 	 * @return the generated grid.
 	 */
 	public Grid generate(Symmetry[] syms, Difficulty diff, boolean isExact) {
-		// Right turn at Albaquerky: delegate to the cache which returns one
-		// it prepared earlier, which it then replaces in the background by
-		// delegating back to the generate method (below).
-		LogicalSolver formerLS = GrabBag.logicalSolver;
-
 		// tell logicalSolver to ask me if we've been interrupted by the user
 		// every-so-often, and if so then exit immediately.
 		solver.setMonitor((IInterruptMonitor)this);
-
-		// These various ways of defeating logging are a mistake! I should have
-		// a Log which can be silenced, and ALL noise goes through the Log.
-		GrabBag.logicalSolver = null; // this HACK makes AHint.apply silent
-		AHint.SHUT_THE______UP = true;
 		try {
-			Grid puzzle = cache.generate(syms, diff, isExact);
-			return puzzle;
+			return cache.generate(syms, diff, isExact);
 		} finally {
 			// tell the logicalSolver that I won't be interrupting him now.
 			solver.setMonitor(null);
-			GrabBag.logicalSolver = formerLS;
-			AHint.SHUT_THE______UP = false;
 		}
 	}
 
@@ -134,10 +121,7 @@ public final class Generator implements IInterruptMonitor {
 	// a while (5+ minutes), so the puzzle cache is well worth the hastle.
 	Grid generate(PuzzleCache cache, Symmetry[] syms, Difficulty wantDifficulty
 			, boolean isExact) {
-		GrabBag.isGenerating = true;
-		AHint.SHUT_THE______UP = true;
-		Run.Type prevRunType = Run.type;
-		Run.type = Run.Type.Generator;
+		Run.Type prevRunType = Run.setRunType(Run.Type.Generator);
 		try {
 			final double minD;
 			if ( isExact )
@@ -206,8 +190,6 @@ public final class Generator implements IInterruptMonitor {
 				if(isInterrupted) return null;
 			}
 		} finally {
-			GrabBag.isGenerating = false;
-			AHint.SHUT_THE______UP = false;
 			Run.type = prevRunType; // generator ONLY used in the GUI
 		}
 	}
@@ -275,7 +257,7 @@ public final class Generator implements IInterruptMonitor {
 					//  if there are zero solutions then there are 0 solutions
 					//  if the two solutions are equal there is 1 solution
 					//  if the two solutions differ there's 2-or-more solutions
-					switch ( count = analyser.countSolutions(grid) ) {
+					switch ( count = analyser.countSolutions(grid, false) ) {
 						case 1: // Success: still a unique solution
 							wereAnyRemoved = true; // cell values removed
 							break;

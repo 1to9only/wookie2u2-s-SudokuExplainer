@@ -8,6 +8,7 @@ package diuf.sudoku.solver.hinters.align2;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.utils.IMyPollSet;
 import java.util.AbstractSet;
 import java.util.Iterator;
@@ -111,18 +112,20 @@ public class LinkedMatrixCellSet
 	public LinkedMatrixCellSet() {
 	}
 
-// It's a shame that this isn't used any longer, but Scoobie's pretty happy.
+// It's a shame that this isn't used any longer, but Scoobie's happier.
+// I'm retaining it just for the foot assignment, which is "mad clever".
 //	/**
-//	 * Constructs a new LinkedMatrixCellSet of 'n' Cells from the given 'cells'
-//	 * array, to provide a fast contains method; rather than hammer a slower
+//	 * Constructs a new LinkedMatrixCellSet of the first 'n' Cells in the given
+//	 * 'cells' array, for the fast contains method; rather than hammer a slower
 //	 * O(n/2) array contains method.
 //	 * <p>Currently not used but retained anyways. It'll be useful one day.
 //	 * @param n the number of cells in the cells array to be added. Note that
-//	 * this may be less than cells.length, ie a null terminated array.
-//	 * @param cells to add to this set.
+//	 * this may be less than cells.length, ie a re-usable array.
+//	 * @param cells to be added to this set.
 //	 */
 //	public LinkedMatrixCellSet(final int n, Cell[] cells) {
 //		super();
+//		// pass out if s__t looks ____ed. Always good advice.
 //		if ( cells==null || cells.length==0 || n<1 )
 //			return;
 //		// create the first node
@@ -130,9 +133,10 @@ public class LinkedMatrixCellSet
 //		matrix[cell.y][cell.x] = head = foot = new Node(null, cell, null);
 //		// create any subsequent nodes
 //		for ( int i=1; i<n; ++i ) { // NOTE that 1
-//			// Work that ____ out Scoobie! HINT: It runs right to left (mostly).
+//			// Work that ____ out Scoobie: It runs right to left, mostly, and
+//			// still makes my brain HURT! Assignments are NOT transitive!
 //			matrix[(cell=cells[i]).y][cell.x] = foot = foot.next
-//					= new Node(foot, cell, null); // that's the existing foot
+//					= new Node(foot, cell, null); // the existing foot
 //			++size;
 //		}
 //	}
@@ -240,10 +244,15 @@ public class LinkedMatrixCellSet
 		return size == 0;
 	}
 
+	/**
+	 * Iterators are slow, because they call two methods: hasNext and next
+	 * for each element.
+	 * @return
+	 */
 	@Override
 	public Iterator<Cell> iterator() {
 		return new Iterator<Cell>() {
-			private Node curr = null; // curr is before the head
+			private Node curr = null; // curr is before the head, for remove!
 			private Node next = head; // so the next is the head
 			@Override
 			public boolean hasNext(){
@@ -253,11 +262,12 @@ public class LinkedMatrixCellSet
 			public Cell next(){
 				Cell result = next.cell;
 				curr = next;
-				next = next.next; // Yep, Scoobie's licking his own balls again!
+				next = next.next; // Yep, Scoobie can lick his own balls!
 				return result;
 			}
 			@Override
 			public void remove(){
+				// let it NPE if curr == null; remove called before next.
 				LinkedMatrixCellSet.this.remove(curr.cell);
 			}
 		};
@@ -266,45 +276,40 @@ public class LinkedMatrixCellSet
 	// ------------------------------- indexland -------------------------------
 
 	/**
-	 * Get an index of this CellSet. Ie get an array of 3 * 27-bit bitsets
-	 * containing the Grid.cells indexes of each cell in this CellSet. The
+	 * Get a bitset index of the cells in this CellSet. An Idx is an array of
+	 * three 27-bit bitsets (3 * 27 = 81) containing Grid.cells indices. The
 	 * position (from the right) of each set (1) bit is a Grid.cells array
-	 * index (Cell.i) of a cell that is present in this CellSet.
+	 * indice (Cell.i) of a cell that is present in this CellSet.
 	 * <p>
-	 * The returned index is an array of 3 ints, with 27 bits used in each,
-	 * for the 81 cells in the Grid.
-	 * <p>
-	 * The {@link Grid#at(Cell[] result, int[] idx)} method populates an
-	 * array of Cells from an index, and returns the count.
-	 * <p>
-	 * Idx's exist for Aligned*Exclusion. idx1 &amp; idx2 <b>quickly</b> do
-	 * {@code retainAll} on {@code CellSet}s with the bitwise-and operator:
-	 * {@code 1010 & 1101 == 1000} which is seriously bulls__t quick compared
-	 * to the alternative.
-	 * <p>
-	 * This method is O(n) even for a cache-miss, not O(81), and it turns
-	 * retainAll which was O(n) calls of my fast 0(1) contains(Cell) method
-	 * into <b>ONE</b> fast O(1) "&" operation. I'm well proud of this.
+	 * Idx's exist to do retainAll <b>quickly</b> in Aligned*Exclusion using
+	 * the bitwise-and binary operator: {@code 1010 & 1101 == 1000}. An Idx
+	 * turns retainAll which was O(n) calls of contains(Cell) into ONE
+	 * bitwise-and operation, which is MUCH faster.
 	 * <p>
 	 * <b>Villainious Laughenating Wobblybonks Batman!</b>
 	 * <p>
-	 * NB: The idx is cached internally. The cache is cleared when you add or
-	 * remove an item, or clear this Set. Trixily I share the idx cache with
-	 * the other idx*(...) methods, so its read ONCE no matter which you call.
+	 * The {@link Idx#cells(Grid grid, Cell[] cells)} method populates an array
+	 * of Cells from an idx, and returns it. Idx also has an iterator, but it's
+	 * slower than iterating an array, so especially if you iterate repeatedly
+	 * use a re-usable array, not the iterator!
 	 * <p>
-	 * NB: This method is fast O(1) for a cache hit. We rely on cache-hits per
-	 * set to reduce runtime, which happens in A*E, especially the larger ones,
-	 * where each cell in the set visits each excluder-set, so larger sets
-	 * means a higher hit rate, and it's the larger ones that are slow.
+	 * idx() is O(n) even for a cache-miss, not O(81). The idx is cached. The
+	 * cache is cleared when you add or remove an item or clear this Set. The
+	 * cache is shared with the other idx*(...) methods, so its created ONCE
+	 * no matter which you call first.
+	 * <p>
+	 * idx() is O(1) for a cache hit. We rely on cache-hits to reduce runtime,
+	 * which happens in A*E, especially the larger ones, where each cell in the
+	 * set visits each excluder-set, so larger sets means a higher cache hit
+	 * rate, and it's the larger A*E's that are REALLY slow.
 	 *
-	 * @return cached int[3] * 27 used bits = 81 cells. Do NOT ____ with the
-	 * arrays contents! You WILL be shot!
+	 * @return cached Idx. Do NOT ____ with its contents! You WILL be shot!
 	 */
 	Idx idx() {
 		if ( idx == null ) { // created once then cached (until you change set)
 			a[0]=a[1]=a[2]=0; // zero THE static array
 			for ( Node n=head; n!=null; n=n.next ) // O(size) faster than O(81)
-				a[n.cell.idxdex] |= n.cell.shft;  // add n.cell.i to idx
+				a[n.cell.idxdex] |= n.cell.idxshft;  // add n.cell.i to idx
 			idx = new Idx(a);
 		}
 		return idx;
@@ -335,11 +340,11 @@ public class LinkedMatrixCellSet
 	 *  saves us repeating a pretty tricky line of code hundreds of times.
 	 */
 	boolean idx1(final Idx result, final Idx other) {
-		final Idx x = idx();
+		final Idx me = idx();
 		// return result isEmpty
-		return (result.a0 = x.a0 & other.a0) == 0
-			 & (result.a1 = x.a1 & other.a1) == 0
-			 & (result.a2 = x.a2 & other.a2) == 0;
+		return (result.a0 = me.a0 & other.a0) == 0
+			 & (result.a1 = me.a1 & other.a1) == 0
+			 & (result.a2 = me.a2 & other.a2) == 0;
 	}
 
 	/**
@@ -353,21 +358,20 @@ public class LinkedMatrixCellSet
 	 * ONCE saves repeating some pretty tricky code hundreds of times.
 	 */
 	boolean idx2(final Idx result, final Idx other) {
-		final Idx x = idx();
+		final Idx me = idx();
 		int cnt=0, only=0; // the only element that's non-zero
-		if ( (result.a0=x.a0 & other.a0)>0 && ++cnt==1 )
+		if ( (result.a0=me.a0 & other.a0)>0 && ++cnt==1 )
 			only = result.a0;
-		if ( (result.a1=x.a1 & other.a1)>0 && ++cnt==1 )
+		if ( (result.a1=me.a1 & other.a1)>0 && ++cnt==1 )
 			only = result.a1;
-		if ( (result.a2=x.a2 & other.a2)>0 && ++cnt==1 )
+		if ( (result.a2=me.a2 & other.a2)>0 && ++cnt==1 )
 			only = result.a2;
 		// return does the result index contain LESS THAN 2 set (1) bits?
 		return cnt==0
-			|| (cnt==1 && SIZE[ only       & 511]
-				        + SIZE[(only>>>9)  & 511]
-				        + SIZE[(only>>>18) & 511] == 1);
+			|| ( cnt==1 && VSIZE[ only       & 511]
+				         + VSIZE[(only>>>9)  & 511]
+				         + VSIZE[(only>>>18) & 511] == 1 );
 	}
-	private static final int[] SIZE = diuf.sudoku.Values.SIZE;
 
 	public static interface CellVisitor {
 		public boolean visit(Cell c);

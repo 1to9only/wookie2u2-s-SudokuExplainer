@@ -5647,8 +5647,259 @@ package diuf.sudoku.solver;
  *    time, so this release still uses the "old Aligned*Exclusion" classes.
  * 2. Release 6.30.102 2020-12-17 10:54:42 =>
  *    DiufSudoku_V6_30.102.2020-12-17.7z
- * 3. Next I apply hobiwans stack-iteration technique to Aligned*Exclusion.
- * 
+ * 3. Next I do not know: Maybe install an elephant into my ear-wax.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.103 2021-01-01 15:17:43 Release "wing2" package with WXYZWing,
+ * UVWXYZWing, and TUVWXYZWing boosted from Sukaku, by Nicolas Juillerat (the
+ * original authors rewrite of Sudoku Explainer) who boosted them from
+ * SudokuMonster.
+ * <pre>
+ *       time (ns)  calls  time/call  elims     time/elim hinter
+ *      25,407,800 116225        218 666340            38 Naked Single
+ *      15,228,900  49591        307 169120            90 Hidden Single
+ *      99,431,500  32679      3,042   5821        17,081 Direct Naked Pair
+ *      86,885,500  32270      2,692  12430         6,989 Direct Hidden Pair
+ *     218,804,100  31320      6,986    879       248,923 Direct Naked Triple
+ *     198,697,000  31265      6,355   1849       107,461 Direct Hidden Triple
+ *     106,393,800  31124      3,418  18556         5,733 Locking
+ *      56,337,300  21938      2,568   4424        12,734 Naked Pair
+ *      48,251,300  20817      2,317   8524         5,660 Hidden Pair
+ *     115,665,700  19192      6,026   1307        88,497 Naked Triple
+ *     100,443,300  18827      5,335   1028        97,707 Hidden Triple
+ *      68,965,300  18625      3,702   1385        49,794 Two String Kite
+ *      42,976,400  17240      2,492    465        92,422 Swampfish
+ *      96,676,100  17035      5,675    616       156,941 XY-Wing
+ *      68,682,200  16593      4,139    302       227,424 XYZ-Wing
+ *      89,508,900  16308      5,488    446       200,692 W-Wing
+ *      55,333,800  16005      3,457    363       152,434 Skyscraper
+ *      59,624,600  15813      3,770    486       122,684 Empty Rectangle
+ *      73,613,300  15327      4,802    256       287,551 Swordfish
+ *     186,562,800  15253     12,231    101     1,847,156 Naked Quad
+ *     151,406,900  15234      9,938     13    11,646,684 Hidden Quad
+ *      21,192,100  15232      1,391      8     2,649,012 Jellyfish
+ *     600,189,300  15230     39,408   1539       389,986 WXYZ-Wing
+ *   2,035,879,200  14134    144,041    786     2,590,177 UVWXYZ-Wing
+ *   1,605,117,600  13700    117,161    774     2,073,795 Unique Rectangle
+ *   2,646,684,700  13342    198,372    471     5,619,288 Finned Swampfish
+ *   6,007,903,000  12943    464,181    406    14,797,790 Finned Swordfish
+ *   7,138,501,000  12618    565,739     21   339,928,619 Finned Jellyfish
+ *     440,173,000  12600     34,934    102     4,315,421 Coloring
+ *   1,334,586,500  12521    106,587     86    15,518,447 TUVWXYZ-Wing
+ *  21,483,821,600  12446  1,726,162   6213     3,457,882 ALS-XZ
+ *  23,161,722,000   8137  2,846,469   4190     5,527,857 ALS-Wing
+ *   9,496,593,100   4649  2,042,717    453    20,963,781 ALS-Chain
+ *  18,096,170,500   4288  4,220,189    170   106,448,061 Franken Swordfish
+ *  44,628,484,200   4145 10,766,823     96   464,880,043 Franken Jellyfish
+ *     290,626,700   4057     71,635      0             0 Aligned Pair
+ *   1,827,704,600   4057    450,506      5   365,540,920 Aligned Triple
+ *  25,639,154,700   4052  6,327,530     11 2,330,832,245 Aligned Quad
+ *  13,636,845,600   4043  3,372,952   1723     7,914,594 Unary Chain
+ *   5,485,210,000   3369  1,628,141     28   195,900,357 Nishio Chain
+ *   9,574,698,400   3341  2,865,818   5272     1,816,141 Multiple Chain
+ *  12,114,885,700   1408  8,604,322   7714     1,570,506 Dynamic Chain
+ *     125,649,400      3 41,883,133     30     4,188,313 Dynamic Plus
+ * 209,356,689,400
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  262,688,715,100 (04:22)  179,309,703
+ * NOTES:
+ * 1. Last top1465 04:22 the new "wing2" classes. Unwanted AlignedQuad too slow
+ *    and AlignedPair no hints.
+ * 2. Release 6.30.103 2021-01-01 15:17:43 =>
+ *    DiufSudoku_V6_30.103.2021-01-01.7z
+ * 3. Next I do not know: There's nothing else to steal from Sukaku, as far as
+ *    I can see. All the other techniques appear to be SLOWER chaining.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC NO-RELEASE 2021-01-03 18:05 I just ran EVERYthing to see how slow it was
+ * and got a pleasant surprise 21:45. Not too shabby, considering A10E used to 
+ * take over a day on it's own. Although it looks like Franken Fish is rooted!
+ * <pre>
+ *         time (ns)  calls   time/call  elims      time/elim hinter
+ *        22,582,300 118513         190 669380             33 Naked Single
+ *        14,262,600  51575         276 171100             83 Hidden Single
+ *        98,986,000  34465       2,872   5958         16,613 Direct Naked Pair
+ *        89,609,100  34047       2,631  13129          6,825 Direct Hidden Pair
+ *       221,650,900  33046       6,707    831        266,727 Direct Naked Triple
+ *       197,558,400  32994       5,987   1817        108,727 Direct Hidden Triple
+ *       531,931,000  32856      16,189  21525         24,712 Generalised Locking
+ *        56,931,300  22383       2,543   4060         14,022 Naked Pair
+ *        48,496,400  21037       2,305   5233          9,267 Hidden Pair
+ *       113,125,600  19520       5,795   1335         84,738 Naked Triple
+ *        98,772,300  19130       5,163    900        109,747 Hidden Triple
+ *        58,170,800  18948       3,070   1362         42,709 Two String Kite
+ *        42,210,900  17586       2,400    460         91,762 Swampfish
+ *        92,622,500  17380       5,329    668        138,656 XY-Wing
+ *        61,725,900  16908       3,650    324        190,512 XYZ-Wing
+ *        74,356,700  16607       4,477    454        163,781 W-Wing
+ *        47,060,100  16293       2,888    345        136,406 Skyscraper
+ *        56,550,000  16111       3,510    468        120,833 Empty Rectangle
+ *        72,761,400  15643       4,651    247        294,580 Swordfish
+ *       182,376,900  15572      11,711    105      1,736,922 Naked Quad
+ *       144,953,800  15552       9,320     13     11,150,292 Hidden Quad
+ *        20,514,200  15550       1,319      5      4,102,840 Jellyfish
+ *       534,154,800  15549      34,353   1596        334,683 WXYZ-Wing
+ *       152,250,500  15549       9,791      0              0 Naked Pent
+ *       126,524,100  15549       8,137      0              0 Hidden Pent
+ *       820,158,000  14475      56,660   1168        702,190 VWXYZ-Wing
+ *     1,066,330,800  13801      77,264    627      1,700,687 UVWXYZ-Wing
+ *     1,394,610,000  13447     103,711    754      1,849,615 Unique Rectangle
+ *     7,532,427,600  13099     575,038    479     15,725,318 Finned Swampfish
+ *    38,440,118,200  12691   3,028,927    736     52,228,421 Finned Swordfish
+ *    97,230,636,200  12081   8,048,227    186    522,745,355 Finned Jellyfish
+ *       377,634,400  11914      31,696      3    125,878,133 Coloring
+ *     1,131,327,600  11911      94,981     71     15,934,191 TUVWXYZ-Wing
+ *    19,328,231,100  11847   1,631,487   5276      3,663,425 ALS-XZ
+ *    24,872,221,100   8099   3,071,023   4040      6,156,490 ALS-Wing
+ *     9,250,813,200   4715   1,961,996    444     20,835,164 ALS-Chain
+ *     2,805,470,200   4360     643,456      0              0 Franken Swampfish
+ *    14,848,333,100   4360   3,405,580      0              0 Franken Swordfish
+ *    38,362,203,600   4360   8,798,670      0              0 Franken Jellyfish
+ *     4,535,282,300   4360   1,040,202      0              0 Mutant Swampfish
+ *    54,375,603,900   4360  12,471,468      1 54,375,603,900 Mutant Swordfish
+ *   342,751,358,200   4359  78,630,731     11 31,159,214,381 Mutant Jellyfish
+ *    43,918,261,600   4350  10,096,152   3493     12,573,221 Kraken Swampfish
+ *   142,309,650,600   1660  85,728,705    134  1,062,012,317 Kraken Swordfish
+ *   316,522,418,200   1546 204,736,363     12 26,376,868,183 Kraken Jellyfish
+ *        33,085,600   1536      21,540      0              0 Bi-Uni Grave
+ *        90,213,600   1536      58,732      0              0 Aligned Pair
+ *       663,998,400   1536     432,290      1    663,998,400 Aligned Triple
+ *     9,951,260,600   1535   6,482,905      2  4,975,630,300 Aligned Quad
+ *     4,892,181,800   1533   3,191,247      1  4,892,181,800 Aligned Pent
+ *     7,145,582,300   1532   4,664,218      0              0 Aligned Hex
+ *     8,374,552,500   1532   5,466,418      3  2,791,517,500 Aligned Sept
+ *     7,984,448,200   1530   5,218,593      1  7,984,448,200 Aligned Oct
+ *     7,342,797,500   1529   4,802,352      0              0 Aligned Nona
+ *     6,379,334,400   1529   4,172,226      0              0 Aligned Dec
+ *     4,025,766,600   1529   2,632,940      0              0 Unary Chain
+ *     2,452,104,900   1529   1,603,731      6    408,684,150 Nishio Chain
+ *     3,899,756,100   1523   2,560,575    554      7,039,270 Multiple Chain
+ *     9,782,591,700   1230   7,953,326   6627      1,476,171 Dynamic Chain
+ *       120,745,500      3  40,248,500     30      4,024,850 Dynamic Plus
+ * 1,238,171,648,100
+ * pzls        total (ns) (mm:ss)     each (ns)
+ * 1465 1,305,589,783,800 (21:45)   891,187,565
+ * NOTES:
+ * 1. Last top1465 21:45 with EVERthing turned on is a pleasant surprise.
+ * 2. I'm working on boosting hinters from Sukaku. VWXYZ-Wing is new. My own
+ *    invention based on WXYZ-Wing and UVWXYZ-Wing. I just figured there was
+ *    one missing, and I was right. It's nice to guess right occassionally.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.104 2021-01-06 19:06:44 I'm releasing just to clean-up the logs.
+ * I've implemented SueDeCoq in the als package, and also tried but failed at
+ * DeathBlossom. 
+ * <pre>
+ *       time (ns)  calls  time/call  elims   time/elim hinter
+ *      25,568,483 118498        215 669470          38 Naked Single
+ *      16,842,581  51551        326 170730          98 Hidden Single
+ *     112,048,091  34478      3,249   5947      18,841 Direct Naked Pair
+ *     103,318,435  34061      3,033  13150       7,856 Direct Hidden Pair
+ *     254,925,632  33058      7,711    843     302,402 Direct Naked Triple
+ *     228,001,946  33005      6,908   1827     124,795 Direct Hidden Triple
+ *     522,902,893  32866     15,910  21573      24,238 Generalised Locking
+ *      69,561,021  22363      3,110   4060      17,133 Naked Pair
+ *      58,990,502  21018      2,806   5224      11,292 Hidden Pair
+ *     145,376,439  19507      7,452   1330     109,305 Naked Triple
+ *     120,932,830  19118      6,325    901     134,220 Hidden Triple
+ *      62,990,001  18936      3,326   1366      46,112 Two String Kite
+ *      48,692,506  17570      2,771    459     106,083 Swampfish
+ *      99,480,305  17364      5,729    665     149,594 XY-Wing
+ *      68,408,636  16892      4,049    323     211,791 XYZ-Wing
+ *      92,363,191  16591      5,567    452     204,343 W-Wing
+ *      53,194,765  16279      3,267    336     158,317 Skyscraper
+ *      60,545,729  16103      3,759    472     128,274 Empty Rectangle
+ *      82,740,532  15631      5,293    246     336,343 Swordfish
+ *     223,550,012  15560     14,366    109   2,050,917 Naked Quad
+ *     168,873,563  15539     10,867     13  12,990,274 Hidden Quad
+ *      23,742,589  15537      1,528      5   4,748,517 Jellyfish
+ *     569,463,259  15536     36,654   1603     355,248 WXYZ-Wing
+ *     887,050,258  14459     61,349   1142     776,751 VWXYZ-Wing
+ *   1,201,034,993  13790     87,094    618   1,943,422 UVWXYZ-Wing
+ *   1,568,372,812  13441    116,685    761   2,060,936 Unique Rectangle
+ *   9,184,559,033  13089    701,700    478  19,214,558 Finned Swampfish
+ *  46,017,737,457  12680  3,629,159    739  62,270,280 Finned Swordfish
+ * 115,137,870,870  12065  9,543,130    187 615,710,539 Finned Jellyfish
+ *     468,255,738  11897     39,359      3 156,085,246 Coloring
+ *   1,361,906,492  11894    114,503    127  10,723,673 TUVWXYZ-Wing
+ *   4,245,297,629  11815    359,314    188  22,581,370 Sue De Coq
+ *  22,790,969,535  11753  1,939,161   5073   4,492,601 ALS-XZ
+ *  27,875,681,552   8076  3,451,669   4067   6,854,113 ALS-Wing
+ *  10,773,447,427   4662  2,310,906    453  23,782,444 ALS-Chain
+ *  46,684,083,403   4299 10,859,288   3499  13,342,121 Kraken Swampfish
+ *   2,926,327,297   1593  1,836,991      7 418,046,756 Nishio Chain
+ *   4,932,625,335   1586  3,110,104    581   8,489,888 Multiple Chain
+ *  12,213,710,021   1275  9,579,380   6888   1,773,186 Dynamic Chain
+ *     110,751,100      3 36,917,033     30   3,691,703 Dynamic Plus
+ * 311,592,194,893
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  367,004,905,900 (06:07)  250,515,294
+ * NOTES:
+ * 1. Last top1465 06:07 isn't as bad as it sounds. It's a hot box.
+ * 2. Release 6.30.104 2021-01-06 19:06:44 =>
+ *    DiufSudoku_V6_30.104.2021-01-06.7z
+ * 3. I don't really know what to do next. I've tried and failed DeathBlossom
+ *    and there's nothing else worth boosting in Sukaku, so I suppose I should
+ *    ship it, and while there download another open source Sudoku solver to
+ *    riffle for hinters.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.105 2021-01-12 10:05:45 Ship SueDeCoq. Failed at DeathBlossom.
+ * This Run: hinters which take less than a tenth of a second per elimination.
+ * <pre>
+ *       time (ns)  calls  time/call  elims  time/elim hinter
+ *      23,139,900 116228        199 666800         34 Naked Single
+ *      17,816,600  49548        359 168700        105 Hidden Single
+ *      91,213,000  32678      2,791   5826     15,656 Direct Naked Pair
+ *      84,121,200  32269      2,606  12384      6,792 Direct Hidden Pair
+ *     203,384,300  31324      6,492    879    231,381 Direct Naked Triple
+ *     188,806,500  31269      6,038   1824    103,512 Direct Hidden Triple
+ *     101,401,300  31130      3,257  18575      5,459 Locking
+ *      51,560,900  21919      2,352   4449     11,589 Naked Pair
+ *      45,713,200  20785      2,199   8512      5,370 Hidden Pair
+ *     106,627,300  19165      5,563   1316     81,023 Naked Triple
+ *      96,365,000  18797      5,126   1031     93,467 Hidden Triple
+ *      64,939,300  18594      3,492   1384     46,921 Two String Kite
+ *      39,299,700  17210      2,283    465     84,515 Swampfish
+ *      91,353,100  17001      5,373    636    143,636 XY-Wing
+ *      60,419,900  16550      3,650    302    200,065 XYZ-Wing
+ *      85,621,800  16266      5,263    445    192,408 W-Wing
+ *      51,995,400  15960      3,257    353    147,295 Skyscraper
+ *      57,241,900  15777      3,628    475    120,509 Empty Rectangle
+ *      70,297,300  15302      4,593    251    280,068 Swordfish
+ *     172,572,600  15229     11,331    100  1,725,726 Naked Quad
+ *     141,726,800  15211      9,317     13 10,902,061 Hidden Quad
+ *      38,774,800  15209      2,549      9  4,308,311 Jellyfish
+ *     545,173,600  15206     35,852   1541    353,779 WXYZ-Wing
+ *     725,849,100  14169     51,227   1161    625,193 VWXYZ-Wing
+ *     963,579,500  13491     71,423    607  1,587,445 UVWXYZ-Wing
+ *   1,310,054,500  13148     99,639    754  1,737,472 Unique Rectangle
+ *   5,591,985,600  12799    436,908    507 11,029,557 Finned Swampfish
+ *  29,681,881,200  12365  2,400,475    772 38,448,032 Finned Swordfish
+ *     400,364,400  11723     34,152     26 15,398,630 Coloring
+ *   1,070,354,000  11705     91,444    126  8,494,873 TUVWXYZ-Wing
+ *   3,061,345,100  11625    263,341    192 15,944,505 Sue De Coq
+ *  20,388,573,000  11566  1,762,802   5070  4,021,414 ALS-XZ
+ *  23,088,267,600   7899  2,922,935   4084  5,653,346 ALS-Wing
+ *   9,348,953,800   4489  2,082,636    443 21,103,733 ALS-Chain
+ *  13,058,870,700   4137  3,156,603   1771  7,373,727 Unary Chain
+ *   5,445,510,900   3443  1,581,618    120 45,379,257 Nishio Chain
+ *   8,944,458,800   3332  2,684,411   5308  1,685,090 Multiple Chain
+ *  11,666,919,600   1399  8,339,470   7660  1,523,096 Dynamic Chain
+ *     121,196,700      3 40,398,900     30  4,039,890 Dynamic Plus
+ * 137,297,729,900
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465   184,103,275,700 (03:04)       125,667,764
+ * NOTES:
+ * 1. Last top1465 03:04 is OK.
+ * 2. Release 6.30.105 2021-01-12 10:05:45 =>
+ *    DiufSudoku_V6_30.105.2021-01-12.LOGS.7z
+ * 3. I don't know what to do next. DeathBlossom is dead. I'm sick of it. I'll
+ *    download another Sudoku solver to riffle for hinters.
  * </pre>
  */
 final class LogicalSolverTimings {

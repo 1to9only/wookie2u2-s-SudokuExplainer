@@ -30,8 +30,6 @@ public class AlsXzHint extends AHint {
 
 	private final Als a;
 	private final Als b;
-	private final Pots orangePots;
-	private final Pots bluePots;
 	private final int redMaybes;
 	private final boolean anyDoubleLinked;
 	private final String debugMessage, rccMaybes, aCells, bCells;
@@ -43,11 +41,11 @@ public class AlsXzHint extends AHint {
 			, String aCells, String bCells // pass these in coz we need the grid to get them
 			, String debugMessage
 	) {
-		super(hinter, redPots);
+		// nb: what are normally greens are oranges here
+		super(hinter, redPots, null, orangePots, bluePots
+				, Regions.list(a.region), Regions.list(b.region));
 		this.a = a;
 		this.b = b;
-		this.orangePots = orangePots;
-		this.bluePots = bluePots;
 		this.redMaybes = redMaybes;
 		this.anyDoubleLinked = anyDoubleLinked;
 		this.rccMaybes = rccMaybes;
@@ -58,32 +56,8 @@ public class AlsXzHint extends AHint {
 
 	@Override
 	public Set<Cell> getAquaCells(int viewNumUnused) {
-		return orangePots.keySet();
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(a.region);
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return Regions.list(b.region);
-	}
-
-	@Override
-	public Pots getOranges(int viewNumUnused) {
-		return orangePots;
-	}
-
-	@Override
-	public Pots getReds(int viewNumUnused) {
-		return redPots;
-	}
-
-	@Override
-	public Pots getBlues(Grid gridUnused, int viewNumUnused) {
-		return bluePots; // the Z in this ALS-XZ, X is the RCC (alas unmarked)
+		// nb: what are normally greens are oranges here
+		return oranges.keySet();
 	}
 
 	@Override
@@ -117,7 +91,7 @@ public class AlsXzHint extends AHint {
 			, a.region.id+": "+aCells	//{0}
 			, b.region.id+": "+bCells	// 1
 			, rccMaybes					// 2
-			, Values.and(redMaybes)		// 3
+			, Values.andS(redMaybes)	// 3
 			, gonners					// 4
 			, debugMessage				// 5
 		);

@@ -58,9 +58,10 @@ public final class AlsXz extends AAlsHinter {
 	private boolean anyDoubleLinked;
 
 	public AlsXz() {
+		// see param explanations in the AlsXyChain constructor.
 		// NB: I don't call the valid method, so I don't need a LogicalSolver
-		// Tech, LogicalSolver, allowOverlaps, lockedSets, forwardOnly
-		super(Tech.ALS_XZ, true, true, true, false);
+		// Tech, allowOverlaps, allowLockedSets, findRccs, lockedSets, forwardOnly
+		super(Tech.ALS_XZ, true, true, true, true, false);
 	}
 
 	/**
@@ -104,8 +105,6 @@ public final class AlsXz extends AAlsHinter {
 	protected boolean findHints(Grid grid, Idx[] candidates, Rcc[] rccs
 			, Als[] alss, IAccumulator accu) {
 		// local references to constants and fields for speed
-		final int[][] VALUESES = Values.ARRAYS; // the values in each bitset
-		final int[] SHFT = Values.SHFT; // left-shift value into a bitset
 		final List<Cell> redCells = this.redCells; // temporary storage
 		// my variables (all of them, ansi-C style, for speed)
 		final Idx both = this.both; // indices of cells in both ALSs
@@ -143,7 +142,7 @@ public final class AlsXz extends AAlsHinter {
 			rc1 = rcc.getCand1();
 			rc2 = rcc.getCand2();
 			// get the z values: the non-RC values common to both ALSs.
-			zMaybes = alsA.maybes & alsB.maybes & ~SHFT[rc1] & ~SHFT[rc2];
+			zMaybes = alsA.maybes & alsB.maybes & ~VSHFT[rc1] & ~VSHFT[rc2];
 			// get the number of RC values (ie is this RCC Double Linked)
 			numRcValues = rc2==0 ? 1 : 2;
 			// "Anything to eliminate on" is a bit tricky. The rules are:
@@ -160,7 +159,7 @@ public final class AlsXz extends AAlsHinter {
 			if ( zMaybes != 0 ) {
 				// look for single-linked eliminations on the z values
 				// get indices of all cells in both ALSs
-				both.setOr(alsA.set, alsB.set);
+				both.setOr(alsA.idx, alsB.idx);
 				// foreach z: the non-RC values common to both ALSs
 				for ( int z : VALUESES[zMaybes] ) { // examine 1 or 2 z's
 					// rip z from non-ALS cells that see all z's in both ALSs.
@@ -177,7 +176,7 @@ public final class AlsXz extends AAlsHinter {
 					else
 						redPots.upsertAll(redCells, z);
 					// then build the removeable (red) potential values.
-					redMaybes |= SHFT[z];
+					redMaybes |= VSHFT[z];
 				}
 				// single-linked RCCs can skip here (doubles must wait)
 				if ( redPots==null && numRcValues==1 )
@@ -294,7 +293,6 @@ public final class AlsXz extends AAlsHinter {
 	private Pots addDoubleLinkedElims(Grid grid, Idx[] candidates
 			, Rcc rcc, Als[] alss, Pots reds) {
 
-		final int[][] VALUESES = Values.ARRAYS;
 		final Idx[] buds = Grid.BUDDIES;
 		// nb: rc2 is not 0, else we wouldn't be here!
 		final Idx both = this.both2;
@@ -310,10 +308,10 @@ public final class AlsXz extends AAlsHinter {
 		final int[] rcValues = this.rcValues;
 		rcValues[0] = rcc.getCand1();
 		rcValues[1] = rcc.getCand2();
-		final int bothRcsBits = SHFT[rcValues[0]] | SHFT[rcValues[1]];
+		final int bothRcsBits = VSHFT[rcValues[0]] | VSHFT[rcValues[1]];
 
 		// get the indices of the cells in both ALSs
-		both.setOr(twoAlss[0].set, twoAlss[1].set);
+		both.setOr(twoAlss[0].idx, twoAlss[1].idx);
 		// both RCs are locked into one of the ALSs, so the RCs can be
 		// eliminated from all non-ALS cells (others).
 		others.setAllExcept(both);
@@ -346,7 +344,7 @@ public final class AlsXz extends AAlsHinter {
 				// and repeated vs-array look-ups, and to keep code same.
 				vAls.set(als.vs[z]);
 				// get z's outside the ALS (including in other ALS)
-				vOthers.set(candidates[z]).andNot(als.set);
+				vOthers.set(candidates[z]).andNot(als.idx);
 				// remove those which do NOT see all z's in this ALS
 				vOthers.forEach1((zo) -> {
 					if ( !Idx.andEqualsS2(buds[zo], vAls) )

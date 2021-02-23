@@ -27,54 +27,23 @@ public class EmptyRectangleHint extends AHint {
 
 	// nb: package visible so that EmptyRectangle can compare hints.
 	final int redValue;
-	final List<ARegion> bases;
-	final List<ARegion> covers;
-	final Pots orangePots;
-	final Pots bluePots;
 	final boolean isDual;
 	final String debugMessage;
 
 	public EmptyRectangleHint(AHinter hinter, int value, List<ARegion> bases
 			, List<ARegion> covers, Pots orangePots, Pots bluePots
 			, Pots redPots, String debugMessage) {
-		super(hinter, redPots);
+		// nb: what are normally greens are oranges here
+		super(hinter, redPots, null, orangePots, bluePots, bases, covers);
 		this.redValue = value;
-		this.bases = bases;
-		this.covers = covers;
-		this.orangePots = orangePots;
-		this.bluePots = bluePots;
 		this.isDual = false;
 		this.debugMessage = debugMessage;
 	}
 
 	@Override
 	public Set<Grid.Cell> getAquaCells(int unusedViewNum) {
-		return orangePots.keySet();
-	}
-
-	@Override
-	public Pots getOranges(int unusedViewNum) {
-		return orangePots;
-	}
-
-	@Override
-	public Pots getReds(int unusedViewNum) {
-		return redPots;
-	}
-
-	@Override
-	public Pots getBlues(Grid gridUnused, int viewNum) {
-		return bluePots;
-	}
-
-	@Override
-	public List<ARegion> getBases() {
-		return bases;
-	}
-
-	@Override
-	public List<ARegion> getCovers() {
-		return covers;
+		// nb: what are normally greens are oranges here
+		return oranges.keySet();
 	}
 
 	@Override
@@ -87,7 +56,7 @@ public class EmptyRectangleHint extends AHint {
 	public String toStringImpl() {
 		StringBuilder sb = Frmt.getSB();
 		sb.append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(orangePots.keySet()))
+		  .append(": ").append(Frmt.csv(oranges.keySet()))
 		  .append(" on ").append(redValue);
 		return sb.toString();
 	}
@@ -97,7 +66,7 @@ public class EmptyRectangleHint extends AHint {
 		Cell redCell = redPots.firstKey();
 		final String id1, id2;
 		{ // this block just localises 'it'
-			Iterator<Cell> it = orangePots.keySet().iterator();
+			Iterator<Cell> it = oranges.keySet().iterator();
 			id1 = it.next().id;
 			id2 = it.next().id;
 		}

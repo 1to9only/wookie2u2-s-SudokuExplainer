@@ -1,0 +1,42 @@
+<html>
+ <body>
+  <h2>HoDoKu Sue De Coq</h2>
+<pre>
+Greens  : {1}
+Fins    : {2}
+Endofins: {3}
+Reds    : {0}
+</pre>
+
+I'm sorry, I don't understand Sue De Coq.
+<p>
+Here's an explanation by hobiwan from HoDoKu's website at
+http://hodoku.sourceforge.net/en/tech_misc.php
+<p>
+The basic variant is rather simple: Look for cells at the intersection of a
+line (a row or a col) and a block. You have to find either two cells containing
+4 candidates or three cells containing 5 candidates. Now find a bivalue cell in
+the line outside of the intersection whose candidates are draw entirely from
+the intersection candidates. Find another bivalue cell in the block with
+candidates drawn from the intersection too, but different from the candidates
+in the line cell.
+<p>
+This constellation is a Sue de Coq: You can eliminate all line cell candidates
+from the rest of the cells in the line, all block cell candidates from the rest
+of the cells in the block and any intersection candidate that is left from both
+the line and the block. This can amount in some rather impressive eliminations.
+<p>
+Sue de Coq can be enhanced in two possible ways:<ul>
+<li>The intersection cells can contain additional candidates. For each extra 
+    candidate an extra cell in the line or in the block must be found.
+<li>The line cells and the block cells can contain candidates not drawn from
+    the intersection set. For any such additional candidate one additional cell
+    is necessary.
+</ul>
+It's important to note, that an SDC can have only two cells in the intersection
+with the possible third cell being part of either the line or the block cells.
+Likewise, if additional candidates are used, that are not drawn from the
+intersection set, the same candidate can be used in line cells and block cells.
+
+</body>
+</html>

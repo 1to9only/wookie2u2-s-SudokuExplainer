@@ -69,7 +69,7 @@ public final class HintsApplicumulator implements IAccumulator {
 		// make Cell.set append subsequent singles (if sb!=null)
 		hint.sb = sb;
 		// nb: Do NOT eat apply exceptions, they're handled by my caller!
-		numElims += hint.apply(isAutosolving);
+		numElims += hint.apply(isAutosolving, false);
 		// keep count
 		++numHints;
 		// always return false so that the hinter always keeps searching
@@ -77,7 +77,7 @@ public final class HintsApplicumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean addAll(Collection<AHint> hints) {
+	public boolean addAll(Collection<? extends AHint> hints) {
 		boolean result = false;
 		for ( AHint hint : hints )
 			result |= add(hint);
