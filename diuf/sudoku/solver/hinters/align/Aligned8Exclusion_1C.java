@@ -64,9 +64,15 @@ public final class Aligned8Exclusion_1C extends Aligned8ExclusionBase
 	private final ACollisionComparator cc = new ACollisionComparator();
 
 	//  32*1024:    561,548,668,600	   4107	   136,729,649	    160	 3,509,679,178	Aligned Oct
-	//  64*1024:    494,939,003,900	   4107	   120,511,079	    160	 3,093,368,774	Aligned Oct
+	//  64*1024:    475,616,281,200	   4149	   114,633,955	    208	 2,286,616,736	Aligned Oct
 	// 128*1024:    695,529,388,000	   4107	   169,352,176	    160	 4,347,058,675	Aligned Oct
+	// 256*1024:    482,853,009,600	   4149	   116,378,165	    208	 2,321,408,700	Aligned Oct
+	// 2020-12-05 14:35 AAlignedSetExclusionBase.NonHinters.maxSize = 281,675
+	// I think we're starting to become memory bound, so large "helper sets"
+	// like this one start to overwork the GC, so everything bogs down.
 	private final NonHinters nonHinters = new NonHinters(64*1024, 3);
+	// What's that Skip? Why it's the skipper skipper flipper Flipper.
+	private boolean firstPass = true;
 
 //	//useless: protected final Counter cnt1col = new Counter("cnt1col");
 //	//useless: protected final Counter cnt1sib = new Counter("cnt1sib");
@@ -113,9 +119,17 @@ public final class Aligned8Exclusion_1C extends Aligned8ExclusionBase
 		nonHinters.clear();
 	}
 
-	@SuppressWarnings("fallthrough")
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
+		// it's just easier to set firstPass ONCE, rather than deal with it in
+		// each of the multiple exit-points from what is now findHintsImpl.
+		boolean ret = findHintsImpl(grid, accu);
+		firstPass = false;
+		return ret;
+	}
+
+	@SuppressWarnings("fallthrough")
+	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
 
 		// these 4 vars are "special" for processing top1465.d5.mt faster
 		// localise hackTop1465 for speed (and to make it final).

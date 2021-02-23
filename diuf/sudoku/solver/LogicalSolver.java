@@ -16,6 +16,7 @@ import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.checks.*;
 import diuf.sudoku.solver.hinters.*;
 import diuf.sudoku.solver.hinters.align.*;
+import diuf.sudoku.solver.hinters.align2.AlignedExclusion;
 import diuf.sudoku.solver.hinters.als.*;
 import diuf.sudoku.solver.hinters.bug.*;
 import diuf.sudoku.solver.hinters.chain.*;
@@ -389,7 +390,7 @@ public final class LogicalSolver {
 		// when isAccurate we run more hinters, to get the simplest hints.
 		final boolean isAccurate = (mode == Mode.ACCURACY);
 		// when isAggregate chainers lump all there hints into one.
-		final boolean isAggregate = (mode == Mode.SPEED);
+		final boolean isAgg = (mode == Mode.SPEED);
 
 		// F is shorthand for false; to make the code fit on a line.
 		final boolean F = false;
@@ -506,6 +507,12 @@ public final class LogicalSolver {
 
 			// Coloring finds a superset of BUG hints!
 			want(heavies, new BivalueUniversalGrave(h?25:1));
+// the AlignedExclusion class is too slow
+if ( true ) {
+			want(heavies, new AlignedExclusion(Tech.AlignedPair));
+			want(heavies, new AlignedExclusion(Tech.AlignedTriple));
+			want(heavies, new AlignedExclusion(Tech.AlignedQuad));
+} else {
 			// A2E is fast! even "correct", so I'm here to stay.
 			// 2019-10-02 A2E 1465 in   146,269,339,836 (02:26) @    99,842,552
 			// nb: A2E is fast so it's here and here it stays.
@@ -518,11 +525,21 @@ public final class LogicalSolver {
 			// 2019-10-02 A4E 1465 in   344,699,776,511 (05:45) @   235,289,949
 			want(heavies, new Aligned4Exclusion(h?3:1, im)); // <<<============= JIGGITY JIG
 			// NB: A5E, A6E, A7E, A8E, A9E, A10E are down with the chainers.
+}
 		}
 
 		// Heavy, meh! Chainers ripped Heavies balls off! These are really slow.
 		chainers = new ArrayList<>(isAccurate ? 10 : 1); // That's an Oils album!
 		if (isAccurate) {
+// the AlignedExclusion class is too slow
+if ( true ) {
+			want(chainers, new AlignedExclusion(Tech.AlignedPent));
+			want(chainers, new AlignedExclusion(Tech.AlignedHex));
+			want(chainers, new AlignedExclusion(Tech.AlignedSept));
+			want(chainers, new AlignedExclusion(Tech.AlignedOct));
+			want(chainers, new AlignedExclusion(Tech.AlignedNona));
+			want(chainers, new AlignedExclusion(Tech.AlignedDec));
+} else {
 			// The programmer decides if he CARE_ABOUT_ALIGNED_HINTS or not.
 			// The user chooses if the big A*E's are correct or hacked (fast).
 			// A5E is slow! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
@@ -541,11 +558,12 @@ public final class LogicalSolver {
 			// 2019-10-05 A8E 1465 in 2,401,487,875,247 (40:01) @ 1,639,240,870
 			wantAE(chainers, 8, h?5:1, im); //<<<=============================== CODE TIGHT
 			// A9E dead cat! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
-			wantAE(chainers, 9, h?8:1, im); //<<<=============================== GETTING SILLY
+			wantAE(chainers, 9, h?8:1, im); //<<<=============================== THIS IS JUST SILLY
 			// ATE dead tortoise! User choice. Here if CARE_ABOUT_ALIGNED_HINTS.
 			// 2020-02-27 !IS_HACKY A45678910E_1C 1465 in 5:10:37
 			// 2020-02-28  IS_HACKY A45678910E_2H 1465 in    3:38
 			wantAE(chainers, 10, h?19:1, im); //<<<============================= JESUS SHOT MY ____ING DOG, TOOK OVER THE GOVERMENT, AND BURNT HALF THE ____ING COUNTRY TO THE GROUND. WELCOME TO PARADISE! IRE-LOL-IC, DON'T YOU THINK? MAYBE JUST A LITTLE TOO MORONIC, BECAUSE YOU'RE REALLY TOO THICK? DJAWAN FIRES WITH THAT? FREE SCOTTIES PINEAPPLE RING! HERE'S A FEW BILLION I FRIED EARLIER. BREAK INTO THE WHITE HOUSE AND DROP A DIRTY GREAT TURD ON THE PRESIDENTS DESK. RETURN OF ____ING SERVICE. LOCK DOG BONG WOCK UP IN HIS OWN MOZZIE PRISON. SWIPE! SWISH! BANG! FURY LOOKIN' ANIMAL. TAKE THE OZIE PARLIAMENT TO THE DUMP. TOO LITTLE TO LATE BOYS. YAKANNOO PUSH ER ANY ARDER KAPTIN! DON'T TELL ME ABOUT BOATS I KNOW BOATS. SHIP SCOTTIE BACK TO HAWAHI WITH THAT SOUR UNDERSIZED PINEAPPLE UP HIS ____ING ARSE. ____ IT, I'M MOVING TO NEW ZEALAND! FUSH AND CHUPS ALL ROUND! THIS PLANET IS RUN BY EXTREMIST WANKERS, AND SHE'S JUST LESS OF A NUT-BURGHER THAN THE REST, WHICH MAKES HER LOOK GOOD BY COMPARISON. WHEN THE SPINNIFEX HIT SYDNEY IT WAS THE LAST THING WE EXPECTED. WHEN THE DESERT REACHED THE GLADES THEN WE TRIED TO TAME IT. I WEEP AT THE WHOLE INSANE MESS, AND IT JUST KEEPS ROLLING ON. BIG SIGH.
+}
 			// single value forcing chains and bidirectional cycles.
 			want(chainers, new UnaryChainer(F, h?1:1));
 			// contradictory consequences of a single (bad) assumption.
@@ -559,7 +577,7 @@ public final class LogicalSolver {
 		// DynamicPlus is Dynamic Chaining + Four Quick Foxes (Point & Claim,
 		// Naked Pairs, Hidden Pairs, and Swampfish). I've never seen it NOT
 		// find a hint. It's hardcoded as a safery-net, user can't unwant it.
-		chainers.add(new MultipleChainer(Tech.DynamicPlus, isAggregate, h?1:1)); // my safety-nets allways run
+		chainers.add(new MultipleChainer(Tech.DynamicPlus, isAgg, h?1:1)); // my safety-nets allways run
 
 		if ( !CARE_ABOUT_ALIGNED_HINTS ) {
 			// relegate big A*E's to just before DynamicPlus to run less often
@@ -572,19 +590,19 @@ public final class LogicalSolver {
 		// Nested means imbedded chainers: assumptions on assumptions.
 		// The only way to ever see a nested hint is with Shift-F5 in the GUI.
 		nesters = new ArrayList<>(4);
-		// advanced											                     // approx time per call on an
-		// NestedUnary covers the hardest Sudoku puzzle ~ conceptis.com			 // i7-7500U CPU @ 2.7GHz-2.9GHz
-		want(nesters, new MultipleChainer(Tech.NestedUnary, isAggregate, 1));    // 4 secs
-		want(nesters, new MultipleChainer(Tech.NestedMultiple, isAggregate, 1)); //10 secs
+		// advanced																// approx time per call on an
+		// NestedUnary covers the hardest Sudoku puzzle ~ conceptis.com			// i7-7500U CPU @ 2.7GHz-2.9GHz
+		want(nesters, new MultipleChainer(Tech.NestedUnary, isAgg, 1));			// 4 secs
+		want(nesters, new MultipleChainer(Tech.NestedMultiple, isAgg, 1));		//10 secs
 		// experimental
-		want(nesters, new MultipleChainer(Tech.NestedDynamic, isAggregate, 1));  //15 secs
+		want(nesters, new MultipleChainer(Tech.NestedDynamic, isAgg, 1));		//15 secs
 		// NestedPlus is Dynamic + Dynamic + Four Quick Foxes => confusing!
 		// I use NestedPlus as a secondary safety-net (so it's allways on), but
 		// it's only invoked in Shift-F5 coz NestedUnary always hints first.
-		// @todo 2020 AUG: NestedPlus produced invalid hints, so now uses the    // PRODUCED INVALID HINTS!
+		// @bug 2020 AUG: NestedPlus produced invalid hints, so now uses da		// PRODUCED INVALID HINTS!
 		// HintValidator to log and ignore them. NOT adequate! Needs fixing!
 		// I'm just ignoring this bug for now coz IT'S NEVER USED in anger.
-		nesters.add(new MultipleChainer(Tech.NestedPlus, isAggregate, 1));       //70 secs
+		nesters.add(new MultipleChainer(Tech.NestedPlus, isAgg, 1));				//70 secs
 
 		populateTheWantedHintersList(); // => wantedHinters
 
@@ -983,11 +1001,11 @@ public final class LogicalSolver {
 	 * wait of about 15 seconds on my i7. If you're impatient then disable
 	 * Aligned5+Exclusion in the GUI (Options ~ Solving Techniques); and drop
 	 * the Nested* Chainers too (they're only used for really hard puzzles);
-	 * and Direct*; and Naked/Hidden Quad/Pent; in fact you please go ahead and
-	 * drop your shorts while you're there; Jesus, go ahead and drop the damn
-	 * pilot for all I care. The plane's already ____ed. The speed of a Sudoku
-	 * solver really doesn't matter worth ____. Look! Davo's just dropped the
-	 * the pope. Nice one Davo! Have you met Cardinal Kiddyfiddler?
+	 * and Direct*; and Naked/Hidden Quad/Pent; drop your shorts while you're
+	 * there; Jesus, go ahead and drop the damn pilot for all I care. The plane
+	 * is already demonstrably ____ed. The speed of a Sudoku solver really does
+	 * NOT matter worth a pinch of goat s__t. Fundamentally, there is no future
+	 * and c__ksnaps are still fighting over three-parts of ____all. sigh.
 	 *
 	 * @return List of AHint
 	 */
@@ -1301,7 +1319,7 @@ public final class LogicalSolver {
 			// must rebuild BEFORE we validate (RecursiveAnalyser uses). Sigh.
 			grid.rebuildAllRegionsEmptyCellCounts();
 			grid.rebuildAllRegionsIdxsOfAllValues();
-			// detect invalid grid, or (more likely) a validation is borken!
+			// detect invalid grid, meaning a hinter is probably borken!
 			if ( (problem=validatePuzzleAndGrid(grid, true)) != null )
 				throw new UnsolvableException("Houston: "+problem);
 			// activate the hintNumber activated hinters
@@ -1665,7 +1683,8 @@ public final class LogicalSolver {
 			//          0      1          2       3          4  5
 			// 19,659,393  44948        437  210870         93  Naked Single
 			// 42,842,032  42792      1,001  372730        114  Hidden Single
-			try ( BufferedReader reader = new BufferedReader(new FileReader(IO.PERFORMANCE_STATS)) ) {
+			try ( BufferedReader reader = new BufferedReader(
+					new FileReader(IO.PERFORMANCE_STATS)) ) {
 				String line;
 				while ( (line=reader.readLine()) != null ) {
 					if ( line.startsWith("//") ) // skip comments

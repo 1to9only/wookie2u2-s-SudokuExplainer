@@ -290,7 +290,6 @@ public class KrakenFisherman extends AHinter
 			// ALWAYS re-initialise and clear the cache for Kraken Swordfish(3)
 			// and Jellyfish(4) else we produce invalid hints, I know not why
 			// exactly (@stretch). This slower but works.
-//			if ( tables.initialise(grid, false) || degree>2 ) // @check false
 			if ( tables.initialise(grid, false) ) // @check false
 				kt2Cache.clear();
 			if ( wantOneHint ) { // short-circuit
@@ -1339,6 +1338,7 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 		addCovers(grid.boxs);
 		return numBases>=degree && numAllCovers>=degree;
 	}
+
 	private void addBases(ARegion[] regions) {
 		Idx vs;
 		for ( ARegion region : regions )
@@ -1350,6 +1350,7 @@ if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 				baseVsM2[numBases++] = vs.a2;
 			}
 	}
+
 	private void addCovers(ARegion[] regions) {
 		Idx vs;
 		for ( ARegion region : regions )

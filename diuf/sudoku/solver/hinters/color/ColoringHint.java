@@ -17,6 +17,7 @@ import diuf.sudoku.utils.Html;
 import java.util.HashSet;
 import java.util.Set;
 
+
 /**
  * ColoringHint holds the data of a coloring hint for display.
  *
@@ -34,6 +35,13 @@ public class ColoringHint extends AHint implements IActualHint {
 		for ( Pots pot : pots ) // currently there's 5 colors
 			cells.addAll(pot.keySet());
 		return cells;
+	}
+
+	// remove the redPots from all other pots, so they show-up red
+	private static Pots[] clean(Pots[] pots, Pots redPots) {
+		for ( Pots p : pots )
+			p.removeAll(redPots);
+		return pots;
 	}
 
 	/** The four subtypes of coloring hints. */
@@ -62,7 +70,7 @@ public class ColoringHint extends AHint implements IActualHint {
 		// clone them, and then clear the ONE instance. Simples!
 		super(hinter, redPots.cloneAndClear());
 		this.subtype = subtype;
-		this.pots = pots;
+		this.pots = clean(pots, this.redPots); // must pass the field!
 		this.valueToRemove = valueToRemove;
 		this.aquaCells = calculateAquaCells(pots);
 	}
@@ -142,12 +150,23 @@ public class ColoringHint extends AHint implements IActualHint {
 
 	@Override
 	protected String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.csv(pots))
-		  .append(" on ").append(valueToRemove);
-		return sb.toString();
+		// something weird has happened to pots the second time this method
+		// is invoked, so I cache the bastard, which, yes, is VERY VERY weird!
+		if ( toStringImpl == null ) {
+			StringBuilder sb = Frmt.getSB();
+			sb.append(Frmt.csv(pots));
+			int start=0, len=sb.length(); 
+			// remove leading ", "
+			if ( len>2 && sb.charAt(0) == ',' && sb.charAt(1) == ' ' )
+				start += 2;
+			// remove trailing ", "
+			if ( len>2 && sb.charAt(len-2) == ',' && sb.charAt(len-1) == ' ' )
+				len -= 2;
+			toStringImpl = getHintTypeName()+": "+sb.substring(start, len)+" on "+valueToRemove;
+		}
+		return toStringImpl;
 	}
+	private String toStringImpl;
 
 	@Override
 	protected String toHtmlImpl() {

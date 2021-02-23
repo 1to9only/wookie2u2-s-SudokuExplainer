@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver.hinters.align;
 
+import diuf.sudoku.utils.LongLongHashMap;
 import diuf.sudoku.utils.Counter;
 import diuf.sudoku.Run;
 import diuf.sudoku.Grid;
@@ -883,7 +884,7 @@ public abstract class AAlignedSetExclusionBase
 		return numCmnExclBits;
 	}
 
-// The algorithmic complexity of disuselessenate is the same order of maginitude
+// The algorithmic complexity of disuselessenate is the same order of magnitude
 // as the actual dog____ing loop, hence it doesn't save any time: ie it's just
 // as slow to detect "we don't need to ____ this dog" as it is to just go ahead
 // and ____ the damn dog, so we just ____ it.
@@ -898,7 +899,7 @@ public abstract class AAlignedSetExclusionBase
 //	 * the Corona virus muting all hope... for the moment/year/lifetime. Sigh.
 //	 * This too will pass. None shall pass! But you're legs off. No it isn't.
 //	 * Come on, come on, I'll ave ya. Runnin' away are ya'. IT'S ONLY A RABBIT!
-//	 * Yes, but it has sharp gnashing teeth. Run away! Run away!
+//	 * Yes, but it has sharp gnashing teeth. Run away! Run away! sigh.
 //	 * <pre>
 //	 * 1. Don't panic.
 //	 * 2. Cry if you need to. It helps. I feel that way now. It'll pass.
@@ -913,25 +914,28 @@ public abstract class AAlignedSetExclusionBase
 //	 *    worked out how to avoid touching your face, and please clue me in.
 //	 * 8. You may need 2 weeks worth of bog roll, long-life milk, coffee, and
 //	 *    sugar; and something to chew on might be nice too, but hoarding a
-//	 *    dozen cases of canned soup is insanity, unless of course you really
+//	 *    dozen crates of canned soup is insanity, unless of course you really
 //	 *    really like canned soup. Pumpkin soup again love? Na. This situation
-//	 *    requires a measure response. You need some perspective in order to
+//	 *    requires a measured response. You need some perspective in order to
 //	 *    measure your response.
 //	 * 9. Don't watch the news. It's depressing. An insane hour of all of the
 //	 *    bad and most of the ugly. COVID 19 exists, and it will always exist.
-//	 *    Accept that fact. There's no point trying to avoid catching the virus.
-//	 *    People who do so are over-estimating the threat and under-estimating
-//	 *    the cost of there response to that threat: like punching-on over bog
-//	 *    rolls, just less dramatic. What we can do, through intelligent action,
-//	 *    is slow down the spread of the virus so that it doesn't destroy our
+//	 *    Accept that fact. There's no point trying to eliminate the threat.
+//	 *    The people pushing this line are hope-mongers, who over-estimate the
+//	 *    threat, and under-estimate the impacts of there response to that
+//	 *    threat (as classic overreaction). These silly people tend to be the
+//	 *    ones who end-up doing silly things like punching-on over bog-rolls,
+//	 *    just (usually, and thankfully) less dramatic.
+//   * 10. What we can do, through INTELLIGENT action, is SLOW DOWN the spread
+//   *    of the virus, so that it doesn't overrun our medicos, destroy our
 //	 *    economy, our spirits, and our hope. Virus plus highly mobile populace
 //	 *    equals nightmare. The virus is here to stay. The populace is to be
 //	 *    maintained. What MUST give is the mobility. Some nightmare is given,
-//	 *    but it's when people feel that it's all nothing but nightmare that
-//	 *    societies crumble, and start punching-on over bog-roll. Perspective
-//	 *    people, please.
-//	 * 10. Don't panic. Hope. Keep calm. Laugh. Think. Prepare. Love. GO to the
-//	 *    funerals. Cry. This too will pass.
+//	 *    but it's when people feel that it's all nothing BUT nightmare that
+//	 *    societies crumble, and/because people start doing silly things like
+//	 *    punching-on over bloody bog-rolls. Perspective people, please.
+//	 * Summary: Don't panic. Hope. Keep calm. Laugh. Think. Prepare. Love.
+//	 *    GO to the funerals. Cry. This too will pass. Perspective!
 //	 * </pre>
 //	 * @param cmnExclBits the common excluder (maybes) bits array
 //	 * @param numCmnExclBits the number of elements in the cmnExclBits array
@@ -1132,7 +1136,7 @@ public abstract class AAlignedSetExclusionBase
 	}
 
 	/**
-	 * Sort n cells by maybes.size ASCENDING
+	 * Sort n cells by maybes.size ASCENDING. Smaller cells to the left.
 	 * @param cells
 	 * @param n
 	 */
@@ -1412,22 +1416,25 @@ KEEP4DOC: The only known example of set.isEmpty():
 
 	// =========================================================================
 
-	// total maybes known to NOT hint. This relies on maybes only ever
-	// being removed from the cells (never added back-in or anything)
-	// so that anytime any of the maybes in any of the cells is removed
-	// the total changes, so we must re-examine these cells. If
-	// everything is the same as it was last time and we did not hint
-	// the last time then it's safe to assume that we wont hint this
-	// time, so its safe to skip this search, and hopefully save some
-	// time. A9E currently takes about a DAY (ie far too long to be
-	// practical), so I try to speed it up.
+	/**
+	 * Total maybes known to NOT hint. totalMaybes relies on maybes only being
+	 * removed from the cells (never added back-in or anything) so that anytime
+	 * any of the maybes in any of the cells is removed the total changes, so
+	 * we must re-examine these cells. If everything is the same as it was last
+	 * time and we did not hint the last time then it's safe to assume that we
+	 * won't hint this time, so its safe to skip this search, and hopefully
+	 * save some time. A9E currently takes about a DAY (ie far too long to be
+	 * practical), so I try to speed it up.
+	 * @author Keith Corlett 2020-12-06 (IIRC) created
+	 */
 	public static class NonHinters {
 		// IntIntHashMap does NOT grow so its size really matters.
-		// Observed 84 thousand. FMS this is BIG. No wonder it takes for ever
+		// Observed 84 thousand in A8E: FMS BIG. No wonder it takes for ever.
 		private int hc; // hashCode
 		private int mb; // total maybes
 		private final IntIntHashMap totalMaybes;
 		private final int shift;
+
 		/**
 		 * Construct a new NonHinters.
 		 *
@@ -1436,7 +1443,7 @@ KEEP4DOC: The only known example of set.isEmpty():
 		 *  Left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24 and
 		 *  cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.<br>
 		 *  NOTE: hashCodes are usually INTENDED to be lossy, but here we rely
-		 *  totally on the hashCode, so any collisions are ACTUAL collisions; 
+		 *  totally on the hashCode, so any collisions are ACTUAL collisions;
 		 *  ie two distinct sets of cells which produce the same hashCode are
 		 *  treated as one, for speed.
 		 */
@@ -1446,8 +1453,8 @@ KEEP4DOC: The only known example of set.isEmpty():
 		}
 
 		/**
-		 * Are these cells (in there current state) already known to NOT hint,
-		 * ie should we skip searching these cells.
+		 * Can we skip searching this combo, ie are these cells (in there
+		 * current state) already known to NOT hint.
 		 * <p>
 		 * By "current state" I mean we must recheck each set of cells each
 		 * time any of the maybes in any of those cells is removed, so all we
@@ -1456,13 +1463,22 @@ KEEP4DOC: The only known example of set.isEmpty():
 		 * are never added back-in) so a total of the maybes is sufficient to
 		 * workout if a maybe has been removed from any of the cells in this
 		 * set since the last time we examined them... so the total maybes of
-		 * a set of cells serves as its modificationCount (modCount).
+		 * a set of cells can and does serve as its modification count.
+		 * <p>
+		 * The result is that each combo that doesn't hint is checked ONCE.
+		 * <p>
+		 * Note that we rely upon the IntIntHashMap class KRC wrote for HoDoKu,
+		 * which is a (simplified) {@code HashMap<int, int>} so we do not need
+		 * to create millions of Integers, so it's a bit faster.
+		 * <p>
+		 * 2020-12-07 tried skipping the skipper on the first pass of the grid,
+		 * where we (pretty obviously) never skip, but it was actually slower.
 		 *
 		 * @param cells
 		 * @return
 		 */
 		public boolean skip(Cell[] cells) {
-			int noHintMb, hc=0, mb=0;
+			int storedMb, hc=0, mb=0;
 			for ( Cell cell : cells ) {
 				// left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24 and
 				// cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.
@@ -1472,20 +1488,94 @@ KEEP4DOC: The only known example of set.isEmpty():
 			this.hc = hc;
 			this.mb = mb;
 			// return: are these cells, with these maybes, known to NOT hint
-			return (noHintMb=totalMaybes.get(hc)) != IntIntHashMap.NOT_FOUND
-				&& mb == noHintMb; // then skip it coz we know it doesnt hint.
+			return (storedMb=totalMaybes.get(hc)) != IntIntHashMap.NOT_FOUND
+				&& mb == storedMb; // then skip it coz we know it doesnt hint.
 		}
-		// put is called after get, when either hc is not already in the map
-		// or the cells maybes have changed so that mb!=badMb, so we update
-		// the "bad"Mb to the current mb.
+
+		// put is called after get (when we do NOT hint) coz either hc is not
+		// already in the map or the cells maybes have changed so that totalMb
+		// != storedMb, so we update the storedMb with the totalMaybes (mb).
 		public void put() {
 			totalMaybes.put(hc, mb);
 		}
+
 		public void clear() {
-			maxSize = Math.max(maxSize, totalMaybes.size);
 			totalMaybes.clear();
 		}
-		public static int maxSize = 0;
+	}
+
+	// =========================================================================
+
+	/**
+	 * A LongLongHashMap version of NonHinters to speed-up A9E and A10E. Each
+	 * cells hashCode (ie its identity) is 8 bits so when we smash 10 * 8 = 80
+	 * into 32 bits the result is FAR too indistinctive, so the hashCode has
+	 * been expanded out to a 64 bit long (and therefore so has the value
+	 * despite it fitting comfortably in a 32 bit int); so each cell.hashCode
+	 * is left-shifted 4 bits, so that they tend to stay distinctive. If there
+	 * is a collision then both combos in the collision will be rechecked
+	 * unless they (by pure happenstance) have the same totalMaybes, which may
+	 * happen, but only about 1 in 10000, I guess. 1 in 10000 means it almost
+	 * certainly won't drop a hint, coz they're rare to start with. sigh.
+	 * <p>
+	 * It'd be well funny if aligned sets with collisions turned out to have a
+	 * much higher than average hint-rate. There's one for the mathematicians.
+	 */
+	public static class NonHinters64 {
+		private long hc; // hashCode
+		private long mb; // total maybes
+		private final LongLongHashMap totalMaybes;
+		private final long shift;
+
+		/**
+		 * Construct a new NonHinters.
+		 *
+		 * @param capacity the size of the totalMaybes LongLongHashMap.
+		 * @param shift the number of bits to left-shift the longHashCode.<br>
+		 *  Left-shifting 4 caters for 8 cells in a set: 3 * 8 = 24 and
+		 *  cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.<br>
+		 *  NOTE: hashCodes are usually INTENDED to be lossy, but here we rely
+		 *  totally on the hashCode, so any collisions are ACTUAL collisions;
+		 *  ie two distinct sets of cells which produce the same hashCode are
+		 *  treated as one, for speed.
+		 */
+		public NonHinters64(int capacity, long shift) {
+			totalMaybes = new LongLongHashMap(capacity);
+			this.shift = shift;
+		}
+
+		/**
+		 * Can we skip searching this combo, ie are these cells (in there
+		 * current state) already known to NOT hint.
+		 *
+		 * @param cells
+		 * @return
+		 */
+		public boolean skip(Cell[] cells) {
+			long storedMb, mb=0;
+			long hc=0;
+			for ( Cell cell : cells ) {
+				// left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24
+				// and cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.
+				hc = (hc<<shift) ^ cell.hashCode;
+				mb += cell.maybes.bits;
+			}
+			this.hc = hc;
+			this.mb = mb;
+			// return: are these cells, with these maybes, known to NOT hint
+			return (storedMb=totalMaybes.get(hc)) != LongLongHashMap.NOT_FOUND
+				&& mb == storedMb; // then skip it coz we know it doesnt hint.
+		}
+
+		// put is called after skip if this combo does not hint (ie 99.93% of
+		// cases) to update the old totalMb (if any) to the current total.
+		public void put() {
+			totalMaybes.put(hc, mb);
+		}
+
+		public void clear() {
+			totalMaybes.clear();
+		}
 	}
 
 }

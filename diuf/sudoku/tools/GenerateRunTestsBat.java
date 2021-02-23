@@ -12,7 +12,7 @@ import java.io.File;
 /**
  * The GenerateRunTestsBat tool regenerates PART OF the RunTests-script
  * including all the *Test.java files in the ${DiufSudoku}/test directory.
- * It's intended for use on Windows, unix/linux, or mac (@todo fix commands).
+ * It's intended for use on Windows, unix/linux, or mac (@bug fix commands).
  * <p>
  * I want a convenient way to run the tests out-side of the IDE, so that it
  * matters not which IDE you use. I'm on Windows so I generate a .bat.

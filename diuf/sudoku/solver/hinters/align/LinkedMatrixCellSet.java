@@ -368,4 +368,16 @@ public class LinkedMatrixCellSet
 				        + SIZE[(only>>>18) & 511] == 1);
 	}
 	private static final int[] SIZE = diuf.sudoku.Values.SIZE;
+
+	public static interface CellVisitor {
+		public boolean visit(Cell c);
+	}
+
+	// nb: myForEach to avert collision with Iterable forEach
+	public boolean myForEach(CellVisitor v) {
+		for ( Node n=head; n!=null; n=n.next )
+			if ( v.visit(n.cell) )
+				return true;
+		return false;
+	}
 }

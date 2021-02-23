@@ -148,8 +148,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
-	 * Create a clone (a shallow copy) of these Pots; then clears these pots;
-	 * and returns the clone.
+	 * Create a clone (a shallow copy) of these Pots; and clear these pots;
+	 * then return the clone.
 	 * <p>
 	 * This weird little method facilitates the Coloring hinter having just ONE
 	 * instance of Pots, which is copied and stored each time we create a hint,
@@ -159,7 +159,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * <p>
 	 * Note that it's only a shallow copy, so the existing Values instances are
 	 * referenced by the returned clone, the Values objects are NOT "deep
-	 * copied"... if you've got values weirdness try a deep copy!
+	 * copied"... if you get values weirdness then try a deep copy!
 	 *
 	 * @return a new SHALLOW copy of these Pots, which are then cleared.
 	 */

@@ -59,8 +59,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 
 //	private final ACollisionComparator cc = new ACollisionComparator();
 
-	// AAlignedSetExclusionBase.NonHinters.maxSize = 65359 A little overloaded
-	// is OK, it just means a tad more than about 8 max elements per list.
+	// AAlignedSetExclusionBase.NonHinters.maxSize = 65359
 	private final NonHinters nonHinters = new NonHinters(64*1024, 4);
 
 //	//useless: protected final Counter cnt1col = new Counter("cnt1col");
@@ -390,6 +389,24 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 							cells[4] = candidates[i4];
 							if(hitMe && cells[4]!=hitCells[4]) continue;
 
+							// This is my latest attempt to enspeedonate the bloody A*E fiasco.
+							// The problem is there are too many combos, and checking each combo is
+							// too bloody slow, so we no longer repeatedly check non-hinting combos;
+							// instead the cells are reduced to a hashCode as a key, and we the sum
+							// those cells maybes the value. Then we compare the current maybesTotal
+							// to that stored, and if they are equal (no maybes changed) we can skip
+							// checking this combo again; else (maybe/s have changed) we recheck the
+							// combo, and update the maybesTotal.
+							// Summing the totals works because maybes are only ever removed, never
+							// restored, so the maybesTotal serves as a modCount for the cell set;
+							// so we can skip checking the cells if maybesTotal is unchanged since
+							// the last time they were checked and did not hint, because they 
+							// (pretty obviously) still will not hint.
+							// This process actually slows down the first pass through the grid (say
+							// about 10%), but enspeedonates (about halves) time for each subsequent
+							// pass. It's not lightening, but it is faster, so is used in A5+E.
+							// Note that I tried skipping the skipper on the first pass of the grid,
+							// because it (pretty obviously) never skips, but it was actually slower.
 							if ( nonHinters.skip(cells) )
 								continue;
 
@@ -442,11 +459,10 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 								cmnExclBits[0] = cmnExcls[0].maybes.bits;
 								numCmnExclBits = 1;
 							} else {
-								// performance enhancement: examine smaller maybes sooner.
+								// performance enhancement: smaller cells to the left.
 								//KRC#2020-06-30 09:50:00 bubbleSort 84.525s vs Tim.small 108.438s
 								//MyTimSort.small(cmnExcls, numCmnExcls, Grid.BY_MAYBES_SIZE);
 								bubbleSort(cmnExcls, numCmnExcls);
-
 								// get common excluders bits, removing any supersets,
 								// eg: {12,125}=>{12} coz 125 covers 12, so 125 does nada.
 								numCmnExclBits = subsets(cmnExclBits, cmnExcls, numCmnExcls);
@@ -632,7 +648,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 								//   // in large sets (A5..10E) it's faster to remove each selected value
 								//   // from each subsequent sibling cells maybes that it is to just "skip
 								//   // collisions" (as per A23E) because we do more of the work less often.
-								//   // nb: These are done upside-down to increase the CPU-caches hit rate. // I just thought it might be fun to put a comment on a comment in a comment. I'm nearly smiling. Fish? What fish? ExcessiveCabbagesException: pull my finger to continue... but but but. Your legs off! No it isn't! There's an earwick in my salad. STOP SKITING! Animals or edibles? And we spend HUNDREDS OF MILLIONS on bloody fish farms, which KILL MORE FISH THAN THEY PRODUCE! Darwin says <BUP_BOW/>. Maslow was a ____wit! American's are all ____wits (apart from those few who aren't, obviously)! The Australian Pariament are DEFINATELY ____wits (all of them, no exceptions)! Trump is the referential architype of ____wit (Trump: see ____wit. Yep, it fits)! Morrison is an imitation, pineapple smuggling, dingle-berry flavoured ____wit. With cheese. Fry my Burgers would be much better off if he shut up a stopped proving beyond any reasonable doubt how incredibly ____ing ____witted he is. Captain ____ing Potato Head s__ts me to tears at 60 miles per second per second. I know right: 0 to puking pastille in 3.14 milliseconds. Freaky! The ____ing Sports minister stole TWO HUNDRED MILLION DOLLARS which she stuffs into her mates piggy banks in the vain hope that someone might actually like her, but who's ____ing stupid enough to STEAL HUNDREDS OF MILLIONS OF FUYCKING DOLLARS and actually think that people will LIKE her for it; she can't bloody figure out WHY nobody ____ing likes her. Sersiously, this level of stupididity stretches the the third law of thermodynamics and subsequently societies whose government persist with it fail (utterly, in the Darwinian sense, seriously peeps). And the ____ers just keep getting away with it: just sacrifice another stupid ____ing Nat bitch to the reasonableness-gods (good call, poor execution, if you get my drift). Government by half-wit, con-artist, thug, rip-off, psychopath, ____ing ____wit sheisters. Woohoo Loo the minister for ____ing Dog Bong Wok. The whole ____ing tribe are first class channel changers: ie when any of them come on I just change the ____ing channel: don't expect me to forgive you while you're p__sing in my ____ing ear you useless little c__ts. Well maybe it's you who's the ____wit? Yeah maybe, but I doubt it. Sigh. And they're all significantly superiour to Pauline. Dog s__t recently outscored Pauline on a standard aptitude test. As did a crow! FAAAARK! FAAAARK! FAAAARK! Don't ask the ____ing crows! It's all nuts!
+								//   // nb: These are done upside-down to increase the CPU-caches hit rate. // I just thought it might be fun to put a comment on a comment in a comment. I'm nearly smiling. Fish? What fish? ExcessiveCabbagesException: pull my finger to continue... but but but. Your legs off! No it isn't! There's an earwick in my salad. STOP SKITING! Animals or edibles? And we spend HUNDREDS OF MILLIONS on bloody fish farms, which KILL MORE FISH THAN THEY PRODUCE! Darwin says <BUP_BOW/>. Maslow was a ____wit! American's are all ____wits (apart from those few who aren't, obviously)! The Australian Pariament are DEFINATELY ____wits (all of them, no exceptions)! Trump is the referential architype of ____wit (Trump: see ____wit. Yep, it fits)! Morrison is an imitation, pineapple smuggling, dingle-berry flavoured ____wit. With cheese. Fry my Burgers would be much better off if he shut up a stopped proving beyond any reasonable doubt how incredibly ____ing ____witted ____wit he is. Captain ____ing Potato Head s__ts me to tears at 60 miles per second per second. I know right: 0 to puking pastille in 3.14 milliseconds. Freaky! The ____ing Sports minister stole TWO HUNDRED MILLION DOLLARS which she stuffs into her mates piggy banks in the vain hope that someone might actually like her, but who's ____ing stupid enough to STEAL HUNDREDS OF MILLIONS OF FUCKING DOLLARS and actually think that people will LIKE her for it; she can't bloody figure out WHY nobody ____ing likes her. Sersiously, this level of stupididity stretches the third law of thermodynamics and subsequently societies whose government persist with it fail (utterly, in the Darwinian sense, seriously peeps). And the ____ers just keep getting away with it: just sacrifice another stupid ____ing Nat bitch to the reasonableness-gods (good call, poor execution, if you get my drift). Government by half-wit, con-artist, thug, rip-off, psychopath, ____ing ____wit sheisters. Woohoo Loo the minister for ____ing Dog Bong Wok. The whole ____ing tribe are first class channel changers: ie when any of them come on I just change the ____ing channel: don't expect me to forgive you while you're p__sing in my ____ing ear you useless little c__ts. Well maybe it's you who's the ____wit? Yeah maybe, but I doubt it. Sigh. And they're all significantly superiour to Pauline. Dog s__t recently outscored Pauline on a standard aptitude test. As did a crow! FAAAARK! FAAAARK! FAAAARK! Don't ask the ____ing crows! It's all nuts!
 								//   if c4 isSiblingOf c0 then remove v0 from c4's potential values (if present)
 								//   if c3 isSiblingOf c0 then remove v0 from c3's potential values (if present)
 								//   if c2 isSiblingOf c0 then remove v0 from c2's potential values (if present)

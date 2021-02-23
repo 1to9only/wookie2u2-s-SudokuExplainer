@@ -59,7 +59,7 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 
 	private final ACollisionComparator cc = new ACollisionComparator();
 
-	private final NonHinters nonHinters = new NonHinters(16*1024, 2);
+	private final NonHinters64 nonHinters = new NonHinters64(16*1024, 4);
 
 	public Aligned9Exclusion_2H(int firstHintNumber, IInterruptMonitor monitor) {
 		super(firstHintNumber, monitor);
@@ -76,6 +76,7 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 		nonHinters.clear();
 	}
 
+	@SuppressWarnings("fallthrough")
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 
@@ -273,9 +274,6 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 											if ( excluders[candidates[i8].i].idx2(idx08, idx07) )
 												continue;
 											cells[8] = candidates[i8];
-//// Aligned9Exclusion_2HTest (doesn't stop ~ out of order?
-//if ( "D1, F1, D2, E2, D3, F3, E6, E7, E9".equals(diuf.sudoku.utils.Frmt.csv(cells)) )
-//	Debug.breakpoint();
 											if(hitMe && cells[8]!=hitCells[8]) continue;
 
 											if ( nonHinters.skip(cells) )

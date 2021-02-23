@@ -61,7 +61,7 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 
 	private final ACollisionComparator cc = new ACollisionComparator();
 
-	private final NonHinters nonHinters = new NonHinters(16*1024, 2);
+	private final NonHinters64 nonHinters = new NonHinters64(16*1024, 4);
 
 	public Aligned10Exclusion_2H(int firstHintNumber, IInterruptMonitor monitor) {
 		super(firstHintNumber, monitor);
@@ -78,6 +78,7 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 		nonHinters.clear();
 	}
 
+	@SuppressWarnings("fallthrough")
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 

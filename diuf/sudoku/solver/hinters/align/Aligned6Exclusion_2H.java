@@ -68,6 +68,8 @@ public final class Aligned6Exclusion_2H extends Aligned6ExclusionBase
 //	private final ACollisionComparator cc = new ACollisionComparator();
 
 	private final NonHinters nonHinters = new NonHinters(16*1024, 4);
+	// What's that Skip? Why it's the skipper skipper flipper Flipper.
+	private boolean firstPass = true;
 
 	public Aligned6Exclusion_2H(int firstHintNumber, IInterruptMonitor monitor) {
 		super(firstHintNumber, monitor);
@@ -86,6 +88,14 @@ public final class Aligned6Exclusion_2H extends Aligned6ExclusionBase
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
+		// it's just easier to set firstPass ONCE, rather than deal with it in
+		// each of the multiple exit-points from what is now findHintsImpl.
+		boolean ret = findHintsImpl(grid, accu);
+		firstPass = false;
+		return ret;
+	}
+
+	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
 
 		// localise this variable for speed (and make it final).
 		// hackTop1465 is isHacky && filePath.contains("top1465")

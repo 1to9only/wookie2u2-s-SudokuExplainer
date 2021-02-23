@@ -16,8 +16,6 @@ import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.solver.LogicalSolver;
-import diuf.sudoku.utils.IntIntHashMap;
-import diuf.sudoku.utils.MyHashSet;
 
 
 /**
@@ -63,7 +61,7 @@ public final class Aligned9Exclusion_1C extends Aligned9ExclusionBase
 
 	private final ACollisionComparator cc = new ACollisionComparator();
 
-	private final NonHinters nonHinters = new NonHinters(128*1024, 2);
+	private final NonHinters64 nonHinters = new NonHinters64(128*1024, 4);
 
 //	protected final Counter cnt1col = new Counter("cnt1col");
 //	protected final Counter cnt1sib = new Counter("cnt1sib");

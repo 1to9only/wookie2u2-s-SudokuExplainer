@@ -1022,7 +1022,18 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		forEach2((count, indice) -> cells[count] = grid.cells[indice]);
 		return cells;
 	}
-
+	
+	// cellsN is hammered by Aligned*Exclusion, so create ONE instance of
+	// CellsNVisitor, just to be more memory efficient, that's all.
+	private static final class CellsNVisitor implements Visitor2 {
+		public Grid grid;
+		public Cell[] cells;
+		@Override
+		public void visit(int count, int indice) {
+			cells[count] = grid.cells[indice];
+		}
+	}
+	private static final CellsNVisitor CELLS_N_VISITOR = new CellsNVisitor();
 	/**
 	 * Get the cells from the given Grid at indices in this Idx. Use this one
 	 * with a fixed-sized array, and I return the size.
@@ -1032,7 +1043,24 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return the number of indices visited, ie the size of this Idx
 	 */
 	public int cellsN(Grid grid, Cell[] cells) {
-		return forEach2((cnt, i) -> cells[cnt] = grid.cells[i]);
+		CELLS_N_VISITOR.grid = grid;
+		CELLS_N_VISITOR.cells = cells;
+		return forEach2(CELLS_N_VISITOR);
+	}
+
+	// cellsMaybes is hammered by AlignedExclusion, so create ONE instance of
+	// CellsMaybesVisitor, just to be more memory efficient, that's all.
+	public static final class CellsMaybesVisitor implements Visitor2 {
+		public Grid grid;
+		public int[] maybes;
+		@Override
+		public void visit(int count, int indice) {
+			maybes[count] = grid.cells[indice].maybes.bits;
+		}
+	}
+	public static final CellsMaybesVisitor CELLS_MAYBES_VISITOR = new CellsMaybesVisitor();
+	public int cellsMaybes() {
+		return forEach2(CELLS_MAYBES_VISITOR);
 	}
 
 	/**
@@ -1129,6 +1157,15 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			? toCellIdString(a0, a1, a2)
 			// debug only: the raw indices
 			: toIndiceString(a0, a1, a2);
+	}
+
+	public String toFullString(Grid grid) {
+		StringBuilder sb = getSB(size()*12);
+		forEach2((cnt, i) -> {
+			if (cnt>0) sb.append(' ');
+			sb.append(grid.cells[i].toFullString());
+		});
+		return sb.toString();
 	}
 
 	private static StringBuilder getSB(int capacity) {

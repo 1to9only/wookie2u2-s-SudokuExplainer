@@ -51,103 +51,103 @@ public enum Tech {
 	Solution(0.0, 0, "The Solution")
 
 	// puzzleValidators
-	, TooFewClues			(0.0, 0, "Too Few Clues")
-	, TooFewValues			(0.0, 0, "Too Few Values")
-	, SingleSolutions		(0.0, 0, "Single Solution")
+	, TooFewClues		(0.0, 0, "Too Few Clues")
+	, TooFewValues		(0.0, 0, "Too Few Values")
+	, SingleSolutions	(0.0, 0, "Single Solution")
 
 	// gridValidators
-	, NoMissingMaybes		(0.0, 0, "No Missing Maybes")
-	, NoDoubleValues			(0.0, 0, "No Double Values")
-	, NoHomelessValues		(0.0, 0, "No Homeless Values")
+	, NoMissingMaybes	(0.0, 0, "No Missing Maybes")
+	, NoDoubleValues		(0.0, 0, "No Double Values")
+	, NoHomelessValues	(0.0, 0, "No Homeless Values")
 
 // Easy
 	// directs
-	, LonelySingle			(1.0, 1, "Lonely Single")
-	, NakedSingle			(1.1, 1, "Naked Single")
-	, HiddenSingle			(1.2, 1, "Hidden Single")
-	
+	, LonelySingle		(1.0, 1, "Lonely Single")
+	, NakedSingle		(1.1, 1, "Naked Single")
+	, HiddenSingle		(1.2, 1, "Hidden Single")
+
 // Medium
 	// NB: constructor does name().startsWith("Direct")
-	, Locking				(2.1, 1, "Locking") // Pointing=2.1 Claiming=2.2
-	, DirectNakedPair		(2.3, 2, "Direct Naked Pair")
-	, DirectHiddenPair		(2.4, 2, "Direct Hidden Pair")
-	, DirectNakedTriple		(2.5, 3, "Direct Naked Triple")
-	, DirectHiddenTriple		(2.6, 3, "Direct Hidden Triple") // longest nom is 20 characters
+	, Locking			(2.1, 1, "Locking") // Pointing=2.1 Claiming=2.2
+	, DirectNakedPair	(2.3, 2, "Direct Naked Pair")
+	, DirectHiddenPair	(2.4, 2, "Direct Hidden Pair")
+	, DirectNakedTriple	(2.5, 3, "Direct Naked Triple")
+	, DirectHiddenTriple	(2.6, 3, "Direct Hidden Triple") // longest nom is 20 characters
 
 // Hard
 	// indirects
-	, NakedPair				(3.0, 2, "Naked Pair")
-	, HiddenPair			(3.1, 2, "Hidden Pair")
-	, NakedTriple			(3.2, 3, "Naked Triple")
-	, HiddenTriple			(3.3, 3, "Hidden Triple")
-	, TwoStringKite			(3.4, 4, "Two String Kite")
-	, Swampfish				(3.5, 2, "Swampfish") // aka X-Wing: I call them Swampfish coz they're Fish, not Wings! Luke, Yoda, swamp.
+	, NakedPair			(3.0, 2, "Naked Pair")
+	, HiddenPair		(3.1, 2, "Hidden Pair")
+	, NakedTriple		(3.2, 3, "Naked Triple")
+	, HiddenTriple		(3.3, 3, "Hidden Triple")
+	, TwoStringKite		(3.4, 4, "Two String Kite")
+	, Swampfish			(3.5, 2, "Swampfish") // aka X-Wing: I call them Swampfish coz they're Fish, not Wings! Luke, Yoda, swamp.
 
 // Fiendish
-	, XY_Wing				(3.6, 2, "XY-Wing")
-	, XYZ_Wing				(3.7, 3, "XYZ-Wing")
-	, W_Wing				(3.8, 4, "W-Wing")
-	, Swordfish				(3.9, 3, "Swordfish")
-	, Skyscraper			(4.0, 4, "Skyscraper")
-	, EmptyRectangle			(4.1, 4, "Empty Rectangle")
-	, Jellyfish				(4.2, 4, "Jellyfish")
+	, XY_Wing			(3.6, 2, "XY-Wing")
+	, XYZ_Wing			(3.7, 3, "XYZ-Wing")
+	, W_Wing			(3.8, 4, "W-Wing")
+	, Swordfish			(3.9, 3, "Swordfish")
+	, Skyscraper		(4.0, 4, "Skyscraper")
+	, EmptyRectangle		(4.1, 4, "Empty Rectangle")
+	, Jellyfish			(4.2, 4, "Jellyfish")
 	// FYI: Don't try larger Fish, I did, and they find nothing.
 	//      They're all degenerate (comprised of simpler hints)
 
 // Nightmare
 	// heavies
-	, FinnedSwampfish		(4.30, 2, "Finned Swampfish")	// Finned & Sashimi Fish (fast)
-	, FinnedSwordfish		(4.31, 3, "Finned Swordfish")
-	, FinnedJellyfish		(4.32, 4, "Finned Jellyfish")
-	, Coloring				(4.40, 2, "Coloring")			// Coloring (BUG++)
-	, ALS_XZ				(4.50, 0, "ALS-XZ")				// ALSs
-	, ALS_Wing				(4.51, 0, "ALS-Wing")
-	, ALS_Chain				(4.52, 0, "ALS-Chain")
-	, FrankenSwampfish		(4.60, 2, "Franken Swampfish", "top1465 NONE")
-	, FrankenSwordfish		(4.61, 3, "Franken Swordfish")
-	, FrankenJellyfish		(4.62, 4, "Franken Jellyfish")
+	, FinnedSwampfish	(4.30, 2, "Finned Swampfish")	// Finned & Sashimi Fish (fast)
+	, FinnedSwordfish	(4.31, 3, "Finned Swordfish")
+	, FinnedJellyfish	(4.32, 4, "Finned Jellyfish")
+	, Coloring			(4.40, 2, "Coloring")			// Coloring (BUG++)
+	, ALS_XZ			(4.50, 0, "ALS-XZ")				// ALSs
+	, ALS_Wing			(4.51, 0, "ALS-Wing")
+	, ALS_Chain			(4.52, 0, "ALS-Chain")
+	, FrankenSwampfish	(4.60, 2, "Franken Swampfish", "top1465 NONE")
+	, FrankenSwordfish	(4.61, 3, "Franken Swordfish")
+	, FrankenJellyfish	(4.62, 4, "Franken Jellyfish")
 // 1,764 seconds for 20 hints is just too slow to be allowed. Mutants are dead.
 // Having said that Mutant MutantSwampfish was fast enough, for 0 hints. sigh.
-	, MutantSwampfish		(4.70, 2, "Mutant Swampfish", "top1465 NONE")		// OK
-	, MutantSwordfish		(4.71, 3, "Mutant Swordfish", "top1465 1 minute")	// SLOW
-	, MutantJellyfish		(4.72, 4, "Mutant Jellyfish", "top1465 6 minutes")	// VERY SLOW
-	, NakedQuad				(5.0, 4, "Naked Quad")
-	, HiddenQuad			(5.1, 4, "Hidden Quad", "top1465 NONE")
-	, NakedPent				(5.2, 5, "Naked Pent", "top1465 NONE")
-	, HiddenPent				(5.3, 5, "Hidden Pent", "top1465 NONE")
-	, URT					(5.4, 0, "Unique Rectangle")
-	, KrakenSwampfish		(5.80, 2, "Kraken Swampfish")	// SLOW
-	, KrakenSwordfish		(5.81, 3, "Kraken Swordfish", "top1465 2 minutes")	// VERY SLOW
-	, KrakenJellyfish		(5.82, 4, "Kraken Jellyfish", "top1465 5 minutes")	// VERY VERY SLOW
+	, MutantSwampfish	(4.70, 2, "Mutant Swampfish", "top1465 NONE")		// OK
+	, MutantSwordfish	(4.71, 3, "Mutant Swordfish", "top1465 1 minute")	// SLOW
+	, MutantJellyfish	(4.72, 4, "Mutant Jellyfish", "top1465 6 minutes")	// VERY SLOW
+	, NakedQuad			(5.0, 4, "Naked Quad")
+	, HiddenQuad		(5.1, 4, "Hidden Quad", "top1465 NONE")
+	, NakedPent			(5.2, 5, "Naked Pent", "top1465 NONE")
+	, HiddenPent			(5.3, 5, "Hidden Pent", "top1465 NONE")
+	, URT				(5.4, 0, "Unique Rectangle")
+	, KrakenSwampfish	(5.80, 2, "Kraken Swampfish")	// SLOW
+	, KrakenSwordfish	(5.81, 3, "Kraken Swordfish", "top1465 2 minutes")	// VERY SLOW
+	, KrakenJellyfish	(5.82, 4, "Kraken Jellyfish", "top1465 5 minutes")	// VERY VERY SLOW
 
 // Diabolical
-	, BUG					(6.0, 0, "Bi-Uni Grave") // Type 1=6.0, 2=6.1, 3={2=6.2, 3=6.3, 4=6.4}, 4=6.0
+	, BUG				(6.0, 0, "Bi-Uni Grave") // Type 1=6.0, 2=6.1, 3={2=6.2, 3=6.3, 4=6.4}, 4=6.0
 
-	, AlignedPair			(6.1, 2, "Aligned Pair")	// 1.6   0.031  CORRECT
-	, AlignedTriple			(6.2, 3, "Aligned Triple")	//  26   6.539  CORRECT
-	, AlignedQuad			(6.3, 4, "Aligned Quad")	// 143  32.421  CORRECT
-	, AlignedPent			(6.4, 5, "Aligned Pent", "top1465 01:16 mins correct")	// 224  17.045  HACKED
-	, AlignedHex			(6.5, 6, "Aligned Hex",  "top1465 03:28 mins correct")	// 533  17.868  HACKED
-	, AlignedSept			(6.6, 7, "Aligned Sept", "top1465 06:17 mins correct")	// 744  12.970  HACKED
-	, AlignedOct				(6.7, 8, "Aligned Oct",  "top1465 19 minutes correct")	// 775   4.632  HACKED
-	, AlignedNona			(6.8, 9, "Aligned Nona", "top1465 3 hours correct")		// 509   2.740  HACKED
-	, AlignedDec				(6.9,10, "Aligned Dec",  "top1465 6 hours correct")		//  59   1.911  HACKED
+	, AlignedPair		(6.1, 2, "Aligned Pair", "fast enough")				  // 1.6  0.031 CORRECT
+	, AlignedTriple		(6.2, 3, "Aligned Triple", "fast enough")			  //  26  6.539 CORRECT
+	, AlignedQuad		(6.3, 4, "Aligned Quad", "fast enough")				  // 143 32.421 CORRECT
+	, AlignedPent		(6.4, 5, "Aligned Pent", "top1465 01:16 m:s correct") // 224 17.045 HACKED
+	, AlignedHex		(6.5, 6, "Aligned Hex", "top1465 03:28 m:s correct")  // 533 17.868 HACKED
+	, AlignedSept		(6.6, 7, "Aligned Sept", "top1465 06:17 m:s correct") // 744 12.970 HACKED
+	, AlignedOct			(6.7, 8, "Aligned Oct", "top1465 19 minutes correct") // 775  4.632 HACKED
+	, AlignedNona		(6.8, 9, "Aligned Nona", "top1465 3 hours correct")	  // 509  2.740 HACKED
+	, AlignedDec			(6.9,10, "Aligned Dec", "top1465 6 hours correct")	  //  59  1.911 HACKED
 
-	// chains               level                      Multi,Dynam,Nishi
-	, UnaryChain			(7.0, 0, "Unary Chain",    false,false,false)
-	, NishioChain			(7.5, 0, "Nishio Chain",   false,true ,true )
-	, MultipleChain			(8.0, 0, "Multiple Chain", true ,false,false)
-	, DynamicChain			(8.5, 0, "Dynamic Chain",  true ,true ,false)
+	// chains           level                      Multi,Dynam,Nishi
+	, UnaryChain		(7.0, 0, "Unary Chain",    false,false,false)
+	, NishioChain		(7.5, 0, "Nishio Chain",   false,true ,true )
+	, MultipleChain		(8.0, 0, "Multiple Chain", true ,false,false)
+	, DynamicChain		(8.5, 0, "Dynamic Chain",  true ,true ,false)
 
 // IDKFA
-	, DynamicPlus			(9.0, 1, "Dynamic Plus",   true ,true ,false)
+	, DynamicPlus		(9.0, 1, "Dynamic Plus",   true ,true ,false)
 
 	// nested
 	// NB: constructor does name().startsWith("Nested")
-	, NestedUnary			( 9.5, 2, "Nested Unary",    true ,true ,false)
-	, NestedMultiple			(10.0, 3, "Nested Multiple", true ,true ,false)
-	, NestedDynamic			(10.5, 4, "Nested Dynamic",  true ,true ,false)
-	, NestedPlus				(11.0, 5, "Nested Plus",     true ,true ,false)
+	, NestedUnary		( 9.5, 2, "Nested Unary",    true ,true ,false)
+	, NestedMultiple		(10.0, 3, "Nested Multiple", true ,true ,false)
+	, NestedDynamic		(10.5, 4, "Nested Dynamic",  true ,true ,false)
+	, NestedPlus			(11.0, 5, "Nested Plus",     true ,true ,false)
 	;
 
 	public static EnumSet<Tech> forNames(Set<String> namesSet) {
@@ -207,7 +207,7 @@ public enum Tech {
 	}
 
 	private Tech(double difficulty, int degree, String nom) {
-		this(difficulty, degree, nom, null);
+		this(difficulty, degree, nom, null); // tool tip = null, meaning none
 	}
 
 	private Tech(double difficulty, int degree, String nom

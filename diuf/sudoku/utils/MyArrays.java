@@ -469,4 +469,12 @@ public final class MyArrays {
 		return a==null || a.length==0 || a[0]==null;
 	}
 
+	public static String toString(int[] a, int n) {
+		StringBuilder sb = new StringBuilder(n*6);
+		for ( int i=0; i<n; ++i ) {
+			if (i>0) sb.append(' ');
+			sb.append(a[i]);
+		}
+		return sb.toString();
+	}
 }

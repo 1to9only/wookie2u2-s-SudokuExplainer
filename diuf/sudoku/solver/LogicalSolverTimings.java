@@ -5471,6 +5471,185 @@ package diuf.sudoku.solver;
  * 3. Next I do not know, I guess I'll just have a poke around and try to find 
  *    something to play with.
  * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.101 2020-12-08 07:58:40 Back-up prior to Aligned*Exclusion redo.
+ * This version has NonHinters64 and LongLongHashMap. Now I will try iterating
+ * a stack in A*E (ala hobiwan) to remove most of the A*E classes, ie eliminate
+ * my previous code-bloat.
+ * <pre>
+ *       time (ns)  calls   time/call  elims      time/elim hinter
+ *      26,675,900 116154         229 665940             40 Naked Single
+ *      18,455,300  49560         372 168790            109 Hidden Single
+ *     113,502,400  32681       3,473   5847         19,412 Direct Naked Pair
+ *     103,425,200  32270       3,204  12321          8,394 Direct Hidden Pair
+ *     243,923,100  31329       7,785    884        275,931 Direct Naked Triple
+ *     229,905,200  31274       7,351   1812        126,879 Direct Hidden Triple
+ *     122,122,000  31136       3,922  18538          6,587 Locking
+ *      67,579,500  21976       3,075   4414         15,310 Naked Pair
+ *      60,389,400  20859       2,895   8530          7,079 Hidden Pair
+ *     140,955,300  19243       7,325   1293        109,014 Naked Triple
+ *     131,600,100  18878       6,971   1024        128,515 Hidden Triple
+ *      77,454,300  18681       4,146   1400         55,324 Two String Kite
+ *      48,889,100  17281       2,829    447        109,371 Swampfish
+ *     110,141,200  17080       6,448    620        177,647 XY-Wing
+ *      76,247,600  16637       4,583    305        249,992 XYZ-Wing
+ *      78,223,500  16350       4,784    466        167,861 W-Wing
+ *      62,230,300  16037       3,880    354        175,791 Skyscraper
+ *      68,881,100  15851       4,345    481        143,203 Empty Rectangle
+ *      87,912,000  15370       5,719    259        339,428 Swordfish
+ *     218,211,400  15294      14,267     98      2,226,646 Naked Quad
+ *     185,748,500  15275      12,160     13     14,288,346 Hidden Quad
+ *      26,422,000  15273       1,729      9      2,935,777 Jellyfish
+ *   1,953,527,400  15270     127,932    858      2,276,838 Unique Rectangle
+ *   3,510,548,900  14868     236,114    510      6,883,429 Finned Swampfish
+ *   8,121,679,500  14438     562,521    430     18,887,626 Finned Swordfish
+ *   9,531,727,100  14090     676,488     21    453,891,766 Finned Jellyfish
+ *     568,760,100  14073      40,414    108      5,266,297 Coloring
+ *  28,675,638,400  13989   2,049,870   8358      3,430,921 ALS-XZ
+ *  29,017,003,800   8291   3,499,819   4334      6,695,201 ALS-Wing
+ *   4,879,550,500   4683   1,041,971      0              0 Franken Swampfish
+ *  24,257,395,900   4683   5,179,883    178    136,277,505 Franken Swordfish
+ *  60,410,981,500   4534  13,323,992    104    580,874,822 Franken Jellyfish
+ *     388,174,100   4439      87,446      1    388,174,100 Aligned Pair
+ *   2,549,628,900   4438     574,499     16    159,351,806 Aligned Triple
+ *  35,523,909,500   4423   8,031,632     52    683,152,105 Aligned Quad
+ * 100,576,296,500   4381  22,957,383     68  1,479,063,183 Aligned Pent
+ * 324,667,762,200   4324  75,085,051     31 10,473,153,619 Aligned Hex
+ * 469,436,187,500   4295 109,298,297     37 12,687,464,527 Aligned Sept
+ *  18,498,397,000   4265   4,337,256   2134      8,668,414 Unary Chain
+ *   6,769,638,900   3486   1,941,950     28    241,772,817 Nishio Chain
+ *  12,925,889,900   3458   3,737,967   5642      2,291,012 Multiple Chain
+ *  15,604,700,400   1443  10,814,068   7920      1,970,290 Dynamic Chain
+ *     129,220,800      3  43,073,600     30      4,307,360 Dynamic Plus
+ * 1,160,295,513,200
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465 1,231,905,303,100 (20:31)       840,890,991
+ * NOTES:
+ * 1. Last top1465 20:31 with A567E_1C, is 5 minutes slower than previous, so
+ *    Houston: I think we have a problem; but I am about to completely rewrite
+ *    the problem, which will likely cause many more problems, so no worries.
+ * 2. Release 6.30.101 2020-12-08 07:58:40 =>
+ *    DiufSudoku_V6_30.101.2020-12-08.7z
+ * 3. Next I apply hobiwans stack-iteration technique to Aligned*Exclusion.
+ * <hr>
+ * <p>
+ * KRC 6.30.102 2020-12-17 10:54:42 Release align2.AlignedExclusion squashing
+ * all Aligned*Exclusion's boiler-plate code down into one complex succinct
+ * class using hobiwans stack iteration technique twice: once for cells, and
+ * again for vals.
+ * <pre>
+ * -- "old version" for comparison --
+ *         time (ns)  calls  time/call  elims      time/elim hinter
+ *        19,812,600 116122        170 666010             29 Naked Single
+ *        14,401,500  49521        290 168620             85 Hidden Single
+ *        91,215,500  32659      2,792   5847         15,600 Direct Naked Pair
+ *        82,771,900  32248      2,566  12324          6,716 Direct Hidden Pair
+ *       203,858,400  31307      6,511    884        230,609 Direct Naked Triple
+ *       186,843,600  31252      5,978   1812        103,114 Direct Hidden Triple
+ *        99,576,700  31114      3,200  18527          5,374 Locking
+ *        52,314,200  21962      2,382   4410         11,862 Naked Pair
+ *        44,350,400  20848      2,127   8527          5,201 Hidden Pair
+ *       107,202,800  19233      5,573   1307         82,022 Naked Triple
+ *        98,394,600  18863      5,216   1028         95,714 Hidden Triple
+ *        62,941,000  18664      3,372   1401         44,925 Two String Kite
+ *        39,629,400  17263      2,295    448         88,458 Swampfish
+ *        91,374,700  17061      5,355    620        147,378 XY-Wing
+ *        63,655,100  16616      3,830    303        210,082 XYZ-Wing
+ *        68,472,200  16331      4,192    466        146,936 W-Wing
+ *        50,511,500  16018      3,153    351        143,907 Skyscraper
+ *        56,370,200  15833      3,560    480        117,437 Empty Rectangle
+ *        68,918,700  15353      4,488    259        266,095 Swordfish
+ *       175,257,700  15277     11,471     98      1,788,343 Naked Quad
+ *       140,974,500  15258      9,239     13     10,844,192 Hidden Quad
+ *        19,857,200  15256      1,301      9      2,206,355 Jellyfish
+ *     1,637,667,900  15253    107,366    860      1,904,265 Unique Rectangle
+ *     2,650,147,700  14850    178,461    506      5,237,446 Finned Swampfish
+ *     6,019,139,500  14423    417,329    429     14,030,628 Finned Swordfish
+ *     7,223,144,500  14076    513,153     21    343,959,261 Finned Jellyfish
+ *       456,780,500  14059     32,490    108      4,229,449 Coloring
+ *    22,284,415,200  13975  1,594,591   8358      2,666,237 ALS-XZ
+ *    22,331,816,900   8276  2,698,382   4329      5,158,654 ALS-Wing
+ *     3,747,979,500   4673    802,049      0              0 Franken Swampfish
+ *    18,170,867,300   4673  3,888,480    178    102,083,524 Franken Swordfish
+ *    44,356,454,800   4524  9,804,698    103    430,645,192 Franken Jellyfish
+ *       282,292,600   4430     63,722      1    282,292,600 Aligned Pair
+ *     2,100,666,900   4429    474,298     16    131,291,681 Aligned Triple
+ *    31,186,149,200   4414  7,065,280     52    599,733,638 Aligned Quad
+ *    69,763,009,900   4372 15,956,772     68  1,025,926,616 Aligned Pent
+ *    21,958,348,900   4315  5,088,840      1 21,958,348,900 Aligned Hex
+ *    20,710,004,900   4314  4,800,650      5  4,142,000,980 Aligned Sept
+ *    16,488,024,100   4310  3,825,527      1 16,488,024,100 Aligned Oct
+ *    17,186,799,700   4309  3,988,581      0              0 Aligned Nona
+ *    12,924,583,400   4309  2,999,439      0              0 Aligned Dec
+ *    13,416,250,900   4309  3,113,541   2179      6,157,067 Unary Chain
+ *     5,148,660,700   3510  1,466,854     28    183,880,739 Nishio Chain
+ *     9,284,748,300   3482  2,666,498   5716      1,624,343 Multiple Chain
+ *    11,527,092,500   1447  7,966,200   7942      1,451,409 Dynamic Chain
+ *       115,788,600      3 38,596,200     30      3,859,620 Dynamic Plus
+ *   362,809,538,800
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  416,922,969,300 (06:56)  284,589,057
+ * -- new version --
+ *         time (ns)  calls  time/call  elims      time/elim hinter
+ *        22,967,700 116122        197 666010             34 Naked Single
+ *        18,510,400  49521        373 168620            109 Hidden Single
+ *       106,958,800  32659      3,275   5847         18,292 Direct Naked Pair
+ *        90,391,900  32248      2,803  12324          7,334 Direct Hidden Pair
+ *       229,001,100  31307      7,314    884        259,051 Direct Naked Triple
+ *       198,434,500  31252      6,349   1812        109,511 Direct Hidden Triple
+ *       103,989,600  31114      3,342  18527          5,612 Locking
+ *        59,913,100  21962      2,728   4410         13,585 Naked Pair
+ *        51,542,700  20848      2,472   8527          6,044 Hidden Pair
+ *       129,033,200  19233      6,708   1307         98,724 Naked Triple
+ *       106,144,500  18863      5,627   1028        103,253 Hidden Triple
+ *        66,694,300  18664      3,573   1401         47,604 Two String Kite
+ *        44,284,300  17263      2,565    448         98,848 Swampfish
+ *       100,668,900  17061      5,900    620        162,369 XY-Wing
+ *        69,403,900  16616      4,176    303        229,055 XYZ-Wing
+ *        67,785,700  16331      4,150    466        145,462 W-Wing
+ *        51,487,500  16018      3,214    351        146,688 Skyscraper
+ *        60,154,000  15833      3,799    480        125,320 Empty Rectangle
+ *        75,379,300  15353      4,909    259        291,039 Swordfish
+ *       204,867,900  15277     13,410     98      2,090,488 Naked Quad
+ *       153,609,200  15258     10,067     13     11,816,092 Hidden Quad
+ *        21,898,600  15256      1,435      9      2,433,177 Jellyfish
+ *     1,695,816,000  15253    111,179    860      1,971,879 Unique Rectangle
+ *     2,988,384,000  14850    201,237    506      5,905,897 Finned Swampfish
+ *     6,838,824,700  14423    474,161    429     15,941,316 Finned Swordfish
+ *     8,068,908,900  14076    573,238     21    384,233,757 Finned Jellyfish
+ *       466,421,300  14059     33,175    108      4,318,715 Coloring
+ *    24,684,311,300  13975  1,766,319   8358      2,953,375 ALS-XZ
+ *    25,874,960,300   8276  3,126,505   4329      5,977,121 ALS-Wing
+ *     4,025,086,900   4673    861,349      0              0 Franken Swampfish
+ *    19,970,723,300   4673  4,273,640    178    112,195,074 Franken Swordfish
+ *    49,605,385,800   4524 10,964,939    103    481,605,687 Franken Jellyfish
+ *       356,226,000   4430     80,412      1    356,226,000 Aligned Pair
+ *     2,371,181,100   4429    535,376     15    158,078,740 Aligned Triple
+ *    56,179,909,200   4415 12,724,781     53  1,059,998,286 Aligned Quad
+ *   244,482,183,100   4372 55,919,986     66  3,704,275,501 Aligned Pent
+ *    38,714,087,800   4316  8,969,899      3 12,904,695,933 Aligned Hex
+ *    52,396,760,600   4314 12,145,748      5 10,479,352,120 Aligned Sept
+ *    53,700,368,200   4310 12,459,482      1 53,700,368,200 Aligned Oct
+ *    41,702,234,300   4309  9,677,937      0              0 Aligned Nona
+ *    26,156,226,600   4309  6,070,138      0              0 Aligned Dec
+ *    15,658,818,500   4309  3,633,979   2179      7,186,240 Unary Chain
+ *     5,775,262,500   3510  1,645,373     28    206,259,375 Nishio Chain
+ *    10,395,368,500   3482  2,985,459   5716      1,818,643 Multiple Chain
+ *    12,421,114,000   1447  8,584,045   7942      1,563,978 Dynamic Chain
+ *        99,803,900      3 33,267,966     30      3,326,796 Dynamic Plus
+ *   706,661,487,900
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  763,321,961,900 (12:43)  521,038,881
+ * NOTES:
+ * 1. Last top1465 12:43 with A234E A5E correct and A678910E hacked, but the
+ *    "existing version" of Aligned*Exclusion was just 06:56, or about half the
+ *    time, so this release still uses the "old Aligned*Exclusion" classes.
+ * 2. Release 6.30.102 2020-12-17 10:54:42 =>
+ *    DiufSudoku_V6_30.102.2020-12-17.7z
+ * 3. Next I apply hobiwans stack-iteration technique to Aligned*Exclusion.
+ * 
+ * </pre>
  */
 final class LogicalSolverTimings {
 

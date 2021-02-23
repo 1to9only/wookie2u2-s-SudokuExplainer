@@ -58,7 +58,10 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 
 	private final ACollisionComparator cc = new ACollisionComparator();
 
+	// I checked by speed. 32k is fastest
 	private final NonHinters nonHinters = new NonHinters(32*1024, 3);
+	// What's that Skip? Why it's the skipper skipper flipper Flipper.
+	private boolean firstPass = true;
 
 //	//useless: protected final Counter cnt1col = new Counter("cnt1col");
 //	//useless: protected final Counter cnt1sib = new Counter("cnt1sib");
@@ -107,9 +110,17 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 		nonHinters.clear();
 	}
 
-	@SuppressWarnings("fallthrough")
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
+		// it's just easier to set firstPass ONCE, rather than deal with it in
+		// each of the multiple exit-points from what is now findHintsImpl.
+		boolean ret = findHintsImpl(grid, accu);
+		firstPass = false;
+		return ret;
+	}
+
+	@SuppressWarnings("fallthrough")
+	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
 
 		// these 4 vars are "special" for processing top1465.d5.mt faster
 		// localise hackTop1465 for speed (and to make it final).
@@ -1098,13 +1109,14 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 
 									// create the hint (and possibly return)
 									Pots redPots = createRedPotentials(scells
-											, avb0,avb1,avb2,avb3,avb4,avb5,avb6);
+										, avb0,avb1,avb2,avb3,avb4,avb5,avb6);
 									if ( redPots.isEmpty() )
 										continue; // Should never happen, but never say never.
 									ExcludedCombosMap map = buildExcludedCombosMap(
-											cmnExcls, numCmnExcls, cells, redPots);
+										cmnExcls, numCmnExcls, cells, redPots);
 									AHint hint = new AlignedExclusionHint(this
-											, redPots, cells, numCmnExcls, cmnExcls, map);
+										, redPots, cells, numCmnExcls, cmnExcls
+										, map);
 
 //									standardLog(myLog, cells, gsl, hintNum
 //											, cmnExcls, numCmnExcls

@@ -417,9 +417,12 @@ public final class Grid {
 			// get the siblings
 			cell.siblings = cell.buds.cells(this, new Cell[20]);
 			// populate notSees ONCE, instead of negating it a TRILLION times!
+			Arrays.fill(cell.sees, false);
 			Arrays.fill(cell.notSees, true);
-			for ( Cell sib : cell.siblings )
+			for ( Cell sib : cell.siblings ) {
+				cell.sees[sib.i] = true;
 				cell.notSees[sib.i] = false;
+			}
 		}
 		// populate each regions idx
 		for ( ARegion r : regions )
@@ -1472,6 +1475,19 @@ if ( true ) { // @check true
 		 * So we've just rubbed another one out. Sigh.
 		 */
 		public final boolean[] notSees = new boolean[81];
+
+		/**
+		 * notSees boolean[]: Does this Cell NOT see the given Cell?
+		 * Coincident with Grid.cells.
+		 * <p>
+		 * RE the not: In Aligned*Exclusion we act if this cell is NOT a
+		 * sibling of other cell; so rather than negate repeatedly with
+		 * {@code boolean ns01 = !c0.sees[i1]} we {@code c0.notSees[i1];}
+		 * just to save a poofteenth of a nanosecond per flip, which add-up
+		 * over top1465. Doing ANYthing a quadrillion times takes a while.
+		 * So we've just rubbed another one out. Sigh.
+		 */
+		public final boolean[] sees = new boolean[81];
 
 		/**
 		 * The indices of the 20 cells in same box, row, and col as this Cell,

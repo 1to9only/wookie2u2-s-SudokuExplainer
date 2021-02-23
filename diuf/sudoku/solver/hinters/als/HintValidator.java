@@ -51,19 +51,19 @@ public class HintValidator {
 	// buggered hints, so that hopefully I can see it, and disembuggernate it.
 
 	/**
-	 * Do AlsXyWing and AlsXyChain use HintValidator.isValid?
-	 */
-	public static final boolean ALS_USES = false; // @check false
-
-	/**
 	 * Does HdkColoring use HintValidator.isValid?
 	 */
 	public static final boolean COLORING_USES = false; // @check false
 
 	/**
-	 * Does AChainer (for Nested hints only) use HintValidator?
+	 * Do AlsXyWing and AlsXyChain use HintValidator.isValid?
 	 */
-	public static final boolean CHAINER_USES = false; // @check false
+	public static final boolean ALS_USES = false; // @check false
+
+	/**
+	 * Does AlignedExclusion use HintValidator?
+	 */
+	public static final boolean ALIGNED_EXCLUSION_USES = false; // @check false
 
 	/**
 	 * Does ComplexFisherman (for Franken and Mutant only) use HintValidator?
@@ -76,10 +76,21 @@ public class HintValidator {
 	public static final boolean KRAKEN_FISHERMAN_USES = true; // @check false
 
 	/**
+	 * Does AChainer (for Nested hints only) use HintValidator?
+	 */
+	public static final boolean CHAINER_USES = false; // @check false
+
+	/**
 	 * Does any class use HintValidator?
 	 */
-	public static final boolean ANY_USES = ALS_USES | COLORING_USES
-			| CHAINER_USES | COMPLEX_FISHERMAN_USES | KRAKEN_FISHERMAN_USES;
+	public static final boolean ANY_USES = false
+			| COLORING_USES
+			| ALS_USES
+			| ALIGNED_EXCLUSION_USES
+			| COMPLEX_FISHERMAN_USES
+			| KRAKEN_FISHERMAN_USES
+			| CHAINER_USES
+			;
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -208,5 +219,9 @@ public class HintValidator {
 			}
 		}
 		return false;
+	}
+	
+	public static void clear() {
+		invalidities.clear();
 	}
 }

@@ -76,7 +76,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 
 	private final MyCollisionComparator cc = new MyCollisionComparator();
 
-	private final NonHinters nonHinters = new NonHinters(256*1024, 2);
+	private final NonHinters64 nonHinters = new NonHinters64(256*1024, 4);
 
 //	protected final Counter cnt1col = new Counter("cnt1col");
 //	protected final Counter cnt1sib = new Counter("cnt1sib");

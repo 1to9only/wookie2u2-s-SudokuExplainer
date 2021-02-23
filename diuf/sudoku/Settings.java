@@ -476,6 +476,15 @@ public final class Settings implements Cloneable {
 	//          is the IntIntHashMap I wrote originally for HoDoKu.
 	//          Last top1465 15:17 with A567E_1C, which is an improvement, I
 	//          think, but do not have anything to compare it to (bad form).
+	// 6.30.101 2020-12-08 07:58:41 Back-up prior to Aligned*Exclusion redo.
+	//			This version has NonHinters64 and LongLongHashMap. Now I want
+	//			to try iterating a stack in A*E (ala hobiwan) to remove all the
+	//			the A*E classes, ie eliminate code-bloat.
+	// 6.30.102 2020-12-17 10:54:42 Release align2.AlignedExclusion squashing
+	//          all Aligned*Exclusion's boiler-plate code down into one complex
+	//			succinct class using hobiwans stack iteration technique twice:
+	//			once for cells, and again for vals.
+	//			Last top1465 12:43 with A234E A5E correct and A678910E hacked.
 
 	// To Build:
 	// 1. search for @check and fix any settings you've changed
@@ -510,8 +519,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.099";
-	public static final String BUILT = "2020-11-30 07:01:39";
+	public static final String VERSION = "6.30.102";
+	public static final String BUILT = "2020-12-17 06:03:42";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

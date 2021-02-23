@@ -15,8 +15,10 @@ import java.util.Iterator;
  * A 1-based (nonstandard) java.util.BitSet'ish set of the values 1..9.
  *
  * <p>I feel I must mention that {@code java.util.BitSet} is a bit s__t. The
- *  only reason you'd ever use a BitSet is performance, and the expansible
- *  implementation works out to be so non-performant that it is useless to me.
+ *  only reason one ever uses a BitSet is performance, and Javas expansible
+ *  implementation is so non-performant that it is rendered fundamentally
+ *  useless. In my humble opinion, it exists just to sell you faster hardware,
+ *  and having purchased faster hardware, it'll still be faster NOT to use it!
  *
  * <p>Thanks to Stack Overflow for answers to many questions, including:
  *  http://stackoverflow.com/questions/1092411/java-checking-if-a-bit-is-0-or-1-in-a-long
@@ -211,7 +213,7 @@ public final class Values implements Iterable<Integer> {
 
 	// ------------------------------ attributes ------------------------------
 
-	/** readonly to public. The bitset value of this Values Set. */
+	/** readonly to public. A bitset of this Values Set. */
 	public int bits;
 	/** readonly to public. The number of values in this Values Set. */
 	public int size;
@@ -567,9 +569,6 @@ public final class Values implements Iterable<Integer> {
 	 * @return boolean.
 	 */
 	public boolean containsAll(Values other) {
-		// @todo KRC 2020-08-24 I reckon this should be bits & other.bits.
-		// It doesn't make sense. so test it, change it and test it again.
-		// Testing shows it should be (bits & other.bits)==other.bits
 		return other.bits>0 && (bits & other.bits)==other.bits;
 	}
 
@@ -787,6 +786,24 @@ public final class Values implements Iterable<Integer> {
 		for ( int i=0,n=array.length,m=n-1; i<n; ++i ) {
 			if(i>0) SB.append(i<m ? sep : lastSep);
 			SB.append(array[i]);
+		}
+		return SB.toString();
+	}
+
+	/**
+	 * ToString of AlignedExclusion's array of values bits.
+	 * <p>
+	 * Used only for debugging.
+	 * @param valueses
+	 * @param numValueses
+	 * @return
+	 */
+	public static String toString(int[] valueses, int numValueses) {
+		SB.setLength(0);
+		for ( int i=0; i<numValueses; ++i ) {
+			if(i>0) SB.append(',');
+			for ( int v : ARRAYS[valueses[i]] )
+				SB.append(v);
 		}
 		return SB.toString();
 	}

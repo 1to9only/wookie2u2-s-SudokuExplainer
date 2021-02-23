@@ -136,9 +136,10 @@ public final class Coloring extends AHinter {
 
 		boolean result;
 		try {
-			result = accu.isSingle()
-				? findSimpleColors() || findMultiColors()
-				: findSimpleColors() | findMultiColors();
+			if ( accu.isSingle() )
+				result = findSimpleColors() || findMultiColors();
+			else
+				result = findSimpleColors() | findMultiColors();
 		} finally {
 			this.grid = null;
 			this.idxs = null;

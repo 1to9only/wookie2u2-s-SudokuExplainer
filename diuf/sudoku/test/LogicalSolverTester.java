@@ -14,20 +14,42 @@ import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.*;
 import diuf.sudoku.solver.LogicalSolver.*;
 import diuf.sudoku.solver.hinters.*;
-import diuf.sudoku.solver.hinters.align.AAlignedSetExclusionBase;
 import diuf.sudoku.solver.hinters.chain.*;
-import diuf.sudoku.solver.hinters.fish.KrakenFisherman;
 import diuf.sudoku.utils.*;
 import java.io.*;
 import java.util.*;
 
 
 /**
- * Times a run of the {@code solve} method in {@link LogicalSolver} through a
- * MagicTour file.
+ * Runs {@link LogicalSolver#solve} on each puzzle in a MagicTour file.
  * <p>
- * With the current setup: -REDO ACCURACT solves <tt>top1465.d3.mt</tt> in
- * about 2 minutes and 20 seconds, which I reckon is about fast enough.
+ * The current setup solves <tt>top1465.d5.mt</tt> in from 3 about minutes to
+ * well over a day. It's totally dependant on which hinters you select in the
+ * GUI using (Options Menu ~ Solving techniques).
+ * <p>
+ * Some hinters are faster than others. My chainers are pretty damn fast, and
+ * reliably find hints.
+ * <p>
+ * Recommended Hinter Selection:<ul>
+ * <li>All hinters should be selected by default, so just unselect stuff in
+ * this list. Ergo: Select everything that's not mentioned here! 
+ * <li>The Naked Single and Hidden Single hinters are permanently selected coz
+ *  it just doesn't make any sense to try to solve a Sudoku without them.
+ * <li>Use Coloring OR BUG (Bivalue Universal Grave). Coloring is faster and
+ *  finds a superset of BUG's hints, so I recommend Coloring; else BUG.
+ * <li>There are no Naked Pent, or Hidden Pent in top1465 (they're degenerate).
+ * <li>Mutant Swampfish produces no hints in top1465. sigh.<br>
+ *  Mutant Swordfish is too slow (about 3 seconds per hint, IIRC).<br>
+ *  Mutant Jellyfish is like watching the grass grow.
+ * <li>Aligned Oct takes about 15 seconds per hint (IIRC) even hacked.
+ * <li>Aligned Nona and Aligned Dec are both REALLY slow, so slow that they
+ *  should probably be made unavailable to non-techies.
+ * <li>Kraken Jellyfish are too slow. I don't routinely use ANY Krakens because
+ *  I have an "intellectual objection" to combining Chaining with Fish, where
+ *  Chaining alone is simpler and therefore faster. Just my humble opinion.
+ * <li>Dynamic Plus fails to find hints ONLY in the very hardest puzzles, so
+ *  it's permanently selected, as is Nested Plus, as a "catch all".
+ * </ul>
  *
  * @author Keith Corlett (loosely based on Juillerat's original class).
  */
@@ -41,9 +63,9 @@ public final class LogicalSolverTester {
 	// DEBUG_SIAMESE_LOCKING_BUG=true makes LogicalSolverTester behave as per
 	// the GUI to find a puzzle which trips over any mergeSiameseHints bug,
 	// which previously wasn't bulk tested, only tripped-over in the GUI.
-	// Also makes LST follow (approx) the same hint-path through puzzle as the
-	// GUI, which is quite handy coz no figuring out where they diverge.
-	// This epecially useful EARLY in the hint-path, like Locking!
+	// Also makes LogicalSolverTester follow (approximately) the same hint-path
+	// through each puzzle as the GUI, which is quite handy coz no figuring out
+	// where they diverge. Most useful EARLY in the hint-path, like Locking.
 	private static final boolean DEBUG_SIAMESE_LOCKING_BUGS = true;
 
 	private static int numSolved=0, numFailed=0;
@@ -289,31 +311,8 @@ public final class LogicalSolverTester {
 				// nb: A*E's are the only IReporter's to date.
 				solver.report();
 
+// Here we report static hinter variables.
 //				Log.teef("\nLinkedMatrixCellSet.bitCountCnt = %,d\n", bitCountCnt);
-
-//				System.out.print("Grid.cas: ");
-//				for ( int i=0; i<Grid.cas.length; ++i )
-//					System.out.print(Grid.cas[i]==null?'_':'#');
-//				System.out.println();
-
-//				System.out.print("HoDoKu FishSolver\n");
-//				System.out.print(" baseCnt: t="+solver.FishSolver.baseCntTrue+" f="+solver.FishSolver.baseCntFalse+"\n");
-//				System.out.print(" finCnt : t="+solver.FishSolver.finCntTrue+" f="+solver.FishSolver.finCntFalse+"\n");
-//				System.out.println();
-
-//				System.out.println("HoDoKu Int.max = "+util.Int.max);
-//				System.out.println("HoDoKu Int cache hits="+util.Int.hits+" misses="+util.Int.misses);
-
-//				System.out.println("KrakenFisherman.numSearches = "+KrakenFisherman.numSearches);
-//				System.out.println("KrakenFisherman.cacheHits = "+KrakenFisherman.cacheHits);
-
-				// WARN: maxSize is static, but it reports size of a non-static
-				// collection, so it only works when 1 NonHinters A*E is wanted
-				// It's static rather than put in all the plumbing required to
-				// get access to each instance of NonHinters from here. Simpler
-				// but trickier to use... So if you want maxSize then use ONE
-				// large Aligned*Exclusion (A5+E) at a time.
-				System.out.println("AAlignedSetExclusionBase.NonHinters.maxSize = "+AAlignedSetExclusionBase.NonHinters.maxSize);
 
 				try {
 					solver.close(); // save stats, close logs, etc.

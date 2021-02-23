@@ -57,7 +57,15 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 
 	private final ACollisionComparator cc = new ACollisionComparator();
 
-	private final NonHinters nonHinters = new NonHinters(16*1024, 4);
+// 16*1024:   248,675,971,200	   4133	    60,168,393	    138	 1,801,999,791	Aligned Hex
+// 1465	  605,959,271,800	(10:05)	      413,624,076
+//  8*1024:   215,151,807,900	   4133	    52,057,054	    138	 1,559,071,071	Aligned Hex
+// 1465	  478,329,628,900	(07:58)	      326,504,866
+//  4*1024:   252,879,124,100	   4133	    61,185,367	    138	 1,832,457,421	Aligned Hex
+// 1465	  516,644,847,700	(08:36)	      352,658,599
+	private final NonHinters nonHinters = new NonHinters(8*1024, 4);
+	// What's that Skip? Why it's the skipper skipper flipper Flipper.
+	private boolean firstPass = true;
 
 //	protected final Counter cnt1col = new Counter("cnt1col");
 //	protected final Counter cnt1sib = new Counter("cnt1sib");
@@ -106,9 +114,17 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 		nonHinters.clear();
 	}
 
-	@SuppressWarnings("fallthrough")
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
+		// it's just easier to set firstPass ONCE, rather than deal with it in
+		// each of the multiple exit-points from what is now findHintsImpl.
+		boolean ret = findHintsImpl(grid, accu);
+		firstPass = false;
+		return ret;
+	}
+
+	@SuppressWarnings("fallthrough")
+	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
 
 		// these 4 vars are "special" for processing top1465.d5.mt faster
 		// localise hackTop1465 for speed (and to make it final).
