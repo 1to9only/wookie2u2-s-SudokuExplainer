@@ -37,6 +37,7 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 import java.util.List;
@@ -155,7 +156,7 @@ import java.util.List;
  *     4,990,931,400 4415  1,130,448  0              0 Mutant Swampfish
  *    60,627,458,000 4415 13,732,153  1 60,627,458,000 Mutant Swordfish
  *   394,362,063,900 4414 89,343,467 11 35,851,096,718 Mutant Jellyfish
- * 
+ *
  * 2020-12-03 08:?? comment-out usedCoverTypes beneath the dead cover filter
  * </pre>
  *
@@ -360,6 +361,7 @@ public class ComplexFisherman extends AHinter
 	 */
 	public ComplexFisherman(Tech tech) {
 		super(tech);
+		// This thing can do bigger fish, but they're all degenerate, and slow!
 		assert degree>=2 && degree<=4; // 2=Swampfish, 3=Swordfish, 4=Jellyfish
 		// these are ALL the complex fish types we seek (not Kraken)
 		seekFinned = tech.nom.startsWith("Finned");
@@ -370,11 +372,12 @@ public class ComplexFisherman extends AHinter
 		// NB: ComplexFisherman isn't normally used to find basic fish, just
 		// because the BasicFisherman is faster; but it CAN find basic fish.
 		seekBasic = !seekFinned && !seekFranken && !seekMutant;
+//		assert !seekBasic : "BasicFisherman is faster!";
 
 		// initialise the two recursion-stacks
-		for ( int i=0; i<baseStack.length; ++i )
+		for ( int i=0,n=baseStack.length; i<n; ++i )
 			baseStack[i] = new BaseStackEntry();
-		for ( int i=0; i<coverStack.length; ++i )
+		for ( int i=0,n=coverStack.length; i<n; ++i )
 			coverStack[i] = new CoverStackEntry();
 	}
 
@@ -573,13 +576,13 @@ public class ComplexFisherman extends AHinter
 	private boolean doSearch;
 
 	/**
-	 * Search each eligible combination of covers for the given baseSet (bC).
+	 * Search each eligible combination of covers for the current bases (cB).
 	 * "Eligible" means the cover is not already a base. In Franken fish we
 	 * allow a box as base OR a cover, so one box per covers. Each cover must
-	 * haver atleast one candidate in common with the given baseSet.
+	 * have at least one candidate in common with the given bases.
 	 * @param cB the current BaseStackEntry contains the candidates (vs's) and
-	 *  endo-fins (ef's) of ALL our $degree bases (ie the baseSet).
-	 * @return were any hint/s found?
+	 *  endo-fins (ef's) of ALL our $degree bases (the current set of bases).
+	 * @return were hint/s found?
 	 */
 	private boolean searchCovers(BaseStackEntry cB) {
 
@@ -589,23 +592,21 @@ public class ComplexFisherman extends AHinter
 		// get eligible covers from allCovers; done here because eligibility
 		// depends on which bases are used.
 		numCovers = 0;
-		for ( int i=0; i<numAllCovers; ++i ) {
-			// seekFranken: use box as base OR cover (but not both)
-			if (seekFranken && usedBaseTypes[BOX]>0 && allCovers[i]<9) // first 9 are boxs
-				continue;
-			// skip if this cover is a base already
-			if ( basesUsed[allCovers[i]] )
-				continue;
-			// skip if this cover has no candidates in common with current bases
+		for ( int i=0; i<numAllCovers; ++i )
+			// skip if this cover has no cands in common with current bases
 			if ( ( (cB.vsM0 & allCoverVsM0[i])
 			     | (cB.vsM1 & allCoverVsM1[i])
-			     | (cB.vsM2 & allCoverVsM2[i]) ) == 0 )
-				continue;
-			covers[numCovers] = allCovers[i];
-			coverVsM0[numCovers] = allCoverVsM0[i];
-			coverVsM1[numCovers] = allCoverVsM1[i];
-			coverVsM2[numCovers++] = allCoverVsM2[i];
-		}
+			     | (cB.vsM2 & allCoverVsM2[i]) ) != 0
+			  // skip if this cover is already used as a base
+			  && !basesUsed[allCovers[i]]
+			  // Franken: box as base OR cover, but not both (first 9 are boxs)
+			  && (!seekFranken || usedBaseTypes[BOX]==0 || allCovers[i]>8)
+			) {
+				covers[numCovers] = allCovers[i];
+				coverVsM0[numCovers] = allCoverVsM0[i];
+				coverVsM1[numCovers] = allCoverVsM1[i];
+				coverVsM2[numCovers++] = allCoverVsM2[i];
+			}
 		// need atleast degree covers to form a Fish.
 		if ( numCovers < degree )
 			return false; // this'll only happen rarely.
@@ -667,80 +668,78 @@ public class ComplexFisherman extends AHinter
 			cC.vsM2 = pC.vsM2 | coverVsM2[c];
 
 			// seek Fish if we're at the right coverLevel.
-			if ( coverLevel == degree
+			if ( coverLevel == degree ) {
 // NB: this filter is "correct" but it also SLOWER (why I know not. sigh.)
-//			  // if seekMutant then search only when a coverType is a base
-//			  // or a baseType is a cover, or a BOX is both base and cover;
-//			  // everything else already covered by the Franken fisherman.
-//			  && ( !seekMutant
-//				|| usedBaseTypes[coverType] > 0
-//			    || usedCoverTypes[baseType] > 0
-//				|| (usedBaseTypes[BOX]>0 && usedCoverTypes[BOX]>0) )
-			) {
-				// fins = current endo-fins + candidates in bases except covers
-				finsM0 = cB.efM0 | (cB.vsM0 & ~cC.vsM0);
-				finsM1 = cB.efM1 | (cB.vsM1 & ~cC.vsM1);
-				finsM2 = cB.efM2 | (cB.vsM2 & ~cC.vsM2);
-				// deletes: candidates in covers except bases
-				delsM0 = cC.vsM0 & ~cB.vsM0;
-				delsM1 = cC.vsM1 & ~cB.vsM1;
-				delsM2 = cC.vsM2 & ~cB.vsM2;
-				// sharks: current sharks
-				shrkM0=cC.skM0; shrkM1=cC.skM1; shrkM2=cC.skM2;
+//				// if seekMutant then search only when a coverType is a base
+//				// or a baseType is a cover, or a BOX is both base and cover;
+//				// everything else already covered by the Franken fisherman.
+//				if ( !seekMutant
+//				  || usedBaseTypes[coverType] > 0
+//			      || usedCoverTypes[baseType] > 0
+//				  || (usedBaseTypes[BOX]>0 && usedCoverTypes[BOX]>0) ) {
+					// fins = current endo-fins + candidates in bases except covers
+					finsM0 = cB.efM0 | (cB.vsM0 & ~cC.vsM0);
+					finsM1 = cB.efM1 | (cB.vsM1 & ~cC.vsM1);
+					finsM2 = cB.efM2 | (cB.vsM2 & ~cC.vsM2);
+					// deletes: candidates in covers except bases
+					delsM0 = cC.vsM0 & ~cB.vsM0;
+					delsM1 = cC.vsM1 & ~cB.vsM1;
+					delsM2 = cC.vsM2 & ~cB.vsM2;
+					// sharks: current sharks
+					shrkM0=cC.skM0; shrkM1=cC.skM1; shrkM2=cC.skM2;
 
-				// basic fish (rows->cols or cols->row, no fins)
-				if ( seekBasic ) {
-					// no fins AND any deletes or sharks
-					if ( (finsM0|finsM1|finsM2)==0
-					  && (delsM0|delsM1|delsM2|shrkM0|shrkM1|shrkM2) != 0 ) {
-						// ******************** FINNLESS FISCH ********************
-						// eliminate candidates in covers except bases.
-						// If a base v hits a shark (in >1 cover) it's Lunch.
+					// basic fish (rows->cols or cols->row, no fins)
+					if ( seekBasic ) {
+						// no fins AND any deletes or sharks
+						if ( (finsM0|finsM1|finsM2)==0
+						  && (delsM0|delsM1|delsM2|shrkM0|shrkM1|shrkM2) != 0 ) {
+							// **************** FINNLESS FISCH ****************
+							// Eliminate candidates in covers except bases.
+							// If a base v is in >1 cover (shark) its lunch.
+							fins.clear();
+							deletes.set(delsM0, delsM1, delsM2);
+							sharks.set(shrkM0, shrkM1, shrkM2);
+							hint = createHint(cB);
+							searchCoversResult |= hint!=null;
+							if ( accu.add(hint) ) // exit-early if accu says so
+								return true;
+						}
+					// complex fish needs fins, but not too many of them
+					} else
+					if ( (finsM0|finsM1|finsM2) != 0
+					  && Idx.sizeLTE(finsM0,finsM1,finsM2, MAX_FINS)
+					  // finBuds: cells which see (same box/row/col) all fins
+					  // if any finBuds then we try to eliminate
+					  && Grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
+					) {
+						// ***************** FINNED/SASHIMI FISCH *************
+						// Candidate is deletable if in covers except bases, or
+						// belongs to more than one cover set (an endo-fin).
+						// deletes=((covers & ~bases) or endos) seeing all fins
+						delsM0 = (delsM0 | cB.efM0) & buds.a0;
+						delsM1 = (delsM1 | cB.efM1) & buds.a1;
+						delsM2 = (delsM2 | cB.efM2) & buds.a2;
+						// sharks: current sharks which see all fins
+						shrkM0&=buds.a0; shrkM1&=buds.a1; shrkM2&=buds.a2;
 						// if any deletes or any sharks
-						fins.clear();
-						deletes.set(delsM0, delsM1, delsM2);
-						sharks.set(shrkM0, shrkM1, shrkM2);
-						hint = createHint(cB);
-						searchCoversResult |= hint!=null;
-						if ( accu.add(hint) ) // exit-early if accu says so
-							return true;
+						if ( (delsM0|delsM1|delsM2|shrkM0|shrkM1|shrkM2) != 0 ) {
+							// we found ourselves a complex Fish!
+							deletes.set(delsM0, delsM1, delsM2);
+							sharks.set(shrkM0, shrkM1, shrkM2);
+							// nb: fins are already set in the above if statement
+							hint = createHint(cB);
+							searchCoversResult |= hint!=null;
+							if ( accu.add(hint) ) // exit-early if accu says so
+								return true;
+						}
 					}
-				// complex fish needs fins, but not too many of them
-				} else
-				if ( (finsM0|finsM1|finsM2) != 0
-				  && Idx.sizeLTE(finsM0,finsM1,finsM2, MAX_FINS)
-				  // finBuds: cells which see (same box/row/col) all fins
-				  // if any finBuds then we try to eliminate
-				  && Grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
-				) {
-					// ***************** FINNED/SASHIMI FISCH *************
-					// Candidate is deletable if in covers except bases, or
-					// belongs to more than one cover set (an endo-fin).
-					// deletes=((covers & ~bases) or endos) seeing all fins
-					delsM0 = (delsM0 | cB.efM0) & buds.a0;
-					delsM1 = (delsM1 | cB.efM1) & buds.a1;
-					delsM2 = (delsM2 | cB.efM2) & buds.a2;
-					// sharks: current sharks which see all fins
-					shrkM0&=buds.a0; shrkM1&=buds.a1; shrkM2&=buds.a2;
-					// if any deletes or any sharks
-					if ( (delsM0|delsM1|delsM2|shrkM0|shrkM1|shrkM2) != 0 ) {
-						// we found ourselves a complex Fish!
-						deletes.set(delsM0, delsM1, delsM2);
-						sharks.set(shrkM0, shrkM1, shrkM2);
-						// nb: fins are already set in the above if statement
-						hint = createHint(cB);
-						searchCoversResult |= hint!=null;
-						if ( accu.add(hint) ) // exit-early if accu says so
-							return true;
-					}
+				} else if ( coverLevel < degree ) {
+					// move onto the next level
+					cC = coverStack[++coverLevel];
+					cC.index = c + 1;
+					cC.prevIndex = -1;
 				}
-			} // fi level == degree
-			// move onto the next level
-			if (coverLevel < degree) {
-				cC = coverStack[++coverLevel];
-				cC.index = c + 1;
-				cC.prevIndex = -1;
-			}
+//			} // !seekMutant
 		} // for ever
 	}
 	// these fields are (logically) searchCovers variables
@@ -971,20 +970,15 @@ public class ComplexFisherman extends AHinter
 	 */
 	private boolean findEligibleBasesAndCovers() {
 		numBases = numAllCovers = 0;
-		if ( seekMutant ) {
-			addRegions(grid.rows, BASE, true);
-			addRegions(grid.cols, BASE, true);
+		addRegions(grid.rows, baseType==ROW, seekMutant);
+		addRegions(grid.cols, baseType==COL, seekMutant);
+		// BOXS in Franken: bases AND covers, used in either but not both.
+		// BOXS in Mutant: bases AND covers.
+		if ( seekFranken || seekMutant )
 			addRegions(grid.boxs, BASE, true);
-		} else {
-			addRegions(grid.rows, baseType==ROW, false);
-			addRegions(grid.cols, baseType==COL, false);
-			// BOXS in Franken, Mutant, and Kraken (not basic or finned)
-			if ( !seekBasic || !seekFinned )
-				addRegions(grid.boxs, BASE, false);
-		}
 		return numBases>=degree && numAllCovers>=degree;
 	}
-	
+
 	private void addRegions(ARegion[] regions, boolean isBase, boolean andConverse) {
 		for ( ARegion region : regions )
 			// ignore regions which already have the Fish candidate set.

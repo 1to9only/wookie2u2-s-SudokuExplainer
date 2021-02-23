@@ -44,7 +44,7 @@ public class LockingGeneralised extends AHinter {
 	 * <p>
 	 * Note that my Locking class is faster, but they're both sub-second over
 	 * 1465 puzzles, so that really matters not.
-	 * 
+	 *
 	 * @param grid the Grid to search
 	 * @param n the number of cells in the cells array
 	 * @param cells the cells in the region we're searching
@@ -57,10 +57,9 @@ public class LockingGeneralised extends AHinter {
 	private static Pots eliminate(Grid grid, final int n, final Cell[] cells
 			, final int value, final Idx victims) {
 		// victims: I'm passed all cells in the grid which maybe value, so I
-		// retainAll the cells visible by each of the given cells (noting that
-		// buds does NOT contain the cell itself); to produce all cells which
-		// maybe value that are seen by ALL of the given cells, except the 
-		// cells themselves.
+		// and-in the cells seen by each of the given cells (nb buds doesn't
+		// contain the cell itself); to produce all cells which maybe value
+		// that are seen by ALL of the given cells, except the cells demselves.
 		for ( int i=0; i<n; ++i )
 			victims.and(cells[i].buds);
 		if ( victims.isEmpty() )
@@ -72,7 +71,7 @@ public class LockingGeneralised extends AHinter {
 	}
 
 	public LockingGeneralised() {
-		super(Tech.LockingGen);
+		super(Tech.LockingGeneralised);
 	}
 
 	/**
@@ -113,21 +112,12 @@ public class LockingGeneralised extends AHinter {
 				  // and see if there's any eliminations
 				  && (reds=eliminate(grid, n=r.at(riv.bits, cells), cells, v
 						  , victims.set(vs[v]))) != null ) {
-// use getIdxs which doesn't show same caching problem as getBitIdxMaybes.
-// Note that I have since swapped getBitIdxMaybes over to the same caching
-// criteria (AHint.hintNumber and puzzleID) as getIdxs, so this won't be an
-// ongoing issue; so problem fixed thrice, the fasteset way. sigh.
-//					// remove elims not in grid. Has happened, despite being
-//					// logically impossible; so IBFIIK, so I fix it!
-//					// @done Suspect caching problem in getIdxs!
-//					if ( reds.clean() ) { // ie if !reds.isEmpty
-						// create a hint, and add it to accu.
-						hint = new LockingGeneralisedHint(this, reds, n, cells
-								, v, r);
-						result = true;
-						if ( accu.add(hint) )
-							return true;
-//					}
+					// create the hint, and add it to accu.
+					hint = new LockingGeneralisedHint(this, reds, n, cells
+							, v, r);
+					result = true;
+					if ( accu.add(hint) )
+						return true;
 				}
 			}
 		return result; // were any hint/s found?

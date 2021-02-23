@@ -14,7 +14,6 @@ import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.io.StdErr;
@@ -158,7 +157,7 @@ public final class BasicFisherman extends AHintNumberActivatableHinter
 			for ( int[] perm : new Permutations(n, thePA) ) { // nb thePA is an int[degree]
 				// combine the Indexes of v in this combination of bases,
 				// ie: the indexes of the "covers" c/r's IN THE BASES.
-				vs = 0; // A better name might be aBitsetContainingTheIndicesOfCellsWhichMaybeTheFishCandidateValueInTheseBases_WhoMayOrMayNotHaveActuallyShagged_SeveralSpecisOfSmallFuryAnimalsGatheredTogetherInACaveAndGroovingWithAPict_ButIAmPrettySureThereWasSomeTongueInvolvedSomewhereAndMyCrotchCheeseHasHadADistinctlyAcridFlavorEverSince, but I like plain old vs, because it's short, so I can spell it, and somewhat descriptive of it's use, as if that wasn't immediately obvious to absolutely everybody at first glance. Sigh.
+				vs = 0; // A better name might be aBitsetContainingTheIndicesOfCellsWhichMaybeTheFishCandidateValueInTheseBases_WhoMayOrMayNotHaveActuallyShagged_SeveralSpecisOfSmallFuryAnimalsGatheredTogetherInACaveAndGroovingWithAPict_ButIAmPrettySureThereWasSomeTongueInvolvedSomewhere_AndMyCrotchCheeseHasHadADistinctlyAcridFlavorEverSince, but I like plain old vs, because it's short, so I can spell it, and somewhat descriptive of it's use, as if that wasn't immediately obvious to absolutely everybody at first glance. Sigh.
 				for ( i=0; i<degree; ++i )
 					vs |= bases[candiIdxs[perm[i]]].indexesOf[v].bits;
 				// if not $degree positions for $v in these $degree bases then

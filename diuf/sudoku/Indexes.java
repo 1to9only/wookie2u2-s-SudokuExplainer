@@ -143,7 +143,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	/** Constructs a new Indexes Set containing the given raw 'bits'.
 	 * @param bits to set (a left-shifted bitset). */
 	public Indexes(int bits) {
-		this.size = (this.bits=bits)==0 ? 0 : ISIZE[bits];
+		this.size = ISIZE[this.bits = bits];
 	}
 
 	/** Constructs a new Indexes Set containing the given 'indexes'.

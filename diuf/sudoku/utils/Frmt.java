@@ -750,6 +750,19 @@ public final class Frmt {
 	}
 
 	// nb: List binds before Collection to avert type-erasure problem
+	public static String ssv(List<ARegion> regions) {
+		if ( regions == null )
+			return "null";
+		StringBuilder sb = getSB(7 * regions.size());
+		boolean first = true;
+		for ( ARegion r : regions ) {
+			if(first) first=false; else sb.append(" ");
+			sb.append(r.id);
+		}
+		return sb.toString();
+	}
+
+	// nb: List binds before Collection to avert type-erasure problem
 	public static String csv(List<ARegion> regions) {
 		if ( regions == null )
 			return "null";

@@ -13,14 +13,25 @@ import java.util.List;
 
 
 /**
- * An Applicumulator is by "applier" out of "accumulator". A striped lion!
+ * An Applicumulator is by "apply" out of "accumulator"; a striped lion.
  * <p>
- * A HintsApplicumulator is used by Locking to apply each Pointing and Claiming
- * hint as soon as it is found, so that all hints are applied in one pass
- * through the grid (ie it's all about efficiency). We then add a single
- * AppliedHintsSummaryHint to the "normal" IAccumulator to pass the total
- * number of potential values eliminated back to the calling {@code apply()}
- * method to keep score.
+ * A HintsApplicumulator is used by
+ * {@link diuf.sudoku.solver.hinters.lock.Locking} to apply each Pointing and
+ * Claiming hint as soon as it is found, so that all hints are applied in one
+ * pass through the grid (it's all about efficiency). Then Locking adds a
+ * single {@link AppliedHintsSummaryHint} to the "normal" IAccumulator to pass
+ * the total number of potential values eliminated back to the calling
+ * {@link AHint#apply} method, in order to keep score.
+ * <p>
+ * Note that there's nothing specific to Locking here, it's just that Locking
+ * is currently the only place I'm used, because Locking is were I'm needed
+ * most, coz Locking tends to cause Locking; far more than other hint types.
+ * <p>
+ * {@link diuf.sudoku.solver.checks.RecursiveAnalyser#solveLogically} builds-up
+ * a {@link AppliedHintsSummaryHint} with the agglomerate of all hints found
+ * and applied (through me) in a run. I track the number of hints found, the
+ * number of eliminations, and a StringBuilder of the line-separated
+ * toFullString's of all the hints I apply, to pass on to the summary hint.
  *
  * @author Keith Corlett 2016
  */
@@ -29,24 +40,27 @@ public final class HintsApplicumulator implements IAccumulator {
 	public int numHints = 0;
 	public int numElims = 0;
 	// we append each hint.toFullString() to this StringBuilder when != null
-	public final StringBuilder sb;
+	public final StringBuilder SB;
 	// true to Autosolve, false to stop Cell.set finding subsequent singles.
 	public final boolean isAutosolving;
 
 	public HintsApplicumulator(boolean isStringy, boolean isAutosolving) {
-		this.sb = isStringy ? new StringBuilder(256): null; // 256 just a guess
+		this.SB = isStringy ? new StringBuilder(256): null; // 256 just a guess
 		this.isAutosolving = isAutosolving;
 	}
 
 	@Override
 	public boolean isSingle() { return false; }
 
+	/**
+	 * Runs at the start of each solveLogically, to clear my buffers.
+	 */
 	@Override
 	public void reset() {
 		numHints = 0;
 		numElims = 0;
-		if ( sb != null )
-			sb.setLength(0);
+		if ( SB != null )
+			SB.setLength(0);
 	}
 
 	/**
@@ -61,13 +75,13 @@ public final class HintsApplicumulator implements IAccumulator {
 	public boolean add(AHint hint) {
 		if ( hint == null )
 			return false;
-		if ( sb != null ) { // ie constructor @param isStringy = true
-			if ( sb.length() > 0 )
-				sb.append(Frmt.NL);
-			sb.append(hint.toFullString());
+		if ( SB != null ) { // ie constructor @param isStringy = true
+			if ( SB.length() > 0 )
+				SB.append(Frmt.NL);
+			SB.append(hint.toFullString());
 		}
 		// make Cell.set append subsequent singles (if sb!=null)
-		hint.sb = sb;
+		hint.SB = SB;
 		// nb: Do NOT eat apply exceptions, they're handled by my caller!
 		numElims += hint.apply(isAutosolving, false);
 		// keep count

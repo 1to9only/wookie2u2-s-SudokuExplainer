@@ -194,17 +194,18 @@ public final class Grid {
 	public static Idx cmnBuds(Idx idx, Idx result) {
 		// we start with a full result set
 		result.fill();
-		if ( idx.a0 != 0 )
+		int bits;
+		if ( (bits=idx.a0) != 0 )
 			for ( int i=0,j=0; i<3; ++i,j+=9 )
-				if ( result.and(GRP_BUDS[i][(idx.a0>>j) & 0x1FF]).none() )
+				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
 					return result;
-		if ( idx.a1 != 0 )
+		if ( (bits=idx.a1) != 0 )
 			for ( int i=3,j=0; i<6; ++i,j+=9 )
-				if ( result.and(GRP_BUDS[i][(idx.a1>>j) & 0x1FF]).none() )
+				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
 					return result;
-		if ( idx.a2 != 0 )
+		if ( (bits=idx.a2) != 0 )
 			for ( int i=6,j=0; i<9; ++i,j+=9 )
-				if ( result.and(GRP_BUDS[i][(idx.a2>>j) & 0x1FF]).none() )
+				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
 					return result;
 		return result;
 	}
@@ -1559,19 +1560,21 @@ if ( true ) { // @check true
 	public Idx getEmptyCells() {
 		boolean doGet;
 		if ( doGet=(emptyCells == null) )
-			emptyCells = new Idx();
-		else if ( doGet=(emptyCellsHintNumber!=AHint.hintNumber || emptyCellsPuzzleID!=puzzleID) )
-			emptyCells.clear();
+			emptyCells = new IdxL();
+		else if ( doGet = ( emptyCellsHintNumber != AHint.hintNumber
+				         || emptyCellsPuzzleID != puzzleID ) )
+			emptyCells.unlock().clear();
 		if ( doGet ) {
 			for ( Cell c : cells )
 				if ( c.value == 0 )
 					emptyCells.add(c.i);
 			emptyCellsHintNumber = AHint.hintNumber;
 			emptyCellsPuzzleID = puzzleID;
+			emptyCells.lock();
 		}
 		return emptyCells;
 	}
-	private Idx emptyCells;
+	private IdxL emptyCells;
 	private int emptyCellsHintNumber;
 	private long emptyCellsPuzzleID;
 

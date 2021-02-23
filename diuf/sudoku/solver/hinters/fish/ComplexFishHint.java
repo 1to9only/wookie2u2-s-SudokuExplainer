@@ -7,7 +7,6 @@
 package diuf.sudoku.solver.hinters.fish;
 
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
@@ -15,7 +14,7 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.List;
-import java.util.Set;
+
 
 /**
  * ComplexFishHint is a hint from ComplexFisherman. I'm used directly for

@@ -67,11 +67,12 @@ public class Als {
 	/** The indices of cells in this ALS which maybe each value of this ALS. */
 	public final Idx[] vs = new Idx[10];
 
-	/** Buddies common to all cells in this ALS which maybe each value of this
-	 * ALS. Other values are left null. */
+	/** Cells which see all cells in this ALS which maybe each ALS value, (I
+	 * think) excepting the ALS cells themselves. Other values are null. */
 	public final Idx[] vBuds = new Idx[10];
 
-	/** All cells in this ALS which maybe v: vs union vBuds. */
+	/** vs union vBuds: Cells which see all cells in this ALS which maybe each
+	 * ALS value, including the ALS cells themselves. Other values are null. */
 	public final Idx[] vAll = new Idx[10];
 
 	/** The union of the buddies of all values in this ALS. */

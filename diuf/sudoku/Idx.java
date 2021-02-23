@@ -652,7 +652,6 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	public void removeAll(Iterable<Cell> cells) {
 		for ( Cell c : cells )
-			// manually remove(c), to not checkLock repeatedly
 			remove(c.i);
 	}
 

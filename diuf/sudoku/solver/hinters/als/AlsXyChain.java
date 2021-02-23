@@ -35,6 +35,8 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -71,25 +73,24 @@ public final class AlsXyChain extends AAlsHinter {
 	 * using the (brute-force) solve method of the given logicalSolver.
 	 */
 	public AlsXyChain() {
-		// Tech, LogicalSolver, allowOverlaps, lockedSets, forwardOnly
+		// Tech, allowLockedSets, findRCCs, allowOverlaps, forwardOnly, useStartAndEnd
 		super(Tech.ALS_Chain
+			, false // suppress lockedSets: in getAlss, no ALS may contain a
+				    // cell which is part of any Locked Set in the ALSs region.
+					// Allowing a cell that is part of an actual Locked Set in
+					// this region to be part of an Almost Locked Set produced
+					// invalid hints, so KRC introduced there supression.
+			, true  // findRCCs: true runs getRccs as per "normal" ALS use.
+					// this is only ever false in DeathBlossom.
 			, false // suppress overlaps: ALSs which physically overlap are
 					// not allowed to form a RCC (a connection). Allowing
 					// overlaps in ALSs to form an ALS-Chain produces
 					// invalid hints, so KRC supressed them.
-			, false // suppress lockedSets: no ALS may contain a cell which
-					// is part of any Locked Set in the ALSs region.
-					// Allowing a cell that is part of an actual Locked Set
-					// in this region to be part of an Almost Locked Set
-					// was producing invalid hints, so KRC supressed them.
-			, true  // findRCCs: true runs getRccs as per "normal" ALS use.
-					// this is only ever false in DeathBlossom.
 			, false // forwardOnly: false makes getRccs do a full search of
 					// all possible combinations of ALSs, instead of the
 					// faster forwardOnly search for XZ's and XyWing's.
-			, true	// useStartAndEnd: true makes getRccs populate the
-					// startIndices and endIndices arrays, so that chaining
-					// can use them as map between the ALSs.
+			, true	// useStartAndEnd: true makes getRccs populate startIndices
+				    // and endIndices arrays. Chaining uses them as a map.
 		);
 	}
 
@@ -164,7 +165,6 @@ public final class AlsXyChain extends AAlsHinter {
 	private boolean recurseChains(final int index, final Rcc prevRC, int chainIndex) {
 
 		// localise references, for speed.
-		final int[] SHFT = AAlsHinter.VSHFT;
 		final Idx tmp = this.set1; // used for various checks
 		final Idx vBuds = this.set2; // all buds of v (incl the ALSs).
 		final Pots redPots = this.redPots;
@@ -283,8 +283,8 @@ public final class AlsXyChain extends AAlsHinter {
 				// get common maybes of both ALSs, except the RCs,
 				// and check that there's at least one.
 				// nb: do me first coz I skip more often than overlaps
-				if ( (cmnMaybes=startAls.maybes & currAls.maybes & ~SHFT[rc1]
-						& ~SHFT[rc2] & ~SHFT[rc3] & ~SHFT[rc4]) == 0 ) {
+				if ( (cmnMaybes=startAls.maybes & currAls.maybes & ~VSHFT[rc1]
+						& ~VSHFT[rc2] & ~VSHFT[rc3] & ~VSHFT[rc4]) == 0 ) {
 					--chainIndex;
 					continue; // no common maybes to search
 				}

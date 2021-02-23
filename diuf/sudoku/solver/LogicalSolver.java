@@ -60,6 +60,17 @@ import java.util.Set;
  * It's written to run fast, not be maintainable! And oops, I've just done a
  * hammy.
  * <p>
+ * If you're impatient then in the GUI (Options ~ Solving Techniques):<ul>
+ * <li>use Locking (faster) instead of Locking Generalised (smart)
+ * <li>untick Direct* (they're found anyway);
+ * <li>untick Naked/Hidden Pent (degenerate);
+ * <li>untick Mutants (slow);
+ * <li>untick Krakens (slow);
+ * <li>untick Aligned*Exclusion (slow);
+ * <li>untick Nested* Chainers too (only for really hard puzzles);
+ * <li>and ya may as well drop the damn pilot for all I care. sigh.
+ * </ul>
+ * <p>
  * <b>LogicalSolver is used to:</b><ul>
  *  <li>Check the validity of a Sudoku puzzle (ie a grid).
  *  <li>Get the simplest available hint (a Sudoku solving step) from a grid.
@@ -90,35 +101,22 @@ import java.util.Set;
  * <p>
  * <b>On HoDoKu:</b><ul>
  * <li>The original Sudoku Explainer was heavily dependent on the Chainers, so
- *  I "boosted" (defined below) many Sudoku Solving Techniques from the HoDoKu
- *  project. The title of each HoDoKu hint starts with "HoDoKu " because kudos
- *  should flow back to Bernhard Hobiger (aka hobiwan). It's just all the
- *  mistakes that are mine.
- *  <li>Here's all the AHinters which have been "boosted" from HoDoKu:<ul>
- *   <li>EmptyRectangle
- *   <li>Skyscraper
- *   <li>TwoStringKite
- *   <li>WWing
- *   <li>Coloring
- *   <li>AlsXz
- *   <li>AlsXyWing
- *   <li>AlsXyChain
- *   <li>ComplexFisherman for Finned, Franken, and Mutant fish.
- *   <li>KrakenFisherman for Kraken bananas, and fish, no bananas.
-  </ul>
- *  <li>Borrowed means the hint is still produced by HoDoKu (a slightly modified
- *   HoDoKu.jar is linked into SE as a library), and the HDK SolutionStep is
- *   then translated into a hint. Boosted means the HoDoKu code has been sucked
- *   into Sudoku Explainer. I borrow each hinter then boost it, which gives me
- *   something to test against. Some boosts fail, in which case it remains
- *   borrowed. Coloring and the complex Fish are the only remaining borrowings;
- *   everything else is now (Aug 2020) fully boosted.
- *  <li>It's also worth noting that all of the hint-types borrowed from HoDoKu
- *   are (I think) found by SE as Unary Chains which is faster than running all
- *   of HoDoKu's independent searches. The downside is that these hint-types
- *   are then reported as more complex Unary Chains, inflating the difficulty.
- *   HoDoKu produces a more accurate assessment of the difficulty of each
- *   Sudoku puzzle, which takes a bit longer. Get over it!
+ * I boosted Solving Techniques from HoDoKu, each of which starts with "HoDoKu"
+ * in the GUI, because kudos flows back to hobiwan. The mistakes are mine.
+ * <li>Here's all the AHinters which have been "boosted" from HoDoKu:<ul>
+ *  <li>EmptyRectangle
+ *  <li>Skyscraper
+ *  <li>TwoStringKite
+ *  <li>WWing
+ *  <li>Coloring
+ *  <li>AlsXz
+ *  <li>AlsXyWing
+ *  <li>AlsXyChain
+ *  <li>SueDeCoq
+ *  <li>DeathBlossom
+ *  <li>ComplexFisherman for Finned, Franken, and Mutant fish.
+ *  <li>KrakenFisherman for Kraken bananas, and fish, easy on the bananas.
+ * </ul>
  * </ul>
  * <p>
  * <b>Automated tests:</b><ul>
@@ -287,7 +285,10 @@ public final class LogicalSolver {
 	 * Cell and does not remove any maybes). If we see a DEAD_CAT twice presume
 	 * we're at the start of an infinite loop in solve/generate/whatevs (finds
 	 * same eliminationless hint endlessly) so throw an UnsolvableException
-	 * instead. I tried disabling hinter, but it gets UGLY fast.
+	 * instead. I the disable the hinter, but (for reasons I don't understand)
+	 * the hinter checks isDisabled to be dis/re-enabled on-the-fly; apparently
+	 * LogicalSolver.solve only handles disabled at start-up, even though that
+	 * is definitely NOT how the code reads. BFIIK!
 	 */
 	private final Set<AHint> DEAD_CATS = new MyFunkyLinkedHashSet<>(16, 0.25F);
 
@@ -382,8 +383,9 @@ public final class LogicalSolver {
 		}
 	}
 
-	/** return has the monitor (parent Generator) been interrupted by user. */
-	private boolean interrupt() { // isInterrupted would be a better name, but it's too long.
+	/** return has the monitor (parent Generator) been interrupted by user.
+	 * isInterrupted would be a better name, but it's too long. */
+	private boolean interrupt() {
 		final IInterruptMonitor m = this.monitor;
 		return m!=null && m.isInterrupted();
 	}
@@ -508,7 +510,7 @@ public final class LogicalSolver {
 		want(indirects, new BasicFisherman(Tech.Swordfish, h?2:1));
 
 		// heavies is the heavy weight division. Slow/er indirect hinters.
-		heavies = new ArrayList<>(isAccurate ? 32 : 0); //size 10 shorts Dougie!
+		heavies = new ArrayList<>(isAccurate ? 32 : 0); // 10 short Dougie!
 		if ( isAccurate ) {
 			want(heavies, new NakedSet(Tech.NakedQuad));
 			want(heavies, new HiddenSet(Tech.HiddenQuad)); // 0 in top1465
@@ -525,15 +527,12 @@ public final class LogicalSolver {
 			want(heavies, new ComplexFisherman(Tech.FinnedJellyfish));
 			want(heavies, new Coloring());
 			want(heavies, new TUVWXYZWing()); // limited fast ALS-XZ (that's actually slower per elimination than ALS-XZ, but finds some double-linked elims, which ALS-XZ does not seek, so retained anyways)
-			want(heavies, new SueDeCoq());
-// KRC 2021-01-06 DeathBlossom is broken so commented out.
-// KRC 2021-01-07 DeathBlossom still broken but I'm still swinging.
-// KRC 2021-01-08 DeathBlossom dead-cat->disable, prepare->enable.
-// KRC 2021-01-09 DeathBlossom still incomprehensibly rooted!
-//			want(heavies, new DeathBlossom());
 			want(heavies, new AlsXz());
 			want(heavies, new AlsXyWing());
 			want(heavies, new AlsXyChain());
+// KRC 2021-01-13 DeathBlossom is now KRC's version. It sort of works.
+			want(heavies, new DeathBlossom());
+			want(heavies, new SueDeCoq()); // AALS's
 			want(heavies, new ComplexFisherman(Tech.FrankenSwampfish));
 			want(heavies, new ComplexFisherman(Tech.FrankenSwordfish));
 			want(heavies, new ComplexFisherman(Tech.FrankenJellyfish));
@@ -568,8 +567,8 @@ if ( false ) {
 }
 		}
 
-		// Heavy, meh! Chainers ripped Heavies balls off! These are really slow.
-		chainers = new ArrayList<>(isAccurate ? 10 : 1); // An Oils album!
+		// Heavy, meh! Chainers rip Heavies balls off! Exclusion is slow!
+		chainers = new ArrayList<>(isAccurate ? 11 : 1); //nearly an Oils album
 		if (isAccurate) {
 // the new AlignedExclusion class is slower than the old ones!
 if ( false ) {
@@ -1037,16 +1036,9 @@ if ( false ) {
 	 * @param grid the Grid to solve
 	 * @param wantMore are MORE (the Shift in Shift-F5) hints wanted regardless
 	 * of how "hard" they are, or how long it takes to find them; which means a
-	 * wait of about 15 seconds on my i7. If you're impatient then disable
-	 * Aligned5+Exclusion in the GUI (Options ~ Solving Techniques); and drop
-	 * the Nested* Chainers too (they're only used for really hard puzzles);
-	 * and Direct*; and Naked/Hidden Quad/Pent; drop your shorts while you're
-	 * there; Jesus, go ahead and drop the damn pilot for all I care. The plane
-	 * is already demonstrably ____ed. The speed of a Sudoku solver really does
-	 * NOT matter worth a pinch of goat s__t. Fundamentally, there is no future
-	 * and c__ksnaps are still fighting over three-parts of ____all. sigh.
-	 * @param isNoisy should I print hints as they're applied.
+	 * wait of about 15 seconds on my i7.
 	 *
+	 * @param isNoisy should I print hints as they're applied.
 	 * @return List of AHint
 	 */
 	public List<AHint> getAllHints(Grid grid, boolean wantMore, boolean isNoisy) {
@@ -1106,7 +1098,7 @@ if ( false ) {
 //if ( hinter.getTech() == Tech.SingleSolutions )
 //	Debug.breakpoint();
 			if ( interrupt()
-			  || (hinter.isEnabled() && getHinter(hinter, grid, accu, isNoisy)) )
+			  || (hinter.isEnabled() && findHints(hinter, grid, accu, isNoisy)) )
 				break;
 		}
 		return accu.hasAny();
@@ -1123,21 +1115,23 @@ if ( false ) {
 			, boolean less, boolean isNoisy) {
 		for ( IHinter hinter : hinters )
 			if ( interrupt()
-			  || (hinter.isEnabled() && (getHinter(hinter, grid, accu, isNoisy) && less)) )
+			  || (hinter.isEnabled() && (findHints(hinter, grid, accu, isNoisy) && less)) )
 				break;
 		return accu.hasAny() && less;
 	}
 
-	// getHinter calls the getHints method of the given hinter, and log it.
-	// Called by: getAll, and getAll. Work that s__t out Scoobie.
-	private boolean getHinter(IHinter hinter, Grid grid, IAccumulator accu, boolean isNoisy) {
-		if ( !isNoisy || Log.MODE<Log.VERBOSE_2_MODE )
-			return hinter.findHints(grid, accu); // do it quietly
-		long t0 = System.nanoTime();
-		Log.format("%-40s ", hinter.getTech().name());
-		boolean result = hinter.findHints(grid, accu);
-		Log.format("%,15d\t%s%s", System.nanoTime()-t0, hinter, NL);
-		return result;
+	// findHints calls the hinter.findHints; log it if isNoisy.
+	private boolean findHints(IHinter hinter, Grid grid, IAccumulator accu, boolean isNoisy) {
+		if (Log.MODE >= Log.VERBOSE_2_MODE) {
+			if ( isNoisy ) {
+				long t0 = System.nanoTime();
+				Log.format("%-40s ", hinter.getTech().name());
+				boolean result = hinter.findHints(grid, accu);
+				Log.format("%,15d\t%s%s", System.nanoTime()-t0, hinter, NL);
+				return result;
+			}
+		}
+		return hinter.findHints(grid, accu); // just do it quietly
 	}
 
 	/**
@@ -1169,7 +1163,7 @@ if ( false ) {
 		// except Generator skips Kraken Swordfish & Jellyfish which bugger-up
 		// on null table entries, which I do not understand why they are null.
 		enableKrakens(false, 3);
-		IHinter[] enabledHinters = getEnableds(wantedHinters);
+		final IHinter[] enabledHinters = getEnableds(wantedHinters);
 		grid.rebuildAllRegionsEmptyCellCounts();
 		grid.rebuildAllRegionsIdxsOfAllValues();
 		for ( int pre=grid.countMaybes(),now; pre>0; pre=now ) { // ie !grid.isFull
@@ -1199,7 +1193,7 @@ if ( false ) {
 			} else {
 				Log.teeln("analyseDifficulty: No hint found in grid:");
 				Log.teeln(grid);
-				return Difficulty.IDKFA.max; // 1,000,000 a largish number
+				return Difficulty.IDKFA.max; // a largish number
 			}
 		}
 		enableKrakens(true, 3);

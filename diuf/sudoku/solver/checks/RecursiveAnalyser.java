@@ -359,7 +359,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	// the singles are both passed the above apcu explicitly.
 	private final AHinter[] THE_SINGLES = new AHinter[] {
 		    new HiddenSingle() // NB: hidden first, coz it's quicker this way
-		  , new NakedSingle()  // when we run them both anyway. @strech justify.
+		  , new NakedSingle()  // when we run them both anyway.
 	};
 
 	// The "fast" hinters evaluated by ns/elim.
@@ -383,7 +383,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 		final AHinter[] theSingles = THE_SINGLES;
 		final AHinter[] fourQuickFoxes = FOUR_QUICK_FOXES;
 
-		// reset my hint applicumulator and my hint accumulator, just in case
+		// reset my hint applicumulator (and my hint accumulator just in case)
 		myApcu.reset();
 		myAccu.reset();
 

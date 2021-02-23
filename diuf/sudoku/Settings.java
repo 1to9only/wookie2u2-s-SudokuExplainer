@@ -494,8 +494,15 @@ public final class Settings implements Cloneable {
 	//			but failed at DeathBlossom. 
 	// 6.30.105 2021-01-12 10:05:45 Ship SueDeCoq. Failed at DeathBlossom.
 	//			Last top1465 3:04 is OK.
+	// 6.30.106 2021-01-14 09:02:46 Ship DeathBlossom.
+	//			Last top1465 4:10 is a minute slower, but that's still OK coz
+	//			I have no love for DeathBlossom, so I won't be using it.
+	// 6.30.107 2021-01-15 09:44:47 Ship DeathBlossom.
+	//			Last top1465 3:24 that's better, and a better test-case too.
 
 	// To Build:
+	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
+	//    If you can't deal with it then change it to a @strech.
 	// 1. search for @check and fix any settings you've changed
 	//    * ensure you find usages of diuf.sudoku.utils.Debug.breakPoint
 	// 2. run the test cases (Alt F6)
@@ -509,12 +516,11 @@ public final class Settings implements Cloneable {
 	//    * using the log-file from a recent batch run (Step 4).
 	// 5. clean and build the <default config> (the bloody GUI, not the batch)
 	//    * try running the batch again, it should tell you to get stuffed.
-	// 6. create a back-up IMMEDIATELY. I put the .7z filename in the bottom
-	//    of the LogicalSolverTimings comment.
-	//    * do it IMMEDIATELY coz I stuffed-up previously, by changing code
-	//      ("fixing" comments) before creating the back-up and so committed
-	//      the ultimate putz-act: checked in code that doesn't compile.
-	//		I simply forgot to close a comment block. Oops! Procedures matter!
+	// 6. create a back-up IMMEDIATELY: No code changes.
+	//    * do it IMMEDIATELY coz I stuffed-up previously, changing comments
+	//      before committing, and so committed the ultimate putz-act:
+	//      Checked-in code no compile. Procedures matter!
+	//    * Put the .7z filename in bottom of LogicalSolverTimings comment.
 	//
 	// To Ship:
 	// 1. rename .7z to .LOGS.7z and then delete the .log files from the
@@ -528,8 +534,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.105";
-	public static final String BUILT = "2021-01-06 19:06:44";
+	public static final String VERSION = "6.30.106";
+	public static final String BUILT = "2021-01-14 09:02:46";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

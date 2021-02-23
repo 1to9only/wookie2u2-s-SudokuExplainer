@@ -68,8 +68,8 @@ public enum Tech {
 
 // Medium
 	// NB: constructor does name().startsWith("Direct")
-	, LockingGen		(2.1, 1, "Locking Generalised") // 2.1 for both
-	, Locking			(2.1, 1, "Locking") // Pointing=2.1 Claiming=2.2
+	, Locking			(2.1, 1, "Locking", "OR Locking Generalised") // Pointing=2.1 Claiming=2.2
+	, LockingGeneralised(2.1, 1, "Locking Generalised", "OR Locking") // 2.1 for both
 	, DirectNakedPair	(2.3, 2, "Direct Naked Pair")
 	, DirectHiddenPair	(2.4, 2, "Direct Hidden Pair")
 	, DirectNakedTriple	(2.5, 3, "Direct Naked Triple")
@@ -105,18 +105,18 @@ public enum Tech {
 	, Coloring			(4.40, 2, "Coloring", "or BUG (below)")	// Coloring (BUG++)
 	, TUVWXYZ_Wing		(4.24, 7, "TUVWXYZ-Wing")		// limited-ALSs
 	, SueDeCoq			(4.48, 0, "Sue De Coq")
-//	, DeathBlossom		(4.49, 0, "Death Blossom", "under construction!")
+	, DeathBlossom		(4.49, 0, "Death Blossom", "produces invalid hints!")
 	, ALS_XZ			(4.50, 0, "ALS-XZ")				// ALSs
 	, ALS_Wing			(4.51, 0, "ALS-Wing")
 	, ALS_Chain			(4.52, 0, "ALS-Chain")
-	, FrankenSwampfish	(4.60, 2, "Franken Swampfish", "Buggered! Sorry.")
-	, FrankenSwordfish	(4.61, 3, "Franken Swordfish", "Buggered! Sorry.")
-	, FrankenJellyfish	(4.62, 4, "Franken Jellyfish", "Buggered! Sorry.")
+	, FrankenSwampfish	(4.60, 2, "Franken Swampfish")
+	, FrankenSwordfish	(4.61, 3, "Franken Swordfish")
+	, FrankenJellyfish	(4.62, 4, "Franken Jellyfish")
 // 1,764 seconds for 20 hints is just too slow to be allowed. Mutants are dead.
 // Having said that Mutant Swampfish was fast enough, for 0 hints. sigh.
 	, MutantSwampfish	(4.70, 2, "Mutant Swampfish", "top1465 NONE")		// SLOW
-	, MutantSwordfish	(4.71, 3, "Mutant Swordfish", "top1465 1 minute")	// VERY SLOW
-	, MutantJellyfish	(4.72, 4, "Mutant Jellyfish", "top1465 6 minutes")	// SUPER SLOW
+	, MutantSwordfish	(4.71, 3, "Mutant Swordfish", "top1465 45 seconds")	// VERY SLOW
+	, MutantJellyfish	(4.72, 4, "Mutant Jellyfish", "top1465 5 minutes")	// SUPER SLOW
 	, NakedQuad			(5.0, 4, "Naked Quad")
 	, HiddenQuad		(5.1, 4, "Hidden Quad", "top1465 NONE")
 	, NakedPent			(5.2, 5, "Naked Pent", "top1465 NONE")

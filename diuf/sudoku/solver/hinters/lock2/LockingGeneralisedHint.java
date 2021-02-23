@@ -93,8 +93,8 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+Frmt.ssv(cells)+" on value "+value
-			 +" in "+region.id;
+		return getHintTypeName()+": "+Frmt.ssv(cells)+" on "+value+" in "
+			 +region.id;
 	}
 
 	@Override

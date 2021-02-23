@@ -23,8 +23,8 @@ import diuf.sudoku.solver.hinters.AHinter;
 
 /**
  * Implements the Sue De Coq Sudoku solving technique. Sue De Coq is lumped-in
- * with ALS's because I don't know where it belongs, and it's basis is almost
- * almost locked sets: 2 cells with 4 values, 3 cells with 5 values.
+ * with ALS's because I don't know where it belongs, and it's basis is "almost
+ * almost locked sets": 2 cells with 4 values, 3 cells with 5 values.
  *
  * @author Keith Corlett 2021 Jan
  */
@@ -132,14 +132,14 @@ public class SueDeCoq extends AHinter {
 
 	/**
 	 * Searches each intersection of the given {@code lines} with the boxes,
-	 * delegating the search to {@link #checkIntersection(boolean)}.
+	 * delegating the search to {@link #checkIntersection}.
 	 *
 	 * @param lines the array of rows or cols
 	 * @return
 	 */
 	private boolean findHintsInt(ARegion[] lines) {
 		// get all possible intersections between rows/cols and boxs
-		Idx empties = grid.getEmptyCells();
+		final Idx empties = grid.getEmptyCells();
 		boolean result = false;
 		// foreach row/col
 		for ( ARegion line : lines ) {
@@ -152,11 +152,8 @@ public class SueDeCoq extends AHinter {
 				if ( interSet.setAndAny(lineSet, boxSet.setAnd(box.idx, empties))
 				  && interSet.size() > 1
 				  // check the intersection
-				  && checkIntersection() ) {
-					result = true;
-					if ( onlyOne )
-						return true;
-				}
+				  && (result|=checkIntersection()) && onlyOne )
+					return true;
 			}
 		}
 		return result;
@@ -173,42 +170,36 @@ public class SueDeCoq extends AHinter {
 	 * @return
 	 */
 	private boolean checkIntersection() {
-		final int max = interSet.size();
 		int nPlus;
+		final int n = interSet.size();
+		final int m = n - 1;
 		boolean result = false;
 		interActSet.clear();
-		for (int i1 = 0; i1 < max - 1; i1++) {
+		for ( int i1=0; i1<m; ++i1 ) {
 			// all candidates of the first cell
 			int index1 = interSet.get(i1);
 			interActSet.add(index1);
 			int cands1 = cells[index1].maybes.bits;
 			// now try the second cell
-			for (int i2 = i1 + 1; i2 < max; i2++) {
+			for ( int i2=i1+1; i2<n; ++i2 ) {
 				int index2 = interSet.get(i2);
 				int cands2 = cands1 | cells[index2].maybes.bits;
 				interActSet.add(index2);
 				// we have two cells in the intersection
-				if ( (nPlus=VSIZE[cands2] - 2) > 1 ) {
-					// possible SDC -> check
-					if ( checkHouses(nPlus, cands2) ) {
-						result = true;
-						if ( onlyOne )
-							return result;
-					}
-				}
+				if ( (nPlus=VSIZE[cands2] - 2) > 1
+				  // possible SDC -> check
+				  && (result|=checkHouses(nPlus, cands2)) && onlyOne )
+					return result;
 				// and the third cell
-				for (int i3 = i2 + 1; i3 < max; i3++) {
+				for ( int i3=i2+1; i3<n; ++i3 ) {
 					int index3 = interSet.get(i3);
 					int cand3 = cands2 | cells[index3].maybes.bits;
 					// now we have three cells in the intersection
 					if ( (nPlus=VSIZE[cand3] - 3) > 1 ) {
 						// possible SDC -> check
 						interActSet.add(index3);
-						if ( checkHouses(nPlus, cand3) ) {
-							result = true;
-							if ( onlyOne )
-								return result;
-						}
+						if ( (result|=checkHouses(nPlus, cand3)) && onlyOne )
+							return result;
 						interActSet.remove(index3);
 					}
 				}
@@ -322,10 +313,10 @@ public class SueDeCoq extends AHinter {
 						// exclude all cells that are already used in row/col
 						boxSrcSet.andNot(lineActSet);
 						// candidates from row/col set are not allowed anymore
-						// nb: tmpCands is num cands not in the intersection
-						// nb: & Values.ALL_BITS chops-off extranious high-bits
+						// nb: tmpCands is cands not in the intersection
+						// nb: & Values.ALL_BITS to chop-off extranious hi-bits
 						boxOkCands = ~(lineActCands & ~tmpCands) & Values.ALL_BITS;
-						// and the second run
+						// and now pass2 (a recursive call)
 						if ( result |= checkLine(
 								  nPlus - (lineActSet.size() - anzExtra )
 								, boxSrcSet, boxOkCands, false)
@@ -334,19 +325,11 @@ public class SueDeCoq extends AHinter {
 					}
 				// pass2: number of candidates has to be exactly nPlus
 				} else if ( c.idx.size()-anzExtra == nPlus ) {
-					// It's a Sue de Coq! Can anything be eliminated?
-					// possible eliminations (special case "same extra cand
-					// in box and line" is not included below):
-					//  - (interActCands + boxActCands) - lineActCands
-					//    in boxSet - boxActSet - interActSet - lineActSet
-					//  - (interActCands + lineActCands) - boxActCands in
-					//    lineSet - lineActSet - interActSet - boxActSet
-					// If both sets hold the same extra candidates they can
-					// be eliminated from both sets!
+					// It's a Sue de Coq, but are the any eliminations?
 					// get current data for box
 					boxActSet = c.idx;
 					boxActCands = c.cands;
-					// get the extra candidates that are in both sets
+					// get the extra candidates that are in both line and box
 					bothActCands = boxActCands & lineActCands;
 					// all cells in the box that dont belong to the SDC
 					tmpSet.set(boxSet);
@@ -376,10 +359,7 @@ public class SueDeCoq extends AHinter {
 						// all candidates that occur in the intersection
 						// and in the box become endo fins (for display)
 						Pots purples = potify(boxActSet, interActSet, boxActCands, new Pots());
-// I don't know what to do with these as my hint has not concept of an ALS.
-//							globalStep.addAls(interActSet, interActCands);
-//							globalStep.addAls(boxActSet, boxActCands);
-//							globalStep.addAls(lineActSet, lineActCands);
+						// create the hint and add it to the IAccumulator
 						AHint hint = new SueDeCoqHint(this, reds, greens
 								, blues, purples, line, box);
 						result = true;
@@ -404,11 +384,11 @@ public class SueDeCoq extends AHinter {
 	 */
 	private void eliminate(Idx idx, int cands, Pots pots) {
 		if ( VSIZE[cands]>0 && idx.size()>0 )
-			idx.forEach1((index) -> {
-				int elims = cells[index].maybes.bits & cands;
+			idx.forEach1((indice) -> {
+				int elims = cells[indice].maybes.bits & cands;
 				if ( elims != 0 )
 					for ( int cand : VALUESES[elims] )
-						pots.upsert(cells[index], cand);
+						pots.upsert(cells[indice], cand);
 			});
 	}
 
@@ -424,9 +404,9 @@ public class SueDeCoq extends AHinter {
 	 * @param dest
 	 */
 	private Pots potify(Idx a, Idx b, int cands, Pots pots) {
-		tmpSet.setOr(a, b).forEach1((index) -> {
-			for ( int v : VALUESES[cells[index].maybes.bits & cands] )
-				pots.upsert(cells[index], v);
+		tmpSet.setOr(a, b).forEach1((indice) -> {
+			for ( int v : VALUESES[cells[indice].maybes.bits & cands] )
+				pots.upsert(cells[indice], v);
 		});
 		return pots;
 	}

@@ -13,7 +13,8 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -51,26 +52,21 @@ abstract class AAlsHinter extends AHinter
 	// DeathBlossom uses this to mark unused params; for self-doc'ing code.
 	protected static final boolean UNUSED = false;
 
-	// local references to constants
-	protected static final int[][] VALUESES = Values.VALUESES;
-	protected static final int[] VSIZE = Values.VSIZE;
-	protected static final int[] VSHFT = Values.VSHFT;
-
 	/** include ALSs which overlap in my findHints method? */
 	protected final boolean allowOverlaps;
 	/** include ALSs which include cells that are part of a Locked Set? */
 	protected final boolean allowLockedSets;
 	/** should I run getRccs; false means I pass you rccs=null in findHints */
-	private final boolean findRCCs;
+	protected final boolean findRCCs;
 	/** should getRccs do a fast forwardOnly search, or a full search? */
 	protected final boolean forwardOnly;
 	/** should getRccs populate startIndices and endIndices */
-	private final boolean useStartAndEnd;
+	protected final boolean useStartAndEnd;
 
 	// inLockedSet[region][cell.i]: findLockedSets => recurseAlss when
 	// !allowLockedSets (in HdkAlsXyChains only): element set to true if this
 	// cell is involved in any Locked Set in this region.
-	private final boolean[][] inLockedSet;
+	protected final boolean[][] inLockedSet;
 
 	/**
 	 * Construct a new abstract ALS hinter.
@@ -86,10 +82,6 @@ abstract class AAlsHinter extends AHinter
 	 * persisting in breaking my own rules for no good reason. Sigh.
 	 *
 	 * @param tech the Tech(nique) which we're implementing, in my case Als*
-	 * @param allowOverlaps if false the getRccs method ignores two ALSs which
-	 * physically overlap (ie have any cell in common).
-	 * <br>HdkAlsXz and HdkAlsXyWing both use true
-	 * <br>HdkAlsXyChain uses false because overlaps bugger it up
 	 * @param allowLockedSets if false the getAlss method ignores any cell
 	 * which is part of an actual Locked Set (NakedPair/Triple/etc) in this
 	 * region (ie treats the cell as if it were a set cell).
@@ -97,7 +89,12 @@ abstract class AAlsHinter extends AHinter
 	 * <br>HdkAlsXyChain uses false because locked sets bugger it up
 	 * @param findRCCs true for "normal" ALS-use, false for DeathBlossom.<br>
 	 * When false AAlsHinter does NOT run getRccs, so findHints rccs=null, and
-	 * the following two parameters (effecting getRccs) have no effect.
+	 * the following parameters (effecting getRccs) have no effect, so there's
+	 * an UNUSED constant defined for self-documentation.
+	 * @param allowOverlaps if false the getRccs method ignores two ALSs which
+	 * physically overlap (ie have any cell in common).
+	 * <br>HdkAlsXz and HdkAlsXyWing both use true
+	 * <br>HdkAlsXyChain uses false because overlaps bugger it up
 	 * @param forwardOnly if true then getRccs does a faster forward-only
 	 * search of the ALS-list, but if false it does a full search of all the
 	 * possible combinations of ALSs.
@@ -108,14 +105,15 @@ abstract class AAlsHinter extends AHinter
 	 * <br>HdkAlsXz and HdkAlsXyWing both use false
 	 * <br>HdkAlsXyChain uses true because it's awkward
 	 */
-	public AAlsHinter(Tech tech, boolean allowOverlaps, boolean allowLockedSets
-			, boolean findRCCs, boolean forwardOnly, boolean useStartAndEnd) {
+	public AAlsHinter(Tech tech, boolean allowLockedSets, boolean findRCCs
+			, boolean allowOverlaps, boolean forwardOnly
+			, boolean useStartAndEnd) {
 		super(tech);
-		this.allowOverlaps = allowOverlaps;
 		this.allowLockedSets = allowLockedSets;
 		// unused if allowLockedSets, else an array for each of the 27 regions
 		this.inLockedSet = allowLockedSets ? null : new boolean[27][];
 		this.findRCCs = findRCCs;
+		this.allowOverlaps = allowOverlaps;
 		this.forwardOnly = forwardOnly;
 		this.useStartAndEnd = useStartAndEnd;
 	}
@@ -131,7 +129,7 @@ abstract class AAlsHinter extends AHinter
 	 */
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {
-		if ( HintValidator.ALS_USES ) {
+		if ( HintValidator.ALS_USES || HintValidator.DEATH_BLOSSOM_USES ) {
 			// clear any existing invalidities before processing a new Grid.
 			// note that HintValidator.solutionValues is already set.
 			HintValidator.invalidities.clear();

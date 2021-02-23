@@ -110,7 +110,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/** sb is a weird variable specifically for the HintsApplicumulator and
 	 * AHint.apply->Cell.set. It's ugly but it's nicest way I can think of. */
-	public StringBuilder sb;
+	public StringBuilder SB;
 
 	// for direct hints
 	public AHint(AHinter hinter, Cell cell, int value) {
@@ -196,7 +196,7 @@ public abstract class AHint implements Comparable<AHint> {
 			if ( cell != null ) {
 				// returns number of cells set (may be >1 when isAutosolving)
 				// nb: occassionally throws UnsolvableException
-				myNumElims += 10 * cell.set(value, 0, isAutosolving, sb);
+				myNumElims += 10 * cell.set(value, 0, isAutosolving, SB);
 			}
 			if ( redPots != null ) {
 				int pinkBits; // Paul Hogan said "No comment".
@@ -216,7 +216,7 @@ public abstract class AHint implements Comparable<AHint> {
 							// nb: might add to GrabBag.NAKED_SINGLES
 							// nb: occassionally throws UnsolvableException
 							myNumElims += 10 * ns.set(ns.maybes.first(), 0
-									, isAutosolving, sb);
+									, isAutosolving, SB);
 				} catch (Exception ex) { // especially UnsolvableException
 					// nb: SINGLE_QUEUE allways left empty even if not in use
 					SINGLES_QUEUE.clear();
@@ -251,7 +251,7 @@ public abstract class AHint implements Comparable<AHint> {
 				System.out.print(" ("+cell.id+"="+value+")");
 				// returns number of cells set (may be >1 when isAutosolving)
 				// nb: occassionally throws UnsolvableException
-				myNumElims += 10 * cell.set(value, 0, isAuto, sb);
+				myNumElims += 10 * cell.set(value, 0, isAuto, SB);
 			}
 			if ( redPots != null ) {
 				int pinkBits; // Paul's already covered this one, thanks Cecil.
@@ -286,7 +286,7 @@ public abstract class AHint implements Comparable<AHint> {
 							int v = ns.maybes.first();
 							System.out.print(" => ("+ns.id+"="+v+")");
 							// nb: occassionally throws UnsolvableException
-							myNumElims += 10 * ns.set(v, 0, isAuto, sb);
+							myNumElims += 10 * ns.set(v, 0, isAuto, SB);
 						}
 				} catch (Exception ex) { // especially UnsolvableException
 					// nb: SINGLE_QUEUE allways left empty even if not in use
@@ -432,6 +432,42 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @return A Set of the pink (highlighted) Cells.
 	 */
 	public Set<Cell> getPinkCells(int viewNum) {
+		return null;
+	}
+
+	/**
+	 * Get the cell to be highlighted with a green background.
+	 * @param viewNum 1..128
+	 * @return A Set of the green (highlighted) Cells.
+	 */
+	public Set<Cell> getGreenCells(int viewNum) {
+		return null;
+	}
+
+	/**
+	 * Get the cell to be highlighted with an orange background.
+	 * @param viewNum 1..128
+	 * @return A Set of the orange (highlighted) Cells.
+	 */
+	public Set<Cell> getOrangeCells(int viewNum) {
+		return null;
+	}
+
+	/**
+	 * Get the cell to be highlighted with a blue background.
+	 * @param viewNum 1..128
+	 * @return A Set of the blue (highlighted) Cells.
+	 */
+	public Set<Cell> getBlueCells(int viewNum) {
+		return null;
+	}
+
+	/**
+	 * Get the cell to be highlighted with a yellow background.
+	 * @param viewNum 1..128
+	 * @return A Set of the yellow (highlighted) Cells.
+	 */
+	public Set<Cell> getYellowCells(int viewNum) {
 		return null;
 	}
 

@@ -106,7 +106,7 @@ public abstract class ADirectHint extends AHint implements IActualHint {
 			System.out.format("%,13d ADirectHint:%s (%s=%d)\n", took(), toString(), cell.id, value);
 		}
 		// returns number of cells set (may be >1 when isAutosolving)
-		int score = 10 * cell.set(value, 0, isAutosolving, sb); // throws UnsolvableException
+		int score = 10 * cell.set(value, 0, isAutosolving, SB); // throws UnsolvableException
 		return score; // return the "score"
 	}
 

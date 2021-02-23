@@ -65,13 +65,22 @@ class SudokuGridPanel extends JPanel {
 	private static final Color COLOR_BROWN	= new Color(150, 75, 0);
 	private static final Color COLOR_DARK_BLUE = Color.BLUE.darker();
 	private static final Color COLOR_LEGEND	= new Color(0, 32, 64);
-	// the aqua (bluey green) cell background color.
+	// the aqua (bluey green) cell background color
 	private static final Color COLOR_AQUA = new Color(192, 255, 255);
-	// the pink (light red) cell background color.
+	// the pink (light red) cell background color
 	private static final Color COLOR_PINK = new Color(255, 204, 255);
-	// the pink cell background color.
-	private static final Color COLOR_ORANGY_BLACK = orangy(Color.BLACK);
+	// the grey cell background color
 	private static final Color COLOR_GREY = new Color(222, 222, 222);
+	// the green cell background color
+	private static final Color COLOR_BG_GREEN = new Color(204, 255, 204);
+	// the orange cell background color
+	private static final Color COLOR_BG_ORANGE = new Color(255, 204, 102);
+	// the blue cell background color
+	private static final Color COLOR_BG_BLUE = new Color(204, 204, 255);
+	// the blue cell background color
+	private static final Color COLOR_BG_YELLOW = new Color(255, 255, 204);
+	// a dark orange.
+	private static final Color COLOR_ORANGY_BLACK = orangy(Color.BLACK);
 
 	// base border and background
 	private static final Color BASE_BORDER_COLOR = new Color(0, 0, 192); // blue
@@ -120,8 +129,8 @@ class SudokuGridPanel extends JPanel {
 	// number of corners in a triange
 	private static final int NUM_POINTS = 3;
 	// used to draw the arrow at the end of the link
-	private static final int[] xPoints = new int[NUM_POINTS];
-	private static final int[] yPoints = new int[NUM_POINTS];
+	private static final int[] X_POINTS = new int[NUM_POINTS];
+	private static final int[] Y_POINTS = new int[NUM_POINTS];
 
 	private final ArrayList<Line> paintedLines = new ArrayList<>(64); // just a guess
 
@@ -160,6 +169,10 @@ class SudokuGridPanel extends JPanel {
 	private Set<Cell> auqaBGCells;
 	private Set<Cell> pinkBGCells;
 	private Set<Cell> redBGCells;
+	private Set<Cell> greenBGCells;
+	private Set<Cell> orangeBGCells;
+	private Set<Cell> blueBGCells;
+	private Set<Cell> yellowBGCells;
 	private Set<Cell> greyBGCells;
 	private Result result;
 	private Collection<ARegion> bases;
@@ -448,18 +461,38 @@ class SudokuGridPanel extends JPanel {
 	}
 
 	/** Set the aqua cell backgrounds. */
-	void setAquaBGCells(Set<Cell> aquaCells) {
-		this.auqaBGCells = aquaCells;
+	void setAquaBGCells(Set<Cell> cells) {
+		this.auqaBGCells = cells;
 	}
 
 	/** Set the aqua cell backgrounds. */
-	void setPinkBGCells(Set<Cell> pinkCells) {
-		this.pinkBGCells = pinkCells;
+	void setPinkBGCells(Set<Cell> cells) {
+		this.pinkBGCells = cells;
 	}
 
 	/** Set the red cell backgrounds. */
-	void setRedBGCells(Set<Cell> redCells) {
-		this.redBGCells = redCells;
+	void setRedBGCells(Set<Cell> cells) {
+		this.redBGCells = cells;
+	}
+
+	/** Set the green cell backgrounds. */
+	void setGreenBGCells(Set<Cell> cells) {
+		this.greenBGCells = cells;
+	}
+
+	/** Set the orange cell backgrounds. */
+	void setOrangeBGCells(Set<Cell> cells) {
+		this.orangeBGCells = cells;
+	}
+
+	/** Set the blue cell backgrounds. */
+	void setBlueBGCells(Set<Cell> cells) {
+		this.blueBGCells = cells;
+	}
+
+	/** Set the yellow cell backgrounds. */
+	void setYellowBGCells(Set<Cell> cells) {
+		this.yellowBGCells = cells;
 	}
 
 	/** Set the red cell backgrounds. */
@@ -701,6 +734,14 @@ class SudokuGridPanel extends JPanel {
 				col = COLOR_PINK;
 			else if ( redBGCells!=null && redBGCells.contains(cell) )
 				col = Color.RED;
+			else if ( greenBGCells!=null && greenBGCells.contains(cell) )
+				col = COLOR_BG_GREEN;
+			else if ( orangeBGCells!=null && orangeBGCells.contains(cell) )
+				col = COLOR_BG_ORANGE;
+			else if ( blueBGCells!=null && blueBGCells.contains(cell) )
+				col = COLOR_BG_BLUE;
+			else if ( yellowBGCells!=null && yellowBGCells.contains(cell) )
+				col = COLOR_BG_YELLOW;
 			g.setColor(col);
 			g.fillRect(cell.x*COS, cell.y*COS, COS, COS);
 		} // next x, y
@@ -962,13 +1003,13 @@ class SudokuGridPanel extends JPanel {
 					ly = e.y - uy*ARROW_LENGTH - ux*ARROW_WIDTH;
 					rx = e.x - ux*ARROW_LENGTH - uy*ARROW_WIDTH;
 					ry = e.y - uy*ARROW_LENGTH + ux*ARROW_WIDTH;
-					xPoints[0] = (int)(e.x + mx);
-					xPoints[1] = (int)(rx + mx);
-					xPoints[2] = (int)(lx + mx);
-					yPoints[0] = (int)(e.y + my);
-					yPoints[1] = (int)(ry + my);
-					yPoints[2] = (int)(ly + my);
-					g.fillPolygon(xPoints, yPoints, NUM_POINTS);
+					X_POINTS[0] = (int)(e.x + mx);
+					X_POINTS[1] = (int)(rx + mx);
+					X_POINTS[2] = (int)(lx + mx);
+					Y_POINTS[0] = (int)(e.y + my);
+					Y_POINTS[1] = (int)(ry + my);
+					Y_POINTS[2] = (int)(ly + my);
+					g.fillPolygon(X_POINTS, Y_POINTS, NUM_POINTS);
 				}
 				paintedLines.add(line);
 			}

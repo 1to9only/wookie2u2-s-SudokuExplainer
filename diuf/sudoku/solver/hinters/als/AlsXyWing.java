@@ -37,6 +37,8 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -67,7 +69,7 @@ public final class AlsXyWing extends AAlsHinter
 
 	public AlsXyWing() {
 		// see param explanations in the AlsXyChain constructor.
-		// Tech, allowOverlaps, allowLockedSets, findRccs, lockedSets, forwardOnly
+		// Tech, allowLockedSets, findRCCs, allowOverlaps, forwardOnly, useStartAndEnd
 		super(Tech.ALS_Wing, true, true, true, true, false);
 	}
 

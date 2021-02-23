@@ -65,7 +65,7 @@ public class HintValidator {
 	/**
 	 * Does DeathBlossom use HintValidator?
 	 */
-	public static final boolean DEATH_BLOSSOM_USES = true; // @check false
+	public static final boolean DEATH_BLOSSOM_USES = false; // @check false
 
 	/**
 	 * Does AlignedExclusion use HintValidator?

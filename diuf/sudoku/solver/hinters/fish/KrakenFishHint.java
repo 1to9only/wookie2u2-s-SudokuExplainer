@@ -176,7 +176,7 @@ public class KrakenFishHint extends AHint implements IActualHint {
 					line.append(" &lt;- ").append(a);
 					// 128 is arbitrary: it's intended to be not too much
 					// larger than the length of the longest valid chain.
-					if ( ++len > 127 ) // happened in KrakenFisherman1 
+					if ( ++len > 127 ) // happened in KrakenFisherman1
 						throw new RuntimeException("endless loop");
 				}
 				line.append(NL);

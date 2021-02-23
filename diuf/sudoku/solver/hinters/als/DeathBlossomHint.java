@@ -1,216 +1,153 @@
-// KRC 2021-01-06 DeathBlossom is broken so commented out.
-// KRC 2021-01-07 DeathBlossom still broken but I'm still swinging.
-// KRC 2021-01-08 DeathBlossom is a first class pain in the ass.
-// KRC 2021-01-09 DeathBlossom still incomprehensibly rooted!
-///*
-// * Project: Sudoku Explainer
-// * Copyright (C) 2006-2007 Nicolas Juillerat
-// * Copyright (C) 2013-2020 Keith Corlett
-// * Available under the terms of the Lesser General Public License (LGPL)
-// */
-//package diuf.sudoku.solver.hinters.als;
-//
-//import diuf.sudoku.Grid;
-//import diuf.sudoku.Grid.ARegion;
-//import diuf.sudoku.Grid.Cell;
-//import diuf.sudoku.Pots;
-//import diuf.sudoku.solver.AHint;
-//import diuf.sudoku.solver.hinters.AHinter;
-//import diuf.sudoku.solver.hinters.HintValidator;
-//import diuf.sudoku.utils.Html;
-//import java.util.Iterator;
-//import java.util.List;
-//import java.util.Set;
-//
-///**
-// * The DTO (Data Transfer Object) for a Death Blossom Hint.
-// *
-// * @author Keith Corlett 2021-01-06
-// */
-//public class DeathBlossomHint extends AHint {
-//
-//	private final Pots greens; // the stem cell
-//	private final Pots blues; // the value used in each ALS
-//	private final Set<Cell> pinkCells; // cells in the overlap between ALS's
-//	private final String alses; // a string of the ALS's
-//	private final List<ARegion> regions; // the region containing each ALS
-//	// holding the Grid in a field in a hint is a HACK to use HintValidator.
-//	// @todo remove field when HintValidator no longer required.
-//	private final Grid grid;
-//	public DeathBlossomHint(AHinter hinter, Pots reds, Pots greens, Pots blues
-//			, Set<Cell> pinkCells, String alses, List<ARegion> regions
-//			, Grid grid) {
-//		super(hinter, reds);
-//		this.greens = greens;
-//		this.blues = blues;
-//		this.pinkCells = pinkCells;
-//		this.alses = alses;
-//		this.regions = regions;
-//		this.grid = grid;
-//	}
-//
-//	/**
-//	 * Get the cells to be highlighted with an aqua background.
-//	 * <p>
-//	 * In DeathBlossomHint's case, that's the stem cell.
-//	 * @param viewNum 1..128
-//	 * @return A Set of aqua (highlighted) Cells.
-//	 */
-//	@Override
-//	public Set<Cell> getAquaCells(int viewNum) {
-//		return greens.keySet();
-//	}
-//
-//	/**
-//	 * Get the cells to be highlighted with a pink background.
-//	 * <p>
-//	 * In DeathBlossomHint's case, that's the cells in overlap.
-//	 * @param viewNum 1..128
-//	 * @return A Set of the pink (highlighted) Cells.
-//	 */
-//	@Override
-//	public Set<Cell> getPinkCells(int viewNum) {
-//		return pinkCells; // cells in the overlap between ALS's
-//	}
-//
-//	/**
-//	 * Reliably getting the solution values from the HintValidator requires the
-//	 * bloody Grid.
-//	 * @stretch fix invalid hints, so !HintValidator.DEATH_BLOSSOM_USES.
-//	 * @return
-//	 */
-//	private int[] getSolutionValues() {
-//		if ( HintValidator.DEATH_BLOSSOM_USES ) {
-//			if ( grid != null )
-//				return HintValidator.getSolutionValues(grid);
-//			return HintValidator.solutionValues; // may be null
-//		}
-//		return null;
-//	}
-//
-//	/**
-//	 * Invalid eliminations are purple, not red.
-//	 * <p>
-//	 * Given 1+ invalid redPots: to paint purple we remove from getReds (view),
-//	 * but leave in redPots (data); otherwise the values redness overwrites its
-//	 * purpleness. Else the hint !isInvalid (ie is valid) just return redPots.
-//	 * <p>
-//	 * This is not a critical process. If the grid passed to my constructor is
-//	 * null, and the HintValidator doesn't already have solutionValues then
-//	 * I abandon the search for invalid eliminations; so they stay red!
-//	 *
-//	 * @stretch fix invalid hints, so !HintValidator.DEATH_BLOSSOM_USES.
-//	 *
-//	 * @param viewNum
-//	 * @return
-//	 */
-//	@Override
-//	public Pots getReds(int viewNum) {
-//		if ( HintValidator.DEATH_BLOSSOM_USES ) {
-//			if ( isInvalid ) {
-//				// go through this ass-mangle ONCE!
-//				if ( validReds == null ) {
-//					if ( redPots == null )
-//						return redPots; // Never happens. Never say never.
-//					// remove invalid eliminations from the result.
-//					// get solutionValues (correct value for each cell)
-//					int[] solutionValues = getSolutionValues();
-//					if ( solutionValues == null )
-//						return redPots; // should never happen
-//					// start with an independent mutable copy of redPots
-//					Pots reds = Pots.deepCopy(redPots);
-//					// use an interator to allow for deletion of cells
-//					for ( Iterator<Cell> it=reds.keySet().iterator(); it.hasNext(); ) {
-//						Cell c = it.next();
-//						// remove has no effect if given value does not exist
-//						// remove returns the new size
-//						if ( reds.get(c).remove(solutionValues[c.i]) == 0 )
-//							// no values left in cell, so remove this cell
-//							it.remove();
-//					}
-//					// contract for Pots says nullable but never empty
-//					if ( reds.isEmpty() )
-//						reds = null;
-//					validReds = reds; // may be null
-//				}
-//				return validReds; // may be null
-//			}
-//		}
-//		return redPots; // nullable, but never in DeathBlossom
-//	}
-//	private Pots validReds;
-//
-//	@Override
-//	public Pots getGreens(int viewNum) {
-//		return greens;
-//	}
-//
-//	@Override
-//	public Pots getBlues(Grid grid, int viewNum) {
-//		return blues;
-//	}
-//
-//	/**
-//	 * Invalid eliminations are purple, not red.
-//	 * <p>
-//	 * This not critical process: If goes bad then elims stay red.
-//	 *
-//	 * @stretch fix invalid hints, so !HintValidator.DEATH_BLOSSOM_USES.
-//	 *
-//	 * @return
-//	 */
-//	@Override
-//	public Pots getPurples() {
-//		if ( HintValidator.DEATH_BLOSSOM_USES ) {
-//			if ( isInvalid ) {
-//				try {
-//					// getReds removes invalid elims from redPots, so now all I
-//					// need to do is remove getReds from redPots to leave the
-//					// invalid eliminations; a double negative is a positive.
-//					return new Pots(redPots).removeAll(getReds(0));
-//				} catch (Throwable eaten) {
-//					// Do nothing
-//				}
-//			}
-//		}
-//		return null;
-//	}
-//
-//	@Override
-//	public List<ARegion> getBases() {
-//		return Grid.regionList(regions.get(0));
-//	}
-//
-//	@Override
-//	public List<ARegion> getCovers() {
-//		return Grid.regionList(regions.get(1));
-//	}
-//
-//	@Override
-//	protected String toHtmlImpl() {
-//		return Html.produce(this, "DeathBlossomHint.html"
-//				, redPots.toString()
-//				, greens.toString()
-//				, blues.toString()
-//				, alses
-//		);
-//	}
-//
-//	@Override
-//	protected String toStringImpl() {
-//		return (isInvalid?"@":"")+getHintTypeName()+": "+greens;
-//	}
-//
-//	@Override
-//	public String toFullString() {
-//		if ( fs == null ) {
-//			Cell stemCell = greens.keySet().iterator().next();
-//			boolean stemInOverlap = pinkCells.contains(stemCell);
-//			fs = super.toFullString() + ( stemInOverlap ? "!" : "" );
-//		}
-//		return fs;
-//	}
-//	private String fs;
-//
-//
-//}
+/*
+ * Project: Sudoku Explainer
+ * Copyright (C) 2006-2007 Nicolas Juillerat
+ * Copyright (C) 2013-2020 Keith Corlett
+ * Available under the terms of the Lesser General Public License (LGPL)
+ */
+package diuf.sudoku.solver.hinters.als;
+
+import diuf.sudoku.Grid;
+import diuf.sudoku.Grid.ARegion;
+import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Link;
+import diuf.sudoku.Pots;
+import static diuf.sudoku.Values.VALUESES;
+import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Html;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+
+
+/**
+ * DeathBlossomHint holds all the data of a DeathBlossom hint.
+ *
+ * @author Keith Corlett 2021 Jan
+ */
+public class DeathBlossomHint extends AHint {
+
+	private final Cell stem;
+	private final int[] values;
+	private final Als[] alssByValue;
+	private final List<ARegion> regions;
+	private final Pots yellows;
+	public DeathBlossomHint(AHinter hinter, Pots redPots, List<Pots> alsPots
+			, Cell stem, Als[] alssByValue, List<ARegion> regions, Grid grid) {
+		// nb: what are normally greens are oranges here
+		super(hinter, redPots
+				, alsPots.get(0)
+				, null
+				, alsPots.get(1)
+				, regions, null);
+		this.stem = stem;
+		this.values = VALUESES[stem.maybes.bits];
+		this.alssByValue = alssByValue.clone();
+		this.regions = regions;
+		// the Pots in the 3rd stem.maybe/ALS, if exists (rare)
+		this.yellows = stem.maybes.size>2 ? alsPots.get(2) : null;
+	}
+
+	@Override
+	public Set<Cell> getAquaCells(int viewNumUnused) {
+		return null;
+	}
+
+	@Override
+	public Set<Cell> getPinkCells(int viewNumUnused) {
+		return Grid.cellSet(stem);
+	}
+
+	@Override
+	public Set<Cell> getGreenCells(int viewNumUnused) {
+		return Grid.cellSet(alssByValue[values[0]].cells);
+	}
+
+	@Override
+	public Set<Cell> getBlueCells(int viewNumUnused) {
+		return Grid.cellSet(alssByValue[values[1]].cells);
+	}
+
+	@Override
+	public Set<Cell> getYellowCells(int viewNumUnused) {
+		if ( stem.maybes.size > 2 )
+			return Grid.cellSet(alssByValue[values[2]].cells);
+		return null;
+	}
+
+	@Override
+	public Pots getYellows() {
+		return yellows; // 3rd alsPots, if exists
+	}
+
+	// orange and brown are too close, so you can't see the link-arrows, so I
+	// have demoted orange to the fourth ALS, which I never use. top1465 has 0
+	// Death Blossoms on stem-cells with 4+ maybes. I'm not saying they can't
+	// exist, only that I don't have any of them.
+	@Override
+	public Set<Cell> getOrangeCells(int viewNumUnused) {
+		if ( stem.maybes.size > 3 )
+			return Grid.cellSet(alssByValue[values[3]].cells);
+		return null;
+	}
+
+	@Override
+	public Collection<Link> getLinks(int viewNum) {
+		Collection<Link> links = new ArrayList<>(12);
+		for ( int v : values )
+			for ( Cell c : alssByValue[v].cells )
+				if ( c.maybe(v) )
+					links.add(new Link(c, v, stem, v));
+		return links;
+	}
+
+	@Override
+	public String getClueHtmlImpl(boolean isBig) {
+		String s = "Look for a " + getHintTypeName();
+		if ( isBig )
+			s += " stem "+stem.id+" in "+Frmt.ssv(regions);
+		return s;
+	}
+
+	@Override
+	public String toStringImpl() {
+		StringBuilder sb = new StringBuilder(64);
+		if ( isInvalid )
+			sb.append('@');
+		sb.append(getHintTypeName()).append(":")
+//		  .append(' ').append(stem.maybes.size)
+		  .append(" stem ").append(stem.id)
+		  .append(" in ").append(Frmt.ssv(regions));
+		return sb.toString();
+	}
+
+	// there can only be 4 values/alss in a Death Blossom
+	// green, orange, blue, yellow
+	private static final String[] COLORS = {"g", "o", "b1", "y"};
+	private String alssToString() {
+		StringBuilder sb = new StringBuilder(64*stem.maybes.size);
+		// get each als by it's value
+		for ( int i=0; i<values.length; ++i  ) {
+			int v = values[i];
+			if ( i > 0 )
+				sb.append(NL);
+			sb.append('<').append(COLORS[i]).append('>');
+			sb.append(v).append(" in ").append(alssByValue[v]);
+			sb.append("</").append(COLORS[i]).append('>');
+		}
+		return Html.colorIn(sb.toString());
+	}
+
+	@Override
+	public String toHtmlImpl() {
+		return Html.produce(this, "DeathBlossomHint.html"
+			, stem.toFullString()			//{0}
+			, redPots.toString()			// 1
+			, alssToString()				// 2
+			, isInvalid ? "INVALID " : ""	// 3
+		);
+	}
+
+}

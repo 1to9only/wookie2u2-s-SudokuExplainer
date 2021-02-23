@@ -37,6 +37,8 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.utils.Frmt;
@@ -60,7 +62,7 @@ public final class AlsXz extends AAlsHinter {
 	public AlsXz() {
 		// see param explanations in the AlsXyChain constructor.
 		// NB: I don't call the valid method, so I don't need a LogicalSolver
-		// Tech, allowOverlaps, allowLockedSets, findRccs, lockedSets, forwardOnly
+		// Tech, allowLockedSets, findRCCs, allowOverlaps, forwardOnly, useStartAndEnd
 		super(Tech.ALS_XZ, true, true, true, true, false);
 	}
 

@@ -46,7 +46,7 @@ public enum Difficulty {
 	, Fiendish	(3, 3.6, 4.2)
 	, Nightmare	(4, 4.3, 5.9)
 	, Diabolical(5, 6.0, 8.9)
-	, IDKFA		(6, 9.0, 6969.42) // (a BIG value, actually it's unbounded)
+	, IDKFA		(6, 9.0, 6969.42) // a largish number
 	;
 
 	public final int index; // a plain ordinal
