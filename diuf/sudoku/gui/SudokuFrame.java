@@ -268,6 +268,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			p.setYellowPots(null);
 			p.setPurplePots(null);
 			p.setBrownPots(null);
+			p.setAlss(null);
 			p.setLinks(null);
 			p.setBases(null);
 			p.setCovers(null);
@@ -290,6 +291,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			p.setYellowPots(h.getYellows());
 			p.setPurplePots(h.getPurples());
 			p.setBrownPots(h.getBrowns());
+			p.setAlss(h.getAlss());
 			// rendered as brown arrows
 			p.setLinks(h.getLinks(viewNum));
 			p.setBases(h.getBases());

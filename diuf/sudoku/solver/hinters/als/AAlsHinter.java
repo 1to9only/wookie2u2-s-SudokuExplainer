@@ -207,7 +207,8 @@ abstract class AAlsHinter extends AHinter
 				recurseAlss(1, i);
 			}
 		}
-		// compute fields
+		// compute fields: done seperately to not run on any double-ups, which
+		// are annoyingly unavoidable (AFAIK) in recurseAlss.
 		for ( Als als : alss )
 			als.computeFields(grid, candidates);
 		return alss.toArray();

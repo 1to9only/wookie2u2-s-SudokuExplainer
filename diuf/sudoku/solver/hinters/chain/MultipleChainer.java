@@ -256,7 +256,8 @@ public final class MultipleChainer extends AChainer
 		// Set enforces uniqueness. Used as a queue. Hammers: add, poll, clear.
 		// An IMyPollSet<Ass> has no IAssSet.getAss because effects are both
 		// "On" and "Off", so getAss won't work.
-		IMyPollSet<Ass> effects = new MyLinkedHashSet<>(32, 1F); // the effects of anOn/Off from find
+//		IMyPollSet<Ass> effects = new MyLinkedHashSet<>(32, 1F); // the effects of anOn/Off from find
+		IMyPollSet<Ass> effects = new LinkedMatrixAssSet(); // the effects of anOn/Off from find
 
 		// these variables are only used by this method.
 		IAssSet[] valuesOns = new IAssSet[10]; // the "on"  effects of each potential value of cell

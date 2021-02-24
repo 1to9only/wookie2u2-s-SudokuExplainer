@@ -70,7 +70,7 @@ public class HintValidator {
 	/**
 	 * Does AlignedExclusion use HintValidator?
 	 */
-	public static final boolean ALIGNED_EXCLUSION_USES = true; // @check false
+	public static final boolean ALIGNED_EXCLUSION_USES = false; // @check false
 
 	/**
 	 * Does ComplexFisherman (for Franken and Mutant only) use HintValidator?

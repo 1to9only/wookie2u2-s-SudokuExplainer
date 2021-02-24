@@ -12,6 +12,7 @@ import static diuf.sudoku.Grid.BOX;
 import static diuf.sudoku.Grid.COL;
 import static diuf.sudoku.Grid.ROW;
 import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.utils.Frmt;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,8 +31,8 @@ import java.util.Set;
 public final class Regions {
 
 	// it's just faster to not do a varargs call unless you have/want to
-	public static List<ARegion> list(ARegion region) {
-		List<ARegion> regions = new ArrayList<>(1);
+	public static ArrayList<ARegion> list(ARegion region) {
+		ArrayList<ARegion> regions = new ArrayList<>(1);
 		regions.add(region);
 		return regions;
 	}
@@ -117,7 +118,7 @@ public final class Regions {
 	public static String typeNames(List<ARegion> rs) {
 		return TYPE_NAMES[typeMask(rs)];
 	}
-	
+
 	public static String names(List<ARegion> rs) {
 		StringBuilder sb = new StringBuilder(rs.size() * 6);
 		for ( ARegion r : rs)
@@ -208,6 +209,41 @@ public final class Regions {
 			if ( region.contains(cell) ) // fast O(1)
 				return true;
 		return false;
+	}
+
+	public static int usedTypes(ARegion[] regions) {
+		int usedTypes = 0;
+		for ( ARegion r : regions )
+			usedTypes |= ISHFT[r.typeIndex];
+		return usedTypes;
+	}
+
+
+	// an array of the type of each of the 27 regions to look-up
+	// NB: SE is (box, row, col) whereas HoDoKu is (row, col, box)
+	public static final int[] REGION_TYPE = {
+		BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX,
+		ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW,
+		COL, COL, COL, COL, COL, COL, COL, COL, COL
+	};
+
+	// a left-shifted mask for each of the 3 types of regions
+	public static final int BOX_MASK = 0x1;
+	public static final int ROW_MASK = 0x2;
+	public static final int COL_MASK = 0x4;
+	// both ROW and COL in the one mask
+	public static final int ROW_COL_MASK = ROW_MASK | COL_MASK;
+	// an array of the mask of each region type to look-up
+	public static final int[] REGION_TYPE_MASK = {BOX_MASK, ROW_MASK, COL_MASK};
+
+	// Returns a mask containing the types of the used regions
+	// See: BOX_MASK, ROW_MASK, COL_MASK
+	public static int types(boolean[] used) {
+		int mask = 0;
+		for ( int i=0,n=used.length; i<n; ++i )
+			if ( used[i] )
+				mask |= REGION_TYPE_MASK[REGION_TYPE[i]];
+		return mask;
 	}
 
 	private Regions() {} // never used

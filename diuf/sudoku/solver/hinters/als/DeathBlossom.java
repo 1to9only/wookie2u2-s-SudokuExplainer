@@ -266,7 +266,7 @@ public class DeathBlossom extends AAlsHinter
 			// populate theReds field with removable Cell=>Values
 			for ( int cv : VALUESES[db.cmnCands] ) {
 				// victims = cells which see all cv's in the DB
-				grid.cmnBuds(db.vs[cv], victims);
+				db.vs[cv].commonBuddies(victims);
 				victims.and(candidates[cv]); // which maybe cv
 				victims.andNot(db.idx); // not in the DB
 				victims.remove(stem.i); // not the stem cell
@@ -295,26 +295,14 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	private AHint createHint(Cell stem) {
-		final int n = stem.maybes.size; // (ie num ALSs)
-		List<Pots> alsPots = new ArrayList<>(n);
-		List<ARegion> regions = new ArrayList<>(n);
-		int i;
-		for ( i=0; i<n; ++i )
-			alsPots.add(new Pots());
-		// foreach stem cell maybe (ie each ALS)
-		i = 0;
-		for ( int v : VALUESES[stem.maybes.bits] ) {
-			Als als = db.alssByValue[v];
-			final Pots pots = alsPots.get(i++); // for lambda. sigh.
-			als.vs[v].forEach(grid.cells, (c)->pots.put(c, new Values(v)));
-			regions.add(als.region);
-		}
+		List<Als> alss = new ArrayList<>(stem.maybes.size);
+		for ( int v : VALUESES[stem.maybes.bits] )
+			alss.add(db.alssByValue[v]);
 		// copy-off theReds and clear them for next time
 		Pots reds = new Pots(theReds);
 		theReds.clear();
 		// create and return the hint
-		return new DeathBlossomHint(this, reds, alsPots, stem
-				, db.alssByValue, regions, grid);
+		return new DeathBlossomHint(this, reds, stem, alss, db.alssByValue, grid);
 	}
 
 }

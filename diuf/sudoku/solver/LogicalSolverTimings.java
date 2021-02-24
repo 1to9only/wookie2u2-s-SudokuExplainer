@@ -6163,6 +6163,70 @@ package diuf.sudoku.solver;
  *    DiufSudoku_V6_30.109.2021-02-13.7z
  * 3. Next I seek magic bullets, that fire post-humourously, around corners.
  * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.110 2021-02-17 14:31:50 Faster Complex and Kraken fisherman.
+ * <pre>
+         time (ns)  calls   time/call  elims      time/elim hinter
+        23,041,800 117429         196 669940             34 Naked Single
+        15,788,100  50435         313 171300             92 Hidden Single
+        94,973,800  33305       2,851   5870         16,179 Direct Naked Pair
+        83,394,100  32891       2,535  12388          6,731 Direct Hidden Pair
+       216,371,200  31945       6,773    797        271,482 Direct Naked Triple
+       191,226,600  31897       5,995   1832        104,381 Direct Hidden Triple
+       101,060,100  31758       3,182  18594          5,435 Locking
+        54,868,800  22542       2,434   4430         12,385 Naked Pair
+        47,040,900  21382       2,200   8498          5,535 Hidden Pair
+       115,665,700  19743       5,858   1306         88,564 Naked Triple
+        97,463,500  19367       5,032   1001         97,366 Hidden Triple
+        65,637,800  19176       3,422   1414         46,419 Two String Kite
+        40,103,600  17762       2,257    481         83,375 Swampfish
+        80,755,000  17549       4,601    636        126,973 XY-Wing
+        61,988,300  17097       3,625    316        196,165 XYZ-Wing
+        93,503,300  16803       5,564    466        200,650 W-Wing
+        51,301,500  16483       3,112    401        127,933 Skyscraper
+        56,766,000  16272       3,488    488        116,323 Empty Rectangle
+        73,680,100  15784       4,668    244        301,967 Swordfish
+       187,735,800  15712      11,948     98      1,915,671 Naked Quad
+       146,247,300  15693       9,319      2     73,123,650 Hidden Quad
+        20,085,400  15692       1,279      5      4,017,080 Jellyfish
+       514,308,100  15691      32,777   1554        330,957 WXYZ-Wing
+       657,400,900  14651      44,870   1336        492,066 VWXYZ-Wing
+       778,480,000  13888      56,054    585      1,330,735 UVWXYZ-Wing
+       620,761,200  13554      45,799    106      5,856,237 TUVWXYZ-Wing
+       322,312,100  13480      23,910     11     29,301,100 STUVWXYZ-Wing
+       396,127,200  13473      29,401    335      1,182,469 Coloring
+     1,288,482,000  13226      97,420    751      1,715,688 Unique Rectangle
+    19,871,931,200  12880   1,542,851   5387      3,688,867 ALS-XZ
+    26,439,586,300   9053   2,920,533   4346      6,083,659 ALS-Wing
+    10,585,436,600   5416   1,954,475    762     13,891,649 ALS-Chain
+     4,640,782,000   4792     968,443    187     24,817,016 Death Blossom
+     1,290,547,000   4625     279,037     11    117,322,454 Sue De Coq
+     6,333,565,700   4623   1,370,012    233     27,182,685 Mutant Swampfish
+   103,223,378,900   4427  23,316,778    305    338,437,307 Mutant Swordfish
+   997,617,680,500   4158 239,927,292     91 10,962,831,653 Mutant Jellyfish
+    29,202,869,600   4075   7,166,348   3150      9,270,752 Kraken Swampfish
+    83,093,202,600   1649  50,390,056    162    512,921,003 Kraken Swordfish
+   492,228,962,800   1516 324,689,289     36 13,673,026,744 Kraken Jellyfish
+     3,425,040,300   1484   2,307,978      0              0 Unary Chain
+     2,262,745,900   1484   1,524,761      3    754,248,633 Nishio Chain
+     3,244,037,800   1481   2,190,437    527      6,155,669 Multiple Chain
+     8,804,261,500   1206   7,300,382   6486      1,357,425 Dynamic Chain
+        91,686,300      3  30,562,100     30      3,056,210 Dynamic Plus
+ 1,798,852,285,200
+ pzls        total (ns) (mm:ss)         each (ns)
+ 1465 1,863,915,262,300 (31:03)     1,272,297,107
+ * NOTES:
+ * 1. top1465 31:03 is about 7 minutes faster than 36:49. Mutant and Kraken
+ *    Jellyfish are still "too slow" to use in the GUI, but the rest is OK.
+ * 2. Release 6.30.110 2021-02-17 14:31:50 =>
+ *    DiufSudoku_V6_30.110.2021-02-17.7z
+ * 3. I give-up on ComplexFisherman and KrakenFisherman. They're just too slow!
+ *    So I really don't know what I'll tackle next... maybe nothing... making
+ *    this faster has ceased to be fun coz 90% of attempts are failures; so I'm
+ *    starting to really struggle to see how it can be done any faster; which
+ *    to me means it MAY not be able to be done much faster; or not. sigh.
+ * </pre>
  */
 final class LogicalSolverTimings {
 

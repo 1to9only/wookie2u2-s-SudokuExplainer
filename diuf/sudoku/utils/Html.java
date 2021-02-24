@@ -171,12 +171,12 @@ public final class Html {
 	// indexes of "<font color ="?"> elements in COLORS
 	private static final int RED    = 1;
 	private static final int CYAN1  = 5;
-	private static final int GREEN  = 9;
-	private static final int ORANGE = 13;
-	private static final int PINK   = 17;
-	private static final int BLUE1  = 21;
-	private static final int BLUE2  = 25;
-	private static final int CYAN2  = 29;
+//	private static final int GREEN  = 9;
+//	private static final int ORANGE = 13;
+//	private static final int PINK   = 17;
+//	private static final int BLUE1  = 21;
+//	private static final int BLUE2  = 25;
+//	private static final int CYAN2  = 29;
 
 	private static final String[] COLORS = new String[] {  // startIndex
 	 "<r>", "<font color=\"red\">"     ,"</r>", "</font>"  //  0 red (candidate)
@@ -186,7 +186,9 @@ public final class Html {
 	,"<k>", "<font color=\"#FF00FF\">" ,"</k>", "</font>"  // 16 pink (candi)
 	,"<b1>","<font color=\"#0000A0\">" ,"</b1>","</font>"  // 20 blue (region)
 	,"<b2>","<font color=\"#009000\">" ,"</b2>","</font>"  // 24 green (region)
-	,"<b3>","<font color=\"#0090A0\">" ,"</b3>","</font>"  // 28 cyan (region) // for ALS-XY-Wing which needs 3 colors
+	,"<b3>","<font color=\"#009090\">" ,"</b3>","</font>"  // 28 dark aqua (ALS)
+	,"<b4>","<font color=\"#CCCC00\">" ,"</b4>","</font>"  // 32 yellow (ALS)
+	,"<b5>","<font color=\"#964B00\">" ,"</b5>","</font>"  // 32 brown (ALS)
 	};
 
 	private static String color(String html, int i) {

@@ -344,10 +344,9 @@ public final class LogicalSolver {
 	}
 
 	/**
-	 * Called by the constructor/s and setMode to populate the lists of Hinters,
-	 * especially the wantedHinters list, which is the one solve (et al) uses;
-	 * as a matter of fact I think the other lists could now be removed (which
-	 * may still be painful) coz nobody cares about Hinter categories.
+	 * Called by constructor/s and setMode to populate the lists of Hinters,
+	 * especially the wantedHinters list, which is the one solve (et al) uses.
+	 * The sub-lists except validators can go. Nobody cares about categories.
 	 * <p>
 	 * field mode {@code Mode.ACCURACY} includes the slow Techniques so that
 	 * this LogicalSolver produces the simplest possible solution to the given
@@ -462,11 +461,11 @@ public final class LogicalSolver {
 			want(heavies, new BasicFisherman(Tech.Jellyfish));
 			want(heavies, new NakedSet(Tech.NakedPent));	   // 0 in top1465
 			want(heavies, new HiddenSet(Tech.HiddenPent)); // 0 in top1465
-			want(heavies, new BigWing(Tech.WXYZ_Wing)); // limited fast ALS-XZ
-			want(heavies, new BigWing(Tech.VWXYZ_Wing)); // limited fast ALS-XZ
-			want(heavies, new BigWing(Tech.UVWXYZ_Wing)); //limited fast ALS-XZ
-			want(heavies, new BigWing(Tech.TUVWXYZ_Wing)); // limited ALS-XZ (slower than ALS-XZ)
-			want(heavies, new BigWing(Tech.STUVWXYZ_Wing)); // limited ALS-XZ (slower than ALS-XZ)
+			want(heavies, new BigWing(Tech.WXYZ_Wing)); // limitd fast ALS-XZ
+			want(heavies, new BigWing(Tech.VWXYZ_Wing)); // limitd fast ALS-XZ
+			want(heavies, new BigWing(Tech.UVWXYZ_Wing)); // limitd fast ALS-XZ
+			want(heavies, new BigWing(Tech.TUVWXYZ_Wing)); // limitd ALS-XZ
+			want(heavies, new BigWing(Tech.STUVWXYZ_Wing)); // limitd ALS-XZ
 			want(heavies, new Coloring()); // finds a superset of BUG hints!
 			want(heavies, new BivalueUniversalGrave());
 			want(heavies, new UniqueRectangle());
@@ -611,9 +610,9 @@ public final class LogicalSolver {
 	 * are missing hints. Either you've broken a hinter, or you need to produce
 	 * a new "keeper" logFile to update the hintyHintersNoms.
 	 *
-	 * @param hintyHintersNoms a {@code Set<String>} of the nom's (it's French
-	 * for name, which is reserved by the EnumSet) of the hinters which
-	 * produced hints in a "keeper" run of LogicalSolverTester.<br>
+	 * @param hintyHintersNoms a {@code Set<String>} of the nom's (French for
+	 * name, which is reserved by EnumSet) of hinters that produced hints in a
+	 * recent run of LogicalSolverTester.<br>
 	 * <b>ENHANCEMENT</b>: INumberedHinters optionally follows nom with a space
 	 * then a space-separated-list of the hintNumbers at which this hinter
 	 * hints (nullable, never an empty Set); if null then the hinter is

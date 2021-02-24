@@ -189,6 +189,22 @@ public final class MyStrings {
 		return line.substring(i, line.indexOf(' ', i));
 	}
 
+	/**
+	 * Replace the second occurrence of target in s with replacement, else
+	 * return s as-is
+	 * @param s
+	 * @param target
+	 * @param replacement
+	 * @return 
+	 */
+	public static String replaceSecond(String s, String target, String replacement) {
+		int i;
+		if ( (i=s.indexOf(target, 0)) > -1
+		  && (i=s.indexOf(target, i+1)) > -1 )
+			s = s.substring(0, i) + replacement + s.substring(i+target.length());
+		return s;
+	}
+
 	private MyStrings() {}
 
 }

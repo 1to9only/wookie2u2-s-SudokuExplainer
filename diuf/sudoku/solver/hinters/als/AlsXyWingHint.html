@@ -20,35 +20,35 @@
  * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
  */
 -->
- <body>
-  <h2>HoDoKu ALS-XY-Wing</h2>
+<body>
+<h2>HoDoKu ALS-Wing</h2>
 <pre>The three Almost Locked Sets:
-  ALS A: <b1>{0}</b1>
-  ALS B: <b2>{1}</b2>
-  ALS C: <b3>{2}</b3>
+ALS A: <b1>{0}</b1>
+ALS B: <b2>{1}</b2>
+ALS C: <b3>{2}</b3>
 share the common values x, y and z such that:
-        <tt><b>z</b>- A -<b>x</b>- C -<b>y</b>- B -<b>z</b></tt>
+	<tt><b>z</b>- A -<b>x</b>- C -<b>y</b>- B -<b>z</b></tt>
 which means:
-  ALSs A and C share the restricted common (RC) value <b>x = {4}</b>,
-  ALSs C and B share the restricted common (RC) value <b>y = {5}</b>,
-  ALSs A and B share the unrestricted common value/s <b>z = {6}</b>
+ALSs A and C share the restricted common (RC) value <b>x = {4}</b>,
+ALSs C and B share the restricted common (RC) value <b>y = {5}</b>,
+ALSs A and B share the unrestricted common value/s <b>z = {6}</b>
 </pre>
-  Therefore <r>{3}</r>. 
-  <p>
-  The logic is: if <b>z</b> is not in ALS A, then ALS A contains <b>x</b>
-  because only one digit may miss from an ALS. That means that ALS C must
-  contain <b>y</b> (x is missing from C) and thus ALS B must contain <b>z</b>
-  (y is missing from B). The other way round works as well: If ALS B does not
-  contain <b>z</b> then ALS A must. Hence <b>z</b> can be removed from all
-  other cells which see all z's in both ALS A and ALS B.
-  <p>
-  Note that <b>x</b> and <b>y</b> may not be the same digit.
-  <p>
-  The restriction in Restricted Common Candidate is that all instances of the
-  value in both ALSs must be siblings (ie all "see" each other).<br>
-  <p>
-  Note that an ALS-XY-Wing is an ALS-Chain of length 3.
-  ALS-XY-Wing's are handled separately because in ALS-Chain only RC's may not
-  appear in the overlap (common cells) of the two ALSs, if any.
- </body>
+Therefore <r>we can remove <b>{3}</b></r>. 
+<p>
+<u>Explanation</u>
+<p>
+The logic is: if <b>z</b> is not in ALS A, then ALS A contains <b>x</b> because
+only one digit may miss from an ALS. That means that ALS C must contain <b>y</b>
+and thus ALS B must contain <b>z</b>. The other way round works also: If ALS B
+does not contain <b>z</b> then ALS A must. Hence <b>z</b> can be removed from
+other cells which see all z's in both ALS A and ALS B.
+<p>
+Note that <b>x</b> and <b>y</b> may not be the same digit.
+<p>
+The restriction in Restricted Common Candidate is that all instances of the
+value in both ALSs must see each other (be in the same box, row, or col).<br>
+<p>
+An ALS-Wing is an ALS-Chain of length 3. ALS-Wings are handled separately
+because in ALS-Chains the RC's may not be in the overlap, if any, of the ALS's.
+</body>
 </html>

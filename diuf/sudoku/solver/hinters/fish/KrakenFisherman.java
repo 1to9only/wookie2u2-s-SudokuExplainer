@@ -348,24 +348,24 @@ public class KrakenFisherman extends AHinter
 		cB = baseStack[1];
 		cB.index = 0;
 		cB.prevIndex = -1;
-		baseLevel = 1; // start at level 1 (level 0 is just a stopper)
+		bLevel = 1; // baseLevel: start at level 1 (0 is just a stopper)
 
 		// try all combinations of base regions
 		for (;;) {
 			// fallback a baseLevel if no unit is available at this baseLevel
-			while ( (cB=baseStack[baseLevel]).index >= numBases ) {
+			while ( (cB=baseStack[bLevel]).index >= numBases ) {
 				// fallback one level at a time to maintain basesUsed
 				if ( cB.prevIndex > -1 ) {
 					basesUsed[cB.prevIndex] = false;
 					cB.prevIndex = -1;
 				}
-				if ( --baseLevel < 1 ) // ie <= 0 (level 0 is just a stopper!)
+				if ( --bLevel < 1 ) // ie <= 0 (level 0 is just a stopper!)
 					return searchBasesResult; // we've tried all combos!
 			}
 			// get BaseStackEntry at the previous level, contains the existing
 			// candidates and endoFins (the union of ALL bases so-far).
 			// NOTE that cB is already set in the above while loop!
-			pB = baseStack[baseLevel - 1];
+			pB = baseStack[bLevel - 1];
 			// get the next base (must exist or we would have fallen back)
 			// and post-increment the cB.index, for next time
 			b = cB.index++;
@@ -405,14 +405,14 @@ public class KrakenFisherman extends AHinter
 				}
 			}
 			if ( doSearch ) {
-				if ( baseLevel < degree ) {
+				if ( bLevel < degree ) {
 					// move onto the next level
-					cB = baseStack[++baseLevel];
+					cB = baseStack[++bLevel];
 					cB.index = b + 1;
 					cB.prevIndex = -1;
 				} else {
 					// we've got degree bases now
-					assert baseLevel == degree;
+					assert bLevel == degree;
 					// set efM* to cB.efM* to not repeatedly dereference cB
 					efM0=cB.efM0; efM1=cB.efM1; efM2=cB.efM2;
 					// so search the covers
@@ -437,7 +437,7 @@ public class KrakenFisherman extends AHinter
 	// need to dereference the cB struct repeatedly in the searchCovers method.
 	private int vsM0, vsM1, vsM2;
 	// baseLevel is our depth in the baseStack, ie number of bases in baseSet.
-	private int baseLevel;
+	private int bLevel;
 	// doSearch: should searchBases call searchCovers?
 	private boolean doSearch;
 
@@ -480,42 +480,41 @@ public class KrakenFisherman extends AHinter
 		// partial-calculation of the maximum cover index.
 		ground = numCovers - degree - 1;
 
-		// try each combo of covers
+		// clear coversUsed
 		Arrays.fill(coversUsed, false);
-		// coverLevel: the current depth in the coverStack
-		coverLevel = 1; // start at level 1 (0 is just a stopper)
-		// initialise previous cover
+		// previousCover: the stopper (0) CoverStackEntry
 		pC = coverStack[0];
-		// empty the previous cover candidates and sharks
-		pC.vsM0=pC.vsM1=pC.vsM2 = pC.skM0=pC.skM1=pC.skM2 = 0;
-		// initialise the current cover
-		cC = coverStack[1];
+		// coverLevel: the current depth in the coverStack
+		// coverLevel: start at level 1 (0 is just a stopper)
+		// currentCover: the current CoverStackEntry
+		cC = coverStack[cLevel = 1];
 		cC.index = 0;
 		cC.prevIndex = -1;
 		// foreach each possible combination of covers
+		// HAMMERED: for-loop from top down-to commonBuddies. Make it fast!
 		for (;;) {
 			// fallback level/s if there's no more covers in allCovers
-			while ( (cC=coverStack[coverLevel]).index > (ground + coverLevel) ) {
+			while ( (cC=coverStack[cLevel]).index > ground + cLevel ) {
 				// unuse the previous cover
 				if ( cC.prevIndex != -1 ) {
 					coversUsed[cC.prevIndex] = false;
 					cC.prevIndex = -1;
 				}
 				// fallback
-				if ( --coverLevel < 1 )
+				if ( --cLevel < 1 )
 					return searchCoversResult; // all covers have been searched
 			}
-			// set the previous Cover (the combination of all existing covers)
-			// nb: cC (current Cover) is already set in above while loop
-			pC = coverStack[coverLevel - 1];
-			// get next cover set (must exist or we would have fallen back)
-			c = cC.index++;
 			// unuse the previous cover
 			if ( cC.prevIndex != -1 )
 				coversUsed[cC.prevIndex] = false;
+			// get next cover set (must exist or we would have fallen back)
 			// use covers[c] as the current cover
-			coverIndex = cC.prevIndex = covers[c]; // remember prev to unuse
-			coversUsed[coverIndex] = true;
+			// remember prevIndex to unuse this cover
+			// mashed into one line for speed
+			coversUsed[cC.prevIndex=covers[c=cC.index++]] = true;
+			// set the previous Cover (the combination of all existing covers)
+			// nb: cC (current Cover) is already set in above while loop
+			pC = coverStack[cLevel - 1];
 
 			// sharks: if the new cover has candidates common with the existing
 			// covers then those candidates become possible eliminations, which
@@ -530,26 +529,26 @@ public class KrakenFisherman extends AHinter
 			cC.vsM2 = pC.vsM2 | coverVsM2[c];
 
 			// if we're still collecting covers then
-			if ( coverLevel < degree ) {
+			if ( cLevel < degree ) {
 				// move onto the next level
-				cC = coverStack[++coverLevel];
-				cC.index = c + 1;
-				cC.prevIndex = -1;
+				// starting at the cell after the current cell at this level
+				coverStack[++cLevel].index = c + 1;
 			} else {
 				// we have degree covers, so now we seek a Fish
 				// my-fins = current endo-fins | (v's in bases but not covers)
-				finsM0 = efM0 | (vsM0 & ~cC.vsM0);
-				finsM1 = efM1 | (vsM1 & ~cC.vsM1);
-				finsM2 = efM2 | (vsM2 & ~cC.vsM2);
+				fM0 = efM0 | (vsM0 & ~cC.vsM0);
+				fM1 = efM1 | (vsM1 & ~cC.vsM1);
+				fM2 = efM2 | (vsM2 & ~cC.vsM2);
 				// complex fish needs fins
-				if ( (finsM0|finsM1|finsM2) != 0
+				if ( (fM0|fM1|fM2) != 0
 				  // but not too many of them
-				  && Integer.bitCount(finsM0)+Integer.bitCount(finsM1)+Integer.bitCount(finsM2) <= maxFins
+				  && Integer.bitCount(fM0)+Integer.bitCount(fM1)+Integer.bitCount(fM2) <= maxFins
 				  // which need some common buddy/s
 				  // nb: Do NOT restrict this to v (the Fish candidate value)
 				  // because Kraken Type 2 eliminates all values, so we just
 				  // need common buddy/s of ANY value, including set cells!
-				  && grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
+				  // nb: commonBuddies is slow, it's just my fastest so far.
+				  && fins.set(fM0,fM1,fM2).commonBuddies(buds).any()
 				) {
 					// candidate is deletable if in covers but not bases;
 					// or belongs to more than one base set (an endo-fin).
@@ -563,7 +562,7 @@ public class KrakenFisherman extends AHinter
 					sharksM2 = cC.skM2 & buds.a2;
 					// nb: fins are already set in the above if statement
 					// look for Kraken Type 1 and Kraken Type 2 in this Fish.
-					if ( searchForKraken() ) {
+					if ( searchKrakens() ) {
 						searchCoversResult = true;
 						if ( oneOnly )
 							return searchCoversResult;
@@ -576,12 +575,11 @@ public class KrakenFisherman extends AHinter
 	private CoverStackEntry pC, cC; // the previous and current CoverStackEntry
 	private boolean searchCoversResult;
 	private int c; // the current cover region index
-	private int coverIndex; // index in grid.regions of the current cover
-	private int coverLevel; // current coversStack level, ie coversSet size
+	private int cLevel; // current coversStack level, ie coversSet size
 	private int numCovers; // the number of covers in the covers array
 	private int ground; // partial-calculation of the maximum cover index
 	// fins: indices of exo-fins and endo-fins
-	private int finsM0, finsM1, finsM2;
+	private int fM0, fM1, fM2;
 //	// deletes: indices of potential eliminations
 //	private int delsM0, delsM1, delsM2;
 //	// sharks: cannabilistic eliminations
@@ -607,7 +605,7 @@ public class KrakenFisherman extends AHinter
 	 *  is found; but if accu is multiple then you'd best apply them all BEFORE
 	 *  you call me again, because I'm too bloody slow, even with caching!
 	 */
-	private boolean searchForKraken() {
+	private boolean searchKrakens() {
 		ComplexFishHint base; // the causal or "base" hint
 		KrakenFishHint kraken; // Kraken "wraps" base hint, to add elims
 		int ci, v2; // coversIndex, value2
@@ -825,7 +823,7 @@ public class KrakenFisherman extends AHinter
 	 * from targetIndice (ie a chain starting at the initialOn and ending with
 	 * the elimination of targetValue from grid.cells[targetIndice]).
 	 * <p>
-	 * Stack: {@link #searchForKraken} -> {@link isKrakenTypeTwo} -> kt2Search
+	 * Stack: {@link #searchKrakens} -> {@link isKrakenTypeTwo} -> kt2Search
 	 * all private in KrakenFisherman; so we can communicate via fields.
 	 * <p>
 	 * Note: each time we add to the queue: first we need to check this Ass is

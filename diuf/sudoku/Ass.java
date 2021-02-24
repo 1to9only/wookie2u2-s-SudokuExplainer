@@ -227,7 +227,13 @@ public class Ass {
 		if ( parent == null ) { // there are 4,024,758 null parents
 			parents = null;
 		} else {
-			parents = new MyLinkedList<>(); // MyLinkedList tad faster than java.util.LinkedList
+			// MyLinkedList is a tad faster than java.util.LinkedList
+			// I tried an array, which works. It was faster, and the code is no
+			// more complex really. It was fastest when array grows one by one.
+			// I also tried replacing the chainers queues with circular arrays,
+			// which was faster, but much harder to groc, coz most of the gains
+			// come from doing add and poll inline.
+			parents = new MyLinkedList<>();
 			parents.linkLast(parent);
 		}
 

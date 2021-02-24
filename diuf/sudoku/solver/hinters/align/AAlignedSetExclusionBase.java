@@ -20,7 +20,6 @@ import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyArrays;
 import diuf.sudoku.utils.MyClass;

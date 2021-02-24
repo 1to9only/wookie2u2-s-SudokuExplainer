@@ -142,7 +142,8 @@ public final class UnaryChainer extends AChainer {
 		final IAssSet onToOn = new FunkyAssSet(128, 1F, true); // observed 94
 		final IAssSet onToOff = new FunkyAssSet(256, 1F, false); // observed 144
 		// Set for uniqueness + Queue.poll() // observed max is 27
-		final IMyPollSet<Ass> effects = new MyLinkedHashSet<>(32, 1F);
+//		final IMyPollSet<Ass> effects = new MyLinkedHashSet<>(32, 1F);
+		final IMyPollSet<Ass> effects = new LinkedMatrixAssSet();
 		for ( Cell cell : grid.cells )
 			// filter: X/XYChain max 64, YChain much < 64 (maybes.size==2)
 			// and also skip naked/hidden single not yet applied

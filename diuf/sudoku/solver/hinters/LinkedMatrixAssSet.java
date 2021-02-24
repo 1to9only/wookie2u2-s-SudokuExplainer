@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Ass;
 import diuf.sudoku.utils.IAssSet;
+import diuf.sudoku.utils.IMyPollSet;
 import diuf.sudoku.utils.IMySet;
 import java.util.AbstractSet;
 import java.util.Arrays;
@@ -42,7 +43,8 @@ import java.util.NoSuchElementException;
  * between projects); It is now used in both chain and fish packages; so I am
  * not really sure where it belongs; so here it is.
  */
-public final class LinkedMatrixAssSet extends AbstractSet<Ass> implements IAssSet {
+public final class LinkedMatrixAssSet extends AbstractSet<Ass>
+		implements IAssSet, IMyPollSet<Ass> {
 
 	// a node in a doubly-linked list of Ass's
 	private static final class Node {
@@ -112,13 +114,21 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass> implements IAssSe
 		return n.ass;
 	}
 
-	/** @return remove and return the first Assumption, else null meaning that
-	 * this Set is empty. */
+	/** @return remove and return the first Ass, else null means empty Set. */
 	@Override
 	public Ass poll() {
 		if ( head == null )
 			return null;
-		return remove(head.ass);
+		// remove and return head.ass
+		Ass ass = head.ass;
+		assert nodes[ass.i][ass.value] != null;
+		nodes[ass.i][ass.value] = null;
+		--size;
+		if ( foot == head )
+			head = foot = null; // ie an empty list
+		else
+			head = head.next;
+		return ass;
 	}
 
 	/** Remove and return the first element of this Set, throwing

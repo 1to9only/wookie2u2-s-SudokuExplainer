@@ -97,8 +97,23 @@ import java.util.LinkedList;
 public abstract class AChainer extends AHinter
 		implements ICleanUp
 {
-	/** If true && VERBOSE_3_MODE then I write stuff to Log.out */
-	public static final boolean IS_NOISY = false; // @check false
+//	/** If true && VERBOSE_3_MODE then I write stuff to Log.out */
+//	public static final boolean IS_NOISY = false; // @check false
+//
+//	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
+//	 * @param msg */
+//	protected static void noiseln(String msg) {
+//		if ( Log.MODE >= Log.VERBOSE_3_MODE )
+//			Log.format(NL+msg+NL);
+//	}
+//
+//	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
+//	 * @param fmt a PrintStream.format format argument
+//	 * @param args a PrintStream.format args list */
+//	protected static void noisef(String fmt, Object... args) {
+//		if ( Log.MODE >= Log.VERBOSE_3_MODE )
+//			Log.format(fmt, args);
+//	}
 
 	/** a local shortcut to Hash's LSH8, used in Ass hashCodes. */
 	protected static final int[] LSH8 = Hash.LSH8;
@@ -111,21 +126,6 @@ public abstract class AChainer extends AHinter
 	 * So I must ALWAYS be set back to false for a release build!
 	 */
 	protected static final boolean WANT_TYPE_ID = false; // @check false
-
-	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
-	 * @param msg */
-	protected static void noiseln(String msg) {
-		if ( Log.MODE >= Log.VERBOSE_3_MODE )
-			Log.format(NL+msg+NL);
-	}
-
-	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
-	 * @param fmt a PrintStream.format format argument
-	 * @param args a PrintStream.format args list */
-	protected static void noisef(String fmt, Object... args) {
-		if ( Log.MODE >= Log.VERBOSE_3_MODE )
-			Log.format(fmt, args);
-	}
 
 	/** Are multiple cell and region chains sought. Multiple means more than 2
 	 * potential values, or more than 2 possible positions. */
@@ -232,8 +232,8 @@ public abstract class AChainer extends AHinter
 		}
 
 		processFunkyAssSizes();
-		if ( IS_NOISY )
-			noisef("\t\t\t%s %d hints%s", toString(), hints.size(), NL);
+//		if ( IS_NOISY )
+//			noisef("\t\t\t%s %d hints%s", toString(), hints.size(), NL);
 		final int n = hints.size();
 		if ( n == 0 )
 			return false; // we found no hints.

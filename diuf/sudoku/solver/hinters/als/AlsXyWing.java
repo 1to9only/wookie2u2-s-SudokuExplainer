@@ -31,7 +31,6 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
@@ -194,14 +193,8 @@ public final class AlsXyWing extends AAlsHinter
 								AHint hint = new AlsXyWingHint(
 									  this
 									, new Pots(redPots)
-									, orangePots(grid, a.idx, b.idx, c.idx)
-										.removeAll(bluePots).removeAll(redPots)
-									// nb: blue overwrites everything incl red; some reds are
-									// in other ALSs, so remove reds from blues so they're red
-									// nb: and we want only values that're removed to be blue
-									, new Pots(bluePots.removeAll(redPots).retainAll(zBits))
-									, Regions.list(a.region, c.region)
-									, Regions.list(b.region)
+									, null // oranges
+									, null // blues
 									, a, b, c
 									, vA1 // x value
 									, vB1 // y value

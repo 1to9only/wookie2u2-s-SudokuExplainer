@@ -20,27 +20,36 @@
  * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
  */
 -->
- <body>
-  <h2>HoDoKu ALS-XY-Chain</h2>{3}
-  <p>
-  The Chain of Almost Locked Sets (ALSs):
+<body>
+<h2>HoDoKu ALS-Chain</h2>
+<p>
+The Chain of Almost Locked Sets (ALSs):
 <pre>{0}</pre> share the Restricted Common Candidates (RCCs) such that they
-  "push" each other along the chain resulting in the z value (<b>{1}</b>)
-  being in either the first or the last ALS, hence <b>{1}</b> can be eliminated
-  from any cell/s which see all <b>{1}</b>'s in both the first and last ALSs.
-  <p>
-  Therefore <r><b>{1}</b> can be removed from <b>{2}</b></r>. 
-  <p>
-  The logic of an ALS-XY-Chain is a bit complex. Each pair of ALSs in the chain
-  (A and B, B and C, and so on) share a common restricted candidate, and if an
-  <b>Almost</b> Locked Set, by definition, looses just one of it's values then
-  it becomes a Locked Set, so that when we chain ALSs using there common RC's
-  we know that each RC will be in this ALS or that ALS; which means that one
-  of the other values in "the recieving ALS" is "pushed" into the next ALS in
-  the chain, and so on around the chain; so they all fall-down like dominoes
-  IN EITHER DIRECTION; so with a "loop" of ALSs that meet back at the first and
-  last ALS, we can remove all values common to the first and last ALS from
-  any cells outside of both ALSs which see all occurrences of that value in
-  both ALSs. Simples! Not!
- </body>
+"push" each other along the chain resulting in the z value (<b>{1}</b>)
+being in either the first or the last ALS.
+<p>
+Hence values common to the first and last ALS can be removed from other cells
+which see all occurrences of that value in both the first and last ALS.
+<p>
+Therefore <r>we can remove <b>{4}</b></r>. 
+<p>
+<u>Explanation</u>
+<p>
+The logic of an ALS-Chain is pretty complex. Each pair of ALSs in the chain
+(A and B, B and C, and so on) share a common restricted* candidate, and if an
+Almost Locked Set, by definition, looses just one of it's values then it's a
+Locked Set, and an ALS may not loose two values or it goes invalid, so that when
+we chain ALSs on there RC's we know that each RC will be in this ALS or that ALS;
+so another value in "the receiving ALS" is "pushed" into the next ALS in the
+chain, and so on around the chain; so they fall-down like dominoes IN EITHER
+DIRECTION; so with a "loop" of ALSs that meet back at the first and last ALS,
+we can remove all values common to the first and last ALS from any cells outside
+of both ALSs which see all occurrences of that value in both ALSs. Simples!
+<p>
+A "restricted" candidate is a value where all occurrences in both ALS's see each
+other, and in ALS chains it also means the value does not appear in the overlap,
+if any, of the two ALS's.
+<p>
+<!--debugMessage-->{3}
+</body>
 </html>

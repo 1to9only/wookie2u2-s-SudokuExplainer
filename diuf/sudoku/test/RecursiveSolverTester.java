@@ -116,8 +116,8 @@ public final class RecursiveSolverTester {
 		}
 	}
 
-	/** If true then process(...) writes stuff to Log.out */
-	private static final boolean IS_NOISY = false; // @check false
+//	/** If true then process(...) writes stuff to Log.out */
+//	private static final boolean IS_NOISY = false; // @check false
 
 	private static boolean process(Line line, RecursiveSolver solver
 			, LinkedHashMap<String,Timing> totalTimings) {
@@ -126,11 +126,11 @@ public final class RecursiveSolverTester {
 		Grid grid = new Grid(line.contents);
 		RecursiveSolver.TIMINGS.clear();
 
-		if ( IS_NOISY ) {
-			Log.println(line.number+"#"+line.file.getAbsolutePath());
-			Log.println(grid);
-			Log.println();
-		}
+//		if ( IS_NOISY ) {
+//			Log.println(line.number+"#"+line.file.getAbsolutePath());
+//			Log.println(grid);
+//			Log.println();
+//		}
 
 		long start = System.nanoTime();
 		try {
@@ -141,30 +141,30 @@ public final class RecursiveSolverTester {
 			Log.format("  %5d %s\t%,15d\t%5d"
 					, line.number, line.file.getName(), took
 					, RecursiveSolver.numGuesses);
-			if(IS_NOISY){Log.print('\t');Log.print(grid);}
+//			if(IS_NOISY){Log.print('\t');Log.print(grid);}
 			Log.print(NL);
 
 			ttlGuesses += RecursiveSolver.numGuesses;
-			long ttlNanos = 0L;
+//			long ttlNanos = 0L;
 			for ( String name : RecursiveSolver.TIMINGS.keySet() ) {
 				Timing t = RecursiveSolver.TIMINGS.get(name);
-				if ( IS_NOISY )
-					Log.format("%5d\t%,15d\t%5d\t%s%s", t.numCalls
-							, t.nsTime, t.numElims, name, NL);
+//				if ( IS_NOISY )
+//					Log.format("%5d\t%,15d\t%5d\t%s%s", t.numCalls
+//							, t.nsTime, t.numElims, name, NL);
 				Timing ttl = totalTimings.get(name);
 				if ( ttl == null )
 					totalTimings.put(name, ttl = new Timing());
 				ttl.numCalls += t.numCalls;
 				ttl.nsTime += t.nsTime;
 				ttl.numElims += t.numElims;
-				ttlNanos += t.nsTime;
+//				ttlNanos += t.nsTime;
 			}
-			if ( IS_NOISY ) {
-				Log.format("%5s\t%,15d%s", "rules", ttlNanos, NL);
-				Log.format("%5s\t%,15d%s", "other", took - ttlNanos, NL);
-				Log.format("%5s\t%,15d%s", "total", took, NL);
-				Log.format("%s", NL);
-			}
+//			if ( IS_NOISY ) {
+//				Log.format("%5s\t%,15d%s", "rules", ttlNanos, NL);
+//				Log.format("%5s\t%,15d%s", "other", took - ttlNanos, NL);
+//				Log.format("%5s\t%,15d%s", "total", took, NL);
+//				Log.format("%s", NL);
+//			}
 		} catch (UnsolvableException ex) { // thrown by solver.solve
 			++numFailed;
 			long took = System.nanoTime() - start;

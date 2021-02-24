@@ -8,6 +8,10 @@ package diuf.sudoku;
 
 import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
+import static diuf.sudoku.Idx.BITS_PER_WORD;
+import static diuf.sudoku.Idx.BITS_TWO_ELEMENTS;
+import static diuf.sudoku.Idx.WORDS;
+import static diuf.sudoku.Idx.WORD_MASK;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.ISIZE;
@@ -137,199 +141,6 @@ public final class Grid {
 					buds.add(b);
 			buds.lock(); // so any attempt to mutate throws a LockedException
 		}
-	}
-
-//	/**
-//	 * Group Buddies for the cmnBuds method: buddies common to all in each
-//	 * group of upto 9 cells.<br>
-//	 * First index: 0..8 because there are 9 groups.<br>
-//	 * Second index: 0..511 for a group of upto 9 cells (ie 9 bits).
-//	 */
-//	private static final Idx[][] GRP_BUDS = new Idx[9][512];
-//	static {
-//		// the indices of a group of upto 9 cells.
-//		Idx group = new Idx();
-//		// gi: group index: 0..8
-//		// go: group offset (start of group) in the Grid: 0, 9, 18... 72
-//		// combo: this combination of upto 9 cells: 0..511
-//		// bi: bits index 0..8, so BITS[bi] is 1,2,4,8,16,32,64,128,256
-//		int gi, go, combo, bi; // there's gi go joke in there somewhere
-//		// foreach group
-//		for ( gi=0,go=0; gi<9; ++gi,go+=9 ) { // 0..8
-//			// foreach combo of up to 9 cells
-//			for ( combo=0; combo<512; ++combo ) { // 0..511
-//				// build a group bitset, to 'and' ALL of them at once
-//				group.clear();
-//				// foreach set (1) bit in combo, add groupOffset+bit
-//				for ( bi=0; bi<9; ++bi )
-//					if ( (combo & BITS[bi]) != 0 )
-//						group.add(go+bi);
-//				// calculate buddies common to all cells in this combo
-//				final Idx gb = GRP_BUDS[gi][combo] = new Idx(true); // FULL
-//				group.forEach1((indice) -> gb.and(BUDDIES[indice]));
-//			}
-//		}
-//	}
-//
-//	/**
-//	 * cmnBuds (commonBuddies): sets result to the buddies common to ALL cells
-//	 * in the given idx, and returns it.
-//	 * <p>
-//	 * Note that the result set is reset (ie cleared) by each call.
-//	 * <p>
-//	 * Note: I'm only called privately, except in the test-cases, hence I'm
-//	 * package visible.
-//	 * <p>
-//	 * Note: I've tried a couple of times to do this with an Idx.forEach and
-//	 * failed miserably. I don't know how to make forEach exit early if the
-//	 * result Idx isEmpty already.
-//	 * <p>
-//	 * Provenance: cmnBuds was Sudoku2.getBuddies, but Sudoku2 has too many
-//	 * type-refs, so I copy-paste him here.
-//	 *
-//	 * @param idx indices of cells to get the common buddies of
-//	 * @param result to set to indices of common buddies
-//	 * @return the result SudokuSet for method chaining
-//	 */
-//	public static Idx cmnBuds(Idx idx, Idx result) {
-//		// we start with a full result set
-//		result.fill();
-//		int bits;
-//		if ( (bits=idx.a0) != 0 )
-//			for ( int i=0,j=0; i<3; ++i,j+=9 )
-//				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
-//					return result;
-//		if ( (bits=idx.a1) != 0 )
-//			for ( int i=3,j=0; i<6; ++i,j+=9 )
-//				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
-//					return result;
-//		if ( (bits=idx.a2) != 0 )
-//			for ( int i=6,j=0; i<9; ++i,j+=9 )
-//				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
-//					return result;
-//		return result;
-//	}
-
-//	public Idx cmnBuds(final Idx idx, final Idx result) {
-//		int bits, j;
-//		Idx.Visitor1 visitor    = (i) -> result.set(cells[i].buds); // first
-//		Idx.Visitor1 subsequent = (i) -> result.and(cells[i].buds);
-//		if ( (bits=idx.a0) != 0 )
-//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-//				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-//					visitor.visit(j+k);
-//					visitor = subsequent;
-//				}
-//		if ( (bits=idx.a1) != 0 )
-//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-//				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-//					visitor.visit(BITS_PER_ELEMENT+j+k);
-//					visitor = subsequent;
-//				}
-//		if ( (bits=idx.a2) != 0 )
-//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-//				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-//					visitor.visit(BITS_TWO_ELEMENTS+j+k);
-//					visitor = subsequent;
-//				}
-//		return result;
-//	}
-
-//	// I try it without the lambda expressions. My theory is that it has to
-//	// generate the lambda instance from scratch every time it's called, so
-//	// creating single re-used instances of the interface might be faster.
-//	// And FMS this is SLOWER too!
-//	private final class FirstVisitor implements Idx.Visitor1 {
-//		public Idx result;
-//		@Override
-//		public void visit(int indice) {
-//			result.set(cells[indice].buds);
-//		}
-//	};
-//	private final class SubsequentVisitor implements Idx.Visitor1 {
-//		public Idx result;
-//		@Override
-//		public void visit(int indice) {
-//			result.and(cells[indice].buds);
-//		}
-//	};
-//	private final FirstVisitor first = new FirstVisitor();
-//	private final SubsequentVisitor subsequent = new SubsequentVisitor();
-//	public Idx cmnBuds(Idx idx, Idx result) {
-//		first.result = result;
-//		subsequent.result = result;
-//		idx.forEach(first, subsequent);
-//		return result;
-//	}
-
-// this is TWICE as slow, even after substantially speeding up toArrayA and B
-//	public Idx cmnBuds(Idx idx, Idx result) {
-//		int[] a = idx.toArrayA();
-//		final int n = a.length;
-//		assert n > 0;
-//		result.set(cells[a[0]].buds);
-//		for ( int i=1; i<n; ++i )
-//			result.and(cells[a[i]].buds);
-//		return result;
-//	}
-
-// this is not faster but more code in Idx (static forEach method)
-//	public boolean cmnBudsAny(int m0, int m1, int m2, Idx result) {
-//		Idx.forEach(m0,m1,m2
-//			, (i) -> result.set(cells[i].buds) // first
-//			, (i) -> result.and(cells[i].buds) // subsequent
-//		);
-//		return result.any();
-//	}
-
-//  this one is a tad slower than THE BASE!
-//	public Idx cmnBuds(Idx idx, Idx result) {
-//		result.fill();
-//		idx.forEach((i) -> result.and(cells[i].buds));
-//		return result;
-//	}
-
-//	// this is about 5% faster than THE BASE. Testing for empty after
-//	// EVERY "and" costs about as much as it saves by exiting the loop early.
-//	public Idx cmnBuds(Idx idx, Idx result) {
-//		result.fill();
-//		idx.untilFalse((i) -> {return result.and(cells[i].buds).any();});
-//		return result;
-//	}
-
-// this is about 5% slower than THE BASE!
-//	private class CbVisitor implements Idx.UntilFalseVisitor {
-//		public int r0, r1, r2;
-//		public void reset() {
-//			r0=r1=r2 = Idx.ALL;
-//		}
-//		@Override
-//		public boolean visit(int indice) {
-//			Idx b = cells[indice].buds;
-//			r0 &= b.a0;
-//			r1 &= b.a1;
-//			r2 &= b.a2;
-//			return (r0|r1|r2) != 0; // any
-//		}
-//	}
-//	private CbVisitor cb = new CbVisitor();
-//	// this is one is about 5% faster than THE BASE. Testing for empty after
-//	// EVERY "and" costs about as much as it saves by exiting the loop early.
-//	public Idx cmnBuds(Idx idx, Idx result) {
-//		cb.reset();
-//		idx.untilFalse(cb);
-//		return result.set(cb.r0, cb.r1, cb.r2);
-//	}
-
-	// BASE: still slow! 21.2% of KrakenFisherman.findHints, which calls this
-	// 44,528,859 times in top1465.F10.mt, ergo HAMMERED! I've tried everything
-	// I can think of to speed it up.
-	public Idx cmnBuds(Idx idx, Idx result) {
-		idx.forEach(
-			  (i) -> result.set(cells[i].buds) // first
-			, (i) -> result.and(cells[i].buds) // subsequent
-		);
-		return result;
 	}
 
 	/** Indices of siblings: The indices of cells which are in the same box,
@@ -3065,9 +2876,15 @@ public final class Grid {
 			return results;
 		}
 
-		/** Count the number of empty (value==0) cells in this region,
+		/**
+		 * Count the number of empty (value==0) cells in this region,
 		 * remembering that value in my {@code emptyCellCount} field.
-		 * @return int the count. */
+		 * <p>
+		 * emptyCellCount runs once at commencement of solving, so we can call
+		 * emptyCellCount BEFORE calling emptyCells, which sets emptyCellCount.
+		 *
+		 * @return int the count.
+		 */
 		public int emptyCellCount() {
 			int cnt = 0;
 			for ( Cell cell : cells )

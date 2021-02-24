@@ -6,15 +6,15 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
-import java.util.List;
+import java.util.Collection;
 import java.util.Set;
 
 
@@ -36,12 +36,12 @@ public class AlsXyWingHint extends AHint implements IActualHint {
 	public AlsXyWingHint(
 			  AHinter hinter
 			, Pots redPots, Pots orangePots, Pots bluePots
-			, List<ARegion> bases, List<ARegion> covers
 			, Als a, Als b, Als c
 			, int x, int y, String z
 	) {
 		// nb: what are normally greens are oranges here.
-		super(hinter, redPots, null, orangePots, bluePots, bases, covers);
+		super(hinter, redPots, null, orangePots, bluePots
+				, Regions.list(a.region), Regions.list(b.region));
 		this.a = a;
 		this.b = b;
 		this.c = c;
@@ -51,22 +51,27 @@ public class AlsXyWingHint extends AHint implements IActualHint {
 	}
 
 	@Override
-	public Set<Cell> getAquaCells(int viewNumUnused) {
-		// nb: what are normally greens are oranges here.
-		return oranges.keySet();
+	public Collection<Als> getAlss() {
+		return Als.list(a, b, c);
 	}
+
+//	@Override
+//	public Set<Cell> getAquaCells(int viewNumUnused) {
+//		// nb: what are normally greens are oranges here.
+//		return oranges.keySet();
+//	}
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " in "+Frmt.interleave(bases, covers);
+			s += " in "+Frmt.csv(Als.regions(getAlss()));
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+Frmt.interleave(bases, covers);
+		return getHintTypeName()+": "+Frmt.csv(Als.regions(getAlss()));
 	}
 
 	@Override
@@ -75,7 +80,7 @@ public class AlsXyWingHint extends AHint implements IActualHint {
 			, a.format()			//{0}
 			, b.format()			// 1
 			, c.format()			// 2
-			, redPots.format()		// 3
+			, redPots.toString()	// 3
 			, Integer.toString(x)	// 4
 			, Integer.toString(y)	// 5
 			, z						// 6

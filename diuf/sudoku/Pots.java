@@ -43,7 +43,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * of any Cell object; there's only ever 81 of them in the Grid. So yeah,
 	 * new Values, so you can ____ with them.
 	 * @param src
-	 * @return 
+	 * @return
 	 */
 	public static Pots deepCopy(Pots src) {
 		Pots copy = new Pots();
@@ -156,8 +156,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
-	 * Constructor: Constructs a new Pots containing all of the given cells to
-	 * a new Values containing the given value.
+	 * Constructor: Constructs a new Pots containing all of the given cells
+	 * to a new Values containing the given value.
 	 * @param cells
 	 * @param value
 	 */
@@ -172,7 +172,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * to the given value (used for LockingGeneralised greenPots only).
 	 * @param value
 	 * @param numCells
-	 * @param cells 
+	 * @param cells
 	 */
 	public Pots(int value, int numCells, Cell[] cells) {
 		this(numCells, 1F);
@@ -436,7 +436,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		if ( others != null ) {
 			Values mine;
 			for ( Cell c : others.keySet() )
-				// remove others values from my values, and if that leaves the my 
+				// remove others values from my values, and if that leaves the my
 				// values empty then remove my cell also
 				if ( (mine=get(c))!=null && mine.remove(others.get(c)).size==0 )
 					remove(c);
@@ -540,7 +540,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * Returns CSV of "$cell.id-$values"
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public String toString() {
@@ -571,14 +571,6 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	public String cells() {
 		return Frmt.ssv(keySet());
-	}
-
-	public String format() {
-		int redBits = valuesOf();
-		return VSIZE[redBits] == 1
-			? "the value <b>"+VALUESES[redBits][0]+"</b> can be removed"
-					+ " from <b>"+Frmt.and(keySet())+"</b>"
-			: "<b>"+toString()+"</b> can be removed"; // "CELL_ID-Values ..."
 	}
 
 	/**

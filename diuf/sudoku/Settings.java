@@ -505,6 +505,8 @@ public final class Settings implements Cloneable {
 	// 6.30.109 2021-02-13 07:00:49 BigWings, faster Complex and Kraken fish.
 	//			Wrote the BigWing class to succinctify the big wings. Tried and
 	//			mostly failed to make Complex and KrakenFisherman faster.
+	// 6.30.110 2021-02-17 14:31:50 Faster Complex and Kraken fisherman.
+
 
 	// To Build:
 	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
@@ -540,8 +542,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.109";
-	public static final String BUILT = "2021-02-13 07:00:49";
+	public static final String VERSION = "6.30.110";
+	public static final String BUILT = "2021-02-17 14:31:50";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

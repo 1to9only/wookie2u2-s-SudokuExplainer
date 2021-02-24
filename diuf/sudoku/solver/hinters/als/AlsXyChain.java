@@ -30,7 +30,6 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
@@ -308,21 +307,12 @@ public final class AlsXyChain extends AAlsHinter {
 							// nb: All DIUF types below (keeping it all HoDoKu above).
 							//
 
-							// we start with some lists of stuff
-							List<ARegion> bases = new LinkedList<>();
-							List<ARegion> covers = new LinkedList<>();
-							List<Idx> setsList = new LinkedList<>();
+							// build a list of alss
+							// chainAlss[0] = startAls
+							// and 1..chainIndex INCLUSIVE = currAlss
 							List<Als> alssList = new LinkedList<>();
-							// chainAlss[0]=startAls and 1..chainIndex INCLUSIVE=currAlss
-							for ( int j=0,J=chainIndex; j<=J; ++j ) {
-								Als x = chainAlss[j];
-								if ( j%2==0 )
-									bases.add(x.region);
-								else
-									covers.add(x.region);
-								setsList.add(x.idx);
-								alssList.add(x);
-							}
+							for ( int j=0,J=chainIndex; j<=J; ++j )
+								alssList.add(chainAlss[j]);
 
 							// nb: blue overwrites everything incl red; some reds are
 							// in other ALSs, so remove reds from blues so they're red!
@@ -336,11 +326,6 @@ public final class AlsXyChain extends AAlsHinter {
 							AHint hint = new AlsXyChainHint(
 								  this
 								, new Pots(reds) // copy-off the field!
-								  // remove fins and reds from oranges.
-								, oranges(grid, setsList).removeAll(blues).removeAll(reds)
-								, new Pots(blues) // copy-off the field!
-								, bases
-								, covers
 								, alssList
 								, debugMessage
 							);

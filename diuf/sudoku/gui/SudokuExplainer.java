@@ -415,7 +415,8 @@ final class SudokuExplainer implements Closeable {
 					// the hint with a description which matches the one we just
 					// read from the logFile, if it's there... other than that
 					// the user (a techie) is on there own.
-					if ( filteredHints.size() > 1 ) {
+					if ( filteredHints.size() > 1
+					  && puzzleIdLine.length() >= 65 ) {
 						String hintText = puzzleIdLine.substring(65, puzzleIdLine.length());
 						for ( AHint h : filteredHints )
 							if ( h.toString().equals(hintText) ) {
@@ -435,7 +436,7 @@ final class SudokuExplainer implements Closeable {
 			// give the user a chance to change the techNom for the next call
 			return Ask.forString("tech.nom (regex)", regex);
 		} catch (Throwable ex) {
-			StdErr.carp("logView error", ex);
+			StdErr.whinge("logView error", ex);
 			beep();
 			return null;
 		}

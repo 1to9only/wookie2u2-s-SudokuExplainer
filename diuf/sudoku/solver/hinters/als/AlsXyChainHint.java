@@ -6,16 +6,14 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 
 /**
@@ -26,29 +24,23 @@ import java.util.Set;
  */
 public class AlsXyChainHint extends AHint implements IActualHint {
 
-	private final List<Als> alss;
-	private final String debugMessage;
+	// would be private except for the test-case
+	final List<Als> alss;
+	final String debugMessage;
 
-	public AlsXyChainHint(AHinter hinter, Pots redPots, Pots orangePots
-			, Pots bluePots, List<ARegion> bases, List<ARegion> covers
-			, List<Als> alss, String debugMessage) {
+	public AlsXyChainHint(AHinter hinter, Pots redPots, List<Als> alss
+			, String debugMessage) {
 		// nb: what are normally greens and oranges here
-		super(hinter, redPots, null, orangePots, bluePots, bases, covers);
+		super(hinter, redPots);
 		this.alss = alss;
 		this.debugMessage = debugMessage;
-	}
-
-	@Override
-	public Set<Grid.Cell> getAquaCells(int viewNumUnused) {
-		// nb: what are normally greens and oranges here
-		return oranges.keySet();
 	}
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " in "+Frmt.and(bases, covers);
+			s += " in "+Frmt.csv(Als.regions(alss));
 		return s;
 	}
 
@@ -56,20 +48,26 @@ public class AlsXyChainHint extends AHint implements IActualHint {
 	public String toStringImpl() {
 		StringBuilder sb = new StringBuilder(64);
 		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.and(bases, covers));
+		  .append(Frmt.csv(Als.regions(alss)));
 		return sb.toString();
 	}
 
+	@Override
+	public Collection<Als> getAlss() {
+		return alss;
+	}
+
 	private String getAlssString() {
+		// NOTE: My HTML appears inside a PRE-block.
 		StringBuilder sb = Frmt.getSB();
 		int i = 0, c; String r;
-		// NOTE: This HTML is inside a PRE-block.
 		for ( Als als : alss ) {
 			//Produces for example:
 			//     (a) <b1>row 1: A1 G1 I1</b1>\n
 			//     (b) <b2>col G: G1 G6</b2>\n
 			if(als.region==null) r=""; else r=als.region.id+": ";
-			c = 1 + (i%3); // there's only 3 colors, so cycle through them
+			// there's only 5 colors, same as my largest ALS-Chain
+			c = (i%5) + 1;
 			sb.append("    (").append(alpha((char)i)).append(") ") // nb: In Java calculating a char is a complete, total, and utter pain in the ____ing ass. Thank you Buggus Duckus for your charming comments. Your views have been noted, and will be completely ignored in due time. Sigh.
 			  .append("<b").append(c).append('>')
 			  .append(r).append(Frmt.and(als.cells))
@@ -94,6 +92,7 @@ public class AlsXyChainHint extends AHint implements IActualHint {
 			, Integer.toString(z)			// 1
 			, Frmt.and(redPots.keySet())	// 2
 			, debugMessage					// 3
+			, redPots.toString()			// 4
 		);
 	}
 }

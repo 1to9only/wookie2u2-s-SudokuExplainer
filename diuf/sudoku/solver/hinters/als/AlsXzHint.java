@@ -6,7 +6,6 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
@@ -15,7 +14,7 @@ import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
-import java.util.Set;
+import java.util.Collection;
 
 
 /**
@@ -53,9 +52,8 @@ public class AlsXzHint extends AHint implements IActualHint {
 	}
 
 	@Override
-	public Set<Cell> getAquaCells(int viewNumUnused) {
-		// nb: what are normally greens are oranges here
-		return oranges.keySet();
+	public Collection<Als> getAlss() {
+		return Als.list(a, b);
 	}
 
 	@Override
@@ -78,20 +76,15 @@ public class AlsXzHint extends AHint implements IActualHint {
 
 	@Override
 	public String toHtmlImpl() {
-		final String filename, gonners;
-		if ( anyDoubleLinked ) {
-			filename = "AlsXzDblLnkdHint.html";
-			gonners = redPots.toString(); // "cell-values ..."
-		} else {
-			filename = "AlsXzHint.html";
-			gonners = Frmt.and(redPots.keySet()); // cell.id's only
-		}
+		final String filename = anyDoubleLinked
+				? "AlsXzDblLnkdHint.html"
+				: "AlsXzHint.html";
 		return Html.produce(this, filename
 			, a.region.id+": "+aCells	//{0}
 			, b.region.id+": "+bCells	// 1
 			, rccMaybes					// 2
 			, Values.andS(pinkBits)		// 3
-			, gonners					// 4
+			, redPots.toString()		// 4
 			, debugMessage				// 5
 		);
 	}

@@ -15,6 +15,7 @@ import diuf.sudoku.Result;
 import diuf.sudoku.Values;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.als.Als;
 import diuf.sudoku.utils.Debug;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -545,10 +546,21 @@ public abstract class AHint implements Comparable<AHint> {
 		return null;
 	}
 
-	/** Get the links - the brown arrow from a potential value to his effected
+	/**
+	 * Get the ALS's which contain both regions and cells to highlight in
+	 * blue, green, aqua, ...tba...
+	 * @return {@code Collection<Als>}
+	 */
+	public Collection<Als> getAlss() {
+		return null;
+	}
+
+	/**
+	 * Get the links - the brown arrow from a potential value to his effected
 	 * potential value in a chain.
 	 * @param viewNum the view number, zero-based.
-	 * @return the links to draw, or <tt>null</tt> if none. */
+	 * @return the links to draw, or <tt>null</tt> if none.
+	 */
 	public Collection<Link> getLinks(int viewNum) {
 		return null;
 	}

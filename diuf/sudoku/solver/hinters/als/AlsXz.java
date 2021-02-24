@@ -68,8 +68,8 @@ public final class AlsXz extends AAlsHinter {
 
 	/**
 	 * Find all ALS-XZ hints in the given Grid: Almost Locked Set XZ, where x
-	 * and z refer to values which are common to a pair of ALSs. The x's are
-	 * restricted, and z's are not.
+	 * and z refer to values that are common to a pair of ALSs. The x's are
+	 * restricted, and z's are not, they're just common. sigh.
 	 * <p>
 	 * This is the simplest ALS technique. We find two ALSs which share a
 	 * Restricted Common (RC) value called 'x'. If both ALSs also contain
@@ -80,17 +80,18 @@ public final class AlsXz extends AAlsHinter {
 	 * because it has special rules when the two ALSs share two (or more) RC
 	 * values. This pattern is called "Double Linked" ALSs.
 	 * <p>
-	 * The logic behind ALS-XZ is quite simple. Because of the RC, at least
-	 * one of the ALSs is turned into a Locked Set (we don't know yet which),
-	 * and since both ALSs also share digit z, z is "pushed" into the other
-	 * ALS, so z will definitely be placed in a cell of one of the two ALSs,
-	 * therefore any cell which sees all possible placements of z in both ALSs
-	 * (that is not part of either ALS) can not be z.
+	 * The logic behind ALS-XZ is simple enough: Because of the RC-value, one
+	 * of the ALSs is turned into a Locked Set (we don't know yet which), and
+	 * these two ALSs also share the z-value. Z is pushed into the other ALS,
+	 * so z must be in one of the two ALSs, hence any cell (not in either ALS)
+	 * which sees all z's in both ALSs can not be z.
 	 * <p>
 	 * KRC edited hobiwan's explanation.
 	 *
 	 * @param grid the Grid to search
-	 * @param vs array of Idx of grid cells which maybe each value 1..9.
+	 * @param vs array of Idx of grid cells which maybe each value 1..9.<br>
+	 *  NO LONGER USED in this implementation, but not removed coz it may still
+	 *  be used in the other sub-classes of AAlsHinter
 	 * @param rccs The list of Restricted Common Candidates (RCCs) which is the
 	 * intersection of two Almost Locked Sets (ALSs) on one-or-more Restricted
 	 * Common (RC) value. The restriction is that all instances of the RC value
@@ -126,10 +127,10 @@ public final class AlsXz extends AAlsHinter {
 		// presume that no hints will be found
 		boolean result = false;
 
-		// the Restricted Common Candidate/s (rccs) were precalculated.
-		// there is 1 hint possible per RCC.
-		// NOTE: I've avoided using continue is loop because continue, for
-		// reasons I do not understand, can be very slow!
+		// The Restricted Common Candidates (the rccs array) were calculated by
+		// my superclass {@link AAlsHinter#findHints} before he called me.
+		// There is 1 hint possible per RCC.
+		// NOTE: I avoid continue because it can be VERY slow!
 		for ( Rcc rcc : rccs ) {
 
 			// unpack the two ALSs (Almost Locked Sets) from this RCC.
@@ -179,7 +180,7 @@ public final class AlsXz extends AAlsHinter {
 
 				// look for double-linked elims (if RCC is double-linked)
 				if ( v2 != 0 )
-					reds = addDoubleLinkedElims(grid, vs, rcc, alss, reds);
+					reds = addDoubleLinkedElims(grid, rcc, alss, reds);
 
 				// ignore this RCC if it has no eliminations.
 				if ( reds != null
@@ -224,7 +225,7 @@ public final class AlsXz extends AAlsHinter {
 					// build the hint, and add it to the IAccumulator
 					hint = new AlsXzHint(
 						  this, a, b, pinkBits
-						, oranges, blues, reds
+						, null, null, reds
 						, anyDoubleLinked // field set true by add method
 						, values
 						, Frmt.and(a.cells(grid))
@@ -247,115 +248,57 @@ public final class AlsXz extends AAlsHinter {
 	private final Idx zBuds = new Idx(); // indices of buds of zAlss
 
 	/**
-	 * Adds any extra eliminations for doubly (or more) linked RCCs.
+	 * Adds additional eliminations for double-linked ALSs, ie when RCC.cand2
+	 * is not 0.
 	 * <p>
 	 * This method should be called once, it does both A->B, and B->A.
 	 * <p>
-	 * NOTE: There are no double-linked ALS-XZ's in top1465, ie my standard
-	 * test-cases are deficient. Sigh.
-	 * <p>
 	 * hobiwans explanation: http://hodoku.sourceforge.net/en/tech_als.php
 	 * <p>
-	 * <b>Doubly Linked ALS-XZ</b>
+	 * <u>Double-Linked ALS-XZ</u>
 	 * <p>
 	 * If the two ALSs have two RC values then things get really interesting.
 	 * Recall that an RC value can only be placed in one ALS, thus turning the
 	 * other ALS into a locked set. If we have two RCs, one of them has to be
-	 * placed in ALS A, turning ALS B into a locked set, and the other must be
-	 * in ALS B, turning ALS A into a locked set; which RC is in which ALS, is
+	 * placed in ALS A turning ALS B into a locked set, and the other must be
+	 * in ALS B turning ALS A into a locked set; which RC is in which ALS, is
 	 * as yet unknown. Both RC values in one ALS is impossible, coz both RCs
 	 * would be eliminated from the other ALS leaving only N-1 candidates to
 	 * fill N cells, which is invalid.
 	 * <p>
-	 * What can be concluded from a Doubly Linked ALS-XZ? Both RCs are locked
-	 * into opposing ALSs, so the RCs can be eliminated from all non ALS cells
-	 * in the regions hosting the ALSs; but more importantly, each non RC value
-	 * is locked into its ALS, eliminating all values outside the ALS which see
-	 * all instances of this value in the ALS, including cells in da other ALS;
-	 * hence the ALS-XZ becomes cannibalistic.
+	 * So what do double-linked ALS-XZ's eliminate? Both RCs are locked into
+	 * opposing ALSs, so (as per normal) the RCs can be eliminated from non-ALS
+	 * cells; but more importantly, each non-RC value (v) is locked into its
+	 * ALS, eliminating v from cells outside the ALS (including the other ALS)
+	 * which see all v's in the ALS.
 	 *
 	 * @param grid The Grid to search
-	 * @param vs array of Idx of grid cells which maybe each value 1..9
 	 * @param rcc The RCC that we're processing.
 	 * @param reds Pots to add any extra eliminations to
 	 * @return reds, if there are any eliminations, else null.<br>
-	 *  Note that reds is passed in, so if the passed-in reds is not null then
+	 *  if the passed-in reds is not null then<br>
 	 *  double-linked eliminations are added to the existing Pots;<br>
-	 *  but if the passed-in reds is null then a new Pots is created and
-	 *  returned if double-linked eliminations are found. Pretty tricky!
+	 *  else (passed-in reds is null)<br>
+	 *  a new Pots is returned if any double-linked eliminations are found.
 	 */
-	private Pots addDoubleLinkedElims(Grid grid, Idx[] vs, Rcc rcc, Als[] alss
-			, Pots reds) {
-
-		final Idx[] buds = Grid.BUDDIES;
-		// nb: rc2 is not 0, else we wouldn't be here!
-		final Idx both = this.both2;
-		final Idx others = this.others;
-		// v-for-value vars hold x and then later z value related s__t
-		final Idx vAls = this.vAls;
-		final Idx vOthers = this.vOthers;
-
-		final Als[] twoAlss = this.twoAlss;
-		twoAlss[0] = alss[rcc.getAls1()];
-		twoAlss[1] = alss[rcc.getAls2()];
-
-		final int[] rcValues = this.rcValues;
-		rcValues[0] = rcc.getCand1();
-		rcValues[1] = rcc.getCand2();
-		final int bothRcsBits = VSHFT[rcValues[0]] | VSHFT[rcValues[1]];
-
-		// get the indices of the cells in both ALSs
-		both.setOr(twoAlss[0].idx, twoAlss[1].idx);
-		// both RCs are locked into one of the ALSs, so the RCs can be
-		// eliminated from all non-ALS cells (others).
-		others.setAllExcept(both);
-		// foreach RC value (ie the x in ALS-XZ)
-		for ( int x : rcValues ) {
-			// get all the x's in both ALSs
-			vAls.setAnd(both, vs[x]);
-			// get ALL the x's except those in the ALSs
-			vOthers.setAnd(others, vs[x]);
-			// remove those which do NOT see all x's in both the ALSs
-			// does buds[xo] contain all x's in both ALSs?
-			vOthers.forEach((xo) -> {
-				if ( !Idx.andEqualsS2(buds[xo], vAls) )
-					vOthers.remove(xo);
-			});
-			// we can strip x from any remaining vOthers
-			if ( vOthers.any() )
-				reds = add(reds, grid, vOthers, x);
-		}
-
-		// All non-RC values get locked within their ALS, to eliminate all
-		// instances outside the ALS which can see all instances of the value
-		// in the ALS. The elimination can even be done in a cell belonging to
-		// the other ALS, so the ALS-XZ becomes shark.
-		// foreach of the two ALSs
-		for ( Als als : twoAlss ) {
-			// foreach non-RC value of this ALS (ie the z in ALS-XZ)
-			for ( int z : VALUESES[als.maybes & ~bothRcsBits] ) {
-				// set vAls just to save repeatedly dereferencing the als
-				// and repeated vs-array look-ups, and to keep code same.
-				vAls.set(als.vs[z]);
-				// get z's outside the ALS (including in other ALS)
-				vOthers.set(vs[z]).andNot(als.idx);
-				// remove those which do NOT see all z's in this ALS
-				vOthers.forEach((zo) -> {
-					if ( !Idx.andEqualsS2(buds[zo], vAls) )
-						vOthers.remove(zo);
-				});
-				// we can strip z from any remaining vOthers
-				if ( vOthers.any() )
-					reds = add(reds, grid, vOthers, z);
-			}
-		}
+	private Pots addDoubleLinkedElims(Grid grid, Rcc rcc, Als[] alss, Pots reds) {
+		final Als a=alss[rcc.getAls1()], b=alss[rcc.getAls2()];
+		final int rc1=rcc.getCand1(), rc2=rcc.getCand2();
+		// 1. eliminate x's outside the ALS which see all x's in both ALSs
+		if ( vOthers.setAndAny(a.vBuds[rc1], b.vBuds[rc1]) )
+			reds = add(reds, grid, vOthers, rc1);
+		if ( vOthers.setAndAny(a.vBuds[rc2], b.vBuds[rc2]) )
+			reds = add(reds, grid, vOthers, rc2);
+		// 2. eliminate all z's outside the ALS that see all z's in the ALS
+		final int bothRcs = VSHFT[rc1] | VSHFT[rc2];
+		for ( int z : VALUESES[a.maybes & ~bothRcs] )
+			if ( a.vBuds[z].any() )
+				reds = add(reds, grid, a.vBuds[z], z);
+		for ( int z : VALUESES[b.maybes & ~bothRcs] )
+			if ( b.vBuds[z].any() )
+				reds = add(reds, grid, b.vBuds[z], z);
 		return reds;
 	}
-	private final Als[] twoAlss = new Als[2];
-	private final int[] rcValues = new int[2];
-	private final Idx both2 = new Idx();
-	private final Idx others = new Idx();
-	private final Idx vAls = new Idx();
 	private final Idx vOthers = new Idx();
 
 	private Pots add(Pots reds, Grid grid, Idx set, int v) {

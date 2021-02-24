@@ -23,10 +23,14 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
+import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.utils.Frmt;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
 
 
 /**
@@ -50,6 +54,20 @@ public class Als {
 		for ( int i=0; i<=n; ++i )
 			list.add(array[i]);
 		return list;
+	}
+
+	public static Collection<Als> list(Als... alss) {
+		ArrayList<Als> result = new ArrayList<>(alss.length);
+		for ( Als a : alss )
+			result.add(a);
+		return result;
+	}
+
+	static List<ARegion> regions(Collection<Als> alss) {
+		ArrayList<ARegion> result = new ArrayList<>(alss.size());
+		for ( Als a : alss )
+			result.add(a.region);
+		return result;
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ instance stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,8 +105,8 @@ public class Als {
 	/**
 	 * Constructs a new ALS.
 	 * <p>
-	 * <b>Note Well:</b> An ALS cannot be used until
-	 * {@link #computeFields(solver.SudokuStepFinder)} has been called.
+	 * <b>WARN:</b> You must call {@link #computeFields} before use!
+	 *
 	 * @param indices
 	 * @param candidates
 	 * @param region
@@ -101,20 +119,17 @@ public class Als {
 	}
 
 	/**
-	 * Computes all the additional fields; these fields are not calculated in
-	 * the constructor to avoid doing so for any double-ups.
+	 * Compute additional fields, not in constructor so not run on double-up.
 	 *
 	 * @param grid the Grid we're currently solving
-	 * @param candidates an array of HdkSet 1..9 containing the indices of the
-	 * cells in the sudoku grid which maybe this value.
+	 * @param candidates indices of Grid cells which maybe value 1..9
 	 */
 	public void computeFields(Grid grid, Idx[] candidates) {
 		this.cells = idx.cells(grid).clone();
 		this.buddies = new Idx();
 		for ( int v : VALUESES[maybes] ) {
 			vs[v] = Idx.newAnd(idx, candidates[v]);
-			vBuds[v] = grid.cmnBuds(vs[v], new Idx())
-						   .andNot(idx).and(candidates[v]);
+			vBuds[v] = vs[v].commonBuddies(new Idx()).andNot(idx).and(candidates[v]);
 			vAll[v] = Idx.newOr(vBuds[v], vs[v]);
 			buddies.or(vBuds[v]);
 		}
@@ -185,5 +200,16 @@ public class Als {
 	Cell[] cells(Grid grid) {
 		return idx.cells(grid);
 	}
+
+	/**
+	 * GUI Adapter: a list containing my region.
+	 * @return {@code ArrayList<ARegion>}
+	 */
+	public ArrayList<ARegion> regions() {
+		if ( regions == null )
+			regions = Regions.list(region);
+		return regions;
+	}
+	private ArrayList<ARegion> regions;
 
 }

@@ -7,6 +7,7 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.BUDDIES;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.CellFilter;
 import diuf.sudoku.solver.hinters.wing.BitIdx;
@@ -190,6 +191,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return
 	 */
 	public static boolean sizeLTE(int a0, int a1, int a2, int max) {
+// turns out it's faster to keep it simple!
+// WARNING: Every "& ~" MUST also "& ALL" to clear bits 28..32
 //		int size = 0;
 //		if ( a0!=0 && (size=Integer.bitCount(a0)) > max )
 //			return false;
@@ -212,6 +215,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return the number of set (1) bits in the Idx
 	 */
 	public static int size(int a0, int a1, int a2) {
+// turns out it's faster to keep it simple!
+// WARNING: Every "& ~" MUST also "& ALL" to clear bits 28..32
 //		// nb: terniaries are slow: they're a pointless method call.
 //		int size;
 //		if ( a0 != 0 )
@@ -350,11 +355,11 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Returns a cached (Idx.IAS_A) array of the indices contained in the
 	 * Idx(m0,m1,m2), without creating a bloody Idx, or a new array. sigh.
-	 * 
+	 *
 	 * @param m0
 	 * @param m1
 	 * @param m2
-	 * @return 
+	 * @return
 	 */
 	public static int[] toArrayA(int m0, int m1, int m2) {
 		int bits, j, i=0;
@@ -373,6 +378,63 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
 					a[i++] = BITS_TWO_ELEMENTS+j+k;
 		return a;
+	}
+
+	/**
+	 * Static forEach2 actually invokes {@code v.visit(count, indice)} for each
+	 * indice in the given Idx(a1,a2,a3). The count is (0 based) number of
+	 * indices we've visited so far.
+	 * <p>
+	 * I'm a little bit proud of these forEach methods. They save implementing
+	 * the same tricky bloody code many times just to do different things with
+	 * the indices. It's really quite clever. As is the lambda plumbing which
+	 * allows us to implement Visitor1/2 succinctly. It's all fairly clever.
+	 * @param a0 Idx element 0: 27 used bits
+	 * @param a1 Idx element 1: 27 used bits
+	 * @param a2 Idx element 2: 27 used bits
+	 * @param v is invoked with each count (number of indices so far) and
+	 * the indice, for each set (1) bit in this Idx.
+	 * @return the number of indices visited, ie the end count.
+	 */
+	public static int forEach(int a0, int a1, int a2, Visitor2 v) {
+		int j, count=0;
+		if ( a0 != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(a0>>j)&WORD_MASK] )
+					v.visit(count++, j+k);
+		if ( a1 != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(a1>>j)&WORD_MASK] )
+					v.visit(count++, BITS_PER_ELEMENT+j+k);
+		if ( a2 != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(a2>>j)&WORD_MASK] )
+					v.visit(count++, BITS_TWO_ELEMENTS+j+k);
+		return count;
+	}
+
+	/**
+	 * Static forEach visits each indice in a1,a2,a3: ie invokes
+	 * {@code v.visit(indice)} for each set (1) bit in the Idx(a1,a2,a3).
+	 * @param a0 Idx element 0: 27 used bits
+	 * @param a1 Idx element 1: 27 used bits
+	 * @param a2 Idx element 2: 27 used bits
+	 * @param v your implementation of Visitor1 does whatever with indice
+	 */
+	public static void forEach(int a0, int a1, int a2, Visitor1 v) {
+		int j;
+		if ( a0 != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(a0>>j)&WORD_MASK] )
+					v.visit(j+k);
+		if ( a1 != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(a1>>j)&WORD_MASK] )
+					v.visit(BITS_PER_ELEMENT+j+k);
+		if ( a2 != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(a2>>j)&WORD_MASK] )
+					v.visit(BITS_TWO_ELEMENTS+j+k);
 	}
 
 	// ============================ instance stuff ============================
@@ -623,6 +685,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return this Idx, for method chaining.
 	 */
 	public Idx setAndNot(Idx aa, Idx bb) {
+		// "& ALL" clears bits[28+] for bitCount et al.
 		a0 = (aa.a0 & ~bb.a0) & ALL;
 		a1 = (aa.a1 & ~bb.a1) & ALL;
 		a2 = (aa.a2 & ~bb.a2) & ALL;
@@ -741,6 +804,22 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a2 &= aa.a2;
 		++modCount;
 		return this;
+	}
+
+	/**
+	 * Mutate this &= other, and return !any
+	 * <p>
+	 * WARNING: andNone mutates this set, unlike andAny (which is just a query)!
+	 *
+	 * @param aa
+	 * @return {@code (a0|a1|a2) == 0;}.
+	 */
+	public boolean andNone(Idx aa) {
+		a0 &= aa.a0;
+		a1 &= aa.a1;
+		a2 &= aa.a2;
+		++modCount;
+		return (a0|a1|a2) == 0;
 	}
 
 	/**
@@ -983,6 +1062,23 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return -1;
 	}
 
+//	public static int first(int m0, int m1, int m2) {
+//		int j;
+//		if ( m0 != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(m0>>j)&WORD_MASK] )
+//					return j+k;
+//		if ( m1 != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(m1>>j)&WORD_MASK] )
+//					return BITS_PER_ELEMENT+j+k;
+//		if ( m2 != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(m2>>j)&WORD_MASK] )
+//					return BITS_TWO_ELEMENTS+j+k;
+//		return -1;
+//	}
+
 	/**
 	 * HoDoKuAdapter: get returns the index'th indice from this Idx.
 	 * <p>
@@ -1164,43 +1260,9 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Static forEach2 actually invokes {@code v.visit(count, indice)} for each
-	 * indice in the given Idx(a1,a2,a3). The count is (0 based) number of
-	 * indices we've visited so far.
-	 * <p>
-	 * I'm a little bit proud of these forEach methods. They save implementing
-	 * the same tricky bloody code many times just to do different things with
-	 * the indices. It's really quite clever. As is the lambda plumbing which
-	 * allows us to implement Visitor1/2 succinctly. It's all fairly clever.
-	 * @param a0 Idx element 0: 27 used bits
-	 * @param a1 Idx element 1: 27 used bits
-	 * @param a2 Idx element 2: 27 used bits
-	 * @param v is invoked with each count (number of indices so far) and
-	 * the indice, for each set (1) bit in this Idx.
-	 * @return the number of indices visited, ie the end count.
-	 */
-	public static int forEach(int a0, int a1, int a2, Visitor2 v) {
-		int j, count=0;
-		if ( a0 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a0>>j)&WORD_MASK] )
-					v.visit(count++, j+k);
-		if ( a1 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a1>>j)&WORD_MASK] )
-					v.visit(count++, BITS_PER_ELEMENT+j+k);
-		if ( a2 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a2>>j)&WORD_MASK] )
-					v.visit(count++, BITS_TWO_ELEMENTS+j+k);
-		return count;
-	}
-
-	/**
 	 * forEach invokes {@code v.visit(count, indice)} for each indice in this
 	 * Idx. The count is the (0 based) number of indices we've visited so far.
-	 * <p>
-	 * I just delegate to the static forEach, passing this Idx.
+	 *
 	 * @param visitor is invoked passing the indice (0 based indice of the cell
 	 *  that we are visiting).
 	 * @return total number of indices visited, ie the size of this Idx
@@ -1241,38 +1303,6 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		 * @param indice an indice (a set (1) bit) in this Idx
 		 */
 		void visit(int indice);
-	}
-
-	/**
-	 * Static forEach visits each indice in a1,a2,a3: ie invokes
-	 * {@code v.visit(indice)} for each set (1) bit in the Idx(a1,a2,a3).
-	 * @param a0 Idx element 0: 27 used bits
-	 * @param a1 Idx element 1: 27 used bits
-	 * @param a2 Idx element 2: 27 used bits
-	 * @param v your implementation of Visitor1 does whatever with indice
-	 * @return the number of indices visited, ie the size of this Idx
-	 */
-	public static int forEach(int a0, int a1, int a2, Visitor1 v) {
-		int j, count=0;
-		if ( a0 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a0>>j)&WORD_MASK] ) {
-					v.visit(j+k);
-					++count;
-				}
-		if ( a1 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a1>>j)&WORD_MASK] ) {
-					v.visit(BITS_PER_ELEMENT+j+k);
-					++count;
-				}
-		if ( a2 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a2>>j)&WORD_MASK] ) {
-					v.visit(BITS_TWO_ELEMENTS+j+k);
-					++count;
-				}
-		return count;
 	}
 
 	/**
@@ -1362,6 +1392,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return count;
 	}
 
+	// ---------------------------- common buddies ----------------------------
+
 	public void forEach(Visitor1 first, Visitor1 subsequent) {
 		Visitor1 v = first;
 		int bits, j;
@@ -1385,28 +1417,20 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 				}
 	}
 
-//	public static void forEach(int m0, int m1, int m2, Visitor1 first, Visitor1 subsequent) {
-//		Visitor1 v = first;
-//		int j;
-//		if ( m0 != 0 )
-//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-//				for ( int k : WORDS[(m0>>j)&WORD_MASK] ) {
-//					v.visit(j+k);
-//					v = subsequent;
-//				}
-//		if ( m1 != 0 )
-//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-//				for ( int k : WORDS[(m1>>j)&WORD_MASK] ) {
-//					v.visit(BITS_PER_ELEMENT+j+k);
-//					v = subsequent;
-//				}
-//		if ( m2 != 0 )
-//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-//				for ( int k : WORDS[(m2>>j)&WORD_MASK] ) {
-//					v.visit(BITS_TWO_ELEMENTS+j+k);
-//					v = subsequent;
-//				}
-//	}
+	/**
+	 * Sets result to cells which see (same box, row, or col) ALL of the cells
+	 * in this Idx, and returns result.
+	 *
+	 * @param result is repopulated with buddies of ALL cells in this Idx.
+	 * @return result
+	 */
+	public Idx commonBuddies(Idx result) {
+		forEach(
+			  (i) -> result.set(BUDDIES[i]) // first
+			, (i) -> result.and(BUDDIES[i]) // subsequent
+		);
+		return result;
+	}
 
 	// --------------------------------- cells --------------------------------
 

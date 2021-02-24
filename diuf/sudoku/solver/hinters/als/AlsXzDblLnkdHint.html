@@ -21,30 +21,31 @@
  */
 -->
  <body>
-  <h2>HoDoKu ALS-XZ Double Linked</h2>
-  <p>
-    The two Almost Locked Sets (ALSs):<pre>
-     (a) <b1>{0}</b1>
-     (b) <b2>{1}</b2>
-    </pre>
-    share the Restricted Common Candidate (RCC) X = {2}<br>
-    and another (non-restricted) common candidate Z = <b>{3}</b>.
-  <p>
-    Because these two ALSs are Double Linked (have two RC values) all common
-    values may be eliminated from any cells which see all instances of that
-    value in both ALSs. Note that these eliminations are in addition to the
-    normal eliminations on the Z value (if any).
-  <p>
-    The logic is that one of the RC values must be one of the ALSs, so the
-    second RC is pushed into the other ALS, and so on for each additional
-    common value; regardless of weather or not it's in the overlap of the
-    two ALSs (ie regardless of weather or not it's an RCC or just a "CC").
-    Therefore cells which see all occurrences of each common value in both
-    ALSs cannot be that value.
-  <p>
-    Therefore we can remove <r><b>{4}</b></r>. 
-  <p>
-  <!-- debugMessage is normally an empty string -->
-  {5}
- </body>
+<h2>HoDoKu ALS-XZ Double Linked</h2>
+<p>
+The two Almost Locked Sets (ALSs):<pre>
+ (a) <b1>{0}</b1>
+ (b) <b2>{1}</b2>
+</pre>
+share the Restricted Common Candidate (RCC) X = {2}<br>
+and another (non-restricted) common candidate Z = <b>{3}</b>.
+<p>
+Therefore <r>we can remove <b>{4}</b></r>. 
+<p>
+<u>Explanation</u>
+<p>
+Because these two ALSs are double-linked (share two RCC's) both RC values can be
+eliminated from any cells which see all instances of that value in both ALS's;
+and also for each of the two ALS's, each non-RCC-value of this ALS is locked
+into this ALS only, so is eliminated from all other cells (including those in
+the other ALS) which see all occurrences of that value in this ALS only, so
+double-linked ALS's are bloody cannibals. Read it again. You'll get there.
+<p>
+These eliminations are in addition to the "normal" z-based eliminations of a 
+single-linked ALS-XZ, where z (if any in double-linked) is removed from cells
+seeing all occurrences of z in both ALS's.
+<p>
+<!-- debugMessage is normally an empty string -->
+{5}
+</body>
 </html>

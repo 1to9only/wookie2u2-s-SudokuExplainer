@@ -22,6 +22,7 @@ import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyFunkyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedFifoQueue;
 import diuf.sudoku.utils.MyLinkedHashSet;
+import diuf.sudoku.utils.MyStrings;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -210,10 +211,12 @@ public class KrakenFishHint extends AHint implements IActualHint {
 	@Override
 	protected String toHtmlImpl() {
 		// add some color to toString() to make it easier to see what's what.
-		final String coloredHint = Html.colorIn(toString()
-				.replaceFirst(": ", ": <b1>")
+		// NOTE: replaceSecond to cater for the odd "wrapped" hint name:
+		// Kraken type 2: Finned Swampfish: col D, col H and row 2, row 6 on 3
+		String coloredHint = MyStrings.replaceSecond(toString(), ": ", ": <b1>")
 				.replaceFirst(" and ", "</b1> and <b2>")
-				.replaceFirst(" on", "</b2> on"));
+				.replaceFirst(" on", "</b2> on");
+		coloredHint = Html.colorIn(coloredHint);
 		final String chainsString = appendChains(new StringBuilder(1024))
 				.toString();
 		return Html.produce(this, "KrakenFishHint.html"

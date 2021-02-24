@@ -15,6 +15,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
 import diuf.sudoku.Settings;
 import static diuf.sudoku.Values.VALUESES;
+import diuf.sudoku.solver.hinters.als.Als;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -65,29 +66,55 @@ class SudokuGridPanel extends JPanel {
 	private static final Color COLOR_BROWN	= new Color(150, 75, 0);
 	private static final Color COLOR_DARK_BLUE = Color.BLUE.darker();
 	private static final Color COLOR_LEGEND	= new Color(0, 32, 64);
-	// the aqua (bluey green) cell background color
+	// the aqua (bluey green) foreground color
 	private static final Color COLOR_AQUA = new Color(192, 255, 255);
+	// the dark aqua foreground color
+	private static final Color COLOR_DARK_AQUA = new Color(0, 153, 153);
+//	// the yellow forground color
+//	private static final Color COLOR_YELLOW = new Color(255, 255, 204);
+	// the dark yellow/green forground color
+	private static final Color COLOR_DARK_YELLOW = new Color(204, 204, 0);
 	// the pink (light red) cell background color
 	private static final Color COLOR_PINK = new Color(255, 204, 255);
 	// the grey cell background color
 	private static final Color COLOR_GREY = new Color(222, 222, 222);
 	// the green cell background color
-	private static final Color COLOR_BG_GREEN = new Color(204, 255, 204);
+	private static final Color COLOR_BG_GREEN = new Color(204, 255, 204, 153);
+	// the aqua cell background color
+	private static final Color COLOR_BG_AQUA = new Color(192, 255, 255, 24);
 	// the orange cell background color
-	private static final Color COLOR_BG_ORANGE = new Color(255, 204, 102);
+	private static final Color COLOR_BG_ORANGE = new Color(255, 204, 102, 24);
 	// the blue cell background color
-	private static final Color COLOR_BG_BLUE = new Color(204, 204, 255);
-	// the blue cell background color
-	private static final Color COLOR_BG_YELLOW = new Color(255, 255, 204);
+	private static final Color COLOR_BG_BLUE = new Color(204, 204, 255, 153);
+	// the yellow cell background color
+	private static final Color COLOR_BG_YELLOW = new Color(255, 255, 75, 24);
+	// the brown cell background color
+	private static final Color COLOR_BG_BROWN = new Color(204, 51, 0, 12);
 	// a dark orange.
 	private static final Color COLOR_ORANGY_BLACK = orangy(Color.BLACK);
 
 	// base border and background
 	private static final Color BASE_BORDER_COLOR = new Color(0, 0, 192); // blue
-	private static final Color BASE_BACKGROUND_COLOR = new Color(0, 0, 192, 12); // blue
+	private static final Color BASE_BG_COLOR = new Color(0, 0, 192, 12); // blue
 	// cover border and background
 	private static final Color COVER_BORDER_COLOR = new Color(0, 128, 0); // green
-	private static final Color COVER_BACKGOUND_COLOR = new Color(0, 128, 0, 12); // green
+	private static final Color COVER_BG_COLOR = new Color(0, 128, 0, 12); // green
+	// ALS border and foreground (value) colors
+	private static final Color[] ALS_COLORS = {
+			  BASE_BORDER_COLOR // blue
+			, COVER_BORDER_COLOR // green
+			, COLOR_DARK_AQUA
+			, COLOR_DARK_YELLOW
+			, COLOR_BROWN
+	};
+	// ALS region bacground colors
+	private static final Color[] ALS_BG_COLORS = {
+			  BASE_BG_COLOR // blue
+			, COVER_BG_COLOR // green
+			, COLOR_BG_AQUA
+			, COLOR_BG_YELLOW
+			, COLOR_BG_BROWN
+	};
 
 	// COLOR_POTS are in reverse order of importance because the last color set
 	// is the one rendered (he who laughs last), so BLUE overwrites everything.
@@ -177,6 +204,7 @@ class SudokuGridPanel extends JPanel {
 	private Result result;
 	private Collection<ARegion> bases;
 	private Collection<ARegion> covers;
+	private Collection<Als> alss;
 	private Collection<Link> links;
 
 	private final Font smallFont1;
@@ -548,6 +576,11 @@ class SudokuGridPanel extends JPanel {
 		this.covers = covers;
 	}
 
+	/** Set the brown potentials. Implemented for Coloring hints. */
+	void setAlss(Collection<Als> alss) {
+		this.alss = alss;
+	}
+
 	/** Set the links (brown arrows). */
 	void setLinks(Collection<Link> links) {
 		this.links = links;
@@ -637,7 +670,7 @@ class SudokuGridPanel extends JPanel {
 	protected void paintComponent(Graphics g) {
 		Graphics2D g2 = (Graphics2D)g;
 		initGraphics(g2);
-		paintLegends(g); // Wally doesn't look happy.
+		paintLegends(g); // Wally wasn't happy.
 		AffineTransform oldTransform = g2.getTransform();
 		AffineTransform translate = AffineTransform.getTranslateInstance(
 				H_GAP, V_GAP);
@@ -645,8 +678,14 @@ class SudokuGridPanel extends JPanel {
 		g.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
 		paintSelectionAndFocus(g);
 		paintGrid(g);
-		paintRegions(g, covers, COVER_BORDER_COLOR, COVER_BACKGOUND_COLOR);
-		paintRegions(g, bases, BASE_BORDER_COLOR, BASE_BACKGROUND_COLOR);
+		if ( alss != null ) {
+			// paint the background of ALS cells only
+			paintAlss(g, alss);
+		} else {
+			// paint regions for non-ALS's 
+			paintRegions(g, covers, COVER_BORDER_COLOR, COVER_BG_COLOR);
+			paintRegions(g, bases, BASE_BORDER_COLOR, BASE_BG_COLOR);
+		}
 		paintCellValues(g);
 		paintLinks(g);
 		g2.setTransform(oldTransform);
@@ -783,6 +822,28 @@ class SudokuGridPanel extends JPanel {
 				g.fillRect(b.x*COS+3, b.y*COS+3, b.w*COS-6, b.h*COS-6);
 			}
 		} // next region
+	}
+
+	private void paintAlss(final Graphics g, Collection<Als> alss) {
+		int i = 0;
+		for ( Als a : alss ) {
+			// null backgroundColor: I paint just the cells later.
+			paintRegions(g, a.regions(), ALS_COLORS[i], null);
+			for ( Cell cell : a.cells ) {
+				// paint the cell background
+				g.setColor(ALS_BG_COLORS[i]);
+				g.fillRect(cell.x*COS+2, cell.y*COS+2, COS-4, COS-4);
+				// paint the foreground
+				g.setColor(ALS_COLORS[i]);
+				for ( int v : VALUESES[cell.maybes.bits] )
+					drawStringCentered3D(g, DIGITS[v]
+						, cell.x*COS + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
+						, cell.y*COS + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
+						, smallFont2
+					);
+			}
+			++i;
+		}
 	}
 
 	/**
