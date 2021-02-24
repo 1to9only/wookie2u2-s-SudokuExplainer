@@ -41,11 +41,11 @@ public final class Aligned7Exclusion_2H extends Aligned7ExclusionBase
 
 	private static final int NUM_CMN_EXCLS = 10; // was 8
 
-	private static final Cell[] commonExcludersArray = new Cell[NUM_CMN_EXCLS];
-	private static final int[] commonExcluderBitsArray = new int[NUM_CMN_EXCLS];
+	private static final Cell[] COMMON_EXCLUDERS_ARRAY = new Cell[NUM_CMN_EXCLS];
+	private static final int[] COMMON_EXCLUDERS_BITS = new int[NUM_CMN_EXCLS];
 
-	private static final Cell[] cellsArray = new Cell[7];
-//	private static final Cell[] cellsArray1 = new Cell[7];
+	private static final Cell[] CELLS_ARRAY = new Cell[7];
+//	private static final Cell[] CELLS_ARRAY_1 = new Cell[7];
 
 	// common excluders indexes: idx02 is an index of the siblings common
 	// to c0 and c1 and c2. See LinkedMatrixCellSet.idx() for more.
@@ -62,8 +62,8 @@ public final class Aligned7Exclusion_2H extends Aligned7ExclusionBase
 	// What's that Skip? Why it's the skipper skipper flipper Flipper.
 	private boolean firstPass = true;
 
-	public Aligned7Exclusion_2H(int firstHintNumber, IInterruptMonitor monitor) {
-		super(firstHintNumber, monitor);
+	public Aligned7Exclusion_2H(IInterruptMonitor monitor) {
+		super(monitor);
 	}
 
 //	@Override
@@ -119,24 +119,24 @@ public final class Aligned7Exclusion_2H extends Aligned7ExclusionBase
 		// The populate populateCandidatesAndExcluders fields: a candidate has
 		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
-		final Cell[] candidates = candidatesArray;
+		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
 		// an array of each candidates set-of-excluder-cells, indexed by each
 		// cells position in the Grid.cells array, ie Cell.i.
-		final CellSet[] excluders = excludersArray;
+		final CellSet[] excluders = EXCLUDERS_ARRAY;
 
 		// an array of the 7 cells in an aligned set, ready for exclusion.
-		final Cell[] cells = cellsArray;
+		final Cell[] cells = CELLS_ARRAY;
 
 //KRC#2020-06-30 09:50:00
 //		// sortedCells the above cells array sorted by the CollisionComparator
 //		final Cell[] scells = new Cell[degree];
 
 		// cmnExcls provides fast array access to the common-excluder-cells
-		final Cell[] cmnExcls = commonExcludersArray;
+		final Cell[] cmnExcls = COMMON_EXCLUDERS_ARRAY;
 		// the common-excluder-cells-maybes-bits. This set may differ from the
 		// actual common-excluder-cells in that any supersets are removed.
-		final int[] cmnExclBits = commonExcluderBitsArray;
+		final int[] cmnExclBits = COMMON_EXCLUDERS_BITS;
 		// number of common excluder cells, and common excluder bits (differs)
 		int numCmnExcls, numCmnExclBits;
 

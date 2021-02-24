@@ -36,6 +36,26 @@ public final class LogicalAnalyser extends AWarningHinter
 {
 
 	private final LogicalSolver logicalSolver;
+	
+	/**
+	 * When true the {@link LogicalAnalyser#findHints} method prints out the
+	 * hints when each hint is applied to grid.
+	 * <p>
+	 * Normally isNoisy is false. I'm a public field because the findHints
+	 * method is defined by IHinter, and therefore cannot accept additional
+	 * parameters, which is a shame. If you set me true then play nice with
+	 * the other kiddies and <b>finally</b> set me false again. The single
+	 * instance of LogicalAnalyser is shared.
+	 * <p>
+	 * If you have trouble try creating your own LogicalAnalyser and set it's
+	 * isNoisy to true, use it, then loose it. You REALLY don't want isNoisy
+	 * true when a puzzle is validated coz the recursive analyser is verbose,
+	 * filling-up your hard-disk, especially if it's a small SDD like mine.
+	 * <p>
+	 * I've tried loads of workarounds for this problem, and am yet to find a
+	 * solution that I'm really happy with.
+	 */
+	public boolean isNoisy = false;
 
 	/**
 	 * Note that the only constructor is package visible, and is only called
@@ -86,7 +106,7 @@ public final class LogicalAnalyser extends AWarningHinter
 			synchronized ( GrabBag.ANALYSE_LOCK ) {
 				// call-back the logicalSolver which created me.
 				// solve(grid, usage, validate, isNoisy, logHints)
-				result = logicalSolver.solve(grid, usageMap, false, false, false);
+				result = logicalSolver.solve(grid, usageMap, false, isNoisy, false);
 			}
 			if ( result )
 				accu.add(new AnalysisHint(this, usageMap));

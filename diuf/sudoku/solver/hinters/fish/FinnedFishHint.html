@@ -1,11 +1,33 @@
 <html>
- <body>
-  <h2>HoDoKu {0}</h2>
-  <p>
-   Nearly all the <c>possible positions</c> of the value <b>{1}</b> in {4}
-   different <b1>{2}s</b1> are in the same {4} <b2>{3}s</b2>; the exception
-   being {5} which has extra <b1>fins {7}</b1> which may be {1}, but they're
-   all in the same box, so if any of the fins were {1} then {6} still couldn't
-   be {1}, so either way we can <r>kill off <b>{1}<b> in <b>{6}</b></r>.
- </body>
+<body>
+<h2>HoDoKu {0}</h2>
+<p>
+{8}
+<p>
+All the <c>possible positions</c> of the value <b>{1}</b>
+in {4} <b1>base {2}s</b1>
+are in the same {4} <b2>cover {3}s</b2>;
+except <b1>{5}</b1> which {9} extra <b1>fins {7}</b1>,
+but each elimination sees all of the fins.
+<p>
+Hence if any of the fins were {1} then {6} still could not be {1}, and {1} must
+either be in the fish or in one of the fins, so either way we can remove {1}
+from <b2>covers</b2> except <b1>bases</b1> that see all of the <b1>fins</b1>.
+<p>
+Therefore <r>we can remove <b>{6}</b></r>.
+<p>
+<u>Explanation</u>
+<p>
+Finned fish increase the utility of the Fish concept by expanding the number of
+hints produced, at the cost of limited eliminations. A prima facea look at fins
+says it breaks the core Fish covenant: <i>N</i> bases have <u>only</u> <i>N</i>
+places for value, hence the value is "locked into" these bases, but adding the
+restriction that each elimination sees all of the fins props-up the whole deal,
+so it's logically valid, it's just a bit slow Redge.
+<p>
+Note that BasicFisherman is S__TLOADS faster than ComplexFisherman coz it's much
+simpler. A genius would work-out how to find finned fish efficiently. I'm just a
+stupid programmer. This is the best I can do: A bit s__t; and it only gets worse
+from here, in terms of complexity, if not time.
+</body>
 </html>

@@ -108,9 +108,9 @@ class NonHinters {
 		this.hashCode = hc;
 		this.totalMaybes = mb;
 		if ( firstPass ) {
-			// do store.get 50 times to JIT compile it then don't bother, coz
-			// they're all gonna return false anyway coz it's the first pass!
-			if ( ++cnt < 51 )
+			// do store.get 100 times to JIT compile it then don't bother, coz
+			// they're all gonna return false anyway coz it's the first pass.
+			if ( ++cnt < 101 )
 				return store.get(hc) == mb; // ie stored mb == current mb
 			return false;
 		}

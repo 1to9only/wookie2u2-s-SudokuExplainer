@@ -36,12 +36,12 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import java.util.List;
+
 
 /**
  * Skycraper implements the Skyscraper Sudoku solving technique.
@@ -114,7 +114,6 @@ public class TwoStringKite extends AHinter {
 					//     anything be deleted?
 					// take the row of the colPair and
 					//      the col of the rowPair to get there intersection
-//					Cell cross = grid.matrix[colPair[1].y][rowPair[1].x];
 					Cell cross = grid.cells[colPair[1].y*9 + rowPair[1].x];
 					if ( (cross.maybes.bits & sv) == 0 )
 						continue;

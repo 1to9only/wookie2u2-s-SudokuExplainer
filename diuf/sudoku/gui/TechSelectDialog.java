@@ -129,7 +129,6 @@ class TechSelectDialog extends JDialog {
 				case NakedQuad:
 				case NakedPent:
 				case URT:
-				case BUG:
 				case UnaryChain:
 				case NestedUnary:
 				case AlignedPair:		// ~~ hacked checkbox to my right

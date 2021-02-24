@@ -245,7 +245,7 @@ public final class LogicalSolverTester {
 					// just run solve coz calling process buggers-up the count
 					Grid g = new Grid(readALine(inputFile, 1).contents);
 					solver.prepare(g);
-					solver.solve(g, new UsageMap(), true, false, false);
+					solver.solve(g, new UsageMap(), true, true, false);
 				}
 
 				// now the actual run

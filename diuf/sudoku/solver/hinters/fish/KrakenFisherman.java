@@ -44,13 +44,13 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.hinters.LinkedMatrixAssSet;
 import diuf.sudoku.utils.IntHashSet;
-import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
 
 /**
  * KrakenFisherman is the second version of KrakenFisherman. It runs in about
@@ -64,21 +64,9 @@ import java.util.Map;
  * @author Keith Corlett 2020-10-11
  */
 public class KrakenFisherman extends AHinter
-//		implements diuf.sudoku.solver.IReporter
 		implements diuf.sudoku.solver.IPreparer
+//				 , diuf.sudoku.solver.IReporter
 {
-
-	/** switch on/off logging in findHints. */
-	public static boolean FIND_HINTS_IS_NOISY = false;
-
-	// Fish Settings
-
-	// maximum number of fins (extra candidates in bases)
-	private static final int MAX_FINS = 5; // kraken was 2; complex is 5
-
-	// maximum number of endo-fins (candidates in two overlapping bases)
-	private static final int MAX_ENDO_FINS = 0; // buggers up Krakens
-
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ getRegionTypesMask ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	// an array of the type of each of the 27 regions to look-up
@@ -110,11 +98,6 @@ public class KrakenFisherman extends AHinter
 				mask |= REGION_TYPE_MASK[REGION_TYPE[i]];
 		return mask;
 	}
-
-	// the circular buffer used in both kt1Search and kt2Search.
-	private static final int QSIZE = 32;
-	private static final int QMASK = QSIZE - 1;
-	private static final Eff[] queue = new Eff[QSIZE]; // Pronounce Properly!
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~ krakenTables ---~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -203,27 +186,35 @@ public class KrakenFisherman extends AHinter
 	/** the recursion stack for the cover region search. */
 	private final CoverStackEntry[] coverStack = new CoverStackEntry[9];
 
-	/** the Fish candidate value, colloquially known as just 'v', for short. */
+	/** the Fish candidate value, colloquially known as 'v'. */
 	private int candidate;
-	/** grid.cells indices of cells which maybe the Fish candidate value. */
-	private Idx candidates;
-	/** Idx of the endo-fins, used as param to grid.cmnBuds. */
-	private final Idx endoFins = new Idx();
+//	/** indices of cells which maybe the Fish candidate value, v. */
+//	private Idx vs;
+//	/** Idx of the endo-fins, used as param to grid.cmnBuds. */
+//	private final Idx endoFins = new Idx();
 	/** buds: used a result of grid.cmnBuds. */
 	private final Idx buds = new Idx();
 	/** deletes (potential eliminations) in the current covers search;
-	 * read back by createHint. */
+	 * read back by createHint. Mask fields used for search speed. */
+	private int deletesM0,deletesM1,deletesM2;
+	/** deletes (potential eliminations) in the current covers search;
+	 * read back by createHint. The Idx used only to createHint. */
 	private final Idx deletes = new Idx();
 	/** fins (both exo and endo) in the current covers search;
 	 * read back by createHint. */
 	private final Idx fins = new Idx();
 	/** sharks (cannibalistic) in the current covers search;
-	 * read back by createHint. */
+	 * read back by createHint. The masks used for search speed. */
+	private int sharksM0,sharksM1,sharksM2;
+	/** sharks (cannibalistic) in the current covers search;
+	 * read back by createHint. The idx used only to createHint. */
 	private final Idx sharks = new Idx();
-	/** maximum number of fins (extra cells which maybe v in a base). */
-	private final int maxFins; // = Math.min(degree + 1, MAX_FINS)
 	/** The KrakenTables are shared by all three KrakenFisherman's. */
 	final KrakenTables tables;
+	/** The max number of endo-fins (v's in more than one base). */
+	private final int maxEndoFins;
+	/** The max number of fins (extra v's in bases). */
+	private final int maxFins;
 
 	// ~~~~~~~~~~~~~~~~~~~~~~ specify which Fish we seek ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -236,7 +227,7 @@ public class KrakenFisherman extends AHinter
 	private IAccumulator accu;
 	/** Equals accu.isSingle() meaning the IAccumulator wants just 1 hint,
 	 * so I exit-early only when wantOneHint is true. */
-	private boolean wantOneHint;
+	private boolean oneOnly;
 
 	/**
 	 * The Constructor.
@@ -245,12 +236,17 @@ public class KrakenFisherman extends AHinter
 	 */
 	public KrakenFisherman(Tech tech) {
 		super(tech);
-		KT1_VISITOR.tables = this.tables = krakenTables();
+		KT1_VISITOR.tables = tables = krakenTables();
 		// Kraken only
 		assert tech.nom.startsWith("Kraken");
 		// 2=Swampfish, 3=Swordfish, 4=Jellyfish
 		assert degree>=2 && degree<=4;
-		maxFins = Math.min(degree + 2, MAX_FINS); // currently 5
+		// maximum number of endo-fins (candidates in more than one base).
+		// maxEndoFins must be less than or equal to maxFins.
+		this.maxEndoFins = degree==2 ? 2 : degree - 1;
+		// maximum number of fins (extra candidates in bases) and endo-fins.
+		// maxFins must be greater than or equal to maxEndoFins.
+		this.maxFins = degree==2 ? 3 : degree;
 		// initialise the two recursion-stacks
 		for ( int i=0; i<baseStack.length; ++i )
 			baseStack[i] = new BaseStackEntry();
@@ -267,6 +263,15 @@ public class KrakenFisherman extends AHinter
 		tables.myPuzzleID = -1L;
 	}
 
+//	@Override
+//	public void report() {
+//		Log.teef("\n%s: kf1=%,d kf2=%,d\n", tech.name(), kf1, kf2);
+//	}
+//	private long kf1, kf2;
+//KrakenSwampfish: kf1=0 kf2= 1,847,645
+//KrakenSwordfish: kf1=0 kf2= 5,547,703
+//KrakenJellyfish: kf1=0 kf2=11,126,155
+
 	/**
 	 * foreach candidate 1..9 {@link #searchBases(boolean)} for Fish.
 	 * Search rows first, then cols.
@@ -279,11 +284,10 @@ public class KrakenFisherman extends AHinter
 		if ( accu.size() > 0 )
 			return true;
 		// find new hints
-		final long start = System.nanoTime();
 		this.grid = grid;
 		this.idxs = grid.getIdxs();
 		this.accu = accu;
-		this.wantOneHint = accu.isSingle();
+		this.oneOnly = accu.isSingle();
 		int pre = accu.size();
 
 		try {
@@ -293,26 +297,24 @@ public class KrakenFisherman extends AHinter
 			// and Jellyfish(4) else we produce invalid hints, I know not why
 			// exactly (@stretch). This slower but works.
 			if ( tables.initialise(grid, false) ) // @check false
-				kt2Cache.clear();
-			if ( wantOneHint ) { // short-circuit
-				// v is a field! v is short for the Fish candidate value
+				KT2_CACHE.clear();
+			if ( oneOnly ) { // short-circuit
 				for ( candidate=1; candidate<10; ++candidate ) {
-					candidates = idxs[candidate];
+//					// v is short for the Fish candidate value
+//					vs = idxs[candidate];
 					// find fish in rows, else find fish in cols
 					if ( searchBases(ROW) || searchBases(COL) )
 						break;
 				}
 			} else { // no short-circuit
-				// v is a field! v is short for the Fish candidate value
 				for ( candidate=1; candidate<10; ++candidate ) {
-					candidates = idxs[candidate];
+//					// v is short for the Fish candidate value
+//					vs = idxs[candidate];
 					// always find fish in rows and cols
 					if ( searchBases(ROW) | searchBases(COL) )
 						break;
 				}
 			}
-			if ( FIND_HINTS_IS_NOISY )
-				Log.format(tech.nom+" in %,d ns\n", System.nanoTime()-start);
 		} finally {
 			this.grid = null;
 			this.idxs = null;
@@ -353,32 +355,39 @@ public class KrakenFisherman extends AHinter
 			// fallback a baseLevel if no unit is available at this baseLevel
 			while ( (cB=baseStack[baseLevel]).index >= numBases ) {
 				// fallback one level at a time to maintain basesUsed
-				if ( cB.prevIndex != -1 ) {
+				if ( cB.prevIndex > -1 ) {
 					basesUsed[cB.prevIndex] = false;
 					cB.prevIndex = -1;
 				}
 				if ( --baseLevel < 1 ) // ie <= 0 (level 0 is just a stopper!)
 					return searchBasesResult; // we've tried all combos!
 			}
-			// unuse the-previous-base-at-this-level
-			// hijack baseIndex coz I don't really need another variable
-			if ( (baseIndex=cB.prevIndex) != -1 )
-				basesUsed[baseIndex] = false;
-			// get the previous levels BaseStackEntry, containing the existing
-			// candidates and endoFins sets (the union of ALL bases so-far).
+			// get BaseStackEntry at the previous level, contains the existing
+			// candidates and endoFins (the union of ALL bases so-far).
+			// NOTE that cB is already set in the above while loop!
 			pB = baseStack[baseLevel - 1];
 			// get the next base (must exist or we would have fallen back)
+			// and post-increment the cB.index, for next time
 			b = cB.index++;
+			// unuse the-previous-base-at-this-level
+			if ( cB.prevIndex > -1 )
+				basesUsed[cB.prevIndex] = false;
 			// use bases[b] at-this-level
 			baseIndex = cB.prevIndex = bases[b]; // remember prev to unuse
 			basesUsed[baseIndex] = true;
 
-			// current vs = previous vs + vs in this base (v is candidate value)
-			cB.vsM0 = pB.vsM0 | baseVsM0[b];
-			cB.vsM1 = pB.vsM1 | baseVsM1[b];
-			cB.vsM2 = pB.vsM2 | baseVsM2[b];
+			// current vs = previous vs | vs in this base
+			// NB: v is the Fish candidate value
+			// NB: vsM* exist to not deref cB.vsM* repeatedly in searchCovers
+			vsM0 = cB.vsM0 = pB.vsM0 | baseVsM0[b];
+			vsM1 = cB.vsM1 = pB.vsM1 | baseVsM1[b];
+			vsM2 = cB.vsM2 = pB.vsM2 | baseVsM2[b];
 
-			// my endos = candidates in the existing bases AND in this base
+			// presume everything is ok. doSearch exists because the continue
+			// statement is slow: working around it can improves performance by
+			// a factor of 10!
+			doSearch = true;
+			// my endos: v's in existing bases AND in this base
 			efM0 = pB.vsM0 & baseVsM0[b];
 			efM1 = pB.vsM1 & baseVsM1[b];
 			efM2 = pB.vsM2 & baseVsM2[b];
@@ -388,38 +397,31 @@ public class KrakenFisherman extends AHinter
 			} else {
 				// add existing endos to my endos (to size them all)
 				efM0|=pB.efM0; efM1|=pB.efM1; efM2|=pB.efM2;
-				if ( Idx.sizeLTE(efM0,efM1,efM2, MAX_ENDO_FINS) ) {
+				if ( Integer.bitCount(efM0)+Integer.bitCount(efM1)+Integer.bitCount(efM2) <= maxEndoFins ) {
 					// current endos = existing + my endos
 					cB.efM0=efM0; cB.efM1=efM1; cB.efM2=efM2;
 				} else {
-					continue; // MAX_ENDO_FINS exceeded
+					doSearch = false; // MAX_ENDO_FINS exceeded
 				}
 			}
-			// if any current-endos check not-too-many && any buds-in-common
-			// (pays-off because one whole searchCovers may be skipped)
-			if ( (cB.efM0|cB.efM1|cB.efM2) == 0 ) {
-				doSearch = true; // there's no endos to check, so it passed.
-			} else if ( Idx.sizeLTE(cB.efM0,cB.efM1,cB.efM2, maxFins) ) {
-				// buds = cells which see all the endo-fins
-				Grid.cmnBuds(endoFins.set(cB.efM0,cB.efM1,cB.efM2), buds);
-				// doSearch = does any candidate see all the endo-fins?
-				doSearch = ( (buds.a0 & candidates.a0)
-						   | (buds.a1 & candidates.a1)
-						   | (buds.a2 & candidates.a2) ) != 0;
-			} else { // more than 5 endos, so don't search these bases
-				doSearch = false;
-			}
-			// if we've got degree bases now then search the covers
-			if ( baseLevel==degree && doSearch && searchCovers(cB) ) {
-				searchBasesResult = true;
-				if ( wantOneHint )
-					return true;
-			}
-			// and on to the next level
-			if ( baseLevel < degree ) {
-				cB = baseStack[++baseLevel];
-				cB.index = b + 1;
-				cB.prevIndex = -1;
+			if ( doSearch ) {
+				if ( baseLevel < degree ) {
+					// move onto the next level
+					cB = baseStack[++baseLevel];
+					cB.index = b + 1;
+					cB.prevIndex = -1;
+				} else {
+					// we've got degree bases now
+					assert baseLevel == degree;
+					// set efM* to cB.efM* to not repeatedly dereference cB
+					efM0=cB.efM0; efM1=cB.efM1; efM2=cB.efM2;
+					// so search the covers
+					if ( searchCovers() ) {
+						searchBasesResult = true;
+						if ( oneOnly )
+							return true;
+					}
+				}
 			}
 		} // for ever
 	}
@@ -431,6 +433,9 @@ public class KrakenFisherman extends AHinter
 	private int baseIndex; // index in grid.regions of current base (bases[b])
 	// endo-fins: fish candidate in the-existing-bases AND the-new-base
 	private int efM0, efM1, efM2;
+	// vs: equals current base v's (cB.vsM*). These variables exist just to not
+	// need to dereference the cB struct repeatedly in the searchCovers method.
+	private int vsM0, vsM1, vsM2;
 	// baseLevel is our depth in the baseStack, ie number of bases in baseSet.
 	private int baseLevel;
 	// doSearch: should searchBases call searchCovers?
@@ -442,57 +447,55 @@ public class KrakenFisherman extends AHinter
 //private static final boolean[] DEBUG_COVERS = Regions.parseUsed("box 3, col A, col C");
 
 	/**
-	 * Search each combo of eligible covers for the current baseSet (bC).
-	 * "Eligible" means the cover is not already a base, and has atleast one
-	 * candidate in common with the current baseSet.
+	 * Search each combination of covers that fits the current bases (cB).
+	 * "Fits" means the cover is not already a base, and has at least one
+	 * candidate in common with the current bases.
 	 *
-	 * @param cB the current BaseStackEntry contains the candidates (vs's)
-	 *  and endo-fins (ef's) of ALL our $degree bases (the current baseSet).
 	 * @return were any hint/s found?
 	 */
-	private boolean searchCovers(BaseStackEntry cB) {
+	private boolean searchCovers() {
 
 		// presume that no hints will be found
 		searchCoversResult = false;
 
-		// get eligible covers from allCovers; done here because eligibility
-		// depends on which bases are used.
+		// get eligible allCovers; done here coz covers must fit current bases.
 		numCovers = 0;
 		for ( int i=0; i<numAllCovers; ++i ) {
-			// skip if this cover is a base already
-			if ( basesUsed[allCovers[i]] )
-				continue;
-			// skip if this cover has no candidates in common with the baseSet
-			if ( (cB.vsM0 & allCoverVsM0[i]) == 0
-			  && (cB.vsM1 & allCoverVsM1[i]) == 0
-			  && (cB.vsM2 & allCoverVsM2[i]) == 0 )
-				continue;
-			covers[numCovers] = allCovers[i];
-			coverVsM0[numCovers] = allCoverVsM0[i];
-			coverVsM1[numCovers] = allCoverVsM1[i];
-			coverVsM2[numCovers++] = allCoverVsM2[i];
+			// if this cover is NOT a base already
+			if ( !basesUsed[allCovers[i]]
+			  // and this cover has candidates in common with the current bases
+			  && ( (vsM0 & allCoverVsM0[i]) != 0
+			    || (vsM1 & allCoverVsM1[i]) != 0
+			    || (vsM2 & allCoverVsM2[i]) != 0 )
+			) {
+				covers[numCovers] = allCovers[i];
+				coverVsM0[numCovers] = allCoverVsM0[i];
+				coverVsM1[numCovers] = allCoverVsM1[i];
+				coverVsM2[numCovers++] = allCoverVsM2[i];
+			}
 		}
 		// need atleast degree covers to form a Fish.
 		if ( numCovers < degree )
 			return false; // this'll only happen rarely.
 		// partial-calculation of the maximum cover index.
-		ground = numCovers - degree;
+		ground = numCovers - degree - 1;
 
 		// try each combo of covers
 		Arrays.fill(coversUsed, false);
 		// coverLevel: the current depth in the coverStack
 		coverLevel = 1; // start at level 1 (0 is just a stopper)
-		// initialise previous CoverStackEntry
+		// initialise previous cover
 		pC = coverStack[0];
-		pC.vsM0=pC.vsM1=pC.vsM2 = pC.skM0=pC.skM1=pC.skM2 = 0; // empty the prevCover candidates and sharks
-		// initialise current CoverStackEntry
+		// empty the previous cover candidates and sharks
+		pC.vsM0=pC.vsM1=pC.vsM2 = pC.skM0=pC.skM1=pC.skM2 = 0;
+		// initialise the current cover
 		cC = coverStack[1];
 		cC.index = 0;
 		cC.prevIndex = -1;
-		// foreach each distinct combo of covers
+		// foreach each possible combination of covers
 		for (;;) {
 			// fallback level/s if there's no more covers in allCovers
-			while ( (cC=coverStack[coverLevel]).index >= (ground + coverLevel) ) {
+			while ( (cC=coverStack[coverLevel]).index > (ground + coverLevel) ) {
 				// unuse the previous cover
 				if ( cC.prevIndex != -1 ) {
 					coversUsed[cC.prevIndex] = false;
@@ -502,20 +505,17 @@ public class KrakenFisherman extends AHinter
 				if ( --coverLevel < 1 )
 					return searchCoversResult; // all covers have been searched
 			}
-			// cP "cover Previous" is the previous coverStack entry
+			// set the previous Cover (the combination of all existing covers)
+			// nb: cC (current Cover) is already set in above while loop
 			pC = coverStack[coverLevel - 1];
-			// unuse the previous cover
-			// hijack coverIndex coz we don't really need another variable
-			if ( (coverIndex=cC.prevIndex) != -1 )
-				coversUsed[coverIndex] = false;
 			// get next cover set (must exist or we would have fallen back)
 			c = cC.index++;
+			// unuse the previous cover
+			if ( cC.prevIndex != -1 )
+				coversUsed[cC.prevIndex] = false;
 			// use covers[c] as the current cover
 			coverIndex = cC.prevIndex = covers[c]; // remember prev to unuse
 			coversUsed[coverIndex] = true;
-
-//if ( "row 4, row 5 and col G, col H".equals(Frmt.basesAndCovers(basesUsed, coversUsed)) )
-//	Debug.breakpoint();
 
 			// sharks: if the new cover has candidates common with the existing
 			// covers then those candidates become possible eliminations, which
@@ -529,49 +529,46 @@ public class KrakenFisherman extends AHinter
 			cC.vsM1 = pC.vsM1 | coverVsM1[c];
 			cC.vsM2 = pC.vsM2 | coverVsM2[c];
 
-			// seek Fish if we're at the right coverLevel.
-			if ( coverLevel == degree ) {
-				// fins = current endo-fins + candidates in bases except covers
-				finsM0 = cB.efM0 | (cB.vsM0 & ~cC.vsM0);
-				finsM1 = cB.efM1 | (cB.vsM1 & ~cC.vsM1);
-				finsM2 = cB.efM2 | (cB.vsM2 & ~cC.vsM2);
-				// complex fish needs fins, but not too many of them
-				if ( (finsM0|finsM1|finsM2) != 0
-				  && Idx.sizeLTE(finsM0,finsM1,finsM2, maxFins)
-				  // finBuds: cells which see (same box/row/col) all fins
-				  // if any finBuds then we try to eliminate
-				  && Grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
-				) {
-					// nb: fins are already set in the above if statement
-
-					// candidate is deletable if in covers andNot bases;
-					// or belongs to more than one cover set (endo-fins).
-					// deletes=((covers & ~bases) or endos) seeing all fins
-					deletes.set(((cC.vsM0 & ~cB.vsM0) | cB.efM0) & buds.a0
-							  , ((cC.vsM1 & ~cB.vsM1) | cB.efM1) & buds.a1
-							  , ((cC.vsM2 & ~cB.vsM2) | cB.efM2) & buds.a2);
-					// sharks = current sharks which see all fins
-					sharks.set(cC.skM0 & buds.a0
-							 , cC.skM1 & buds.a1
-							 , cC.skM2 & buds.a2);
-					// Go Phil... hmm...
-//if ( AHint.hintNumber==10 && degree==3
-//  && Arrays.equals(basesUsed, DEBUG_BASES) // row 1, row 3, row 6
-//  && Arrays.equals(coversUsed, DEBUG_COVERS) ) { // box 3, col A, col C
-//	Debug.breakpoint();
-//}
-					if ( searchForKraken() ) {
-						searchCoversResult = true;
-						if ( wantOneHint )
-							return searchCoversResult;
-					}
-				}
-			} // fi level == degree
-			// move onto the next level
-			if (coverLevel < degree) {
+			// if we're still collecting covers then
+			if ( coverLevel < degree ) {
+				// move onto the next level
 				cC = coverStack[++coverLevel];
 				cC.index = c + 1;
 				cC.prevIndex = -1;
+			} else {
+				// we have degree covers, so now we seek a Fish
+				// my-fins = current endo-fins | (v's in bases but not covers)
+				finsM0 = efM0 | (vsM0 & ~cC.vsM0);
+				finsM1 = efM1 | (vsM1 & ~cC.vsM1);
+				finsM2 = efM2 | (vsM2 & ~cC.vsM2);
+				// complex fish needs fins
+				if ( (finsM0|finsM1|finsM2) != 0
+				  // but not too many of them
+				  && Integer.bitCount(finsM0)+Integer.bitCount(finsM1)+Integer.bitCount(finsM2) <= maxFins
+				  // which need some common buddy/s
+				  // nb: Do NOT restrict this to v (the Fish candidate value)
+				  // because Kraken Type 2 eliminates all values, so we just
+				  // need common buddy/s of ANY value, including set cells!
+				  && grid.cmnBuds(fins.set(finsM0,finsM1,finsM2), buds).any()
+				) {
+					// candidate is deletable if in covers but not bases;
+					// or belongs to more than one base set (an endo-fin).
+					// deletes=((covers & ~bases) or endos) seeing all fins
+					deletesM0 = ((cC.vsM0 & ~vsM0) | efM0) & buds.a0;
+					deletesM1 = ((cC.vsM1 & ~vsM1) | efM1) & buds.a1;
+					deletesM2 = ((cC.vsM2 & ~vsM2) | efM2) & buds.a2;
+					// sharks = current sharks which see all fins
+					sharksM0 = cC.skM0 & buds.a0;
+					sharksM1 = cC.skM1 & buds.a1;
+					sharksM2 = cC.skM2 & buds.a2;
+					// nb: fins are already set in the above if statement
+					// look for Kraken Type 1 and Kraken Type 2 in this Fish.
+					if ( searchForKraken() ) {
+						searchCoversResult = true;
+						if ( oneOnly )
+							return searchCoversResult;
+					}
+				}
 			}
 		} // for ever
 	}
@@ -595,7 +592,8 @@ public class KrakenFisherman extends AHinter
 	// ========================== SEEK PHIL McKRAKEN ==========================
 
 	/**
-	 * Search the current base/cover set combo for Kraken Fish.
+	 * Search the current bases and covers for Kraken Fish type 1 and 2.
+	 * <p>
 	 * The following fields are used:<ul>
 	 * <li>cB: the current baseSet
 	 * <li>cC: the current coverSet
@@ -606,33 +604,35 @@ public class KrakenFisherman extends AHinter
 	 * </ul>
 	 *
 	 * @return where any found. Note that if accu isSingle then only one hint
-	 *  is found; but if accu is multiple then it could contain multiple; so
-	 *  you had best apply them all BEFORE you call me again, because Im slow!
+	 *  is found; but if accu is multiple then you'd best apply them all BEFORE
+	 *  you call me again, because I'm too bloody slow, even with caching!
 	 */
 	private boolean searchForKraken() {
 		ComplexFishHint base; // the causal or "base" hint
 		KrakenFishHint kraken; // Kraken "wraps" base hint, to add elims
-		int kDelM0,kDelM1,kDelM2;
 		int ci, v2; // coversIndex, value2
+		boolean ok;
 		// presume Phil will not find any McKrakens;
 		boolean result = false;
 		try {
-			// Type 1: We have something to delete so see if each covers except
-			// bases (deletables) can be linked to every fin; one at a time.
-			// nb: deletes holds all potential eliminations, including sharks
-			// SKIP type 1 search in Generator coz KrakenTables full of nulls!
-			if ( deletes.any() && Run.type!=Run.Type.Generator ) {
-				// WARN: 2020-11-25 top1465 Kraken Swampfish no do KF1 search,
-				// ie deletes are ALWAYS empty, makes this slow to test.
-				kDeletes.set(deletes);
-				final boolean anySharks = kSharks.setAny(sharks);
+			// Kraken Type 1: if each deletes (cover and not base) can be
+			// linked to every fin with a forcing-chain then it's a KF1
+			// nb: in KF1 slow continue; is acceptable coz they're rare.
+			// nb: deletes is all potential eliminations, including sharks
+			// nb: SKIP type 1 search in Generator coz tables full of nulls,
+			//     coz caches can't handle maybes being added back in.
+			// WARN: 2020-11-25 top1465 does no KF1 search, deletes are ALWAYS
+			// empty, which makes this code impossible to test!
+			// if there's anything to be deleted then
+			if ( (deletesM0|deletesM1|deletesM2)!=0 && Run.type!=Run.Type.Generator ) {
+//++kf1;
+				final boolean anySharks = kSharks.setAny(sharksM0,sharksM1,sharksM2);
 				sharks.clear();
 				final boolean anyFins = fins.any();
-				final Ass[] asses = this.kt1Asses;
 				KT1_VISITOR.candidate = candidate;
-				for ( int kd : kDeletes.toArrayA() ) {
+				for ( int kd : Idx.toArrayA(deletesM0,deletesM1,deletesM2) ) {
 					// It's a KF1 if each fin chains to cells[kd]-v.
-					if ( anyFins && !isKrakenTypeOne(kd, asses) )
+					if ( anyFins && !isKrakenTypeOne(kd, kt1Asses) )
 						continue;
 					if ( anySharks ) {
 						if ( kSharks.contains(kd) )
@@ -650,22 +650,23 @@ public class KrakenFisherman extends AHinter
 					Values valsToRemove = new Values();
 					Pots reds = new Pots();
 					List<Ass> chains = new LinkedList<>();
-					fins.forEach1((fin) -> {
-						Ass a = asses[fin];
+					fins.forEach((fin) -> {
+						Ass a = kt1Asses[fin];
 						valsToRemove.add(a.value);
 						reds.put(a.cell, new Values(a.value));
 						chains.add(a);
 					});
 					kraken = new KrakenFishHint(this, reds, base, valsToRemove
 							, KrakenFishHint.Type.ONE, chains, new Idx(fins));
-//if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
-//	// swampfish are fine, it's swordfish an up that I'm having trouble with.
-//	if ( degree>2 && !HintValidator.isValid(grid, kraken.redPots) ) {
-//		kraken.isInvalid = true;
-//		HintValidator.report("KF1", grid, kraken.squeeze());
-//		continue; // Sigh.
-//	}
-//}
+					if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+						if ( !HintValidator.isValid(grid, kraken.redPots) ) {
+							kraken.isInvalid = true;
+							HintValidator.report("KF1", grid, kraken.toFullString());
+							// see in GUI, skip in batch/testcase
+							if ( Run.type != Run.Type.GUI )
+								continue;
+						}
+					}
 					result = true;
 					if ( accu.add(kraken) ) // exit-early if accu says so
 						return true;
@@ -673,79 +674,92 @@ public class KrakenFisherman extends AHinter
 				}
 			}
 
-			// Type 2: For each cover: find a chain from each candidate in the
-			// current bases and this cover, and all the fins; to as yet unkown
-			// elimination/s. Check only if this cover doesnt contain only base
-			// candidates, because no chain is needed for a shark.
-			sharks.clear();
+			// Kraken Type 2: For each cover, find a chain from each candidate
+			// in the current bases and this cover, and all the fins; to as yet
+			// unkown elimination/s. Check only if this cover doesn't contain
+			// only base candidates, because no chain is needed for a shark.
+//<HAMMERED comment="No continue, no labels, no create var, no terniaries, no method calls.">
+//++kf2;
 			for ( ci=0; ci<numCovers; ++ci ) { // coverIndex
-				if ( !coversUsed[covers[ci]] )
-					continue;
-				// kDeletes: v's in this cover & current bases, except sharks
-				kDelM0 = coverVsM0[ci] & cB.vsM0 & ~kSharks.a0;
-				kDelM1 = coverVsM1[ci] & cB.vsM1 & ~kSharks.a1;
-				kDelM2 = coverVsM2[ci] & cB.vsM2 & ~kSharks.a2;
-				if ( coverVsM0[ci] == kDelM0
-				  && coverVsM1[ci] == kDelM1
-				  && coverVsM2[ci] == kDelM2 )
-					continue; // would be a normal Forcing Chain -> skip it
-				// now add the fins and check all candidates
-				kDeletes.set(kDelM0,kDelM1,kDelM2).or(fins);
-				V2: for ( v2=1; v2<10; ++v2 ) { // endCandidate
-					// It's a KT2 if a chain exists from ALL kDeletes+candidate
-					// to any common elimination/s of v2.
-					// NOTE WELL: isKrakenTypeTwo sets kFins and kt2sets
-					if ( !isKrakenTypeTwo(v2) )
-						continue;
-					// Kraken Found!!!! create hint and add to accu
-					// create the base hint
-					deletes.clear(); // with no eliminations
-					if ( (base = createBaseHint()) == null )
-						continue; // should never happen
-					// build the eliminations (reds) and the chains
-					final Pots reds = new Pots();
-					final int fv2 = v2; // for lambda. sigh.
-					final List<Ass> chains = new LinkedList<>();
-					kFins.forEach(grid.cells, (c) -> {
-						reds.put(c, new Values(fv2));
-						// kt2sets is populated by isKrakenTypeTwo
-						kDeletes.forEach1((kd) ->
-								chains.add(kt2sets[kd].getAss(c, fv2)));
-					});
-					Values valsToRemove = new Values(v2);
-					// build the actual hint, which "wraps" the base hint.
-					kraken = new KrakenFishHint(this, reds, base, valsToRemove
-							, KrakenFishHint.Type.TWO, chains, new Idx(kFins));
+				if ( coversUsed[covers[ci]] ) {
+					// kDels: v's in this cover & current bases, except sharks
+					kDelM0 = coverVsM0[ci] & cB.vsM0 & ~kSharks.a0;
+					kDelM1 = coverVsM1[ci] & cB.vsM1 & ~kSharks.a1;
+					kDelM2 = coverVsM2[ci] & cB.vsM2 & ~kSharks.a2;
+					if ( coverVsM0[ci] != kDelM0
+					  || coverVsM1[ci] != kDelM1
+					  || coverVsM2[ci] != kDelM2 ) {
+						// add the fins
+						kDelM0 |= fins.a0;
+						kDelM1 |= fins.a1;
+						kDelM2 |= fins.a2;
+						// check each candidate
+						for ( v2=1; v2<10; ++v2 ) {
+							// It's a KT2 if a chain exists from ALL kd+v's
+							// to any common elimination/s of v2.
+							// NOTE: isKrakenTypeTwo sets kFins and kt2sets
+							if ( isKrakenTypeTwo(v2) ) {
+//</HAMMERED>
+								// FOUND a Kraken!
+								// create the base hint
+								deletes.clear(); // with no eliminations
+								sharks.clear(); // and no sharks
+								// nb: null base never happen. Never say never.
+								if ( (base=createBaseHint()) != null ) {
+									// kDeletes array to multiply iterate
+									int[] kda = Idx.toArrayA(kDelM0,kDelM1,kDelM2);
+									// get eliminations (reds) and chains
+									final Pots reds = new Pots();
+									final int fv2 = v2; // for lambda. sigh.
+									final List<Ass> chains = new LinkedList<>();
+									kFins.forEach(grid.cells, (cell) -> {
+										reds.put(cell, new Values(fv2));
+										// kt2sets is populated by isKrakenTypeTwo
+										for ( int kd : kda )
+											chains.add(kt2sets[kd].getAss(cell, fv2));
+									});
+									// build the actual hint, which "wraps" the base hint.
+									kraken = new KrakenFishHint(this, reds, base, new Values(v2)
+											, KrakenFishHint.Type.TWO, chains, new Idx(kFins));
 
-					if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
-						// generator trips over invalid Kraken Swordfish+
-						if ( degree > 2 && !HintValidator.isValid(grid, kraken.redPots) ) {
-							kraken.isInvalid = true;
-							HintValidator.report("KF2", grid, kraken.squeeze());
-							continue; // Sigh.
+									ok = true;
+									if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+										// NB: generator hits invalid Kraken Swordfish+
+										if ( !HintValidator.isValid(grid, kraken.redPots) ) {
+											kraken.isInvalid = true;
+											HintValidator.report("KF2", grid, kraken.toFullString());
+											// see in GUI, skip in batch/testcase
+											if ( Run.type != Run.Type.GUI )
+												ok = false;
+										}
+									}
+
+									// clean-up for next time (a nasty GUI bug)
+									clearKt2sets();
+
+									if ( ok ) {
+										// add hint to the IAccumulator and pop if he says to
+										result = true;
+										if ( accu.add(kraken) ) // exit-early if accu says so
+											return true;
+									}
+								}
+							}
 						}
 					}
-
-					// clean-up for next time (was a nasty GUI only bug)
-					for ( int j=0,J=kt2sets.length; j<J; ++j )
-						this.kt2sets[j].clear();
-					// add hint to the IAccumulator and pop if he says to
-					result = true;
-					if ( accu.add(kraken) ) // exit-early if accu says so
-						return true;
 				}
 			}
 		} finally {
 			// finally clean-up in case anything threw an exception.
 			// Ass's contain cells, which holds the whole Grid in memory,
 			Arrays.fill(kt1Asses, null);
-			for ( int j=0,J=kt2sets.length; j<J; ++j )
-				this.kt2sets[j].clear();
+			clearKt2sets();
 		}
 		return result;
 	}
 	private final Idx kSharks = new Idx();
-	private final Idx kDeletes = new Idx();
+	private int kDelM0,kDelM1,kDelM2;
+//	private final Idx kDeletes = new Idx();
 	private final Idx kFins = new Idx();
 
 	// ============================ KRAKEN TYPE 1 =============================
@@ -783,7 +797,7 @@ public class KrakenFisherman extends AHinter
 	// the KrakenTables) of the given ON (tables.ons[fin][candidate]) for the
 	// target "$kd-$candidate" implication.
 	//
-	// I am in two minds about all this. I suspect it may be faster to just use
+	// I am in two minds about all  I suspect it may be faster to just use
 	// the kt2Search approach of finding ALL implications of each ON once, and
 	// then look up this target in the tree (ie cache WHOLE implication tree of
 	// each ON in an OFFs Idx, then test if the Idx contains "$kd-$candidate"),
@@ -837,12 +851,11 @@ public class KrakenFisherman extends AHinter
 		// write outruns read, until read catches up at the end. The buffer
 		// must be large enough so that write NEVER overtakes read. The only
 		// way to work that out is trial by fire.
-		Eff[] q = queue;
 		int r=0, w=0, i,n;
 		// calc the hashCode of the target "tIndice-tValue" Assumption ONCE.
 		final int targetHC = Ass.hashCode(tIndice%9, tIndice/9, tValue, false);
 		tables.clearSeens(); // set all Eff.seen = false in the KrakenTable
-		for ( p=initialOn; p!=null; p=q[r], q[r]=null, r=(r+1)&QMASK ) {
+		for ( p=initialOn; p!=null; p=Q[r], Q[r]=null, r=(r+1)&QMASK ) {
 			// mark this Eff as "we have seen this one" in the KrakenTable
 			p.seen = true;
 			// its faster to read a field than invoke hashCode()
@@ -850,7 +863,7 @@ public class KrakenFisherman extends AHinter
 				return p;
 			for ( i=0,n=p.numKids; i<n; ++i )
 				if ( !(k=p.kids[i]).seen ) {
-					q[w] = k;
+					Q[w] = k;
 					w = (w+1) & QMASK;
 				}
 		}
@@ -865,7 +878,7 @@ public class KrakenFisherman extends AHinter
 	 * <p>
 	 * Note that I'm static: shared among the 3 KrakenFisherman instances.
 	 */
-	private static final Map<Eff,Kt2CacheEntry> kt2Cache = new HashMap<>(1024, 1.0F);
+	private static final Map<Eff,Kt2CacheEntry> KT2_CACHE = new HashMap<>(1024, 1.0F);
 
 	/**
 	 * A LinkedMatrixAssSet for each cell in the grid.
@@ -875,6 +888,11 @@ public class KrakenFisherman extends AHinter
 		for ( int i=0; i<81; ++i )
 			// use LinkedMatrixAssSet for it's faster Add (despite high RAM)
 			kt2sets[i] = new LinkedMatrixAssSet();
+	}
+
+	private void clearKt2sets() {
+		for ( LinkedMatrixAssSet set : kt2sets )
+			set.clear();
 	}
 
 	/** Eliminations of the previous chain2 call: indexed by value 1 through 9.
@@ -887,221 +905,188 @@ public class KrakenFisherman extends AHinter
 	}
 
 	/**
-	 * It's a Kraken Fish Type 2 if setting ALL kDeletes cells to v causes
-	 * (through a simple XY-forcing-chain) a common elimination.
+	 * It's a Kraken Fish Type 2 if setting ALL the kDeletes to targetValue
+	 * causes, via a forcing-chain, any common elimination.
 	 * <p>
 	 * Post (when isKrakenTypeTwo returns true):<ul>
-	 * <li>field Idx[1..9] kt2elims is populated with elims of each value 1..9
-	 * <li>field Idx kFins contains indices cells with the common elimination;
+	 * <li>Idx[1..9] kt2elims field is populated with elims of each value 1..9
+	 * <li>Idx kFins field contains indices cells with the common elimination;
 	 *  an index of kt2sets.
-	 * <li>field kt2sets[indice] is populated with all the Ass's (forcing
-	 *  chains) required to link all kDelete cells to a common elimination
+	 * <li>LinkedMatrixAssSet kt2sets[indice] field is populated with all the
+	 *  Ass's (forcing chains) which link each kDelete cell to the common
+	 *  elimination/s.
 	 * </ul>
+	 * <p>
+	 * NOTE: isKrakenTypeTwo now implements ONLY a filter, because I can't work
+	 * out how to make it produce the requisite output; so it just filters ASAP
+	 * then calls kt2Produce which uses the "slow old" algorithm to produce the
+	 * requisite output.
 	 *
 	 * @param targetValue The candidate for which the search is made
 	 * @return true if a KF2 exists, false otherwise
 	 */
 	private boolean isKrakenTypeTwo(int targetValue) {
-		final Idx kFins = this.kFins;
-		final KrakenTables tables = this.tables;
-		final Idx[] elims = this.kt2elims;
-		// starting kFins is all instances of targetValue except the kDeletes
-		kFins.setAndNot(this.idxs[targetValue], this.kDeletes);
-		// store kDeletes in an array coz we'll probably iterate it twice.
-		final int[] kdArray = this.kDeletes.toArrayA();
-		int kd;
+		// starting kFins is all targetValue's except kDeletes
+		kfM0 = idxs[targetValue].a0 & ~kDelM0;
+		kfM1 = idxs[targetValue].a1 & ~kDelM1;
+		kfM2 = idxs[targetValue].a2 & ~kDelM2;
+		// store kDeletes in an array coz we iterate it twice upon failure,
+		// which of course means 99+% of the time. And all with no Idx, just
+		// nice fast int-masks and an array. MUCH FASTER!
+		kdArray = Idx.toArrayA(kDelM0,kDelM1,kDelM2);
 		// each kDelete needs a chain to some unknown common elimination.
-		for ( int i=0,n=kdArray.length; i<n; ++i ) {
+		// nb: i is used twice!
+		for ( i=0,n=kdArray.length; i<n; ++i ) {
 			kd = kdArray[i];
 			// retain only those kFins that share OFF/s with all previous kd's
-			// kt2Search: populates this.kt2sets[kd] with consequences of kd+v
-			//            and sets kt2elims to eliminations caused by kd+v
+			// kt2Search: populates kt2sets[kd] with consequences of kd+v
+			//        and sets kt2elims to eliminations caused by kd+v
 			kt2Search(tables.ons[kd][candidate], kd);
-			if ( kFins.and(elims[targetValue]).isEmpty() ) {
+			// kFins &= the eliminations of targetValue caused by kd+candidate
+			kfM0 &= kt2elims[targetValue].a0;
+			kfM1 &= kt2elims[targetValue].a1;
+			kfM2 &= kt2elims[targetValue].a2;
+			// if kFins is now empty then
+			if ( (kfM0|kfM1|kfM2) == 0 ) {
 				// clean-up for next time (the reason for kdArray)
-				for ( int j=0; j<=i; ++j )
-					this.kt2sets[kdArray[j]].clear();
+				for ( j=0; j<=i; ++j )
+					kt2sets[kdArray[j]].clear();
+				// and return failure
 				return false;
 			}
 		}
-		// Pointless doing this in Batch, which never reads the chains back.
-		if ( Run.type == Run.Type.GUI ) {
+		// FOUND a Kraken Type 2!
+		kFins.set(kfM0,kfM1,kfM2);
+		// Pointless in the batch (which never reads the chains back);
+		// but required in the GUI and the test-cases.
+		if ( Run.type != Run.Type.LogicalSolverTester ) {
 			// now we know we're producing a hint, populate kt2sets + kt2elims
-			// the old (slow) way, producing Ass's instead of looking-up Eff's
-			// in the KrakenTables (which have all possible parents).
-			for ( int i=0,n=kdArray.length; i<n; ++i ) {
+			// the "slow old" way, producing my own Ass's instead of looking-up
+			// Eff's in the KrakenTables (which have all possible parents).
+			for ( i=0,n=kdArray.length; i<n; ++i ) {
 				kd = kdArray[i];
+				// DO IT ALL AGAIN to populate kFins, kt2elims and kt2sets
 				kt2Produce(new Ass(grid.cells[kd], candidate, ON)
-						, this.kt2sets[kd], elims);
+						, kt2sets[kd], kt2elims);
 			}
 		}
 		return true;
 	}
+	// the kraken delete indice for isKrakenTypeTwo
+	private int kd;
+	// kraken fins for isKrakenTypeTwo
+	private int kfM0,kfM1,kfM2;
+	// store kDeletes in an array coz we iterate it twice upon failure,
+	// which of course means 99+% of the time.
+	private int[] kdArray;
+	private int i,n, j;
 
 	private static final class Kt2CacheEntry {
-		public final LinkedMatrixAssSet set;
-		public final Idx[] elims;
+		public final LinkedMatrixAssSet mySet;
+		public final Idx[] myElims;
 		// make a shallow copy of the given data-structures
 		private Kt2CacheEntry(LinkedMatrixAssSet theSet, Idx[] theElims) {
-			this.set = new LinkedMatrixAssSet(theSet);
-			this.elims = new Idx[10];
+			mySet = new LinkedMatrixAssSet(theSet);
+			myElims = new Idx[10];
 			for ( int v=1; v<10; ++v )
-				this.elims[v] = new Idx(theElims[v]);
+				myElims[v] = new Idx(theElims[v]);
 		}
 	}
 
 	/**
-	 * Kraken Type 2 Chaining: re-populates the given LinkedMatrixAssSet with
-	 * ALL of the XY forcing chain consequences (both OFFs and ONs) of the
-	 * initialOn assumption. Each chain starts from the target Ass/s, which
-	 * is/are-all OFF/s, and leads back-up to initialOn.
-	 * <p>
-	 * The output is we set theSet to the whole consequence tree of initialOn,
-	 * and also set theElims to the consequent OFFs (indices).
-	 * <p>
-	 * Note that "the whole consequence tree" includes the ONs which are NOT
-	 * required, but {@link LinkedMatrixAssSet#getAss} returns only the OFFs,
-	 * because we said so in it's constructor, so it works anyways.
-	 * <p>
-	 * Stack: {@link #searchForKraken} -> {@link isKrakenTypeTwo} -> kt2Search
-	 * all private in KrakenFisherman; so we can communicate via fields.
-	 * <p>
-	 * The profiler says we spend 59.9% of runtime in this method, so the
-	 * performance of this method is ____ing crucial!
-	 * <p>
-	 * I got that down to 51.3% of runtime, but that is as far as I know how.
-	 * Major improvement can only come from doing ALL the chaining prior to the
-	 * kt?Search methods which then just looks-up the results, ala hobiwan;
-	 * but I run-away from "packed" chain-table-arrays, but MUST consider it.
-	 * <p>
-	 * 2020-11-26 09:10 1466     522,219,907,500       (08:42)       356,220,946
-	 * 2020-11-26 09:17 20,058 ms (50.9%)
+	 * Kraken Type 2 Search: repopulates kt2sets with the XY forcing chain
+	 * consequences (both OFFs and ONs) of initialOn Ass. Each chain starts at
+	 * our target Ass/s (unknown at commencement), which are all OFF/s, and
+	 * leads BACK to the initialOn. kt2elims is repopulated with the indice of
+	 * every cell that's set OFF, by value, so that isKrakenTypeTwo can just
+	 * "fins &= kt2elims[targetValue]" to see if any fins remaining.
 	 *
 	 * @param initialOn the initial ON Eff(ect) (which is always an ON)
-	 * @param theSet is re-populated with all of the effects of initialOn
-	 * @param elims[] is re-populated with eliminations of each value
+	 * @param kd the kraken delete indice
 	 */
 	private void kt2Search(final Eff initialOn, int kd) {
-// I've decided to try caching results instead, which is effectively all that
-// hobiwan achieves by precalculating all possibilities, except that I do NOT
-// have to calculate ALL possibilities, just the ones we actually use. Note
-// that the each initialOn appears in multiple kDelete sets, so caching its
-// effects is VERY efficient; and caching them accross the three instances of
-// KrakenFisherman is more efficient again.
-//		// cache results! the cache is cleared when the puzzle has changed.
-//		// 2020-11-26 09:10 1465 522,219,907,500 (08:42) 356,220,946
-//		// 2020-11-26 13:01 1465 413,611,828,000 (06:53) 282,328,892 with cache
-//		// hit rate 512,170,554/512,744,474*100=99.89% very high!!!
-//		// 2020-11-26 14:10 1465 270,863,495,300 (04:30) 184,889,757 cache v2,
-//		// remove parameters and set the fields instead of copying contents.
-//		// 2020-11-26 15:40 1465 250,464,684,500 (04:10) 170,965,654 fixed bug
-//		// in caching which left Krakens (mostly) high-and-dry. Release time!
-//		// The cache breaks Kraken Swordfish, and presumably up. Why?
-//		// A: the kt2Cache was NOT static: each KF has it's own cache, so
-//		// initialising THE tables badly determined time-to-clear-cache.
-//		// Now both the tables AND cache are shared (static) its all good.
-		final Kt2CacheEntry entry = kt2Cache.get(initialOn);
+		entry = KT2_CACHE.get(initialOn);
 		if ( entry != null ) {
-//			if ( false ) { // DEBUG ONLY
-//				// re-run the search and validate results match those cached
-//				kt2SearchActual(initialOn, this.kt2sets[kd], kt2elims);
-//				assert this.kt2sets[kd].equals(entry.set);
-//				for ( int v=1; v<10; ++v )
-//					assert kt2elims[v].equals(entry.elims[v]);
-//			} else {
-				// just set the global fields
-				this.kt2sets[kd] = entry.set;
-				for ( int v=1; v<10; ++v )
-					kt2elims[v].set(entry.elims[v]);
-//			}
+			// set the field
+			kt2sets[kd] = entry.mySet;
+			// copy data, don't just set the array. sigh.
+			for ( v=1; v<10; ++v )
+				kt2elims[v].setNullSafe(entry.myElims[v]);
 			return;
 		}
-		kt2SearchActual(initialOn, this.kt2sets[kd], kt2elims);
-		// the CacheEntry constructor takes a shallow copy of data-structures
-		kt2Cache.put(initialOn, new Kt2CacheEntry(this.kt2sets[kd], kt2elims));
+		// not cached, so do the actual search
+		kt2SearchActual(initialOn, kt2sets[kd], kt2elims);
+		// Kt2CacheEntry constructor shallow copies the data-structures
+		KT2_CACHE.put(initialOn, new Kt2CacheEntry(kt2sets[kd], kt2elims));
 	}
+	private Kt2CacheEntry entry;
+	private int v;
 
 	/**
 	 * kt2SearchActual is the kt2Search you have without the cache that is now
 	 * in the actual kt2Search. Confused yet? Well strap-it-on people. This can
 	 * only get harder... and faster... We are GO for 12 Inch Nails!
 	 *
-	 * @param initialOn
-	 * @param theSet
+	 * @param iOn the initial ON Eff, from the kraken tables.
+	 * @param kt2Set
 	 * @param elims
 	 */
-	private void kt2SearchActual(final Eff initialOn
-			, final LinkedMatrixAssSet theSet, final Idx[] elims) {
-		Eff[] kids; // an array coz even an ArrayList is too slow here.
-		Eff c; // child
-		int i,n;
-		// The queue array is a circular buffer: read and write indexes move
-		// independantly. Write allways outruns read, but never overtakes it.
-		// Think of them as doing laps of a race track (the array) which is
-		// made large enough to achieve the "never overtakes" rule. 64 seems
-		// "safe" to me; 32 works for top1465; 16 does not; so 32 it is.
-		// nb: QSIZE must be a power of 2 just for the & QMASK trick.
-		// nb: When read catches up with write it is the end of the queue.
-		// nb: This mess is forced on us by the uber-performant requirement;
-		//     for top1465.F10.mt: 33,906 ms (69.7%) vs 25,887 ms (64.3%)
-		//     pre-test, circular buffer, split on p.isOn: 20,296 ms (51.4%)
-		final Eff[] queue = KrakenFisherman.queue; // local reference for speed
-		int r = 0  // the read index
-		  , w = 0; // the write index
+	private void kt2SearchActual(final Eff iOn, final LinkedMatrixAssSet kt2Set
+			, final Idx[] elims) {
 		// clear my s__t BEFORE validating input
-		theSet.clear();
+		kt2Set.clear();
 		clear(elims);
-		// validations for generate: seen null initialOn in analyseDifficulty
-		if ( initialOn==null || !initialOn.isOn || !initialOn.hasKids )
+//		for ( int xx=0; xx<Q.length; ++xx )
+//			assert Q[xx] == null;
+		r = w = 0;
+		// generate validations: seen null initialOn in analyseDifficulty
+		if ( iOn==null || !iOn.isOn || !iOn.hasKids )
 			return;
-		theSet.add(initialOn); // throws if initialOn is null
-		for ( Eff p = initialOn; // parent
-			  p != null;
-			  // p = queue.poll() sets queue[read]=null so that we can tell
-			  //                  when we have reached the end of the queue
-			  p=queue[r], queue[r]=null, r=(r+1)&QMASK
-		) {
-			// nb: All Eff's in the queue have kids, as does the initialOn
-			if ( p.isOn ) { // all my kids (usually 3+) are OFFs
-				for ( kids=p.kids,i=0,n=p.numKids; i<n; ++i ) // child
-					// if not seen previously. Note that theSet is an output.
-					// nb: theSet is "Funky", ie does NOT replace existing.
-					if ( theSet.add(c=kids[i]) ) {
-						elims[c.value].add(c.i);
-						// if c has no kids then examining it is pointless, so
-						// pre-test c.hasKids, instead of hammering the s__t
-						// out of the queue and turning it into a constrictor.
-						// top1465 4,312,055,146/14,010,624,552*100=30.78% of
-						// OFFs cause an ON, and 14-bill is REALLY BIG number!
-						// 2020-11-26 09:10 1465 522,219,907,500 (08:42) 356,220,946
-						if ( c.hasKids ) {
-							queue[w] = c;
+		kt2Set.add(iOn);
+		for ( Eff p=iOn; p!=null; p=Q[r],Q[r]=null,r=(r+1)&QMASK ) { // parent
+			if ( p.isOn ) { // p is an ON, its kids are OFFs
+				for ( kids=p.kids,ii=0,nn=p.numKids; ii<nn; ++ii ) // child
+					if ( kt2Set.add(k=kids[ii]) ) {
+						elims[k.value].add(k.i);
+						// enqueue k ONLY if it has kids
+						// nb: only about a third of OFFs cause an ON
+						if ( k.hasKids ) {
+							Q[w] = k;
 							w = (w+1) & QMASK;
 						}
 					}
-			} else // p is an OFF so its 1-or-2 kids are ONs, so we still need
-				// to distinctify, but there is no elims.add.
-				// Note that the ONs are NOT required in output (the OFFs are).
-				// We get away with adding them because getAss uses "isOn" (set
-				// in constructor) to determine whether it looks for offs (as
-				// these do) or ons, so getAss ignores the ons; which I add coz
-				// it is faster than a local boolean array. I do not understand
-				// why. I thought a boolean array would be faster, but testing
-				// shows otherwise; and I trust measurements, especially when
-				// they diverge from my expectations. Humble pie.
-				for ( kids=p.kids,i=0,n=p.numKids; i<n; ++i ) // child
-					// all ONs have kids, so just add the sucker to the queue:
-					// c.kidsHCs.any is always true, so testing it would just
-					// be a waste of CPU time.
-					// nb: coz we don't really need the ONs in output I tried
-					// using a boolean[81] to filter out repeat ONs but it was
-					// a second a puzzle slower, contrary to expectations.
-					if ( theSet.add(c=kids[i]) ) {
-						queue[w] = c;
+			} else // p is an OFF, its kids are ONs, which almost all have kids
+				for ( kids=p.kids,ii=0,nn=p.numKids; ii<nn; ++ii ) // child
+					if ( kt2Set.add(k=kids[ii]) ) {
+						Q[w] = k;
 						w = (w+1) & QMASK;
 					}
 		}
 	}
+	// the circular buffer used in both kt1Search and kt2Search.
+	// 64 seems safe to me; 32 works for top1465; 16 does not; so 32 it is.
+	private static final int QSIZE = 32;
+	// the mask used to zero the read and write indexes at end of array
+	// nb: QSIZE must be a power of 2 just for the & QMASK trick.
+	private static final int QMASK = QSIZE - 1;
+	// The queue array is a circular buffer: read and write indexes move
+	// independantly. Write allways outruns read, but never overtakes it.
+	// Think of them as doing laps of a race track (the array) which is
+	// made large enough to achieve the "never overtakes" rule.
+	// nb: When read catches up with write it is the end of the queue.
+	// nb: A Messy impl forced by requirement for uber-performance.
+	// original fast Queue : 33,906 ms (69.7%)
+	// for top1465.F10.mt  : 25,887 ms (64.3%)
+	// with split on p.isOn: 20,296 ms (51.4%) 
+	private static final Eff[] Q = new Eff[QSIZE];
+	// an array coz even an ArrayList is too slow here.
+	private Eff[] kids;
+	// kid
+	private Eff k;
+	// indexes and number thereof
+	private int ii,nn;
+	// the QUEUE read index and write index
+	private int r, w;
 
 	private void clear(Idx[] elims) {
 		for ( int v=1; v<10; ++v )
@@ -1131,63 +1116,64 @@ public class KrakenFisherman extends AHinter
 	private void kt2Produce(Ass initialOn, final LinkedMatrixAssSet set
 			, final Idx[] elims) {
 		final Cell[] cells = grid.cells;
-		final Deque<Ass> queue = this.kt2assQueue;
 		Ass e; // the effect of Ass a (the next Ass in the consequences chain)
-		Cell c, sib; // a.cell; sibling of a.cell
+		Cell cell, sib; // a.cell; sibling of a.cell
 		int[] vals;
 		int x; // a.value; use x coz v is the Fish candidate value field
 		int sx; // shiftedX;
 		int j,J; // just an index
 		assert initialOn.isOn;
-		queue.clear(); // should already be empty, but clear it anyway.
+		kt2Queue.clear(); // should already be empty, but clear it anyway.
 		set.clear(); // likewise should already be empty (I think).
 		set.add(initialOn); // prevent initialOn being re-added (stop looping)
 		clear(elims);
 
-		for ( Ass a=initialOn; a!=null; a=queue.poll() ) {
+		for ( Ass a=initialOn; a!=null; a=kt2Queue.poll() ) {
 			// this loop is the only place 'a' changes so we can cache it's
 			// attributes just to save repeatedly dereferencing them
 			x = a.value;
-			c = a.cell;
+			cell = a.cell;
 			if ( a.isOn ) {
 				sx = VSHFT[x];
 				// 1. add an OFF for each other potential value of a.cell.
-				vals = VALUESES[c.maybes.bits & ~sx];
+				vals = VALUESES[cell.maybes.bits & ~sx];
 				for ( j=0,J=vals.length; j<J; ++j ) {
-					if ( set.add(e = new Ass(c, vals[j], OFF, a)) ) {
-						queue.add(e);
-						elims[vals[j]].add(c.i);
+					if ( set.add(e = new Ass(cell, vals[j], OFF, a)) ) {
+						kt2Queue.add(e);
+						elims[vals[j]].add(cell.i);
 					}
 				}
 				// 2. add an OFF for each other possible position of a.value
 				//    in each of a.cell's three regions.
-				for ( j=0; j<20; ++j  ) {
-					if ( ((sib=c.siblings[j]).maybes.bits & sx) != 0
+				for ( j=0; j<20; ++j ) {
+					if ( ((sib=cell.siblings[j]).maybes.bits & sx) != 0
 					  && set.add(e=new Ass(sib, x, OFF, a)) ) {
-						queue.add(e);
+						kt2Queue.add(e);
 						elims[x].add(sib.i);
 					}
 				}
 			} else {
 				// 1. if a.cell has only two potential values then it must
 				//    be the other potential value, so add an ON to the queue.
-				if ( c.maybes.size == 2
-				  && set.add(e=new Ass(c, VALUESES[c.maybes.bits & ~VSHFT[x]][0], ON, a)) )
-					queue.add(e);
+				if ( cell.maybes.size == 2
+				  && set.add(e=new Ass(cell, VALUESES[cell.maybes.bits & ~VSHFT[x]][0], ON, a)) )
+					kt2Queue.add(e);
 				// 2. foreach of a.cell's 3 regions: if region has 2 places for
 				//    a.value then the other cell must be a.value, so add an ON
 				//    to the queue.
-				for ( j=0; j<3; ++j  ) {
-					// nb: hit rate too low to cache c.regions[j], it's faster to dereference it again in the maybe 10% of cases where there's 2 positions for a.value in the region
-					if ( c.regions[j].indexesOf[x].size == 2
-					  && set.add(e=new Ass(cells[c.regions[j].idxs[x].otherThan(c.i)], x, ON, a)) )
-						queue.add(e);
+				for ( j=0; j<3; ++j ) {
+					// nb: hit rate too low to cache cell.regions[j], faster to
+					// dereference it again in the 10% of cases where there's 2
+					// positions for a.value in the region
+					if ( cell.regions[j].indexesOf[x].size == 2
+					  && set.add(e=new Ass(cells[cell.regions[j].idxs[x].otherThan(cell.i)], x, ON, a)) )
+						kt2Queue.add(e);
 				}
 			}
 		}
 	}
 	/** kt2Produce's to-do list. */
-	private final Deque<Ass> kt2assQueue = new LinkedList<>();
+	private final Deque<Ass> kt2Queue = new LinkedList<>();
 
 	// ============================= OTHER STUFF ==============================
 
@@ -1224,9 +1210,9 @@ public class KrakenFisherman extends AHinter
 		// add the deletes (if any) and sharks (if any) to reds
 		final Pots reds = new Pots();
 		if ( deletes.any() )
-			deletes.forEach(grid.cells, (c)->reds.put(c, new Values(candidate)));
+			deletes.forEach(grid.cells, (cell)->reds.put(cell, new Values(candidate)));
 		if ( sharks.any() )
-			sharks.forEach(grid.cells, (c)->reds.put(c, new Values(candidate)));
+			sharks.forEach(grid.cells, (cell)->reds.put(cell, new Values(candidate)));
 
 		baseMask = getRegionTypesMask(basesUsed);
 		coverMask = getRegionTypesMask(coversUsed);
@@ -1292,20 +1278,21 @@ public class KrakenFisherman extends AHinter
 		// paint the endo-fins purple, not corners (green) or exo-fins (blue).
 		purple.removeFromAll(green, blue);
 
-		String debugMessage = "KrakenFisherman1";
+		String debugMessage = "";
 
 		ComplexFishHint hint = new ComplexFishHint(this, type, false, candidate
 				, usedBases, usedCovers, reds, green, blue, purple, yellow
 				, debugMessage);
 
-		if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
-			// swampfish are fine, it's swordfish an up that I'm having trouble with.
-			if ( degree>2 && !HintValidator.isValid(grid, hint.redPots) ) {
-				hint.isInvalid = true;
-				HintValidator.report("KrakenFisherman1_Base", grid, hint.squeeze());
-				return null; // Sigh.
-			}
-		}
+// this pointless coz the base hint most probably has no redPots!
+//		if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+//			// swamp ok, I'm having trouble with sword and jelly.
+//			if ( !HintValidator.isValid(grid, hint.redPots) ) {
+//				hint.isInvalid = true;
+//				HintValidator.report("KFB", grid, hint.toFullString());
+//				return null; // Sigh.
+//			}
+//		}
 
 		// just return the hint coz my caller may upgrade to HdkKrakenFishHint
 		// and then add it to the accu. Sigh.
@@ -1341,26 +1328,26 @@ public class KrakenFisherman extends AHinter
 	}
 
 	private void addBases(ARegion[] regions) {
-		Idx vs;
+		Idx rvs; // region v's
 		for ( ARegion region : regions )
 			if ( !region.containsValue[candidate] ) {
 				bases[numBases] = region.index;
-				vs = region.idxs[candidate];
-				baseVsM0[numBases] = vs.a0;
-				baseVsM1[numBases] = vs.a1;
-				baseVsM2[numBases++] = vs.a2;
+				rvs = region.idxs[candidate];
+				baseVsM0[numBases] = rvs.a0;
+				baseVsM1[numBases] = rvs.a1;
+				baseVsM2[numBases++] = rvs.a2;
 			}
 	}
 
 	private void addCovers(ARegion[] regions) {
-		Idx vs;
+		Idx rvs; // region v's
 		for ( ARegion region : regions )
 			if ( !region.containsValue[candidate] ) {
 				allCovers[numAllCovers] = region.index;
-				vs = region.idxs[candidate];
-				allCoverVsM0[numAllCovers] = vs.a0;
-				allCoverVsM1[numAllCovers] = vs.a1;
-				allCoverVsM2[numAllCovers++] = vs.a2;
+				rvs = region.idxs[candidate];
+				allCoverVsM0[numAllCovers] = rvs.a0;
+				allCoverVsM1[numAllCovers] = rvs.a1;
+				allCoverVsM2[numAllCovers++] = rvs.a2;
 			}
 	}
 
@@ -1435,7 +1422,6 @@ public class KrakenFisherman extends AHinter
 				kids[numKids++] = kid;
 //				kid.addParent(this); // let it NPE when child is null
 				kid.parents.linkLast(this);
-
 			}
 		}
 

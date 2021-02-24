@@ -137,7 +137,7 @@ public class SueDeCoq extends AHinter {
 	 */
 	private boolean findHintsInt(ARegion[] lines) {
 		// get all possible intersections between rows/cols and boxs
-		final Idx empties = grid.getEmptyCells();
+		final Idx empties = grid.getEmpties();
 		boolean result = false;
 		// foreach row/col
 		for ( ARegion line : lines ) {

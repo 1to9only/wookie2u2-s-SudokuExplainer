@@ -10,19 +10,18 @@ import diuf.sudoku.Ass;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.AggregatedHint;
 import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.solver.hinters.ICleanUp;
 import diuf.sudoku.solver.hinters.HintValidator;
@@ -95,8 +94,7 @@ import java.util.LinkedList;
  * too deep into this s__t to judge) followed. Mind you, using inheritance to
  * make things simpler sounds oxymoronic.
  */
-public abstract class AChainer
-		extends AHintNumberActivatableHinter
+public abstract class AChainer extends AHinter
 		implements ICleanUp
 {
 	/** If true && VERBOSE_3_MODE then I write stuff to Log.out */
@@ -150,13 +148,11 @@ public abstract class AChainer
 	 * @param isAggregate true if all chaining hints should be aggregated into
 	 *  one which is added to the SingleHintsAccumulator which was passed into
 	 *  the getHints method. This is set to true when Mode is SPEED.
-	 * @param firstHintNumber the number of the first hint that this Tech finds
-	 * in top1465.d5.mt... yes it's a dirty hack.
 	 * @param isImbedded true only when this is an imbedded hinter, ie is nested
 	 * inside another hinter.
 	 */
-	protected AChainer(Tech tech, boolean isAggregate, int firstHintNumber, boolean isImbedded) {
-		super(tech, firstHintNumber);
+	protected AChainer(Tech tech, boolean isAggregate, boolean isImbedded) {
+		super(tech);
 		assert tech.isChainer;
 		this.isMultiple	 = tech.isMultiple;
 		this.isDynamic	 = tech.isDynamic;
@@ -165,8 +161,8 @@ public abstract class AChainer
 		this.isImbedded  = isImbedded;
 		assert degree>=0 && degree<=5;
 	}
-	protected AChainer(Tech tech, boolean isAggregate, int firstHintNumber) {
-		this(tech, isAggregate, firstHintNumber, false); // not imbedded
+	protected AChainer(Tech tech, boolean isAggregate) {
+		this(tech, isAggregate, false); // not imbedded
 	}
 
 	/**
@@ -408,7 +404,7 @@ public abstract class AChainer
 		int i; // index of cell in region.cells array
 		// foreach of the cells regions which has 2 positions for value
 		for ( rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
-			
+
 			// skip unless there are 2 possible positions for value in region
 			if ( cell.regions[rti].indexesOf[value].size != 2 )
 				continue;

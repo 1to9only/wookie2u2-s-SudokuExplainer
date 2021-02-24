@@ -1,28 +1,38 @@
 <html>
- <body>
-  <h2>HoDoKu {0}</h2>
-  <p>
-   All the <c>possible positions</c> of the value <b><g>{1}</g></b>
-   in {4} different <b1>{2}</b1> are in the same {4} <b2>{3}</b2>.
-   The number of <b1>{2}</b1> matches the number of <b2>{3}</b2>,
-   and each <b1>{2}</b1> must contain the value <g><b>{1}</b></g>;
-   so each <b2>{3}</b2> will have a <g><b>{1}</b></g> in one of the
-   <c>intersecting cells</c>.
-  <p>
-   The <r>other possible positions</r> of the value <b>{1}</b> that are in
-   the <b2>{3}</b2> but not in one of the <b1>{2}</b1> may therefore
-   be removed.
-  <p>
-   A Mutant Fish uses ALL three types of regions (row, col and box) as both the
-   potential base AND cover regions. Note that MOST mutants eliminations will
-   have already been found by simpler Fish types, so they never show-up, and
-   the introduction of all three region types greatly expands the number of
-   possible combinations of regions, so searching them is a lot slower; but we
-   still find a few, so we do it anyway: mainly just because it was there.
-  <p>
-   Note that HoDoKu incorrectly reports Mutants as Frankens. I'm not going to
-   fix it, because the code is MENTAL.
-  <p>
-  {5} <!--debugMessage-->
- </body>
+<body>
+<h2>HoDoKu {0}</h2>
+<p>
+{8}
+<p>
+All the <c>possible positions</c> of the value <b><g>{1}</g></b>
+in {4} <b1>base {2}</b1> are in the same {4} <b2>cover {3}</b2>.
+The number of <b1>{2}s</b1> matches the number of <b2>{3}s</b2>,
+and each <b1>{2}</b1> must contain the value <g><b>{1}</b></g>;
+so each <b2>{3}</b2> will have a <g><b>{1}</b></g> in one of the
+<c>intersecting cells</c>.
+<p>
+Hence <b>{1}</b>'s in the <b2>covers</b2> but not in the <b1>bases</b1> may be
+removed.
+<p>
+Therefore <r>we can remove <b>{6}</b></r>.
+<p>
+<u>Explanation</u>
+<p>
+Mutant Fish use all three types of regions (box, row, and col) as both base AND
+cover regions. Note that MOST mutant eliminations will have already been found
+by simpler Fish types, so they don't show-up, and with all three region types in
+the search the number of combinations of regions EXPLODES, so searching them is
+MUCH slower; but we find a few, so we do it anyway, mainly just because we can.
+<p>
+Mutant Jellyfish are "too slow to be allowed", as are Kraken Jellyfish, despite
+my best efforts. Likewise Aligned*Exclusion. sigh.
+<p>
+Note that HoDoKu incorrectly identifies some Mutants as Frankens; but hobiwan's
+opinion is, in my opinion, superior to my opinion, so please politely forget
+that I ever mentioned it. Maybe we should change the definitions of Franken and
+Mutant to align with hobiwans implementation, in his honour. In Sudoku any
+opinion is as good as any other, and his was a damn sight better than most.
+<p>
+{5} <!--debugMessage-->
+</body>
 </html>

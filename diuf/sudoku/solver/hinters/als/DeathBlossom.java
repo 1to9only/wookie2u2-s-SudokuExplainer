@@ -266,7 +266,7 @@ public class DeathBlossom extends AAlsHinter
 			// populate theReds field with removable Cell=>Values
 			for ( int cv : VALUESES[db.cmnCands] ) {
 				// victims = cells which see all cv's in the DB
-				Grid.cmnBuds(db.vs[cv], victims);
+				grid.cmnBuds(db.vs[cv], victims);
 				victims.and(candidates[cv]); // which maybe cv
 				victims.andNot(db.idx); // not in the DB
 				victims.remove(stem.i); // not the stem cell

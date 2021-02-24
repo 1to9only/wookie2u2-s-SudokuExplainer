@@ -7,21 +7,24 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Ass.Cause;
-import static diuf.sudoku.Idx.BITS;
 import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.ISIZE;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSHIFTED;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.hinters.wing2.BitIdx;
 import diuf.sudoku.solver.hinters.urt.UniqueRectangle.IUrtCellSet;
+import diuf.sudoku.solver.hinters.wing.BitIdx;
 import diuf.sudoku.utils.Hash;
 import diuf.sudoku.utils.Log;
+import diuf.sudoku.utils.MyLinkedHashSet;
 import diuf.sudoku.utils.MyStrings;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -36,9 +39,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import static diuf.sudoku.Values.VSHFT;
-import static diuf.sudoku.Values.VSHIFTED;
-import static diuf.sudoku.Values.VSIZE;
 
 
 /**
@@ -139,80 +139,202 @@ public final class Grid {
 		}
 	}
 
-	/**
-	 * Group Buddies for the cmnBuds method: buddies common to all in each
-	 * group of upto 9 cells.<br>
-	 * First index: 0..8 because there are 9 groups.<br>
-	 * Second index: 0..511 for a group of upto 9 cells (ie 9 bits).
-	 */
-	private static final Idx[][] GRP_BUDS = new Idx[9][512];
-	static {
-		// the indices of a group of upto 9 cells.
-		Idx group = new Idx();
-		// gi: group index: 0..8
-		// go: group offset (start of group) in the Grid: 0, 9, 18... 72
-		// combo: this combination of upto 9 cells: 0..511
-		// bi: bits index 0..8, so BITS[bi] is 1,2,4,8,16,32,64,128,256
-		int gi, go, combo, bi; // there's gi go joke in there somewhere
-		// foreach group
-		for ( gi=0,go=0; gi<9; ++gi,go+=9 ) { // 0..8
-			// foreach combo of up to 9 cells
-			for ( combo=0; combo<512; ++combo ) { // 0..511
-				// build a group bitset, to 'and' ALL of them at once
-				group.clear();
-				// foreach set (1) bit in combo, add groupOffset+bit
-				for ( bi=0; bi<9; ++bi )
-					if ( (combo & BITS[bi]) != 0 )
-						group.add(go+bi);
-				// calculate buddies common to all cells in this combo
-				final Idx gb = GRP_BUDS[gi][combo] = new Idx(true); // FULL
-				group.forEach1((indice) -> gb.and(BUDDIES[indice]));
-			}
-		}
-	}
+//	/**
+//	 * Group Buddies for the cmnBuds method: buddies common to all in each
+//	 * group of upto 9 cells.<br>
+//	 * First index: 0..8 because there are 9 groups.<br>
+//	 * Second index: 0..511 for a group of upto 9 cells (ie 9 bits).
+//	 */
+//	private static final Idx[][] GRP_BUDS = new Idx[9][512];
+//	static {
+//		// the indices of a group of upto 9 cells.
+//		Idx group = new Idx();
+//		// gi: group index: 0..8
+//		// go: group offset (start of group) in the Grid: 0, 9, 18... 72
+//		// combo: this combination of upto 9 cells: 0..511
+//		// bi: bits index 0..8, so BITS[bi] is 1,2,4,8,16,32,64,128,256
+//		int gi, go, combo, bi; // there's gi go joke in there somewhere
+//		// foreach group
+//		for ( gi=0,go=0; gi<9; ++gi,go+=9 ) { // 0..8
+//			// foreach combo of up to 9 cells
+//			for ( combo=0; combo<512; ++combo ) { // 0..511
+//				// build a group bitset, to 'and' ALL of them at once
+//				group.clear();
+//				// foreach set (1) bit in combo, add groupOffset+bit
+//				for ( bi=0; bi<9; ++bi )
+//					if ( (combo & BITS[bi]) != 0 )
+//						group.add(go+bi);
+//				// calculate buddies common to all cells in this combo
+//				final Idx gb = GRP_BUDS[gi][combo] = new Idx(true); // FULL
+//				group.forEach1((indice) -> gb.and(BUDDIES[indice]));
+//			}
+//		}
+//	}
+//
+//	/**
+//	 * cmnBuds (commonBuddies): sets result to the buddies common to ALL cells
+//	 * in the given idx, and returns it.
+//	 * <p>
+//	 * Note that the result set is reset (ie cleared) by each call.
+//	 * <p>
+//	 * Note: I'm only called privately, except in the test-cases, hence I'm
+//	 * package visible.
+//	 * <p>
+//	 * Note: I've tried a couple of times to do this with an Idx.forEach and
+//	 * failed miserably. I don't know how to make forEach exit early if the
+//	 * result Idx isEmpty already.
+//	 * <p>
+//	 * Provenance: cmnBuds was Sudoku2.getBuddies, but Sudoku2 has too many
+//	 * type-refs, so I copy-paste him here.
+//	 *
+//	 * @param idx indices of cells to get the common buddies of
+//	 * @param result to set to indices of common buddies
+//	 * @return the result SudokuSet for method chaining
+//	 */
+//	public static Idx cmnBuds(Idx idx, Idx result) {
+//		// we start with a full result set
+//		result.fill();
+//		int bits;
+//		if ( (bits=idx.a0) != 0 )
+//			for ( int i=0,j=0; i<3; ++i,j+=9 )
+//				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
+//					return result;
+//		if ( (bits=idx.a1) != 0 )
+//			for ( int i=3,j=0; i<6; ++i,j+=9 )
+//				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
+//					return result;
+//		if ( (bits=idx.a2) != 0 )
+//			for ( int i=6,j=0; i<9; ++i,j+=9 )
+//				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
+//					return result;
+//		return result;
+//	}
 
-	/**
-	 * cmnBuds (commonBuddies): sets result to the buddies common to ALL cells
-	 * in the given idx, and returns it.
-	 * <p>
-	 * Note that the result set is reset (ie cleared) by each call.
-	 * <p>
-	 * Note: I'm only called privately, except in the test-cases, hence I'm
-	 * package visible.
-	 * <p>
-	 * Note: I've tried a couple of times to do this with an Idx.forEach and
-	 * failed miserably. I don't know how to make forEach exit early if the
-	 * result Idx isEmpty already.
-	 * <p>
-	 * Provenance: cmnBuds was Sudoku2.getBuddies, but Sudoku2 has too many
-	 * type-refs, so I copy-paste him here.
-	 *
-	 * @param idx indices of cells to get the common buddies of
-	 * @param result to set to indices of common buddies
-	 * @return the result SudokuSet for method chaining
-	 */
-	public static Idx cmnBuds(Idx idx, Idx result) {
-		// we start with a full result set
-		result.fill();
-		int bits;
-		if ( (bits=idx.a0) != 0 )
-			for ( int i=0,j=0; i<3; ++i,j+=9 )
-				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
-					return result;
-		if ( (bits=idx.a1) != 0 )
-			for ( int i=3,j=0; i<6; ++i,j+=9 )
-				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
-					return result;
-		if ( (bits=idx.a2) != 0 )
-			for ( int i=6,j=0; i<9; ++i,j+=9 )
-				if ( result.and(GRP_BUDS[i][(bits>>j) & 0x1FF]).none() )
-					return result;
+//	public Idx cmnBuds(final Idx idx, final Idx result) {
+//		int bits, j;
+//		Idx.Visitor1 visitor    = (i) -> result.set(cells[i].buds); // first
+//		Idx.Visitor1 subsequent = (i) -> result.and(cells[i].buds);
+//		if ( (bits=idx.a0) != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
+//					visitor.visit(j+k);
+//					visitor = subsequent;
+//				}
+//		if ( (bits=idx.a1) != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
+//					visitor.visit(BITS_PER_ELEMENT+j+k);
+//					visitor = subsequent;
+//				}
+//		if ( (bits=idx.a2) != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
+//					visitor.visit(BITS_TWO_ELEMENTS+j+k);
+//					visitor = subsequent;
+//				}
+//		return result;
+//	}
+
+//	// I try it without the lambda expressions. My theory is that it has to
+//	// generate the lambda instance from scratch every time it's called, so
+//	// creating single re-used instances of the interface might be faster.
+//	// And FMS this is SLOWER too!
+//	private final class FirstVisitor implements Idx.Visitor1 {
+//		public Idx result;
+//		@Override
+//		public void visit(int indice) {
+//			result.set(cells[indice].buds);
+//		}
+//	};
+//	private final class SubsequentVisitor implements Idx.Visitor1 {
+//		public Idx result;
+//		@Override
+//		public void visit(int indice) {
+//			result.and(cells[indice].buds);
+//		}
+//	};
+//	private final FirstVisitor first = new FirstVisitor();
+//	private final SubsequentVisitor subsequent = new SubsequentVisitor();
+//	public Idx cmnBuds(Idx idx, Idx result) {
+//		first.result = result;
+//		subsequent.result = result;
+//		idx.forEach(first, subsequent);
+//		return result;
+//	}
+
+// this is TWICE as slow, even after substantially speeding up toArrayA and B
+//	public Idx cmnBuds(Idx idx, Idx result) {
+//		int[] a = idx.toArrayA();
+//		final int n = a.length;
+//		assert n > 0;
+//		result.set(cells[a[0]].buds);
+//		for ( int i=1; i<n; ++i )
+//			result.and(cells[a[i]].buds);
+//		return result;
+//	}
+
+// this is not faster but more code in Idx (static forEach method)
+//	public boolean cmnBudsAny(int m0, int m1, int m2, Idx result) {
+//		Idx.forEach(m0,m1,m2
+//			, (i) -> result.set(cells[i].buds) // first
+//			, (i) -> result.and(cells[i].buds) // subsequent
+//		);
+//		return result.any();
+//	}
+
+//  this one is a tad slower than THE BASE!
+//	public Idx cmnBuds(Idx idx, Idx result) {
+//		result.fill();
+//		idx.forEach((i) -> result.and(cells[i].buds));
+//		return result;
+//	}
+
+//	// this is about 5% faster than THE BASE. Testing for empty after
+//	// EVERY "and" costs about as much as it saves by exiting the loop early.
+//	public Idx cmnBuds(Idx idx, Idx result) {
+//		result.fill();
+//		idx.untilFalse((i) -> {return result.and(cells[i].buds).any();});
+//		return result;
+//	}
+
+// this is about 5% slower than THE BASE!
+//	private class CbVisitor implements Idx.UntilFalseVisitor {
+//		public int r0, r1, r2;
+//		public void reset() {
+//			r0=r1=r2 = Idx.ALL;
+//		}
+//		@Override
+//		public boolean visit(int indice) {
+//			Idx b = cells[indice].buds;
+//			r0 &= b.a0;
+//			r1 &= b.a1;
+//			r2 &= b.a2;
+//			return (r0|r1|r2) != 0; // any
+//		}
+//	}
+//	private CbVisitor cb = new CbVisitor();
+//	// this is one is about 5% faster than THE BASE. Testing for empty after
+//	// EVERY "and" costs about as much as it saves by exiting the loop early.
+//	public Idx cmnBuds(Idx idx, Idx result) {
+//		cb.reset();
+//		idx.untilFalse(cb);
+//		return result.set(cb.r0, cb.r1, cb.r2);
+//	}
+
+	// BASE: still slow! 21.2% of KrakenFisherman.findHints, which calls this
+	// 44,528,859 times in top1465.F10.mt, ergo HAMMERED! I've tried everything
+	// I can think of to speed it up.
+	public Idx cmnBuds(Idx idx, Idx result) {
+		idx.forEach(
+			  (i) -> result.set(cells[i].buds) // first
+			, (i) -> result.and(cells[i].buds) // subsequent
+		);
 		return result;
 	}
 
 	/** Indices of siblings: The indices of cells which are in the same box,
 	 * row, or col, as the index cell, except the index cell itself. */
-	public static int[][] visibleIndices  = new int[][] {
+	public static final int[][] VISIBLE_INDICES  = new int[][] {
 			{ 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,27,36,45,54,63,72},
 			{ 0, 2, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,28,37,46,55,64,73},
 			{ 0, 1, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,29,38,47,56,65,74},
@@ -296,12 +418,11 @@ public final class Grid {
 			{ 8,17,26,35,44,53,60,61,62,69,70,71,72,73,74,75,76,77,78,79}
 	};
 
-
 	/** Indices of "forward" siblings: The indices of sibling cells whose
 	 * index is greater than the current cell; so that we can loop through
 	 * this array, and search for sibling relationships which we have not
 	 * already been examined. Supports a forward only siblings search. */
-	public static final int[][] forwardIndices = new int [][] {
+	public static final int[][] FORWARD_INDICES = new int [][] {
 			  {1,2,3,4,5,6,7,8,9,10,11,18,19,20,27,36,45,54,63,72}
 			, {2,3,4,5,6,7,8,9,10,11,18,19,20,28,37,46,55,64,73}
 			, {3,4,5,6,7,8,9,10,11,18,19,20,29,38,47,56,65,74}
@@ -385,12 +506,12 @@ public final class Grid {
 			, {}
 	};
 
-	public static final BitIdx[] visibleCells = new BitIdx[81];
-	public static BitIdx[] forwardCells = new BitIdx[81];
+	public static final BitIdx[] BUDETTES = new BitIdx[81];
+	public static BitIdx[] AFTER = new BitIdx[81];
 	static {
 		for ( int i=0; i<81; ++i ) {
-			visibleCells[i] = new BitIdx(visibleIndices[i]);
-			forwardCells[i] = new BitIdx(forwardIndices[i]);
+			BUDETTES[i] = new BitIdx(VISIBLE_INDICES[i]);
+			AFTER[i] = new BitIdx(FORWARD_INDICES[i]);
 		}
 	}
 
@@ -448,7 +569,7 @@ public final class Grid {
 //	}
 
 	/** Cell ArrayS ~ late populated! coz the larger arrays were never used. */
-	private static final Cell[][] cas = new Cell[82][]; // factorial 81
+	private static final Cell[][] CAS = new Cell[82][]; // factorial 81
 	static {
 		// note that a cell has 20 siblings. larger arrays are late populated
 		// if they are ever used, except the last one, which contains 82 cells
@@ -456,8 +577,8 @@ public final class Grid {
 		// they're a bit WRONG, so it won't AIOOBE if just create an extra.
 		// Lazy but it works.
 		for ( int i=0; i<21; ++i )
-			cas[i] = new Cell[i];
-		cas[81] = new Cell[81];
+			CAS[i] = new Cell[i];
+		CAS[81] = new Cell[81];
 	}
 
 	/**
@@ -473,10 +594,10 @@ public final class Grid {
 	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
 	 */
 	public static Cell[] cas(int size) {
-		Cell[] cells = cas[size];
+		Cell[] cells = CAS[size];
 		// late populate CellsArrayS 21..80
 		if ( cells == null )
-			cells = cas[size] = new Cell[size];
+			cells = CAS[size] = new Cell[size];
 		return cells;
 	}
 
@@ -1087,8 +1208,10 @@ public final class Grid {
 		return false;
 	}
 
-	/** @return the first cell-value which appears multiple times in any
-	 * region in this grid, and set the invalidity message, else 0. */
+	/**
+	 * @return the first cell-value that appears multiple times in any region
+	 * in this grid, and set invalidity message and invalidRegion, else 0.
+	 */
 	public int firstDoubledValue() {
 		Values seen = new Values(); // the cell values that we've encountered
 		for (ARegion region : regions) { // 9 boxs, 9 rows, 9 cols
@@ -1106,45 +1229,47 @@ public final class Grid {
 		return 0;
 	}
 
-	/** @return true if any unplaced value has no remaining possible
-	 * positions in any region, and set the invalidity message. */
+	/**
+	 * @return true if any unplaced value has no remaining possible positions
+	 * in any region, and set the invalidity message and .
+	 */
 	public boolean hasHomelessValues() {
 
-//DEBUG: 2020-10-23 replumb the house to find a leak. Sigh.
-if ( true ) { // @check true
-		// the orginal code
-		// rebuild containsValue array for this and all subsequent hinters.
-		rebuildAllRegionsContainsValues(); // safety first!
-} else {
-	// DEBUG version rebuilds all the s__t directly before we use it.
-	// rebuild containsValue array for each region
-	for ( ARegion r : regions ) {
-		Arrays.fill(r.containsValue, false);
-		for ( Cell c : r.cells ) {
-			if ( c.value > 0 ) {
-				r.containsValue[c.value] = true;
+		//DEBUG: 2020-10-23 if s__t is ____ed then rebuild s__t before use.
+		if ( true ) { // @check true
+			// rebuild containsValue array for this and all subsequent hinters.
+			rebuildAllRegionsContainsValues(); // safety first!
+		} else { // DEBUG: rebuild ALL my s__t (slower but more reliable)
+			// rebuild containsValue array for each region
+			for ( ARegion r : regions ) {
+				Arrays.fill(r.containsValue, false);
+				for ( Cell c : r.cells ) {
+					if ( c.value > 0 ) {
+						r.containsValue[c.value] = true;
+					}
+				}
+			}
+			int bits, i;
+			Cell[] rcs;
+			for ( int v=1; v<10; ++v ) {
+				int sv = VSHFT[v];
+				for ( ARegion r : regions ) {
+					rcs = r.cells; // regions cells array
+					bits = 0; // a bitset of this regions places for v
+					for ( i=0; i<9; ++i ) {
+						if ( (rcs[i].maybes.bits & sv) != 0 ) {
+							bits |= ISHFT[i];
+						}
+					}
+					// note the outright set, overwriting existing contents!
+					// if no cells in r which maybe v then bits is still 0.
+					r.indexesOf[v].set(bits);
+				}
 			}
 		}
-	}
-	int bits, i;
-	Cell[] rCells;
-	for ( int v=1; v<10; ++v ) {
-		int sv = VSHFT[v];
-		for ( ARegion r : regions ) {
-			rCells = r.cells; // regions cells array
-			bits = 0; // a bitset of this regions indexes of v
-			for ( i=0; i<9; ++i )
-				if ( (rCells[i].maybes.bits & sv) != 0 )
-					bits |= ISHFT[i];
-			// note this is an outright set, overwriting existing contents!
-			// if there are no cells in r which maybe v then bits is still 0.
-			r.indexesOf[v].set(bits);
-		}
-	}
-}
 
-		// each region which has no possible position for each value has
-		// that value set in one of it's cells, or it's buggered.
+		// each region which has no possible position for each value has that
+		// value set in one of it's cells, else it's buggered.
 		for ( ARegion r : regions ) // 27
 			for ( int v=1; v<10; ++v ) // 27*9 = 243
 				if ( r.indexesOf[v].size==0 && !r.containsValue[v] ) { // 243*9 = 4,374
@@ -1188,6 +1313,10 @@ if ( true ) { // @check true
 	 * @return A Cell array. */
 	public Cell[] getCSV(String idsCSV) {
 		return get(idsCSV.split(" *, *"));
+	}
+
+	public MyLinkedHashSet<Cell> getCSVSet(String idsCSV) {
+		return new MyLinkedHashSet<>(getCSV(idsCSV));
 	}
 
 	/**
@@ -1254,7 +1383,24 @@ if ( true ) { // @check true
 		return Settings.THE.get(Settings.isHacky) && source!=null && source.isTop1465;
 	}
 
-	// ----------------------------- BitIdx-ville -----------------------------
+	// ---------------------------- testcase crap -----------------------------
+
+	/**
+	 * Get an array of regions from CSV (Comma Separated Values) of names.
+	 *
+	 * @param csv
+	 * @return
+	 */
+	public ARegion[] regions(String csv) {
+		String[] rids = csv.split(", *"); // region id's
+		ARegion[] result = new ARegion[rids.length];
+		int i = 0;
+		for ( String rid : rids )
+			result[i++] = regions[Regions.index(rid)];
+		return result;
+	}
+
+	// ------------------------------ BitIdxville -----------------------------
 	// Get BitIdx's for the diuf.sudoku.solver.hinters.wing2 package.
 
 	public interface CellFilter {
@@ -1281,7 +1427,7 @@ if ( true ) { // @check true
 	 * The "empties" BitIdx is re-read whenever a cell value is set.
 	 * @return a cached BitIdx of the empty (value == 0) cells in this grid.
 	 */
-	public BitIdx getBitIdxEmpty() {
+	public BitIdx getBitIdxEmpties() {
 		if ( empties == null ) {
 			empties = getBitIdx(EMPTY_FILTER);
 		} else if ( emptiesHintNumber!=AHint.hintNumber || emptiesPuzzleID!=puzzleID ) {
@@ -1557,7 +1703,7 @@ if ( true ) { // @check true
 	 * Get an Idx of all empty (value == 0) cells in this grid.
 	 * @return a CACHED Idx of all empty cells in this grid.
 	 */
-	public Idx getEmptyCells() {
+	public Idx getEmpties() {
 		boolean doGet;
 		if ( doGet=(emptyCells == null) )
 			emptyCells = new IdxL();
@@ -1581,10 +1727,10 @@ if ( true ) { // @check true
 	/**
 	 * Returns a new Idx of empty cells matching the given CellFilter.
 	 * @param f
-	 * @return 
+	 * @return
 	 */
 	public Idx getEmptiesWhere(CellFilter f) {
-		return getEmptyCells().where(cells, f);
+		return getEmpties().where(cells, f);
 	}
 
 	public Idx getIdx(Idx result, CellFilter f) {
@@ -2455,7 +2601,7 @@ if ( true ) { // @check true
 		 * @return array of the cell indexes that are controlled by this cell
 		 */
 		public int[] forwardIndices() {
-			return Grid.forwardIndices[i];
+			return Grid.FORWARD_INDICES[i];
 		}
 
 		/**
@@ -2468,7 +2614,7 @@ if ( true ) { // @check true
 		 * @return an index of my "forward" siblings
 		 */
 		public BitIdx forwards() {
-			BitIdx result = Grid.forwardCells[i];
+			BitIdx result = Grid.AFTER[i];
 			result.grid = Grid.this;
 			return result;
 		}
@@ -2480,7 +2626,7 @@ if ( true ) { // @check true
 		 * @return the cells that are controlled by this cell
 		 */
 		public BitIdx visible() {
-			BitIdx result = Grid.visibleCells[i];
+			BitIdx result = Grid.BUDETTES[i];
 			result.grid = Grid.this;
 			return result;
 		}

@@ -6,11 +6,11 @@
  */
 package diuf.sudoku.solver.accu;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyStrings;
@@ -31,7 +31,7 @@ import java.util.Set;
  * 
  * @author Keith Corlett 2017 Dec
  */
-public final class AggregatedHint extends AHint {
+public final class AggregatedHint extends AHint implements IActualHint {
 
 	public final Collection<AHint> hints;
 	public final String hintTypeName;

@@ -6034,7 +6034,7 @@ package diuf.sudoku.solver;
  * this release to get to the library/shops before closing; and I tried running
  * it again AFTER testing the GUI (which was fine) and its runs like a dog, but
  * it's a hot afternoon so Im blaming HOT BOX SYNDROME, and releasing anyway.
- * SOLVED: A half-run LogicalAnalyserTest changes wantedHinters to all.
+ * SOLVED: LogicalAnalyserTest hung -> registry ALL wantedHinters.
  *
  *       time (ns)  calls  time/call  elims      time/elim hinter
  *      21,125,200 116292        181 667090             31 Naked Single
@@ -6094,6 +6094,74 @@ package diuf.sudoku.solver;
  * 2. Release 6.30.108 2021-01-23 14:40:48 =>
  *    DiufSudoku_V6_30.108.2021-01-23.7z
  * 3. Next I keep trying to find a magic bullet for AlignedExclusion, I guess.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.109 2021-02-13 07:00:49 BigWings, faster Complex and Kraken fish.
+ * Wrote the BigWing class to succinctify it. Tried and mostly failed to make
+ * Complex and KrakenFisherman faster.
+ * <pre>
+ *         time (ns)  calls   time/call  elims       time/elim hinter
+ *        21,807,800 117269         185 670060              32 Naked Single
+ *        14,422,400  50263         286 171070              84 Hidden Single
+ *        95,343,600  33156       2,875   5894          16,176 Direct Naked Pair
+ *        83,516,700  32740       2,550  12444           6,711 Direct Hidden Pair
+ *       215,128,600  31789       6,767    841         255,800 Direct Naked Triple
+ *       192,417,600  31737       6,062   1833         104,974 Direct Hidden Triple
+ *        99,914,500  31598       3,162  18561           5,383 Locking
+ *        54,580,600  22382       2,438   4442          12,287 Naked Pair
+ *        47,214,100  21224       2,224   8493           5,559 Hidden Pair
+ *       117,523,900  19590       5,999   1334          88,098 Naked Triple
+ *        98,012,900  19210       5,102   1003          97,719 Hidden Triple
+ *        63,294,300  19018       3,328   1370          46,200 Two String Kite
+ *        41,554,500  17648       2,354    458          90,730 Swampfish
+ *        84,184,800  17442       4,826    638         131,951 XY-Wing
+ *        64,785,100  16989       3,813    321         201,822 XYZ-Wing
+ *        84,075,400  16690       5,037    454         185,188 W-Wing
+ *        51,236,200  16375       3,128    363         141,146 Skyscraper
+ *        54,642,200  16180       3,377    478         114,314 Empty Rectangle
+ *        70,852,600  15702       4,512    233         304,088 Swordfish
+ *       189,147,000  15635      12,097     98       1,930,071 Naked Quad
+ *       146,773,800  15616       9,398     13      11,290,292 Hidden Quad
+ *        19,876,700  15614       1,273      5       3,975,340 Jellyfish
+ *       508,710,400  15613      32,582   1561         325,887 WXYZ-Wing
+ *       659,292,600  14568      45,256   1336         493,482 VWXYZ-Wing
+ *       776,200,700  13798      56,254    580       1,338,277 UVWXYZ-Wing
+ *       616,226,800  13466      45,761    110       5,602,061 TUVWXYZ-Wing
+ *       321,260,800  13392      23,989     14      22,947,200 STUVWXYZ-Wing
+ *       414,177,000  13384      30,945    289       1,433,138 Coloring
+ *     1,259,178,300  13162      95,667    739       1,703,894 Unique Rectangle
+ *     1,583,241,000  12821     123,488    347       4,562,654 Finned Swampfish
+ *     3,447,678,800  12545     274,824    327      10,543,360 Finned Swordfish
+ *     4,570,106,100  12291     371,825     21     217,624,100 Finned Jellyfish
+ *    18,612,031,400  12273   1,516,502   5231       3,558,025 ALS-XZ
+ *    22,474,789,400   8525   2,636,338   4132       5,439,203 ALS-Wing
+ *     9,581,130,200   5066   1,891,261    717      13,362,803 ALS-Chain
+ *     4,448,100,800   4477     993,544    181      24,575,142 Death Blossom
+ *     1,172,017,100   4315     271,614     11     106,547,009 Sue De Coq
+ *     3,291,985,200   4313     763,270      0               0 Franken Swampfish
+ *    16,694,132,200   4313   3,870,654    173      96,497,873 Franken Swordfish
+ *    50,939,958,200   4169  12,218,747     86     592,325,095 Franken Jellyfish
+ *     7,255,462,600   4091   1,773,518      0               0 Mutant Swampfish
+ *   115,769,344,200   4091  28,298,544      1 115,769,344,200 Mutant Swordfish
+ * 1,226,333,780,800   4090 299,837,110     18  68,129,654,488 Mutant Jellyfish
+ *    28,782,377,300   4075   7,063,160   3150       9,137,262 Kraken Swampfish
+ *    85,630,046,500   1649  51,928,469    162     528,580,533 Kraken Swordfish
+ *   511,551,158,700   1516 337,434,801     36  14,209,754,408 Kraken Jellyfish
+ *     3,877,368,800   1484   2,612,782      0               0 Unary Chain
+ *     2,362,564,400   1484   1,592,024      3     787,521,466 Nishio Chain
+ *     3,771,607,900   1481   2,546,662    527       7,156,751 Multiple Chain
+ *     9,657,853,500   1206   8,008,170   6486       1,489,030 Dynamic Chain
+ *        93,697,900      3  31,232,633     30       3,123,263 Dynamic Plus
+ * 2,138,365,784,900
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465 2,209,254,556,900 (36:49)     1,508,023,588
+ * NOTES:
+ * 1. top1465 36:49 not too bad with Jelly Mutant and Kraken, but they're both
+ *    still well too slow; and I stand little chance of improving them.
+ * 2. Release 6.30.109 2021-02-13 07:00:49 =>
+ *    DiufSudoku_V6_30.109.2021-02-13.7z
+ * 3. Next I seek magic bullets, that fire post-humourously, around corners.
  * </pre>
  */
 final class LogicalSolverTimings {

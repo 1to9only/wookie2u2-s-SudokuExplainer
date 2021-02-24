@@ -11,6 +11,7 @@ import diuf.sudoku.Ass;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMySet;
 import java.util.AbstractSet;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -209,9 +210,14 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass> implements IAssSe
 
 	@Override
 	public void clear() {
-		if(size == 0) return;
-		for ( Node n=head; n!=null; n=n.next )
-			nodes[n.ass.i][n.ass.value] = null;
+		if ( size == 0 )
+			return;
+		if ( size < 13 )
+			for ( Node n=head; n!=null; n=n.next )
+				nodes[n.ass.i][n.ass.value] = null;
+		else
+			for ( int i=0; i<81; ++i )
+				Arrays.fill(nodes[i], null);
 		size = 0;
 		head = foot = null;
 	}

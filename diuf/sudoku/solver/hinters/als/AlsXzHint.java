@@ -11,6 +11,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -23,7 +24,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2020 Apr 17
  */
-public class AlsXzHint extends AHint {
+public class AlsXzHint extends AHint implements IActualHint {
 
 	private final Als a;
 	private final Als b;

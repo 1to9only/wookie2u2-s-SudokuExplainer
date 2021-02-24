@@ -19,8 +19,8 @@ import diuf.sudoku.gen.IInterruptMonitor;
  */
 abstract class Aligned10ExclusionBase extends AAlignedSetExclusionBase {
 
-	public Aligned10ExclusionBase(int firstHintNumber, IInterruptMonitor monitor) {
-		super(Tech.AlignedDec, firstHintNumber, monitor);
+	public Aligned10ExclusionBase(IInterruptMonitor monitor) {
+		super(Tech.AlignedDec, monitor);
 		assert tech.isAligned;
 		assert degree == 10;
 	}

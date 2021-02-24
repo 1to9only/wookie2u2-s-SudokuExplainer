@@ -29,8 +29,7 @@ import java.util.Set;
 /**
  * A BasicFishHint is raised by the BasicFisherman.
  */
-public final class BasicFishHint extends AHint
-		implements IActualHint, IChildHint {
+public final class BasicFishHint extends AHint implements IActualHint, IChildHint {
 
 	final int valueToRemove;
 	final Set<Cell> cells;

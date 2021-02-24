@@ -20,8 +20,8 @@ import diuf.sudoku.gen.IInterruptMonitor;
  */
 public abstract class Aligned8ExclusionBase extends AAlignedSetExclusionBase {
 
-	public Aligned8ExclusionBase(int firstHintNumber, IInterruptMonitor monitor) {
-		super(Tech.AlignedOct, firstHintNumber, monitor);
+	public Aligned8ExclusionBase(IInterruptMonitor monitor) {
+		super(Tech.AlignedOct, monitor);
 		assert tech.isAligned;
 		assert degree == 8;
 	}

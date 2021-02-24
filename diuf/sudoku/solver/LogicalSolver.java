@@ -17,7 +17,6 @@ import diuf.sudoku.io.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.checks.*;
 import diuf.sudoku.solver.hinters.*;
-import diuf.sudoku.solver.hinters.align.*;
 import diuf.sudoku.solver.hinters.align2.*;
 import diuf.sudoku.solver.hinters.als.*;
 import diuf.sudoku.solver.hinters.bug.*;
@@ -32,7 +31,6 @@ import diuf.sudoku.solver.hinters.sdp.*;
 import diuf.sudoku.solver.hinters.lock2.LockingGeneralised;
 import diuf.sudoku.solver.hinters.urt.*;
 import diuf.sudoku.solver.hinters.wing.*;
-import diuf.sudoku.solver.hinters.wing2.*;
 import diuf.sudoku.utils.*;
 // JAPI
 import java.io.BufferedReader;
@@ -88,8 +86,8 @@ import java.util.Set;
  *  package. There's too many to want to list here. The only counterintuitive
  *  packaging is that {@link Locking} hinter is "out of place" in the
  *  {@code diuf.sudoku.solver.hinters.fish} package because it shares the
- *  {@code PointFishHint} with the {@link BasicFisherman}. The rest of it is pretty
- *  straight forward, to me at least.
+ *  {@code PointFishHint} with the {@link BasicFisherman}. The rest of it is
+ *  pretty straight forward, to me at least.
  * <li>The hints-accumulators are in the {@code diuf.sudoku.solver.accu}
  *  package.
  * <li>All read/writing of puzzles is in the diuf.sudoku.io package.
@@ -147,12 +145,11 @@ import java.util.Set;
 public final class LogicalSolver {
 
 	/**
-	 * true uses the new align2 package, which is a MUCH slower (it gets worse
-	 * as set-size increases) than the old "align" package. Normal people would
-	 * chuck align2 to the dump, but I can't because I just love how succinct
-	 * and therefore frightfully clever it is, by comparison. sigh.
+	 * true uses new "align2", which is a slower than the old "align" package.
+	 * Normal people would chuck align2, but I can't because I just love how
+	 * succinct and clever it is, so I seek a magic efficiency bullet. sigh.
 	 */
-	private static final boolean USE_ALIGN2 = false; // @check false (align2 is slower)
+	private static final boolean USE_ALIGN2 = true; // @check false align2 slow
 
 	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
@@ -165,7 +162,6 @@ public final class LogicalSolver {
 		 * a Sudoku puzzle. If you're unsure then just use this one.
 		 */
 		ACCURACY
-
 		/**
 		 * SPEED mode throws all the toys out of the pram and attempts to solve
 		 * each Sudoku puzzle as quickly as possible using logic, but if all
@@ -182,10 +178,12 @@ public final class LogicalSolver {
 	private final TooFewClues tooFewClues = new TooFewClues();
 	/** Does this puzzle contain 8 values?. */
 	private final TooFewValues tooFewValues = new TooFewValues();
-	/** Does this puzzle have 1 solution?<br>
+	/**
+	 * Does this puzzle have 1 solution?<br>
 	 * * solves the puzzle twice: once forwards and once backwards<br>
 	 * * SolutionMode=STORED means we'll retrieve the solution later<br>
-	 * * is a field for use by solveRecursively. */
+	 * * is a field for use by solveRecursively.
+	 */
 	public final RecursiveAnalyser recursiveAnalyser = new RecursiveAnalyser(); // SolutionMode.STORED
 
 	/** These Hinters workout if the grid is still valid. */
@@ -368,42 +366,34 @@ public final class LogicalSolver {
 		// when isAccurate we run more hinters, to get the simplest hints.
 		final boolean isAccurate = (mode == Mode.ACCURACY);
 		// when isAggregate chainers lump all there hints into one.
-		final boolean isAgg = (mode == Mode.SPEED);
+		final boolean a = (mode == Mode.SPEED);
 
 		// F is shorthand for false; to make the code fit on a line.
 		final boolean F = false;
 		// im is shorthand for InterruptMonitor
 		final IInterruptMonitor im = monitor;
-		// h is shorthand for HACK: true makes top1465 ONLY faster because we
-		// set the firstHintNumber of each AHintNumberActivatableHinter to>=1,
-		// which is speedy-uppy even for a NOT -REDO run. The standout is
-		// BivalueUniversalGrave, which doesn't kick-in until hint number 25.
-		final boolean h = AHinter.hackTop1465;
 
 		// refetch the wantedTechs field, in case they've changed; then my want
 		// method reads this field, rather than re-fetching it every time.
 		this.wantedTechs = Settings.THE.getWantedTechniques();
 
-		// puzzleValidators validate the given puzzle (not solve it). Use once.
+		// puzzleValidators check puzzle obeys Sudoku rules once, upon load.
 		puzzleValidators = new IHinter[] { // Dial 1900 Love-a-Duck Now!
-				  tooFewClues
-				, tooFewValues
-				, recursiveAnalyser // brute-force solver
+				  tooFewClues		// minimum 17 clues
+				, tooFewValues		// minimum 8 values
+				, recursiveAnalyser // single solution (brute-force solve)
 		};
 
-		// gridValidators validate the current state of the grid, not solve it.
-		// In brute-force, when we guess wrong, one of these rules should be
-		// tripped (eventually), so we run them before each pass through the
-		// list of actual hinters.
-		gridValidators = new IHinter[] { // Battered Eel Vomit O'Gratten Batman!
-				  new NoDoubleValues()
-				, new NoMissingMaybes()
-				, new NoHomelessValues()
+		// gridValidators check invariants in the grids state. Run before the
+		// actual hinters. A wrong guess in bruteforce eventually trips these.
+		gridValidators = new IHinter[] { // Eel Vomit O'Gratten Batman!
+				  new NoDoubleValues()		// one 1 per box, row, col
+				, new NoMissingMaybes()		// value unset and no maybes
+				, new NoHomelessValues()	// value unplaced and no places
 		};
 
-		// the validators list is just a convenience because most of the time
-		// we want to just "run all the validators", so here's a list of them.
-		validators = new IHinter[] {
+		// convenience list to run all the validators.
+		validators = new IHinter[] { // Duckeelens?
 				  puzzleValidators[0]
 				, puzzleValidators[1]
 				, puzzleValidators[2]
@@ -456,51 +446,48 @@ public final class LogicalSolver {
 		// locking hints to the full HiddenSet hint, with additional elims.
 		want(indirects, hiddenTriple = new HiddenSet(Tech.HiddenTriple));
 		want(indirects, new TwoStringKite());
-		want(indirects, new BasicFisherman(Tech.Swampfish, h?2:1)); //aka X-Wing
-		want(indirects, new XYWing(Tech.XY_Wing, h?4:1));
-		want(indirects, new XYWing(Tech.XYZ_Wing, h?4:1));
+		want(indirects, new BasicFisherman(Tech.Swampfish)); //aka X-Wing
+		want(indirects, new XYWing(Tech.XY_Wing));
+		want(indirects, new XYWing(Tech.XYZ_Wing));
 		want(indirects, new WWing());
 		want(indirects, new Skyscraper());
 		want(indirects, new EmptyRectangle());
-		want(indirects, new BasicFisherman(Tech.Swordfish, h?2:1));
+		want(indirects, new BasicFisherman(Tech.Swordfish));
 
 		// heavies is the heavy weight division. Slow/er indirect hinters.
 		heavies = new ArrayList<>(isAccurate ? 38 : 0); // Just 4 short Dougie!
 		if ( isAccurate ) {
 			want(heavies, new NakedSet(Tech.NakedQuad));
 			want(heavies, new HiddenSet(Tech.HiddenQuad)); // 0 in top1465
-			want(heavies, new BasicFisherman(Tech.Jellyfish, h?24:1));
+			want(heavies, new BasicFisherman(Tech.Jellyfish));
 			want(heavies, new NakedSet(Tech.NakedPent));	   // 0 in top1465
 			want(heavies, new HiddenSet(Tech.HiddenPent)); // 0 in top1465
-			want(heavies, new WXYZWing()); // limited fast ALS-XZ
-			want(heavies, new VWXYZWing()); // limited fast ALS-XZ
-			want(heavies, new UVWXYZWing()); // limited fast ALS-XZ
-			want(heavies, new TUVWXYZWing()); // limited ALS-XZ (slower than ALS-XZ)
-			want(heavies, new UniqueRectangle(h?5:1));
+			want(heavies, new BigWing(Tech.WXYZ_Wing)); // limited fast ALS-XZ
+			want(heavies, new BigWing(Tech.VWXYZ_Wing)); // limited fast ALS-XZ
+			want(heavies, new BigWing(Tech.UVWXYZ_Wing)); //limited fast ALS-XZ
+			want(heavies, new BigWing(Tech.TUVWXYZ_Wing)); // limited ALS-XZ (slower than ALS-XZ)
+			want(heavies, new BigWing(Tech.STUVWXYZ_Wing)); // limited ALS-XZ (slower than ALS-XZ)
+			want(heavies, new Coloring()); // finds a superset of BUG hints!
+			want(heavies, new BivalueUniversalGrave());
+			want(heavies, new UniqueRectangle());
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedSwordfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedJellyfish));
-			want(heavies, new Coloring());
 			want(heavies, new AlsXz());
 			want(heavies, new AlsXyWing());
 			want(heavies, new AlsXyChain());
-// KRC 2021-01-13 DeathBlossom is now KRC's version. It sort of works.
 			want(heavies, new DeathBlossom());
 			want(heavies, new SueDeCoq()); // AALS's
-			want(heavies, new ComplexFisherman(Tech.FrankenSwampfish));
-			want(heavies, new ComplexFisherman(Tech.FrankenSwordfish));
-			want(heavies, new ComplexFisherman(Tech.FrankenJellyfish));
-// 1,764 seconds (29 mins) for 20 hints is too slow to be allowed
-			want(heavies, new ComplexFisherman(Tech.MutantSwampfish));
-			want(heavies, new ComplexFisherman(Tech.MutantSwordfish));
-			want(heavies, new ComplexFisherman(Tech.MutantJellyfish));
-			want(heavies, new KrakenFisherman(Tech.KrakenSwampfish));
-			want(heavies, new KrakenFisherman(Tech.KrakenSwordfish));
-			want(heavies, new KrakenFisherman(Tech.KrakenJellyfish));
-
-			// Coloring finds a superset of BUG hints!
-			want(heavies, new BivalueUniversalGrave(h?25:1));
+			want(heavies, new ComplexFisherman(Tech.FrankenSwampfish));	// NONE
+			want(heavies, new ComplexFisherman(Tech.FrankenSwordfish));	// OK
+			want(heavies, new ComplexFisherman(Tech.FrankenJellyfish));	// OK
+			want(heavies, new ComplexFisherman(Tech.MutantSwampfish));	// NONE
+			want(heavies, new ComplexFisherman(Tech.MutantSwordfish));	// SLOW
+			want(heavies, new ComplexFisherman(Tech.MutantJellyfish));	// SLOW
+			want(heavies, new KrakenFisherman(Tech.KrakenSwampfish));	// OK
+			want(heavies, new KrakenFisherman(Tech.KrakenSwordfish));	// SLOW
+			want(heavies, new KrakenFisherman(Tech.KrakenJellyfish));	// SLOW
 
 			// new align2.AlignedExclusion is faster than the old align package
 			// for A2E, A3E, and A4E, which are all "relatively fast".
@@ -521,59 +508,58 @@ public final class LogicalSolver {
 				want(heavies, new AlignedExclusion(Tech.AlignedNona));
 				want(heavies, new AlignedExclusion(Tech.AlignedDec));
 			} else {
-//				want(heavies, new Aligned2Exclusion(h?9:1)); // fast enough.
-//				want(heavies, new Aligned3Exclusion(h?4:1)); // fast enough.
-//				want(heavies, new Aligned4Exclusion(h?3:1, im)); // acceptable.
+//				want(heavies, new Aligned2Exclusion()); // fast enough.
+//				want(heavies, new Aligned3Exclusion()); // fast enough.
+//				want(heavies, new Aligned4Exclusion(im)); // acceptable.
 				// The user chooses if A5+E is correct (slow) or hacked (fast).
 				// The hacked version is about ten times faster.
 				// The hacked version finds about a third of the hints.
 				// wantAE read "isa"+degree+"ehacked" Setting to constr appr.
-				wantAE(heavies, 5, h?4:1, im);   // isabeet slow! User choice.
-				wantAE(heavies, 6, h?6:1, im);	 // reeally slow! User choice.
-				wantAE(heavies, 7, h?5:1, im);   // ____ing slow! User choice.
-				wantAE(heavies, 8, h?5:1, im);   // 16yr old dog! User choice.
-				wantAE(heavies, 9, h?8:1, im);   // old tortoise! User choice.
-				wantAE(heavies, 10, h?19:1, im); // conservative! User choice.
+				wantAE(heavies,  5, im); // isabeet slow! User choice.
+				wantAE(heavies,  6, im); // reeally slow! User choice.
+				wantAE(heavies,  7, im); // ____ing slow! User choice.
+				wantAE(heavies,  8, im); // 29yr old dog! User choice.
+				wantAE(heavies,  9, im); // old tortoise! User choice.
+				wantAE(heavies, 10, im); // conservative! User choice.
 			}
-
 		}
 
-		// Heavy, meh! Chainers rip Heavies balls off! Exclusion is slow!
-		chainers = new ArrayList<>(isAccurate ? 5 : 1); //nearly an Oils album
+		// Chainers are actually faster than the slow Heavies ()
+		chainers = new ArrayList<>(isAccurate ? 5 : 1);
 		if (isAccurate) {
 			// single value forcing chains and bidirectional cycles.
-			want(chainers, new UnaryChainer(F, h?1:1));
+			want(chainers, new UnaryChainer(F));
 			// contradictory consequences of a single (bad) assumption.
-			want(chainers, new MultipleChainer(Tech.NishioChain, F, h?1:1));
+			want(chainers, new MultipleChainer(Tech.NishioChain, F));
 			// forcing chains from more than 2 values/positions.
-			want(chainers, new MultipleChainer(Tech.MultipleChain, F, h?2:1));
+			want(chainers, new MultipleChainer(Tech.MultipleChain, F));
 			// forcing chains with consequences recorded in the grid.
-			// does Unary Chains (not Cycles) and Multiple Chains (not Nishios).
-			want(chainers, new MultipleChainer(Tech.DynamicChain, F, h?2:1));
+			// does Unary Chains not Cycles, and Multiple Chains not Nishios.
+			want(chainers, new MultipleChainer(Tech.DynamicChain, F));
 		} // fi isAccurate
 		// DynamicPlus is Dynamic Chaining + Four Quick Foxes (Point & Claim,
 		// Naked Pairs, Hidden Pairs, and Swampfish). It only misses on hardest
 		// puzzles, so hardcoded as safery-net, so user can't unwant it.
-		chainers.add(new MultipleChainer(Tech.DynamicPlus, isAgg, h?1:1)); // safety-net
+		chainers.add(new MultipleChainer(Tech.DynamicPlus, a)); // safety-net
 
 		// Nested means imbedded chainers: assumptions on assumptions.
 		// The only way to ever see a nested hint is with Shift-F5 in the GUI.
 		nesters = new ArrayList<>(4);
-		// advanced																// approx time per call on an
-		// NestedUnary covers the hardest Sudoku puzzle ~ conceptis.com			// i7-7500U CPU @ 2.7GHz-2.9GHz
-		want(nesters, new MultipleChainer(Tech.NestedUnary, isAgg, 1));			// 4 secs
-		want(nesters, new MultipleChainer(Tech.NestedMultiple, isAgg, 1));		//10 secs
+		// advanced					 // approx time per call on an i7 @ 2.9GHz
+		// NestedUnary covers The Hardest Sudoku according to conceptis.com
+		want(nesters, new MultipleChainer(Tech.NestedUnary, a));	//  4 secs
+		want(nesters, new MultipleChainer(Tech.NestedMultiple, a));	// 10 secs
 		// experimental
-		want(nesters, new MultipleChainer(Tech.NestedDynamic, isAgg, 1));		//15 secs
+		want(nesters, new MultipleChainer(Tech.NestedDynamic, a));	// 15 secs
 		// NestedPlus is Dynamic + Dynamic + Four Quick Foxes => confusing!
 		// NestedPlus is the real safety-net (so user can't unwant it), but
 		// it's (mostly) only invoked in Shift-F5 coz NestedUnary hints first.
 		// Only THE HARDEST puzzles get through to NestedUnary; so if it's on
 		// it always hints before we get through to the ultimate keeper.
-		// @bug 2020 AUG: NestedPlus produced invalid hints, so now uses da		// PRODUCED INVALID HINTS!
+		// @bug 2020 AUG: NestedPlus produced invalid hints, so now uses the	// PRODUCED INVALID HINTS!
 		// HintValidator to log and ignore them. NOT adequate! Needs fixing!
 		// I'm just ignoring this bug for now coz IT'S NEVER USED in anger.
-		nesters.add(new MultipleChainer(Tech.NestedPlus, isAgg, 1));				//70 secs, safety-net
+		nesters.add(new MultipleChainer(Tech.NestedPlus, a));		// 70 secs
 
 		populateTheWantedHintersList(); // => wantedHinters
 
@@ -765,11 +751,9 @@ public final class LogicalSolver {
 	 * @param list {@code List<IHinter>} the hinters list to add the new
 	 *  instance to
 	 * @param num the number of cells in the aligned sets to be processed
-	 * @param fhn firstHintNumber to pass through to the A*E
 	 * @param im interruptMonitor to pass through to the A*E
 	 */
-	private void wantAE(List<IHinter> list, int num, int fhn
-			, IInterruptMonitor im) {
+	private void wantAE(List<IHinter> list, int num, IInterruptMonitor im) {
 		final String name = "Aligned "+WOG[num];
 		if ( Settings.THE.getBoolean(name, false) ) {
 			try {
@@ -778,9 +762,9 @@ public final class LogicalSolver {
 					+ (Settings.THE.get("isa"+num+"ehacked") ? "_2H" : "_1C");
 				final Class<?> clazz = Class.forName(className);
 				final java.lang.reflect.Constructor<?> constructor =
-					clazz.getConstructor(int.class, IInterruptMonitor.class);
+					clazz.getConstructor(IInterruptMonitor.class);
 				final IHinter hinter =
-					(IHinter)constructor.newInstance(fhn, im);
+					(IHinter)constructor.newInstance(im);
 				list.add(hinter);
 			} catch (Exception ex) {
 				StdErr.exit("wantAE fubarred", ex);
@@ -823,7 +807,7 @@ public final class LogicalSolver {
 	 * validations should do the puzzle only.
 	 *
 	 * @param grid Grid to validate.
-	 * @param quite if true don't log, if false I'm noisy
+	 * @param isNoisy true to log, false to shut the ____ up.
 	 * @return the first warning hint, else null. */
 	public AHint validatePuzzleAndGrid(Grid grid, boolean isNoisy) {
 		IAccumulator accu = new SingleHintsAccumulator();
@@ -937,7 +921,6 @@ public final class LogicalSolver {
 	 * @param wantMore are MORE (the Shift in Shift-F5) hints wanted regardless
 	 * of how "hard" they are, or how long it takes to find them; which means a
 	 * wait of about 15 seconds on my i7.
-	 *
 	 * @param isNoisy should I print hints as they're applied.
 	 * @return List of AHint
 	 */
@@ -1145,7 +1128,7 @@ public final class LogicalSolver {
 			return accu.getHint();
 		LogicalAnalyser logicalAnalyser = new LogicalAnalyser(this);
 		if ( logicalAnalyser.findHints(grid, accu) ) {
-			// logicalAnalyser.findHints allways returns true, 
+			// logicalAnalyser.findHints allways returns true,
 			// only the type of hint returned varies for success or failure;
 			// and they're both WarningHints; so s__t gets sticky downstream.
 			long t1 = System.nanoTime();

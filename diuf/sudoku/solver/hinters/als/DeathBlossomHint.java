@@ -13,6 +13,7 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -27,7 +28,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021 Jan
  */
-public class DeathBlossomHint extends AHint {
+public class DeathBlossomHint extends AHint implements IActualHint {
 
 	private final Cell stem;
 	private final int[] values;

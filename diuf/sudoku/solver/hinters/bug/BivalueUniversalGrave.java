@@ -10,15 +10,14 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
-import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Permutations;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,8 +29,7 @@ import java.util.Set;
  * Implementation of the Bivalue Universal Grave solving technique.
  * Supports types 1 to 4.
  */
-public final class BivalueUniversalGrave
-		extends AHintNumberActivatableHinter
+public final class BivalueUniversalGrave extends AHinter
 		implements diuf.sudoku.solver.hinters.ICleanUp
 //				 , diuf.sudoku.solver.IReporter
 {
@@ -46,10 +44,10 @@ public final class BivalueUniversalGrave
 
 	// Int ArrayS ~ We need 9 of them
 	// saves on creating them for each call
-	private static final int[][] ias = new int[6][];
+	private static final int[][] IAS = new int[6][];
 	static {
 		for ( int i=2; i<6; ++i )
-			ias[i] = new int[i];
+			IAS[i] = new int[i];
 	}
 
 	private IAccumulator accu;
@@ -59,12 +57,12 @@ public final class BivalueUniversalGrave
 
 	private Pots bcPots = null;
 	private final Values allBugValues = new Values();
-	
+
 	// Index of common siblings
 	private final Idx cmnSibsIdx = new Idx();
 
-	public BivalueUniversalGrave(int firstHintNumber) {
-		super(Tech.BUG, firstHintNumber);
+	public BivalueUniversalGrave() {
+		super(Tech.BUG);
 	}
 
 	@Override
@@ -301,7 +299,7 @@ public final class BivalueUniversalGrave
 				Cell[] nakedCells = Grid.cas(cc); // something borrowed!
 				Values otherCmnValues = new Values();
 				// foreach possible combination of the missing $degree-1 cells
-				P_LOOP: for ( int[] perm : new Permutations(n, ias[cc]) ) {
+				P_LOOP: for ( int[] perm : new Permutations(n, IAS[cc]) ) {
 					// NB: no need to clear potentials or nakedCells arrays coz
 					//     they're completely overwritten before they are read
 					otherCmnValues.clear(); // ie bits = size = 0;

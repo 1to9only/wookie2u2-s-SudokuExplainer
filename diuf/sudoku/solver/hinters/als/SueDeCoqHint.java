@@ -8,19 +8,18 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
-import java.util.Set;
 
 /**
  * Data transfer object for a Sue De Coc hint.
  *
  * @author Keith Corlett 2020-02-05
  */
-public class SueDeCoqHint extends AHint {
+public class SueDeCoqHint extends AHint implements IActualHint {
 
 	private final Pots purples;
 

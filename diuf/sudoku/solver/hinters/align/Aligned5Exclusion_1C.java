@@ -46,11 +46,11 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 
 	private static final int NUM_CMN_EXCLS = 6;
 
-	private static final Cell[] commonExcludersArray = new Cell[NUM_CMN_EXCLS];
-	private static final int[] commonExcluderBitsArray = new int[NUM_CMN_EXCLS];
+	private static final Cell[] COMMON_EXCLUDERS_ARRAY = new Cell[NUM_CMN_EXCLS];
+	private static final int[] COMMON_EXCLUDERS_BITS = new int[NUM_CMN_EXCLS];
 
-	private static final CellSet[] excludersArray = new CellSet[81];
-	private static final Cell[] cellsArray = new Cell[5];
+	private static final CellSet[] EXCLUDERS_ARRAY = new CellSet[81];
+	private static final Cell[] CELLS_ARRAY = new Cell[5];
 
 	// common excluders indexes: idx02 is an index of the siblings common
 	// to c0 and c1 and c2. See LinkedMatrixCellSet.idx() for more.
@@ -104,12 +104,12 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 
 //	private java.io.PrintStream myLog = open("a5e.log", standardHeader());
 
-	public Aligned5Exclusion_1C(int firstHintNumber, IInterruptMonitor monitor) {
+	public Aligned5Exclusion_1C(IInterruptMonitor monitor) {
 		// firstHintNumber: A5E never finds the 1st, 2nd, or 3rd hint in
 		// top1465.d5.mt, the first hint I ever find is the 4th one, so I am
 		// deactivated (ie I am not even called) until the 4th hint, because
 		// that's a bit faster.
-		super(firstHintNumber, monitor);
+		super(monitor);
 	}
 
 	@Override
@@ -167,11 +167,11 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 		// The populate populateCandidatesAndExcluders fields: a candidate has
 		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
-		final Cell[] candidates = candidatesArray;
+		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
 		// an array of each candidates set-of-excluder-cells, indexed by each
 		// cells position in the Grid.cells array, ie Cell.i.
-		final CellSet[] excluders = excludersArray;
+		final CellSet[] excluders = EXCLUDERS_ARRAY;
 
 		// an array of the 5 cells in each aligned set.
 		// nb: when a candidate cell is added to cells it is "elected", ceasing
@@ -181,7 +181,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 		//     coz each such aligned set has a higher probability of hinting:
 		//     it's like 1:12k with 2+cebs and a tiny 1:100k with 1ceb. A third
 		//     of hints come from 2+cebs which are just 4% of the aligned sets.
-		final Cell[] cells = cellsArray;
+		final Cell[] cells = CELLS_ARRAY;
 
 //KRC#2020-06-30 09:50:00
 //		// sortedCells the above cells array sorted by the CollisionComparator
@@ -193,10 +193,10 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 		final int n0, n1, n2, n3;
 
 		// cmnExcls provides fast array access to the common-excluder-cells
-		final Cell[] cmnExcls = commonExcludersArray;
+		final Cell[] cmnExcls = COMMON_EXCLUDERS_ARRAY;
 		// the common-excluder-cells-maybes-bits. This set may differ from the
 		// actual common-excluder-cells in that any supersets are removed.
-		final int[] cmnExclBits = commonExcluderBitsArray;
+		final int[] cmnExclBits = COMMON_EXCLUDERS_BITS;
 		// number of common excluder cells, and common excluder bits (differs)
 		int numCmnExcls, numCmnExclBits;
 

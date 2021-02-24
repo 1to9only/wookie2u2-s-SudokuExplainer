@@ -52,10 +52,10 @@ public final class UnaryChainer extends AChainer {
 	// creating hint (ie not too often). The GC isnt very smart. This array
 	// is currently only used in createBidirectionalCycleHint but could be
 	// used elsewhere, as long as the methods do not invoke each other.
-	private static final boolean[] booleans81 = new boolean[81];
+	private static final boolean[] BOOLEANS81 = new boolean[81];
 	private static boolean[] booleans81() {
-		Arrays.fill(booleans81, false);
-		return booleans81;
+		Arrays.fill(BOOLEANS81, false);
+		return BOOLEANS81;
 	}
 
 	/**
@@ -75,11 +75,11 @@ public final class UnaryChainer extends AChainer {
 	 * @param isImbedded true ONLY if this is an imbedded (nested) Chainer.
 	 * true prevents the superclass AChainer from caching my hints.
 	 */
-	public UnaryChainer(boolean isAggregate, int firstHintNumber, boolean isImbedded) {
-		super(Tech.UnaryChain, isAggregate, firstHintNumber, isImbedded);
+	public UnaryChainer(boolean isAggregate, boolean isImbedded) {
+		super(Tech.UnaryChain, isAggregate, isImbedded);
 	}
-	public UnaryChainer(boolean isAggregate, int firstHintNumber) {
-		super(Tech.UnaryChain, isAggregate, firstHintNumber, false); // not imbedded
+	public UnaryChainer(boolean isAggregate) {
+		super(Tech.UnaryChain, isAggregate, false); // not imbedded
 	}
 
 	@Override

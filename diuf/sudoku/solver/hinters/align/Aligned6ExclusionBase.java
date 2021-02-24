@@ -21,8 +21,8 @@ import diuf.sudoku.gen.IInterruptMonitor;
  */
 abstract class Aligned6ExclusionBase extends AAlignedSetExclusionBase {
 
-	public Aligned6ExclusionBase(int firstHintNumber, IInterruptMonitor monitor) {
-		super(Tech.AlignedHex, firstHintNumber, monitor);
+	public Aligned6ExclusionBase(IInterruptMonitor monitor) {
+		super(Tech.AlignedHex, monitor);
 		assert tech.isAligned;
 		assert degree == 6;
 	}

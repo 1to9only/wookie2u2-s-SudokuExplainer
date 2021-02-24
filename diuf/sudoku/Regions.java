@@ -8,6 +8,9 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.BOX;
+import static diuf.sudoku.Grid.COL;
+import static diuf.sudoku.Grid.ROW;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.utils.Frmt;
 import java.util.ArrayList;
@@ -107,8 +110,8 @@ public final class Regions {
 	}
 
 	private static final String[] TYPE_NAMES = {
-		  "no_regions", "box", "row", "box/row", "col"
-		, "box/col", "row/col", "regions"
+		  "no_region", "box", "row", "box/row", "col"
+		, "box/col", "row/col", "box/row/col"
 	};
 
 	public static String typeNames(List<ARegion> rs) {
@@ -124,14 +127,27 @@ public final class Regions {
 
 	// returns CSV of the finned region/s. Mostly there's one fin. Multiple
 	// fins are almost always in the one base. Just occassionally: BUGGER!
+	// so for the testcases these MUST be consistent order, so I have to put
+	// them in a set for uniqueness, then put the set into a list, and sort
+	// the damn list by id. Any order will do, it just MUST be consistent and
+	// by id also works for human beings, who don't want to have to think about
+	// pernickity s__t like this, and then the Frmt.csv method I wrote which
+	// takes a Set instead of a List is now not used, but retained coz I'm an
+	// ornery bastard, who put in the work, and I might use it one day.
+	// Programming is complex. sigh.
 	public static String finned(List<ARegion> bases, Set<Cell> fins) {
-		// set for uniqueness
-		HashSet<ARegion> finnedRegionsSet = new HashSet<>();
+		// A Set, for bastard uniqueness
+		HashSet<ARegion> set = new HashSet<>();
 		for ( Cell cell : fins )
 			for ( ARegion r : cell.regions )
 				if ( bases.contains(r) )
-					finnedRegionsSet.add(r);
-		return Frmt.csv(finnedRegionsSet); // I have my own csv method!
+					set.add(r);
+		// list, to sort the bastards by id, for consistent ordering
+		List<ARegion> list = new ArrayList<>(set);
+		list.sort((a, b)->{return a.id.compareTo(b.id);});
+		// format the bastards, and is more human than CSV. sigh.
+		return Frmt.and(list);
+		// Guinness, for strength!
 	}
 
 	// get a List of the used regions from a used-regions array
@@ -157,17 +173,30 @@ public final class Regions {
 //		return s;
 //	}
 
+	/**
+	 * Region ID's, for when you don't HAVE a bloody Grid!
+	 */
+	public static final String[] IDS = {
+		  "box 1", "box 2", "box 3", "box 4", "box 5", "box 6", "box 7", "box 8", "box 9"
+		, "row 1", "row 2", "row 3", "row 4", "row 5", "row 6", "row 7", "row 8", "row 9"
+		, "col A", "col B", "col C", "col D", "col E", "col F", "col G", "col H", "col I"
+	};
+
+	public static int index(String rid) {
+		switch ( rid.charAt(0) ) {
+		case 'b': return  0 + (rid.charAt(4)-'1'); // "box 8"
+		case 'r': return  9 + (rid.charAt(4)-'1'); // "row 1"
+		case 'c': return 18 + (rid.charAt(4)-'A'); // "col C"
+		}
+		throw new IllegalArgumentException("Bad rid: "+rid);
+	}
+
 	// only used for debugging
 	// parse "row 1, row 3, row 6" into a "used" boolean array
-	public static boolean[] parseUsed(String used) {
+	public static boolean[] used(String used) {
 		boolean[] result = new boolean[27];
-		for ( String s : used.split(", ") ) {
-			switch ( s.charAt(0) ) { //                                 01234
-			case 'r': result[ 9 + (s.charAt(4)-'1')] = true; break; // "row 1"
-			case 'c': result[18 + (s.charAt(4)-'A')] = true; break; // "col C"
-			default:  result[ 0 + (s.charAt(4)-'1')] = true; break; // "box 8"
-			}
-		}
+		for ( String rid : used.split(", ") )
+			result[index(rid)] = true;
 		return result;
 	}
 

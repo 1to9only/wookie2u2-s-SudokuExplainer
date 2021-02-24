@@ -1,17 +1,18 @@
 <html>
- <body>
-  <h2>HoDoKu {0}</h2>
-  <p>
-  Coloring is a unary (single value) forcing chain comprised of regions 
-  having just two possible positions for the value <b>{1}</b>, so the value
-  {1} must be in either the oranges or the blues, so any instance of {1}
-  which sees two instances of {1} is on the chopping block:<ul>
-  <li><b>color trap</b>: any candidate which can see two cells of opposite
-   colors can be removed.
-  <li><b>color wrap</b> (rarer): if two cells with the same color can see
-   each other, all candidates of that color can be removed.
-  </ul>
-  <p>
-  Therefore the following values may be removed: <b><r>{2}</r></b>
- </body>
+<body>
+<h2>HoDoKu {0}</h2>
+<p>
+{3}
+<p>
+Coloring is a unary (single value) forcing chain of regions with two places for
+<b>{1}</b>, so {1} must either be in the <b2>greens</b2> or the <b1>blues</b1>.
+Hence any {1} that sees <u>two</u> colored {1}'s is history:<ul>
+<li><b>color trap</b>: any candidate which can see two cells of opposite colors
+can be removed.
+<li><b>color wrap</b> (rarer): if two cells of the same color see each other,
+then all candidates of that color can be removed.
+</ul>
+<p>
+Therefore <r>we can remove <b>{2}</b></r>.
+</body>
 </html>

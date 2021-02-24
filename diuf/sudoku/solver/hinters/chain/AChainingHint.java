@@ -46,7 +46,7 @@ import java.util.HashMap;
 public abstract class AChainingHint extends AHint
 		implements IActualHint, IChildHint {
 
-public static int maxAncestorsSize = 0;
+//public static int maxAncestorsSize = 0;
 
 	// The size of the set used in getCompleteHinterParents.
 	// Is a field to allow me to track max size and bump-up accordingly.
@@ -768,7 +768,7 @@ public static int maxAncestorsSize = 0;
 		// stack are reflected "back up here".
 		// NB: LinkedLists O(n) indexOf is fast enough, coz n is < 100.
 		assert ancestors.size() < 101 : "We're gonna need a bigger boat.";
-maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
+//maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
 		if ( a.parents!=null && a.parents.size>0 && ancestors.indexOf(a)==-1 ) { // O(n/2) ONCE
 			final int n=htmlLines.size(), m=n-1;
 			// Add chain item for given assumption

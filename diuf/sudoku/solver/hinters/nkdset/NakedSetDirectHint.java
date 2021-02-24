@@ -89,6 +89,7 @@ public final class NakedSetDirectHint extends AHint implements IActualHint {
 			, getHintTypeName()			//  4
 			, cell.id					//  5
 			, Integer.toString(value)	//  6
+			, redPots.toString()		//  7
 		);
 	}
 }

@@ -81,18 +81,18 @@
 //	private static final int MAX_CANDIDATES = 59; // <HACK/>
 //
 //	private static final int NUM_CMN_EXCLS = 16;
-//	private static final Cell[] commonExcludersArray = new Cell[NUM_CMN_EXCLS];
-//	private static final int[] commonExcluderBitsArray = new int[NUM_CMN_EXCLS];
+//	private static final Cell[] COMMON_EXCLUDERS_ARRAY = new Cell[NUM_CMN_EXCLS];
+//	private static final int[] COMMON_EXCLUDERS_BITS = new int[NUM_CMN_EXCLS];
 //
-//	private static final Cell[] cellsArray = new Cell[3];
+//	private static final Cell[] CELLS_ARRAY = new Cell[3];
 //
 //	// common excluders indexes: idx02 is an index of the siblings common
 //	// to c0 and c1 and c2. See LinkedMatrixCellSet.idx() for more.
 //	private final Idx idx01 = new Idx(); // = idx0 & idx1
 //	private final Idx idx02 = new Idx(); // = idx01 & idx2
 //
-//	public Aligned3Exclusion(int firstHintNumber) {
-//		super(Tech.AlignedTriple, firstHintNumber, null);
+//	public Aligned3Exclusion() {
+//		super(Tech.AlignedTriple, null);
 //		assert tech.isAligned;
 //		assert degree == 3;
 //	}
@@ -181,18 +181,18 @@
 //
 //		// an array of the cells in each aligned set. Note that the array is
 //		// reused, not recreated for each aligned set.
-//		final Cell[] cells = cellsArray;
+//		final Cell[] cells = CELLS_ARRAY;
 //
 //		// the number of cells in each for-i-loop
 //		final int n0, n1;
 //
 //		// cmnExcls provides fast array access to the common-excluder-cells
-//		final Cell[] cmnExcls = commonExcludersArray;
+//		final Cell[] cmnExcls = COMMON_EXCLUDERS_ARRAY;
 //		// the common-excluder-cells-maybes-bits. This set differs from the
 //		// common-excluder-cells in that supersets & disjuncts are removed
 //		// from cmnExclBits WITHOUT modifying cmnExcls; which is required
 //		// "as is" to build the hint.
-//		final int[] cmnExclBits = commonExcluderBitsArray; // observed 6
+//		final int[] cmnExclBits = COMMON_EXCLUDERS_BITS; // observed 6
 //		// number of common excluder cells, and common excluder bits (differs)
 //		int numCmnExcls, numCmnExclBits;
 //

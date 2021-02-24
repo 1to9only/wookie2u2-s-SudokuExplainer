@@ -75,11 +75,12 @@ public final class HiddenSetDirectHint extends AHint implements IActualHint {
 		return Html.produce(this, "HiddenSetDirectHint.html"
 				, NUMBER_NAMES[hdnSetValuesArray.length-2]	// {0}
 				, Frmt.csv(cells)				//  1
-				, Frmt.and(hdnSetValuesArray)				//  2
+				, Frmt.and(hdnSetValuesArray)	//  2
 				, region.id						//  3
 				, getHintTypeName()				//  4
 				, cell.id						//  5
 				, Integer.toString(value)		//  6
+				, redPots.toString()			//  7
 		);
 	}
 

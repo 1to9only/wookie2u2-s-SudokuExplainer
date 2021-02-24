@@ -881,7 +881,7 @@ public final class Frmt {
 
 	// ========================== funky stuff ============================
 
-	public static DecimalFormat DOUBLE = new DecimalFormat("#0.0");
+	public static DecimalFormat DOUBLE = new DecimalFormat("#0.00");
 	public static String dbl(double d) { return DOUBLE.format(d); }
 
 	// 132 spaces should be enough, I guess

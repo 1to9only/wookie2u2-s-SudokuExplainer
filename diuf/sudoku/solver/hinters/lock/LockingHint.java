@@ -35,15 +35,14 @@ import java.util.Set;
  * <p>This is the only (at time of writing) place where two rules produce the
  *  same type of hint. It's all a bit odd, so shoot me.
  */
-public final class LockingHint extends AHint
-		implements IActualHint, IChildHint {
+public final class LockingHint extends AHint implements IActualHint, IChildHint {
 
 	final int valueToRemove;
 	final Set<Cell> cellSet;
 	final ARegion base;
 	final ARegion cover;
 	final boolean isPointing; //true=Pointing, false=Claiming
-	String dbgMsg;
+	String debugMessage;
 
 	/**
 	 * Construct a new LockingHint.
@@ -65,7 +64,7 @@ public final class LockingHint extends AHint
 		this.base = base;
 		this.cover = cover;
 		this.isPointing = base instanceof Box;
-		this.dbgMsg = debugMessage;
+		this.debugMessage = debugMessage;
 	}
 
 	/**
@@ -91,16 +90,16 @@ public final class LockingHint extends AHint
 		return cellSet;
 	}
 
-	// Weird: only place we use one Tech for two distinct hint-types,
-	// coz (I think) it's more efficient to produce both all in one.
+	// Weird: Locking is only place we use one Tech for two hint-types.
 	@Override
 	public double getDifficulty() {
-		// Tech.Locking.difficulty += 0.1 for Claiming
-		return super.getDifficulty() + (isPointing?0.0:0.1);
+		double d = super.getDifficulty();
+		if ( !isPointing ) // Claiming
+			d += 0.1;
+		return d;
 	}
 
-	// Weird: only place we use one Tech for two distinct hint-types,
-	// coz (I think) it's more efficient to produce both all in one.
+	// Weird: Locking is only place we use one Tech for two hint-types.
 	@Override
 	public String getHintTypeNameImpl() {
 		return isPointing ? "Pointing" : "Claiming";
@@ -192,14 +191,15 @@ public final class LockingHint extends AHint
 
 	@Override
 	public String toHtmlImpl() {
+		// WARN: LockingHint.html is also used in SiameseLockingHint,
+		// so any arguements changes here must also happen there.
 		return Html.produce(this, "LockingHint.html"
 				, getHintTypeName()						// {0}
 				, Integer.toString(valueToRemove)		//  1
 				, base.typeName							//  2
 				, cover.typeName						//  3
-				, degree<2?"":NUMBER_NAMES[degree-2]	//  4 not used
-				, dbgMsg								//  5
-				, redPots.toString()					//  6
+				, redPots.toString()					//  4
+				, debugMessage							//  5
 		);
 	}
 

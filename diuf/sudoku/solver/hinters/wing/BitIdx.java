@@ -1,7 +1,7 @@
 /**
  * Boosted from Sukaku, by Nicolas Juillerat (not the original author).
  */
-package diuf.sudoku.solver.hinters.wing2;
+package diuf.sudoku.solver.hinters.wing;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
@@ -13,7 +13,7 @@ import java.util.Set;
 
 /**
  * A {@code Set<Cell>} backed by a {@link BitSet}. This class wraps a BitSet
- * into a Set of Cells by adding/removing the indice each cell which is 
+ * into a Set of Cells by adding/removing the indice each cell which is
  * present/absent to the BitIdx, then when you iterate the set we turn those
  * indices back into Cells from the given Grid. My BitSet is public to that
  * you can use ALL of it's methods yourself. Each Set method is translated
@@ -93,8 +93,11 @@ import java.util.Set;
  */
 public class BitIdx implements Set<Cell> {
 
-	public final BitSet bits = new BitSet();
+	public final BitSet bits = new BitSet(81);
 	public Grid grid;
+
+	public BitIdx() {
+	}
 
 	public BitIdx(Grid grid) {
 		this.grid = grid;
@@ -244,6 +247,11 @@ public class BitIdx implements Set<Cell> {
 		throw new ClassCastException();
 	}
 
+	public boolean remove(BitIdx idx) {
+		bits.andNot(idx.bits);
+		return false;
+	}
+
 	public void remove(Cell c) {
 		bits.clear(c.i);
 	}
@@ -253,33 +261,33 @@ public class BitIdx implements Set<Cell> {
 			bits.clear(c.i);
 	}
 
+	public void removeAll(BitIdx idx) {
+		bits.andNot(idx.bits);
+	}
+
 	@Override
-	public boolean removeAll(Collection<?> c) {
-		if ( c instanceof BitIdx ) {
-			bits.andNot(((BitIdx) c).bits);
-			return false;
-		}
-		for ( Object cell : c )
+	public boolean removeAll(Collection<?> cells) {
+		for ( Object cell : cells )
 			bits.clear(((Cell)cell).i);
 		return false;
 	}
 
-	public boolean retainAllAny(BitIdx c) {
-		bits.and(c.bits);
+	public boolean retainAllAny(BitIdx idx) {
+		bits.and(idx.bits);
 		return !bits.isEmpty();
 	}
 
-	public boolean retainAllNone(BitIdx c) {
-		bits.and(c.bits);
+	public boolean retainAllNone(BitIdx idx) {
+		bits.and(idx.bits);
 		return bits.isEmpty();
+	}
+
+	public void retainAll(BitIdx idx) {
+		bits.and(idx.bits);
 	}
 
 	@Override
 	public boolean retainAll(Collection<?> c) {
-		if ( c instanceof BitIdx ) {
-			bits.and(((BitIdx)c).bits);
-			return false;
-		}
 		BitIdx other = new BitIdx(c);
 		bits.and(other.bits);
 		return false;
@@ -288,10 +296,30 @@ public class BitIdx implements Set<Cell> {
 	public interface CellFilter {
 		public boolean accept(Cell c);
 	}
-	public void filter(CellFilter f) {
-		for ( Iterator<Cell> it=this.iterator(); it.hasNext(); )
+//useless as tits on a bull	
+//	/**
+//	 * removeAll cells which do NOT match the given CellFilter.
+//	 * Typically CellFilter is implemented with a lambda expression.
+//	 * @param f
+//	 */
+//	public BitIdx filter(CellFilter f) {
+//		for ( Iterator<Cell> it=this.iterator(); it.hasNext(); )
+//			if ( !f.accept(it.next()) )
+//				it.remove();
+//		return this;
+//	}
+	/**
+	 * Returns a new BitIdx containing this.filter(CellFilter).
+	 * Typically CellFilter is implemented with a lambda expression.
+	 * @param f
+	 * @return
+	 */
+	public BitIdx where(CellFilter f) {
+		final BitIdx result = new BitIdx(this); // clone
+		for ( Iterator<Cell> it=result.iterator(); it.hasNext(); )
 			if ( !f.accept(it.next()) )
 				it.remove();
+		return result;
 	}
 
 	@Override

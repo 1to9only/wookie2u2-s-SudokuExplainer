@@ -268,11 +268,10 @@ final class SudokuExplainer implements Closeable {
 			return;
 		}
 		frame.setCurrentHint(null, !selectedHints.isEmpty());
-		if ( selectedHints.size() < 2 )
-			return;
-		// assert there are multiple hints selected. This only happens when the
-		// user manually selects multiple hints to apply.
-		repaintMultipleHints();
+		if ( selectedHints.size() > 1 ) {
+			// user has selected multiple hints to apply.
+			repaintMultipleHints();
+		}
 	}
 
 	// We set the SudokuGridPanel attributes "directly" rather than translate

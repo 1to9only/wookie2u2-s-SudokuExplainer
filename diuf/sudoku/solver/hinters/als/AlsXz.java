@@ -162,9 +162,9 @@ public final class AlsXz extends AAlsHinter {
 						// get zBuds: buds of z's in both ALSs, which maybe z
 						// themselves, except those in both ALSs. Skip if none.
 						if ( zBuds.setAnd(a.vBuds[z], b.vBuds[z])
-								.andNot(both).any() // z has buddies
-						  // redsList = nonALSs which see all z's in both ALSs
-						  && zBuds.cells(grid.cells, redsList) > 0 ) {
+								.andNot(both).any() ) { // z has buddies
+							// redsList=nonALSs which see all z's in both ALSs
+							zBuds.cells(grid.cells, redsList);
 							// z can be eliminated from redsList
 							if ( reds == null )
 								reds = new Pots(redsList, z);
@@ -317,7 +317,7 @@ public final class AlsXz extends AAlsHinter {
 			vOthers.setAnd(others, vs[x]);
 			// remove those which do NOT see all x's in both the ALSs
 			// does buds[xo] contain all x's in both ALSs?
-			vOthers.forEach1((xo) -> {
+			vOthers.forEach((xo) -> {
 				if ( !Idx.andEqualsS2(buds[xo], vAls) )
 					vOthers.remove(xo);
 			});
@@ -340,7 +340,7 @@ public final class AlsXz extends AAlsHinter {
 				// get z's outside the ALS (including in other ALS)
 				vOthers.set(vs[z]).andNot(als.idx);
 				// remove those which do NOT see all z's in this ALS
-				vOthers.forEach1((zo) -> {
+				vOthers.forEach((zo) -> {
 					if ( !Idx.andEqualsS2(buds[zo], vAls) )
 						vOthers.remove(zo);
 				});

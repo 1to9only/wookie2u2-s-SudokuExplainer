@@ -42,6 +42,7 @@ import javax.swing.event.*;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.tree.*;
 
+
 /**
  * The SudokuFrame is the main window of the application.
  * <p>
@@ -91,14 +92,17 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private RecentFilesDialog recentFilesDialog; // Recently Used Files Dialog
 
 	private JFrame dummyFrameKnife;
-	private JPanel contentPane, viewSelectPanel, hintsTreePanel, northPanel, sudokuGridPanelHolder, hintDetailPanel, buttonsPane, buttonsPanel, hintsSouthPanel, ratingPanel, disabledTechsWarnPanel;
+	private JPanel contentPane, viewSelectPanel, hintsTreePanel, northPanel
+		, sudokuGridPanelHolder, hintDetailPanel, buttonsPane, buttonsPanel
+		, hintsSouthPanel, ratingPanel, disabledTechsWarnPanel;
 	private JScrollPane hintDetailsScrollPane, hintsTreeScrollpane;
 	private JTree hintsTree;
 	private JEditorPane hintDetailPane;
 	private String hintDetailHtml; // contents of hintDetailArea because when
 	// you get it back out of the JEditorPane it's been wrapped, badly, and we
 	// want to copy it to the clipboard so that it can be re-used, or whatever.
-	private JButton btnGetAllHints, btnSolveStep, btnGetNextHint, btnValidate, btnApplyHint;
+	private JButton btnGetAllHints, btnSolveStep, btnGetNextHint, btnValidate
+		, btnApplyHint;
 	private JCheckBox chkFilterHints;
 	private JComboBox<String> cmbViewSelector;
 	private JLabel lblPuzzleRating, lblDisabledTechsWarning;
@@ -107,17 +111,22 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private JMenuBar menuBar;
 	// File
 	private JMenu fileMenu;
-	private JMenuItem mitNew, mitGenerate, mitRecentFiles, mitLoad, mitReload, mitLoadNext, mitSave, mitQuit;
+	private JMenuItem mitNew, mitGenerate, mitRecentFiles, mitLoad, mitReload
+		, mitLoadNext, mitSave, mitQuit;
 	// Edit
 	private JMenu editMenu;
 	private JMenuItem mitCopy, mitPaste, mitClear;
 	// Tools
 	private JMenu toolsMenu;
-	private JMenuItem mitResetPotentialValues, mitClearHints, mitSolveStep, mitSolveBigStep, mitGetNextHint, mitApplyHint, mitGetAllHints, mitGetMoreAllHints, mitGetSmallClue, mitGetBigClue, mitCheckValidity, mitSolve, mitAnalyse, mitLogView;
+	private JMenuItem mitResetPotentialValues, mitClearHints, mitSolveStep
+		, mitSolveBigStep, mitGetNextHint, mitApplyHint, mitGetAllHints
+		, mitGetMoreAllHints, mitGetSmallClue, mitGetBigClue, mitCheckValidity
+		, mitSolve, mitAnalyse, mitLogView;
 	// Options
 	private JMenu optionsMenu, mitLookAndFeel; // a sub-menu under optionsMenu
 	private JMenuItem mitSelectTechniques;
-	private JCheckBoxMenuItem mitFilterHints, mitShowMaybes, mitGreenFlash, mitAntialiasing, mitHacky, mitDegreleaseMode;
+	private JCheckBoxMenuItem mitFilterHints, mitShowMaybes, mitGreenFlash
+		, mitAntialiasing, mitHacky, mitDegreleaseMode;
 	// Help
 	private JMenu helpMenu;
 	private JMenuItem mitShowWelcome, mitAbout;
@@ -289,7 +298,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		p.repaint();
 	}
 
-	private static final DecimalFormat RATING = new DecimalFormat("#0.0");
+	private static final DecimalFormat RATING = new DecimalFormat("#0.00");
 
 	// I suspect that 128 is bigger than the biggest hint, but now it's
 	// bounded so that it can't run away towards infinity and break s__t.
@@ -335,7 +344,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			// Set explanations
 			setHintDetailArea(hint.toHtml());
 			// NB: AnalysisHint implements IActualHint despite not being one.
-			if (hint instanceof IActualHint) {
+			if ( hint instanceof IActualHint ) {
 				lblPuzzleRating.setText(RATING.format(hint.getDifficulty()));
 			}
 		}
@@ -533,6 +542,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 			}
 		;
 		});
+		// WARN: This KeyListener is replicated in the hintDetailPane. If you
+		// change here then change there too; or methodise it all (BFIIK).
 		hintsTree.addKeyListener(new KeyAdapter() {
 			@Override
 			public void keyPressed(KeyEvent e) {
@@ -615,7 +626,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 
 	private void applySelectedHintsAndGetNextHint(boolean wantMore, boolean wantSolution) {
 		try {
-			if (engine.getGrid().isFull()) {
+			if ( engine.getGrid().isFull() ) {
 				setCurrentHint(new SolvedHint(), false);
 			} else {
 				engine.applySelectedHints(); // throws UnsolvableException
@@ -698,7 +709,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 		// remember the html ourselves because hintDetailHtml.getText() wraps!
 		hdp.setText(hintDetailHtml = htmlText);
 		hdp.setCaretPosition(0);
-		lblPuzzleRating.setText("-");
+		// same length as a difficulty or the label jumps around distractingly
+		lblPuzzleRating.setText("0.00");
 	}
 
 	private JEditorPane getHintDetailPane() {
@@ -731,6 +743,26 @@ final class SudokuFrame extends JFrame implements IAsker {
 						engine.copyToClipboard(hintDetailHtml);
 					} else {
 						engine.beep();
+					}
+					e.consume();
+				}
+			}
+		});
+		// make keys do same in hintDetailPane as in the hintsTree
+		hintDetailPane.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyPressed(KeyEvent e) {
+				final int keyCode = e.getKeyCode();
+				if (keyCode == KeyEvent.VK_ENTER) {
+					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
+					e.consume();
+				} else if (keyCode == KeyEvent.VK_DELETE) {
+					ArrayList<HintNode> hintNodes = getSelectedHintNodes();
+					if (hintNodes != null && !hintNodes.isEmpty()) {
+						Tech deadTech = hintNodes.get(0).getHint().hinter.tech;
+						removeHintsAndDisableHinter(deadTech);
+						hintsTree.clearSelection();
+						repaint();
 					}
 					e.consume();
 				}
@@ -874,7 +906,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private JButton getBtnValidate() {
 		if (btnValidate == null) {
 			btnValidate = newJButton("Validate", KeyEvent.VK_V,
-					 "Is this Sudoku valid?");
+					 "Check the Sudoku is valid (has exactly one solution)");
 			btnValidate.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
@@ -982,7 +1014,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 		if (ratingPanel == null) {
 			ratingPanel = new JPanel(new FlowLayout(java.awt.FlowLayout.LEFT));
 			ratingPanel.add(new JLabel("Hint rating: "), null);
-			ratingPanel.add(this.lblPuzzleRating = new JLabel("0"), null);
+			// same length as a difficulty or label jumps around distractingly
+			ratingPanel.add(this.lblPuzzleRating = new JLabel("0.00"), null);
 		}
 		return ratingPanel;
 	}
@@ -1641,7 +1674,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private JMenuItem getMitCheckValidity() {
 		if (mitCheckValidity == null) {
 			mitCheckValidity = newJMenuItem("Check validity", KeyEvent.VK_V,
-					 "Check if the Sudoku has exactly one solution");
+					 "Check the Sudoku is valid (has exactly one solution)");
 			mitCheckValidity.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {

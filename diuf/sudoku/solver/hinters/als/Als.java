@@ -113,8 +113,8 @@ public class Als {
 		this.buddies = new Idx();
 		for ( int v : VALUESES[maybes] ) {
 			vs[v] = Idx.newAnd(idx, candidates[v]);
-			vBuds[v] = Grid.cmnBuds(vs[v], new Idx())
-							.andNot(idx).and(candidates[v]);
+			vBuds[v] = grid.cmnBuds(vs[v], new Idx())
+						   .andNot(idx).and(candidates[v]);
 			vAll[v] = Idx.newOr(vBuds[v], vs[v]);
 			buddies.or(vBuds[v]);
 		}

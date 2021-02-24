@@ -13,10 +13,9 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.FIRST_VALUE;
-import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
-import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.hinters.AHinter;
 
 
 /**
@@ -50,15 +49,14 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * <p>
  * Confused yet? Read it again, and again; then look at the code.
  */
-public final class XYWing extends AHintNumberActivatableHinter
-{
+public final class XYWing extends AHinter {
 
 	private final boolean isXYZ; // true=XYZ_Wing, false=XY_Wing
 
 	private final int intersectionSize; // intersectionSize = isXYZ ? 1 : 0
 
-	public XYWing(Tech tech, int firstHintNumber) {
-		super(tech, firstHintNumber); //degree: XY_Wing=2, XYZ_Wing=3;
+	public XYWing(Tech tech) {
+		super(tech); //degree: XY_Wing=2, XYZ_Wing=3;
 		this.isXYZ = tech==Tech.XYZ_Wing;
 		this.intersectionSize = isXYZ ? 1 : 0; // ie this.degree - 2
 	}

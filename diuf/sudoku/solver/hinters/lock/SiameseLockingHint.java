@@ -14,6 +14,7 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -30,16 +31,16 @@ import java.util.Set;
  *
  * @author Keith Corlett 2020 June 18
  */
-public class SiameseLockingHint extends AHint {
+public class SiameseLockingHint extends AHint implements IActualHint {
 
-	final String hintTypeName;
+	final boolean isPointing;
 	final int maybesToRemove;
 	final Set<Cell> cellSet;
 	final Idx idx = new Idx();
 	final Pots greenPots = new Pots();
 	final ARegion base;
 	final ARegion cover;
-	final String andedMaybesToRemove;
+	final String valuesToRemove;
 
 	private String toStr;
 
@@ -51,7 +52,7 @@ public class SiameseLockingHint extends AHint {
 	 */
 	public SiameseLockingHint(AHinter hinter, LockingHint[] hints, boolean isPointing) {
 		super(hinter, new Pots());
-		this.hintTypeName = isPointing ? "Siamese Pointing" : "Siamese Claiming";
+		this.isPointing = isPointing;
 		int maybes = 0;
 		cellSet = new HashSet<>();
 		for ( LockingHint pfh : hints ) {
@@ -61,9 +62,25 @@ public class SiameseLockingHint extends AHint {
 			greenPots.upsertAll(pfh.greens);
 			redPots.upsertAll(pfh.redPots);
 		}
-		andedMaybesToRemove = Values.andS(maybesToRemove = maybes);
+		valuesToRemove = Values.andS(maybesToRemove = maybes);
 		base = hints[0].base;
 		cover = hints[0].cover;
+	}
+
+	// Weird: Locking is only place we use one Tech for two hint-types.
+	@Override
+	public double getDifficulty() {
+		double d = super.getDifficulty();
+		if ( !isPointing ) // Claiming
+			d += 0.1;
+		return d;
+	}
+
+	@Override
+	public String getHintTypeNameImpl() {
+		if ( isPointing )
+			return "Siamese Pointing";
+		return "Siamese Claiming";
 	}
 
 	@Override
@@ -87,15 +104,10 @@ public class SiameseLockingHint extends AHint {
 	}
 
 	@Override
-	public String getHintTypeNameImpl() {
-		return hintTypeName;
-	}
-
-	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		String s = "Look for a " + hintTypeName;
+		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " on <b>"+andedMaybesToRemove+"</b>";
+			s += " on <b>"+valuesToRemove+"</b>";
 		return s;
 	}
 
@@ -105,9 +117,9 @@ public class SiameseLockingHint extends AHint {
 			return toStr;
 		try {
 			StringBuilder sb = Frmt.getSB();
-			sb.append(hintTypeName).append(": ")
+			sb.append(getHintTypeName()).append(": ")
 			  .append(base).append(" and ").append(cover)
-			  .append(" on ").append(andedMaybesToRemove);
+			  .append(" on ").append(valuesToRemove);
 			toStr = sb.toString();
 		} catch (Exception ex) {
 			ex.printStackTrace(System.out);
@@ -118,11 +130,18 @@ public class SiameseLockingHint extends AHint {
 
 	@Override
 	public String toHtmlImpl() {
+		// WARN: LockingHint.html is also used in LockingHint,
+		// so any arguements changes here must also happen there.
 		return Html.produce(this, "LockingHint.html"
-				, hintTypeName			// {0}
-				, andedMaybesToRemove	//  1
+				, getHintTypeName()		// {0}
+				, valuesToRemove		//  1
 				, base.typeName			//  2
 				, cover.typeName		//  3
+				, redPots.toString()	//  4
+				// {5} debugMessage hijacked to explain the Siamese concept.
+				, "<p>"+NL+"<u>Explanation</u>"+NL+"<p>"+NL
+				  +"Note that \"Siamese\" hints are an agglomeration of two distinct hints."+NL
+				  +"It's just nice to see them as one, and so it is, that's all."+NL
 		);
 	}
 }

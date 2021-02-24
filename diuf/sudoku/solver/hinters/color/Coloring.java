@@ -251,7 +251,7 @@ public final class Coloring extends AHinter {
 		final Idx[] buds = Grid.BUDDIES;
 		final Idx vs = idxs[v];
 		// for each a, b: cmnBuds += grid.buds[a] & grid.buds[b] & idxs[v] 
-		a.forEach1((ai)->b.forEach1((bi)->cmnBuds.orAnd(buds[ai], buds[bi], vs)));
+		a.forEach((ai)->b.forEach((bi)->cmnBuds.orAnd(buds[ai], buds[bi], vs)));
 		if ( cmnBuds.none() )
 			return false;
 		cmnBuds.forEach(grid.cells, (c)->redPots.put(c, new Values(v)));
@@ -297,7 +297,7 @@ public final class Coloring extends AHinter {
 		// first: add all cells that may be part of a conjugate pair
 		startSet.clear(); // we start from an empty set, then
 		// add indice of each cell in a region with 2 positions for cand
-		candidateSet.forEach1((i) -> {
+		candidateSet.forEach((i) -> {
 			for ( ARegion r : grid.cells[i].regions )
 				if ( r.indexesOf[cand].size == 2 ) {
 					startSet.add(i);

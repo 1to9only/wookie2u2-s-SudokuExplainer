@@ -19,8 +19,8 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Permutations;
 import java.util.List;
 
@@ -38,7 +38,7 @@ import java.util.List;
  * on a whole planet and they still couldn't agree on anything important.
  * Confused you are, hmmm.
  */
-public final class BasicFisherman extends AHintNumberActivatableHinter
+public final class BasicFisherman extends AHinter
 //		implements diuf.sudoku.solver.IReporter
 {
 //private int chCnt=0, chPass=0;
@@ -48,13 +48,13 @@ public final class BasicFisherman extends AHintNumberActivatableHinter
 	private final int[] thePA; // the permutations array, for Permutations.
 
 	public BasicFisherman(Tech tech) {
-		this(tech, 0);
+		super(tech);
 		assert tech.name().toLowerCase().contains("fish"); // smells like fish!
-		assert !tech.name().startsWith("Finned"); // FinnedFisherman does that!
-	}
-
-	public BasicFisherman(Tech tech, int firstHintNumber) {
-		super(tech, firstHintNumber);
+		// ComplexFisherman do these!
+		assert !tech.name().startsWith("Finned");
+		assert !tech.name().startsWith("Franken");
+		assert !tech.name().startsWith("Mutant");
+		assert !tech.name().startsWith("Kraken");
 		// Swampfish=2, Swordfish=3, Jellyfish=4
 		// do not try Smellyfish=5, I did, and it doesn't.
 		assert degree>=2 && degree<=4;

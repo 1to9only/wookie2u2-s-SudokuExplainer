@@ -70,7 +70,7 @@ public class HintValidator {
 	/**
 	 * Does AlignedExclusion use HintValidator?
 	 */
-	public static final boolean ALIGNED_EXCLUSION_USES = false; // @check false
+	public static final boolean ALIGNED_EXCLUSION_USES = true; // @check false
 
 	/**
 	 * Does ComplexFisherman (for Franken and Mutant only) use HintValidator?
@@ -223,13 +223,11 @@ public class HintValidator {
 	// for use when invalid returns true: log s__t in a standard way.
 	// return was it reported, or swallowed as a repeat?
 	public static boolean report(String reporterName, Grid grid, String badness) {
-		if ( HintValidator.ANY_USES ) {
-			if ( invalidities.putIfAbsent(invalidity, PRESENT) == null ) {
-				Log.teef("%s\n", grid);
-				// NOTE: invalidity contains a leading space
-				Log.teef("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);
-				return true;
-			}
+		if ( invalidities.putIfAbsent(invalidity, PRESENT) == null ) {
+			Log.teef("%s\n", grid);
+			// NOTE: invalidity contains a leading space
+			Log.teef("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);
+			return true;
 		}
 		return false;
 	}

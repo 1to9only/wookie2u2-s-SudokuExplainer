@@ -21,7 +21,6 @@ import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
-import diuf.sudoku.solver.hinters.AHintNumberActivatableHinter;
 import diuf.sudoku.utils.Permutations;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,6 +29,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyArrays;
@@ -40,20 +40,20 @@ import diuf.sudoku.utils.MyArrays;
  * solving techniques. Supports types 1 to 4. Skewed (non-orthogonal) loops
  * (fairly rare) are also detected.
  */
-public final class UniqueRectangle extends AHintNumberActivatableHinter
+public final class UniqueRectangle extends AHinter
 		implements diuf.sudoku.solver.hinters.ICleanUp
 //				 , diuf.sudoku.solver.IReporter
 {
 	// Int ArrayS ~ We need 9 of them
 	// to save on creating an array for each call (garbage eradication)
-	private static final int[][] ias1 = new int[9][];
-	private static final int[][] ias2 = new int[9][];
-	private static final int[][] ias3 = new int[9][];
+	private static final int[][] IAS1 = new int[9][];
+	private static final int[][] IAS2 = new int[9][];
+	private static final int[][] IAS3 = new int[9][];
 	static {
 		for ( int i=0; i<9; ++i ) {
-			ias1[i] = new int[i];
-			ias2[i] = new int[i];
-			ias3[i] = new int[i];
+			IAS1[i] = new int[i];
+			IAS2[i] = new int[i];
+			IAS3[i] = new int[i];
 		}
 	}
 
@@ -89,11 +89,7 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 	private Idx[] idxsOf;
 
 	public UniqueRectangle() {
-		this(0);
-	}
-
-	public UniqueRectangle(int firstHintNumber) {
-		super(Tech.URT, firstHintNumber);
+		super(Tech.URT);
 	}
 
 //	@Override // IReporter
@@ -109,7 +105,6 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 	@Override // ICleanUp
 	public void cleanUp() {
 		clean();
-		super.cleanUp();
 	}
 
 	// nb: called "manually" at the end of getHints.
@@ -349,8 +344,6 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 	 * @return whether the given loop is a candidate for a unique loop
 	 */
 	private boolean isValidLoop(List<Cell> loop) {
-		// localise references for speed
-		final Set<ARegion> evens=this.evens, odds=this.odds;
 		// we build two sets: odds and evens. The first cell is an even, the
 		// second is an odd, and so on around the loop. Then we check that
 		// the two sets contain the same regions.
@@ -504,7 +497,7 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 		Values cmnMaybes;  Cell cell;
 		int i, cnt, nkdSetValuesBits;
 		// foreach possible combination of n cells amongst the 9 in the region
-		for ( int[] perm : new Permutations(9, ias1[n]) ) {
+		for ( int[] perm : new Permutations(9, IAS1[n]) ) {
 			// which includes c1 but does not include c2
 			if ( !contains1ButNot2(perm, idxOfC1, idxOfC2) )
 				continue;
@@ -607,14 +600,14 @@ public final class UniqueRectangle extends AHintNumberActivatableHinter
 		final int[] rmvVals = VALUESES[ALL_BITS & ~extraVals.bits
 				& ~VSHFT[v1] & ~VSHFT[v2]];
 		// the values of the hidden set
-		final int[] hdnSetVals = ias2[N];
+		final int[] hdnSetVals = IAS2[N];
 		// set sizes
 		final int M = N - 1; // get in!
 		final int L = N - 2; // get it?
 		// variables
 		int i, bits, b;
 		// foreach possible combination of the removable values
-		P_LOOP: for ( int[] perm : new Permutations(numRmvVals, ias3[L]) ) {
+		P_LOOP: for ( int[] perm : new Permutations(numRmvVals, IAS3[L]) ) {
 			// Look for a hidden set with this combo of removable values.
 			// We seek $N locations for $N values of each potential hidden set.
 			// get the hidden set values := this combo + v1 + v2.

@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -23,7 +24,7 @@ import java.util.Set;
  * Rectangle hint.
  * @author Keith Corlett Mar 28
  */
-public class EmptyRectangleHint extends AHint {
+public class EmptyRectangleHint extends AHint implements IActualHint {
 
 	// nb: package visible so that EmptyRectangle can compare hints.
 	final int redValue;
@@ -84,6 +85,7 @@ public class EmptyRectangleHint extends AHint {
 				, id1						//  8 assisting cell1
 				, id2						//  9 assisting cell2
 				, debugMessage				// 10 identifies which method was used to find this hint: "A:ROW", or "B:COL"
+				, redPots.toString()		// 11
 		);
 	}
 

@@ -96,14 +96,17 @@ public enum Tech {
 
 // Nightmare
 	// heavies
-	, WXYZ_Wing			(4.21, 4, "WXYZ-Wing")			// limited-ALSs
-	, VWXYZ_Wing		(4.22, 4, "VWXYZ-Wing")			// limited-ALSs
-	, UVWXYZ_Wing		(4.23, 6, "UVWXYZ-Wing")		// limited-ALSs
-	, TUVWXYZ_Wing		(4.24, 7, "TUVWXYZ-Wing")		// limited-ALSs
-	, FinnedSwampfish	(4.30, 2, "Finned Swampfish")	// Finned & Sashimi Fish (fast)
-	, FinnedSwordfish	(4.31, 3, "Finned Swordfish")
-	, FinnedJellyfish	(4.32, 4, "Finned Jellyfish")
-	, Coloring			(4.40, 2, "Coloring", "or BUG (below)")	// (BUG+)
+	, WXYZ_Wing			(4.21, 3, "WXYZ-Wing") // fast limited ALS-XZ
+	, VWXYZ_Wing		(4.22, 4, "VWXYZ-Wing") // fast limited ALS-XZ
+	, UVWXYZ_Wing		(4.23, 5, "UVWXYZ-Wing") // fast limited ALS-XZ
+	, TUVWXYZ_Wing		(4.24, 6, "TUVWXYZ-Wing") // SLOW limited ALS-XZ
+	, STUVWXYZ_Wing		(4.25, 7, "STUVWXYZ-Wing") // SLOW limited ALS-XZ
+	, Coloring			(4.30, 2, "Coloring", "or BUG (Bivalue Universal Grave) which is slower and finds less hints")	// BUG++
+	, BUG				(4.31, 0, "Bivalue Universal Grave", "or Coloring which is faster and finds more hints") // limited Coloring
+	, URT				(4.32, 0, "Unique Rectangle")
+	, FinnedSwampfish	(4.40, 2, "Finned Swampfish")	// Finned & Sashimi Fish (fast)
+	, FinnedSwordfish	(4.41, 3, "Finned Swordfish")
+	, FinnedJellyfish	(4.42, 4, "Finned Jellyfish")
 	, ALS_XZ			(4.50, 0, "ALS-XZ")				// ALSs
 	, ALS_Wing			(4.51, 0, "ALS-Wing")
 	, ALS_Chain			(4.52, 0, "ALS-Chain")
@@ -112,23 +115,20 @@ public enum Tech {
 	, FrankenSwampfish	(4.60, 2, "Franken Swampfish")
 	, FrankenSwordfish	(4.61, 3, "Franken Swordfish")
 	, FrankenJellyfish	(4.62, 4, "Franken Jellyfish")
-// 1,764 seconds for 20 hints is just too slow to be allowed. Mutants are dead.
-// Having said that Mutant Swampfish was fast enough, for 0 hints. sigh.
+	// Mutants are too slow to be allowed: 1,764 seconds for just 20 hints.
 	, MutantSwampfish	(4.70, 2, "Mutant Swampfish", "top1465 NONE")		// NONE
-	, MutantSwordfish	(4.71, 3, "Mutant Swordfish", "top1465 45 seconds")	// OK
+	, MutantSwordfish	(4.71, 3, "Mutant Swordfish", "top1465 45 seconds")	// SLOW
 	, MutantJellyfish	(4.72, 4, "Mutant Jellyfish", "top1465 5 minutes")	// VERY SLOW
-	, NakedQuad			(5.0, 4, "Naked Quad")
-	, HiddenQuad		(5.1, 4, "Hidden Quad")
-	, NakedPent			(5.2, 5, "Naked Pent", "top1465 NONE")
-	, HiddenPent			(5.3, 5, "Hidden Pent", "top1465 NONE")
-	, URT				(5.4, 0, "Unique Rectangle")
-	, KrakenSwampfish	(5.80, 2, "Kraken Swampfish")						// OK
-	, KrakenSwordfish	(5.81, 3, "Kraken Swordfish", "top1465 2 minutes")	// SLOW
-	, KrakenJellyfish	(5.82, 4, "Kraken Jellyfish", "top1465 5 minutes")	// VERY SLOW
+	, NakedQuad			(4.80, 4, "Naked Quad")
+	, HiddenQuad		(4.81, 4, "Hidden Quad")
+	, NakedPent			(4.82, 5, "Naked Pent", "top1465 NONE")
+	, HiddenPent			(4.83, 5, "Hidden Pent", "top1465 NONE")
+	, KrakenSwampfish	(4.90, 2, "Kraken Swampfish")						// OK
+	, KrakenSwordfish	(4.91, 3, "Kraken Swordfish", "top1465 2 minutes")	// SLOW
+	, KrakenJellyfish	(4.92, 4, "Kraken Jellyfish", "top1465 5 minutes")	// VERY SLOW
 
 // Diabolical
-	// Type 1=6.0, 2=6.1, 3={2=6.2, 3=6.3, 4=6.4}, 4=6.0
-	, BUG				(6.0, 0, "Bivalue Universal Grave", "or Coloring (above)")
+	// Type 1=5.0, 2=5.1, 3={2=5.2, 3=5.3, 4=5.4}, 4=5.0
 
 	, AlignedPair		(6.1, 2, "Aligned Pair")
 	, AlignedTriple		(6.2, 3, "Aligned Triple")
@@ -137,8 +137,8 @@ public enum Tech {
 	, AlignedHex		(6.5, 6, "Aligned Hex",  "top1465 3 minutes unhacked")	// SLOW
 	, AlignedSept		(6.6, 7, "Aligned Sept", "top1465 6 minutes unhacked")	// VERY SLOW
 	, AlignedOct			(6.7, 8, "Aligned Oct",  "top1465 19 minutes unhacked")	// TOO SLOW
-	, AlignedNona		(6.8, 9, "Aligned Nona", "top1465 3 hours unhacked")	// WAY TOO SLOW
-	, AlignedDec			(6.9,10, "Aligned Dec",  "top1465 6 hours unhacked")	// WAY TOO SLOW
+	, AlignedNona		(6.8, 9, "Aligned Nona", "top1465 3 hours unhacked")	// HOURS SLOW
+	, AlignedDec			(6.9,10, "Aligned Dec",  "top1465 6 hours unhacked")	// HOURS SLOW
 
 	// chains           level                      Multi,Dynam,Nishi
 	, UnaryChain		(7.0, 0, "Unary Chain",    false,false,false)

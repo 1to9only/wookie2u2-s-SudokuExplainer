@@ -10,11 +10,9 @@ import diuf.sudoku.Ass;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.UnsolvableException;
@@ -51,8 +49,7 @@ import java.util.List;
  * <p>KRC 2019-11-01 I've split the existing Chainer class into MultipleChainer
  * and UnaryChainer. See UnaryChainer comments for more details.
  */
-public final class MultipleChainer
-		extends AChainer
+public final class MultipleChainer extends AChainer
 		implements ICleanUp
 {
 	/**
@@ -86,10 +83,6 @@ public final class MultipleChainer
 	 * @param isAggregate true if all chaining hints should be aggregated into
 	 *  one which is added to the SingleHintsAccumulator which was passed into
 	 *  the getHints method. Only true in LogicalSolverTester -SPEED mode.
-	 * @param firstHintNumber a dirty hack: the number of the first hint that
-	 *  this Tech finds in top1465.d5.mt. Use 1 to negate this feature. When
-	 *  greater than 1 is specified then this hinter is deactivated until we
-	 *  reach $firstHintNumber (1 based) in each puzzle, which is a bit faster.
 	 * @param isImbedded true ONLY when this is an imbedded (nested) Chainer.
 	 *  true prevents the superclass AChainer from caching my hints. It all
 	 *  goes straight to hell in a hand-basket when nested hinters do not
@@ -100,9 +93,8 @@ public final class MultipleChainer
 	 *  bloody-well cache hints! If you do cache hints then bloody-well BEWARE!
 	 */
 	@SuppressWarnings("fallthrough")
-	private MultipleChainer(Tech tech, boolean isAggregate, int firstHintNumber
-		, boolean isImbedded) {
-		super(tech, isAggregate, firstHintNumber, isImbedded);
+	private MultipleChainer(Tech tech, boolean isAggregate, boolean isImbedded) {
+		super(tech, isAggregate, isImbedded);
 		// build the hinters array
 		assert degree>=0 && degree<=5;
 		if ( degree <= 0 ) { // Unary, Nishio, Multiple, or Dynamic
@@ -112,10 +104,10 @@ public final class MultipleChainer
 		// Create and populate the hinters array.
 		this.hinters = new IHinter[numHinters(degree)];
 		// imbed the Four Quick Foxes					// ns/call
-		hinters[0] = new Locking();				//   3,026
+		hinters[0] = new Locking();						//   3,026
 		hinters[1] = new HiddenSet(Tech.HiddenPair);	//   2,858
 		hinters[2] = new NakedSet(Tech.NakedPair);		//   4,089
-		hinters[3] = new BasicFisherman(Tech.Swampfish);		//   3,756
+		hinters[3] = new BasicFisherman(Tech.Swampfish);	//   3,756
 		// degree >= 2: Create the 1or2 nested (imbedded) Chainers.
 		//  reasonabls: 0 UnaryChain, NishioChain, MultipleChain, DynamicChain
 		//    possible: 1=DynamicPlus // I've never seen it NOT find a hint
@@ -125,16 +117,16 @@ public final class MultipleChainer
 		case DynamicPlus: // has no imbedded chainers, just the Four Quick Foxes
 			break;
 		case NestedMultiple: // has imbedded UnaryChain + MultipleChain
-			hinters[5]=new MultipleChainer(Tech.MultipleChain, isAggregate, 0, true);
+			hinters[5]=new MultipleChainer(Tech.MultipleChain, isAggregate, T);
  			//fallthrough
 		case NestedUnary: // has imbedded UnaryChain
-			hinters[4]=new UnaryChainer(isAggregate, 0, true);
+			hinters[4]=new UnaryChainer(isAggregate, T);
 			break;
 		case NestedPlus: // has imbedded DynamicChain + DynamicPlus
-			hinters[5]=new MultipleChainer(Tech.DynamicPlus, isAggregate, 0, true);
+			hinters[5]=new MultipleChainer(Tech.DynamicPlus, isAggregate, T);
 			//fallthrough
 		case NestedDynamic: // has imbedded DynamicChain
-			hinters[4]=new MultipleChainer(Tech.DynamicChain, isAggregate, 0, true);
+			hinters[4]=new MultipleChainer(Tech.DynamicChain, isAggregate, T);
 			//fallout
 		}
 	}
@@ -145,13 +137,9 @@ public final class MultipleChainer
 	 * @param isAggregate true if all chaining hints should be aggregated into
 	 *  one which is added to the SingleHintsAccumulator which was passed into
 	 *  the getHints method. Only true in LogicalSolverTester -SPEED mode.
-	 * @param firstHintNumber a dirty hack: the number of the first hint that
-	 * this Tech finds in top1465.d5.mt. Use 1 to negate this feature. When
-	 * greater than 1 is specified then this hinter is deactivated until we
-	 * reach $firstHintNumber (1 based) in each puzzle, which is a bit faster.
 	 */
-	public MultipleChainer(Tech tech, boolean isAggregate, int firstHintNumber) {
-		this(tech, isAggregate, firstHintNumber, false);
+	public MultipleChainer(Tech tech, boolean isAggregate) {
+		this(tech, isAggregate, F);
 	}
 
 	@Override
@@ -295,7 +283,7 @@ public final class MultipleChainer
 			// is MANDATORY for the correctness of the algorithm.
 			final int cellMaybesBits = cell.maybes.bits; // copy to ensure correctness!
 			for ( int v : VALUESES[cellMaybesBits] ) {
-				// do binary chaining: contradictions and reductions 
+				// do binary chaining: contradictions and reductions
 				// contradition: the initialAss causes a cell to be both on and
 				// off, which is absurd, so the initialAss must be wrong.
 				// reduction: regardless of whether the initialAss is correct

@@ -408,10 +408,12 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * Get this hints base degree of difficulty rating as a double, which is
-	 * usually (but not always) a multiple of one tenth.
+	 * usually* a multiple of one hundredth, to format as 0.00.
+	 * <p>
+	 * usually*: floating-point numbers are vage, even doubles.
 	 *
 	 * @see diuf.sudoku.Difficulty for the ranges (used in Sudoku generator)
-	 * @see diuf.sudoku.Tech for the actual base difficulties, chainers make
+	 * @see diuf.sudoku.Tech for the base difficulties. The Chainers make
 	 * themselves harder. Sigh.
 	 * @return hinter.tech.difficulty: the base difficulty rating of this hint.
 	 */

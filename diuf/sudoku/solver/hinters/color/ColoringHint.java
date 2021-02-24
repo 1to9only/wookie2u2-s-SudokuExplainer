@@ -175,6 +175,7 @@ public class ColoringHint extends AHint implements IActualHint {
 			, getHintTypeName()					// {0}
 			, Integer.toString(valueToRemove)	//  1
 			, redPots.toString()				//  2
+			, toString()						//  3
 		);
 	}
 

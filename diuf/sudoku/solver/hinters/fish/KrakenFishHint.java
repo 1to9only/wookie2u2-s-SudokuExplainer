@@ -17,6 +17,7 @@ import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyFunkyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedFifoQueue;
@@ -157,8 +158,8 @@ public class KrakenFishHint extends AHint implements IActualHint {
 	}
 
 	// append a line of HTML to sb for each chain
-	private void appendChains(StringBuilder sb) {
-		int was = sb.length();
+	private StringBuilder appendChains(StringBuilder sb) {
+		final int initialLength = sb.length();
 		try {
 			// kf2: each target ass is the same elimination, but the chain to
 			// get there differs, each ending in one of the fin (blue) cells.
@@ -186,11 +187,12 @@ public class KrakenFishHint extends AHint implements IActualHint {
 			}
 		} catch (Throwable ex) {
 			// esp out of memory error (now reported as RTE: endless loop)
-			sb.setLength(was);
-			sb.append("<i><font color=\"red\">")
+			sb.setLength(initialLength);
+			sb.append("<font color=\"red\"><i>")
 			  .append("KrakenFishHint.appendChains: ").append(ex)
-			  .append("</font></i>").append(NL);
+			  .append("</i></font>").append(NL);
 		}
+		return sb;
 	}
 
 	@Override
@@ -205,27 +207,21 @@ public class KrakenFishHint extends AHint implements IActualHint {
 		return hType.name + ": " + cause;
 	}
 
-	String squeeze() {
-		return toStringImpl()+" ("+redPots+")"; // NO CACHING for isInvalid!
-	}
-
 	@Override
 	protected String toHtmlImpl() {
-		StringBuilder sb = new StringBuilder(1024);
-		sb.append("<html><body>").append(NL);
-		sb.append("<h2>HoDoKu ").append(getHintTypeName()).append("</h2>").append(NL);
-		sb.append(toString()).append(NL);
-		sb.append("<pre>");
-		appendChains(sb);
-		sb.append("</pre>").append(NL);
-		sb.append("<p>").append(NL);
-		sb.append("The above defines all possibile configurations of the Fish")
-		  .append(" and it's fins, and they all eliminate ").append(redPots)
-		  .append(", therefore we can go ahead and eliminate ")
-		  .append("<b><font color=\"red\">").append(redPots).append("</font></b>.")
-		  .append(NL);
-		sb.append("</body></html>");
-		return sb.toString();
+		// add some color to toString() to make it easier to see what's what.
+		final String coloredHint = Html.colorIn(toString()
+				.replaceFirst(": ", ": <b1>")
+				.replaceFirst(" and ", "</b1> and <b2>")
+				.replaceFirst(" on", "</b2> on"));
+		final String chainsString = appendChains(new StringBuilder(1024))
+				.toString();
+		return Html.produce(this, "KrakenFishHint.html"
+			, getHintTypeName()		// {0}
+			, coloredHint			//  1
+			, chainsString			//  2
+			, redPots.toString()	//  3
+		);
 	}
 
 }

@@ -92,10 +92,11 @@ public final class NakedSetHint extends AHint implements IActualHint, IChildHint
 	public String toHtmlImpl() {
 		return Html.produce(this, "NakedSetHint.html"
 				, NUMBER_NAMES[degree-2]	// {0}
-				, Frmt.and(nkdSetCellList)		//  1
+				, Frmt.and(nkdSetCellList)	//  1
 				, Frmt.and(nkdSetValues)	//  2
 				, regionIds					//  3
 				, getHintTypeName()			//  4
+				, redPots.toString()		//  5
 		);
 	}
 }

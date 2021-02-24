@@ -109,11 +109,12 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "HiddenSetHint.html"
-				, NUMBER_NAMES[degree-2]	// {0}
-				, Frmt.csv(cells)			//  1
+				, NUMBER_NAMES[degree-2]		// {0}
+				, Frmt.csv(cells)				//  1
 				, Frmt.and(hdnSetValuesArray)	//  2
-				, region.id					//  3
-				, getHintTypeName()			//  4
+				, region.id						//  3
+				, getHintTypeName()				//  4
+				, redPots.toString()			//  5
 		);
 	}
 

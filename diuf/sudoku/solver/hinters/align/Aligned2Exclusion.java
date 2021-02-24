@@ -107,17 +107,17 @@
 //	// because Java uses it, to push people to pay for the latest version of
 //	// MS-AssBungle instead. Conspiracy theory? What conspiracy theory? Just
 //	// don't trust them blindly! I wouldn't trust Microsoft to run a bath.
-//	private static final Cell[] commonExcludersArray = new Cell[NUM_CMN_EXCLS];
-//	private static final int[] commonExcluderBitsArray = new int[NUM_CMN_EXCLS];
-//	private static final Cell[] cellsArray = new Cell[2];
+//	private static final Cell[] COMMON_EXCLUDERS_ARRAY = new Cell[NUM_CMN_EXCLS];
+//	private static final int[] COMMON_EXCLUDERS_BITS = new int[NUM_CMN_EXCLS];
+//	private static final Cell[] CELLS_ARRAY = new Cell[2];
 //
 //	// common excluders indexes: idx01 is an index of the siblings common
 //	// to c0 and c1. It's a field just to not have to recreate the Idx in
 //	// every call to findHints. See LinkedMatrixCellSet.idx() for more.
 //	private final Idx idx01 = new Idx(); // = idx0 & idx1
 //
-//	public Aligned2Exclusion(int firstHintNumber) {
-//		super(Tech.AlignedPair, firstHintNumber, null);
+//	public Aligned2Exclusion() {
+//		super(Tech.AlignedPair, null);
 //		assert tech.isAligned;
 //		assert degree == 2;
 //	}
@@ -204,13 +204,13 @@
 //		// cells is an array of the cells in each aligned set. nb: this array is
 //		// reused, not recreated for each aligned set, for performance; because
 //		// less garbage always means less GC, which makes it all faster.
-//		final Cell[] cells = cellsArray;
+//		final Cell[] cells = CELLS_ARRAY;
 //
 //		// the excluder cells common to c0 and c1
-//		final Cell[] cmnExcls = commonExcludersArray;
+//		final Cell[] cmnExcls = COMMON_EXCLUDERS_ARRAY;
 //		// the common-excluder-cells.maybes.bits. This set differs from the
 //		// common-excluder-cells in that supersets and disjuncts are removed.
-//		final int[] cmnExclBits = commonExcluderBitsArray;
+//		final int[] cmnExclBits = COMMON_EXCLUDERS_BITS;
 //
 //		// the number of cells in the for-i0-loop
 //		final int n0;

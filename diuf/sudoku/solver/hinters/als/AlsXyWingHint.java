@@ -10,6 +10,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -23,7 +24,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2020 Apr 21
  */
-public class AlsXyWingHint extends AHint {
+public class AlsXyWingHint extends AHint implements IActualHint {
 
 	private final Als a;
 	private final Als b;

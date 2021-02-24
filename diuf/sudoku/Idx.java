@@ -9,7 +9,7 @@ package diuf.sudoku;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.CellFilter;
-import diuf.sudoku.solver.hinters.wing2.BitIdx;
+import diuf.sudoku.solver.hinters.wing.BitIdx;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.regex.Pattern;
@@ -108,7 +108,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * 9-bit-word. There are 3 words per 27-bit element. */
 	public static final int[][] WORDS = new int[1<<9][]; // [0..511][see SIZE]
 	/** the number of elements in each ARRAYS sub-array. */
-	public static int[] IDX_SIZE = new int[1<<9];
+	public static int[] WORD_SIZE = new int[1<<9];
 
 	/** Int ArrayS used to iterate Idx's. One array-set per iteration.
 	 * There's two of them to avert collisions in imbedded loops. */
@@ -153,7 +153,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			// nb: no need to roll my own when I can Indexes.toValuesArray it.
 			// The downside is that Indexes.toValuesArray has to handle any i.
 			WORDS[i] = newArray(i);
-			IDX_SIZE[i] = WORDS[i].length;
+			WORD_SIZE[i] = WORDS[i].length;
 		}
 	}
 
@@ -190,15 +190,16 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return
 	 */
 	public static boolean sizeLTE(int a0, int a1, int a2, int max) {
-		int size = 0;
-		if ( a0!=0 && (size=Integer.bitCount(a0)) > max )
-			return false;
-		if ( a1!=0 && (size+=Integer.bitCount(a1)) > max )
-			return false;
-		// The if statement is redundant, but it's debuggable this way!
-		if ( a2!=0 && (size+=Integer.bitCount(a2)) > max )
-			return false;
-		return true;
+//		int size = 0;
+//		if ( a0!=0 && (size=Integer.bitCount(a0)) > max )
+//			return false;
+//		if ( a1!=0 && (size+=Integer.bitCount(a1)) > max )
+//			return false;
+//		// The if statement is redundant, but it's debuggable this way!
+//		if ( a2!=0 && (size+=Integer.bitCount(a2)) > max )
+//			return false;
+//		return true;
+		return Integer.bitCount(a0)+Integer.bitCount(a1)+Integer.bitCount(a2) <= max;
 	}
 
 	/**
@@ -211,17 +212,18 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return the number of set (1) bits in the Idx
 	 */
 	public static int size(int a0, int a1, int a2) {
-		// nb: terniaries are slow: they're a pointless method call.
-		int size;
-		if ( a0 != 0 )
-			size = Integer.bitCount(a0);
-		else
-			size = 0;
-		if ( a1 != 0 )
-			size += Integer.bitCount(a1);
-		if ( a2 != 0 )
-			size += Integer.bitCount(a2);
-		return size;
+//		// nb: terniaries are slow: they're a pointless method call.
+//		int size;
+//		if ( a0 != 0 )
+//			size = Integer.bitCount(a0);
+//		else
+//			size = 0;
+//		if ( a1 != 0 )
+//			size += Integer.bitCount(a1);
+//		if ( a2 != 0 )
+//			size += Integer.bitCount(a2);
+//		return size;
+		return Integer.bitCount(a0)+Integer.bitCount(a1)+Integer.bitCount(a2);
 	}
 
 	/**
@@ -345,6 +347,34 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return new Idx(s1.a0|s2.a0, s1.a1|s2.a1, s1.a2|s2.a2);
 	}
 
+	/**
+	 * Returns a cached (Idx.IAS_A) array of the indices contained in the
+	 * Idx(m0,m1,m2), without creating a bloody Idx, or a new array. sigh.
+	 * 
+	 * @param m0
+	 * @param m1
+	 * @param m2
+	 * @return 
+	 */
+	public static int[] toArrayA(int m0, int m1, int m2) {
+		int bits, j, i=0;
+		final int n = Integer.bitCount(m0)+Integer.bitCount(m1)+Integer.bitCount(m2);
+		int[] a = IAS_A[n];
+		if ( (bits=m0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					a[i++] = j+k;
+		if ( (bits=m1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					a[i++] = BITS_PER_ELEMENT+j+k;
+		if ( (bits=m2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					a[i++] = BITS_TWO_ELEMENTS+j+k;
+		return a;
+	}
+
 	// ============================ instance stuff ============================
 
 	/** The 3 ints, each of 27 used bits, for the 81 cells in a Grid. These
@@ -442,6 +472,22 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return this Idx, for method chaining.
 	 */
 	public Idx set(Idx src) {
+		a0 = src.a0;
+		a1 = src.a1;
+		a2 = src.a2;
+		modCount = 1; getMod = 0;
+		return this;
+	}
+
+	/**
+	 * Set this = src; if src is null then this Idx is empty.
+	 * <p>
+	 * This null-safe version of set is required by KrakenFisherman only, where
+	 * it IS required, else there's s__t loads of ____ing around to avoid it.
+	 *
+	 * @param src
+	 */
+	public void setNullSafe(Idx src) {
 		// null check required by KrakenFisherman. sigh.
 		if ( src == null ) {
 			a0 = a1 = a2 = 0; // clear
@@ -451,7 +497,6 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			a2 = src.a2;
 		}
 		modCount = 1; getMod = 0;
-		return this;
 	}
 
 	/**
@@ -500,6 +545,21 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
+	 * Set this = (m0,m1,m2) and return any.
+	 * @param m0 the mask of the first 27 indices in the Idx
+	 * @param m1 the mask of the second 27 indices in the Idx
+	 * @param m2 the mask of the third 27 indices in the Idx
+	 * @return any?
+	 */
+	public boolean setAny(int m0, int m1, int m2) {
+		a0 = m0;
+		a1 = m1;
+		a2 = m2;
+		modCount = 1; getMod = 0;
+		return (a0|a1|a2) != 0;
+	}
+
+	/**
 	 * Set this = (aa & bb).
 	 * @param aa
 	 * @param bb
@@ -532,7 +592,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param aa
 	 * @param bb
 	 * @param min
-	 * @return 
+	 * @return
 	 */
 	public boolean setAndMin(Idx aa, Idx bb, int min) {
 		a0 = aa.a0 & bb.a0;
@@ -831,9 +891,9 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return true if the intersection of this and other is not empty.
 	 */
 	public boolean andAny(Idx aa) {
-		return (a0 & aa.a0) != 0
-			|| (a1 & aa.a1) != 0
-			|| (a2 & aa.a2) != 0;
+		return ( (a0 & aa.a0)
+			   | (a1 & aa.a1)
+			   | (a2 & aa.a2) ) != 0;
 	}
 
 	/**
@@ -870,7 +930,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return the sum of the Integer.bitCount of my three array elements.
 	 */
 	public int size() {
-		return size(a0, a1, a2);
+//		return size(a0, a1, a2);
+		return Integer.bitCount(a0)+Integer.bitCount(a1)+Integer.bitCount(a2);
 	}
 
 	/**
@@ -927,7 +988,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * <p>
 	 * <b>DON'T USE</b> unless you have to. get simulates HoDoKus SudokuSet.get
 	 * method but its a bit slow Redge, with a method call per element, so we
-	 * prefer {@link #forEach1}, {@link #toArrayA()}, {@link toArrayB()}, or
+	 * prefer {@link #forEach}, {@link #toArrayA()}, {@link toArrayB()}, or
 	 * even {@link #toArrayNew()}.
 	 * <p>
 	 * NB: get currently the only use of modCount, which is spread everywhere.
@@ -945,7 +1006,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		else if ( getMod != modCount )
 			doGet = true;
 		if ( doGet ) {
-			getN = forEach2((cnt, i) -> getArray[cnt] = i);
+			getN = forEach((cnt, i) -> getArray[cnt] = i);
 			getMod = modCount;
 		}
 		if ( index < getN )
@@ -968,7 +1029,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	public int[] toArray(int[] array) {
 		// from little things...
-		forEach2((cnt, i) -> array[cnt] = i);
+		forEach((cnt, i) -> array[cnt] = i);
 		return array;
 	}
 
@@ -979,7 +1040,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return the number of elements added (ergo idx.size())
 	 */
 	public int toArrayN(int[] array) {
-		return forEach2((cnt, i) -> array[cnt] = i);
+		return forEach((cnt, i) -> array[cnt] = i);
 	}
 
 	/**
@@ -992,9 +1053,23 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return a cached array of the indices in this Idx.
 	 */
 	public int[] toArrayA() {
-		if ( isEmpty() )
+		if ( (a0|a1|a2) == 0 )
 			return IAS_A[0];
-		return toArray(IAS_A[size()]);
+		int[] array = IAS_A[Integer.bitCount(a0)+Integer.bitCount(a1)+Integer.bitCount(a2)];
+		int bits, j, count=0;
+		if ( (bits=a0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					array[count++] = j+k;
+		if ( (bits=a1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					array[count++] = BITS_PER_ELEMENT+j+k;
+		if ( (bits=a2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					array[count++] = BITS_TWO_ELEMENTS+j+k;
+		return array;
 	}
 
 	/**
@@ -1007,9 +1082,23 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return a cached array of the indices in this Idx.
 	 */
 	public int[] toArrayB() {
-		if ( isEmpty() )
+		if ( (a0|a1|a2) == 0 )
 			return IAS_B[0];
-		return toArray(IAS_B[size()]);
+		int[] array = IAS_B[Integer.bitCount(a0)+Integer.bitCount(a1)+Integer.bitCount(a2)];
+		int bits, j, count=0;
+		if ( (bits=a0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					array[count++] = j+k;
+		if ( (bits=a1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					array[count++] = BITS_PER_ELEMENT+j+k;
+		if ( (bits=a2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					array[count++] = BITS_TWO_ELEMENTS+j+k;
+		return array;
 	}
 
 	/**
@@ -1035,7 +1124,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	public BitIdx toBitIdx(Grid grid) {
 		BitIdx result = new BitIdx(grid);
-		forEach1((indice) -> {
+		forEach((indice) -> {
 			result.bits.set(indice);
 		});
 		return result;
@@ -1046,7 +1135,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	//                Welcome to the alien visitation centre.
 	//                             Bring Towel!
 	//
-	
+
 	/**
 	 * You implement Visitor2 (typically with a lambda expression) in order to
 	 * call my forEach method to invoke {@code visitor.visit(count, indice)}
@@ -1090,9 +1179,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * the indice, for each set (1) bit in this Idx.
 	 * @return the number of indices visited, ie the end count.
 	 */
-	public static int forEach2(int a0, int a1, int a2, Visitor2 v) {
-		int j;
-		int count = 0;
+	public static int forEach(int a0, int a1, int a2, Visitor2 v) {
+		int j, count=0;
 		if ( a0 != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
 				for ( int k : WORDS[(a0>>j)&WORD_MASK] )
@@ -1113,12 +1201,25 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Idx. The count is the (0 based) number of indices we've visited so far.
 	 * <p>
 	 * I just delegate to the static forEach, passing this Idx.
-	 * @param visitor is invoked passing the count (0 based number of indices
-	 *  we've visited so far) and each indice in this Idx
+	 * @param visitor is invoked passing the indice (0 based indice of the cell
+	 *  that we are visiting).
 	 * @return total number of indices visited, ie the size of this Idx
 	 */
-	public int forEach2(Visitor2 visitor) {
-		return forEach2(a0, a1, a2, visitor);
+	public int forEach(Visitor2 visitor) {
+		int bits, j, count=0;
+		if ( (bits=a0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					visitor.visit(count++, j+k);
+		if ( (bits=a1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					visitor.visit(count++, BITS_PER_ELEMENT+j+k);
+		if ( (bits=a2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					visitor.visit(count++, BITS_TWO_ELEMENTS+j+k);
+		return count;
 	}
 
 	// ------------------------- Visitor1: indice only ------------------------
@@ -1143,7 +1244,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Static forEach1 visits each indice in a1,a2,a3: ie invokes
+	 * Static forEach visits each indice in a1,a2,a3: ie invokes
 	 * {@code v.visit(indice)} for each set (1) bit in the Idx(a1,a2,a3).
 	 * @param a0 Idx element 0: 27 used bits
 	 * @param a1 Idx element 1: 27 used bits
@@ -1151,31 +1252,49 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param v your implementation of Visitor1 does whatever with indice
 	 * @return the number of indices visited, ie the size of this Idx
 	 */
-	public static int forEach1(int a0, int a1, int a2, Visitor1 v) {
-		int j;
-		int count = 0;
+	public static int forEach(int a0, int a1, int a2, Visitor1 v) {
+		int j, count=0;
 		if ( a0 != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a0>>j)&WORD_MASK] )
+				for ( int k : WORDS[(a0>>j)&WORD_MASK] ) {
 					v.visit(j+k);
+					++count;
+				}
 		if ( a1 != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a1>>j)&WORD_MASK] )
+				for ( int k : WORDS[(a1>>j)&WORD_MASK] ) {
 					v.visit(BITS_PER_ELEMENT+j+k);
+					++count;
+				}
 		if ( a2 != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a2>>j)&WORD_MASK] )
+				for ( int k : WORDS[(a2>>j)&WORD_MASK] ) {
 					v.visit(BITS_TWO_ELEMENTS+j+k);
+					++count;
+				}
 		return count;
 	}
+
 	/**
-	 * forEach1 visits each indice, ie invokes {@code v.visit(indice)} for each
-	 * set (1) bit in this Idx.
+	 * forEach visits each indice in this Idx, ie invokes
+	 * {@code v.visit(indice)} for each set (1) bit (the indice) in this Idx.
+	 *
 	 * @param v your implementation of Visitor1 does whatever with indice
-	 * @return the number of indices visited, ie the size of this Idx
 	 */
-	public int forEach1(Visitor1 v) {
-		return forEach1(a0, a1, a2, v);
+	public void forEach(Visitor1 v) {
+		int bits, j;
+		if ( (bits=a0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					v.visit(j+k);
+		if ( (bits=a1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					v.visit(BITS_PER_ELEMENT+j+k);
+		if ( (bits=a2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					v.visit(BITS_TWO_ELEMENTS+j+k);
 	}
 
 	// ---------------------------- BooleanVisitor ----------------------------
@@ -1214,7 +1333,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 						return false;
 		return true;
 	}
-	
+
 	// --------------------- Just visit the cell ya putz! ---------------------
 
 	public interface CellVisitor {
@@ -1224,18 +1343,70 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		int bits, j, count = 0;
 		if ( (bits=a0) != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
 					v.visit(cells[j+k]);
+					++count;
+				}
 		if ( (bits=a1) != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
 					v.visit(cells[BITS_PER_ELEMENT+j+k]);
+					++count;
+				}
 		if ( (bits=a2) != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
 					v.visit(cells[BITS_TWO_ELEMENTS+j+k]);
+					++count;
+				}
 		return count;
 	}
+
+	public void forEach(Visitor1 first, Visitor1 subsequent) {
+		Visitor1 v = first;
+		int bits, j;
+		if ( (bits=a0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
+					v.visit(j+k);
+					v = subsequent;
+				}
+		if ( (bits=a1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
+					v.visit(BITS_PER_ELEMENT+j+k);
+					v = subsequent;
+				}
+		if ( (bits=a2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
+					v.visit(BITS_TWO_ELEMENTS+j+k);
+					v = subsequent;
+				}
+	}
+
+//	public static void forEach(int m0, int m1, int m2, Visitor1 first, Visitor1 subsequent) {
+//		Visitor1 v = first;
+//		int j;
+//		if ( m0 != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(m0>>j)&WORD_MASK] ) {
+//					v.visit(j+k);
+//					v = subsequent;
+//				}
+//		if ( m1 != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(m1>>j)&WORD_MASK] ) {
+//					v.visit(BITS_PER_ELEMENT+j+k);
+//					v = subsequent;
+//				}
+//		if ( m2 != 0 )
+//			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+//				for ( int k : WORDS[(m2>>j)&WORD_MASK] ) {
+//					v.visit(BITS_TWO_ELEMENTS+j+k);
+//					v = subsequent;
+//				}
+//	}
 
 	// --------------------------------- cells --------------------------------
 
@@ -1247,7 +1418,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return the given cells array, so create new if you must.
 	 */
 	public Cell[] cells(Grid grid, Cell[] cells) {
-		forEach2((count, indice) -> cells[count] = grid.cells[indice]);
+		forEach((count, indice) -> cells[count] = grid.cells[indice]);
 		return cells;
 	}
 
@@ -1272,7 +1443,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	public int cellsN(Grid grid, Cell[] cells) {
 		CELLS_N_VISITOR.grid = grid;
 		CELLS_N_VISITOR.cells = cells;
-		return forEach2(CELLS_N_VISITOR);
+		return forEach(CELLS_N_VISITOR);
 	}
 
 	// cellsMaybes is hammered by AlignedExclusion, so create ONE instance of
@@ -1287,7 +1458,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 	public static final CellsMaybesVisitor CELLS_MAYBES_VISITOR = new CellsMaybesVisitor();
 	public int cellsMaybes() {
-		return forEach2(CELLS_MAYBES_VISITOR);
+		return forEach(CELLS_MAYBES_VISITOR);
 	}
 
 	/**
@@ -1344,7 +1515,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	public static StringBuilder append(StringBuilder sb, int n, int a0, int a1, int a2) {
 		sb.ensureCapacity(sb.length()+n);
 		// nb: we're using a lambda expression to implement Visitor2 here
-		forEach2(a0, a1, a2, (cnt, g) -> {
+		forEach(a0, a1, a2, (cnt, g) -> {
 			if(cnt>0) sb.append(' ');
 			sb.append(Grid.CELL_IDS[g]);
 		});
@@ -1375,7 +1546,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	public static String toIndiceString(int a0, int a1, int a2) {
 		StringBuilder sb = getSB(size(a0,a1,a2) * 3);
-		forEach2(a0, a1, a2, (cnt, i) -> {
+		forEach(a0, a1, a2, (cnt, i) -> {
 			if(cnt>0) sb.append(' ');
 			sb.append(i); // the raw indice
 		});
@@ -1403,7 +1574,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	public String toFullString(Grid grid) {
 		StringBuilder sb = getSB(size()*12);
-		forEach2((cnt, i) -> {
+		forEach((cnt, i) -> {
 			if(cnt>0) sb.append(' ');
 			sb.append(grid.cells[i].toFullString());
 		});
@@ -1554,7 +1725,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param cells
 	 * @param f any CellFilter to accept (or reject) each cell.
 	 * @return a new Idx of matching indices/cells in this Idx.
-	 */	
+	 */
 	public Idx where(Cell[] cells, CellFilter f) {
 		int bits, j, r0=0,r1=0,r2=0; // the result
 		if ( (bits=a0) != 0 )

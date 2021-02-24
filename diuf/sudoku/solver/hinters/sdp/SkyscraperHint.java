@@ -61,6 +61,7 @@ public class SkyscraperHint extends AHint implements IActualHint {
 				, bases.get(0).id			//  1
 				, bases.get(1).id			//  2
 				, covers.get(0).typeName	//  3
+				, redPots.toString()		//  4
 		);
 	}
 	

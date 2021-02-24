@@ -12,6 +12,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -22,7 +23,7 @@ import java.util.Set;
  *
  * @author User
  */
-public class TwoStringKiteHint extends AHint {
+public class TwoStringKiteHint extends AHint implements IActualHint {
 
 	private final int redValue;
 	private final Cell[] rowPair;

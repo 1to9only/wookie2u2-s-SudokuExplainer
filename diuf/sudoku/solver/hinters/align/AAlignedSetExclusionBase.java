@@ -271,25 +271,23 @@ import diuf.sudoku.utils.IntIntHashMap;
  *    you start messing about with A10_1C which takes a wet week to run. Out!
  * </pre>
  */
-public abstract class AAlignedSetExclusionBase
-		extends AHintNumberActivatableHinter // WARNING: If you ____ with me ...
+public abstract class AAlignedSetExclusionBase extends AHinter
 		implements diuf.sudoku.solver.IPreparer
 {
-	//                                       // WARNING: then change this also!
 	// coz getCounters() reflectively references by superclass by SUPER_NAME,
 	// so if you rename me you need to change SUPER_NAME also.
-	private static final String SUPER_NAME = "AHintNumberActivatableHinter";
+	private static final String SUPER_NAME = "AHinter";
 
 	/** The size of the candidatesArray. */
 	protected static final int NUM_CANDIDATES = 64; // array size; 81-17=64
 
 	/** We need only one candidatesArray for ALL Aligned*Exclusion so long as
 	 * we're single threaded. If you're multi-threading kill the static! */
-	protected static final Cell[] candidatesArray = new Cell[NUM_CANDIDATES];
+	protected static final Cell[] CANDIDATES_ARRAY = new Cell[NUM_CANDIDATES];
 
 	/** We need only one excludersArray for ALL Aligned*Exclusion so long as
 	 * we're single threaded. If you're multi-threading kill the static! */
-	protected static final CellSet[] excludersArray = new CellSet[81];
+	protected static final CellSet[] EXCLUDERS_ARRAY = new CellSet[81];
 
 	protected static final PrintStream open(String filename, String headerLine) {
 		try {
@@ -407,9 +405,8 @@ public abstract class AAlignedSetExclusionBase
 //	protected final Counter sumCnt = new Counter("sumCnt");
 //	protected final Counter prangCnt = new Counter("prangRate");
 
-	public AAlignedSetExclusionBase(Tech tech, int firstHintNumber
-			, IInterruptMonitor monitor) {
-		super(tech, firstHintNumber);
+	public AAlignedSetExclusionBase(Tech tech, IInterruptMonitor monitor) {
+		super(tech);
 		this.interruptMonitor = monitor;
 		assert tech.isAligned;
 		// 2 and 3 were original

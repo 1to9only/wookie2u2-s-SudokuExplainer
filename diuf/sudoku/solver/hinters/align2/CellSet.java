@@ -59,7 +59,7 @@ public class CellSet extends LinkedMatrixCellSet {
 	 * @param idx the indices of cells to add
 	 */
 	CellSet(Cell[] cells, Idx idx) {
-		idx.forEach1((i)->add(cells[i]));
+		idx.forEach(cells, (c)->add(c));
 	}
 
 	/**

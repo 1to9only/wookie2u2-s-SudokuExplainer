@@ -10,6 +10,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -23,7 +24,7 @@ import java.util.List;
  *
  * @author Keith Corlett 2020 Sept/Oct
  */
-public class ComplexFishHint extends AHint {
+public class ComplexFishHint extends AHint implements IActualHint {
 
 	enum Type {
 		  SWAMPFISH("Swampfish", 2, true, false, false, false, false)
@@ -207,9 +208,13 @@ public class ComplexFishHint extends AHint {
 		// is this bastard invalid
 		final String s; if(isInvalid) s="#"; else s="";  
 		// sashimi fins replace a corner
-		final String f; if(isSashimi) f=" (fins "+blues.cells()+")"; else f="";
+		final String fins;
+		if ( isSashimi )
+			fins = " (fins "+blues.cells()+")";
+		else
+			fins = "";
 		return s+getHintTypeName()+": "+Frmt.csv(bases)
-				 + f
+				 + fins
 				 + " and "+Frmt.csv(covers)
 				 + " on "+candidate;
 	}
@@ -220,37 +225,35 @@ public class ComplexFishHint extends AHint {
 
 	@Override
 	protected String toHtmlImpl() {
-		if ( true ) {
-			// Finned/Sashimi: hijack debugMessage = names of finned regions
-			if ( (hType.isFinned || hType.isSashimi)
-			  && !hType.isFranken && !hType.isMutant )
-				debugMessage = Regions.finned(bases, blues.keySet());
-			final String filename =
-				hType.isMutant ? "MutantFishHint.html"
-				: hType.isFranken ? "FrankenFishHint.html"
-				: hType.isFinned||hType.isSashimi ? "FinnedFishHint.html"
-				: "BasicFishHint.html";
-			final String nn; if(degree<2) nn=""; else nn=NUMBER_NAMES[degree-2];
-			return Html.produce(this, filename
-					, getHintTypeName()						// {0}
-					, Integer.toString(candidate)			//  1
-					, Regions.typeNames(bases)				//  2
-					, Regions.typeNames(covers)				//  3
-					, nn									//  4 number name
-					, debugMessage							//  5
-					, redPots.toString()					//  6
-					, blues.toString()					//  7 fins
-			);
-		} else {
-			// Developers only: HoDoKuFisherman#squeeze parses this into a log
-			// line, so we use this to find any invalid hints.
-			return "<html><body><pre>"
-				 + NL+toString()+" ("+redPots+")" // "$#$hintType: $bases and $covers on $candidate ($redPots)"
-				 + (blues.isEmpty() ? "" : NL+"exoFins (blue): "+blues)
-				 + (endoFins.isEmpty() ? "" : NL+"endoFins (purple): "+endoFins)
-				 + (sharks==null||sharks.isEmpty() ? "" : NL+"sharks (yellow): "+sharks)
-				 + NL+"</pre></body></html>";
-		}
+		// Finned/Sashimi: hijack debugMessage = names of finned regions
+		if ( (hType.isFinned || hType.isSashimi)
+		  && !hType.isFranken && !hType.isMutant )
+			debugMessage = Regions.finned(bases, blues.keySet());
+		else
+			debugMessage = "";
+		final String filename =
+			hType.isMutant ? "MutantFishHint.html"
+			: hType.isFranken ? "FrankenFishHint.html"
+			: hType.isFinned||hType.isSashimi ? "FinnedFishHint.html"
+			: "BasicFishHint.html";
+		final String nn; if(degree<2) nn=""; else nn=NUMBER_NAMES[degree-2];
+		// add some color to toString() to make it easier to see what's what.
+		final String coloredHint = Html.colorIn(toString()
+				.replaceFirst(": ", ": <b1>")
+				.replaceFirst(" and ", "</b1> and <b2>")
+				.replaceFirst(" on", "</b2> on"));
+		return Html.produce(this, filename
+			, getHintTypeName()				// {0}
+			, Integer.toString(candidate)	//  1
+			, Regions.typeNames(bases)		//  2
+			, Regions.typeNames(covers)		//  3
+			, nn							//  4 number name
+			, debugMessage					//  5
+			, redPots.toString()			//  6 eliminations
+			, blues.toString()				//  7 fins
+			, coloredHint					//  8 hint (elims)
+			, blues.size()==1?"has":"have"	//  9
+		);
 	}
 
 }
