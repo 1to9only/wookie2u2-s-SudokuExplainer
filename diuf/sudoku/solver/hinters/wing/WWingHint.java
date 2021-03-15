@@ -66,14 +66,15 @@ public final class WWingHint extends AHint implements IActualHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "WWingHint.html"
-				, cellA.id		// {0}
-				, cellB.id		//  1
-				, wCellA.id		//  2
-				, wCellB.id		//  3
-				, Integer.toString(value0)			// 4
-				, Integer.toString(value1)			// 5
-				, Grid.commonRegion(wCellA, wCellB) // 6
-				, Frmt.and(redPots.keySet())		// 7
+			, cellA.id							//{0}
+			, cellB.id							// 1
+			, wCellA.id							// 2
+			, wCellB.id							// 3
+			, Integer.toString(value0)			// 4
+			, Integer.toString(value1)			// 5
+			, Grid.commonRegion(wCellA, wCellB) // 6
+			, Frmt.and(redPots.keySet())		// 7
+			, redPots.toString()				// 8
 		);
 	}
 

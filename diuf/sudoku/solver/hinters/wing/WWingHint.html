@@ -1,25 +1,23 @@
 <html>
- <body>
-  <h2>HoDoKu W-Wing</h2>
-  <p>
-   The cells <c><b>{2}</b></c> and <c><b>{3}</b></c>
-      &lt;-&gt; <c><b>{0}</b></c> and <c><b>{1}</b></c>
-   form a <b>W-Wing</b> pattern on the values 
-   <b1><b>{4}</b></b1> and <g><b>{5}</b></g>.
-  </p>
-  <p>
-   In {6} there are only two cells (<b>{2}</b> and <b>{3}</b>) which may be
-   <g><b>{5}</b></g>, so one of those two cells must contain the value
-   <g><b>{5}</b></g>, and those two cells also have two siblings (<b>{0}</b>
-   and <b>{1}</b>) which can only be <b1><b>{4}</b></b1> or <g><b>{5}</b></g>,
-   therefore one of those two siblings must contain the value
-   <b1><b>{4}</b></b1>, therefore any cells that are siblings of both the
-   siblings <b>{0}</b> and <b>{1}</b> may not be <b1><b>{4}</b></b1>.
-  </p>
-  <p>
-   <r>Other occurrences of the value <b>{4}</b></r>
-   can therefore be removed from siblings of both <b>{0}</b> and <b>{1}</b>,
-   ie <r><b>{7}</b></r>.
-  </p>
- </body>
+<body>
+<h2>HoDoKu W-Wing</h2>
+<p>
+The cells <c><b>{2}</b></c> and <c><b>{3}</b></c>
+  &lt;-&gt; <c><b>{0}</b></c> and <c><b>{1}</b></c>
+form a <b>W-Wing</b> pattern on the values 
+<b1><b>{4}</b></b1> and <g><b>{5}</b></g>.
+<p>
+In {6} there are only two cells (<b>{2}</b> and <b>{3}</b>) which may be
+<g><b>{5}</b></g>, so one of those two cells must contain the value
+<g><b>{5}</b></g>, and those two cells also have two siblings (<b>{0}</b>
+and <b>{1}</b>) which can only be <b1><b>{4}</b></b1> or <g><b>{5}</b></g>,
+therefore one of those two siblings must contain the value
+<b1><b>{4}</b></b1>, therefore any cells that are siblings of both the
+siblings <b>{0}</b> and <b>{1}</b> may not be <b1><b>{4}</b></b1>.
+<p>
+Hence other occurrences of <b>{4}</b> can be removed from cells seeing
+both <b>{0}</b> and <b>{1}</b>.
+<p>
+Therefore <r>we can remove <b>{8}</b></r>.
+</body>
 </html>

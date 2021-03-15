@@ -19,18 +19,18 @@ import java.util.Set;
  * Implementation is based on an array of booleans that is coincident with the
  * given 'regions' array, which I suspect will always be Grid.regions.
  * <p>
- * The RegionSet is currently only used in UniqueRectangle so it is only 
+ * The RegionSet is currently only used in UniqueRectangle so it is only
  * package visible.
  * <p>
  * I'm just playing here really. If there are significant problems then I shall
  * revert to a {@code HashSet<ARegion>} and chuck this in the bin. Sigh. I just
- * hope it'll be faster than a HashSet for my purposes, that's all. 
+ * hope it'll be faster than a HashSet for my purposes, that's all.
  * <p>
  * RegionSet saves a whole 63 milliseconds for top1465. Wow! You can blink
  * four times in 63 milliseconds (five if you practise) and it only took me a
  * morning to implement, so if I run LogicalSolverTester just 400000 times then
  * I'll get my time back. Fortunately running it just 400000 times will take
- * only 4.03 years, presuming that I never sleep, eat, or do anything other 
+ * only 4.03 years, presuming that I never sleep, eat, or do anything other
  * than run it repeatedly. Welcome to How To Go Broke as a Programmer 101!
  *
  * @author Keith Corlett 2020 July 4
@@ -44,7 +44,7 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 	public int size;
 
 	/**
-	 * add is an addOnly: it ignores a request to add an existing region, 
+	 * add is an addOnly: it ignores a request to add an existing region,
 	 * returning false.
 	 * @param r the ARegion to add
 	 * @return was the region added
@@ -88,7 +88,7 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 		return size;
 	}
 
-	/** 
+	/**
 	 * WARNING: all this code is UNTESTED!
 	 * @return a new {@code Iterator<ARegion>}
 	 * @throws UnsupportedOperationException("iterator() is not supported!");
@@ -100,7 +100,7 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 		throw new UnsupportedOperationException("iterator() is not supported!");
 	}
 // Putz!
-//	/** 
+//	/**
 //	 * WARNING: UNTESTED! overriding equals renders IteratorImpl unused, so
 //	 * it has NOT been tested, and if experience tells me anything it tells
 //	 * me that I suck at iterators, because I hate them, because they're too
@@ -138,7 +138,7 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 	/**
 	 * The equals(Object o) method just calls equals(RegionSet).
 	 * @param o
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public boolean equals(Object o) {

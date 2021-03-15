@@ -99,7 +99,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/** the value of a full "word" (9 set bits). */
 	public static final int WORD_MASK = 0x1FF; // Hex F = Dec 15 = Bin 1111
 
-	/** the value of ALL bits (ie 27 set bits) in an element. */
+	/** the value of ALL bits (ie 27 set bits) in an Idx element. */
 	public static final int ALL = (1<<BITS_PER_ELEMENT)-1;
 
 	/** the left-shifted bitset value of my index. */

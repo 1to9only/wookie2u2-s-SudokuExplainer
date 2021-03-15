@@ -218,6 +218,7 @@ public final class Regions {
 		return usedTypes;
 	}
 
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	// an array of the type of each of the 27 regions to look-up
 	// NB: SE is (box, row, col) whereas HoDoKu is (row, col, box)

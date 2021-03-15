@@ -8,10 +8,6 @@ package diuf.sudoku;
 
 import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
-import static diuf.sudoku.Idx.BITS_PER_WORD;
-import static diuf.sudoku.Idx.BITS_TWO_ELEMENTS;
-import static diuf.sudoku.Idx.WORDS;
-import static diuf.sudoku.Idx.WORD_MASK;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.ISIZE;
@@ -779,7 +775,7 @@ public final class Grid {
 			rebuildAllMyS__t();
 			// remember isMaybesLoaded to avoid any future rebuilds.
 			isMaybesLoaded = wereMaybesLoaded;
-			AHint.hintNumber = 0; // before first
+			AHint.hintNumber = 1; // reset the hint number
 			return true; // meaning load succeeded
 		} catch (Exception ex) {
 			StdErr.whinge("Critical Grid.load", ex);

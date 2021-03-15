@@ -11,8 +11,6 @@ import java.util.Arrays;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.Values; // for debugging only
-import diuf.sudoku.utils.Debug; // for debugging only
 import static diuf.sudoku.Grid.AFTER;
 import static diuf.sudoku.Grid.BUDETTES;
 

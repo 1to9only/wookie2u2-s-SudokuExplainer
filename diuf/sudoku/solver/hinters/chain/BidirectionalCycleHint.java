@@ -44,7 +44,7 @@ public final class BidirectionalCycleHint extends AChainingHint {
 		// NB: the result is cached by getAquaCells for each viewNum
 		// nb: 1,2,4,8,16,32,64 => cols 0&7 in same bucket
 		//     1 2 3 4 5  6  7
-		Set<Cell> set = new LinkedHashSet<>(64, 1F); 
+		Set<Cell> set = new LinkedHashSet<>(64, 1F);
 		for ( Ass a=this.dstOff; a.parents!=null && a.parents.size>0; )
 			set.add( (a=a.parents.first.item).cell );
 //		if ( set.size() > 32 )
@@ -172,11 +172,13 @@ public final class BidirectionalCycleHint extends AChainingHint {
 		else
 			swamp = "";
 		return Html.produce(this, fileName
-				, Frmt.and(getAquaCells(0))		//{0}
-				, Integer.toString(dstOn.value)	// 1
-				, swamp							// 2
-				, getChainHtml(dstOn)			// 3
-				, getChainHtml(dstOff)			// 4
+			, Frmt.and(getAquaCells(0))		//{0}
+			, Integer.toString(dstOn.value)	// 1
+			, swamp							// 2
+			, getChainHtml(dstOn)			// 3
+			, getChainHtml(dstOff)			// 4
+			, redPots.toString()			// 5
 		);
 	}
+
 }

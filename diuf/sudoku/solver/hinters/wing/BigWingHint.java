@@ -131,6 +131,7 @@ class BigWingHint extends AHint implements IActualHint {
 
 	@Override
 	public String toHtmlImpl() {
+		// double-linked wings have more eliminations, so seperate explanation
 		String filename = both ? "BigWing2Hint.html" : "BigWingHint.html";
 		return Html.produce(hinter, filename
 			, Frmt.csv(als)				//{0}
@@ -144,6 +145,7 @@ class BigWingHint extends AHint implements IActualHint {
 			, NUMBER_NAMES[degree-2]	// 8
 			, NUMBER_NAMES[degree-3]	// 9
 			, hinter.tech.nom			// 10
+			// double-linked wings are called rings (only used in BigWing2Hint)
 			, hinter.tech.nom.replaceFirst("-Wing", "-Ring") // 11
 		);
 	}

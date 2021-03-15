@@ -173,7 +173,7 @@ public final class BasicFishHint extends AHint implements IActualHint, IChildHin
 			, Regions.typeName(bases)				//  2
 			, Regions.typeName(covers)				//  3
 			, nn									//  4 number name; BasicFishHint only
-			, debugMessage							//  5 debugMessage is always an empty String by default
+			, debugMessage							//  5 debugMessage
 			, redPots.toString()					//  6
 		);
 	}

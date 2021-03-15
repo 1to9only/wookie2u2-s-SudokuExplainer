@@ -63,7 +63,12 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
-		return new MyLinkedHashSet<>(xy, xz, yz);
+		return new MyLinkedHashSet<>(xz, yz);
+	}
+
+	@Override
+	public Set<Cell> getPinkCells(int notUsed) {
+		return new MyLinkedHashSet<>(xy);
 	}
 
 	@Override
@@ -71,6 +76,7 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 		if ( greenPots == null ) {
 			Pots pots = new Pots();
 			// the z value is green (xy is orange)
+			pots.put(xy, new Values(zValue));
 			pots.put(xz, new Values(zValue));
 			pots.put(yz, new Values(zValue));
 			greenPots = pots;
@@ -160,12 +166,13 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 	public String toHtmlImpl() {
 		final String filename = isXYZ ? "XYZWingHint.html" : "XYWingHint.html";
 		return Html.produce(this, filename
-				, xy.id			// {0}
-				, xz.id			//  1
-				, yz.id			//  2
-				, zValue		//  3
-				, x()	//  4
-				, y()	//  5
+				, xy.id		// {0}
+				, xz.id		//  1
+				, yz.id		//  2
+				, zValue	//  3
+				, x()		//  4
+				, y()		//  5
+				, redPots.toString() // 6
 		);
 	}
 

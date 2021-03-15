@@ -161,7 +161,6 @@ public final class Generator implements IInterruptMonitor {
 				if(isInterrupted) return null;
 				// analyse his difficulty and return him if he in desired range
 				// NB: this is the slow part, @maybe make him interruptible?
-				AHint.hintNumber = 1;
 				Grid copy = new Grid(puzzle);
 				// analysing typically subsecond, but is "unbounded".
 				// 15 mins is worste ever, so I no use BIG A*E's now.

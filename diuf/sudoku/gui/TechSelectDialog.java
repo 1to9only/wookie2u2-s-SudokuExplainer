@@ -124,6 +124,8 @@ class TechSelectDialog extends JDialog {
 				case FinnedSwampfish:
 				case FrankenSwampfish:
 				case KrakenSwampfish:
+				case KrakenSwordfish:
+				case KrakenJellyfish:
 				case Coloring:
 				case ALS_XZ:
 				case NakedQuad:
@@ -277,6 +279,11 @@ class TechSelectDialog extends JDialog {
 	}
 
 	private void setWantedRules() {
+		// Coloring xor BUG (you can have neither, but not both).
+		// Coloring finds a superset of BUG hints, and is faster.
+		// I should probably remove BUG altogether, for simplicity.
+		if ( wantedTechs.contains(Tech.Coloring) )
+			wantedTechs.remove(Tech.BUG);
 		Settings.THE.justSetWantedTechniques(wantedTechs);
 		Settings.THE.save();
 		setVisible(false);

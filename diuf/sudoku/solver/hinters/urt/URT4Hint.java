@@ -42,13 +42,14 @@ public final class URT4Hint extends AURTHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "URT4Hint.html"
-			, getTypeName()		// {0}
-			, lockVal			//  1
-			, rmvVal			//  2
-			, Frmt.csv(loop)	//  3
-			, c1.id				//  4
-			, c2.id				//  5
-			, region.id			//  6
+			, getTypeName()		//{0}
+			, lockVal			// 1
+			, rmvVal			// 2
+			, Frmt.csv(loop)	// 3
+			, c1.id				// 4
+			, c2.id				// 5
+			, region.id			// 6
+			, redPots.toString()// 7
 		);
 	}
 }

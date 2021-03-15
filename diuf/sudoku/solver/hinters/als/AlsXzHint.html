@@ -1,25 +1,4 @@
 <html>
-<!-- 
-/*
- * Copyright (C) 2008-12  Bernhard Hobiger
- *
- * Bernhard Hobiger wrote this description so I include his standard licence
- * statement. Any kudos should go to him. I barely understand this s__t. KRC.
- *
- * HoDoKu is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * HoDoKu is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
- */
--->
 <body>
 <h2>HoDoKu ALS-XZ</h2>
 <p>
@@ -27,41 +6,46 @@ The two Almost Locked Sets (ALSs):<pre>
  (a) <b1>{0}</b1>
  (b) <b2>{1}</b2>
 </pre>
-share the Restricted Common Candidate (RCC) X = {2}<br>
-and another (non-restricted) common candidate Z = <b>{3}</b>.
+share the Restricted Common Candidate (RCC) x = {2}{6}.
 <p>
-All X's ({2}'s) in both ALSs see each other (that's the Restriction) so that
-only one of these two ALSs can contain a {2}, so the other ALS will contain
-the other common value Z {3}.
+All x's ({2}'s) in both ALSs see each other (that's the Restriction) so only one
+of these two ALSs can contain a {2}, so the other ALS will contain the other
+common value z {3}.
 <p>
 Hence no cell which sees all {3}'s in both ALSs may be {3}.
 <p>
 Therefore <r>we can remove <b>{4}</b></r>. 
 <p>
 <u>Explanation</u>
-The logic is a bit nasty. All X's in these two ALS's see each other, so that
-X will be in one of these two ALS's, which "pushes" the other common value z
-into the other ALS (we don't know yet which is which), so other cells which see
-all z's in both ALS's are history. The "push" part is the tricky bit. Each ALS
-may loose only one value before it goes invalid. So for instance, if ALS-A has
-{2} then the {3} is pushed into the other ALS. ALS-A can't have both {2} and {3}
-because that leaves the other ALS with insufficient values to fill it's cells.
-Hence the other common value z ({3}) is always "pushed" into the other ALS.
 <p>
-An ALS (Almost Locked Set) is exactly what it sounds like: A Naked
-Pair/Triple/Quad is a "Locked Set", and an ALS is "almost locked" because it has
-just has one more potential value than its number of cells, so if any value
-where removed from those cells it becomes a Locked Set. ALSs aren't very useful
-until we chain them together in groups of 2: ALS-XZ, 3: ALS-Wing, or more:
-ALS-Chains... or Death Blossom, or Big Wing, or whatever; the point is that
-additional logic needs to be applied on top of ALS's.
+The logic is: all x's in these two ALS's see each other, so that x will be in
+one of these two ALS's, which "pushes" the other common value z into the other
+ALS (we don't know yet which is which), so other cells which see all z's in
+both ALS's are history.
 <p>
-An ALS-XZ is just an ALS-Chain of length 2. 
-ALS-XZ's and ALS-Wings have slightly different rules, so they are handled
-separately to ALS-Chains, and so have differentiating hint-type names.
-In ALS-XZ and ALS-Wings the RCC (X) is allowed to appear in the overlap, if any,
+The "push" is the tricky bit. Each ALS may loose only <u>one</u> value before it
+goes invalid. So for instance, if ALS-A has {2} then the {3} is pushed into the
+other ALS. ALS-A can't have both {2} and {3} because that leaves ALS-B with
+insufficient values to fill it's cells, which is invalid. Hence the other common
+value z ({3}) is "pushed" into the other ALS.
+<p>
+<u>ALS Blurb</u>
+<p>
+An "Almost Locked Set" (ALS) is exactly what it sounds like.
+A Naked/Hidden Pair/Triple/Quad/etc is a "Locked Set",
+and an ALS is "almost locked" because it has just has one more potential value than its number of cells,
+so if any value where removed from those cells it becomes a Locked Set.
+ALSs aren't very useful until we chain them together in groups of
+2=ALS-XZ, 3=ALS-Wing, or more=ALS-Chains; or Death Blossom, or Big Wings, or whatever;
+the point is that additional logic is always applied on top of ALS's in order to produce hints.
+<p>
+An ALS-XZ is just an ALS-Chain of length 2. ALS-XZ's and ALS-Wings have slightly
+different rules, so they are handled separately to ALS-Chains, and so have
+differentiating hint-type names.
+In ALS-XZ and ALS-Wings the RCC (x) is allowed to appear in the overlap, if any,
 of the two sets, in ALS-Chains this is forbidden because it breaks the "and
-reciprocally" rule.
+reciprocally" rule. There's other extraneous differences (if you really want
+to know then you'll have to read the codez) but that's the crux of it.
 <p>
 <!--debugMessage-->{5}
 </body>

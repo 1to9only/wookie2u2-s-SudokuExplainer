@@ -1271,9 +1271,8 @@ public final class Aligned9Exclusion_1C extends Aligned9ExclusionBase
 											ExcludedCombosMap map = buildExcludedCombosMap(
 													cmnExcls, numCmnExcls, cells, redPots);
 											// create and add the hint
-											AHint hint = new AlignedExclusionHint(
-												  this, redPots, cells, numCmnExcls, cmnExcls
-												, map);
+											AHint hint = new AlignedExclusionHint(this
+													, redPots, cells, numCmnExcls, cmnExcls, map);
 
 //											standardLog(myLog, cells, gsl, hintNum
 //													, cmnExcls, numCmnExcls

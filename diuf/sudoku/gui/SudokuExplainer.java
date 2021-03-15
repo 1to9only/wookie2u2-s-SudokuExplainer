@@ -318,10 +318,8 @@ final class SudokuExplainer implements Closeable {
 	 */
 	String logView(File logFile, String regex) {
 		try {
-			// trim the string to search for must not be blank
-			regex = regex.trim();
 			while ( regex.length() == 0 )
-				if ( (regex=Ask.forString("tech.nom (regex)", regex)) == null )
+				if ( (regex=Ask.forString("hint regex", regex)) == null )
 					return null;
 			Pattern pattern = Pattern.compile(regex);
 			// read the logFile first time || if logFile has changed
@@ -342,26 +340,24 @@ final class SudokuExplainer implements Closeable {
 			for ( int i=startLine; i<n; ++i ) {
 				line = logLines.get(i);
 				if ( line.startsWith("WARN: ")  ) {
-					// WARN: Death Blossom invalidity I3-9 in #Death Blossom: G2-67 (I3-9)!
+					// WARN: Death Blossom invalidity I3-9 in @Death Blossom: G2-67 (I3-9)!
 					try {
-						String hintText = line.substring(line.indexOf(" in ")+4);
-						Matcher matcher = pattern.matcher(hintText);
+						hint = line.substring(line.indexOf(" in ")+4);
+						Matcher matcher = pattern.matcher(hint);
 						if ( !matcher.matches() )
 							continue;
 						grid.load(logLines.get(i-2)+NL+logLines.get(i-1)+NL);
 						getAllHints(false, false);
-						if ( filteredHints.size() > 1 ) {
+						if ( filteredHints.size() > 1 )
 							for ( AHint h : filteredHints )
-								if ( h.toString().equals(hintText) ) {
+								if ( h.toString().equals(hint) ) {
 									selectedHints.clear();
 									selectedHints.add(h);
 								}
-						}
 						startLine = i + 1;
 						return regex;
 					} catch ( Exception eaten ) {
 						beep();
-						continue;
 					}
 				} else if ( line.indexOf('#', 0) > -1 )
 					// remember this line in case we match, in a field
@@ -433,8 +429,8 @@ final class SudokuExplainer implements Closeable {
 			// not found
 			startLine = 0;
 			beep();
-			// give the user a chance to change the techNom for the next call
-			return Ask.forString("tech.nom (regex)", regex);
+			// give the user a chance to change the regex for the next call
+			return Ask.forString("hint regex", regex);
 		} catch (Throwable ex) {
 			StdErr.whinge("logView error", ex);
 			beep();
@@ -976,7 +972,7 @@ if ( GOT_DODGY_HINTS ) {
 			grid.source = null;
 			GridFactory.pasteClipboardTo(grid);
 			AHinter.hackTop1465 = grid.hackTop1465();
-			AHint.hintNumber = 1; // reset the hint number for next analyse
+			AHint.hintNumber = 1; // reset the hint number
 			frame.setTitle(ATV+"    (clipboard)");
 		} catch (IOException ex) {
 			backup.copyTo(grid);
@@ -1004,9 +1000,10 @@ if ( GOT_DODGY_HINTS ) {
 
 	/** Load the next puzzle in a .mt (MagicTour, ie multi-puzzle) file. */
 	final PuzzleID loadNextPuzzle() {
-		if ( grid.source==null || grid.source.file==null )
+		PuzzleID gs = grid.source;
+		if ( gs==null || gs.file==null )
 			return null;
-		return loadFile(grid.source.file, grid.source.lineNumber+1);
+		return loadFile(gs.file, gs.lineNumber+1);
 	}
 
 	/** Load the given PuzzleID. */
@@ -1039,7 +1036,7 @@ if ( GOT_DODGY_HINTS ) {
 		else if ( !grid.isMaybesLoaded )
 			grid.rebuildMaybesAndS__t();
 		GrabBag.grid = grid;
-		AHint.hintNumber = 1; // just for verbose AHint.apply logging
+		AHint.hintNumber = 1; // reset the hint number
 		AHinter.hackTop1465 = grid.hackTop1465();
 		return recentFiles.add(grid.source);
 	}
@@ -1050,7 +1047,7 @@ if ( GOT_DODGY_HINTS ) {
 	 * @param stringData the puzzle to load.
 	 */
 	void loadStringIntoGrid(String stringData) {
-		AHint.hintNumber = 1; // just for verbose AHint.apply logging
+		AHint.hintNumber = 1; // reset the hint number
 		grid.source = null; // default to null, may be set by grid.load from 3rd line in stringData
 		grid.load(stringData);
 		GrabBag.grid = grid;

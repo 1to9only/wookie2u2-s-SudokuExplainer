@@ -368,29 +368,30 @@ final class SudokuFrame extends JFrame implements IAsker {
 	// AlignedPent may be unavailable, as apposed to merely dis/enabled.
 	// return does the warning panel need to be visible.
 	boolean refreshDisabledRulesWarning() {
-		int numDisabled = Settings.ALL_TECHS.size()
-				- Settings.THE.getWantedTechniques().size();
-		boolean isVisible = true; // turns out I allways want to see the warning.
-		String disabledWarningText = numDisabled == 1
-				? "1 solving technique disabled."
-				: "" + numDisabled + " solving techniques disabled.";
-		// add the unavailableText
-		String unavailableText = "";
+		// build the disabled-rules warning message
 		EnumSet<Tech> wanted = Settings.THE.getWantedTechniques();
-		if (Settings.THE.get(Settings.isHacky)
-				// these Tech's are too slow for practical use when NOT hacked.
-				&& (wanted.contains(Tech.AlignedSept)
-				|| wanted.contains(Tech.AlignedOct)
-				|| wanted.contains(Tech.AlignedNona)
-				|| wanted.contains(Tech.AlignedDec))) {
-			unavailableText = " Careful with that axe Eugene!";
-		}
-		disabledWarningText += unavailableText;
+//		EnumSet<Tech> unwanted = Settings.ALL_TECHS.clone();
+//		unwanted.removeAll(wanted);
+//		System.out.println(unwanted);
+		// -2 for [The Solution, Single Solution]
+		final int numDisabled = Settings.ALL_TECHS.size() - 2 - wanted.size();
+		String msg = ""+numDisabled+" techniques disabled.";
+		// these Tech's are far too slow for practical use.
+		if ( wanted.contains(Tech.KrakenJellyfish)
+		  || wanted.contains(Tech.MutantJellyfish) )
+			msg += " Jelly up!";
+		// these Tech's are too slow for practical use.
+		if ( wanted.contains(Tech.AlignedSept)
+		  || wanted.contains(Tech.AlignedOct)
+		  || wanted.contains(Tech.AlignedNona)
+		  || wanted.contains(Tech.AlignedDec) )
+			msg += " Careful with that axe Eugene!";
 		// set the warning JLabel's text
-		lblDisabledTechsWarning.setText(disabledWarningText);
+		lblDisabledTechsWarning.setText(msg);
 		// make the warning panel in/visible
-		disabledTechsWarnPanel.setVisible(isVisible);
-		return isVisible;
+		// turns out I allways want to see this warning.
+		disabledTechsWarnPanel.setVisible(true);
+		return true;
 	}
 
 	private final class HintsTreeCellRenderer implements TreeCellRenderer {
@@ -1369,44 +1370,46 @@ final class SudokuFrame extends JFrame implements IAsker {
 		}
 	}
 
-	// I reckon only a developer will ever use LogicalSolverTester. This menu
-	// item allows you to view the hints-of-type in a LogicalSolverTester .log
-	// file. It presumes the target string is a complete Tech.nom: with the
-	// trailing colon as it appears on the hint-line (in the log), ie the two
-	// lines above are the puzzle which produces/d a hint of this type.
+	// I reckon only techies will ever use LogicalSolverTester. This menu item
+	// allows you to view the hints-of-type in a LogicalSolverTester .log file.
+	// * The intended regex is a Tech.nom (or whatever) as per the hint-line in
+	//   the logFile. Only hint-text (char 65 on) is matched.
+	// * NOTE When called from the menu I start a new search.
+	//   Ctrl-l finds-next in existing search, or start if none.
 	private JMenuItem getMitLogView() {
-		if (mitLogView != null) {
+		if ( mitLogView != null )
 			return mitLogView;
-		}
 		mitLogView = newJMenuItem("Log View", KeyEvent.VK_W,
-				 "View tech.nom: hints in a LogicalSolverTester log file");
+				 "View hints from a LogicalSolverTester log file");
 		mitLogView.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				int mods = e.getModifiers();
-				// if this event was fired from the menu then restart the search
-				if ( (mods & KeyEvent.CTRL_MASK) == 0
-				  || logViewFile == null || !logViewFile.exists()
-				  || techNom == null || techNom.isEmpty()) {
+			    // if there's no logFile yet
+				if ( logViewFile==null || !logViewFile.exists()
+				  // or there's no regex yet
+				  || regex==null || regex.isEmpty()
+				  // or I was fired from the menu
+				  || (e.getModifiers() & KeyEvent.CTRL_MASK) == 0
+				) {
+					// then re/start the search
 					logViewFile = chooseFile(new LogFileFilter());
-					// supply a default tech.nom, hardcoded to whatever I'm
-					// working on at the moment.
 					if ( logViewFile == null || !logViewFile.exists() )
 						return;
-					if ( techNom == null || techNom.isEmpty() )
-						// WARN: Death Blossom invalidity I3-9 in @Death Blossom: G2-67 (I3-9)!
-						techNom = ".*@Death Blossom.*";
-					techNom = Ask.forString("tech.nom (regex)", techNom);
+					// default regex is whatever I'm working on currently.
+					// @stretch MRU combo-box (custom dialog).
+					if ( regex == null || regex.isEmpty() )
+						regex = "(Finned Mutant|Mutant).*";
+					regex = Ask.forString("hint regex", regex);
 				}
-				if ( techNom == null || techNom.isEmpty() )
+				if ( regex == null || regex.isEmpty() )
 					return;
-				techNom = engine.logView(logViewFile, techNom);
+				regex = engine.logView(logViewFile, regex);
 				setTitle(ATV + "   " + engine.getGrid().source);
 			}
 		});
 		return mitLogView;
 	}
-	private String techNom = null;
+	private String regex = null;
 	private File logViewFile = null;
 
 	// for mitLogView
@@ -1724,7 +1727,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private void analyseInTheBackground() {
 		setHintDetailArea("Analysing ...");
 		getHintDetailPane().repaint();
-		final Runnable target = new Runnable() {
+		final Runnable analyser = new Runnable() {
 			@Override
 			public void run() {
 				try {
@@ -1738,14 +1741,14 @@ final class SudokuFrame extends JFrame implements IAsker {
 			}
 
 		};
-		final Thread background = new Thread(target, "Analyser");
-		background.setDaemon(true);
+		final Thread backgroundAnalyser = new Thread(analyser, "Analyser");
+		backgroundAnalyser.setDaemon(true);
 		// invokeLater should allow it to repaint BEFORE starting the analyse.
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
 				try {
-					background.start();
+					backgroundAnalyser.start();
 				} catch (UnsolvableException ex) {
 					displayError(ex);
 				}

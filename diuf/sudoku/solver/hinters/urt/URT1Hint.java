@@ -32,11 +32,12 @@ public final class URT1Hint extends AURTHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "URT1Hint.html"
-				, getTypeName()		// {0}
-				, v1				//  1
-				, v2				//  2
-				, Frmt.csv(loop)	//  3
-				, target.id			//  4
+			, getTypeName()		//{0}
+			, v1				// 1
+			, v2				// 2
+			, Frmt.csv(loop)	// 3
+			, target.id			// 4
+			, redPots.toString()// 5
 		);
 	}
 }

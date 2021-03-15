@@ -90,7 +90,7 @@ public class DeathBlossomHint extends AHint implements IActualHint {
 		for ( int i=0; i<values.length; ++i ) {
 			int v = values[i];
 			if ( i > 0 )
-				sb.append(NL);
+				sb.append(NL).append("       "); // 7 spaces
 			sb.append('<').append(COLORS[i]).append('>');
 			sb.append(v).append(" in ").append(alssByValue[v]);
 			sb.append("</").append(COLORS[i]).append('>');

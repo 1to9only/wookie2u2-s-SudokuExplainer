@@ -48,13 +48,17 @@ public final class LonelySingles extends AHinter {
 		Cell cell;  int value;
 		// presume that no hints will be found.
 		boolean result = false;
-		// Note that loneliness is only considered in Boxs, not rows/cols.
+		// Note that loneliness is only considered in Boxs, not rows/cols; and
+		// not for the last box, which is left unfilled so that isFull has less
+		// cells to look-at, and is therefore a few nanoseconds faster.
+		//
 		// If we search rows and cols as well the resulting order of solve is
 		// confusing to me (as the user), so I presume it'll be confusing to
 		// other users; or more likely most of them will just never think about
 		// it, ie accept that it is how it is, despite it being confusing, and
 		// so never complain. I complain, therefore I fix it. Sigh.
-		for ( ARegion r : grid.boxs )
+		for ( int i=0; i<8; ++i  ) {
+			ARegion r = grid.boxs[i];
 			// hint if there is 1 empty cell remaining in this region
 			if ( r.emptyCellCount == 1 ) {
 				// the cell is the first (and only) empty cell in this region
@@ -89,6 +93,7 @@ public final class LonelySingles extends AHinter {
 				accu.add(new NakedSingleHint(this, cell, value));
 				result = true; // We found at least one hint
 			}
+		}
 		return result;
 	}
 

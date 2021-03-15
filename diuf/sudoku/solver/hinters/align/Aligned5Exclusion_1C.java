@@ -10,7 +10,6 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHIFTED;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;

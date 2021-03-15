@@ -888,8 +888,8 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 											// create and add the hint
 											ExcludedCombosMap map = buildExcludedCombosMap(
 													cmnExcls, numCmnExcls, cells, redPots);
-											AHint hint = new AlignedExclusionHint(
-												  this, redPots, cells, numCmnExcls, cmnExcls, map);
+											AHint hint = new AlignedExclusionHint(this
+													, redPots, cells, numCmnExcls, cmnExcls, map);
 											result = true; // in case add returns false
 											if ( accu.add(hint) )
 												return true;

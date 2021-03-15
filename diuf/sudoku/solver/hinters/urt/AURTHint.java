@@ -23,9 +23,8 @@ import java.util.Set;
 
 
 /**
- * AURTHint (Abstract URT Hint) contains shared implementation of the various
- * types of Unique Rectangle (and Loop) Hints. It extends AbstractIndirectHint
- * and implements ActualHint.
+ * AURTHint (Abstract Unique Rectangle Hint) contains shared implementation of
+ * the various types of Unique Rectangle and Loop Hints.
  */
 public abstract class AURTHint extends AHint implements IActualHint {
 

@@ -79,13 +79,17 @@ public class AlsXzHint extends AHint implements IActualHint {
 		final String filename = anyDoubleLinked
 				? "AlsXzDblLnkdHint.html"
 				: "AlsXzHint.html";
+		String zBlurb = pinkBits == 0 ? ""
+				: "<br>and another (non-restricted) common candidate z = "
+				  +"<b>"+Values.andS(pinkBits)+"</b>";
 		return Html.produce(this, filename
-			, a.region.id+": "+aCells	//{0}
-			, b.region.id+": "+bCells	// 1
-			, rccMaybes					// 2
-			, Values.andS(pinkBits)		// 3
-			, redPots.toString()		// 4
-			, debugMessage				// 5
+			, a.toString()			//{0}
+			, b.toString()			// 1
+			, rccMaybes				// 2 x's
+			, Values.andS(pinkBits)	// 3 z's
+			, redPots.toString()	// 4
+			, debugMessage			// 5
+			, zBlurb				// 6
 		);
 	}
 

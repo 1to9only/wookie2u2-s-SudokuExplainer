@@ -41,13 +41,14 @@ public final class URT2Hint extends AURTHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "URT2Hint.html"
-				, getTypeName()		// {0}
-				, v1				//  1
-				, v2				//  2
-				, Frmt.csv(loop)	//  3
-				, Frmt.or(cellsWithExtraValues)	//  4
-				, Frmt.and(cellsWithExtraValues)	//  5
-				, valueToRemove		//  6
+			, getTypeName()			//{0}
+			, v1					// 1
+			, v2					// 2
+			, Frmt.csv(loop)		// 3
+			, Frmt.or(cellsWithExtraValues)		// 4
+			, Frmt.and(cellsWithExtraValues)	// 5
+			, valueToRemove			// 6
+			, redPots.toString()	// 7
 		);
 	}
 }

@@ -112,6 +112,7 @@ public final class URT3HiddenSetHint extends AURTHint {
 				, Frmt.and(region.atNew(hdnSetIdxsArray)) // 8
 				, Frmt.and(hdnSetVals)	//  9
 				, region.id				// 10
+				, redPots.toString()	// 11
 		);
 	}
 }

@@ -34,7 +34,6 @@ import static diuf.sudoku.Grid.ROW;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Idx.WORDS;
 import static diuf.sudoku.Idx.WORD_MASK;
-import static diuf.sudoku.Idx.WORD_SIZE;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import static diuf.sudoku.Regions.BOX_MASK;
@@ -408,7 +407,7 @@ public class ComplexFisherman extends AHinter
 		cB.prevIndex = -1;
 		// clear in case we exited-early last time
 		Arrays.fill(basesUsed, false);
-		usedBaseTypes[0]=usedBaseTypes[1]=usedBaseTypes[2] = 0;
+		usedBaseTypes[BOX]=usedBaseTypes[ROW]=usedBaseTypes[COL] = 0;
 
 		// try all combinations of base regions
 		for (;;) {
@@ -500,14 +499,19 @@ public class ComplexFisherman extends AHinter
 	 * <li>not be a current base; and
 	 * <li>a Franken fish has a box as base OR a cover, but not both.
 	 * </ul>
+	 * <p>
+	 * DEVELOPERS: searchCovers has zero variables, so it's invocation does NOT
+	 * create a stackframe, which is faster. It comes with the cost of field
+	 * access for EVERYthing, which sux, but ya can't have it both ways.
+	 * searchCovers calls the myCommonBuddies method, which also has no local
+	 * variables, and is therefore stackframeless. This is about 15% faster
+	 * overall than the "normal" Idx.commonBuddies method call.
 	 *
 	 * @return were hint/s found?
 	 */
 	private boolean searchCovers() {
-
 		// presume that no hints will be found
 		searchCoversResult = false;
-
 		// get eligible covers from allCovers; done here because eligibility
 		// depends on which bases are used.
 		numCovers = 0;
@@ -533,7 +537,6 @@ public class ComplexFisherman extends AHinter
 			return false; // this'll only happen rarely.
 		// partial-calculation of the maximum cover index.
 		ground = numCovers - degree - 1;
-
 		// coverLevel: the current depth in the coverStack
 		// coverLevel: start at level 1 (0 is just a stopper)
 		// currentCover: the current CoverStackEntry
@@ -543,7 +546,7 @@ public class ComplexFisherman extends AHinter
 		// clean-up from last time, in case we returned.
 		Arrays.fill(coversUsed, false);
 		// foreach each distinct combo of covers
-//<HAMMERED comment="No continue, no labels, no create var, no terniaries, no method calls.">
+//<HAMMERED comment="billions of iterations. No continue, no labels, no create var, no terniaries, no method calls. Speed is King.">
 		for (;;) {
 			// fallback level/s if there's no more covers in allCovers
 			while ( (cC=coverStack[cLevel]).index > ground + cLevel ) {
@@ -567,12 +570,10 @@ public class ComplexFisherman extends AHinter
 			// set the previous Cover (the combination of all existing covers)
 			// nb: cC (current Cover) is already set in above while loop
 			pC = coverStack[cLevel - 1];
-
 			// current v's = previous v's | v's in this cover
 			cC.vsM0 = pC.vsM0 | coverVsM0[c];
 			cC.vsM1 = pC.vsM1 | coverVsM1[c];
 			cC.vsM2 = pC.vsM2 | coverVsM2[c];
-
 			// if this cover has candidates in common with the existing covers
 			// then those candidates become possible eliminations, which I call
 			// sharks because it's shorter than cannabilistic. The Great White
@@ -581,7 +582,6 @@ public class ComplexFisherman extends AHinter
 			cC.skM0 = pC.skM0 | (pC.vsM0 & coverVsM0[c]);
 			cC.skM1 = pC.skM1 | (pC.vsM1 & coverVsM1[c]);
 			cC.skM2 = pC.skM2 | (pC.vsM2 & coverVsM2[c]);
-
 			// if we're still collecting covers
 			if ( cLevel < degree ) {
 				// move onto the next level
@@ -621,8 +621,8 @@ public class ComplexFisherman extends AHinter
 				  // but not too many of them
 				  && Integer.bitCount(fM0)+Integer.bitCount(fM1)+Integer.bitCount(fM2) <= MAX_FINS
 				  // with common buddy/s that maybe v
-				  // this the ONLY method call, and I'm stackless, so I think
-				  // optimizer invokes it stackframeless, ie near-jumps.
+				  // this ONLY method call, and myCommonBuddies is stackless,
+				  // ie frameless, ie a near-jump (GOSUB return), ie fast!
 				  && myCommonBuddies() ) {
 					// ******************* COMPLEX FISCH ******************
 					// Candidate is deletable if in covers but not bases,
@@ -678,80 +678,62 @@ public class ComplexFisherman extends AHinter
 	// !(is a BOX used as a base)?
 	private boolean boxIsNotBase;
 
-
-	// with common buddy/s that maybe v
-	// fins.set(fM0,fM1,fM2).commonBuddies(buds).and(vs).any()
+	// FAST: with common buddy/s that maybe v
+	//   IE: fins.set(fM0,fM1,fM2).commonBuddies(buds).and(vs).any()
 	// sets (b0,b1,b2) to buddies of all fins (fM0,fM1,fM2)
 	// returns any?
-	// SPEED: no more method calls, which is fast, but VERY verbose;
-	// ergo the "fully exploded" version.
-	// This 17.34% faster (overall) than Idx.commonBuddies!
+	// PERFORMANCE: fully exploded: fast, but very verbose.
+	// Exploded version is about 17% faster (overall) than Idx.commonBuddies.
 	private boolean myCommonBuddies() {
 		b0=vs.a0; b1=vs.a1; b2=vs.a2;
 		if ( fM0 != 0 ) {
-			if ( WORD_SIZE[word=fM0 & WORD_MASK] != 0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+			if ( (n=(word=WORDS[fM0 & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
-			if ( WORD_SIZE[word=(fM0>>9) & WORD_MASK]!=0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k+9]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+			if ( (n=(word=WORDS[(fM0>>9) & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]+9]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
-			if ( WORD_SIZE[word=(fM0>>18) & WORD_MASK]!=0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k+18]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+			if ( (n=(word=WORDS[(fM0>>18) & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]+18]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
 		}
-		if ( fM1!=0 ) {
-			if ( WORD_SIZE[word=fM1 & WORD_MASK] != 0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k+27]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+		if ( fM1 != 0 ) {
+			if ( (n=(word=WORDS[fM1 & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]+27]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
-			if ( WORD_SIZE[word=(fM1>>9) & WORD_MASK]!=0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k+36]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+			if ( (n=(word=WORDS[(fM1>>9) & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]+36]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
-			if ( WORD_SIZE[word=(fM1>>18) & WORD_MASK]!=0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k+45]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+			if ( (n=(word=WORDS[(fM1>>18) & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]+45]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
 		}
-		if ( fM2!=0 ) {
-			if ( WORD_SIZE[word=fM2 & WORD_MASK] != 0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k+54]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+		if ( fM2 != 0 ) {
+			if ( (n=(word=WORDS[fM2 & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]+54]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
-			if ( WORD_SIZE[word=(fM2>>9) & WORD_MASK]!=0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k+63]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+			if ( (n=(word=WORDS[(fM2>>9) & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]+63]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
-			if ( WORD_SIZE[word=(fM2>>18) & WORD_MASK]!=0 )
-				for ( int k : WORDS[word] ) {
-					b0&=(aa=BUDDIES[k+72]).a0; b1&=aa.a1; b2&=aa.a2;
-					if ( (b0|b1|b2) == 0 )
+			if ( (n=(word=WORDS[(fM2>>18) & WORD_MASK]).length) != 0 )
+				for ( i=0; i<n; ++i )
+					if ( ((b0&=(aa=BUDDIES[word[i]+72]).a0) | (b1&=aa.a1) | (b2&=aa.a2)) == 0 )
 						return false;
-				}
 		}
 		return true;
 	}
-	private int b0,b1,b2 // fin buddies (an Idx)
-			  , word; // 3 * 9-bit words per 27-bit element * 3 is an Idx
+	private int b0,b1,b2; // fin buddies (an Idx)
+	private int i, n;
+	// an array of the values in a 9-bit word
+	private int[] word;
 
 //	@Override
 //	public void report() {

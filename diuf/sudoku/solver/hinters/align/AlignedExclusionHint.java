@@ -210,8 +210,10 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 				, GROUP_NAMES[degree-2]				//{0}
 				, Frmt.and(selectedCellsSet)		// 1
 				, Html.colorIn(excl)				// 2
-				, Frmt.and(super.redPots.keySet())	// 3
+				, Frmt.and(redPots.keySet())		// 3
 				, Frmt.csv(getRemovableValues())	// 4
+				, redPots.toString()				// 5
+				, commonExcluders					// 6
 			);
 		} catch (IrrelevantHintException ex) { // from frmt
 			// see IrrelevantHintException declaration for discussion
@@ -236,5 +238,5 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 			result = result<<4 ^ c.hashCode;
 		return result;
 	}
-	
+
 }

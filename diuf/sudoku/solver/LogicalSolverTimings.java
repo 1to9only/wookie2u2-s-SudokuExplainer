@@ -6227,6 +6227,16 @@ package diuf.sudoku.solver;
  *    starting to really struggle to see how it can be done any faster; which
  *    to me means it MAY not be able to be done much faster; or not. sigh.
  * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.111 2021-02-23 08:33:50 Oops! Last release used align2. My bad.
+ * <pre>
+ * NOTES:
+ * 1. There's no "serious" code changes since last release, so no log posted.
+ * 2. Release 6.30.111 2021-02-23 08:33:50 =>
+ *    DiufSudoku_V6_30.111.2021-02-23.7z
+ * 3. Next I don't know. I'll keep java-docing and see if anything grabs me.
+ * </pre>
  */
 final class LogicalSolverTimings {
 

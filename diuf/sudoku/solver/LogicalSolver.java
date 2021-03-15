@@ -51,22 +51,30 @@ import java.util.Set;
 /**
  * A LogicalSolver solves Sudoku puzzles as quickly as possible (as I'm able)
  * using logic, the challenge of which is what this whole project is about.
- * This version of Sudoku Explainer/HoDoKu was written primarily "just for fun"
+ * This version of Sudoku Explainer/HoDoKu/Sukaku was written "just for fun"
  * and the author (Keith Corlett) feels he must humbly apologise for producing
- * rather a lot of code which is basically impossible to maintain because it
- * does NOT, by choice, follow the edicts of any modern Java coding ethos...
- * It's written to run fast, not be maintainable! And oops, I've just done a
- * hammy.
+ * rather a lot of code which is pretty hard to maintain because it does NOT,
+ * by choice, follow the edicts of any modern Java coding ethos. It's written
+ * to run fast, not to be maintainable. Oops, I've just done a mental hammie.
  * <p>
  * If you're impatient then in the GUI (Options ~ Solving Techniques):<ul>
- * <li>use Locking (faster) instead of Locking Generalised (smart)
+ * <li>use Locking (fast) instead of Locking Generalised (succinct)
  * <li>untick Direct* (they're found anyway);
- * <li>untick Naked/Hidden Pent (degenerate);
- * <li>untick Mutants (slow);
- * <li>untick Krakens (slow);
- * <li>untick Aligned*Exclusion (slow);
- * <li>untick Nested* Chainers too (only for really hard puzzles);
- * <li>and ya may as well drop the damn pilot for all I care. sigh.
+ * <li>use Coloring (BUG++) over BUG (Coloring--)
+ * <li>Death Blossom and Sue De Coq are border-line, but I keep them.
+ * <li>Franken Jellyfish are border-line, but I keep them.
+ * <li>untick Mutants (slow); especially JellyFish (too slow)
+ * <li>untick Naked Pent and Hidden Pent (degenerate);
+ * <li>untick Krakens (slow); especially JellyFish (too slow)
+ * <li>untick Aligned*Exclusion (slow); A7+E are far too slow, and need shootin'
+ * <li>for <u>really</u> hard puzzles you'll need Nested Unary, but the rest
+ *  of Nested* is never used in anger. Nested Plus is a mandatory slow catch-all
+ *  but is <u>never</u> executed in anger (exists for Shft-F5).
+ * <li>My definition of "slow" is 100 milliseconds per elimination.
+ * <li>My definition of "too slow" is a second per elimination.
+ * <li>All of these hinters are as fast as I know how to make them, which is
+ * "pretty fast", but I certainly cannot preclude the possibility of someone
+ * else doing it faster.
  * </ul>
  * <p>
  * <b>LogicalSolver is used to:</b><ul>
@@ -149,7 +157,7 @@ public final class LogicalSolver {
 	 * Normal people would chuck align2, but I can't because I just love how
 	 * succinct and clever it is, so I seek a magic efficiency bullet. sigh.
 	 */
-	private static final boolean USE_ALIGN2 = true; // @check false align2 slow
+	private static final boolean USE_ALIGN2 = false; // @check false align2 slow
 
 	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
@@ -378,28 +386,28 @@ public final class LogicalSolver {
 
 		// puzzleValidators check puzzle obeys Sudoku rules once, upon load.
 		puzzleValidators = new IHinter[] { // Dial 1900 Love-a-Duck Now!
-				  tooFewClues		// minimum 17 clues
-				, tooFewValues		// minimum 8 values
-				, recursiveAnalyser // single solution (brute-force solve)
+			  tooFewClues		// minimum 17 clues
+			, tooFewValues		// minimum 8 values
+			, recursiveAnalyser // single solution (brute-force solve)
 		};
 
 		// gridValidators check invariants in the grids state. Run before the
 		// actual hinters. A wrong guess in bruteforce eventually trips these.
 		gridValidators = new IHinter[] { // Eel Vomit O'Gratten Batman!
-				  new NoDoubleValues()		// one 1 per box, row, col
-				, new NoMissingMaybes()		// value unset and no maybes
-				, new NoHomelessValues()	// value unplaced and no places
+			  new NoDoubleValues()		// one 1 per box, row, col
+			, new NoMissingMaybes()		// value unset and no maybes
+			, new NoHomelessValues()	// value unplaced and no places
 		};
 
 		// convenience list to run all the validators.
-		validators = new IHinter[] { // Duckeelens?
-				  puzzleValidators[0]
-				, puzzleValidators[1]
-				, puzzleValidators[2]
-				, gridValidators[0]
-				, gridValidators[1]
-				, gridValidators[2]
-		}; // What's Goderick doing with that cup up his ...?
+		validators = new IHinter[] { // A Chuckducken, obviously!
+			  puzzleValidators[0]
+			, puzzleValidators[1]
+			, puzzleValidators[2]
+			, gridValidators[0]
+			, gridValidators[1]
+			, gridValidators[2]
+		};
 
 		// Regarding hinter selection:
 		// In ACCURACY mode we include many nice-but-unnecessary hinters, but
@@ -434,8 +442,13 @@ public final class LogicalSolver {
 
 		// indirects just remove maybes, setting cell values only indirectly
 		indirects = new ArrayList<>(14); // one too many!
-		want(indirects, new LockingGeneralised()); // Locking Generalised
+		// Locking or LockingGeneralised (you can't have neither, nor both.
+		// Locking is a fundamental tech, like naked and hidden singles)
 		want(indirects, locking = new Locking()); // Pointing and Claiming
+		if ( !wantedTechs.contains(Tech.Locking) )
+			indirects.add(new LockingGeneralised());
+		else if ( Log.MODE >= Log.NORMAL_MODE )
+			Log.println("LogicalSolver: unwanted: LockingGeneralised");
 		want(indirects, new NakedSet(Tech.NakedPair));
 		// nb: hiddenPair used (cheekily) by Locking to upgrade siamese
 		// locking hints to the full HiddenSet hint, with extra eliminations.
@@ -456,18 +469,27 @@ public final class LogicalSolver {
 		// heavies is the heavy weight division. Slow/er indirect hinters.
 		heavies = new ArrayList<>(isAccurate ? 38 : 0); // Just 4 short Dougie!
 		if ( isAccurate ) {
+			// nb: NONE means that there are 0 top1465.d5.mt
+			//     SLOW takes over a minute to run for top1465
+			//     TOO SLOW is something like 5 minutes (can't make up my mind)
+			//     Then there's Aligned Oct, Nona, and Dec taking hours/days!
 			want(heavies, new NakedSet(Tech.NakedQuad));
-			want(heavies, new HiddenSet(Tech.HiddenQuad)); // 0 in top1465
+			want(heavies, new HiddenSet(Tech.HiddenQuad)); // NONE
 			want(heavies, new BasicFisherman(Tech.Jellyfish));
-			want(heavies, new NakedSet(Tech.NakedPent));	   // 0 in top1465
-			want(heavies, new HiddenSet(Tech.HiddenPent)); // 0 in top1465
-			want(heavies, new BigWing(Tech.WXYZ_Wing)); // limitd fast ALS-XZ
-			want(heavies, new BigWing(Tech.VWXYZ_Wing)); // limitd fast ALS-XZ
-			want(heavies, new BigWing(Tech.UVWXYZ_Wing)); // limitd fast ALS-XZ
-			want(heavies, new BigWing(Tech.TUVWXYZ_Wing)); // limitd ALS-XZ
-			want(heavies, new BigWing(Tech.STUVWXYZ_Wing)); // limitd ALS-XZ
-			want(heavies, new Coloring()); // finds a superset of BUG hints!
-			want(heavies, new BivalueUniversalGrave());
+			want(heavies, new NakedSet(Tech.NakedPent));	   // NONE
+			want(heavies, new HiddenSet(Tech.HiddenPent)); // NONE
+			// these three are limited faster ALS-XZ
+			want(heavies, new BigWing(Tech.WXYZ_Wing));
+			want(heavies, new BigWing(Tech.VWXYZ_Wing));
+			want(heavies, new BigWing(Tech.UVWXYZ_Wing));
+			// these two are actually slower per elim than ALS-XZ.
+			// unwant them for speed. It's only fractions of a second. Meh!
+			want(heavies, new BigWing(Tech.TUVWXYZ_Wing));
+			want(heavies, new BigWing(Tech.STUVWXYZ_Wing));
+			// Coloring xor BUG (you can have neither, but not both). This is
+			// enforced in the TechSelectDialog, so you can regedit around it.
+			want(heavies, new Coloring()); // BUG++
+			want(heavies, new BivalueUniversalGrave()); // Coloring--
 			want(heavies, new UniqueRectangle());
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
@@ -481,12 +503,13 @@ public final class LogicalSolver {
 			want(heavies, new ComplexFisherman(Tech.FrankenSwampfish));	// NONE
 			want(heavies, new ComplexFisherman(Tech.FrankenSwordfish));	// OK
 			want(heavies, new ComplexFisherman(Tech.FrankenJellyfish));	// OK
-			want(heavies, new ComplexFisherman(Tech.MutantSwampfish));	// NONE
-			want(heavies, new ComplexFisherman(Tech.MutantSwordfish));	// SLOW
-			want(heavies, new ComplexFisherman(Tech.MutantJellyfish));	// SLOW
+			// Krakens and Mutants are interleaved: Swamp, Sword, and Jelly
 			want(heavies, new KrakenFisherman(Tech.KrakenSwampfish));	// OK
+			want(heavies, new ComplexFisherman(Tech.MutantSwampfish));	// NONE
 			want(heavies, new KrakenFisherman(Tech.KrakenSwordfish));	// SLOW
+			want(heavies, new ComplexFisherman(Tech.MutantSwordfish));	// SLOW
 			want(heavies, new KrakenFisherman(Tech.KrakenJellyfish));	// SLOW
+			want(heavies, new ComplexFisherman(Tech.MutantJellyfish));	// TOO SLOW
 
 			// new align2.AlignedExclusion is faster than the old align package
 			// for A2E, A3E, and A4E, which are all "relatively fast".
@@ -1059,9 +1082,9 @@ public final class LogicalSolver {
 	 *  an arbitrary out-of-bounds value.
 	 */
 	public double analyseDifficulty(Grid grid, double maxDif) {
-		IAccumulator accu = new SingleHintsAccumulator();
-
 		double dif, puzDif=0.0D; // difficulty, puzzleDifficulty
+		IAccumulator accu = new SingleHintsAccumulator();
+		AHint.hintNumber = 1; // reset the hint number
 		// we're now attempting to deal with deceased felines
 		DEAD_CATS.clear();
 		// re-enable all hinters just in case we hit a DEAD_CAT last time
@@ -1254,13 +1277,13 @@ public final class LogicalSolver {
 			prepare(grid); // prepare hinters to process this grid
 		// get the hintNumber activated hinters
 		IHinter[] enableds = getEnableds(wantedHinters);
-		INumberedHinter[] numbereds = getNumberedHinters(enableds);
+//		INumberedHinter[] numbereds = getNumberedHinters(enableds);
 		// count the isActuallyHintNumberActivated hinters
-		final boolean anyNumbered = countActualHNAHs(numbereds) > 0;
+//		final boolean anyNumbered = countActualHNAHs(numbereds) > 0;
 		// if 0 actualHNAH's then just activate them all ONCE, coz it's faster.
-		if(!anyNumbered) activate(numbereds, true);
+//		if(!anyNumbered) activate(numbereds, true);
 		// and they're off and hinting ...
-		int hintNum = AHint.hintNumber = 1; // how many hints we're up to (1 based)
+		int hintNum = AHint.hintNumber = 1; // BEFORE the first hint
 		AHint problem, hint;
 		long now;
 		while ( !grid.isFull() ) {
@@ -1271,7 +1294,7 @@ public final class LogicalSolver {
 			if ( (problem=validatePuzzleAndGrid(grid, false)) != null )
 				throw new UnsolvableException("Houston: "+problem);
 			// activate the hintNumber activated hinters
-			if(anyNumbered) activate(numbereds, hintNum);
+//			if(anyNumbered) activate(numbereds, hintNum);
 			// getHints from each enabled hinter
 			if ( !timeHinters(enableds, grid, accu, usage, hintNum) )
 				return carp("Hint not found", grid, true); // throws UnsolvableException
@@ -1285,7 +1308,7 @@ public final class LogicalSolver {
 		} // wend
 		if ( isNoisy )
 			System.out.println("<solve "+Settings.took()+"\n"+grid+"\n");
-		AHint.hintNumber = 1;
+		AHint.hintNumber = 1; // reset the hint number
 		return true;
 	}
 

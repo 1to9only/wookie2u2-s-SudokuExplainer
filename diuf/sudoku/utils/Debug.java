@@ -33,7 +33,16 @@ public final class Debug {
 
 	/**
 	 * breakpoint() is a no-op for conditional breakpoints. The JIT compiler 
-	 * erases calls to no-op's, just in case you leave one in
+	 * erases calls to no-op's, just in case you leave one in.
+	 * <p>
+	 * Netbeans (which I use) and other IDE's now have conditional breakpoints,
+	 * but this "in code" technique is still MUCH faster, so I still use it
+	 * routinely; that way I don't have to think "How many times does this run"
+	 * when creating a conditional breakpoint that otherwise is never tripped
+	 * because Netbeans conditional breakpoint implementation is so slow it
+	 * takes for ever to reach the break-point condition.
+	 * <p>
+	 * I expected lambdas to expedite CBP's, but they haven't. yet Sigh.
 	 */
 	public static void breakpoint() { // @check No usages (Find Usages)
 	}

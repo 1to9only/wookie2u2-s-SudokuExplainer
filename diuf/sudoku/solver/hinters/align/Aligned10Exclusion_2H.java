@@ -973,8 +973,8 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 												// create the hint and add it to the accumulator
 												ExcludedCombosMap map = buildExcludedCombosMap(
 														cmnExcls, numCmnExcls, cells, redPots);
-												AHint hint = new AlignedExclusionHint(
-													  this, redPots, cells, numCmnExcls, cmnExcls, map);
+												AHint hint = new AlignedExclusionHint(this
+														, redPots, cells, numCmnExcls, cmnExcls, map);
 												if ( accu.add(hint) )
 													return true;
 												// A10E is special because there's only 1 of them per puzzle,

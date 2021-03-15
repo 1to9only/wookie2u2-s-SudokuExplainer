@@ -1,0 +1,100 @@
+Death Blossom
+
+http://www.sudokusnake.com/deathblossom.php
+
+6....9...38..7....1....8.745...2..1946..9..3.9..8......9....1.57.5.8.6.2.1..4.7.3
+,2457,247,12345,135,,2358,258,18,,,249,12456,,12456,259,2569,16,,25,29,2356,356,,2359,,,,37,378,3467,,3467,48,,,,,1278,157,,157,258,,78,,237,1237,,1356,134567,245,2456,67,28,,23468,2367,36,2367,,48,,,34,,139,,13,,49,,28,,268,2569,,256,,89,
+
+To understand what a death blossom is, you have to know what an Almost Locked
+Set is (or ALS), which is a group of candidates that is one candidate shy of
+being a Locked Set. In a death blossom there is one cell, called the stem cell,
+that has only two candidates. One candidate shares a value with the fin of one
+ALS, and the other candidate shares a value with the fin of the another ALS.
+Then, if both ALS's cause the elimination of a single candidate, then that
+candidate can be eliminated, because either value of the stem cell eliminates
+it.
+
+Consider the example on this page. The stem cell is highlighted in blue with a
+1 and an 8. One ALS is highlighted in yellow in the 5th column, and the other
+ALS is highlighted in yellow in the 5th row. If the stem cell is a 1, then the
+ALS in the 5th column becomes a naked subset and eliminates the 5 in the green
+cell. If the stem cell is an 8, then the ALS in the 5th row becomes a naked
+subset and also eliminates the 5 in the green cell.
+
+Note, if you haven't yet, that if all of a candidate in a set are found in a
+single other unit, you can eliminate all others of that candidate in that
+separate unit. For instance, in the example on this page, if the 8 is
+eliminated from the 5th row, then it becomes a set where all the 5's happen
+to be in the middle box. Thus, the 5 in the green cell would be eliminated.
+This concept is only noteworthy in ALS's, because in standard sets it is
+swallowed up by the simpler techniques of pointing and claiming. The naked
+subset eliminates all others of its values from the unit, and thus the
+remaining 5's in the entire unit are in the same box and become a matter of
+claiming, which has the same end result.
+
+A death blossom usually only deals with naked ALS's, since they're generally
+easy to spot, and always exist wherever there is a hidden ALS. An ALS of only
+one cell may also occur, creating a form of death blossom, but this is ignored
+in Sudoku Snake and is allowed to be recognized as a chained set.
+
+Sudoku Snake gives Death Blossoms a skill value of 2200.
+
+===============================================================================
+
+https://www.sudoku9981.com/sudoku-solving/death-blossom.php
+
+Death Blossom
+
+The Death Blossom technique involves a stem cell of N candidates that sees N
+petals, each an Almost Locked Set.
+
+It is developed by extending the Aligned Pair Exclusion technique into an
+arbitrary sized set of non-aligned cells (see Subset Exclusion), with most of
+the cells belonging to Almost Locked Sets.
+
+6....9...38..7....1....8.745...2..1946..9..3.9..8......9....1.57.5.8.6.2.16.4.7.3
+,2457,247,12345,135,,2358,258,18,,,249,12456,,12456,259,2569,16,,25,29,2356,356,,2359,,,,37,378,3467,,3467,48,,,,,1278,157,,157,258,,78,,237,1237,,1356,134567,245,2456,67,28,,2348,2367,36,2367,,48,,,34,,139,,13,,49,,28,,,259,,25,,89,
+
+A Death Blossom consists of a "stem" cell and an Almost Locked Set (or ALS) for
+each of the stem cell's candidates. The ALS associated with a particular
+candidate of the stem cell has that number as one of its own candidates, and
+within the ALS, every cell that has the number as a candidate can see the stem
+cell. The ALSes can't overlap; i.e., no cell can belong to more than one ALS.
+Also, there must be at least one value that is a candidate of every ALS, but
+is not a candidate of the stem cell.
+
+Once we've found a Death Blossom, if an outside cell that doesn't belong to one
+of the ALSes (and isn't the stem cell) can see every cell in each ALS that has
+that value as a candidate, and the value isn't a candidate of the stem cell,
+then that value can be eliminated from the outside cell.
+
+The workings of the Death Blossom is best explained via an example. This example
+is a scrambled version of the example at Andrew Stuart's Advanced Sudoku
+Strategies page.
+
+We have a stem cell at r1c9 with two candidates 1 and 8. Observe that r1c9 sees
+all the 1s in the blue ALS, and r1c9 sees all the 8s in the yellow ALS. These
+two ALSes are the petals. Now, by a proof by cases:
+
+    If r1c9=1, then the blue ALS gets reduced to a Naked Triple of 3, 5 and 6
+               and so r6c5<>5.
+    If r1c9=8, then r5c9=7, and the remainder of the yellow ALS gets reduced to
+               a Naked Pair of 1 and 5 and so r6c5<>5.
+
+Therefore, we can eliminate 5 from r6c5.
+
+Observe how this is an extension of Aligned Pair Exclusion, whose cells consist
+of the r6c5, the blue ALS and the yellow ALS. If r6c5=5, then r1c5=1 is forced
+by the blue ALS, and also r5c9=8 is forced by the yellow ALS, and so r1c9 has
+no candidates remaining. The Death Blossom technique is derived by working
+forwards from r1c9.
+
+Note: If the stem cell has exactly two candidates, like the example above, then
+the same eliminations can be replicated using a ALS-XY-Wing move.
+
+===============================================================================
+
+https://www.sudopedia.org/wiki/Solving_Technique
+
+
+C:\Users\User\Downloads\Nonrepetative paths in Sudoku.pdf

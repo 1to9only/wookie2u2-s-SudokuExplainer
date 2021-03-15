@@ -18,7 +18,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-
+/**
+ * The hint DTO for: Unique Rectangle Type 3 with Naked Set.
+ */
 public final class URT3NakedSetHint extends AURTHint {
 
 	private final Cell c1;
@@ -31,7 +33,7 @@ public final class URT3NakedSetHint extends AURTHint {
 	private final Set<Cell> otherCellsSet;
 	// values in the naked set
 	private final Values nkdSetVals;
-	
+
 	// local degree overridding AHint.degree is required because it's too damn
 	// difficult to set the inherited one to anything other than the default
 	// value, which is hardcoded in Tech. I probably should have implemented it
@@ -50,7 +52,7 @@ public final class URT3NakedSetHint extends AURTHint {
 	 * @param extraVals
 	 * @param region
 	 * @param otherCells WARNING: DO NOT STORE otherCells, IT IS CACHED!
-	 * @param nkdSetVals 
+	 * @param nkdSetVals
 	 */
 	public URT3NakedSetHint(UniqueRectangle hinter, List<Cell> loop
 			, int v1, int v2, Pots redPots, Cell c1, Cell c2, Values extraVals
@@ -99,7 +101,7 @@ public final class URT3NakedSetHint extends AURTHint {
 		return super.getHintTypeNameImpl() + " Naked Set";
 	}
 
-	/** 
+	/**
 	 * Overridden to differentiate hints with different naked sets.
 	 * <p>
 	 * <b>NB: there is no need to override {@code hashCode()}!</b>
@@ -121,17 +123,18 @@ public final class URT3NakedSetHint extends AURTHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "URT3NakedSetHint.html"
-				, getTypeName()			// {0}
-				, v1					//  1
-				, v2					//  2
-				, Frmt.csv(loop)		//  3
-				, c1.id					//  4
-				, c2.id					//  5
-				, Frmt.or(extraVals)		//  6
-				, GROUP_NAMES[degree-2]		//  7
-				, Frmt.and(otherCellsSet)	//  8
-				, Frmt.and(nkdSetVals)		//  9
-				, region.id					// 10
+			, getTypeName()				//{0}
+			, v1						// 1
+			, v2						// 2
+			, Frmt.csv(loop)			// 3
+			, c1.id						// 4
+			, c2.id						// 5
+			, Frmt.or(extraVals)		// 6
+			, GROUP_NAMES[degree-2]		// 7
+			, Frmt.and(otherCellsSet)	// 8
+			, Frmt.and(nkdSetVals)		// 9
+			, region.id					//10
+			, redPots.toString()		//11
 		);
 	}
 }

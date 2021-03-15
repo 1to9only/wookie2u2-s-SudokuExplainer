@@ -814,8 +814,8 @@ public final class Aligned6Exclusion_2H extends Aligned6ExclusionBase
 								ExcludedCombosMap map = buildExcludedCombosMap(
 										cmnExcls, numCmnExcls, cells, redPots);
 								// create and add the hint
-								AHint hint = new AlignedExclusionHint(
-									  this, redPots, cells, numCmnExcls, cmnExcls, map);
+								AHint hint = new AlignedExclusionHint(this
+										, redPots, cells, numCmnExcls, cmnExcls, map);
 								result = true; // in case add returns false
 								if ( accu.add(hint) )
 									return true;
