@@ -119,10 +119,19 @@ public final class Regions {
 		return TYPE_NAMES[typeMask(rs)];
 	}
 
-	public static String names(List<ARegion> rs) {
+	public static String ids(List<ARegion> rs) {
 		StringBuilder sb = new StringBuilder(rs.size() * 6);
 		for ( ARegion r : rs)
-			sb.append(' ').append(r);
+			sb.append(' ').append(r.id);
+		return sb.toString();
+	}
+
+	public static String ids(Idx rs) {
+		final StringBuilder sb = new StringBuilder(rs.size() * 6);
+		rs.forEach((cnt, ri) -> {
+			if(cnt>0) sb.append(' ');
+			sb.append(IDS[ri]);
+		});
 		return sb.toString();
 	}
 

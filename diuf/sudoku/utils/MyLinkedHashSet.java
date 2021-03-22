@@ -239,4 +239,5 @@ public class MyLinkedHashSet<E>
 	public void clear() {
 		while ( super.poll() != null ); // null statement is intentional
 	}
+
 }

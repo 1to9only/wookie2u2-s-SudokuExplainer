@@ -11,6 +11,7 @@ import diuf.sudoku.Settings;
 import diuf.sudoku.utils.Frmt;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
@@ -74,9 +75,11 @@ class TechSelectDialog extends JDialog {
 	/** Number of columns: the number of check-boxes across the form. */
 	private static final int NUM_COLS = 3;
 
+	/**
+	 * Populate the TechSelectDialog form with a CheckBox for each Tech.
+	 */
 	private void fillTechniques() {
 		wantedTechs = Settings.THE.getWantedTechniques();
-		//for ( final Tech tech : Tech.class.getEnumConstants() ) {
 		int count = 0;
 		for ( final Tech tech : Settings.ALL_TECHS ) {
 			if(tech.difficulty == 0.0D) continue; // filter out Solution, etc
@@ -126,7 +129,7 @@ class TechSelectDialog extends JDialog {
 				case KrakenSwampfish:
 				case KrakenSwordfish:
 				case KrakenJellyfish:
-				case Coloring:
+				case BUG: // want {BUG, Coloring, Extended Coloring} on a line
 				case ALS_XZ:
 				case NakedQuad:
 				case NakedPent:
@@ -156,8 +159,8 @@ class TechSelectDialog extends JDialog {
 					@Override
 					public void actionPerformed(ActionEvent e) {
 						if ( chk.isSelected() ) {
-							// Display any tip as a warning
-							if ( tech.tip != null ) {
+							// carp if toolTip is set and warning is true
+							if ( tech.tip!=null && tech.warning ) {
 								JOptionPane.showMessageDialog(
 								  TechSelectDialog.this
 								, tech.nom+" "+tech.tip
@@ -188,6 +191,19 @@ class TechSelectDialog extends JDialog {
 				break;
 			}
 		} // next tech
+	}
+	
+	// uncheck the JCheckBox of the given Tech and remove it from wantedHinters
+	private void unselect(Tech tech) {
+		wantedTechs.remove(tech);
+		for ( Component c : centerPanel.getComponents() )
+			if ( c instanceof JCheckBox ) {
+				JCheckBox chk = (JCheckBox)c;
+				if ( tech.nom.equals(chk.getText()) ) {
+					chk.setSelected(false);
+					break;
+				}
+			}
 	}
 
 	private JCheckBox newHackBox(final String settingName) {

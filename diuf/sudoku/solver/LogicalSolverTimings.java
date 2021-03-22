@@ -6237,6 +6237,69 @@ package diuf.sudoku.solver;
  *    DiufSudoku_V6_30.111.2021-02-23.7z
  * 3. Next I don't know. I'll keep java-docing and see if anything grabs me.
  * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.112 2021-03-04 10:59:52 Hidden Unique Rectangles and XColoring.
+ * Last top1465 run took 04:36, which is over a minute slower than previous,
+ * which is a bit of a worry, but still acceptable.
+ * <p>
+ * Both Hidden Unique Rectangles and XColoring are a bit slower than the more
+ * complex techniques they're pinching hints off, but they ARE simpler, and my
+ * goal is to provide an explanation of the SIMPLEST possible solution to all
+ * possible Sudoku puzzles, and to do so as quickly as possible; which is more
+ * akin to NASA than to F1, so I just have to accept there tardiness, for now.
+ * <pre>
+ *       time (ns)  calls  time/call  elims     time/elim hinter
+ *      34,997,400 118882        294 678290            51 Naked Single
+ *      26,903,000  51053        526 172830           155 Hidden Single
+ *     146,774,000  33770      4,346  21115         6,951 Locking
+ *      85,115,500  23445      3,630   7400        11,502 Naked Pair
+ *      75,631,100  21774      3,473  13293         5,689 Hidden Pair
+ *     183,009,300  19599      9,337   1733       105,602 Naked Triple
+ *     165,804,200  19175      8,646   1174       141,230 Hidden Triple
+ *      78,359,200  18957      4,133   1396        56,131 Two String Kite
+ *      51,898,800  17561      2,955    474       109,491 Swampfish
+ *     108,727,100  17352      6,265    632       172,036 XY-Wing
+ *      77,078,000  16896      4,561    303       254,382 XYZ-Wing
+ *     120,274,900  16611      7,240    440       273,352 W-Wing
+ *      63,422,600  16304      3,890    381       166,463 Skyscraper
+ *      65,661,300  16100      4,078    473       138,818 Empty Rectangle
+ *      91,866,600  15627      5,878    245       374,965 Swordfish
+ *     231,011,700  15560     14,846    100     2,310,117 Naked Quad
+ *     194,945,900  15541     12,543     13    14,995,838 Hidden Quad
+ *      27,187,600  15539      1,749      8     3,398,450 Jellyfish
+ *     678,511,600  15537     43,670   1542       440,020 WXYZ-Wing
+ *     924,726,400  14504     63,756   1353       683,463 VWXYZ-Wing
+ *   1,102,790,100  13720     80,378    583     1,891,578 UVWXYZ-Wing
+ *     857,015,500  13395     63,980    130     6,592,426 TUVWXYZ-Wing
+ *     435,847,100  13316     32,731     13    33,526,700 STUVWXYZ-Wing
+ *   2,010,105,600  13308    151,044   1183     1,699,159 XColoring
+ *   2,942,716,600  12920    227,764   1127     2,611,106 Unique Rectangle
+ *   1,724,855,900  12150    141,963    287     6,009,950 Finned Swampfish
+ *   4,118,330,300  11907    345,874    289    14,250,277 Finned Swordfish
+ *   5,366,470,400  11691    459,025     17   315,674,729 Finned Jellyfish
+ *  23,039,613,600  11677  1,973,076   5149     4,474,580 ALS-XZ
+ *  29,352,683,400   8001  3,668,626   4050     7,247,576 ALS-Wing
+ *  11,862,166,700   4618  2,568,680    678    17,495,821 ALS-Chain
+ *   5,268,072,200   4069  1,294,684    171    30,807,439 Death Blossom
+ *   1,437,836,100   3916    367,169     11   130,712,372 Sue De Coq
+ *   3,269,564,800   3914    835,351      3 1,089,854,933 Franken Swampfish
+ *  17,768,779,900   3911  4,543,283    138   128,759,274 Franken Swordfish
+ *  53,714,697,400   3796 14,150,341     70   767,352,820 Franken Jellyfish
+ *  14,038,483,500   3732  3,761,651   1428     9,830,870 Unary Chain
+ *   5,862,757,700   3163  1,853,543     23   254,902,508 Nishio Chain
+ *   9,608,375,300   3140  3,059,992   4764     2,016,871 Multiple Chain
+ *  12,447,541,600   1373  9,065,944   7508     1,657,903 Dynamic Chain
+ *      93,084,200      3 31,028,066     30     3,102,806 Dynamic Plus
+ * 209,753,694,100
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  276,324,127,400 (04:36)  188,617,151
+ * NOTES:
+ * 1. Last top1465 took 04:36, as discussed above.
+ * 2. Release 6.30.112 2021-03-04 10:59:52 =>
+ *    DiufSudoku_V6_30.112.2021-03-04.7z
+ * 3. Next I shall search sudopedia for more techniques to implement, or not.
+ * </pre>
  */
 final class LogicalSolverTimings {
 

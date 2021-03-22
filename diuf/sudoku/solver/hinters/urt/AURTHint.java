@@ -116,6 +116,9 @@ public abstract class AURTHint extends AHint implements IActualHint {
 
 	@Override
 	public String getHintTypeNameImpl() {
+		// Type 7 is a "Unique Rectangle Hidden" (rect only, no loops).
+		if ( typeIndex == 7 )
+			return "Unique Rectangle Hidden";
 		return "Unique "
 				+ (loopSize==4 ? "Rectangle" : "Loop")
 				+ (loopSize>6 ? " "+loopSize : "")

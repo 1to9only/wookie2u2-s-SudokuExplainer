@@ -506,7 +506,10 @@ public final class Settings implements Cloneable {
 	//			Wrote the BigWing class to succinctify the big wings. Tried and
 	//			mostly failed to make Complex and KrakenFisherman faster.
 	// 6.30.110 2021-02-17 14:31:50 Faster Complex and Kraken fisherman.
-	// 6.30.111 2021-02-23 08:33:50 Oops! Last release used align2.
+	// 6.30.111 2021-02-23 08:33:51 Oops! Last release used align2.
+	// 6.30.112 2021-03-04 10:59:52 Hidden Unique Rectangles and XColoring.
+	//          Last top1465 run took 04:36, which is over a minute slower
+	//			than previous, which is a bit of a worry, but still acceptable.
 
 
 	// To Build:
@@ -543,8 +546,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.111";
-	public static final String BUILT = "2021-02-23 08:33:50";
+	public static final String VERSION = "6.30.112";
+	public static final String BUILT = "2021-03-04 10:59:52";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

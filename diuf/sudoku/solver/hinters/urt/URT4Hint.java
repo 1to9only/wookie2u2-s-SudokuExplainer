@@ -21,16 +21,17 @@ public final class URT4Hint extends AURTHint {
 	private final Cell c1;
 	private final Cell c2;
 	private final int lockVal;
-	private final int rmvVal;
+	private final int valueToRemove;
 	private final Grid.ARegion region;
 
 	public URT4Hint(UniqueRectangle hinter, List<Cell> loop, int lockVal
-			, int rmvVal, Pots redPots, Cell c1, Cell c2, ARegion region) {
-		super(4, hinter, loop, lockVal, rmvVal, redPots);
+			, int valueToRemove, Pots redPots, Cell c1, Cell c2
+			, ARegion region) {
+		super(4, hinter, loop, lockVal, valueToRemove, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
 		this.lockVal = lockVal;
-		this.rmvVal = rmvVal;
+		this.valueToRemove = valueToRemove;
 		this.region = region;
 	}
 
@@ -44,7 +45,7 @@ public final class URT4Hint extends AURTHint {
 		return Html.produce(this, "URT4Hint.html"
 			, getTypeName()		//{0}
 			, lockVal			// 1
-			, rmvVal			// 2
+			, valueToRemove		// 2
 			, Frmt.csv(loop)	// 3
 			, c1.id				// 4
 			, c2.id				// 5

@@ -106,8 +106,8 @@ public final class Grid {
 		"col A", "col B", "col C", "col D", "col E", "col F", "col G", "col H", "col I"
 	};
 
-	/** The buddies of each cell in the Grid, in an Idx. You can calculate this
-	 * but I've just hit the problem with calculating this: bugs! */
+	/** The buddies of each cell in the Grid, in an Idx.
+	 * You can calculate this but it's simpler and faster to look it up. */
 	public static final int[] BOXS = {
 		0, 0, 0, 1, 1, 1, 2, 2, 2
 	  , 0, 0, 0, 1, 1, 1, 2, 2, 2
@@ -119,6 +119,18 @@ public final class Grid {
 	  , 6, 6, 6, 7, 7, 7, 8, 8, 8
 	  , 6, 6, 6, 7, 7, 7, 8, 8, 8
 	};
+
+	// an Idx of the 3 regions of each cell in the Grid.
+	// Note that only the first int of the three is used for 27 regions.
+	public static final Idx[] REGIONS = new Idx[81];
+	static {
+		for ( int i=0; i<81; ++i ) {
+			REGIONS[i] = new Idx();
+			REGIONS[i].add(BOXS[i]);	// box
+			REGIONS[i].add(9+(i/9));	// row
+			REGIONS[i].add(18+(i%9));	// col
+		}
+	}
 
 	public static final IdxL[] BUDDIES = new IdxL[81];
 	static {
@@ -1687,7 +1699,7 @@ public final class Grid {
 	 * if cells contains duplicates, because again that's just nonsensical.
 	 * @param cells
 	 * @param result {@code ArrayList<ARegion>} is not cleared first.
-	 * @return a {@code ArrayList<ARegion>} may be empty, but never null.
+	 * @return a {@code ArrayList<ARegion>} result may be empty, but not null.
 	 */
 	public ArrayList<ARegion> commonRegions(Collection<Cell> cells, ArrayList<ARegion> result) {
 		Iterator<Cell> it = cells.iterator();
@@ -1709,6 +1721,37 @@ public final class Grid {
 		if(row > -1) result.add(rows[row]);
 		if(col > -1) result.add(cols[col]);
 		return result;
+	}
+
+	/**
+	 * Return the regions (expect 1 or 2 of them) common to these two cells.
+	 * <p>
+	 * This method is currently used only by Hidden Unique Rectangle, but is
+	 * available for use elsewhere.
+	 * <p>
+	 * Note the "odd" order of comparisons here: row, col, box. So that if a
+	 * cell is in the same row-or-col we return it FIRST, only then (unlike the
+	 * rest of SE) do we consider the box.<br>
+	 * I've done this simply because I prefer the row-or-col when explaining
+	 * unique rectangles. I think they're just "more obvious", and therefore
+	 * so likely will the punter. There's nothing wrong with a box, they're
+	 * just a bit harder to get your head around in UR-land, that's all.
+	 *
+	 * @param a the first Cell
+	 * @param b the second Cell
+	 * @param result {@code ARegion[]} must be large enough: ie 2 for the
+	 *  "standard" region types: box, row, col.
+	 * @return the number of commonRegions added to the result array.
+	 */
+	public int commonRegions(Cell a, Cell b, ARegion[] result) {
+		int cnt = 0;
+		if ( a.y == b.y )
+			result[cnt++] = a.row;
+		if ( a.x == b.x )
+			result[cnt++] = a.col;
+		if ( a.boxId == b.boxId )
+			result[cnt++] = a.box;
+		return cnt;
 	}
 
 	/**
@@ -2523,6 +2566,12 @@ public final class Grid {
 				return 1;
 			return 0;
 		}
+
+		public void accrueRegions(Idx result) {
+			result.add(box.index);
+			result.add(row.index);
+			result.add(col.index);
+		}
 	}
 
 	// ---------------- The Regions ----------------
@@ -2583,27 +2632,26 @@ public final class Grid {
 		public final Cell[] cells = new Cell[9];
 
 		/**
-		 * Indexes-in-this-region of cells which maybe value 1..9. The indices
-		 * stored in each Indexes are into the region.cells array. indexesOf
-		 * should NOT be confused with idxsOf which stores grid.cells indices.
+		 * Indexes-in-this-region of cells which maybe value 1..9. indexesOf
+		 * contains Indexes into the region.cells array (not to be confused
+		 * with {@link #idxs}, which stores grid.cells indices).
 		 * <p>
 		 * The motivation for each region having its own cells array and
 		 * accompanying Indexes is to abstract away the regions "shape";
 		 * so that we can QUICKLY query a region without worrying about
-		 * its actual type: row, col, or box; they are all equivalent.
-		 * <p>
-		 * nb: Renamed from idxsOf to differentiate
-		 * an Indexes (indexes in this region)
-		 * from an Idx (indices in the whole grid). Sigh.
-		 * Maybe we should rename Indexes "Ridx" and call indexesOf "ridOf"?
-		 * I never know these things. How long is a piece of string?
+		 * its type: row, col, or box; they are all the same(ish). sigh.
 		 */
 		public final Indexes[] indexesOf = new Indexes[10];
 
 		/**
-		 * The Grid.this.cells indices of cells in this region which maybe each
-		 * potential value 1..9; not to be confused with indexesOf which
-		 * contains indexes into ARegion.this.cells array.
+		 * The grid.cells indices of cells in this region which maybe each
+		 * potential value 1..9. (not to be confused with {@link #indexesOf}
+		 * containing indexes in the ARegion.cells array).
+		 * <p>
+		 * SE NOMENCLATURE: the word indice always means a grid.cells indice;
+		 * everything else is an index (or some other not-indice word). An idx
+		 * always contains indices, everything else is an Index (or some other
+		 * non-idx word).
 		 */
 		public Idx[] idxs = new Idx[10];
 
@@ -2849,22 +2897,18 @@ public final class Grid {
 		/**
 		 * Return the cells in this region which maybe 'bits'.
 		 * <p>
-		 * This method only used by UniqueRectangle.createType4Hint.
+		 * This method only used by UniqueRectangle.createType4Hint, which is
+		 * the only use of UrtCellSet; ie there's lots of special code under
+		 * the bonnet.
 		 * <p>
 		 * Called 382,984 times in top1465: efficiency matters a bit, not lots.
-		 * <p>
-		 * Also this is the only use of local CellSet + LinkedHashCellSet;
-		 * so another way of doing this efficiently could eradicate lots of
-		 * "special" code, which is desirable. Sigh.
 		 *
 		 * @param bits bitset (one-or-more left-shifted values) to get.
 		 * @param results a LinkedHashCellSet as a CellSet to which I add
 		 * @return a new {@code LinkedHashCellSet} as a {@code CellSet}.
 		 */
 		public IUrtCellSet maybe(int bits, IUrtCellSet results) {
-			// all current calls require a "clean" result set. If you want
-			// otherwise then roll-your-own method by copy-pasting this one
-			// to add a clearResult parameter, then change me to call him.
+			// all current calls clear results, so it's "oddly" done here.
 			results.clear();
 			for ( Cell c : this.cells ) // 9 cells
 				if ( (c.maybes.bits & bits) != 0 )

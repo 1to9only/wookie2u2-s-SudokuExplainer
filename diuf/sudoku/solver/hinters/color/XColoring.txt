@@ -1,0 +1,254 @@
+X-Colors (Extended Colors)
+##########################
+
+X-Colors, or eXtended Colors, is a coloring technique that uses only 2 colors,
+even when weak links are bridged. It is a relatively simple method that can be
+learned quickly and is capable of achieving the same results as more advanced
+techniques, such as Multi-Colors and single-digit chains.
+
+This technique can be used on an initial color cluster of any size, although a
+larger cluster increases the chances of finding candidates to remove.
+
+X-Colors can be seen as an extension of the Weak Colors technique. Both Weak
+Colors and X-Colors are based on a simple set of instructions, which must be
+executed repeatedly.
+
+Occasionally, X-Colors can go as far as Nishio, the ultimate single-digit
+solving technique. This puts X-Color in positive territory, since many
+solvers like to avoid Nishio.
+
+X-Colors does the same job as both Simple Colors and Multi-Colors with only two
+colors and a few simple steps, defined in an algorithmic way, and solves more
+situations than both can. However, X-Colors does not replace the multiple
+digit Ultracoloring technique. See the examples below to better understand the
+technique.
+
+Contents
+========
+
+    1 Algorithm
+    2 Examples
+        2.1 Example 1
+        2.2 Example 2
+        2.3 Example 3
+        2.4 Example 4
+        2.5 Example 5
+        2.6 Example 6
+    3 Augmenting X-Colors with Single-Digit Techniques
+
+Algorithm
+=========
+
+X-Colors is a single-digit technique so we focus on a single candidate in the
+grid, called the Coloring Value, or coloqually just v.
+
+Coloring encodes the binary nature of conjugate pairs by placing one conjugate
+in one color-set and the other conjugate in the other color-set; it doesn't
+matter which color-set you put the first conjugate in, all that matters is that
+ALL subsequent colorings are a consequence of the initial assumption.
+I belabour this point because I have just struck a reef: I added multiple
+INITIAL assumptions to a single color-set and therefore producing invalid
+hints. My bad! I'm a dill.
+
+Step 1: Select a conjugate pair (the only two positions for v in a region),
+     color one of them with colorA and the other with colorB.
+     nb: In SE colorA is painted green, and colorB is blue.
+
+Step 2: do following until no more new cells are colored
+ 2.1 Find a uncolored cell that conjugates with an already colored cell
+     (either color A or B, it matters not).
+ 2.2 Color this new cell with the OPPOSITE color of its conjugate.
+     That is, if the cell is ColorA then its conjugate cell is ColorB.
+     This is how coloring encodes the binary nature of conjugate pairs.
+
+Step 3: Until no more new cells can be found to be colored, do:
+ 3.1 If all but one-and-only-one cell (called the Exception Cell) of all
+     v's in a region see cells of the same color (say colorA) then the
+     Exception cell is colored with the SAME color (colorA).
+
+Step 4: Once all possible cells in the puzzle are marked Color A or B:
+ 4.1 If a cell sees both colored cells (A AND B),
+     then exclude v from this cell.
+ 4.2 If 2+ cells in a region are the same color,
+     then the OTHER color is true.
+ 4.3 If ALL cells in a region see cells of the same color,
+     then the OTHER color is true.
+
+That's the whole coloring technique. At the end of Step 3, we have three
+disjunct sets of cells: colorA, colorB, and those remaining uncolored.
+
+Hence we find these true/false implications:
+ * If one cell colored A is true, then the whole set of cells colored A are true.
+ * If one cell colored A is false, then the whole set of cells colored with the
+   OPPOSITE Color B are true.
+ * If you can't prove any of the prior then try other techniques.
+
+Please note that these two assertions DO NOT IMPLY that if A is true, then B is
+False, and vice versa. This "ying-yang" sentence is only true when dealing
+exclusively with conjugate pairs of cells, and, in that case, trueing cells
+colored A will immediately eliminate candidates in peer cells, including those
+colored B, so the distinction is irrelevant.
+
+Important things to pay attention to:
+  * If we eliminate Step 3 what's left is Simple Coloring. It's Step 3 that
+    makes the difference. Its very powerful.
+  * During Step 3, if you color A one cell that has a pair-conjugated cell that
+    has not been colored A or B until then, YOU CANNOT COLOR THIS UNCOLORED
+    CELL WITH THE OPPOSITE COLOR. That's steps 1 and 2, but NOT step 3.
+  * Steps 1, 2, 3, 4 are done IN SEQUENCE; you can't go back from step 3 to 2,
+    just for instance.
+  * Case 4.3 is rare. It happens when there's no Exception Cell in a region.
+  * X-Colors solves every position solved by both Single and Multiple Coloring
+    techniques, but it also finds hints where neither of them will. And it uses
+    only two colors, which makes it easy to understand and use by humans.
+  * X-Colors finds all X-Wings; in fact, Multiple Colors mostly does that too.
+    So if you want X-Colors, you should unwant X-Wing coz it won't hint.
+    Unfortunately, this is not true with the rest of Fishing techniques.
+
+Examples
+========
+
+These examples show all situations defined above, except Single Colors.
+X-Colors is a superset of Single Colors, so Single examples aren't required.
+
+In these examples, the blue and green lines help us follow Step 3's coloring
+implications: marking all cells in a region affected by a colored cell.
+
+Example 1
+---------
+
+Multicolors: same hint as Multiple Colors technique.
+
+XCEx1.png
+
+Focusing on 2, we mark the conjugate pair r9c2 (blue) and r9c8 (green).
+(Cells marked with 1). Step 2 does not mark any more cells.
+
+Step 3 allows us to mark r2c1 Blue (Cell marked with 2), because it's the only
+cell in its box that is not a peer of r9c2. No more cells are marked in Step 3.
+
+Step 4.1 removes 2 from r2c8 (Cell marked with X), because it is peer both of
+r2c1 (blue) and r9c8 (green).
+
+Example 2
+---------
+
+Elimination not found by Single or Multiple Colors.
+
+XCEx2.png
+
+Focusing on 6, we mark the conjugate pair r1c4 (blue) and r2c5 (green).
+
+Step 2 allows us to mark r4c4 green. (All these cells are marked with 1).
+
+Step 3 allows in the first iteration to mark (Cells marked with 2):
+  * r9c6 green because it's the only cell which maybe 6 in it's box that isn't
+    a peer of r2c5. Alternately r9c6 green coz only cell in col that !sees r4c4
+  * r5c8 green because it's the only cell which maybe 6 in it's box that isn't
+    a peer of r4c4. Alternately r5c8 green coz only cell in row that !sees r4c4
+
+Step 3, second iteration, allows us now to mark r1c7 green (Cell marked with 3)
+because it's the only cell in its box which maybe 6 that is not a peer of green
+cells (r2c5 and r5c8 are peers of the rest of the cells of the box).
+
+NOTE: We can mark more cells in subsequent iterations of Step 3 (r3c1 green,
+then r8c3 green) but the results are the same, so are not shown.
+
+Step 4.1 removes 6 from r1c1 and r1c3 (Cells marked with X) because these cells
+are peers both of r1c4 (blue) and r1c7 (green).
+
+Example 3
+---------
+
+Both elimination of candidates and contradiction, found in the same puzzle.
+
+XCEx3.png
+
+In a similar way as Example 2, and you can easily find the way to exclude the
+cells marked with X (r2c7 and r2c9), as they share as peer a green cell (r1c8
+in its box) and a blue cell (r2c3 in its row).
+
+BUT also you can see that r1c8 (already marked green) is the only cell in its
+box which is not a peer of r2c3, so, as Step 3 states, you can mark it BLUE.
+The result is a contradiction (a cell marked simultaneously green and blue) and
+two cells in a row (r1) and in a column (c8) with the same color (blue).
+
+Then, as Step 4.2 states, the cells marked green are TRUE. You can immediately
+solve all the green cells (r1c8, r7c2 and r9c5) because all of them are an 8.
+Note that, even if you have found a contradiction with blue cells, you CANNOT
+assume that ALL BLUE CELLS ARE FALSE. You can only conclude in that situation
+that GREEN CELLS ARE TRUE.
+
+Example 4
+---------
+
+Elimination after multiple iterations of Step 3.
+
+XCEx4.png
+
+This is an example of how several iterations of Step 3 can find eliminations.
+In this position, focusing on 5, there is only one conjugate pair:
+r5c6 and r7c6 (Cells marked with 1).
+
+After Step 2, no more cells can be marked. Single Colors and Multiple Colors
+are useless here.
+
+Performing multiple iterations of Step 3, we mark green various cells, one cell
+each iteration, marked with numbers 2 to 5. When Step 3 cannot mark any more
+cells, we exclude 5 from cells marked X (Step 4.1)
+
+Example 5
+---------
+
+Contradiction.
+
+XCEx5.png
+
+After Step 1 and 2 we have colored cells marked 1.
+
+Step 3 colors (blue) two cells of col 9 (r2c9, r7c9). That's a contradiction,
+so Step 4.2 concludes that Green cells (r8c6) are true. Once again, Green Cells
+are true does NOT imply Blue Cells are false! (Some blues may still be true).
+
+Example 6
+---------
+
+Contradiction, and No cells left in one house to be colored with one color.
+
+This hint is also found with Multicolors, but X-Colors also addresses the rare
+use-case in which a region doesn't hold any cell of a given color (Step 4.3).
+
+XCEx6.png
+
+Focusing on 1, and after initial Coloring (Cells marked 1), and even before
+applying Step 3, you can see that all cells in the lower-left box which maybe 1
+are peers of green cells.
+
+No one cell can then be marked green in this box, so, as Step 4.3 states, you
+can conclude that BLUE CELLS ARE TRUE, ie they must contain a 1.
+
+Augmenting X-Colors with Single-Digit Buttplugs
+===============================================
+
+The X-Colors technique can be further augmented with single-digit techniques
+for faster or further eliminations. The following example shows how we can
+replicate Empty Rectangle using X-Colors plus Pointing Pair:
+
+XColorsER.png
+
+After the initial coloring for digit 8, r5c3 cannot be colored blue so either
+r4c1 or r6c1 can be colored blue, although we don't know which one. But we do
+get a "Pointing Pair" in the fourth box due to these two cells. Since r3c1 is
+pointed to by these cells and r3c1 also sees a green cell, we can eliminate 8
+from r3c1. 
+
+This shows how to replicate Empty Rectangle with X-Colors with Pointing Pair.
+In the example the elimination can be made after four iterations of Step 3,
+but using Pointing Pair reduces this to two iterations.
+
+We can also conceive of X-Colors augmented with other single-digit techniques
+such as Swordfish, Jellyfish, etc but NOT with X-Wing, due to the fact that
+X-Colors makes the same eliminations as X-Wing. In fact Multi-Colors covers
+X-Wing, and X-Colors covers Multi-Colors.
+
+So bring out the gimp! Or at least wewease Wodderwick.

@@ -14,6 +14,7 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
 import diuf.sudoku.Settings;
+import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.hinters.als.Als;
 import java.awt.Color;
@@ -62,6 +63,8 @@ class SudokuGridPanel extends JPanel {
 
 	private static final Color COLOR_ORANGE = new Color(255, 185, 0);
 	private static final Color COLOR_GREEN = new Color(0, 224, 0);
+	private static final Color COLOR_BLUE = new Color(0, 0, 255);
+	private static final Color COLOR_BLACK = new Color(0, 0, 0);
 	private static final Color COLOR_PURPLE	= new Color(220, 5, 220);
 	private static final Color COLOR_BROWN	= new Color(150, 75, 0);
 	private static final Color COLOR_DARK_BLUE = Color.BLUE.darker();
@@ -76,8 +79,8 @@ class SudokuGridPanel extends JPanel {
 	private static final Color COLOR_DARK_YELLOW = new Color(204, 204, 0);
 	// the pink (light red) cell background color
 	private static final Color COLOR_PINK = new Color(255, 204, 255);
-	// the grey cell background color
-	private static final Color COLOR_GREY = new Color(222, 222, 222);
+//	// the grey cell background color
+//	private static final Color COLOR_GREY = new Color(222, 222, 222);
 	// the green cell background color
 	private static final Color COLOR_BG_GREEN = new Color(204, 255, 204, 153);
 	// the aqua cell background color
@@ -200,8 +203,11 @@ class SudokuGridPanel extends JPanel {
 	private Set<Cell> orangeBGCells;
 	private Set<Cell> blueBGCells;
 	private Set<Cell> yellowBGCells;
-	private Set<Cell> greyBGCells;
+//	private Set<Cell> greyBGCells;
 	private Result result;
+	// cells to be set: Cell=>Values containing a single value
+	private Pots results;
+	private int resultColor;
 	private Collection<ARegion> bases;
 	private Collection<ARegion> covers;
 	private Collection<Als> alss;
@@ -282,12 +288,20 @@ class SudokuGridPanel extends JPanel {
 						int modEx = e.getModifiersEx();
 						boolean altDown = (modEx & InputEvent.ALT_DOWN_MASK)
 								== InputEvent.ALT_DOWN_MASK;
+						int clicks = e.getClickCount();
 						int btn = e.getButton();
-						boolean rightBtn = btn==MouseEvent.BUTTON2
-										|| btn==MouseEvent.BUTTON3;
-						if ( rightBtn && altDown ) { //Alt-RightButton
-							toggleGrey(cell);
+						if ( altDown ) { // Alt
+							if ( clicks == 2 ) {
+								greenBGCells = new HashSet<>();
+								blueBGCells = new HashSet<>();
+								repaint();
+							} else if ( btn==MouseEvent.BUTTON1 ) // Alt-LeftButton
+								toggleGreen(cell);
+							else // Alt - (Right or Middle) Button
+								toggleBlue(cell);
+							// stop this click selecting the cell
 							suppressSelect = true;
+							// NOTE: all other possible Alt-clicks are eaten
 							e.consume();
 						} else if ( cell.value != 0 ) {
 							// Do nothing
@@ -523,9 +537,18 @@ class SudokuGridPanel extends JPanel {
 		this.yellowBGCells = cells;
 	}
 
-	/** Set the red cell backgrounds. */
+	/** Set the result: a cell value to paint larger. */
 	void setResult(Result result) {
 		this.result = result;
+	}
+
+	/** Set the results: cell values to paint larger. */
+	void setResults(Pots results) {
+		this.results = results;
+	}
+	/** -1 for none, 0 for green, 1 for blue. */
+	void setResultColor(int resultColor) {
+		this.resultColor = resultColor;
 	}
 
 	/** Set the green potentials.
@@ -593,13 +616,31 @@ class SudokuGridPanel extends JPanel {
 		this.focusedCell = null;
 	}
 
-	private void toggleGrey(Cell cell) {
-		if ( greyBGCells==null ) {
-			greyBGCells = new HashSet<>(16, 0.75F);
-			greyBGCells.add(cell);
-		} else if ( !greyBGCells.remove(cell) )
-			greyBGCells.add(cell);
+	private void toggleGreen(Cell cell) {
+		// if it's in green then it's not in blue
+		if(blueBGCells!=null)blueBGCells.remove(cell);
+		if ( greenBGCells==null ) {
+			greenBGCells = new HashSet<>(16, 0.75F);
+			greenBGCells.add(cell);
+		} else if ( !greenBGCells.remove(cell) )
+			greenBGCells.add(cell);
 	}
+	private void toggleBlue(Cell cell) {
+		// if it's in blue then it's not in green
+		if(greenBGCells!=null)greenBGCells.remove(cell);
+		if ( blueBGCells==null ) {
+			blueBGCells = new HashSet<>(16, 0.75F);
+			blueBGCells.add(cell);
+		} else if ( !blueBGCells.remove(cell) )
+			blueBGCells.add(cell);
+	}
+//	private void toggleGrey(Cell cell) {
+//		if ( greyBGCells==null ) {
+//			greyBGCells = new HashSet<>(16, 0.75F);
+//			greyBGCells.add(cell);
+//		} else if ( !greyBGCells.remove(cell) )
+//			greyBGCells.add(cell);
+//	}
 
 	private void repaintCell(Cell cell) {
 		if (cell == null)
@@ -765,8 +806,8 @@ class SudokuGridPanel extends JPanel {
 				col = Color.ORANGE;
 			else if ( cell == focusedCell )
 				col = Color.YELLOW;
-			else if ( greyBGCells!=null && greyBGCells.contains(cell) )
-				col = COLOR_GREY;
+//			else if ( greyBGCells!=null && greyBGCells.contains(cell) )
+//				col = COLOR_GREY;
 			else if ( auqaBGCells!=null && auqaBGCells.contains(cell) )
 				col = COLOR_AQUA;
 			else if ( pinkBGCells!=null && pinkBGCells.contains(cell) )
@@ -900,6 +941,7 @@ class SudokuGridPanel extends JPanel {
 	private void paintCellValues(Graphics g) {
 		final boolean isShowingMaybes = Settings.THE.get(Settings.isShowingMaybes);
 		initMaybesColors(); // sets MAYBES_COLORS
+		Values values;
 		int x,y, cx,cy, i;
 		boolean isHighlighted;
 		for ( Cell cell : grid.cells ) {
@@ -907,7 +949,6 @@ class SudokuGridPanel extends JPanel {
 			if ( cell.value != 0 ) {
 				cx = x*COS + CELL_PAD + CISo2;
 				cy = y*COS + CELL_PAD + CISo2;
-				//setCellValueColor(g, cell);
 				g.setColor(cell==selectedCell?Color.BLACK:COLOR_ORANGY_BLACK);
 				drawStringCentered(g, DIGITS[cell.value], cx, cy, bigFont);
 			} else {
@@ -919,17 +960,29 @@ class SudokuGridPanel extends JPanel {
 					isHighlighted = setMaybeColor(g, cell, v);
 					if ( result!=null && result.equals(cell, v) )
 						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont3);
-					else if ( isHighlighted )
+					else if ( results!=null && (values=results.get(cell))!=null
+						   && values.contains(v) ) {
+						g.setColor(resultColor()); // result ON's green/blue
+						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont3);
+					} else if ( isHighlighted )
 						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont2);
 					else if (isShowingMaybes) { // g.color is set to gray
-						if ( cell == selectedCell
-						  || (greyBGCells!=null && greyBGCells.contains(cell)) )
-							g.setColor(Color.BLACK); // orangy(clr);
+//						if ( cell == selectedCell
+//						  || (greyBGCells!=null && greyBGCells.contains(cell)) )
+//							g.setColor(Color.BLACK); // orangy(clr);
 						drawStringCentered(g, DIGITS[v], cx,cy, smallFont1);
 					}
 				}
 			}
 		} // next x, y
+	}
+
+	private Color resultColor() {
+		switch ( resultColor ) {
+			case 0: return COLOR_GREEN;
+			case 1: return COLOR_BLUE;
+			default: return COLOR_BLACK; // should never happen!
+		}
 	}
 
 	private final class Line {

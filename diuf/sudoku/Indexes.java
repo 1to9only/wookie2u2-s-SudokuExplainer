@@ -324,6 +324,10 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 		return FIRST_INDEX[b];
 	}
 
+	public int otherThan(int i) {
+		return FIRST_INDEX[bits & ~ISHFT[i]];
+	}
+
 	// ---------------- toArray ----------------
 	// toArray reads but does NOT alter the state of this Indexes.
 
@@ -407,8 +411,8 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 			sb.append(i);
 		}
 		return sb;
-
 	}
+
 	/** Appends the string representation of this Indexes Set, separating each
 	 * value with 'sep', except the last which is preceeded by 'lastSep'.
 	 * @param sb to append to.

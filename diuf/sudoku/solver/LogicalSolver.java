@@ -488,8 +488,9 @@ public final class LogicalSolver {
 			want(heavies, new BigWing(Tech.STUVWXYZ_Wing));
 			// Coloring xor BUG (you can have neither, but not both). This is
 			// enforced in the TechSelectDialog, so you can regedit around it.
+			want(heavies, new BivalueUniversalGrave()); // slowish
 			want(heavies, new Coloring()); // BUG++
-			want(heavies, new BivalueUniversalGrave()); // Coloring--
+			want(heavies, new XColoring()); // Coloring++ (CURRENTLY BROKEN!!!)
 			want(heavies, new UniqueRectangle());
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));

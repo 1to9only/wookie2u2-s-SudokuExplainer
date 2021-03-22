@@ -1,0 +1,61 @@
+<html><body>
+<h2>Hidden Unique Rectangle</h2>
+The cells <c>{3}</c> (A, B, D, C) form a Hidden Unique Rectangle:<ul>
+<li>All four of these cells maybe <g><b>{1}</b></g> and <b1><b>{2}</b></b1>; and
+<li>cells <g>B=<b>{6}</b> and D=<b>{7}</b></g> are the only places for
+ <b>{1}</b> in at-least one of there common regions; and
+<li>cells <b1>C=<b>{8}</b> and D=<b>{7}</b></b1> are the only places for
+ <b>{1}</b> in at-least one of there common regions.
+</ul>
+<p>
+The logic of all Unique Rectangles is if we set any cell in the rectangle to
+either value, then we could swap it with the other value to get a <i>second
+possible solution</i>, and because a valid Sudoku has one possible solution we
+know that this combination is invalid, so we must eliminate one of these two
+values from a corner of the rectangle. In a Hidden Unique Rectangle the cell on
+the corner OPPOSITE (D={7}) the start cell (A={5}) looses the rectangle value
+({2}) which is NOT locked into the two common regions; ergo {7} cannot be {2}.
+<p>
+Therefore <r>we can remove <b>{4}</b></r>.
+<p>
+<u>Explanation</u>
+<p>
+As explained above, one of the four rectangle corners must not be one of the
+two rectangle values in order to avoid the second possible solution trap, so
+we eliminate one of these values ASAP.<ul>
+<li>If we presume that D ({7}) is {2} then both B ({6}) and C ({8}) will be
+ {1} because they're the only remaining places for {1} in B-D and C-D; leaving
+ the bivalue A ({5}) with {2}.
+<li>But this solution is invalid because we can swap values {2} and {1} to
+ produce a <i>second possible solution</i>.
+<li>Hence we can remove {2} from D ({7}).
+<li>"B-D" means a region common to both cell B and cell D, which has these two
+ cells as it's only possible locations for this value (and likewise "C-D").
+</ul>
+<hr>
+<p>
+<u>Explanation from sudopedia.com</u>
+<p>
+Suppose we have a rectangle with cells A, B, C, D, such that A and D (and B and
+C) are in opposite corners, and either AB or BD share a box, and the cells have
+the following candidates:<ul>
+<li>A has ab, 
+<li>B has abx, 
+<li>C has aby, and
+<li>D has abz, 
+<li>where x and y are one or more candidates,
+<li>z is zero or more candidates,
+<li>and the same candidate may occur in more than one of these sets.
+</ul>
+Suppose further that B and D share a house such that they are the only cells
+where candidate 'a' can occur, and similarly C and D share a house where only
+they have 'a' as a candidate. Then we can eliminate 'b' from cell D.
+<p>
+How this works: If we assume that cell D has the value 'b', then both B and C
+must have the value 'a', since these cells share a house with D where they are
+the only other place an 'a' can go. Consequently cell A must have the value b.
+But since none of the four cells in the rectangle is a given, this is precisely
+the deadly pattern which allows two solutions: we could swap a for b in the
+rectangle and still produce a valid solution.
+Therefore, b can be eliminated as a candidate for D.
+</body></html>

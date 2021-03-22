@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Values;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.hinters.als.Als;
@@ -88,6 +89,11 @@ public class HintValidator {
 	public static final boolean CHAINER_USES = false; // @check false
 
 	/**
+	 * Does XColoring use HintValidator?
+	 */
+	public static final boolean XCOLORING_USES = true; // @check false
+
+	/**
 	 * Does any class use HintValidator?
 	 */
 	public static final boolean ANY_USES = false
@@ -98,6 +104,7 @@ public class HintValidator {
 			| COMPLEX_FISHERMAN_USES
 			| KRAKEN_FISHERMAN_USES
 			| CHAINER_USES
+			| XCOLORING_USES
 			;
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -226,14 +233,42 @@ public class HintValidator {
 		if ( invalidities.putIfAbsent(invalidity, PRESENT) == null ) {
 			Log.teef("%s\n", grid);
 			// NOTE: invalidity contains a leading space
-			Log.teef("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);
+			Log.teef(lastMessage=String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness));
 			return true;
 		}
 		return false;
 	}
+	public static String lastMessage;
 
 	public static void clear() {
 		invalidities.clear();
+	}
+
+	public static boolean isValidSetPots(Grid grid, Pots setPots) {
+		checkSolutionValues(grid);
+		invalidity = "";
+		for ( Cell cell : setPots.keySet() ) {
+			Values values = setPots.get(cell);
+			if ( values.size != 1 )
+				invalidity += " "+cell.id+"-"+values.toString()+" is not one value!";
+			else if ( !values.contains(solutionValues[cell.i]) )
+				// note the leading space on the first
+				invalidity += " "+cell.id+" "+values.toString()+" != "+solutionValues[cell.i];
+		}
+		return invalidity.isEmpty();
+	}
+
+	public static boolean reportSetPots(Grid grid, String reporterName, String invalidity, String badness) {
+		// always set the lastMessage
+		// NOTE: the invalidity String contains a leading space
+		lastMessage = String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);
+		// supress duplicate messages, ie report each invalidity once only
+		if ( invalidities.putIfAbsent(invalidity, PRESENT) == null ) {
+			Log.teef("%s\n", grid);
+			Log.teef(lastMessage);
+			return true;
+		}
+		return false;
 	}
 
 }

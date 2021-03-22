@@ -103,9 +103,11 @@ public enum Tech {
 	, UVWXYZ_Wing		(4.23, 5, "UVWXYZ-Wing") // fast limited ALS-XZ
 	, TUVWXYZ_Wing		(4.24, 6, "TUVWXYZ-Wing") // SLOW limited ALS-XZ
 	, STUVWXYZ_Wing		(4.25, 7, "STUVWXYZ-Wing") // SLOW limited ALS-XZ
-	, Coloring			(4.30, 2, "Coloring", "or BUG (Bivalue Universal Grave) which is slower and finds less hints")	// BUG++
-	, BUG				(4.31, 0, "Bivalue Universal Grave", "or Coloring which is faster and finds more hints") // limited Coloring
-	, URT				(4.32, 0, "Unique Rectangle")
+	// XColoring is Coloring++, which is in turn BUG++
+	, BUG				(4.30, 0, "Bivalue Universal Grave", "(BUG) finds a subset of Coloring hints, and is SLOWER!")
+	, Coloring			(4.31, 2, "Coloring", "finds a superset of BUG hints, and is FASTER.")
+	, XColoring			(4.32, 2, "XColoring", "finds Coloring hints and Nishio's")
+	, URT				(4.33, 0, "Unique Rectangle", "Unique Rectangles and loops", false)
 	, FinnedSwampfish	(4.40, 2, "Finned Swampfish")	// with Sashimi
 	, FinnedSwordfish	(4.41, 3, "Finned Swordfish")
 	, FinnedJellyfish	(4.42, 4, "Finned Jellyfish")
@@ -189,6 +191,7 @@ public enum Tech {
 	public final boolean isDirect; // true if this is a Direct rule.
 	public final boolean isAligned; // true if this is an Aligned rule.
 	public final String tip; // nom is frog for name, which is already taken.
+	public final boolean warning; // is the tool-tip actually a warning?
 
 	// these fields are only used for *Chain, DynamicPlues, and Nested*
 	// they are all allways false for the "normal" (non-Chainer) Techniques.
@@ -198,7 +201,21 @@ public enum Tech {
 	public final boolean isDynamic; // combine effects of previous calculations
 	public final boolean isNishio; // an assumption has both effect && !effect
 
+	/**
+	 * Constructor: By default the tool-tip is used as a warning, because that
+	 * is how I coded it initially, but now I need tip for mouse over only, so
+	 * the TechSelectDialog only displays warning MsgBox when warning, which is
+	 * counter-intuitively true by default.
+	 *
+	 * @param difficulty
+	 * @param degree
+	 * @param nom
+	 * @param tip 
+	 */
 	private Tech(double difficulty, int degree, String nom, String tip) {
+		this(difficulty, degree, nom, tip, true);
+	}
+	private Tech(double difficulty, int degree, String nom, String tip, boolean warning) {
 		this.difficulty = difficulty;
 		this.degree = degree;
 		this.nom = nom;
@@ -211,10 +228,11 @@ public enum Tech {
 		this.isDynamic = false;
 		this.isNishio = false;
 		this.tip = tip;
+		this.warning = warning;
 	}
 
 	private Tech(double difficulty, int degree, String nom) {
-		this(difficulty, degree, nom, null); // tool tip = null, meaning none
+		this(difficulty, degree, nom, null, false); // tool tip = none
 	}
 
 	private Tech(double difficulty, int degree, String nom
@@ -231,6 +249,7 @@ public enum Tech {
 		this.isDynamic = isDynamic;
 		this.isNishio = isNishio;
 		this.tip = null;
+		this.warning = false;
 	}
 
 	public static Tech Solution(String nom) {

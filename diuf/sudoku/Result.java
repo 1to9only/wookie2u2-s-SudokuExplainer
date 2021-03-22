@@ -13,7 +13,7 @@ import diuf.sudoku.Grid.Cell;
  * consequences, and Chaining hints various ons and offs. 
  * @author Keith Corlett 2018 Mar
  */
-public final class Result {
+public class Result {
 	public Cell cell;
 	public int value;
 	public boolean isOn;

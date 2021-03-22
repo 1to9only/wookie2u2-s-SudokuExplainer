@@ -117,6 +117,8 @@ final class SudokuExplainer implements Closeable {
 	private final LinkedMatrixCellSet filteredCells = new LinkedMatrixCellSet();
 	// The potential cell values which have already been removed (filtered-out).
 	private Pots filteredPots = new Pots();
+	// The potential cell values which have already been set (to filter-out).
+	private Pots presetPots = new Pots();
 
 	 // The list of currently selected hint/s.
 	private final LinkedList<AHint> selectedHints = new LinkedList<>();
@@ -211,12 +213,21 @@ final class SudokuExplainer implements Closeable {
 	private boolean filterAccepts(AHint hint) {
 		switch ( hint.type ) {
 		case AHint.INDIRECT:
+			Pots setPots = hint.getResults();
 			Pots redPots = hint.redPots;
 			Values gone; // cell values that've allready been removed
-			for ( Cell c : redPots.keySet() )
-				if ( (gone=filteredPots.get(c)) == null
-				  || (redPots.get(c).bits & ~gone.bits) != 0 )
-					return true;
+			if ( setPots != null  ) {
+				// a bloody XColoringHintMulti sets multiple cells
+				for ( Cell c : setPots.keySet() )
+					if ( (gone=presetPots.get(c)) == null
+					  || (setPots.get(c).bits & ~gone.bits) != 0 )
+						return true;
+			} else {
+				for ( Cell c : redPots.keySet() )
+					if ( (gone=filteredPots.get(c)) == null
+					  || (redPots.get(c).bits & ~gone.bits) != 0 )
+						return true;
+			}
 			// fallthrough
 		case AHint.DIRECT:
 			// nb: LinkedMatrixCellSet.contains is a fast O(1) operation.
@@ -232,10 +243,14 @@ final class SudokuExplainer implements Closeable {
 		case AHint.INDIRECT:
 			filteredPots.upsertAll(hint.redPots);
 			// fallthrough: some INDIRECT hints are actually DIRECT also!
+			// fallthrough: some INDIRECT hints are actually DIRECT also!
+			// fallthrough: some INDIRECT hints are actually DIRECT also!
 		case AHint.DIRECT:
 			if ( hint.cell != null )
 				filteredCells.add(hint.cell);
 			break;
+		case AHint.WARNING:
+			break; // no further action required
 		case AHint.AGGREGATE:
 			AggregatedHint agg = (AggregatedHint)hint;
 			for ( AHint h : agg.hints ) {
@@ -243,12 +258,16 @@ final class SudokuExplainer implements Closeable {
 					filteredCells.add(h.cell);
 				filteredPots.upsertAll(h.redPots);
 			}
-		//case AHint.WARNING: break; // no further action required		//case AHint.WARNING: break; // no further action required
+			break;
+		case AHint.MULTI:
+			presetPots.upsertAll(hint.getResults());
+			break;
 		}
 	}
 
 	private void resetHintsFilter() {
-		filteredPots = new Pots(); // RedPots we've already done
+		filteredPots = new Pots(); // redPots we've already done
+		presetPots = new Pots(); // setPots we've already done
 		filteredCells.clear(); // Cell values already encountered // faster to clear than create new
 	}
 

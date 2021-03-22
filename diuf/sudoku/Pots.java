@@ -574,13 +574,18 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
-	 * I'm caching hashCode coz calculating it is an O(n) operation and hashCode
-	 * gets hammered once you use me as a key in a Map, which I am now doing in
-	 * HdkFisherman.
+	 * WARNING: Pots partially upholds the {@link java.lang.Object#hashCode}
+	 * contract! All good if Pots remains unchanged once used as a key.
+	 * <p>
+	 * I'm caching hashCode coz calculating it is an O(n) operation, and
+	 * hashCode is hammered once you use a Pots as a key in a Map, which
+	 * I now do in ComplexFisherman. sigh.
 	 * <p>
 	 * Note that caching the hashCode implies that a Pots must NOT be modified
-	 * after it's been put into a Hash as a key. If you do modify it then you
-	 * are breaking the equals-hashCode contract, so your Map won't work.
+	 * after it's been used as a Hash key. If you do modify a Pots after you
+	 * have put it as a key, then the equals-hashCode contract is broken, so
+	 * your code (most probably) won't behave consistently, all-though it may
+	 * do on occasion, just to keep you guessing. sigh.
 	 */
 	@Override
 	public int hashCode() {
@@ -594,9 +599,14 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	private int hashCode;
 
 	/**
-	 * Does this Pots equal the given Object? Returns true if obj is a Pots (or
-	 * a subclass thereof) with the same hashCode as this Pots, which upholds
-	 * the {@link java.lang.Object#hashCode equals-hashCode contract}.
+	 * Does this Pots equal the given Object? Returns true if obj is a Pots
+	 * (or subclass thereof) with the same hashCode as this Pots
+	 * <p>
+	 * WARNING: Pots partially upholds the {@link java.lang.Object#hashCode}
+	 * contract! All good if Pots remains unchanged once used as a key.
+	 * <p>
+	 * See {@link #hashCode()}.
+	 *
 	 * @param o
 	 * @return
 	 */
@@ -604,8 +614,14 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	public boolean equals(Object o) {
 		return o instanceof Pots && equals((Pots)o);
 	}
+	// NOTE that we MUST call the hashCode() method, not just reference the
+	// hashCode field because we use this method to equals Pots in the test
+	// cases, and (unlike the rest of the codebase) that's the first time
+	// that hashCode() is called, so the testcase comparisons (which I only
+	// sort-of rely-on for correctness) significantly slow down the actual
+	// code which can, AFAIK, get away with using hashCode! FFMFS! F! F! F!
 	public boolean equals(Pots o) {
-		return hashCode == o.hashCode;
+		return hashCode() == o.hashCode();
 	}
 
 	/**
@@ -628,6 +644,12 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		for ( Cell c : keySet() )
 			return c.i;
 		return 0; // something other than -1
+	}
+
+	public void toIdx(Idx result) {
+		result.clear();
+		for ( Cell c : keySet() )
+			result.add(c.i);
 	}
 
 }

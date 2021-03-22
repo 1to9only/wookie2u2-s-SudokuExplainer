@@ -223,13 +223,16 @@ final class SudokuFrame extends JFrame implements IAsker {
 	/**
 	 * Sets the contents of the hintsTree JTree control.
 	 */
-	void setHintsTree(HintNode root, HintNode selected, boolean isEnabled) {
+	void setHintsTree(HintNode root, HintNode selected, boolean isFilterEnabled) {
 		getHintsTree();
 		hintsTree.setEnabled(false);
 		hintsTree.setModel(new DefaultTreeModel(root));
 		// Dis/enable the Filter checkbox and menu item.
 		chkFilterHints.setSelected(Settings.THE.get(Settings.isFilteringHints));
-		chkFilterHints.setEnabled(isEnabled);
+// isFilterEnabled is now ignored: @todo remove isFilterEnabled param
+// otherwise you can't turn off filterHints when it filters down to one hint
+//		chkFilterHints.setEnabled(isFilterEnabled);
+		chkFilterHints.setEnabled(true);
 		mitFilterHints.setSelected(chkFilterHints.isSelected());
 		mitFilterHints.setEnabled(chkFilterHints.isEnabled());
 		// Select the selected node, if any
@@ -254,6 +257,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 		p.clearSelection(true);
 		if ( h == null ) { // clear it
 			p.setResult(null);
+			p.setResults(null);
+			p.setResultColor(-1); // meaning none
 			p.setAquaBGCells(null);
 			p.setPinkBGCells(null);
 			p.setRedBGCells(null);
@@ -274,6 +279,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 			p.setCovers(null);
 		} else { // display it
 			p.setResult(h.getResult());
+			p.setResults(h.getResults());
+			p.setResultColor(h.getResultColor());
 			p.setAquaBGCells(h.getAquaCells(viewNum)); // null OK
 			p.setPinkBGCells(h.getPinkCells(viewNum)); // null OK
 			if ( h instanceof AWarningHint )
@@ -551,16 +558,21 @@ final class SudokuFrame extends JFrame implements IAsker {
 			@Override
 			public void keyPressed(KeyEvent e) {
 				final int keyCode = e.getKeyCode();
-				if (keyCode == KeyEvent.VK_ENTER) {
+				if ( keyCode == KeyEvent.VK_ENTER ) {
 					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
 					e.consume();
-				} else if (keyCode == KeyEvent.VK_DELETE) {
+				} else if ( keyCode == KeyEvent.VK_DELETE ) {
 					ArrayList<HintNode> hintNodes = getSelectedHintNodes();
-					if (hintNodes != null && !hintNodes.isEmpty()) {
+					if ( hintNodes!=null && !hintNodes.isEmpty() ) {
+						hintsTree.clearSelection();
+						// disable this hinter
 						Tech deadTech = hintNodes.get(0).getHint().hinter.tech;
 						removeHintsAndDisableHinter(deadTech);
-						hintsTree.clearSelection();
+						// clear the hintsTree
+						hintsTree.setModel(new DefaultTreeModel(null));
 						repaint();
+						// get hints again now that this hinter is disabled
+						getAllHintsInBackground(e.isShiftDown(), e.isControlDown());
 					}
 					e.consume();
 				}

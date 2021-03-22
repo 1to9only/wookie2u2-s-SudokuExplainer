@@ -50,6 +50,8 @@ public class ColoringHint extends AHint implements IActualHint {
 		, SimpleColorTrap("Simple Color Trap")
 		, MultiColor1("Multi Color 1")
 		, MultiColor2("Multi Color 2")
+		, XColorWrap("Extended Color Wrap")
+		, XColorTrap("Extended Color Trap")
 		;
 		public final String name; // the hint-type name for this subtype
 		private Subtype(String name) {
@@ -151,19 +153,16 @@ public class ColoringHint extends AHint implements IActualHint {
 
 	@Override
 	protected String toStringImpl() {
-		// something weird has happened to pots the second time this method
-		// is invoked, so I cache the bastard, which, yes, is VERY VERY weird!
+		// something weird has happened to pots the second time this method is
+		// invoked, so I cache the bastard, which, yes, is VERY VERY weird!
 		if ( toStringImpl == null ) {
-			StringBuilder sb = Frmt.getSB();
-			sb.append(Frmt.csv(pots));
-			int start=0, len=sb.length();
-			// remove leading ", "
-			if ( len>2 && sb.charAt(0) == ',' && sb.charAt(1) == ' ' )
-				start += 2;
-			// remove trailing ", "
-			if ( len>2 && sb.charAt(len-2) == ',' && sb.charAt(len-1) == ' ' )
-				len -= 2;
-			toStringImpl = getHintTypeName()+": "+sb.substring(start, len)+" on "+valueToRemove;
+			StringBuilder sb = new StringBuilder(128);
+			boolean first = true;
+			for ( Pots p : pots ) {
+				if(first) first=false; else sb.append(", ");
+				sb.append(p.cells());
+			}
+			toStringImpl = getHintTypeName()+": "+sb.toString()+" on "+valueToRemove;
 		}
 		return toStringImpl;
 	}

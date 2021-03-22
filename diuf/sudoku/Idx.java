@@ -8,11 +8,14 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.BUDDIES;
+import static diuf.sudoku.Grid.CELL_IDS;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.CellFilter;
 import diuf.sudoku.solver.hinters.wing.BitIdx;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 
@@ -576,6 +579,23 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return this;
 	}
 
+// unused: confundis's something. I blame the JIT compiler!
+//	/**
+//	 * Set this Idx to contain ONLY the given indice.
+//	 * @param i indice
+//	 */
+//	public void set(int i) {
+//		assert i>=0 && i<81;
+//		a0 = a1 = a2 = 0;
+//		if ( i < BITS_PER_ELEMENT )
+//			a0 = SHFT[i];
+//		else if ( i < BITS_TWO_ELEMENTS )
+//			a1 = SHFT[i%BITS_PER_ELEMENT];
+//		else
+//			a2 = SHFT[i%BITS_PER_ELEMENT];
+//		modCount = 1; getMod = 0;
+//	}
+
 	/**
 	 * Set this = the cells in the given regions.
 	 * @param regions whose cell indices you want in this Idx.
@@ -898,19 +918,19 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	public int poll() {
 		int x;
 		if ( a0 != 0 ) {
-			x = a0 & -a0; // lowestOneBit(a0);
-			a0 &= ~x; // remove x from a0
+			x = a0 & -a0;	// lowestOneBit
+			a0 &= ~x;		// remove x
 			return Integer.numberOfTrailingZeros(x);
 		}
 		if ( a1 != 0 ) {
-			x = a1 & -a1; // lowestOneBit(a1);
-			a1 &= ~x; // remove x from a1
+			x = a1 & -a1;	// lowestOneBit
+			a1 &= ~x;		// remove x
 			// 27 is Idx.BITS_PER_ELEMENT
 			return 27 + Integer.numberOfTrailingZeros(x);
 		}
 		if ( a2 != 0 ) {
-			x = a2 & -a2; // lowestOneBit(a2);
-			a2 &= ~x; // remove x from a2
+			x = a2 & -a2;	// lowestOneBit
+			a2 &= ~x;		// remove x
 			// 54 is 2 * Idx.BITS_PER_ELEMENT
 			return 54 + Integer.numberOfTrailingZeros(x);
 		}
@@ -963,8 +983,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Returns !(this & aa).isEmpty(), ie does this Idx intersect aa.
 	 * <p>
-	 * CAUTION: This is a query only! to actually DO the and returning any<br>
-	 * use {@code aa.and(bb).any()}, which is what you most typically want.
+	 * CAUTION: Query only! To mutate: {@code idx.and(aa).any()}.
 	 *
 	 * @param aa
 	 * @return true if the intersection of this and other is not empty.
@@ -1042,9 +1061,9 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	public int otherThan(int i) {
 		assert i>=0 && i<81;
-		// mutate a local copy of this Idx's contents
+		// make a local copy of this Idx to mutate
 		int a0=this.a0, a1=this.a1, a2=this.a2;
-		// "remove" i
+		// remove i
 		if ( i < BITS_PER_ELEMENT )
 			a0 &= ~SHFT[i];
 		else if ( i < BITS_TWO_ELEMENTS )
@@ -1053,12 +1072,12 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			a2 &= ~SHFT[i%BITS_PER_ELEMENT];
 		// peek
 		if ( a0 != 0 )
-			// the max 1<<26 is too large to cache so just calculate them
 			return Integer.numberOfTrailingZeros(a0);
 		if ( a1 != 0 )
 			return BITS_PER_ELEMENT + Integer.numberOfTrailingZeros(a1);
 		if ( a2 != 0 )
 			return BITS_TWO_ELEMENTS + Integer.numberOfTrailingZeros(a2);
+		// found none
 		return -1;
 	}
 
@@ -1130,8 +1149,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Read cells in this Idx into array, and return how many, so that you
-	 * can use a re-usable (fixed-size) array.
+	 * Read indices in this Idx into the given array, and return how many, so
+	 * that you can use a re-usable (fixed-size) array.
 	 * @param array
 	 * @return the number of elements added (ergo idx.size())
 	 */
@@ -1223,6 +1242,27 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		forEach((indice) -> {
 			result.bits.set(indice);
 		});
+		return result;
+	}
+
+	public void split(Idx[] results) {
+		results[0].add(poll());
+		results[1].add(poll());
+	}
+
+	public String ids() {
+		final StringBuilder sb = new StringBuilder(128);
+		forEach((cnt, i) -> {
+			if ( cnt > 0 )
+				sb.append(' ');
+			sb.append(CELL_IDS[i]);
+		});
+		return sb.toString();
+	}
+
+	public Set<Cell> toCellSet(Grid grid) {
+		Set<Cell> result = new LinkedHashSet<>(size(), 1F);
+		forEach((i) -> result.add(grid.cells[i]));
 		return result;
 	}
 

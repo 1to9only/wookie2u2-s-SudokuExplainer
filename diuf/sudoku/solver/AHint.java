@@ -81,7 +81,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
-	public static final int DIRECT=0, WARNING=1, INDIRECT=2, AGGREGATE=3;
+	public static final int DIRECT=0, WARNING=1, INDIRECT=2, AGGREGATE=3, MULTI=4;
 
 	protected static final String[] GROUP_NAMES = new String[] {
 		"Pair", "Triple", "Quad", "Pent", "Hex", "Sept", "Oct", "Nona", "Dec"
@@ -108,6 +108,8 @@ public abstract class AHint implements Comparable<AHint> {
 	/** set to true when HintValidator#isValid finds eliminations of one-or-more
 	 * potential value/s that are in the solution, before toString is called. */
 	public boolean isInvalid;
+	/** HintValidator.report sets hint.invalidity = the WHOLE Logged line. */
+	public String invalidity;
 
 	/** sb is a weird variable specifically for the HintsApplicumulator and
 	 * AHint.apply->Cell.set. It's ugly but it's nicest way I can think of. */
@@ -131,9 +133,9 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 
 	// the actual constructor
-	public AHint(AHinter hinter, int type, Cell cell, int value, Pots redPots
-			, Pots greens, Pots oranges, Pots blues, List<ARegion> bases
-			, List<ARegion> covers) {
+	public AHint(AHinter hinter, int type, Cell cell, int value
+			, Pots redPots, Pots greens, Pots oranges, Pots blues
+			, List<ARegion> bases, List<ARegion> covers) {
 		this.hinter = hinter;
 		// AHinter.degree is a mild hack: it's allmost allways just shorthand
 		// for the AHinter.tech.degree, except in URT's where it's set to the
@@ -384,7 +386,7 @@ public abstract class AHint implements Comparable<AHint> {
 	protected String getClueHtmlImpl(boolean isBig) {
 		final String rid; // regionID
 		if ( isBig )
-			rid = getFirstRegionId(); // may return null (may take ages)
+			rid = getFirstRegionId(); // may return null
 		else
 			rid = null;
 		String s = "Look for a "+getHintTypeName();
@@ -620,7 +622,10 @@ public abstract class AHint implements Comparable<AHint> {
 	@Override
 	public final String toString() {
 		if ( toString == null )
-			toString = toStringImpl();
+			if ( isInvalid )
+				toString = "@" + toStringImpl();
+			else
+				toString = toStringImpl();
 		return toString;
 	}
 	private String toString; // toStrings cache
@@ -634,21 +639,9 @@ public abstract class AHint implements Comparable<AHint> {
 	 */
 	public String toFullString() {
 		if(fullString!=null) return fullString;
-		final String cv;  // cell value
-		if ( cell == null )
-			cv = "";
-		else
-			cv = cell.id+"+"+value;
-		final String rp;  // red pots
-		if (redPots == null )
-			rp = "";
-		else
-			rp = redPots.toString();
-		final String sep;
-		if ( cv.isEmpty() || rp.isEmpty() )
-			sep = "";
-		else
-			sep = " ";
+		final String cv; if(cell==null) cv=""; else cv=cell.id+"+"+value;
+		final String rp; if(redPots==null) rp=""; else rp=redPots.toString();
+		final String sep; if(cv.isEmpty()||rp.isEmpty()) sep=""; else sep=" ";
 		return fullString = toString()+" ("+cv+sep+rp+")";
 	}
 	private String fullString; // toFullStrings cache
@@ -801,6 +794,21 @@ public abstract class AHint implements Comparable<AHint> {
 	 */
 	public int complexity() {
 		return 0;
+	}
+
+	/**
+	 * This odd little method is overridden only by XColoringHintMulti which is
+	 * (to date) the only hint-type in the system which sets multiple cells in
+	 * a single step; every other hint type either sets a single cell, or just
+	 * removes some maybes, or even sometimes both, but this prick has to go
+	 * and set multiple cells, stuffing-up all the existing plumbing.
+	 * @return 
+	 */
+	public Pots getResults() {
+		return null;
+	}
+	public int getResultColor() {
+		return -1; // 0 for green, 1 for blue
 	}
 
 }

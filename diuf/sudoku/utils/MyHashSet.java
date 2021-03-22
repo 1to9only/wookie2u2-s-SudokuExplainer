@@ -341,4 +341,32 @@ public class MyHashSet<E>
 		return e==null ? null : e.key;
 	}
 
+	/**
+	 * Compares the specified object with this set for equality.
+	 * <p>
+	 * If the given object is also a MyHashSet (or subtype MyLinkedHashSet)
+	 * then we compare there two maps, so that two equal sets must have all
+	 * the same keys WITH ALL THE SAME VALUES.
+	 * <p>
+	 * Otherwise I defer to the implementation of equals in my superclass
+	 * (AMySet), which handles all types of sets, but reduces equality to
+	 * just all the same keys.
+	 * <p>
+	 * I do all this just so that my bloody testcases work properly! sigh.
+	 *
+	 * @param o object to be compared for equality with this set
+	 * @return <tt>true</tt> if the specified object is equal to this set
+	 */
+	@Override
+	@SuppressWarnings("rawtypes")
+	public boolean equals(Object o) {
+		if ( o == this )
+			return true;
+		// if both objects are MyHashSet's then compare there maps
+		if ( o instanceof MyHashSet )
+			return this.map.equals(((MyHashSet)o).map);
+		// else defer to AMySet's implementation of equals
+		return super.equals(o);
+	}
+
 }
