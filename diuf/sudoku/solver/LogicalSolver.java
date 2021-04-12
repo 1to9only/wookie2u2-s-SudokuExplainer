@@ -66,10 +66,10 @@ import java.util.Set;
  * <li>untick Mutants (slow); especially JellyFish (too slow)
  * <li>untick Naked Pent and Hidden Pent (degenerate);
  * <li>untick Krakens (slow); especially JellyFish (too slow)
- * <li>untick Aligned*Exclusion (slow); A7+E are far too slow, and need shootin'
+ * <li>untick Aligned*Exclusion (slow); A7+E are far too slow and need shootin
  * <li>for <u>really</u> hard puzzles you'll need Nested Unary, but the rest
- *  of Nested* is never used in anger. Nested Plus is a mandatory slow catch-all
- *  but is <u>never</u> executed in anger (exists for Shft-F5).
+ *  of Nested* is never used in anger. Nested Plus is a slow catch-all but is
+ *  <u>never</u> executed in anger (exists ONLY for Shft-F5).
  * <li>My definition of "slow" is 100 milliseconds per elimination.
  * <li>My definition of "too slow" is a second per elimination.
  * <li>All of these hinters are as fast as I know how to make them, which is
@@ -83,8 +83,8 @@ import java.util.Set;
  *  <li>Get all available hints, including chainers and wanted nested-chainers
  *  from a grid. Note that the GUI allows the user to manage the wantedHinters
  *  list, which I (the LogicalSolver) just get from the registry via Settings.
- *  <li>Solve a Sudoku puzzle logically to calculate its difficulty rating, and
- *  get a summary list of the hint-types (usages) that are required.
+ *  <li>Solve a Sudoku puzzle logically to calculate its difficulty rating,
+ *  and get a summary list of the hint-types (usages) that are required.
  * </ul>
  * <p>
  * <b>On packaging:</b><ul>
@@ -106,9 +106,9 @@ import java.util.Set;
  * </ul>
  * <p>
  * <b>On HoDoKu:</b><ul>
- * <li>The original Sudoku Explainer was heavily dependent on the Chainers, so
- * I boosted Solving Techniques from HoDoKu, each of which starts with "HoDoKu"
- * in the GUI, because kudos flows back to hobiwan. The mistakes are mine.
+ * <li>The original Sudoku Explainer was heavily dependent on Chainers, so I
+ *  boosted HoDoKu's Solving Techniques. In the GUI each such technique is
+ *  denoted with "HoDoKu $TechniqueName". Kudos to hobiwan. Mistakes are mine.
  * <li>Here's all the AHinters which have been "boosted" from HoDoKu:<ul>
  *  <li>EmptyRectangle
  *  <li>Skyscraper
@@ -122,31 +122,31 @@ import java.util.Set;
  *  <li>DeathBlossom
  *  <li>ComplexFisherman for Finned, Franken, and Mutant fish.
  *  <li>KrakenFisherman for Kraken bananas, and fish, easy on the bananas.
- * </ul>
+ *  </ul>
  * </ul>
  * <p>
  * <b>Automated tests:</b><ul>
- *   <li>There are {@code JUnit} tests in {@code ./test} directory, with the
- *    same packaging there-under as the class being tested; as per the JUnit
- *    and therefore NutBeans standard practice.<br>
- *    <br>
- *    These are tests for correctness, using the minimum amount of the codebase
- *    required to test the examined feature. The majority of tests are on a
- *    subtype-of-AHinter. They check that a given puzzle produces the expected
- *    hint, with the given hint-HTML. Keeping the expected-HTML files up-to-date
- *    is a bit of a pain-in-the-ass, but I think it's worth it.<br>
- *    <br>
- *    In Nutbeans: build HoDoKu.jar, then run all JUnit tests with ALT-F6. They
- *    take about a minute. These are mostly just regression tests, which just
- *    diff the output with a previous one, so anytime you change the display of
- *    a hint you also need to update the test-case/s. Some hint-types do NOT
- *    yet have test-cases, because I'm a slack/lazy/messy programmer. It's a
- *    work in progress, and I'm doing this just for fun, so it's not perfect.
- *   <li>And then I use {@link diuf.sudoku.test.LogicalSolverTester} with
- *    {@code Log.MODE = VERBOSE_4_MODE} to performance test the hinters on
- *    {@code top1465.d5.mt}, which is in the root directory of this project.
- *    This currently takes under 4 minutes to run (-A5..10E).
- *  </ul>
+ * <li>There are {@code JUnit} tests in {@code ./test} directory, with the
+ *  same packaging there-under as the class being tested; as per the JUnit
+ *  and therefore NutBeans standard practice.<br>
+ *  <br>
+ *  These are tests for correctness, using the minimum amount of the codebase
+ *  required to test the examined feature. The majority of tests are on a
+ *  subtype-of-AHinter. They check that a given puzzle produces the expected
+ *  hint, with the given hint-HTML. Keeping the expected-HTML files up-to-date
+ *  is a bit of a pain-in-the-ass, but I think it's worth it.<br>
+ *  <br>
+ *  In Nutbeans: build HoDoKu.jar, then run all JUnit tests with ALT-F6. They
+ *  take about a minute. These are mostly just regression tests, which just
+ *  diff the output with a previous one, so anytime you change the display of
+ *  a hint you also need to update the test-case/s. Some hint-types do NOT
+ *  yet have test-cases, because I'm a slack/lazy/messy programmer. It's a
+ *  work in progress, and I'm doing this just for fun, so it's not perfect.
+ * <li>And then I use {@link diuf.sudoku.test.LogicalSolverTester} with
+ *  {@code Log.MODE = VERBOSE_4_MODE} to performance test the hinters on
+ *  {@code top1465.d5.mt}, which is in the root directory of this project.
+ *  This currently takes under 4 minutes to run (-A5..10E).
+ * </ul>
  * <p>
  * @see ./LogicalSolverTimings for run timings.
  */
@@ -157,7 +157,7 @@ public final class LogicalSolver {
 	 * Normal people would chuck align2, but I can't because I just love how
 	 * succinct and clever it is, so I seek a magic efficiency bullet. sigh.
 	 */
-	private static final boolean USE_ALIGN2 = false; // @check false align2 slow
+	private static final boolean USE_ALIGN2 = false; //@check false align2 slow
 
 	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
@@ -192,13 +192,14 @@ public final class LogicalSolver {
 	 * * SolutionMode=STORED means we'll retrieve the solution later<br>
 	 * * is a field for use by solveRecursively.
 	 */
-	public final RecursiveAnalyser recursiveAnalyser = new RecursiveAnalyser(); // SolutionMode.STORED
+	public final RecursiveAnalyser recursiveAnalyser = new RecursiveAnalyser();
+	// SolutionMode.STORED
 
 	/** These Hinters workout if the grid is still valid. */
 	private IHinter[] gridValidators;
 
-	/** This is a list of both the puzzleValidators and gridValidators, which is
-	 * what we want to run most of the time. */
+	/** This is a list of both the puzzleValidators and gridValidators, which
+	 * is what we want to run most of the time. */
 	private IHinter[] validators;
 
 	/** These Hinters set cell values directly. */
@@ -322,9 +323,9 @@ public final class LogicalSolver {
 	 * The close() method releases any/all resources. In this case that means
 	 * persisting any set-settings in any/all of the Filter/s we've been using.
 	 * <p>
-	 * Closeable defines this method as throwing IOException, so I have followed
-	 * along, but this implementation eats all Throwables, ie it never throws
-	 * anything, ever, which is a MUCH better approach for closing I/O AFAIAC.
+	 * Closeable says this method throws IOException, so I follow along, but
+	 * this implementation eats all Throwables, ie it never throws anything,
+	 * ever, which is a MUCH better approach for closing I/O.
 	 * <p>
 	 * The Closeable.close() method may be called either by autoclose, which I
 	 * guess is the {@code try(ClosableRdr rdr = new ClosableRdr()){}} syntax,
@@ -364,11 +365,9 @@ public final class LogicalSolver {
 
 		// This method adds each new hinter to it's category-list in order of
 		// increasing complexity, ergo the difficulty rises. The order in which
-		// hinters are created is the order in which they normally execute.
-		// Then we manually reorder the chainers if !CARE_ABOUT_ALIGNED_HINTS.
-		// Then we populate the wantedHinters list from the category-lists.
-		// The hardest puzzles require NestedUnary, but never used otherwise.
-		// Then we sort the wantedHinters by ns/elim if we isUsingStats.
+		// hinters are created is the order in which they execute. My order is
+		// about equal to that of the Tech class, but there are variances.
+		// The hardest puzzles require NestedUnary, but never beyond.
 
 		// when isAccurate we run more hinters, to get the simplest hints.
 		final boolean isAccurate = (mode == Mode.ACCURACY);
@@ -412,20 +411,17 @@ public final class LogicalSolver {
 		// Regarding hinter selection:
 		// In ACCURACY mode we include many nice-but-unnecessary hinters, but
 		// in SPEED mode we strip the hinters list down to the bare-minimum.
-		// We allways use Naked Single and Hidden Single because not having
-		// them is just plain bonkers; as well as DynamicPlus (the catch-all)
-		// and NestedPlus (the real catch-all). The user unwants other hinter
-		// types in the GUI, which changes the Settings (persist in registry),
+		// Naked Single and Hidden Single hardcoded because not having them is
+		// crazy. DynamicPlus and NestedPlus are catch-alls. The user unwants
+		// other hinter types in the GUI, which changes the registry Settings,
 		// which the want method reads via the wantedTechs field, which I
 		// refresh at the start of this method.
 
 		// Regarding execution order:
-		// The solve/etc methods just loop-through the wantedHinters calling
-		// each in the order that it appears in that list, which is MOSTLY the
-		// order in which they are added to the list, ie the order in which
-		// they appear in this method. Aligned*Exclusion are re-ordered if you
-		// don't CARE_ABOUT_ALIGNED_HINTS. sigh. So, the run-order is (mostly)
-		// the same as the order they're added in this method. Clear?
+		// The solve/etc methods just loop-through the wantedHinters list,
+		// invoking each in the order that it's added by this method. The order
+		// they appear in the log file (num calls) may not match the run-order,
+		// especially if multiple successive hinters have not yet hinted.
 
 		// directs are hinters which set cell values directly
 		directs = new ArrayList<>(isAccurate ? 7 : 2); // Tree point five?
@@ -467,7 +463,7 @@ public final class LogicalSolver {
 		want(indirects, new BasicFisherman(Tech.Swordfish));
 
 		// heavies is the heavy weight division. Slow/er indirect hinters.
-		heavies = new ArrayList<>(isAccurate ? 38 : 0); // Just 4 short Dougie!
+		heavies = new ArrayList<>(isAccurate ? 40 : 0); // 2 short Dougie!
 		if ( isAccurate ) {
 			// nb: NONE means that there are 0 top1465.d5.mt
 			//     SLOW takes over a minute to run for top1465
@@ -486,11 +482,12 @@ public final class LogicalSolver {
 			// unwant them for speed. It's only fractions of a second. Meh!
 			want(heavies, new BigWing(Tech.TUVWXYZ_Wing));
 			want(heavies, new BigWing(Tech.STUVWXYZ_Wing));
-			// Coloring xor BUG (you can have neither, but not both). This is
-			// enforced in the TechSelectDialog, so you can regedit around it.
+			// Choose BUG or Coloring or XColoring and/or 3D Mesuda.
+			// Bug: 3D Medusa doesn't find all XColoring hints, so use both!
 			want(heavies, new BivalueUniversalGrave()); // slowish
 			want(heavies, new Coloring()); // BUG++
-			want(heavies, new XColoring()); // Coloring++ (CURRENTLY BROKEN!!!)
+			want(heavies, new XColoring()); // Coloring++
+			want(heavies, new Medusa3dColoring()); // XColoring++
 			want(heavies, new UniqueRectangle());
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
@@ -616,9 +613,9 @@ public final class LogicalSolver {
 		wantedHinters.addAll(heavies);
 		// chainers allways includes DynamicPlus which allways finds a hint.
 		wantedHinters.addAll(chainers);
-		//NB: I've added the nesters, even though I don't want to because I dont
+		//NB: I've added the nesters, even though I don't want to coz I dont
 		// want to wait for them in the event that DynamicPlus fails to hint.
-		// I still regard that as an "A grade" bug, but I've added them because
+		// I still regard that as an "A grade" bug, but I've added them coz
 		// I want to find out-how long it takes to solve the hardest Sudoku
 		// puzzle in the world (according to conceptis.com):
 		//8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4..
@@ -744,8 +741,8 @@ public final class LogicalSolver {
 
 	/**
 	 * The wantAE (addAlignedExclusionIfWanted) method creates either:<br>
-	 * the _1C (Correct meaning align each cell set on a single cell);<br>
-	 * or _2H (Hacked meaning align each cell set around at least two cells)<br>
+	 * the _1C (Correct = align each cell set on a single cell);<br>
+	 * or _2H (Hacked = align each cell set around at least two cells)<br>
 	 * version of an Aligned*Exclusion class, depending on registry Settings.
 	 * <p>
 	 * See the Aligned*Exclusion classes for more on the difference between the
@@ -812,7 +809,7 @@ public final class LogicalSolver {
 		return Frmt.csv(wantedHinters, TECH_NAME);
 	}
 
-	private static final IFilter<IHinter> ENABLED = (IHinter h) -> h.isEnabled();
+	private static final IFilter<IHinter> ENABLED = (IHinter h)->h.isEnabled();
 
 	/** Debug only: dumps wanted hinters to the given PrintStream.
 	 * @param out PrintStream to print to. */
@@ -983,8 +980,8 @@ public final class LogicalSolver {
 			if ( Run.type==Run.Type.GUI && !wantMore && isFilteringHints )
 				locking.setSiamese(hiddenPair, hiddenTriple);
 			// run prepare AFTER validators and BEFORE wantedHinters
-			if ( !grid.isPrepared() ) // when we get the first hint from this grid
-				prepare(grid); // prepare the wanted IPreparer's to process da grid
+			if ( !grid.isPrepared() ) // when we get first hint from this grid
+				prepare(grid); // prepare wanted IPreparer's to process grid
 			any = getAll(wantedHinters, grid, accu, !wantMore, isNoisy);
 			// and don't forget to revert doSiamese or Generate goes mad
 			locking.clearSiamese();
@@ -1098,7 +1095,7 @@ public final class LogicalSolver {
 		final IHinter[] enabledHinters = getEnableds(wantedHinters);
 		grid.rebuildAllRegionsEmptyCellCounts();
 		grid.rebuildAllRegionsIdxsOfAllValues();
-		for ( int pre=grid.countMaybes(),now; pre>0; pre=now ) { // ie !grid.isFull
+		for ( int pre=grid.countMaybes(),now; pre>0; pre=now ) { // ie !isFull
 			if ( getFirst(enabledHinters, grid, accu, false) ) {
 				if ( interrupt() )
 					return puzDif; // not sure what I should return
@@ -1219,11 +1216,13 @@ public final class LogicalSolver {
 	}
 
 	// Is this puzzle basically valid? NOT running singleSolution validator.
-	private boolean validatePuzzle(Grid grid, IAccumulator accu) { // throws UnsolvableException
+	// throws UnsolvableException
+	private boolean validatePuzzle(Grid grid, IAccumulator accu) {
 		if ( tooFewClues.findHints(grid, accu) // NumberOfClues >= 17
 		  || tooFewValues.findHints(grid, accu) ) // NumberOfValues >= 8
-		  // skip RecursiveAnalysis, the third puzzleValidator
-			return carp("Invalid Sudoku: " + accu.getHint(), grid, true); // throws UnsolvableException
+			// skip RecursiveAnalysis, the third puzzleValidator
+			// throws UnsolvableException
+			return carp("Invalid Sudoku: " + accu.getHint(), grid, true);
 		return true; // the puzzle is (probably) valid.
 	}
 
@@ -1244,14 +1243,14 @@ public final class LogicalSolver {
 	 *  validators before solving the puzzle.
 	 * @param isNoisy true logs progress, false does it all quietly.
 	 * @return was it solved; else see grid.invalidity
-	 * @throws UnsolvableException which is a RuntimeException meaning that this
+	 * @throws UnsolvableException which is a RuntimeException means that this
 	 *  puzzle is invalid and/or cannot be solved. See the exceptions message
-	 *  (if any) for details, and/or the grid's invalidity field.<br>
+	 *  (if any) for details, and/or grid.invalidity field.<br>
 	 *  Clear as bloody mud, right? Well good. Don't send me invalid crap and I
 	 *  won't make you struggle to access the error message. Sigh.
 	 */
 	public boolean solve(Grid grid, UsageMap usage, boolean validate
-			, boolean isNoisy, boolean logHints) { // throws UnsolvableException
+			, boolean isNoisy, boolean logHints) {
 		assert grid!=null && usage!=null;
 //if(grid.source.lineNumber==6)
 //	Debug.breakpoint();
@@ -1298,7 +1297,8 @@ public final class LogicalSolver {
 //			if(anyNumbered) activate(numbereds, hintNum);
 			// getHints from each enabled hinter
 			if ( !timeHinters(enableds, grid, accu, usage, hintNum) )
-				return carp("Hint not found", grid, true); // throws UnsolvableException
+				// throws UnsolvableException
+				return carp("Hint not found", grid, true);
 			// apply the hint
 			hint = accu.getHint();
 			now = System.nanoTime();
@@ -1342,8 +1342,9 @@ public final class LogicalSolver {
 	// @param grid Grid to apply the hint to
 	// @param usage UsageMap for the updateUsage method (below)
 	// @param noisy if true log progress, else do it quietly
+	// throws UnsolvableException
 	private int apply(AHint hint, int hintCount, long took, Grid grid
-			, UsageMap usage, boolean isNoisy, boolean logHints) { // throws UnsolvableException
+			, UsageMap usage, boolean isNoisy, boolean logHints) {
 		if ( hint == null )
 			return 0;
 		if ( hint instanceof AWarningHint ) // NoDoubleValues or NoMissingMaybes
@@ -1465,27 +1466,34 @@ public final class LogicalSolver {
 	 * USING CACHE: select {@code LinkedList<IPreparer>} from hinters where
 	 * implements IPreparer.
 	 * <p>
-	 * The preppersCache is updated when it's out-dated. That is:<br>
-	 * when preppersCache is null (ie doesn't exist yet);<br>
-	 * or Settings.THE.getModificationCount() differs from when preppersCache
+	 * The preppersCache is updated when it's out-dated. That is: when
+	 * preppersCache is null (ie doesn't exist yet); or
+	 * Settings.THE.getModificationCount() differs from when preppersCache
 	 * was read previously; in case the wantedHinters have changed; otherwise
-	 * we prepare no-longer-wanted-hinters, causing head-aches, and
-	 * <b><i>excessive masturbation with eel spleen oil, which may send you blind.
-	 * And "no" I don't want to taste your eel spleen oil. I don't care if it's
+	 * we prepare no-longer-wanted-hinters, causing head-aches, despite<br>
+	 * <i>excessive masturbation with eel spleen oil engendering blindness,
+	 * and "no" I don't want to taste your eel spleen oil. I don't care if it's
 	 * very nice. Nor do I want to pay for power, which I can get free from the
 	 * sun; or buy your oil, cosmetics, plastic bags, packaging, brand, wolf
 	 * nipple chips, pop-up toaster, pop-up restaurant, your stupid 1000 hour
 	 * television, or your mind-bogellingly dumb refried billy nut cheese.
-	 * In fact I won't pay for you. You're worthless. Now go away, or I shall
+	 * In fact I won't pay for you. You're w____less. Now go away, or I shall
 	 * taunt you a second time! That does it: The next gannet who comes within
-	 * fifty yards of me is gonna die!<br>
+	 * fifty yards of me is gonna bloody die! Allright make it Ten! Five?!?<br>
 	 * <br>
 	 * But that's a tautology Boris.<br>
 	 * <br>
 	 * I'll rip ya' bloody arms off.<br>
 	 * <br>
-	 * Yes, I know. Make it twenty-five.
-	 * </i></b>
+	 * Pangalin Shawn?<br>
+	 * <br>
+	 * Make it three. But that's my final offer.<br>
+	 * <br>
+	 * What sort of eye-wateringly-idiotic idiots <b>BUY</b> prepping?<p>
+	 * <br>
+	 * Probably the same sort of moron who appoints a ____ing rapist AG
+	 * <u>after</u> Me Too.
+	 * </i>
 	 *
 	 * @param hinters the wantedHinters list
 	 * @return A cached {@code LinkedList<IPreparer>}
@@ -1503,8 +1511,8 @@ public final class LogicalSolver {
 		}
 		return preppers;
 	}
-	private LinkedList<IPreparer> preppersCache; // defaults to null automagically
-	private int prepyModCount; // defaults to 0 automagically
+	private LinkedList<IPreparer> preppersCache; // defaults to null
+	private int prepyModCount; // defaults to 0
 
 	// an enabled hinter is one which finds a hint (any hint) in this puzzle.
 	private IHinter[] getEnableds(List<IHinter> wantedHinters) {

@@ -41,6 +41,7 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import java.util.LinkedList;
 
 
 /**
@@ -53,6 +54,15 @@ import diuf.sudoku.solver.hinters.AHinter;
 public final class WWing extends AHinter
 //		implements diuf.sudoku.solver.IReporter
 {
+
+	// nb: caching this ____s-up the the generator!
+	private static Cell[] getBivalueCells(Grid grid) {
+		LinkedList<Cell> list = new LinkedList<>();
+		for ( Cell cell : grid.cells )
+			if ( cell.maybes.size == 2 )
+				list.add(cell);
+		return list.toArray(new Cell[list.size()]);
+	}
 
 	public WWing() {
 		super(Tech.W_Wing);
@@ -75,7 +85,7 @@ public final class WWing extends AHinter
 		// the indices of cells which maybe each potential value
 		final Idx[] candidates = grid.getIdxs();
 		// get an array (for speed) of bivalue (maybes.size==2) cells in grid
-		final Cell[] bivalueCells = grid.getBivalueCells().cells(grid);
+		final Cell[] bivalueCells = getBivalueCells(grid);
 		// two pre-prepaired Idxs of buddies of cellA which maybe 0=v0, 1=v1
 		final Idx bud0 = this.bud0.clear();
 		final Idx bud1 = this.bud1.clear();

@@ -919,7 +919,7 @@ public class ComplexFisherman extends AHinter
 				myHint.isInvalid = true;
 				HintValidator.report(tech.name(), grid, myHint.toFullString());
 				// See in GUI, but they cause DEAD_CAT's in the batch.
-				if ( Run.type == Run.Type.LogicalSolverTester )
+				if ( Run.type == Run.Type.Batch )
 					return null;
 			}
 		}

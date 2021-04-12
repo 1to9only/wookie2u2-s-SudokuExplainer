@@ -290,7 +290,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 
 	protected static final PrintStream open(String filename, String headerLine) {
 		try {
-			if ( Run.type == Run.Type.LogicalSolverTester ) {
+			if ( Run.type == Run.Type.Batch ) {
 				PrintStream ps = new PrintStream(filename);
 				if ( headerLine != null )
 					ps.println(headerLine);

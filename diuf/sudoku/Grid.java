@@ -8,6 +8,7 @@ package diuf.sudoku;
 
 import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
+import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.ISIZE;
@@ -340,6 +341,72 @@ public final class Grid {
 			result.add(c);
 		return result;
 	}
+
+	/**
+	 * A bitset of the indexes in grid.regions of the boxs that are effected
+	 * by each of the regions in the grid. The values here-in are box indexes
+	 * 0..8, so you can read them with the Indexes.INDEXES array-of-arrays.
+	 * <p>
+	 * It's value is type dependant:<pre>
+	 * * for a row it's the 3 boxs which intersect this row;
+	 * * for a col it's the 3 boxs which insersect this col;
+	 * * for a box it's the 4 boxs which also intersect the row and col which
+	 *   intersect this box, ie in ascii art:
+	 *      X##        .#.        ..#
+	 *      #..   or   #X#   or   ..#   where X is this box, and # is effected
+	 *      #..        .#.        ##X
+	 * </pre>
+	 * This is all static because it's the same for all grids, so you can get
+	 * it without an instance of Grid.
+	 * <p>
+	 * A real speed freak would run this code ONCE, to print the code, and then
+	 * run that code each time, but it's only STATIC performance. sigh.
+	 */
+//	public static final int[] EFFECTED_BOXS = new int[27];
+//	static {
+//		// boxs: other boxs which also intersect rows/cols that intersect me.
+//		for ( int i=0; i<9; ++i ) {
+//			// y and x in the graph sense of vertical and horizonal;
+//			// NOT in the usual grid sense of row and col
+//			int y = i / 3;
+//			EFFECTED_BOXS[i] |= ISHFT[y];
+//			EFFECTED_BOXS[i] |= ISHFT[y + 1];
+//			EFFECTED_BOXS[i] |= ISHFT[y + 2];
+//			int x = i % 3;
+//			EFFECTED_BOXS[i] |= ISHFT[x];
+//			EFFECTED_BOXS[i] |= ISHFT[x + 3];
+//			EFFECTED_BOXS[i] |= ISHFT[x + 6];
+//			// except myself
+//			EFFECTED_BOXS[i] &= ~ISHFT[i];
+//			// validate
+//			assert VSIZE[EFFECTED_BOXS[i]] == 4;
+//		}
+//		// rows: intersectingBoxs
+//		for ( int i=9; i<18; ++i ) {
+//			int y = i / 3;
+//			EFFECTED_BOXS[i] |= ISHFT[y];
+//			EFFECTED_BOXS[i] |= ISHFT[y + 1];
+//			EFFECTED_BOXS[i] |= ISHFT[y + 2];
+//			// validate
+//			assert VSIZE[EFFECTED_BOXS[i]] == 3;
+//		}
+//		// cols: intersectingBoxs
+//		for ( int i=18; i<27; ++i ) {
+//			int x = i % 3;
+//			EFFECTED_BOXS[i] |= ISHFT[x];
+//			EFFECTED_BOXS[i] |= ISHFT[x + 3];
+//			EFFECTED_BOXS[i] |= ISHFT[x + 6];
+//			// validate
+//			assert VSIZE[EFFECTED_BOXS[i]] == 3;
+//		}
+//	};
+	// See explanation ABOVE. Magic-numbers (results of above code) for speed.
+	// Used in Medusa3dColoring, the mother of all bad hair days. What tiger?
+	public static final int[] EFFECTED_BOXS = {
+		  78, 149, 291, 71, 142, 270, 29, 30, 60
+		, 56, 56, 56, 112, 112, 112, 224, 224, 224
+		, 73, 146, 292, 73, 146, 292, 73, 146, 292
+	};
 
 	/**
 	 * Return the common row, col, or box of two Cells; else null.
@@ -1670,7 +1737,7 @@ public final class Grid {
 	 *  If cells contains only one cell then I just return it's
 	 *  regions[regionTypeIndex].
 	 */
-	public ARegion commonRegion(Iterable<Cell> cells, int regionTypeIndex) {
+	public static ARegion commonRegion(Iterable<Cell> cells, int regionTypeIndex) {
 		if(cells == null) throw new NullPointerException("cells is null!");
 		assert hasTwo(cells) : "cells contains less than 2 cells!";
 		ARegion commonRegion=null, cellsRegion;
@@ -1684,11 +1751,12 @@ public final class Grid {
 		return commonRegion; // will still be null if cells is empty
 	}
 
-	// Method coz you can't define a variable in an assert, which sux!
-	private static final boolean hasTwo(Iterable<?> cells) {
-		Iterator<?>it=cells.iterator();
+	// assert only: a method coz you can't define a var in an assert.
+	// nb: The only way I can think of to count an Iterable is to count them.
+	private static boolean hasTwo(Iterable<?> cells) {
+		Iterator<?>it = cells.iterator();
 		return it.hasNext()
-			&& it.next()!=null
+			&& it.next() != null
 			&& it.hasNext();
 	}
 
@@ -1701,25 +1769,24 @@ public final class Grid {
 	 * @param result {@code ArrayList<ARegion>} is not cleared first.
 	 * @return a {@code ArrayList<ARegion>} result may be empty, but not null.
 	 */
-	public ArrayList<ARegion> commonRegions(Collection<Cell> cells, ArrayList<ARegion> result) {
+	public static ArrayList<ARegion> commonRegions(Collection<Cell> cells, ArrayList<ARegion> result) {
 		Iterator<Cell> it = cells.iterator();
 		// for first cell in cells
 		Cell cell = it.next();
-		int box = cell.boxId;
-		int row = cell.y;
-		int col = cell.x;
+		ARegion box = cell.box;
+		ARegion row = cell.row;
+		ARegion col = cell.col;
 		// foreach subsequent cell in cells
 		while ( it.hasNext() ) {
 			cell = it.next();
-			if(box!=cell.boxId) box=-1;
-			if(row!=cell.y) row=-1;
-			if(col!=cell.x) col=-1;
+			if(box!=cell.box) box=null;
+			if(row!=cell.row) row=null;
+			if(col!=cell.col) col=null;
 		}
-		// re-populate the result
-//		result.clear();
-		if(box > -1) result.add(boxs[box]);
-		if(row > -1) result.add(rows[row]);
-		if(col > -1) result.add(cols[col]);
+		// add the common regions to result
+		if(box != null) result.add(box);
+		if(row != null) result.add(row);
+		if(col != null) result.add(col);
 		return result;
 	}
 
@@ -1730,12 +1797,15 @@ public final class Grid {
 	 * available for use elsewhere.
 	 * <p>
 	 * Note the "odd" order of comparisons here: row, col, box. So that if a
-	 * cell is in the same row-or-col we return it FIRST, only then (unlike the
-	 * rest of SE) do we consider the box.<br>
+	 * cell is in the same row-or-col we return it FIRST, only then (unlike
+	 * the rest of SE) do we consider the box.<br>
 	 * I've done this simply because I prefer the row-or-col when explaining
 	 * unique rectangles. I think they're just "more obvious", and therefore
 	 * so likely will the punter. There's nothing wrong with a box, they're
 	 * just a bit harder to get your head around in UR-land, that's all.
+	 * <p>
+	 * WARN: If a == b then I return all three of the cells regions. If you
+	 * can't accept this then call commonRegionsSafe instead!
 	 *
 	 * @param a the first Cell
 	 * @param b the second Cell
@@ -1743,7 +1813,7 @@ public final class Grid {
 	 *  "standard" region types: box, row, col.
 	 * @return the number of commonRegions added to the result array.
 	 */
-	public int commonRegions(Cell a, Cell b, ARegion[] result) {
+	public static int commonRegions(final Cell a, final Cell b, final ARegion[] result) {
 		int cnt = 0;
 		if ( a.y == b.y )
 			result[cnt++] = a.row;
@@ -1752,6 +1822,28 @@ public final class Grid {
 		if ( a.boxId == b.boxId )
 			result[cnt++] = a.box;
 		return cnt;
+	}
+
+	/**
+	 * A null-safe version of commonRegions which ignores a==b;
+	 * and returns the result (truncated) even if it's not big enough.
+	 * @param a
+	 * @param b
+	 * @param result
+	 * @return
+	 */
+	public static int commonRegionsSafe(final Cell a, final Cell b, final ARegion[] result) {
+		// a==b is a bit odd: if the same cell is passed as both a and b then
+		// it has three common regions, throwing an AIOOBE, but my caller does
+		// not really want to process the bastard anyway, so it's expediant to
+		// completely ignore the situation here by just returning 0. all good.
+		if ( a==null || b==null || a==b )
+			return 0;
+		try {
+			return commonRegions(a, b, result);
+		} catch (Throwable eaten) { // esp ArrayIndexOutOfBoundsException
+			return result.length; // should no longer happen, but safe(ish)
+		}
 	}
 
 	/**
@@ -1768,7 +1860,7 @@ public final class Grid {
 	 * @param region
 	 * @return the other ARegion common to all cells.
 	 */
-	public ARegion otherCommonRegion(List<Cell> cells, ARegion region) {
+	public static ARegion otherCommonRegion(List<Cell> cells, ARegion region) {
 		final int n = cells.size();
 		if ( n<2 || n>6 )
 			return null; // You shouldn't have called me!
@@ -2838,12 +2930,25 @@ public final class Grid {
 		}
 
 		/**
-		 * Get the index of the given cell within this region.
-		 * <p>Note that the <b>cell</b> is assumed (Ass U Me) to be in this
-		 * region; in fact that's checked with an assert. All that is returned
-		 * is the cells b, y, or x index: whichever is appropriate for this type
-		 * of ARegion. So you CANNOT use indexOf as a contains test, as you
-		 * might (reasonably) expect.
+		 * otherThan is intended for use ONLY on conjugate pairs (regions with
+		 * just two places for the given value). You give me a Cell and the
+		 * value to conjugate on, and I return the other Cell in the pair.
+		 * @param cell one of two cells in a conjugate pair
+		 * @param value the value to conjugate on
+		 * @return the other cell in the conjugate pair
+		 */
+		public Cell otherThan(Cell cell, int value) {
+			// lick that one Scoobie!
+			return cells[FIRST_INDEX[indexesOf[value].bits & ~ISHFT[indexOf(cell)]]];
+		}
+
+		/**
+		 * Get the index of the given cell in this region.cells array.
+		 * <p>The {@code cell} must be in this region (checked with assert).
+		 * Returns the cells b, y, or x index: whichever is appropriate for
+		 * this type of ARegion. So you CANNOT use indexOf as a contains test,
+		 * as you might (reasonably) expect.
+		 * <p>
 		 * If this behaviour upsets you then fix it yourself (check the given
 		 * cells b/x/y against my b/x/y) to return -1, which'll throw an AIOBE)
 		 * I just prefer speed to correctness upon which I do not rely.

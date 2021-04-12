@@ -21,10 +21,10 @@ public final class Run {
 	}
 
 	public enum Type {
-		  TestCase
-		, GUI
-		, Generator
-		, LogicalSolverTester
+		  TestCase		// in a JUnit test-case
+		, GUI			// Normal GUI
+		, Generator		// The generator in the GUI
+		, Batch			// LogicalSolverTester
 	};
 	/**
 	 * The LogicalSolverTester sets this value to true. It's public static so

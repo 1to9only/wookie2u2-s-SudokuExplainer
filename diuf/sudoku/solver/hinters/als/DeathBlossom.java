@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * DeathBlossom implements the Death Blossom solving technique.
  * <p>
- * Here's an explanation from https://www.sudopedia.org/wiki/Solving_Technique
+ * Explanation from https://www.sudopedia.org/wiki/Solving_Technique
  * <p>
  * A Death Blossom consists of a "stem" cell and an Almost Locked Set (or ALS)
  * for each of the stem cell's candidates. The ALS associated with a particular
@@ -295,14 +295,17 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	private AHint createHint(Cell stem) {
-		List<Als> alss = new ArrayList<>(stem.maybes.size);
-		for ( int v : VALUESES[stem.maybes.bits] )
-			alss.add(db.alssByValue[v]);
 		// copy-off theReds and clear them for next time
 		Pots reds = new Pots(theReds);
 		theReds.clear();
+		// build a list of the ALS's
+		List<Als> alss = new ArrayList<>(stem.maybes.size);
+		for ( int v : VALUESES[stem.maybes.bits] )
+			alss.add(db.alssByValue[v]);
+		// copy-off the ALS's by value array (which is re-used)
+		Als[] abv = db.alssByValue.clone();
 		// create and return the hint
-		return new DeathBlossomHint(this, reds, stem, alss, db.alssByValue, grid);
+		return new DeathBlossomHint(this, reds, stem, alss, abv);
 	}
 
 }

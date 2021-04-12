@@ -8,10 +8,14 @@ package diuf.sudoku.solver.hinters.color;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
+import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.utils.Html;
+import java.util.Collection;
 import java.util.Set;
 
 /**
@@ -22,16 +26,24 @@ import java.util.Set;
 public class XColoringHint extends AHint {
 
 	private final int v;
-	private final Idx[] colorSet;
+	private final String greenCells; // ids of the green cells
+	private final String blueCells;
 	private final String steps;
-	public XColoringHint(AHinter hinter, int v
-			, Pots reds, Pots greens, Pots blues
-			, Idx[] colorSet, StringBuilder steps
+	private final Collection<Link> links;
+	public XColoringHint(AHinter hinter, int v, Pots reds, Pots greens
+			, Pots blues, Idx[] colorSet, String steps, Collection<Link> links
 	) {
 		super(hinter, reds, greens, null, blues, null, null);
 		this.v = v;
-		this.colorSet = new Idx[]{new Idx(colorSet[0]), new Idx(colorSet[1])};
-		this.steps = steps.toString();
+		if ( colorSet != null ) {
+			this.greenCells = colorSet[0].ids();
+			this.blueCells = colorSet[1].ids();
+		} else {
+			this.greenCells = greens.cells();
+			this.blueCells = blues.cells();
+		}
+		this.steps = steps;
+		this.links = links;
 	}
 
 	@Override
@@ -50,8 +62,13 @@ public class XColoringHint extends AHint {
 	}
 
 	@Override
+	public Collection<Link> getLinks(int viewNum) {
+		return links;
+	}
+
+	@Override
 	protected String toStringImpl() {
-		return getHintTypeName()+": "+colorSet[0].ids()+", "+colorSet[1].ids()
+		return getHintTypeName()+": "+greenCells+", "+blueCells
 			 + " on " + v;
 	}
 
@@ -65,22 +82,26 @@ public class XColoringHint extends AHint {
 
 	@Override
 	protected String toHtmlImpl() {
-		StringBuilder sb = new StringBuilder(512);
+		StringBuilder sb = new StringBuilder(1024);
 		sb.append("<html><body>").append(NL);
-		if ( isInvalid ) {
+		if ( isInvalid )
 			sb.append("<h2>").append("<r>INVALID</r> ").append(getHintTypeName()).append("</h2>").append(NL)
-			  .append(invalidity).append("<p>").append(NL);
-		} else
+			  .append("<k><b>").append(HintValidator.lastMessage).append("</b></k><p>").append(NL);
+		else
 			sb.append("<h2>").append(getHintTypeName()).append("</h2>").append(NL);
-	    sb.append("There are two extended coloring sets on the value <b>").append(v).append("</b>:<pre>").append(NL)
-		  .append("<g>GREEN: ").append(colorSet[0].ids()).append("</g>").append(NL)
-		  .append("<b1>BLUE : ").append(colorSet[1].ids()).append("</b1>").append(NL)
-		  .append("<u>Steps</u>").append(NL)
-		  .append(steps.trim()).append(NL)
+	    sb.append("There are two extended coloring sets:<pre>").append(NL)
+		  .append("<g>GREEN: ").append(greenCells).append("</g>").append(NL)
+		  .append("<b1>BLUE : ").append(blueCells).append("</b1>").append(NL)
 		  .append("</pre>").append(NL)
-		  .append("Because either the <b1>blue</b1> cells or the <g>green</g> cells must contain the value <b>")
-		  .append(v).append("</b>, any cell seeing members of <b>both</b> sets can be eliminated.").append(NL)
-		  .append("<p>").append(NL)
+		  .append("Either the <g>green values</g> or the <b1>blue values</b1> are true.").append(NL);
+		if ( steps != null ) {
+			sb.append("<p>").append(NL)
+			  .append("<u>Steps</u>").append(NL)
+			  .append("<pre>").append(NL)
+			  .append(steps.trim()).append(NL)
+			  .append("</pre>").append(NL);
+		}
+		sb.append("<p>").append(NL)
 		  .append("Therefore <r>we can remove <b>").append(redPots.toString()).append("</b></r>.").append(NL);
 		sb.append("</body></html>").append(NL);
 		return Html.colorIn(sb.toString());

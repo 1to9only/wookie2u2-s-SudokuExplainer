@@ -13,6 +13,7 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
 import static diuf.sudoku.Grid.AFTER;
 import static diuf.sudoku.Grid.BUDETTES;
+import diuf.sudoku.Values;
 
 
 /**
@@ -313,9 +314,14 @@ public class BigWing extends AHinter {
 									reds = eliminate(candidates, victims
 										, cands[i], yz, yzVs, als, theReds);
 									if ( reds != null ) {
+										Pots oranges = new Pots();
+										oranges.put(yz, new Values(yzVs.x));
+										for ( Cell cc : als )
+											if ( cc.maybe(yzVs.x) )
+												oranges.put(cc, new Values(yzVs.x));
 										// create the hint
 										AHint hint = new BigWingHint(this, reds
-											, yz, yzVs, cands[i], als);
+											, yz, yzVs, cands[i], als, oranges);
 										result = true;
 										if ( accu.add(hint) )
 											return result; // exit-early

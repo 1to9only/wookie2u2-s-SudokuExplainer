@@ -218,11 +218,11 @@ public final class BivalueUniversalGrave extends AHinter
 			result = addBug2Hint(grid);
 			if ( numBugCells == 2 )
 				// Yeah, Potential BUG type-4 pattern found
-				result |= addBug4Hint(grid);
+				result |= addBug4Hint();
 		} else if ( !cmnSibsIdx.isEmpty() ) {
 			if ( numBugCells == 2 )
 				// Yeah, Potential BUG type-4 pattern found
-				result = addBug4Hint(grid);
+				result = addBug4Hint();
 			// Yeah, potential BUG type-3 pattern found
 			result |= addBug3Hint(grid);
 		}
@@ -279,7 +279,7 @@ public final class BivalueUniversalGrave extends AHinter
 		ARegion cmnRgn;
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
 			// Look for a region of this type that is shared by all BUG cells
-			if ( (cmnRgn=grid.commonRegion(bcPots.keySet(), rti)) == null )
+			if ( (cmnRgn=Grid.commonRegion(bcPots.keySet(), rti)) == null )
 				continue;
 			// A common region of type rti has been found.
 			// Gather other cells of this region from the grid.
@@ -359,7 +359,7 @@ public final class BivalueUniversalGrave extends AHinter
 		return result;
 	}
 
-	private boolean addBug4Hint(Grid grid) {
+	private boolean addBug4Hint() {
 		boolean result = false;
 		assert bcPots.size()==2;
 		assert allBugValues.size==1 || !cmnSibsIdx.isEmpty();
@@ -378,7 +378,7 @@ public final class BivalueUniversalGrave extends AHinter
 		// for regionType in {box, row, col}
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex
 			// Look for the region of this type shared by all bug cells
-			ARegion region = grid.commonRegion(bcPots.keySet(), rti);
+			ARegion region = Grid.commonRegion(bcPots.keySet(), rti);
 			if(region == null) continue;
 			// Yeah! this is a BUG type 4, but does it kill any maybes?
 			Pots redPots = new Pots();

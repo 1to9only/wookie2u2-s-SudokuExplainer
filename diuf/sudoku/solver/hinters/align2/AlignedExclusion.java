@@ -443,9 +443,8 @@ public class AlignedExclusion extends AHinter
 	 * found, else I keep searching to find all available hints.
 	 * <p>
 	 * Noobs should see class comments for a summary of aligned exclusion, then
-	 * study the below pseudocode, then study the code; it'll make eff-all
-	 * sense otherwise. It's ungrokable raw... too complicated, so you cook
-	 * yourself up to it.
+	 * study the below pseudocode, then study the code; it'll make no sense
+	 * otherwise. It's ungrokable raw, you must cook yourself up to it.
 	 * <p>
 	 * <pre>
 	 * The Aligned Exclusion Sudoku solving technique.

@@ -91,7 +91,12 @@ public class HintValidator {
 	/**
 	 * Does XColoring use HintValidator?
 	 */
-	public static final boolean XCOLORING_USES = true; // @check false
+	public static final boolean XCOLORING_USES = false; // @check false
+
+	/**
+	 * Does Medusa3dColoring use HintValidator?
+	 */
+	public static final boolean MEDUSA_3D_COLORING_USES = false; // @check false
 
 	/**
 	 * Does any class use HintValidator?
@@ -105,6 +110,7 @@ public class HintValidator {
 			| KRAKEN_FISHERMAN_USES
 			| CHAINER_USES
 			| XCOLORING_USES
+			| MEDUSA_3D_COLORING_USES
 			;
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -247,18 +253,18 @@ public class HintValidator {
 	public static boolean isValidSetPots(Grid grid, Pots setPots) {
 		checkSolutionValues(grid);
 		invalidity = "";
+		// note the leading space before the first invalidity
 		for ( Cell cell : setPots.keySet() ) {
 			Values values = setPots.get(cell);
 			if ( values.size != 1 )
 				invalidity += " "+cell.id+"-"+values.toString()+" is not one value!";
 			else if ( !values.contains(solutionValues[cell.i]) )
-				// note the leading space on the first
 				invalidity += " "+cell.id+" "+values.toString()+" != "+solutionValues[cell.i];
 		}
 		return invalidity.isEmpty();
 	}
 
-	public static boolean reportSetPots(Grid grid, String reporterName, String invalidity, String badness) {
+	public static boolean reportSetPots(String reporterName, Grid grid, String invalidity, String badness) {
 		// always set the lastMessage
 		// NOTE: the invalidity String contains a leading space
 		lastMessage = String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);

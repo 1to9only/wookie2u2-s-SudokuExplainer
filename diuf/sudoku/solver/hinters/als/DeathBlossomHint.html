@@ -1,5 +1,4 @@
-<html>
-<body>
+<html><body>
 <h2>{3}HoDoKu Death Blossom</h2>
 <pre><b>
 <k>Stem : {0}</k>
@@ -12,34 +11,37 @@ to know which ALS will become an LS.
 <p>
 Therefore <r>we can remove <b>{1}</b></r>.
 <p>
-Here's an explanation from https://www.sudopedia.org/wiki/Solving_Technique
+<hr>
 <p>
-<i>A Death Blossom consists of a "stem" cell and an Almost Locked Set (or ALS)
+<u>Explanation</u> from https://www.sudopedia.org/wiki
+<p>
+A Death Blossom consists of a "stem" cell and an Almost Locked Set (or ALS)
 foreach of the stem cell's candidates. The ALS associated with a particular
 candidate of the stem cell has that value as one of its own candidates, and
 within the ALS, every cell that has the value as a candidate can see the stem
 cell. The ALSs can't overlap; ie no cell can belong to more than one ALS. Also,
 there must be at least one value that is a candidate of every ALS, but is not a
-candidate of the stem cell. (1: These are the eliminatable value/s.)</i>
+candidate of the stem cell. (1) This is the eliminatable value.
 <p>
-<i>Once we've found a Death Blossom, if an outside cell that doesn't belong to
-one of the ALSes (and isn't the stem cell) can see every cell in each ALS that
-has that value as a candidate, and the value isn't a candidate of the stem
-cell, then that value can be eliminated from the outside cell.</i>
+Once we've found a Death Blossom, if an outside cell that doesn't belong to one
+of the ALSes (and isn't the stem cell) can see every cell in each ALS that has
+that value as a candidate, and the value isn't a candidate of the stem cell,
+then that value can be eliminated from the outside cell.
 <p>
-(1) The-value/s-to-eliminate must be common to all ALSs in the DeathBlossom and
-not a potential value of the stem cell; which makes sense: the main logic is one
-of the ALSs becomes an LS, so all ALSs must share that value (not in stem),
-precluding it/them from other cell/s seeing all instances in the DeathBlossom.
+<hr>
 <p>
-It's also worth noting that there's nothing stopping multiple values being
-eliminated by a Death Blossom, it's just, unsurprisingly, rarer than rocking
-horse s__t.
+(1) The-value-to-eliminate must be common to all ALSs in the DeathBlossom and
+not a potential value of the stem cell; which makes sense: the main logic is
+one of the ALSs must become an LS, so all ALSs must share that nonstem-value,
+precluding it from external cell/s seeing all instances in the DeathBlossom.
 <p>
-NOTE: Sudoku Explainers DeathBlossom implementation examines stems with 2 or
-<b>3</b> maybes, because top1465 doesn't have any 4's and DB is slow; but I'm
-lead to believe that 4's do exist, so the rest of the code handles them. So if
-you are a stickler for correctness you'll change the &lt; 4 to &lt; 5.
-I'm (too, on occasion) performance-centric.
-</body>
-</html>
+There's nothing stopping DeathBlossom eliminating multiple values, it's just
+rarer than rocking horse s__t. In fact it never happens in top1465; so to the
+best of my knowledge, it never ACTUALLY happens; but SE handles multiple anyway,
+just in case; but this "feature" is untested (caveat emptor).
+<p>
+NOTE: SE's DeathBlossom implementation examines stems with 2 or <u><b>3</b></u>
+maybes, because DB is slow and top1465 doesn't have any 4's; but I'm lead to
+believe that 4's exist, so the code handles them. So if you're a stickler for
+correctness go change the &lt; 4 to &lt; 5. I'm (too, on occasion) eficaphilic.
+</body></html>

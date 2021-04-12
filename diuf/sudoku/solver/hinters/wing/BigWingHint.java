@@ -34,8 +34,8 @@ class BigWingHint extends AHint implements IActualHint {
 	private final Cell[] all;
 
 	BigWingHint(AHinter hinter, Pots reds, Cell yz, XZ yzVs
-			, int alsCands, Cell[] als) {
-		super(hinter, reds);
+			, int alsCands, Cell[] als, Pots oranges) {
+		super(hinter, reds, null, oranges, null, null, null);
 		this.x = yzVs.x;
 		this.z = yzVs.z;
 		this.both = yzVs.both;
@@ -54,7 +54,7 @@ class BigWingHint extends AHint implements IActualHint {
 	}
 
 	@Override
-	public Set<Cell> getPinkCells(int viewNum) {
+	public Set<Cell> getBlueCells(int viewNum) {
 		return Grid.cellSet(yz);
 	}
 

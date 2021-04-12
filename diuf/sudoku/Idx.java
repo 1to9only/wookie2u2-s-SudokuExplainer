@@ -579,22 +579,23 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return this;
 	}
 
-// unused: confundis's something. I blame the JIT compiler!
-//	/**
-//	 * Set this Idx to contain ONLY the given indice.
-//	 * @param i indice
-//	 */
-//	public void set(int i) {
-//		assert i>=0 && i<81;
-//		a0 = a1 = a2 = 0;
-//		if ( i < BITS_PER_ELEMENT )
-//			a0 = SHFT[i];
-//		else if ( i < BITS_TWO_ELEMENTS )
-//			a1 = SHFT[i%BITS_PER_ELEMENT];
-//		else
-//			a2 = SHFT[i%BITS_PER_ELEMENT];
-//		modCount = 1; getMod = 0;
-//	}
+	/**
+	 * Set this Idx to contain ONLY the given indice.
+	 * @param i indice
+	 */
+	public void set(int i) {
+		assert i>=0 && i<81;
+		// clear
+		a0 = a1 = a2 = 0;
+		// add
+		if ( i < BITS_PER_ELEMENT )
+			a0 |= SHFT[i];
+		else if ( i < BITS_TWO_ELEMENTS )
+			a1 |= SHFT[i%BITS_PER_ELEMENT];
+		else
+			a2 |= SHFT[i%BITS_PER_ELEMENT];
+		modCount = 1; getMod = 0;
+	}
 
 	/**
 	 * Set this = the cells in the given regions.
@@ -667,6 +668,20 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a2 = aa.a2 & bb.a2;
 		modCount = 1; getMod = 0;
 		return (a0|a1|a2) != 0;
+	}
+
+	/**
+	 * Set this = (aa & bb) and returns size() > 1.
+	 * @param aa
+	 * @param bb
+	 * @return
+	 */
+	public boolean setAndMultiple(Idx aa, Idx bb) {
+		a0 = aa.a0 & bb.a0;
+		a1 = aa.a1 & bb.a1;
+		a2 = aa.a2 & bb.a2;
+		modCount = 1; getMod = 0;
+		return (a0|a1|a2)!=0 && size()>1;
 	}
 
 	/**
@@ -802,6 +817,16 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		else
 			a2 &= ~SHFT[i%BITS_PER_ELEMENT];
 		++modCount;
+	}
+
+	/**
+	 * Do remove and return this.
+	 * @param i the indice to be removed from this Idx
+	 * @return this Idx, for method chaining.
+	 */
+	public Idx remove2(int i) {
+		remove(i);
+		return this;
 	}
 
 	/**
@@ -1155,7 +1180,11 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return the number of elements added (ergo idx.size())
 	 */
 	public int toArrayN(int[] array) {
-		return forEach((cnt, i) -> array[cnt] = i);
+		try {
+			return forEach((cnt, i) -> array[cnt] = i);
+		} catch ( ArrayIndexOutOfBoundsException ex ) {
+			return array.length;
+		} 
 	}
 
 	/**

@@ -65,15 +65,16 @@ public class TwoStringKiteHint extends AHint implements IActualHint {
 	public String toHtmlImpl() {
 		Cell redCell = redPots.firstKey();
 		return Html.produce(this, "TwoStringKiteHint.html"
-				, Integer.toString(redValue)	// {0}
-				, covers.get(0).id			//  1
-				, covers.get(1).id			//  2
-				, bases.get(0).id			//  3
-				, redCell.id				//  4
-				, rowPair[0].id				//  5
-				, rowPair[1].id				//  6
-				, colPair[0].id				//  7
-				, colPair[1].id				//  8
+				, Integer.toString(redValue)	//{0}
+				, covers.get(0).id				// 1
+				, covers.get(1).id				// 2
+				, bases.get(0).id				// 3
+				, redCell.id					// 4
+				, rowPair[0].id					// 5
+				, rowPair[1].id					// 6
+				, colPair[0].id					// 7
+				, colPair[1].id					// 8
+				, redPots.toString()			// 9
 		);
 	}
 

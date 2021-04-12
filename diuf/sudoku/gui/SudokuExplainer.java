@@ -212,12 +212,14 @@ final class SudokuExplainer implements Closeable {
 	@SuppressWarnings("fallthrough")
 	private boolean filterAccepts(AHint hint) {
 		switch ( hint.type ) {
+		case AHint.MULTI: // XColoringHintMulti only, currently
+			// fallthrough
 		case AHint.INDIRECT:
 			Pots setPots = hint.getResults();
 			Pots redPots = hint.redPots;
 			Values gone; // cell values that've allready been removed
 			if ( setPots != null  ) {
-				// a bloody XColoringHintMulti sets multiple cells
+				// XColoringHintMulti sets multiple cells
 				for ( Cell c : setPots.keySet() )
 					if ( (gone=presetPots.get(c)) == null
 					  || (setPots.get(c).bits & ~gone.bits) != 0 )

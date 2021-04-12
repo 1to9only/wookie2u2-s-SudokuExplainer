@@ -712,10 +712,10 @@ public final class Locking extends AHinter {
 		boolean first = true;
 		for ( LockingHint pfh : theseHints )
 			if ( first ) {
-				grid.commonRegions(pfh.redPots.keySet(), crs);
+				Grid.commonRegions(pfh.redPots.keySet(), crs);
 				first = false;
 			} else
-				crs.retainAll(grid.commonRegions(pfh.redPots.keySet(), ws2));
+				crs.retainAll(Grid.commonRegions(pfh.redPots.keySet(), ws2));
 		return !crs.isEmpty();
 	}
 	private final ArrayList<ARegion> WS1 = new ArrayList<>(3);

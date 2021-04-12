@@ -33,13 +33,13 @@ public class DeathBlossomHint extends AHint implements IActualHint {
 	private final List<Als> alss;
 	private final Als[] alssByValue;
 	public DeathBlossomHint(AHinter hinter, Pots redPots, Cell stem
-			, List<Als> alss, Als[] alssByValue, Grid grid) {
+			, List<Als> alss, Als[] alssByValue) {
 		// nb: what are normally greens are oranges here
 		super(hinter, redPots);
 		this.stem = stem;
 		this.values = VALUESES[stem.maybes.bits];
 		this.alss = alss;
-		this.alssByValue = alssByValue.clone();
+		this.alssByValue = alssByValue;
 	}
 
 	@Override

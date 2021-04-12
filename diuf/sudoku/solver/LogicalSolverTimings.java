@@ -5405,7 +5405,7 @@ package diuf.sudoku.solver;
  *    but mutants commented-out coz 29 minutes for 20 hints is unacceptable.
  * 2. Release 6.30.099 2020-11-30 07:01:39 =>
  *    DiufSudoku_V6_30.099.2020-11-30.7z
- * 3. Next I do not know, I guess I'll just have a poke around and try to find 
+ * 3. Next I do not know, I guess I'll just have a poke around and try to find
  *    something to play with.
  * </pre>
  * <hr>
@@ -5468,7 +5468,7 @@ package diuf.sudoku.solver;
  *    do not have anything to compare it to (Poor form Mr Pan).
  * 2. Release 6.30.100 2020-12-05 10:05:40 =>
  *    DiufSudoku_V6_30.100.2020-12-05.7z
- * 3. Next I do not know, I guess I'll just have a poke around and try to find 
+ * 3. Next I do not know, I guess I'll just have a poke around and try to find
  *    something to play with.
  * </pre>
  * <hr>
@@ -5714,7 +5714,7 @@ package diuf.sudoku.solver;
  * <hr>
  * <p>
  * KRC NO-RELEASE 2021-01-03 18:05 I just ran EVERYthing to see how slow it was
- * and got a pleasant surprise 21:45. Not too shabby, considering A10E used to 
+ * and got a pleasant surprise 21:45. Not too shabby, considering A10E used to
  * take over a day on it's own. Although it looks like Franken Fish is rooted!
  * <pre>
  *         time (ns)  calls   time/call  elims      time/elim hinter
@@ -5791,7 +5791,7 @@ package diuf.sudoku.solver;
  * <p>
  * KRC 6.30.104 2021-01-06 19:06:44 I'm releasing just to clean-up the logs.
  * I've implemented SueDeCoq in the als package, and also tried but failed at
- * DeathBlossom. 
+ * DeathBlossom.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
  *      25,568,483 118498        215 669470          38 Naked Single
@@ -6299,6 +6299,72 @@ package diuf.sudoku.solver;
  * 2. Release 6.30.112 2021-03-04 10:59:52 =>
  *    DiufSudoku_V6_30.112.2021-03-04.7z
  * 3. Next I shall search sudopedia for more techniques to implement, or not.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.113 2021-03-11 16:38:53 3D Medusa Coloring that finds a "few more"
+ * hints than the standard algorithm on sudopedia by also coloring the last
+ * remaining v in each effected box, so long as it also reduces the origin
+ * cells box to one place for v, to form a "strong" (bidirectional) link.
+ * <pre>
+ *       time (ns)  calls  time/call  elims   time/elim hinter
+ *      23,001,100 115665        198 653390          35 Naked Single
+ *      16,205,100  50326        322 170750          94 Hidden Single
+ *     105,393,800  33251      3,169  21067       5,002 Locking
+ *      58,487,000  22960      2,547   7392       7,912 Naked Pair
+ *      50,848,400  21308      2,386  13287       3,826 Hidden Pair
+ *     135,059,400  19160      7,049   1741      77,575 Naked Triple
+ *     125,071,000  18740      6,674   1187     105,367 Hidden Triple
+ *      60,097,900  18522      3,244   1405      42,774 Two String Kite
+ *      37,196,100  17117      2,173    455      81,749 Swampfish
+ *      81,792,700  16919      4,834    639     128,001 XY-Wing
+ *      59,691,900  16463      3,625    309     193,177 XYZ-Wing
+ *     106,235,800  16173      6,568    421     252,341 W-Wing
+ *      47,470,800  15877      2,989    380     124,923 Skyscraper
+ *      54,948,600  15672      3,506    473     116,170 Empty Rectangle
+ *      84,901,200  15199      5,585    249     340,968 Swordfish
+ *     168,694,300  15131     11,148    103   1,637,808 Naked Quad
+ *     144,239,300  15109      9,546     12  12,019,941 Hidden Quad
+ *      19,179,600  15107      1,269      8   2,397,450 Jellyfish
+ *     484,415,000  15105     32,069   1527     317,233 WXYZ-Wing
+ *     619,535,500  14079     44,004   1343     461,307 VWXYZ-Wing
+ *     734,682,800  13311     55,193    576   1,275,490 UVWXYZ-Wing
+ *     586,026,400  12996     45,092    131   4,473,483 TUVWXYZ-Wing
+ *     304,092,300  12922     23,532     13  23,391,715 STUVWXYZ-Wing
+ *     383,334,500  12914     29,683    280   1,369,051 Coloring
+ *   1,253,874,200  12696     98,761    604   2,075,950 XColoring
+ *   2,668,809,000  12469    214,035  28599      93,318 3D Medusa Coloring
+ *   1,962,234,400  11751    166,984    981   2,000,238 Unique Rectangle
+ *   1,234,304,300  11080    111,399    245   5,037,976 Finned Swampfish
+ *   2,835,210,300  10878    260,637    285   9,948,106 Finned Swordfish
+ *   3,850,223,500  10666    360,981     13 296,171,038 Finned Jellyfish
+ *  15,859,672,700  10656  1,488,332   4423   3,585,727 ALS-XZ
+ *  20,173,503,900   7563  2,667,394   3643   5,537,607 ALS-Wing
+ *   8,858,656,000   4535  1,953,397    647  13,691,894 ALS-Chain
+ *   3,944,250,400   4011    983,358    171  23,065,791 Death Blossom
+ *   1,206,386,700   3859    312,616     11 109,671,518 Sue De Coq
+ *   2,540,747,500   3857    658,736      0           0 Franken Swampfish
+ *  13,964,580,300   3857  3,620,580    136 102,680,737 Franken Swordfish
+ *  42,678,581,700   3744 11,399,193     69 618,530,169 Franken Jellyfish
+ *   9,764,791,700   3681  2,652,755   1335   7,314,450 Unary Chain
+ *   4,667,356,100   3157  1,478,414     23 202,928,526 Nishio Chain
+ *   7,005,680,000   3134  2,235,379   4731   1,480,803 Multiple Chain
+ *   9,894,368,500   1373  7,206,386   7508   1,317,843 Dynamic Chain
+ *      86,134,300      3 28,711,433     30   2,871,143 Dynamic Plus
+ * 158,939,966,000
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  206,956,155,200 (03:26)  141,267,000
+ * NOTES:
+ * 1. Last top1465 run took 03:26 so we're back on track at a minute faster
+ *    than my previous blow-out.
+ * 2. Release 6.30.113 2021-03-11 16:38:53 =>
+ *    DiufSudoku_V6_30.113.2021-03-11.7z
+ * 3. Next I don't know. I've looked at everything on sudopedia. All solving
+ *    techniques (or equivalent) are now implemented in Sudoku Explainer, so
+ *    one could now call it a "complete solution". So I think I've achieved my
+ *    stated goal: to solve all Sudoku puzzles, as simply and as quickly as
+ *    possible, and explain that solution to the user in terms they can (sort
+ *    of) understand. Kudos to Juillerat and hobiwan. The mistakes are mine.
  * </pre>
  */
 final class LogicalSolverTimings {

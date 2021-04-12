@@ -899,7 +899,7 @@ public class KrakenFisherman extends AHinter
 		// FOUND a Kraken Type 2!
 		// Pointless in the batch (which never reads the chains back);
 		// but required in the GUI and the test-cases.
-		if ( Run.type != Run.Type.LogicalSolverTester ) {
+		if ( Run.type != Run.Type.Batch ) {
 			// now we know we're producing a hint, populate kt2sets + kt2elims
 			// the "slow old" way, producing my own Ass's instead of looking-up
 			// Eff's in the KrakenTables (which have all possible parents).

@@ -733,7 +733,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	// this does not add elims to a set cell, so that the comparator then
 	// orders two hints which both set a cell value by there toStrings
-	private int getScore() {
+	protected int getScore() {
 		if(score != 0) return score;
 		if(cell != null) score = 10;
 		else if(redPots != null) score = redPots.totalSize();

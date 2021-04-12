@@ -204,7 +204,7 @@ public final class NakedSet
 		final List<Cell> nkdSetCellList = region.atNewArrayList(nkdSetIdxBits);
 		ARegion[] regions = new ARegion[]{region};
 		if ( region instanceof Grid.Box)
-			regions = claimFromOtherCommonRegion(region, nkdSetCellList, grid
+			regions = claimFromOtherCommonRegion(region, nkdSetCellList
 					, nkdSetValsBits, reds, regions);
 
 		// Build highlighted (orange) potentials
@@ -228,9 +228,9 @@ public final class NakedSet
 	// doesn't (I think) need to bother with claiming. Find a test-case dat
 	// proves me wrong and I'll code for it, but Box only until then!
 	private ARegion[] claimFromOtherCommonRegion(ARegion region
-			, List<Cell> nkdSetCellList, Grid grid, int nkdSetValsBits
-			, Pots reds, ARegion[] regions) {
-		ARegion otherCR = grid.otherCommonRegion(nkdSetCellList, region);
+			, List<Cell> nkdSetCellList, int nkdSetValsBits, Pots reds
+			, ARegion[] regions) {
+		ARegion otherCR = Grid.otherCommonRegion(nkdSetCellList, region);
 		if ( otherCR != null ) {
 			// add any eliminations in the otherRegion to reds
 			List<Cell> victims = otherCR.otherThan(nkdSetCellList);
@@ -278,8 +278,7 @@ public final class NakedSet
 			  && VSIZE[redBits=sib.maybes.bits & ~nkdSetValsBits] == 1 )
 				// then we can create the hint and add it to the accumulator
 				return createNakedSetDirectHint(
-					  grid
-					, region
+					  region
 					, sib						// cellToSet
 					, FIRST_VALUE[redBits]		// valueToSet
 					, nkdSetIdxBits				// nkdSetIdxBits
@@ -290,9 +289,8 @@ public final class NakedSet
 
 	// NB: This method is called in DIRECT mode only (ie only in the GUI)
 	// only when creating a hint, so performance isn't really and issue.
-	private AHint createNakedSetDirectHint(Grid grid, ARegion region
-			, Cell cellToSet, int valueToSet, int nkdSetIdxBits
-			, int nkdSetValsBits) {
+	private AHint createNakedSetDirectHint(ARegion region, Cell cellToSet
+			, int valueToSet, int nkdSetIdxBits, int nkdSetValsBits) {
 		assert tech.isDirect;
 		// build removable (red) potentials
 		Pots reds = new Pots(9-degree, 1F);
@@ -305,7 +303,7 @@ public final class NakedSet
 		assert !reds.isEmpty();
 		// claim the NakedSet values from the other common region (if any)
 		List<Cell> ndkSetCells = region.atNewArrayList(nkdSetIdxBits);
-		ARegion ocr = grid.otherCommonRegion(ndkSetCells, region);
+		ARegion ocr = Grid.otherCommonRegion(ndkSetCells, region);
 		if ( ocr != null )
 			claimFrom(ocr.otherThan(ndkSetCells), nkdSetValsBits, reds);
 		Pots oranges = new Pots();

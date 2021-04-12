@@ -10,7 +10,6 @@ import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.MyLinkedHashMap;
 import java.util.Arrays;
@@ -35,6 +34,13 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	public static final int MIN_CAPACITY = 8;
 	/** the EMPTY Pots is currently used only by test-cases. */
 	public static final Pots EMPTY = new Pots(MIN_CAPACITY, 1F);
+	
+	public static class IToldHimWeveAlreadyGotOneException extends IllegalStateException {
+		private static final long serialVersionUID = 516409800239L;
+		public IToldHimWeveAlreadyGotOneException(String msg) {
+			super(msg);
+		}
+	}
 
 	/**
 	 * deepCopy copies the src and all of it's Values, so that the returned
@@ -151,7 +157,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		super(Math.max(MIN_CAPACITY,cells.length), 1F);
 		for ( Cell cell : cells ) {
 			if(cell==null) break; // handle a null terminated cell list
-			put(cell, new Values(values));
+			put(cell, new Values(values)); // put a new Values, to be safe
 		}
 	}
 
@@ -327,13 +333,18 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 *
 	 * @param cell Cell key to add/insert
 	 * @param values Values to add/insert
+	 * @return was this Pots modified: cell added=>true, value/s added=>true;
+	 *  but if cell pre-exists with ALL of the given values then I return false
 	 */
-	public void upsert(Cell cell, Values values) {
+	public boolean upsert(Cell cell, Values values) {
 		final Values existing = get(cell);
-		if ( existing == null )
-			put(cell, new Values(values)); // NB: put a NEW Values instance
-		else
-			existing.add(values);
+		if ( existing != null ) {
+			int pre = existing.size;
+			return existing.add(values).size > pre;
+		}
+		// nb: presume the given values is reused, so we put a copy
+		put(cell, new Values(values));
+		return true;
 	}
 
 	/**
@@ -384,6 +395,23 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
+	 * insert is the antithesis of upsert. It ONLY inserts the given cell in
+	 * this Pots (for creating a setPots). If the cell already exists then it
+	 * throws an IllegalStateException: "$cell+$existingValue+$newValue",
+	 * even if the new value is the same as the existing value!
+	 *
+	 * @param cell
+	 * @param values
+	 * @throws IllegalStateException is the cell already exists in this Pots.
+	 */
+	public void insert(Cell cell, Values values) {
+		Values existing = get(cell);
+		if ( existing != null )
+			throw new IToldHimWeveAlreadyGotOneException(cell.id+"+"+existing+"+"+values);
+		put(cell, values);
+	}
+
+	/**
 	 * Populate this Potential Values Map with cells[idxs] => value, that is
 	 * from the cell that is at each set-bit in the given idxs bitset in the
 	 * given cells array, to a new instance of Values containing the given
@@ -391,6 +419,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * <p>
 	 * This method is currently only called by the Fisherman's
 	 * createPointFishHint method.
+	 *
 	 * @param cells array of cells
 	 * @param idxs int left-shifted Indexes bitset into the cells array
 	 * @param value for each cell. Note that a new instance of Values is
@@ -481,7 +510,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		return result; // which may still be empty!
 	}
 
-	/** @return the total of the sizes of all the values in these Pots.*/
+	/** @return the total of the sizes of all the values in these Pots. */
 	public int totalSize() {
 		int sum = 0;
 		for ( Values vs : values() )

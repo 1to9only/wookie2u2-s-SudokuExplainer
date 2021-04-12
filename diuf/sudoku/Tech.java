@@ -107,7 +107,8 @@ public enum Tech {
 	, BUG				(4.30, 0, "Bivalue Universal Grave", "(BUG) finds a subset of Coloring hints, and is SLOWER!")
 	, Coloring			(4.31, 2, "Coloring", "finds a superset of BUG hints, and is FASTER.")
 	, XColoring			(4.32, 2, "XColoring", "finds Coloring hints and Nishio's")
-	, URT				(4.33, 0, "Unique Rectangle", "Unique Rectangles and loops", false)
+	, Medusa3dColoring	(4.33, 2, "3D Medusa Coloring", "3D Medusa: two value XY static chains")
+	, URT				(4.34, 0, "Unique Rectangle", "Unique Rectangles and loops", false)
 	, FinnedSwampfish	(4.40, 2, "Finned Swampfish")	// with Sashimi
 	, FinnedSwordfish	(4.41, 3, "Finned Swordfish")
 	, FinnedJellyfish	(4.42, 4, "Finned Jellyfish")

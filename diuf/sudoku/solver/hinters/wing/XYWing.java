@@ -139,6 +139,8 @@ public final class XYWing extends AHinter {
 
 		// get the zCand (the z value as a bitset) to remove from victims.
 		final int zCand = xz.maybes.bits & yz.maybes.bits; // intersection
+		if ( zCand == 0 ) // happened in generate IDKFA
+			return null; // should never happen
 		// any crapenstances should set-off this assert (programmers only).
 		// zCand, as the name suggests, should contain only one value.
 		assert Integer.bitCount(zCand) == 1 : "bitCount("+zCand+") != 1"

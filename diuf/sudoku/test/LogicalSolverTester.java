@@ -97,7 +97,7 @@ public final class LogicalSolverTester {
 	 * @param args the name of the *.mt input file (atleast) see USAGE.
 	 */
 	public static void main(String[] args) {
-		Run.type = Run.Type.LogicalSolverTester;
+		Run.type = Run.Type.Batch;
 		try {
 			run(args);
 		} catch (Throwable t) {

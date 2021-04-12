@@ -22,7 +22,6 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
-import static diuf.sudoku.solver.hinters.HintValidator.invalidity;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -130,6 +129,8 @@ public final class XColoring extends AHinter {
 	private final Pots redPots = new Pots();
 	// we reuse this Pots rather than create one every time when we miss 99%.
 	private final Pots setPots = new Pots();
+	// we reuse this Pots rather than create one every time when we miss 99%.
+	private final Pots oranges = new Pots();
 	// we reuse this List rather than create one every time when we miss 99%.
 	private final Collection<Link> links = new LinkedList<>();
 
@@ -177,6 +178,7 @@ public final class XColoring extends AHinter {
 		int[] ice; // indice color element: 0=indice, 1=color
 		int indice, color; // grid.cells indice is colored C0 or C1
 		int c; // the indice into colorSet
+		int o; // the OPPOSITE_COLOR to c
 		int oppositeColor; // the other color
 		int dri; // dirty region index
 		int resultColor; // the color to paint results in XColoringHintMulti
@@ -187,6 +189,7 @@ public final class XColoring extends AHinter {
 		boolean result = false;
 		// foreach value
 		VALUES: for ( int v=1; v<10; ++v ) {
+			final int fv = v; // for lambda expressions. sigh.
 			debug("");
 			debug("");
 			debug("XColoring Value="+v);
@@ -315,27 +318,29 @@ public final class XColoring extends AHinter {
 						setPots.clear(); // Type 2 and Type 3
 						resultColor = 0; // color to paint the setPots
 						links.clear(); // Type 3 only
+						oranges.clear();
 						// ------------------------------------------------
 						// Step 4: Once all the coloring is done:
-						// 4.2 If two-or-more cells in a region are da same
+						// 4.2 If multiple cells in a region are the same
 						//     color, then the OTHER color is true.
 						// NOTE: Type 2 is as rare as rocking horse s__t.
 						COLOR: for ( c=0; c<2; ++c ) {
+							o = OPPOSITE_COLOR[c];
 							colorSet = colorSets[c];
-							otherSet = colorSets[OPPOSITE_COLOR[c]];
+							otherSet = colorSets[o];
 							for ( ARegion r : grid.regions )
-								// hijack xSet
-								if ( xSet.setAnd(colorSet, r.idx).any()
-								  && xSet.size() > 1 ) {
-									n = otherSet.cellsN(grid, cells);
-									for ( i=0; i<n; ++i )
-										setPots.put(cells[i], new Values(v));
-									step("    Step 4.2: More than one cell {"+xSet.ids()+"} in "+r.id
-										+" is "+(c==0?"green":"blue")+", which is invalid"
-										+", so the "+(c==0?"blue":"green")+" set"
-										+" {"+colorSets[OPPOSITE_COLOR[c]].ids()+"} must be "+v);
+								// nb: I'm hijacking xSet
+								if ( xSet.setAndMultiple(colorSet, r.idx) ) {
+									step("    Step 4.2: Multiple cells {"+xSet.ids()+"}"
+										+" in "+r.id+" are "+(c==0?"green":"blue")
+										+", which is invalid, so the "+(c==0?"blue":"green")
+										+" set {"+otherSet.ids()+"}"
+										+" must be true, ie "+v);
+									otherSet.forEach(grid.cells, (cc) ->
+										setPots.put(cc, new Values(fv))
+									);
+									resultColor = o;
 									subtype = 2; // Type 2
-									resultColor = OPPOSITE_COLOR[c];
 									break COLOR; // first only
 								}
 						}
@@ -343,9 +348,10 @@ public final class XColoring extends AHinter {
 							// 4.3 If ALL cells in region which maybe v see
 							//     cells of the same color, then the OTHER
 							//     color is true.
-							COLOR: for ( c=0; c<2; ++c ) {
+							COLOR: for ( c=0; c<2; ++c ) { // GREEN, BLUE
+								o = OPPOSITE_COLOR[c];
 								colorSet = colorSets[c];
-								otherSet = colorSets[OPPOSITE_COLOR[c]];
+								otherSet = colorSets[o];
 								// buddies of THIS color
 								colorBuds.clear();
 								colorSet.forEach((j)->colorBuds.or(BUDDIES[j]));
@@ -353,37 +359,41 @@ public final class XColoring extends AHinter {
 									// hijack xSet
 									if ( xSet.setAnd(colorBuds, r.idxs[v]).any()
 									  && xSet.size() == r.indexesOf[v].size ) {
-										n = otherSet.cellsN(grid, cells);
-										for ( i=0; i<n; ++i )
-											setPots.put(cells[i], new Values(v));
-										step("    Step 4.3: ALL cells in "+r.id+" which maybe "+v
-											+" {"+r.idxs[v].ids()+"} see "+(c==0?"green":"blue")+" cells"
-											+", so the "+(c==0?"blue":"green")+" set "+colorSets[OPPOSITE_COLOR[c]].ids()+" is "+v);
+										step("    Step 4.3: ALL cells in "+r.id
+											+" which maybe "+v+" {"+r.idxs[v].ids()+"}"
+											+" see a "+(c==0?"green":"blue")+" "+v
+											+", which is invalid"
+											+", so the "+(c==0?"blue":"green")
+											+" set {"+otherSet.ids()+"}"
+											+" must be true, ie "+v);
+										otherSet.forEach(grid.cells, (cc) ->
+											setPots.put(cc, new Values(fv))
+										);
 										for ( int x : xSet.toArrayA() ) {
-											tmp.setAnd(colorSet, BUDDIES[x]);
-											links.add(new Link(grid.cells[x], v, grid.cells[tmp.poll()], v));
+											Cell src = grid.cells[x];
+											Cell dest = grid.cells[tmp.setAnd(colorSet, BUDDIES[x]).poll()];
+											oranges.put(src, new Values(v));
+											links.add(new Link(src, v, dest, v));
 										}
+										resultColor = o;
 										subtype = 3;
-										resultColor = OPPOSITE_COLOR[c];
 										break COLOR; // first only
 									}
 							}
 							if ( subtype == 0 ) {
-								// 4.1 If a cell sees both colored cells (A AND B),
+								// 4.1 If a cell sees both GREEN and BLUE,
 								//     then exclude v from this cell.
 								// get cells = all uncolored v's in grid.
 								n = xSet.setAndNot(candidates[v], bothColors).cellsN(grid, cells);
 								// foreach uncolored v in grid
 								for ( i=0; i<n; ++i ) {
 									cell = cells[i];
-									// if this cell sees both:
-									// (a) any element of colorSets[C1] AND
-									// (b) any element of colorSets[C2]
+									// if cell sees both GREEN and BLUE
 									if ( cell.buds.andAny(colorSets[C1])
 									  && cell.buds.andAny(colorSets[C2]) ) {
 										step("    Step 4.1: cell "+cell.id+" sees"
-											+" BOTH green={"+tmp.set(cell.buds).and(colorSets[C1]).ids()+"}"
-											+" and blue={"+tmp.set(cell.buds).and(colorSets[C2]).ids()+"}");
+											+" BOTH green={"+tmp.setAnd(cell.buds, colorSets[C1]).ids()+"}"
+											+" and blue={"+tmp.setAnd(cell.buds, colorSets[C2]).ids()+"}");
 										redPots.put(cell, new Values(v));
 										subtype = 1; // Type 1 (type not reported)
 									}
@@ -397,21 +407,26 @@ public final class XColoring extends AHinter {
 							if ( subtype==2 || subtype==3 ) {
 								hint = new XColoringHintMulti(this, v
 									, subtype
-									// deep-copy-off the Idx[] array, which is re-used
+									// deep-copy-off the Idx[] array, for reuse
 									, new Idx[]{new Idx(colorSets[0]), new Idx(colorSets[1])}
 									, xSet.toCellSet(grid)
 									, resultColor
 									, steps.toString() // coloring steps which built this hint
-									, new Pots(setPots) // copy-of field
+									, new Pots(setPots) // copy-off for reuse
 									, new Pots(colorSets[0].cells(grid), new Values(v))
 									, new Pots(colorSets[1].cells(grid), new Values(v))
-									// copy-off the links List field, which is re-used
-									, new LinkedList<>(links)
+									, new LinkedList<>(links) // copy-off for reuse
+									, new Pots(oranges) // Type 3 causal cell-values
 								);
+								// clear fields for next time
+								steps.setLength(0);
+								setPots.clear();
+								links.clear();
+								oranges.clear();
 								if ( HintValidator.XCOLORING_USES ) {
 									if ( !HintValidator.isValidSetPots(grid, setPots) ) {
 										hint.isInvalid = true;
-										HintValidator.reportSetPots(grid, "XColoringMulti", invalidity, hint.toFullString());
+										HintValidator.reportSetPots(tech.name()+"Multi", grid, HintValidator.invalidity, hint.toFullString());
 										hint.invalidity = HintValidator.lastMessage;
 										if ( Run.type != Run.Type.GUI )
 											ok = false;
@@ -424,12 +439,16 @@ public final class XColoring extends AHinter {
 									, new Pots(colorSets[0].cells(grid), new Values(v))
 									, new Pots(colorSets[1].cells(grid), new Values(v))
 									, new Idx[]{new Idx(colorSets[0]), new Idx(colorSets[1])}
-									, steps // coloring steps which built this hint
+									, steps.toString() // coloring steps which built this hint
+									, null // links
 								);
+								// clear fields
+								redPots.clear();
+								steps.setLength(0);
 								if ( HintValidator.XCOLORING_USES ) {
 									if ( !HintValidator.isValid(grid, redPots) ) {
 										hint.isInvalid = true;
-										HintValidator.report("XColoring", grid, hint.toFullString());
+										HintValidator.report(tech.name(), grid, hint.toFullString());
 										hint.invalidity = HintValidator.lastMessage;
 										// Show in GUI, hide in batch/testcases
 										if ( Run.type != Run.Type.GUI )
