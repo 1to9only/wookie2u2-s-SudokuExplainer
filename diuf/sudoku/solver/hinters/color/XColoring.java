@@ -267,11 +267,9 @@ public final class XColoring extends AHinter {
 					if ( any ) {
 						// foreach color
 						for ( c=0; c<2; ++c ) {
-							colorSet = colorSets[c];
 							// uncolored cells= colorSet.BUDDIES | colorSet
-							bothBuds.clear();
+							bothBuds.set(colorSet=colorSets[c]);
 							colorSet.forEach((j)->bothBuds.or(BUDDIES[j]));
-							bothBuds.or(colorSet);
 							dirtyRegions.clear();
 							any = false; // any for this color only
 							// foreach region in the grid
@@ -417,6 +415,7 @@ public final class XColoring extends AHinter {
 									, new Pots(colorSets[1].cells(grid), new Values(v))
 									, new LinkedList<>(links) // copy-off for reuse
 									, new Pots(oranges) // Type 3 causal cell-values
+									, null // region
 								);
 								// clear fields for next time
 								steps.setLength(0);

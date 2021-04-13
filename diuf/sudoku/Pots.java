@@ -34,7 +34,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	public static final int MIN_CAPACITY = 8;
 	/** the EMPTY Pots is currently used only by test-cases. */
 	public static final Pots EMPTY = new Pots(MIN_CAPACITY, 1F);
-	
+
 	public static class IToldHimWeveAlreadyGotOneException extends IllegalStateException {
 		private static final long serialVersionUID = 516409800239L;
 		public IToldHimWeveAlreadyGotOneException(String msg) {
@@ -402,7 +402,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 *
 	 * @param cell
 	 * @param values
-	 * @throws IllegalStateException is the cell already exists in this Pots.
+	 * @throws IToldHimWeveAlreadyGotOneException if the cell already exists
+	 *  in this Pots.
 	 */
 	public void insert(Cell cell, Values values) {
 		Values existing = get(cell);
@@ -679,6 +680,20 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		result.clear();
 		for ( Cell c : keySet() )
 			result.add(c.i);
+	}
+
+	/**
+	 * Translate this Pots into an array of Idx's, one per value.
+	 * @param result Idx[10], one for each value 1..9 (0 is not referenced).
+	 */
+	public void toIdxs(Idx[] result) {
+		for ( int v=1; v<10; ++v )
+			result[v].clear();
+		entrySet().forEach((entry) -> {
+			int i = entry.getKey().i;
+			for ( int v : VALUESES[entry.getValue().bits] )
+				result[v].add(i);
+		});
 	}
 
 }

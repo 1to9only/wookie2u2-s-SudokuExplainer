@@ -1,0 +1,82 @@
+<u>GUI Rendering</u>
+* '+' means "on": a '+' next to a digit in the Grid means this is an "on".
+  If this color is true then this cell is set to this value; but an "on" isn't
+  a "full" colored cell-value, used in logic; it's JUST an extra value to set.
+* '-' means "off": a '-' next to a digit in the Grid means this is an "off".
+  If this color is true then value is eliminated from cell. If both colors "off"
+  the same cell-value then it can be eliminated, so it's painted red.
+* A <r>red -</r> means this cell-value CAN be eliminated. A <r>red digit</r> means that it
+  WILL be eliminated when the hint is applied. The value does not need to be
+  eliminated separately when this cells value is set.
+* The GREEN/BLUE digit in a larger font renders the value to set this cell to.
+
+<u>Explanation</u>
+GEM is the "ultimate" coloring technique. Coloring has two sets of cell values
+painted in two colors: GREEN and BLUE.
+
+We start with a value that has two possible positions in a region. We paint the
+first position GREEN (so the second will be BLUE). 
+
+We look at the three regions containing each cell we paint (it's box, row, and
+col). If this region also has two possible locations for this value then we
+paint the other cell the other color.
+
+If a cell has two possible values we can paint the other value the other color.
+
+When each cell value is painted we also "off" (rendered as a '-' next to it's
+digit) each other occurrence of this value in each of this cells three regions.
+These "off"s are used later in eliminations.
+
+Thus we recursively paint all consequences of painting each cell-value.
+
+paintMonoBoxs: a Hidden Single in a box that's effected by (2 boxs left/right,
+and 2 boxs above/below) the painted cell-value.
+Shoot back: if this cell-value also leaves a Hidden Single in the source box
+then we paint it this color: a bidirectional relationship, a "strong" link;
+else it is just an "on": a unidirectional relationship, a "weak" link.
+
+paintPromotions:
+* When all but one cell mates or siblings of a colored cell-value are "off"ed,
+  the survivor is an "on" of that color.
+  - If all bar one value is "off"ed from a cell (one color) then "on" it.
+  - If all bar one place is "off"ed from a region (same value, one color) then
+    "on" it.
+* An "on" seeing/with opposite color is painted it's own color.
+  - If an "on" sees the opposite color (same value) then paint it.
+  - If an "on" has an opposite colored cell-mate (any value) then paint it.
+
+We keep doing paintMonoBoxs and paintPromotions as long as either of them finds
+something to paint full-colors ("ons" don't count).
+
+Then we look for "contradictions":
+* If there's two greens (same value) in a region then blue is true.
+* If there's two green values in a cell then blue is true.
+* If there's two green "on"s (same value) in a region then blue is true.
+* If there's two green "on"s in a cell then blue is true.
+* And conversely from blue to green, obviously. I'm just being terse.
+* Note that when a contradiction is found we stop searching for more hints.
+* "blue is true" means all cell-values rendered in a larger blue font will be
+  set when this hint is applied. This includes full-colors and "ons".
+
+Then we look for "eliminations":
+* Both colors appear in a single tri+valued cell, eliminating all other values.
+* An uncolored candidate X sees two differently colored X, eliminating it.
+* An uncolored candidate X sees a green, but this cell has another blue value,
+  eliminating X.
+* If both colors have an "off" for the same cell-value then eliminate it.
+* Eliminations are rendered as a RED '-' in the GUI, and if that's added to the
+  actual eliminations (the redPots) then the value is also RED; but if this cell
+  value is to be set then the elimination doesn't need to happen. It's a tad
+  more complex than it needs to be, but it shows exactly where we're at.
+
+Then (if there's any eliminations) we look for "confirmations":
+* If all bar one value is eliminated from a cell, and the remaining cell-value
+  is colored then that whole color is true.
+* When all but one occurrence of a value is eliminated from a region and the
+  remaining cell-value is colored then that whole color is true.
+* Note that both of these rules use the actual eliminations (the redPots).
+* Note that when a confirmation is found we stop searching for more hints.
+* "color is true" means all cell-values rendered in a larger blue font will be
+  set when this hint is applied. This includes full-colors and "ons".
+
+And then we go for a little lie down.

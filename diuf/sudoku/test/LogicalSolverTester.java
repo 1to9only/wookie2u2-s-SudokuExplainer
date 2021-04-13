@@ -119,16 +119,17 @@ public final class LogicalSolverTester {
 
 		// parse the switch arguements, if any
 		Mode solverMode = Mode.ACCURACY; // ie the "normal" default mode
-		boolean stats=false, redo=false; // "enhanced" modes
+//		boolean stats=false;
+		boolean redo=false; // "enhanced" modes
 		Set<String>[] hintyHinters = null; // cheeky monkey.
 		ARGS_LOOP: while ( args[0].charAt(0) == '-' ) { // evaludate the switch
 			switch ( args[0] ) {
 			case "-SPEED":
 				solverMode = Mode.SPEED;
 				break;
-			case "-STATS":
-				stats = true;
-				break;
+//			case "-STATS":
+//				stats = true;
+//				break;
 //			//<HACK> // currently top1465.d5.mt only
 //			case "-REDO":
 //				try {
@@ -207,7 +208,7 @@ public final class LogicalSolverTester {
 
 		// --------------------------- begin real work ------------------------
 
-		// Let's run this little fire trucker up the garden path...
+		// Let's run this little fire trucker down the list...
 		try ( PrintStream out = new PrintStream(new FileOutputStream(logFile), true) ) {
 			Log.initialise(out);
 
@@ -240,16 +241,16 @@ public final class LogicalSolverTester {
 				solver.report();
 			} else { // WHOLE PUZZLE FILE
 
-				// PRIMING SOLVE: to prime the JIT compiler.
-				{
-					// just run solve coz calling process buggers-up the count
+				// PRIMING SOLVE: don't time the JIT compiler!
+				if ( true ) {
+					// run solve manually (process buggers-up count)
 					Grid g = new Grid(readALine(inputFile, 1).contents);
 					solver.prepare(g);
 					solver.solve(g, new UsageMap(), true, true, false);
 				}
 
 				// now the actual run
-				printHeaders(now, solverMode, stats, redo, inputFile, logFile);
+				printHeaders(now, solverMode, redo, inputFile, logFile);
 				UsageMap totalUsageMap = new UsageMap();
 				try ( BufferedReader reader = new BufferedReader(new FileReader(inputFile)) ) {
 					int lineCount=0;  String contents;
@@ -281,18 +282,18 @@ public final class LogicalSolverTester {
 					} // next line in .mt file
 				}
 
-				List<Usage> totalUsageList = printTotalUsageMap(totalUsageMap);
-
-				// save the hinter performance stats, if they're being used.
-				if ( stats ) {
-					totalUsageList.sort(Usage.BY_NS_PER_ELIM_ASC);
-					try ( PrintStream sout = Log.openStats() ) {
-						sout.print("//");
-						printHinterSummaryHeader(sout);
-						for ( Usage u : totalUsageList )
-							printHinterSummary(sout, u);
-					}
-				}
+//				// save the hinter performance stats, if they're being used.
+//				// NOTE: Prints a second usage map at end of run. So be it.
+//				List<Usage> totalUsageList = printTotalUsageMap(totalUsageMap);
+//				if ( stats ) {
+//					totalUsageList.sort(Usage.BY_NS_PER_ELIM_ASC);
+//					try ( PrintStream sout = Log.openStats() ) {
+//						sout.print("//");
+//						printHinterSummaryHeader(sout);
+//						for ( Usage u : totalUsageList )
+//							printHinterSummary(sout, u);
+//					}
+//				}
 
 				long took = System.nanoTime() - start;
 				if ( numFailed > 0 ) {
@@ -314,11 +315,8 @@ public final class LogicalSolverTester {
 // Here we report static hinter variables.
 //				Log.teef("\nLinkedMatrixCellSet.bitCountCnt = %,d\n", bitCountCnt);
 
-				try {
-					solver.close(); // save stats, close logs, etc.
-				} catch (Throwable eaten) {
-					// Do nothing.
-				}
+				// save stats, close logs, etc.
+				try { solver.close(); } catch (Throwable eaten) { }
 
 				System.out.flush(); // ____ing dildows
 				Log.out.flush(); // ____ing dildows
@@ -438,13 +436,14 @@ public final class LogicalSolverTester {
 		}
 	}
 
-	private static void printHeaders(String now, Mode solverMode, boolean stats
+	private static void printHeaders(String now, Mode solverMode
+//			, boolean stats
 			, boolean redo, File inputFile, File logFile) {
 		// create solver here coz logs unwanted hinters in NORMAL_MODE
 		Log.teef("%s built %s ran %s%s", Settings.ATV, Settings.BUILT, now, NL);
 		// log the mode(s)
 		Log.teef("mode    : %s", solverMode); // is -SPEED mode
-		Log.teef(" %sSTATS", stats?"":"!"); // is -STATS run
+//		Log.teef(" %sSTATS", stats?"":"!"); // is -STATS run
 //		Log.teef(" %sREDO", redo?"":"!");   // is -REDO run
 		Log.teef(" %sHACKY", IS_HACKY?"":"!");
 		Log.teeln();

@@ -44,9 +44,9 @@ public final class Log {
 	public static final int MODE_200 = 200; // Grid iAmInMyRegionsIndexesOf
 	public static final int MODE_300 = 300; // Generate noise
 
-	// NB: there's some automated support for VERBOSE_2_MODE format logs
-	//     to help see if a hint type is being found (for Aligned*Exclusion).
-	public static final int MODE = VERBOSE_5_MODE; // @check VERBOSE_5_MODE for log-parsers
+	// log-parsers: tools for VERBOSE_5_MODE format logs.
+	// Really: I use the details to help find bugs.
+	public static final int MODE = VERBOSE_5_MODE;
 
 	public static PrintStream out = System.out;
 	public static String PUZZLE_SUMMARY_HEADERS;
@@ -195,17 +195,17 @@ public final class Log {
 		Log.PUZZLE_SUMMARY_HEADERS = sw.toString();
 	}
 
-	// ============================= stats ==================================
-
-	public static PrintStream openStats() {
-		try {
-			IO.backup(IO.PERFORMANCE_STATS);
-			return new PrintStream(IO.PERFORMANCE_STATS);
-		} catch (Exception ex) {
-			StdErr.whinge("openStats failed", ex);
-			return null;
-		}
-	}
+//	// ============================= stats ==================================
+//
+//	public static PrintStream openStats() {
+//		try {
+//			IO.backup(IO.PERFORMANCE_STATS);
+//			return new PrintStream(IO.PERFORMANCE_STATS);
+//		} catch (Exception ex) {
+//			StdErr.whinge("openStats failed", ex);
+//			return null;
+//		}
+//	}
 
 	// =========================== constructor ================================
 

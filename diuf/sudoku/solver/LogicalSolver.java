@@ -33,18 +33,13 @@ import diuf.sudoku.solver.hinters.urt.*;
 import diuf.sudoku.solver.hinters.wing.*;
 import diuf.sudoku.utils.*;
 // JAPI
-import java.io.BufferedReader;
 import java.io.Closeable;
-import java.io.FileReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 
@@ -263,14 +258,6 @@ public final class LogicalSolver {
 		this.monitor = monitor;
 	}
 
-	/** Should LogicalSolverTester use the statistics of its previous execution
-	 * to sort the wantedHinters by nanoseconds per elimination, so that it
-	 * runs faster, but less accurately on each execution, pairing the list
-	 * down to only the bang-for-buck hinters. I've written this only for the
-	 * challenge of doing so, not because it's useful for anything. It was/is
-	 * its own Sudoku Puzzle, for a programmer. */
-	private final boolean isUsingStats;
-
 	/** singlesSolution is weird: it's set by LS.solveWithSingles and then read
 	 * back by SudokuExplainer.getTheNextHint. */
 	public Grid singlesSolution;
@@ -288,7 +275,6 @@ public final class LogicalSolver {
 	 */
 	LogicalSolver(Mode mode) {
 		this.mode = mode;
-		this.isUsingStats = false;
 		configureHinters();
 	}
 
@@ -484,10 +470,11 @@ public final class LogicalSolver {
 			want(heavies, new BigWing(Tech.STUVWXYZ_Wing));
 			// Choose BUG or Coloring or XColoring and/or 3D Mesuda.
 			// Bug: 3D Medusa doesn't find all XColoring hints, so use both!
-			want(heavies, new BivalueUniversalGrave()); // slowish
+			want(heavies, new BUG()); // slowish
 			want(heavies, new Coloring()); // BUG++
 			want(heavies, new XColoring()); // Coloring++
-			want(heavies, new Medusa3dColoring()); // XColoring++
+			want(heavies, new MedusaColoring()); // XColoring++
+			want(heavies, new GEM()); // MedusaColoring++
 			want(heavies, new UniqueRectangle());
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
@@ -582,23 +569,6 @@ public final class LogicalSolver {
 		nesters.add(new MultipleChainer(Tech.NestedPlus, a));		// 70 secs
 
 		populateTheWantedHintersList(); // => wantedHinters
-
-		// Sort the wantedHinters by nanoseconds per elimination ASCENDING
-		// experienced by the previous execution when "-STATS", so that faster,
-		// more effective hinters are executed sooner.
-		// NB: This causes inaccuracies in the analysis results, but I'll wear
-		// that (for now) just for the challenge of writing "self improving"
-		// software, which uses the stats of its own performance to improve its
-		// own performance; a bit like the stats underneath a RDBMS QEP.
-		if ( isUsingStats ) {
-			// NB: LogicalSolverTester writes IO.PERFORMANCE_STATS
-			// NB: ByNsPerElimAsc constructor loads IO.PERFORMANCE_STATS
-			ByNsPerElimAsc comparator = new ByNsPerElimAsc();
-			if ( comparator.isFullyLoaded )
-				wantedHinters.sort(comparator);
-			if (Log.MODE >= Log.VERBOSE_1_MODE)
-				dumpWantedEnabledHinters(Log.out); // defined below
-		}
 	}
 
 	/** Populates the wantedHinters list with directs, indirects, heavies,
@@ -1634,77 +1604,6 @@ public final class LogicalSolver {
 		Log.print(NL+grid+NL);
 		Log.flush();
 		return false;
-	}
-
-	// ============================= INNER CLASSES =============================
-
-	/**
-	 * A Trixie hint fast or die! We sort the wantedHinters by nanoseconds per
-	 * elimination of the previous execution of the LogicalSolverTester, so
-	 * that the fastest, most effective hinters run earlier, and poor value
-	 * ones drop-down the list until they come after DynamicPlus which always
-	 * hints (in top1465), and so effectively drop-off the bottom of the list,
-	 * leaving nothing but pure unadulterated gravy. It's so Chumpy you could
-	 * carve it with a Scotsman, or two! Maybe throw in a rude Frog and some
-	 * pickled cabbage. Run it repeatedly and see what happens. It'll get faster
-	 * and faster, and then slower when hints that were found quickly now take
-	 * longer to find because they're being left for to a slower hinter that's
-	 * faster per elimination: go figure!
-	 * <p>
-	 * By the way: this Comparator only used in LogicalSolverTester -STATS.
-	 * Basically I just wrote it because I can. That's what Sudoku Explainer is
-	 * about: something to do, other than swear at the television. Jeez, it's
-	 * all mightily ____ing stupid these days, or maybe I'm just getting old.
-	 */
-	private static class ByNsPerElimAsc implements Comparator<IHinter> {
-		public final Map<String, Long> stats = new HashMap<>();
-		public boolean isFullyLoaded = false;
-		public ByNsPerElimAsc() {
-			// Read the performance statistics of the previous run from file,
-			// NB: File won't exist the first time you turn on STATS. That's OK.
-			// NB: there are no header lines in the actual file
-			// NB: the time/elim will be 0 when elims is 0
-			//  time (ns)  calls  time/call   elims  time/elim  hinter
-			//          0      1          2       3          4  5
-			// 19,659,393  44948        437  210870         93  Naked Single
-			// 42,842,032  42792      1,001  372730        114  Hidden Single
-			try ( BufferedReader reader = new BufferedReader(
-					new FileReader(IO.PERFORMANCE_STATS)) ) {
-				String line;
-				while ( (line=reader.readLine()) != null ) {
-					if ( line.startsWith("//") ) // skip comments
-						continue;
-					String[] fields = line.split(" *\t *");
-					String techNom = fields[5];
-					long nsPerElim = MyLong.parse(fields[4]);
-					stats.put(techNom, nsPerElim);
-				}
-				isFullyLoaded = stats.size() > 0;
-			} catch (Exception ex) {
-				StdErr.whinge("ByNsPerElimAsc: load failed", ex);
-			}
-		}
-		@Override
-		public int compare(IHinter a, IHinter b) {
-			// you need to check isFullyLoaded before you sort!
-			assert isFullyLoaded : "ByNsPerElimAsc !isFullyLoaded";
-			if ( !isFullyLoaded )
-				return 0; // turns the sort into an expensive no-op
-			if ( a == b )
-				return 0;
-			Long bb = stats.get(b.getTech().nom); // ns per elimination
-			if ( bb==null || bb==0L )
-				return -1; // puts b last, even if aa is also null||0
-			Long aa = stats.get(a.getTech().nom); // ns per elimination
-			if ( aa==null || aa==0L )
-				return 1; // puts a last
-			// do the actual comparison (let it auto-unbox the Integers)
-			if ( aa < bb )
-				return -1;	// ASCENDING
-			if ( aa > bb )
-				return 1;	// ASCENDING
-			return 0;
-		}
 	}
 
 }

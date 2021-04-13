@@ -26,10 +26,10 @@ import java.util.Set;
 
 
 /**
- * Implementation of the Bivalue Universal Grave solving technique.
+ * Implementation of the Bivalue Universal Grave (BUG) solving technique.
  * Supports types 1 to 4.
  */
-public final class BivalueUniversalGrave extends AHinter
+public final class BUG extends AHinter
 		implements diuf.sudoku.solver.hinters.ICleanUp
 //				 , diuf.sudoku.solver.IReporter
 {
@@ -61,7 +61,7 @@ public final class BivalueUniversalGrave extends AHinter
 	// Index of common siblings
 	private final Idx cmnSibsIdx = new Idx();
 
-	public BivalueUniversalGrave() {
+	public BUG() {
 		super(Tech.BUG);
 	}
 

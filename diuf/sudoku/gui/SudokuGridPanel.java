@@ -10,6 +10,7 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Bounds;
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
@@ -72,51 +73,47 @@ class SudokuGridPanel extends JPanel {
 	// the aqua (bluey green) foreground color
 	private static final Color COLOR_AQUA = new Color(192, 255, 255);
 	// the dark aqua foreground color
-	private static final Color COLOR_DARK_AQUA = new Color(0, 153, 153);
-//	// the yellow forground color
-//	private static final Color COLOR_YELLOW = new Color(255, 255, 204);
+	private static final Color COLOR_AQUA_DARK = new Color(0, 153, 153);
 	// the dark yellow/green forground color
-	private static final Color COLOR_DARK_YELLOW = new Color(204, 204, 0);
-	// the pink (light red) cell background color
+	private static final Color COLOR_YELLOW_DARK = new Color(204, 204, 0);
+	// the pink cell foreground color
 	private static final Color COLOR_PINK = new Color(255, 204, 255);
-//	// the grey cell background color
-//	private static final Color COLOR_GREY = new Color(222, 222, 222);
 	// the green cell background color
-	private static final Color COLOR_BG_GREEN = new Color(204, 255, 204, 153);
+	private static final Color COLOR_GREEN_BG = new Color(204, 255, 204, 153);
 	// the aqua cell background color
-	private static final Color COLOR_BG_AQUA = new Color(192, 255, 255, 24);
+	private static final Color COLOR_AQUA_BG = new Color(192, 255, 255, 24);
 	// the orange cell background color
-	private static final Color COLOR_BG_ORANGE = new Color(255, 204, 102, 24);
+	private static final Color COLOR_ORANGE_BG = new Color(255, 204, 102, 24);
 	// the blue cell background color
-	private static final Color COLOR_BG_BLUE = new Color(204, 204, 255, 153);
+	private static final Color COLOR_BLUE_BG = new Color(204, 204, 255, 153);
 	// the yellow cell background color
-	private static final Color COLOR_BG_YELLOW = new Color(255, 255, 75, 24);
+	private static final Color COLOR_YELLOW_BG = new Color(255, 255, 75, 24);
 	// the brown cell background color
-	private static final Color COLOR_BG_BROWN = new Color(204, 51, 0, 12);
+	private static final Color COLOR_BROWN_BG = new Color(204, 51, 0, 12);
 	// a dark orange.
 	private static final Color COLOR_ORANGY_BLACK = orangy(Color.BLACK);
 
 	// base border and background
-	private static final Color BASE_BORDER_COLOR = new Color(0, 0, 192); // blue
-	private static final Color BASE_BG_COLOR = new Color(0, 0, 192, 12); // blue
+	private static final Color COLOR_BASE_BORDER = new Color(0, 0, 192); // blue
+	private static final Color COLOR_BASE_BG = new Color(0, 0, 192, 12); // blue
 	// cover border and background
-	private static final Color COVER_BORDER_COLOR = new Color(0, 128, 0); // green
-	private static final Color COVER_BG_COLOR = new Color(0, 128, 0, 12); // green
+	private static final Color COLOR_COVER_BORDER = new Color(0, 128, 0); // green
+	private static final Color COLOR_COVER_BG = new Color(0, 128, 0, 12); // green
 	// ALS border and foreground (value) colors
 	private static final Color[] ALS_COLORS = {
-			  BASE_BORDER_COLOR // blue
-			, COVER_BORDER_COLOR // green
-			, COLOR_DARK_AQUA
-			, COLOR_DARK_YELLOW
+			  COLOR_BASE_BORDER // blue
+			, COLOR_COVER_BORDER // green
+			, COLOR_AQUA_DARK
+			, COLOR_YELLOW_DARK
 			, COLOR_BROWN
 	};
 	// ALS region bacground colors
 	private static final Color[] ALS_BG_COLORS = {
-			  BASE_BG_COLOR // blue
-			, COVER_BG_COLOR // green
-			, COLOR_BG_AQUA
-			, COLOR_BG_YELLOW
-			, COLOR_BG_BROWN
+			  COLOR_BASE_BG // blue
+			, COLOR_COVER_BG // green
+			, COLOR_AQUA_BG
+			, COLOR_YELLOW_BG
+			, COLOR_BROWN_BG
 	};
 
 	// COLOR_POTS are in reverse order of importance because the last color set
@@ -166,14 +163,14 @@ class SudokuGridPanel extends JPanel {
 
 	private final String FONT_NAME = "Verdana";
 
-	private int COS = 64; // CELL_OUTER_SIZE=45
-	private int CIS = 58; // CELL_INNER_SIZE=39
+	private int COS = 64; // CELL OUTER SIZE // was 45
+	private int CIS = 58; // CELL INNER SIZE // was 39
 	private int CISo2 = CIS / 2;
 	private int CISo3 = CIS / 3;
 	private int CISo6 = CIS / 6;
 	private int V_GAP = 2;
 	private int H_GAP = 42;
-	private int CELL_PAD = (COS - CIS) / 2;
+	private int CELL_PAD = (COS - CIS) / 2; // (64-58)/2=3
 	private int GRID_SIZE = COS * 9;
 	private int FONT_SIZE_1 = 14; // 12
 	private int FONT_SIZE_2 = 18; // 14
@@ -198,12 +195,12 @@ class SudokuGridPanel extends JPanel {
 
 	private Set<Cell> auqaBGCells;
 	private Set<Cell> pinkBGCells;
+	private Collection<ARegion> pinkRegions;
 	private Set<Cell> redBGCells;
 	private Set<Cell> greenBGCells;
 	private Set<Cell> orangeBGCells;
 	private Set<Cell> blueBGCells;
 	private Set<Cell> yellowBGCells;
-//	private Set<Cell> greyBGCells;
 	private Result result;
 	// cells to be set: Cell=>Values containing a single value
 	private Pots results;
@@ -212,6 +209,8 @@ class SudokuGridPanel extends JPanel {
 	private Collection<ARegion> covers;
 	private Collection<Als> alss;
 	private Collection<Link> links;
+	private Idx[][] supers;
+	private Idx[][] subs;
 
 	private final Font smallFont1;
 	private final Font smallFont2;
@@ -507,9 +506,14 @@ class SudokuGridPanel extends JPanel {
 		this.auqaBGCells = cells;
 	}
 
-	/** Set the aqua cell backgrounds. */
+	/** Set the pink cell backgrounds. */
 	void setPinkBGCells(Set<Cell> cells) {
 		this.pinkBGCells = cells;
+	}
+	
+	/** Set the regions to be outlined in pink. */
+	void setPinkRegions(Collection<ARegion> pinkRegions) {
+		this.pinkRegions = pinkRegions;
 	}
 
 	/** Set the red cell backgrounds. */
@@ -609,6 +613,16 @@ class SudokuGridPanel extends JPanel {
 		this.links = links;
 	}
 
+	/** Set the Super markers (+'s in GREEN and BLUE). */
+	void setSupers(Idx[][] supers) {
+		this.supers = supers;
+	}
+
+	/** Set the Sub markers (-'s in GREEN and BLUE). */
+	void setSubs(Idx[][] subs) {
+		this.subs = subs;
+	}
+
 	/** Clears the selected and the focused cell. */
 	void clearSelection(boolean isSelection) {
 		if ( isSelection )
@@ -634,13 +648,6 @@ class SudokuGridPanel extends JPanel {
 		} else if ( !blueBGCells.remove(cell) )
 			blueBGCells.add(cell);
 	}
-//	private void toggleGrey(Cell cell) {
-//		if ( greyBGCells==null ) {
-//			greyBGCells = new HashSet<>(16, 0.75F);
-//			greyBGCells.add(cell);
-//		} else if ( !greyBGCells.remove(cell) )
-//			greyBGCells.add(cell);
-//	}
 
 	private void repaintCell(Cell cell) {
 		if (cell == null)
@@ -724,10 +731,12 @@ class SudokuGridPanel extends JPanel {
 			paintAlss(g, alss);
 		} else {
 			// paint regions for non-ALS's 
-			paintRegions(g, covers, COVER_BORDER_COLOR, COVER_BG_COLOR);
-			paintRegions(g, bases, BASE_BORDER_COLOR, BASE_BG_COLOR);
+			paintRegions(g, covers, COLOR_COVER_BORDER, COLOR_COVER_BG);
+			paintRegions(g, bases, COLOR_BASE_BORDER, COLOR_BASE_BG);
+			paintRegions(g, pinkRegions, COLOR_PINK, null);
 		}
 		paintCellValues(g);
+		paintSuperAndSubMarkers(g);
 		paintLinks(g);
 		g2.setTransform(oldTransform);
 	}
@@ -806,22 +815,20 @@ class SudokuGridPanel extends JPanel {
 				col = Color.ORANGE;
 			else if ( cell == focusedCell )
 				col = Color.YELLOW;
-//			else if ( greyBGCells!=null && greyBGCells.contains(cell) )
-//				col = COLOR_GREY;
 			else if ( auqaBGCells!=null && auqaBGCells.contains(cell) )
 				col = COLOR_AQUA;
 			else if ( pinkBGCells!=null && pinkBGCells.contains(cell) )
 				col = COLOR_PINK;
 			else if ( redBGCells!=null && redBGCells.contains(cell) )
 				col = Color.RED;
-			else if ( greenBGCells!=null && greenBGCells.contains(cell) )
-				col = COLOR_BG_GREEN;
-			else if ( orangeBGCells!=null && orangeBGCells.contains(cell) )
-				col = COLOR_BG_ORANGE;
 			else if ( blueBGCells!=null && blueBGCells.contains(cell) )
-				col = COLOR_BG_BLUE;
+				col = COLOR_BLUE_BG;
+			else if ( greenBGCells!=null && greenBGCells.contains(cell) )
+				col = COLOR_GREEN_BG;
+			else if ( orangeBGCells!=null && orangeBGCells.contains(cell) )
+				col = COLOR_ORANGE_BG;
 			else if ( yellowBGCells!=null && yellowBGCells.contains(cell) )
-				col = COLOR_BG_YELLOW;
+				col = COLOR_YELLOW_BG;
 			g.setColor(col);
 			g.fillRect(cell.x*COS, cell.y*COS, COS, COS);
 		} // next x, y
@@ -854,6 +861,15 @@ class SudokuGridPanel extends JPanel {
 		for ( ARegion region : regions ) {
 			if ( region == null )
 				continue;
+			// nb: having the region know it's bounds is a bit hacky coz I've
+			// injected a presentation concern into the model. If it s__ts you
+			// then rip the bound attribute out of region and create a
+			// {@code private static final Bounds[] BOUNDS} array here and 
+			// populate with the Bounds constructor currently imbedded in the
+			// Box, Row, and Col constructors. I won't coz it works. Bounds
+			// is STILL an attribite of the region, even if only presentation.
+			// Best of both worlds is a method, with cache, to avoid creating
+			// new EVERY TIME we paint the bastard, which is where I started.
 			Bounds b = region.bounds; // here's one I prepared earlier
 			g.setColor(borderColor); // blue or green
 			for ( int s=-2; s<3; s++ ) // 5 times: -2, -1, 0, 1, 2
@@ -967,14 +983,46 @@ class SudokuGridPanel extends JPanel {
 					} else if ( isHighlighted )
 						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont2);
 					else if (isShowingMaybes) { // g.color is set to gray
-//						if ( cell == selectedCell
-//						  || (greyBGCells!=null && greyBGCells.contains(cell)) )
-//							g.setColor(Color.BLACK); // orangy(clr);
 						drawStringCentered(g, DIGITS[v], cx,cy, smallFont1);
 					}
 				}
 			}
 		} // next x, y
+	}
+
+	// Super and Sub marker colors
+	private static final Color[] SS_COLORS = {COLOR_GREEN, COLOR_BLUE};
+
+	private void paintSuperAndSubMarkers(Graphics g) {
+		if ( supers==null || subs==null )
+			return;
+		g.setFont(smallFont2);
+		for ( int c=0; c<2; ++c ) {
+			g.setColor(SS_COLORS[c]);
+			for ( int v=1; v<10; ++v ) {
+				if ( subs[c][v].any() )
+					paintMarkers(g, v, subs[c][v], "-", 8);
+				if ( supers[c][v].any() )
+					paintMarkers(g, v, supers[c][v], "+", 10);
+			}
+		}
+		// over-paint RED any that're in both sub colors.
+		g.setColor(Color.RED);
+		for ( int v=1; v<10; ++v )
+			if ( tmp.setAndAny(subs[0][v], subs[1][v]) )
+				paintMarkers(g, v, tmp, "-", 8);
+	}
+	private final Idx tmp = new Idx();
+	
+	// draw String s centered on v in each cell in idx
+	private void paintMarkers(Graphics g, int v, Idx idx, String s, int offset) {
+		final int u = v - 1;
+		for ( int i : idx.toArrayB() )
+			// x,y are the centre point to paint at (I expected top left)
+			drawStringCentered(g, s, 
+					  i%9*COS + CELL_PAD + (u%3)*CISo3 + CISo6 + offset // horizontal
+					, i/9*COS + CELL_PAD + (u/3)*CISo3 + CISo6 // vertical
+			); 
 	}
 
 	private Color resultColor() {

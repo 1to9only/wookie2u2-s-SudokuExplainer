@@ -1,0 +1,417 @@
+GEM: Graded Equivalence Marks is the last word in coloring techniques.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+KRC's notes appear between two lines of tildes, like this.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Subset Exclusion
+
+The name Subset Exclusion is not commonly used in the Sudoku community.
+This article is created as a bridge between Aligned Pair Exclusion and Death
+Blossom.
+
+Aligned Pair Exclusion can be extended to Aligned Triple Exclusion and so on.
+In fact, the set of cells to be enumerated does not need to be aligned at all.
+Lacking a better name, let us call the resultant technique Subset Exclusion.
+
+Example
+
+SubsetExclusion.png
+
+We can enumerate the possible combinations of the blue cells as in Aligned Pair
+Exclusion. The following list shows the possible combinations, top to bottom:
+
+5+2+4
+5+2+6
+5+6+4
+5+7+4*
+5+7+6*
+5+9+4*
+5+9+6*
+7+2+4
+7+2+6
+7+6+4
+7+9+4
+7+9+6
+
+The starred combinations are those that causes any of the yellow cells to have
+no candidates at all, so these combinations can be removed from the list. As a
+result, we find that 7 can be eliminated from r2c4.
+
+Death Blossom
+
+The Death Blossom technique is actually an instance of Subset Exclusion where
+all but one of the cells to be enumerated falls neatly into Almost Locked Sets.
+
+===============================================================================
+
+Equivalence Marks
+
+People solving Sudokus with pencil and paper cannot use coloring techniques,
+unless they find an alternative to coloring cells and/or candidates.
+Equivalence Marks are such an alternative.
+
+Since there is little room for elaborate markings in a pencilmark grid, the
+marks are very basic. Odd Parity is symbolized by an apostrophe ' and even
+parity by a quotation mark ".
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SE: ' is GREEN (0)
+  , " is BLUE (1)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Only coloring techniques that use a single cluster can be replicated, otherwise
+more marks are required.
+
+The following techniques can be replicated by Equivalence Marks:
+
+    Simple Colors | Color Trap | Color Wrap
+    3D Medusa | Medusa Trap | Medusa Wrap | Advanced Coloring
+
+Contents
+
+    1 Marking Rules
+    2 Exclusion Rules
+    3 Marking Tips
+    4 Example
+    5 See Also
+
+Marking Rules
+
+Start with a bivalue cell or bilocal digit having other strong links which can
+be followed, and mark one candidate n' and the other n". These marks indicate
+that these candidates are strongly linked and are therefore mutually exclusive.
+From this seed link, an opposite parity mark can be given to any other
+candidates that are strongly linked to any of the marked ones. Additionally,
+when a candidate must be directly equivalent to a marked one, it can be marked
+with the same parity. This usually occurs because both see the same group of
+sister candidates, one of which must have the opposite parity.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SE: Start with a biplace value: a value with 2 possible placements in a region.
+Paint the first GREEN.
+Paint cell-value also paints each:
+  (a) the other place for value in this cells box, row, and col; and
+  (b) the other value of a bivalued cell.
+
+I think my "10 paces" rule partially implements "Additionally, when a candidate
+must be directly equivalent to a marked one, it can be marked with the same
+parity. This usually occurs because both see the same group of sister
+candidates, one of which must have the opposite parity." but I'm not at all
+sure what "sister candidates" are: I think it's two-or-three candidates, one of
+which must be candidate, and in this case serves as a pivot, so that A is v, or
+one of the "sisters" is v, such that if A then B, and conversely if B then A.
+
+This explanation ONLY makes sense if you already understand it and therefore
+don't need the explanation. A common complaint. Sudokuists suffer from a lack
+of a common language; so that everything has to be defined in unambigious
+terms, typically with example/s. I don't know what the "one of which must have
+the opposite parity" constraint is about, which leads me to believe that I'm
+misunderstanding or only partially understanding what he's on about.
+
+Conclusion: I think I'm missing MANY tricks here: I suspect there's a more
+general rule that can be applied instead of my "paintMonoBoxs" method, I'm just
+too stupid to understand precisely what it is.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is critical that the links used are truly strong; for example assume 5 is
+bilocal to two cells holding (1359') and (2578). It is clear that at parity(i)
+5 will be true in the second one, but it is NOT clear where it should be at
+parity(ii) so, without supporting evidence, it cannot be marked. However if one
+of the other candidates in cell 2 has the opposite parity mark, say (2"578) or
+if that cell can see a cell holding 5", then the matter is settled, as there is
+only possible parity for 5 in each cell.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SE: This definately lines-up with the exclusion rules in Medusa3dColoring.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Exclusion Rules
+
+1. A candidate that can see cell mates and/or sisters of opposite parities is
+   false. e.g. (34'9") makes 3 false.
+2. When exclusions reduce a cell or house to a single marked survivor, that
+   parity is true throughout. e.g. (26"7) makes parity(ii) true.
+3. If two sisters or cell mates carry the same parity mark, that parity is
+   false throughout. e.g (35"8") makes parity(ii) false.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. Got it.
+2. 3D Medusa has no implementation of this. I'm struggling to understand it!
+   I wish he used actual grid/s, with real examples. I get lost in the lingo.
+3. Got it.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Marking Tips
+
+Equivalence marks are persistent and can be extended progressively as other
+methods are applied. However, being limited to just one pair of marks, they
+will not show every available strong link until the clusters eventually merge.
+It is consequently wise to evaluate which strong link cluster will be most
+productive to mark (usually the biggest) at the start. It is therefore better,
+and quicker, to run simple colour checks first, even though equivalence marking
+will achieve the same reductions.
+
+Should the deductions dry up, the parity marks can be extended to weakly linked
+candidates using Graded Equivalence Marks.
+
+Example
+
+Equivalence Marking Example.png
+
+Equivalence marking was started from (45)r9c5. In all but one case the marks
+were made through strong links at bivalue digits in the same cell or bilocal
+candidates in the same house. The exception is the marking of (8')r4c5 which
+could be marked because it is directly equivalent to (8')r5c7 (green). From
+the parity markings the bracketed digits in the orange cells must be false
+because at one parity another candidate in the cell must be true, and at the
+other, a sister candidate must be true in an underlined peer cell. This assigns
+(5)r2c3 and (8)r1c8 as they both become singles. After handling the further
+knock-on, basic exclusions, the marking can be resumed to find other
+deductions, when parity(i) will be found to be true.
+
+-------------------------------------------------------------------------------
+
+Graded Equivalence Marks
+
+From time to time, people come up with powerful solving techniques, which only
+receive a cool welcome by the general Sudoku community and disappear into
+oblivion after their inventors have given up their struggle to defend it.
+Graded Equivalence Marks could easily have fallen into this category if it were
+not for David P Bird, who has repeatedly proven the power of this technique.
+Yet, there is but a small group of people who actually use it. Maybe this
+article in Sudopedia will convince other players by showing how this simple yet
+powerful solving technique can complement their current solving toolkit.
+
+Graded Equivalence Marks or GEM is an extension to Equivalence Marks. You
+should read the article and make sure you understand the concepts before you
+proceed with the graded version. Other prerequisite knowledge includes strong
+links & weak links, clusters and parity.
+
+GEM uses 6 different markers to reveal the implications of both choices in an
+initial bivalue or bilocal situation. The 2 first-grade markers are the same
+you would use in Equivalence Marks and the process to apply them is similar to
+3D Medusa coloring on a single cluster. The 4 second-grade markers are only
+used in GEM.
+
+Since GEM is basically a dual implication network, it is bifurcative in nature,
+which acts as a repellant to many Sudoku players. Yet, when a player simply
+carries out the instructions, it is no more bifurcative than any other coloring
+technique, which also starts with a single conjugate pair.
+
+Contents
+
+    1 Markers
+    2 Initial Markup
+    3 Marking Opposites
+    4 Marking Equivalents
+    5 Promotions and Exclusions
+    6 Marking Tips
+    7 Example
+
+Markers
+
+		Parity 1	Parity 2	Please Explain
+Par		'			"			bidirectional links
+Super	-			=			true when pars are true
+Sub		.			:			false when pars are true
+
+' Par marker for parity 1
+" Par marker for parity 2
+    The par markers are the same as used in Equivalence Marks. They represent
+    the opposite parities in the initial cluster. The parities are mutually
+    exclusive. One must be true and the other must be false.
+
+- Super marker for parity 1
+= Super marker for parity 2
+    The super markers are true when the par markers for their parity are true.
+    When their parity is false, their state is indeterminate.
+
+. Sub marker for parity 1
+: Sub marker for parity 2
+    The sub markers are false when the par markers for their parity are true.
+    When their parity is false, their state is indeterminate.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Use GREEN and BLUE as the two parities:
+a) a green/blue "+" for super (to right of existing grey value)
+b) a green/blue/red=both "-" for off (his subs are on the OTHER color. sigh.)
+which fits with the rest of my mark-up.
+
+Par markers represent bidirectional, "strong", "and conversely", relationships.
+Super and Sub markers represent unidirectional relationhips, ergo Weak links.
+a) Super: If A (par or super) then B (super) DOES NOT imply if B then A.
+b) Off: If A (par) then NOT-B (off) DOES NOT imply if NOT-B then A.
+
+Do NOT mark -'s from +'s! It's invalid, so the logic breaks-down.
+
+A table of the two parities/colors as per my implementation in SE
+         GREEN       BLUE        Explanation
+colors                           bidirectional links
+ons      +           +           true when color is true (but not conversely)
+offs     -           -           eliminated when color is true (not conversely)
+In the GUI just paint the + of - the appropriate color.
+
+NOTES:
+1. The Par mark is just the value in GREEN/BLUE, as per existing coloring.
+2. A Super mark is a grey value, then a "+" in GREEN/BLUE
+   I don't think it's possible to "+" both colors. If that happens then one of
+   the colors is invalid, but which? So without further info I'd have to throw.
+3. An off mark is a grey value, then a "-" in GREEN/BLUE/RED=both
+   My offs are on THIS parity, where-as his subs are on the OTHER parity.
+4. So GREEN or BLUE: + is on, - is off. Simples!
+
+This is best way I can think of to translate the manual GEM markers into
+computereese that fits in with my existing coloring techniques.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Initial Markup
+
+The usual choice of seed candidates is a bivalue cell or a bilocal digit, where
+the two exclusively possible candidates given opposite par marks. Less
+frequently other seeding options are available, for example which of two
+box/line intersections will hold a digit, where only sub markers may be
+possible, but always the basis of a mark-up must be two mutually exclusive
+conditions.
+
+The method will show either:
+  a) which one of the starting conditions must be true; and/or
+  b) which individual candidates must be false under either condition.
+
+Seed candidates should be chosen which are hoped will give the maximum return,
+and time spent considering the best choice is worthwhile, as a complete mark-up
+is time consuming.
+
+Marking Opposites
+
+As soon as a par or super mark has been given to a candidate, sister and cell
+mate candidates can be given complementary marks of the opposite parity for the
+type of link involved:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SE Medusa3dColoring paint marks pars of conjugates and bivalue cells, but does
+not (yet) know anything about super-marks. A super mark is produced (may not be
+the only case) when sourceCellValue (srcCV) leaves one-only value in an
+effected region: so we apply the "10 paces" rule (shoot back) and
+    if that leaves srcCV.box with one-only v then
+        create a Par ("strong") link as per existing 3D Medusa
+    else
+        mark effectedCellValue as a Super of the same color as srcCV.
+
+Note that Super marks can't be built-upon, unlike the actual colors, because
+they lack the "and conversely" component, so if you rely upon them as a
+foundation for further logic that logic produces inconsistent results.
+Supers only apply WHEN THERE PREDICATE IS TRUE, and the predicate is NOT tested
+when a consequent assumption is placed on top of it, so it goes tits-up!
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Complementary Marks:
+Par Grade:    Strong Link:  Par  <=>  Par   ( ' + "  &  " + ' )
+              Weak Link:    Par   ->  Sub   ( ' + :  &  " + . )
+Super Grade:  All links:    Super ->  Sub   ( - + :  &  = + . )
+Sub Grade:    Strong link:  Sub  <=>  Super ( . + =  &  : + - )
+
+Sub Grade Groups: When all but one of a set of candidates carry the same sub
+parity, the final one may be marked with the complementary super mark.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* when all but one v in a cell is eliminated then the last v goes super.
+* when all but one v in a region is eliminated then the last place goes super.
+I think my concept of sub differs from the authors! To me a sub is an elim
+caused by a par or super. I think he puts subs under the OTHER parity, which
+makes ____all sense to me. No wonder Chineese microwaves are NUTS!
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For example, a cell marked "1:5:79:" becomes "1:5:7-9:" Note that such
+inferences are a cause of contention with bifurcation purists, as the grouped
+marks often stem from different forks. If this is a concern, use this condition
+as an indicator that a recognised pattern, such as an ALS, may exist which will
+achieve the same effect.
+
+Marking Equivalents
+
+Normally parity marking chains follow an alternating parity sequence, but
+sometimes it is possible to mark cells which must be equivalent to one or more
+marked cells. This happens when it is known that one of the three cells in a
+line/box intersection must eventually contain a particular par or super parity
+mark, so all candidates in sight of the full trio can be marked with the
+opposite parity.
+
+Promotions and Exclusions
+
+1. When all but one cell mates or sisters to a par marked candidate have been
+   excluded, the survivor can be promoted to a par mark.
+2. A super grade candidate seeing a par marked sister or cell mate is promoted
+   to a par mark.
+3. A sub marked candidate seeing a sister or cell mate carrying a par or super
+   grade mark of the same parity is false.
+4. Two candidates with opposite parity par marks in the same cell make all
+   other candidates in that cell false.
+5. In a cell when all surviving cell mates have the same parity that parity is
+   true.
+6. In a unit, if all sisters of a digit carry the same sub parity, the opposite
+   parity is false.
+7. If two sisters or cell mates carry any combination of super and par marks
+   for the same parity, that parity is false.
+
+Note: when a parity is found to be false, only par and sub marked candidates
+for that parity are excluded, not the super grade candidates.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Promotions
+1. When all but one cell mates or siblings of a par candidate are excluded, the
+   survivor is promoted to a par mark.
+   1a. If all bar one v is eliminated from a cell (all one color)
+       then paint cell-value that color.
+   1b. If all bar one v is eliminated from a region (all one color)
+       then paint cell-value that color.
+2. A super candidate seeing a par marked sibling or cell mate is promoted to a
+   par mark.
+   2a. If a super sees (same v, same color) a par then paint it.
+   2b. If a super has a par cell-mate (any v, OPPOSITE color) then paint it.
+Eliminations
+3. An off seeing a sibling or cell mate colored/on of other color is elim'd.
+   3a. If an off has OPPOSITE color/on (any value) then eliminate it.
+   3b. If an off sees OPPOSITE color/on (same value) then eliminate it.
+   3c. All v's with an off of both colors (same value) are eliminated.
+4. If a cell has values in both colors then eliminate all other values.
+Confirmations/Contradictions
+5. When all surviving potential values of a cell have the same color, then
+   that color is true.
+6. In a region, if all siblings of a value have offs of the same color, then
+   that color is true.
+7. If two siblings or cell mates carry any combination of colors and ons of the
+   same color, then the other color is true.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Marking Tips
+
+Just as with other methods, the speed at which deductions arrive will depend on
+the marking order used. Quick results on easy puzzles often come from just
+marking the par grades first before extending the scheme to sub and super
+grades. Then for moderately rated puzzles, a hare approach which restricts the
+marking to certain groups of units holding a potentially useful reduction may
+be best, but for extreme puzzles, the tortoise method of taking each digit in
+turn and marking it to exhaustion avoids missing key inferences. Often the
+casual eliminations made en-route will be insignificant to the solution, but it
+is worth checking to see if they create naked pairs or box/line reductions
+which can be acted on first before resuming the mark-up.
+
+Example
+
+GEM Example.png
+
+Here the marking was started from r5c5 and was restricted initially to par
+marks only. To avoid over-complicating the figure, super and sub grade marks
+have been started just for the 8s as shown by the coloring. At r4c2 the 8 is
+conjugate to (8.)r4c1 and so is marked (8=) from which we get (8.)r17c2. At the
+stage reached in the figure, (8:)r7c1 is the only 8 in the row with a
+parity(ii) mark so it can be promoted. Because of the existing par 5', it
+becomes (5'8") so excluding 3,6 & 7 there. This will also exclude the (8:) at
+r9c3 so the cell becomes (4'7") with the 7 being promoted. On grade marking the
+7s it will then be found that box 8 cannot hold a 7 at parity(ii), so parity(i)
+is true which resolves 10 cells.
+
+===============================================================================
+
+C:\Users\User\Downloads\Nonrepetitive Paths and Cycles in Graphs with Application to Sudoku.pdf

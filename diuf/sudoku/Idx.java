@@ -793,6 +793,24 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
+	 * Add the given indice 'i' to this Idx.
+	 * <p>
+	 * Only used in test cases (and now Permutations).
+	 * @param i
+	 */
+	public Idx add2(int i) {
+		assert i>=0 && i<81;
+		if ( i < BITS_PER_ELEMENT )
+			a0 |= SHFT[i];
+		else if ( i < BITS_TWO_ELEMENTS )
+			a1 |= SHFT[i%BITS_PER_ELEMENT];
+		else
+			a2 |= SHFT[i%BITS_PER_ELEMENT];
+		++modCount;
+		return this;
+	}
+
+	/**
 	 * Add the indice of each of the given cells to this Idx.
 	 * <p>
 	 * You can override this one!
@@ -1184,7 +1202,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			return forEach((cnt, i) -> array[cnt] = i);
 		} catch ( ArrayIndexOutOfBoundsException ex ) {
 			return array.length;
-		} 
+		}
 	}
 
 	/**
@@ -1294,6 +1312,23 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		forEach((i) -> result.add(grid.cells[i]));
 		return result;
 	}
+
+	/**
+	 * Add n cells.
+	 * @param cells
+	 * @param n
+	 */
+	public void addAll(Cell[] cells, int n) {
+		for ( int i=0; i<n; ++i )
+			add(cells[i].i);
+	}
+
+	public void addAllExcept(Idx idx, int i) {
+		TMP.set(idx);
+		TMP.remove(i);
+		or(TMP);
+	}
+	private static final Idx TMP = new Idx();
 
 	// ------------------------ Visitor2: count, indice -----------------------
 	//
@@ -1500,6 +1535,47 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		);
 		return result;
 	}
+
+	// --------------------------------- buds --------------------------------
+
+	/**
+	 * Get a cached Idx of this Idx plus the buddies of cells in this Idx.
+	 * If this is the first buds call, or this idx has changed since the
+	 * previous buds call, then buds are (re)calculated.
+	 *
+	 * @return the indices in this Idx and all of there buddies, CACHED!
+	 */
+	public Idx plusBuds() {
+		if ( plusBuds == null ) {
+			plusBuds = new Idx(this);
+			forEach((i)->plusBuds.or(BUDDIES[i]));
+			bp0=a0; bp1=a1; bp2=a2;
+		} else if ( a0!=bp0 || a1!=bp1 || a2!=bp2 ) {
+			plusBuds.set(this);
+			forEach((i)->plusBuds.or(BUDDIES[i]));
+			bp0=a0; bp1=a1; bp2=a2;
+		}
+		return plusBuds;
+	}
+	private Idx plusBuds;
+	private int bp0, bp1, bp2;
+
+	/**
+	 * Get an Idx of the buddies of cells in this Idx.
+	 *
+	 * @return the buddies of cells in this idx (uncached).
+	 */
+	public Idx buds() {
+		if ( buds == null )
+			buds = new Idx();
+		else
+			buds.clear();
+		forEach((i)->buds.or(BUDDIES[i]));
+		// remove me from buds, in case I contain cells which see each other.
+		buds.andNot(this);
+		return buds;
+	}
+	private Idx buds;
 
 	// --------------------------------- cells --------------------------------
 

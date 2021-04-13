@@ -9,6 +9,7 @@ package diuf.sudoku.solver;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
@@ -375,11 +376,11 @@ public abstract class AHint implements Comparable<AHint> {
 		return rs.get(0).id;
 	}
 
-	/** 
+	/**
 	 * Subtypes override this one to implement getClueHtml - gets the HTML
 	 * for {@code (Shift)F6} or {@code Menu: Options ~ Get a (Big) Clue}.<p>
 	 * Just remember that a hint is pointer towards a hint, not a hint itself.
-	 * 
+	 *
 	 * @param isBig <tt>true</tt> gets more information.
 	 * @return a clue, in HTML.
 	 */
@@ -398,7 +399,7 @@ public abstract class AHint implements Comparable<AHint> {
 	/**
 	 * Callers get a clue (directions towards a hint) as a HTML string.<p>
 	 * I am final, I just cache the result of {@link #getClueHtmlImpl(boolean)}.
-	 * 
+	 *
 	 * @param isBig <tt>true</tt> gets more information.
 	 * @return a clue, in HTML.
 	 */
@@ -549,6 +550,14 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 
 	/**
+	 * Get the regions to be highlighted with a pink border.
+	 * @return
+	 */
+	public List<ARegion> getPinkRegions() {
+		return null;
+	}
+
+	/**
 	 * Get the ALS's which contain both regions and cells to highlight in
 	 * blue, green, aqua, ...tba...
 	 * @return {@code Collection<Als>}
@@ -564,6 +573,22 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @return the links to draw, or <tt>null</tt> if none.
 	 */
 	public Collection<Link> getLinks(int viewNum) {
+		return null;
+	}
+
+	/**
+	 * the Super markers for GradedEquivalenceMarksHint only.
+	 * @return Idx[color][value]
+	 */
+	public Idx[][] getSupers() {
+		return null;
+	}
+
+	/**
+	 * The Sub markers for GradedEquivalenceMarksHint only.
+	 * @return Idx[color][value]
+	 */
+	public Idx[][] getSubs() {
 		return null;
 	}
 
@@ -802,7 +827,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * a single step; every other hint type either sets a single cell, or just
 	 * removes some maybes, or even sometimes both, but this prick has to go
 	 * and set multiple cells, stuffing-up all the existing plumbing.
-	 * @return 
+	 * @return
 	 */
 	public Pots getResults() {
 		return null;

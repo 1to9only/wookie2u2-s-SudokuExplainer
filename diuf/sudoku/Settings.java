@@ -508,11 +508,18 @@ public final class Settings implements Cloneable {
 	// 6.30.110 2021-02-17 14:31:50 Faster Complex and Kraken fisherman.
 	// 6.30.111 2021-02-23 08:33:51 Oops! Last release used align2.
 	// 6.30.112 2021-03-04 10:59:52 Hidden Unique Rectangles and XColoring.
-	//          Last top1465 run took 04:36, which is over a minute slower
-	//			than previous, which is a bit of a worry, but still acceptable.
+	//          Last top1465 run took 04:36, which is over a minute slower,
+	//			which is a worry, but still acceptable.
 	// 6.30.113 2021-03-11 16:38:53 3D Madusa Coloring with cheese.
 	//          Last top1465 run took 03:26 so we're back on track.
-
+	// 6.30.114 2021-03-22 12:04:54 GEM (Graded Equivalence Marks) Coloring.
+	//          Last top1465 run 03:26, same as last time. Still back on track.
+	// 6.30.115 2021-03-24 08:53:55 GEM mark 2 finds a few more hints looking
+	//          for contradictions in ons.
+	//          Last top1465 run 03:23, 3 seconds faster than last time.
+	// 6.30.116 2021-03-25 13:28:55 GEM mark 3 with it's own Multi hint.
+	//          Last top1465 run 03:25, 2 seconds slower than last time.
+	//
 	// To Build:
 	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
 	//    If you can't deal with it then change it to a @strech.
@@ -547,8 +554,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.113";
-	public static final String BUILT = "2021-03-11 16:38:53";
+	public static final String VERSION = "6.30.116";
+	public static final String BUILT = "2021-03-25 13:28:55";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

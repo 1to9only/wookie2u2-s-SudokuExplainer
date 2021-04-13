@@ -401,7 +401,8 @@ public final class Grid {
 //		}
 //	};
 	// See explanation ABOVE. Magic-numbers (results of above code) for speed.
-	// Used in Medusa3dColoring, the mother of all bad hair days. What tiger?
+	// Used in MedusaColoring, the mother of all bad hair days. What tiger?
+	// Chalk me up as "a real speed freak".
 	public static final int[] EFFECTED_BOXS = {
 		  78, 149, 291, 71, 142, 270, 29, 30, 60
 		, 56, 56, 56, 112, 112, 112, 224, 224, 224
@@ -3096,8 +3097,7 @@ public final class Grid {
 		 * @param index the index of this Box (0..8) in the Grid.regions array.
 		 */
 		public Box(int index) {
-			super(index, BOX, Cause.HiddenBox, 0
-				, new Bounds(index%3*3, index/3*3, 3, 3));
+			super(index, BOX, Cause.HiddenBox, 0, new Bounds(index%3*3, index/3*3, 3, 3));
 			this.hNum = index%3;  this.left = hNum*3;
 			this.vNum = index/3;  this.top = vNum*3;
 			this.boxId = top + hNum;

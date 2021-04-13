@@ -50,7 +50,7 @@ public final class Values implements Iterable<Integer> {
 	 * the binary-value of each set (1) bit.
 	 *
 	 * @param bits
-	 * @return 
+	 * @return
 	 */
 	private static int[] toShiftedArrayNew(int bits) {
 		final int size = Integer.bitCount(bits); // Don't use SIZE array here!
@@ -163,7 +163,7 @@ public final class Values implements Iterable<Integer> {
 		for ( int i=0; i<512; ++i )
 			VSIZE[i] = (VALUESES[i]=toValuesArrayNew(i)).length;
 	}
-	
+
 	public static final int[] FIRST_VALUE = Indexes.FIRST_INDEX.clone();
 	static {
 		for ( int i=0; i<FIRST_VALUE.length; ++i )
@@ -177,7 +177,7 @@ public final class Values implements Iterable<Integer> {
 
 	/** The number of all values == 9 */
 	public static final int ALL_SIZE = MAX-1;
-	
+
 	// Note that ALL_BITS also works for Indexes. It's just 9 (1) bits,
 	// regardless of whether those bits represent 1..9 or 0..8.
 	/** The bits of all values (1,2,3,4,5,6,7,8,9) == 111,111,111 == 511 */
@@ -288,7 +288,7 @@ public final class Values implements Iterable<Integer> {
 	 * constructor or the Copy Constructor, which should therefore be preferred.
 	 * @param bits int the bitset value.
 	 * @param dummy is not used. This parameter just distinguishes this
-	 * constructor from it's heavily overloaded alternatives.
+	 * constructor among it's many alternatives.
 	 */
 	public Values(int bits, boolean dummy) {
 		if ( bits<0 || bits>511 ) // is 0 to 9 set bits
@@ -450,14 +450,6 @@ public final class Values implements Iterable<Integer> {
 			bits |= VSHFT[s.charAt(i)-'0'];
 	}
 
-//2020-10-23 not used, but clever, so keep it for a while
-//	/** Set this Values Set to the raw int bits.
-//	 * @param bits Well look at that: a whole Values Set in one 32 bit
-//	 * twos-complement int. */
-//	public void set(int bits) {
-//		this.size = SIZE[this.bits=bits];
-//	}
-
 	/** Add these 'other' Values to this Values Set.
 	 * @param other
 	 * @return this Values. */
@@ -466,8 +458,8 @@ public final class Values implements Iterable<Integer> {
 		return this;
 	}
 
-	/** Trixie: visit is a faster version of: not(v) and then set(v)
-	 * <p>Used only by Gird.firstDoubledValue() for speed.
+	/** visit is a faster version of: not(v) and then set(v)
+	 * <p>Used only by Grid.firstDoubledValue() for speed.
 	 * @param value to look for and remember.
 	 * @return was value'th bit unset before we visited it? It's set now! */
 	public boolean visit(int value) {
@@ -724,7 +716,7 @@ public final class Values implements Iterable<Integer> {
 	 * Let's pretend that the given bits is already a values, and read it into
 	 * a values array already, because I'm a lazy sneeky cheating bastard.
 	 * @param bits
-	 * @return 
+	 * @return
 	 */
 	public static int[] toArrayNew(final int bits) {
 		int[] array = new int[VSIZE[bits]];
@@ -759,8 +751,9 @@ public final class Values implements Iterable<Integer> {
 	 * For example: Given bits=9 (binary 1001) I return {1, 4}, an array of the
 	 * distance of each set (1) bit from the right + 1.
 	 *
-	 * @param bits
-	 * @return 
+	 * @param bits the bits to extract "distances" from. If the given bits is 0
+	 *  then a zero-length array is returned.
+	 * @return an array of the distance-from-right + 1 of each set (1) bit.
 	 */
 	public static int[] toValuesArrayNew(int bits) {
 		final int size = Integer.bitCount(bits); // Don't use SIZE array here!
@@ -932,10 +925,10 @@ public final class Values implements Iterable<Integer> {
 	}
 
 	// ------------------------------- iterator -------------------------------
-	
+
 	// DEPRECATED: because all iterators are much slower than array-iterators,
 	// so toArray the bastard, and iterate the elements speedily yourself.
-	
+
 	@Override
 	@Deprecated
 	public Iterator<Integer> iterator() {

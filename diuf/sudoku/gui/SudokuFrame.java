@@ -261,6 +261,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			p.setResultColor(-1); // meaning none
 			p.setAquaBGCells(null);
 			p.setPinkBGCells(null);
+			p.setPinkRegions(null);
 			p.setRedBGCells(null);
 			p.setGreenBGCells(null);
 			p.setOrangeBGCells(null);
@@ -277,12 +278,15 @@ final class SudokuFrame extends JFrame implements IAsker {
 			p.setLinks(null);
 			p.setBases(null);
 			p.setCovers(null);
+			p.setSupers(null);
+			p.setSubs(null);
 		} else { // display it
 			p.setResult(h.getResult());
 			p.setResults(h.getResults());
 			p.setResultColor(h.getResultColor());
 			p.setAquaBGCells(h.getAquaCells(viewNum)); // null OK
 			p.setPinkBGCells(h.getPinkCells(viewNum)); // null OK
+			p.setPinkRegions(h.getPinkRegions()); // null OK
 			if ( h instanceof AWarningHint )
 				p.setRedBGCells(((AWarningHint) h).getRedCells());
 			p.setGreenBGCells(h.getGreenCells(viewNum)); // null OK
@@ -303,6 +307,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 			p.setLinks(h.getLinks(viewNum));
 			p.setBases(h.getBases());
 			p.setCovers(h.getCovers());
+			p.setSupers(h.getSupers());
+			p.setSubs(h.getSubs());
 		}
 		p.repaint();
 	}

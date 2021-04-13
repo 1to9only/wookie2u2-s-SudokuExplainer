@@ -104,11 +104,12 @@ public enum Tech {
 	, TUVWXYZ_Wing		(4.24, 6, "TUVWXYZ-Wing") // SLOW limited ALS-XZ
 	, STUVWXYZ_Wing		(4.25, 7, "STUVWXYZ-Wing") // SLOW limited ALS-XZ
 	// XColoring is Coloring++, which is in turn BUG++
-	, BUG				(4.30, 0, "Bivalue Universal Grave", "(BUG) finds a subset of Coloring hints, and is SLOWER!")
-	, Coloring			(4.31, 2, "Coloring", "finds a superset of BUG hints, and is FASTER.")
-	, XColoring			(4.32, 2, "XColoring", "finds Coloring hints and Nishio's")
-	, Medusa3dColoring	(4.33, 2, "3D Medusa Coloring", "3D Medusa: two value XY static chains")
-	, URT				(4.34, 0, "Unique Rectangle", "Unique Rectangles and loops", false)
+	, BUG				(4.30, 0, "BUG", "(Bivalue Universal Grave) finds a subset of Coloring hints, and is SLOWER!")
+	, Coloring			(4.31, 2, "Coloring", "finds a superset of BUG hints, and is FASTER.", false)
+	, XColoring			(4.32, 2, "XColoring", "(Extended Coloring) finds Coloring hints and Nishio's", false)
+	, MedusaColoring	(4.33, 2, "Medusa Coloring", "(3D Medusa Coloring) finds most XColoring and some static chains", false)
+	, GEM				(4.34, 2, "GEM", "(Graded Equivalence Marks) finds all Coloring and some static chains", false)
+	, URT				(4.35, 0, "Unique Rectangle", "Unique Rectangles and loops", false)
 	, FinnedSwampfish	(4.40, 2, "Finned Swampfish")	// with Sashimi
 	, FinnedSwordfish	(4.41, 3, "Finned Swordfish")
 	, FinnedJellyfish	(4.42, 4, "Finned Jellyfish")

@@ -18,21 +18,18 @@ import java.util.HashMap;
 
 /**
  * HintValidator exposes static helper methods to validate a hint against the
- * precalculated Sudoku solution. It's a way to debug hinters by logging all
- * it's invalid hints; to find the commonality and work-out what's causing
- * them, to make them go away. This class is NOT intended to ever be used in
- * a production system: so make sure you've taken me out BEFORE you release;
- * which happens if you follow the release procedure: check they're all false!
+ * Sudoku solution calculated (once) with brute force. It's a way to debug a
+ * hinter, by logging all invalid hints, to work-out what's causing them, to
+ * make them go away. HintValidator should NOT be part of a production system,
+ * so make sure you've turned me off in each release. It's part of the release
+ * procedure: Check they're all false!
  * <p>
- * Most of this code was exhumed from AlsXz so that I can use the same approach
- * to find the problem with other hinters.
- * <p>
- * All of this class is a nasty hack. It would be better to not rely on the
- * solution to the puzzle in order to solve the puzzle. BUT because I can solve
- * the puzzle quickly I do so to validate the hints produced by hinters that I
- * am having trouble with... but ONLY those I am having trouble with; and I am
- * having a LOT of trouble with HoDoKu's hinters, especially when I hack the
- * s__t out of them to make them faster. It's all my bad. Sigh.
+ * All of this class is a nasty hack. It makes no sense to rely on the solution
+ * to the puzzle in order to solve the puzzle. BUT because we can solve quickly
+ * (thanks to Donald Knuth), we do so, to validate stuff that troubles us at
+ * the moment; but ONLY those that trouble us at the moment. And then we check
+ * they're all false BEFORE we release! Did I mention that you should check
+ * false when you release? Well, you should check false when you release.
  *
  * @author Keith Corlett 2020-07-14
  */
@@ -94,9 +91,14 @@ public class HintValidator {
 	public static final boolean XCOLORING_USES = false; // @check false
 
 	/**
-	 * Does Medusa3dColoring use HintValidator?
+	 * Does MedusaColoring use HintValidator?
 	 */
-	public static final boolean MEDUSA_3D_COLORING_USES = false; // @check false
+	public static final boolean MEDUSA_COLORING_USES = false; // @check false
+
+	/**
+	 * Does GEM (GradedEquivalenceMarks) use HintValidator?
+	 */
+	public static final boolean GEM_USES = false; // @check false
 
 	/**
 	 * Does any class use HintValidator?
@@ -110,7 +112,8 @@ public class HintValidator {
 			| KRAKEN_FISHERMAN_USES
 			| CHAINER_USES
 			| XCOLORING_USES
-			| MEDUSA_3D_COLORING_USES
+			| MEDUSA_COLORING_USES
+			| GEM_USES
 			;
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -257,9 +260,9 @@ public class HintValidator {
 		for ( Cell cell : setPots.keySet() ) {
 			Values values = setPots.get(cell);
 			if ( values.size != 1 )
-				invalidity += " "+cell.id+"-"+values.toString()+" is not one value!";
+				invalidity += " "+cell.id+"+"+values.toString()+" is not one value!";
 			else if ( !values.contains(solutionValues[cell.i]) )
-				invalidity += " "+cell.id+" "+values.toString()+" != "+solutionValues[cell.i];
+				invalidity += " "+cell.id+"+"+values.toString()+"!="+solutionValues[cell.i];
 		}
 		return invalidity.isEmpty();
 	}

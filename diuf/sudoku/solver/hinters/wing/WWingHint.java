@@ -7,14 +7,17 @@
 package diuf.sudoku.solver.hinters.wing;
 
 import diuf.sudoku.Grid;
+import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 
@@ -26,6 +29,7 @@ public final class WWingHint extends AHint implements IActualHint {
 
 	private final Cell cellA, cellB, wCellA, wCellB;
 	private final int value0, value1;
+	private final ARegion wABCommonRegion;
 
 	public WWingHint(AHinter hinter, int value0, int value1
 			, Cell cellA, Cell cellB, Cell wCellA, Cell wCellB
@@ -38,6 +42,12 @@ public final class WWingHint extends AHint implements IActualHint {
 		this.cellB = cellB;
 		this.wCellA = wCellA;
 		this.wCellB = wCellB;
+		this.wABCommonRegion = Grid.commonRegion(wCellA, wCellB);
+	}
+
+	@Override
+	public List<ARegion> getBases() {
+		return Regions.list(wABCommonRegion);
 	}
 
 	@Override
@@ -72,7 +82,7 @@ public final class WWingHint extends AHint implements IActualHint {
 			, wCellB.id							// 3
 			, Integer.toString(value0)			// 4
 			, Integer.toString(value1)			// 5
-			, Grid.commonRegion(wCellA, wCellB) // 6
+			, wABCommonRegion					// 6
 			, Frmt.and(redPots.keySet())		// 7
 			, redPots.toString()				// 8
 		);
