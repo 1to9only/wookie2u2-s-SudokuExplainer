@@ -13,7 +13,6 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Log;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -102,14 +101,8 @@ public abstract class ADirectHint extends AHint implements IActualHint {
 	 * just 10 when isAutosolving is false, ie we're in "normal" mode.
 	 */
 	@Override
-	public int apply(boolean isAutosolving, boolean isNoisy) {
-		if ( isNoisy ) {
-			logHint();
-			System.out.format("%,13d ADirectHint:%s (%s=%d)\n", took(), toString(), cell.id, value);
-		}
-		// returns number of cells set (may be >1 when isAutosolving)
-		int score = 10 * cell.set(value, 0, isAutosolving, SB); // throws UnsolvableException
-		return score; // return the "score"
+	public int applyImpl(boolean isAutosolving) {
+		return cell.set(value, 0, isAutosolving, SB) * 10; // throws UnsolvableException
 	}
 
 	/** @return a score of 10 for setting the cell plus the number of maybes

@@ -519,6 +519,14 @@ public final class Settings implements Cloneable {
 	//          Last top1465 run 03:23, 3 seconds faster than last time.
 	// 6.30.116 2021-03-25 13:28:55 GEM mark 3 with it's own Multi hint.
 	//          Last top1465 run 03:25, 2 seconds slower than last time.
+	// 6.30.117 2021-03-27 14:02:57 GEM mark 4 sets subsequent singles to find
+	//          130790 eliminations verses 77283 previously and 1.5 sec faster.
+	// 6.30.118 2021-03-30 20:21:58 GEM mark 5 efficiency.
+	// 6.30.119 2021-04-01 09:15:59 GEM mark 6 improved explanation.
+	// 6.30.120 2021-04-04 06:11:00 GEM mark 7 more eliminations.
+	// 6.30.121 2021-04-04 10:01:01 GEM mark 8 even more eliminations, chasing
+	//			Naked/Hidden Singles from little hints as well. Really greedy!
+	// 6.30.122 2021-04-05 07:17:02 GEM mark 9 fix bug in mark 8.
 	//
 	// To Build:
 	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
@@ -554,8 +562,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.116";
-	public static final String BUILT = "2021-03-25 13:28:55";
+	public static final String VERSION = "6.30.122";
+	public static final String BUILT = "2021-04-05 07:17:02";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

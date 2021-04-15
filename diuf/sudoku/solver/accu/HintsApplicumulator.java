@@ -21,7 +21,7 @@ import java.util.List;
  * pass through the grid (it's all about efficiency). Then Locking adds a
  * single {@link AppliedHintsSummaryHint} to the "normal" IAccumulator to pass
  * the total number of potential values eliminated back to the calling
- * {@link AHint#apply} method, in order to keep score.
+ * {@link AHint#applyImpl} method, in order to keep score.
  * <p>
  * Note that there's nothing specific to Locking here, it's just that Locking
  * is currently the only place I'm used, because Locking is were I'm needed

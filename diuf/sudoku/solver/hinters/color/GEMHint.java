@@ -29,11 +29,11 @@ public class GEMHint extends AHint {
 	private final String blueCells;
 	private final String steps;
 	private final Collection<Link> links;
-	private final Idx[][] supers;
-	private final Idx[][] subs;
+	private final Idx[][] ons;
+	private final Idx[][] offs;
 	public GEMHint(AHinter hinter, int v, Pots reds
 			, Pots greens, Pots blues, Idx[] colorSet, String steps
-			, Collection<Link> links, Idx[][] supers, Idx[][] subs
+			, Collection<Link> links, Idx[][] ons, Idx[][] offs
 	) {
 		super(hinter, reds, greens, null, blues, null, null);
 		this.v = v;
@@ -46,8 +46,8 @@ public class GEMHint extends AHint {
 		}
 		this.steps = steps;
 		this.links = links;
-		this.supers = supers;
-		this.subs = subs;
+		this.ons = ons;
+		this.offs = offs;
 	}
 
 	@Override
@@ -71,13 +71,13 @@ public class GEMHint extends AHint {
 	}
 	
 	@Override
-	public Idx[][] getSupers() {
-		return supers;
+	public Idx[][] getOns() {
+		return ons;
 	}
 	
 	@Override
-	public Idx[][] getSubs() {
-		return subs;
+	public Idx[][] getOffs() {
+		return offs;
 	}
 
 	@Override

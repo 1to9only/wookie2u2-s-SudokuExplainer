@@ -2,38 +2,68 @@
 * '+' means "on": a '+' next to a digit in the Grid means this is an "on".
   If this color is true then this cell is set to this value; but an "on" isn't
   a "full" colored cell-value, used in logic; it's JUST an extra value to set.
+* One exception: contradictions use ons: an "on" is treated the same as a full
+  colored cell-value when repudiating a colors validity. If an "on" is proven
+  invalid then it's whole color is invalid, hence the other color must be true.
+  One out, all out. This is pretty hard to get your head around. Read it again.
 * '-' means "off": a '-' next to a digit in the Grid means this is an "off".
   If this color is true then value is eliminated from cell. If both colors "off"
   the same cell-value then it can be eliminated, so it's painted red.
 * A <r>red -</r> means this cell-value CAN be eliminated. A <r>red digit</r> means that it
-  WILL be eliminated when the hint is applied. The value does not need to be
-  eliminated separately when this cells value is set.
+  WILL be eliminated when this hint is applied. Cell-values do not need to be
+  eliminated explicitly when the cell is set, it happens automatically.
 * The GREEN/BLUE digit in a larger font renders the value to set this cell to.
 
 <u>Explanation</u>
-GEM is the "ultimate" coloring technique. Coloring has two sets of cell values
-painted in two colors: GREEN and BLUE.
+GEM (Graded Equivalence Marks) is the "ultimate" coloring technique. Coloring
+has two sets of cell-values painted in two colors: GREEN and BLUE.
 
-We start with a value that has two possible positions in a region. We paint the
-first position GREEN (so the second will be BLUE). 
+Our first task is to find the value that has at least 2 conjugate relationships
+(ie there are two places for this value in at least 2 regions) and has the most
+bivalue cells (ie is one of two potential values of a cell). We keep score:
+each conjugate relationship is 1 point, and each bivalue is 1 point, and the
+total score in this implementation must be at least 7 in order to be searched,
+because that's the minimum score that produces a hint in top1465; but note that
+there's nothing magical about top1465, so 7 is very probably too high for ALL
+possible Sudoku puzzles, it just works for MY puzzles. A real expert could get
+this right. I'm just a computer programmer, so I do what works for me, in the
+hope that it also works for others. Experts have facts. Pragmatists have hope.
+Therefore expert pragmatists are ____ed, but at least we know we're ____ed, and
+so are up-front about it, in the hope that an expert will correct us. You can
+can lower or remove this restriction as suits your requirements.
+
+So we start with a value that has two possible positions in a region. We paint
+the first position GREEN, so the second will be BLUE.
+
+It's important to get your head around the "strong" bidirectionality of
+this-and-all coloring relationships:
+                If cell A is value     then cell B is NOT value,
+and conversely, If cell B is NOT value then cell A is value.
+Every painted cell-value has a "strong" (bidirectional) relationship with every
+other painted cell-value, so it's one in, all in; and one out, all out; and ONE
+of the two colors MUST be true. Ergo assert green XOR blue. Got it?
 
 We look at the three regions containing each cell we paint (it's box, row, and
 col). If this region also has two possible locations for this value then we
-paint the other cell the other color.
+paint this value of the other cell the other color.
 
-If a cell has two possible values we can paint the other value the other color.
+If a cell has two potential values then we paint the other value the other
+color.
 
-When each cell value is painted we also "off" (rendered as a '-' next to it's
+When each cell-value is painted we also "off" (rendered as a '-' next to it's
 digit) each other occurrence of this value in each of this cells three regions.
 These "off"s are used later in eliminations.
 
-Thus we recursively paint all consequences of painting each cell-value.
+Thus we paint all the consequences of painting each cell-value, recursively.
 
 paintMonoBoxs: a Hidden Single in a box that's effected by (2 boxs left/right,
 and 2 boxs above/below) the painted cell-value.
 Shoot back: if this cell-value also leaves a Hidden Single in the source box
 then we paint it this color: a bidirectional relationship, a "strong" link;
-else it is just an "on": a unidirectional relationship, a "weak" link.
+else it is just an "on": a unidirectional relationship, a "weak" link. If blue
+turns out to be true then we set this cell to this value, but setting this cell
+to this value says absolutely nothing about the truth/falsehood of blue; ergo
+there's no "and conversely" with ons, they're JUST ons.
 
 paintPromotions:
 * When all but one cell mates or siblings of a colored cell-value are "off"ed,
@@ -41,33 +71,40 @@ paintPromotions:
   - If all bar one value is "off"ed from a cell (one color) then "on" it.
   - If all bar one place is "off"ed from a region (same value, one color) then
     "on" it.
-* An "on" seeing/with opposite color is painted it's own color.
+* An "on" seeing/with the opposite color is painted it's own color.
   - If an "on" sees the opposite color (same value) then paint it.
   - If an "on" has an opposite colored cell-mate (any value) then paint it.
+* Shoot back (a KRC original): if an "on" leaves ONE v in any box that is this
+  color then paint the on; as per paintMonoBoxs but this time we start from the
+  effect, for which we seek a cause.
+  - This finds occurrences that paintMonoBoxs doesn't. Looking at extra finds
+    one sees paints where the "cause" has no DIRECT link to the "effect". The
+    colors gang-up to leave a Hidden Single in effected box, and that Hidden
+    Single leaves a Hidden Single in a "cause" box, so yes, it's a strong link.
+    But WTF: Why does paintMonoBoxs find occurrences that this misses?
 
 We keep doing paintMonoBoxs and paintPromotions as long as either of them finds
 something to paint full-colors ("ons" don't count).
 
 Then we look for "contradictions":
-* If there's two greens (same value) in a region then blue is true.
-* If there's two green values in a cell then blue is true.
-* If there's two green "on"s (same value) in a region then blue is true.
-* If there's two green "on"s in a cell then blue is true.
-* And conversely from blue to green, obviously. I'm just being terse.
-* Note that when a contradiction is found we stop searching for more hints.
-* "blue is true" means all cell-values rendered in a larger blue font will be
-  set when this hint is applied. This includes full-colors and "ons".
+* If there's two green/ons with different values in one cell then blue is true.
+* If there's two green/ons with the same value in a region then blue is true.
+* If green off's all of a cells values then blue is true.
+* If all v's in a region see a green v then blue is true.
+* And conversely from blue to green, obviously. I'm being terse.
+* If any contradiction is found then stop searching for more hints.
+* "blue is true" means all cell-values rendered in a larger blue font are set
+  when this hint is applied; including "ons" with the full-colors.
 
 Then we look for "eliminations":
-* Both colors appear in a single tri+valued cell, eliminating all other values.
-* An uncolored candidate X sees two differently colored X, eliminating it.
-* An uncolored candidate X sees a green, but this cell has another blue value,
-  eliminating X.
+* Both colors in a single tri+valued cell eliminate all other values.
+* An uncolored v sees both colored v's so eliminate it.
+* An uncolored v sees green and has some other blue value so eliminate it.
 * If both colors have an "off" for the same cell-value then eliminate it.
 * Eliminations are rendered as a RED '-' in the GUI, and if that's added to the
-  actual eliminations (the redPots) then the value is also RED; but if this cell
-  value is to be set then the elimination doesn't need to happen. It's a tad
-  more complex than it needs to be, but it shows exactly where we're at.
+  actual eliminations (the redPots) then the value is also RED; but if the cell
+  value is set then the elimination is automatic. It's a tad more complex than
+  it really needs to be, but it shows exactly what's happening.
 
 Then (if there's any eliminations) we look for "confirmations":
 * If all bar one value is eliminated from a cell, and the remaining cell-value
@@ -75,8 +112,18 @@ Then (if there's any eliminations) we look for "confirmations":
 * When all but one occurrence of a value is eliminated from a region and the
   remaining cell-value is colored then that whole color is true.
 * Note that both of these rules use the actual eliminations (the redPots).
-* Note that when a confirmation is found we stop searching for more hints.
-* "color is true" means all cell-values rendered in a larger blue font will be
-  set when this hint is applied. This includes full-colors and "ons".
+* If any confirmation is found then stop searching for more hints.
+* "color is true" means all cell-values rendered in a larger this-color font
+  will be set when this hint is applied, including "ons" with the full-colors.
+
+Then (for contradiction and confirmation) set consequent naked/hidden singles.
+* setPots are set in the grid, using autosolve so that any consequent naked or
+  hidden singles are also set (recursively).
+  - Naked Single: If a cell has one potential value then set it to that value.
+  - Hidden Single: If value has one place in a region then set it to the value.
+* Eliminations: eliminate the redPots from the grid.
+* Note: Greediness makes GEM Type * hints likely to be the last hint, because I
+  just hate it when a few singles are left-out in the cold, so I made GEM chase
+  them down. If you disagree then set CONSEQUENT_SINGLES = false in GEM.java.
 
 And then we go for a little lie down.

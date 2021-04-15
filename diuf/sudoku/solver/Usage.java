@@ -11,7 +11,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
-
 /**
  * Usage is internal to LogicalSolver UsageMap. It stores:<ul>
  *	<li>numCalls: the number of times a Hinter has been called

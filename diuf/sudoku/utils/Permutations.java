@@ -10,7 +10,6 @@ import java.io.PrintStream;
 import java.math.BigInteger;
 import java.util.Iterator;
 
-
 /**
  * A generator of binary permutations, ie all distinct possible combinations.
  * <p>

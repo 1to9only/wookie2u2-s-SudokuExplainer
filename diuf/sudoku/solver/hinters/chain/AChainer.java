@@ -98,7 +98,7 @@ public abstract class AChainer extends AHinter
 		implements ICleanUp
 {
 //	/** If true && VERBOSE_3_MODE then I write stuff to Log.out */
-//	public static final boolean IS_NOISY = false; // @check false
+//	public static final boolean IS_NOISY = false; // check false
 //
 //	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
 //	 * @param msg */

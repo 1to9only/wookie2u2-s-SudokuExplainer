@@ -109,7 +109,7 @@ public final class Grid {
 
 	/** The buddies of each cell in the Grid, in an Idx.
 	 * You can calculate this but it's simpler and faster to look it up. */
-	public static final int[] BOXS = {
+	public static final int[] BOX_OF = {
 		0, 0, 0, 1, 1, 1, 2, 2, 2
 	  , 0, 0, 0, 1, 1, 1, 2, 2, 2
 	  , 0, 0, 0, 1, 1, 1, 2, 2, 2
@@ -121,17 +121,19 @@ public final class Grid {
 	  , 6, 6, 6, 7, 7, 7, 8, 8, 8
 	};
 
-	// an Idx of the 3 regions of each cell in the Grid.
-	// Note that only the first int of the three is used for 27 regions.
-	public static final Idx[] REGIONS = new Idx[81];
+	// a bitset of the 3 regions of each cell in the Grid.
+	public static final int[] CELLS_REGIONS = new int[81];
 	static {
-		for ( int i=0; i<81; ++i ) {
-			REGIONS[i] = new Idx();
-			REGIONS[i].add(BOXS[i]);	// box
-			REGIONS[i].add(9+(i/9));	// row
-			REGIONS[i].add(18+(i%9));	// col
-		}
+		for ( int i=0; i<81; ++i )
+			CELLS_REGIONS[i] = Idx.SHFT[BOX_OF[i]]	// box
+			                 | Idx.SHFT[9+(i/9)]	// row
+			                 | Idx.SHFT[18+(i%9)];	// col
 	}
+
+	// An idx of the cells in each region, for when we have the region index
+	// but not the region and don't want to waste time getting the region,
+	// in order to get an Idx of it's cells.
+	public static final IdxL[] RIDX = new IdxL[27];
 
 	public static final IdxL[] BUDDIES = new IdxL[81];
 	static {
@@ -144,9 +146,9 @@ public final class Grid {
 		int box, row, col; // of this cell
 		for ( int i=0; i<81; ++i ) { // foreach cell-indice
 			buds = BUDDIES[i] = new IdxL();
-			row=i/9; col=i%9; box=BOXS[i];
+			row=i/9; col=i%9; box=BOX_OF[i];
 			for ( int b=0; b<81; ++b ) // foreach buddy-cell-indice
-				if ( (b/9==row || b%9==col || BOXS[b]==box) && i!=b )
+				if ( (b/9==row || b%9==col || BOX_OF[b]==box) && i!=b )
 					buds.add(b);
 			buds.lock(); // so any attempt to mutate throws a LockedException
 		}
@@ -348,26 +350,34 @@ public final class Grid {
 	 * 0..8, so you can read them with the Indexes.INDEXES array-of-arrays.
 	 * <p>
 	 * It's value is type dependant:<pre>
-	 * * for a row it's the 3 boxs which intersect this row;
-	 * * for a col it's the 3 boxs which insersect this col;
-	 * * for a box it's the 4 boxs which also intersect the row and col which
-	 *   intersect this box, ie in ascii art:
-	 *      X##        .#.        ..#
-	 *      #..   or   #X#   or   ..#   where X is this box, and # is effected
-	 *      #..        .#.        ##X
+	 * * box: the 4 boxs which also intersect the rows and cols of this box,
+	 *        ie the two boxs left/right, and the two boxs above/below,
+	 *        or in ascii art (X is this box, #'s are effected):
+	 *            X##        .#.        ..#
+	 *            #..   or   #X#   or   ..#
+	 *            #..        .#.        ##X
+	 * * row: the 3 boxs which intersect this row;
+	 * * col: the 3 boxs which insersect this col;
 	 * </pre>
 	 * This is all static because it's the same for all grids, so you can get
 	 * it without an instance of Grid.
 	 * <p>
-	 * A real speed freak would run this code ONCE, to print the code, and then
-	 * run that code each time, but it's only STATIC performance. sigh.
+	 * EFFECTED_BOXS is used in MedusaColoring and GEM, which both use ONLY
+	 * the boxs, so rows and cols are populated but not (yet) used, mainly coz
+	 * rows/cols have a pre-existing intersectingBoxs array that's preferred if
+	 * you have ARegion, but for me you need only it's index, and you get only
+	 * indexes, which you read through Indexes.INDEXES, to get the ARegion's
+	 * from grid.regions, which is well messy).
+	 * Maybe I should read this array into each box's intersectingBoxs array,
+	 * instead of leaving it null? No requirement to do so, yet.
+	 * <p>
+	 * Speed: I ran this ONCE to get the magic-numbers; now we just load them.
 	 */
 //	public static final int[] EFFECTED_BOXS = new int[27];
 //	static {
 //		// boxs: other boxs which also intersect rows/cols that intersect me.
 //		for ( int i=0; i<9; ++i ) {
-//			// y and x in the graph sense of vertical and horizonal;
-//			// NOT in the usual grid sense of row and col
+//			// y and x are vertical and horizonal (NOT grid row and col).
 //			int y = i / 3;
 //			EFFECTED_BOXS[i] |= ISHFT[y];
 //			EFFECTED_BOXS[i] |= ISHFT[y + 1];
@@ -400,13 +410,11 @@ public final class Grid {
 //			assert VSIZE[EFFECTED_BOXS[i]] == 3;
 //		}
 //	};
-	// See explanation ABOVE. Magic-numbers (results of above code) for speed.
-	// Used in MedusaColoring, the mother of all bad hair days. What tiger?
-	// Chalk me up as "a real speed freak".
+	// See above comments: magic-numbers (results of above code) for speed.
 	public static final int[] EFFECTED_BOXS = {
-		  78, 149, 291, 71, 142, 270, 29, 30, 60
-		, 56, 56, 56, 112, 112, 112, 224, 224, 224
-		, 73, 146, 292, 73, 146, 292, 73, 146, 292
+		  78, 149, 291,  71, 142, 270,  29,  30,  60  // boxs
+		, 56,  56,  56, 112, 112, 112, 224, 224, 224  // rows
+		, 73, 146, 292,  73, 146, 292,  73, 146, 292  // cols
 	};
 
 	/**
@@ -722,7 +730,7 @@ public final class Grid {
 		}
 		// populate each regions idx
 		for ( ARegion r : regions )
-			r.idx.addAll(r.cells).lock();
+			RIDX[r.index] = r.idx.addAll(r.cells).lock();
 		// grid.puzzleID tells hinters "we've changed puzzles".
 		this.puzzleID = RANDOM.nextLong();
 	}
@@ -772,7 +780,7 @@ public final class Grid {
 	 * <p>
 	 * You're not a tooting car mooner are ya Dave? Honk Honk!
 	 * <p>
-	 * Programmers also note that I still {@link #rebuildAllMyS__t}, because
+	 * Programmers also note that I still {@link #rebuildAllMyOtherS__t}, because
 	 * one really must have ones s__t together in order to locate ones towel,
 	 * I just don't ____ with the maybes beforehand.
 	 *
@@ -852,10 +860,10 @@ public final class Grid {
 				for ( Cell cell : cells )
 					cell.reinitialiseMaybes(); // fill if empty, else clear
 			// if you don't eat you don't s__t, and if you don't s__t you die!
-			rebuildAllMyS__t();
+			rebuildAllMyOtherS__t();
 			// remember isMaybesLoaded to avoid any future rebuilds.
 			isMaybesLoaded = wereMaybesLoaded;
-			AHint.hintNumber = 1; // reset the hint number
+			AHint.resetHintNumber();
 			return true; // meaning load succeeded
 		} catch (Exception ex) {
 			StdErr.whinge("Critical Grid.load", ex);
@@ -876,13 +884,13 @@ public final class Grid {
 		if ( s.length() < 81 )
 			throw new IllegalArgumentException("bad s=\""+s+"\"");
 		String maybes = s.substring(81).trim();
-		if ( maybes.isEmpty() ) { // maybes maybe empty! Go figure, so I did.
+		if ( maybes.isEmpty() ) { // a filled grid
 			setCellValues(s.substring(0, 81));
 			rebuildMaybesAndS__t(); // rebuilds maybes, and all effluvia
 		} else {
 			setCellValues(s.substring(0, 81));
 			setMaybes(maybes.split(",", 81));
-			rebuildAllMyS__t(); // just rebuild the effluvia, not maybes
+			rebuildAllMyOtherS__t(); // just rebuild the effluvia, not maybes
 		}
 	}
 
@@ -945,13 +953,11 @@ public final class Grid {
 				}
 		}
 		// and then call rebuildAllMyS__t
-		rebuildAllMyS__t();
+		rebuildAllMyOtherS__t();
 	}
 
 	/**
-	 * The rebuildAllMyS__t method rebuilds all my s__t. Der!
-	 * <p>
-	 * More seriously, the rebuildAllMyS__t method runs at the tail of load,
+	 * rebuildAllMyOtherS__t rebuilds all my s__t except maybes, after load,
 	 * restore, and rebuildMaybesAndS__t (ie everybody else) to:<ol>
 	 * <li>clear cell values from siblings;
 	 * <li>rebuild regions empty-cell counts;
@@ -962,17 +968,16 @@ public final class Grid {
 	 * NB: I only run in the GUI and test-cases, so performance isn't an issue,
 	 * so this code is not and should not be optimised for performance. KISS!
 	 * <p>
-	 * NB: rebuildAllMyS__t respects maybes read from file except if they break
-	 * a Sudoku rule: like one instance of value per region, in which case they
-	 * are history silently, which is a bit of a worry. But fixing it is ship
-	 * loads faster than detecting that it's broken. Programming can be WEIRD
-	 * like that!
+	 * NB: rebuildAllMyOtherS__t respects maybes read from file EXCEPT if they
+	 * break a core Sudoku rule: like one instance of value per region, in
+	 * which case they're history SILENTLY, which is a worry, but fixing it's
+	 * s__tloads faster than detecting it. Programming can be WEIRD like that.
 	 * <p>
 	 * NB: rebuilding r.indexesOf all values IS NECESSARY or test-cases fail!
 	 * Which is a bit of a worry, because I feel that I should be able to do
 	 * it all "minimally", without resorting to The Hammer of Odin.
 	 */
-	private void rebuildAllMyS__t() {
+	private void rebuildAllMyOtherS__t() {
 
 		// 1. clear cell values from siblings
 		for ( Cell cell : this.cells )
@@ -993,7 +998,7 @@ public final class Grid {
 
 	/** set the r.emptyCellCount of all regions. */
 	public void rebuildAllRegionsEmptyCellCounts() {
-		for (ARegion r : regions)
+		for ( ARegion r : regions )
 			r.emptyCellCount(); // which sets r.emptyCellCount
 	}
 
@@ -1002,7 +1007,6 @@ public final class Grid {
 			r.rebuildContainsValueArray();
 	}
 
-//@check commented out (no biggy)
 //	/** DEBUG: dump all the containsValue's. */
 //	public void dumpContainsValues() {
 //		for ( ARegion r : regions )
@@ -2173,13 +2177,13 @@ public final class Grid {
 			removeMeFromMyRegionsIndexesOfBits(maybes.bits);
 			maybes.clear();
 			if ( value == 0 ) { // the user cleared a cell in the GUI
-				assert !isAutosolving; // A certain nosey hound dog just died.
+				assert !isAutosolving; // No gophers in Cleetus mode.
 				addMeBackIntoMySiblingsMaybes(formerValue);
 				restoreMyMaybes();
 			} else
 				removeFromMySiblingsMaybes(value);
 			// update the emptyCellCounts of the 3 regions which contain me.
-			if ( value == 0)
+			if ( value == 0 )
 				rebuildAllRegionsEmptyCellCounts();
 			else // only happens in the GUI
 				decrementMyRegionsEmptyCellCounts();
@@ -2665,6 +2669,10 @@ public final class Grid {
 			result.add(row.index);
 			result.add(col.index);
 		}
+
+		public Grid getGrid() {
+			return Grid.this;
+		}
 	}
 
 	// ---------------- The Regions ----------------
@@ -3074,6 +3082,10 @@ public final class Grid {
 				if ( c.value == 0 )
 					return c;
 			return null;
+		}
+
+		public Grid getGrid() {
+			return Grid.this;
 		}
 
 	}

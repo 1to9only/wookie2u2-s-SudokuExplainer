@@ -670,6 +670,20 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return (a0|a1|a2) != 0;
 	}
 
+//	/**
+//	 * Set this = (aa & bb) and returns size()==1.
+//	 * @param aa
+//	 * @param bb
+//	 * @return
+//	 */
+//	public boolean setAndOne(Idx aa, Idx bb) {
+//		a0 = aa.a0 & bb.a0;
+//		a1 = aa.a1 & bb.a1;
+//		a2 = aa.a2 & bb.a2;
+//		modCount = 1; getMod = 0;
+//		return (a0|a1|a2) != 0 && size()==1;
+//	}
+
 	/**
 	 * Set this = (aa & bb) and returns size() > 1.
 	 * @param aa
@@ -777,8 +791,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Add the given indice 'i' to this Idx.
-	 * <p>
-	 * Only used in test cases (and now Permutations).
+	 *
 	 * @param i
 	 */
 	public void add(int i) {
@@ -794,9 +807,9 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Add the given indice 'i' to this Idx.
-	 * <p>
-	 * Only used in test cases (and now Permutations).
+	 *
 	 * @param i
+	 * @return this Idx, for method chaining
 	 */
 	public Idx add2(int i) {
 		assert i>=0 && i<81;
@@ -808,6 +821,40 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			a2 |= SHFT[i%BITS_PER_ELEMENT];
 		++modCount;
 		return this;
+	}
+
+	/**
+	 * Add the given indice 'i' to this Idx if it doesn't already exist, and
+	 * return was it added; ie an indice visitor, returning true the first time
+	 * an indice is seen, and false there-after.
+	 * <p>
+	 * My advantage is I'm only one method call verses contains(i) then add(i),
+	 * so I'm faster outright. I am NOT atomic, as you might reasonably expect.
+	 * I don't know how to do this operation atomically.
+	 * <p>
+	 * I'm currently used only by {@link #toArraySmart()}, but is public, for
+	 * possible use elsewhere.
+	 *
+	 * @param i the indice to add.
+	 * @return was 'i' added to this Idx?
+	 */
+	public boolean addOnly(int i) {
+		assert i>=0 && i<81;
+		if ( i < BITS_PER_ELEMENT ) {
+			if ( (a0 & SHFT[i]) != 0 )
+				return false;
+			a0 |= SHFT[i];
+		} else if ( i < BITS_TWO_ELEMENTS ) {
+			if ( (a1 & SHFT[i-BITS_PER_ELEMENT]) != 0 )
+				return false;
+			a1 |= SHFT[i-BITS_PER_ELEMENT];
+		} else {
+			if ( (a2 & SHFT[i-BITS_TWO_ELEMENTS]) != 0 )
+				return false;
+			a2 |= SHFT[i-BITS_TWO_ELEMENTS];
+		}
+		++modCount;
+		return true;
 	}
 
 	/**
@@ -1278,6 +1325,40 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
+	 * Called once, before the toArraySmart() loop; to reset my indexes.
+	 */
+	public void toArraySmartReset() {
+		if ( usedA == null ) {
+			usedA = new Idx();
+			usedB = new Idx();
+		} else {
+			usedA.clear();
+			usedB.clear();
+		}
+	}
+
+	/**
+	 * You call me in a loop: I return arrayA, else arrayB, else a new array;
+	 * minimising garbage while still guaranteeing unique arrays, just don't
+	 * use toArrayA or toArrayB elsewhere in loop, including invoked methods.
+	 *
+	 * @return a unique int array, populated with the indices in this Idx.
+	 */
+	public int[] toArraySmart() {
+		if ( (a0|a1|a2) == 0 )
+			return IAS_A[0];
+		final int n = Integer.bitCount(a0)+Integer.bitCount(a1)+Integer.bitCount(a2);
+		if ( usedA.addOnly(n) )
+			return toArrayA();
+		if ( usedB.addOnly(n) )
+			return toArrayB();
+		return toArrayNew();
+	}
+	// idx's of the size of arrayA's and arrayB's used.
+	// each physical array may be used only once.
+	private Idx usedA, usedB;
+
+	/**
 	 * Returns a new BitIdx of the cells in this Idx.
 	 * <p>
 	 * Currently only used in DeathBlossom createHint.
@@ -1416,6 +1497,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param v your implementation of Visitor1 does whatever with indice
 	 */
 	public void forEach(Visitor1 v) {
+		if ( (a0|a1|a2) == 0 )
+			return;
 		int bits, j;
 		if ( (bits=a0) != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
@@ -1720,6 +1803,9 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			sb.append(i); // the raw indice
 		});
 		return sb.toString();
+	}
+	public String toIndiceString() {
+		return toIndiceString(a0, a1, a2);
 	}
 
 	/**

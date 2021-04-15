@@ -8,6 +8,7 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmt;
@@ -559,6 +560,23 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		return false;
 	}
 
+	/**
+	 * Set the values of the cells in this pots. This pots is presumed to be
+	 * a setPots, not a normal "redPots", or greens, or anything stupid.
+	 *
+	 * @param isAutosolving
+	 * @return 
+	 */
+	public int setCells(boolean isAutosolving) {
+		Values v;  int numSet = 0;
+		for ( java.util.Map.Entry<Cell,Values> e : entrySet() ) {
+			v = e.getValue();
+			assert v.size == 1; // ONE value per cell in a setPots!
+			numSet += e.getKey().set(FIRST_VALUE[v.bits], 0, isAutosolving, null);
+		}
+		return numSet;
+	}
+
 	private static StringBuilder sb = null;
 	private static StringBuilder getSB() {
 		if ( sb == null )
@@ -684,14 +702,15 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * Translate this Pots into an array of Idx's, one per value.
+	 *
 	 * @param result Idx[10], one for each value 1..9 (0 is not referenced).
 	 */
 	public void toIdxs(Idx[] result) {
 		for ( int v=1; v<10; ++v )
 			result[v].clear();
-		entrySet().forEach((entry) -> {
-			int i = entry.getKey().i;
-			for ( int v : VALUESES[entry.getValue().bits] )
+		entrySet().forEach((e) -> {
+			int i = e.getKey().i;
+			for ( int v : VALUESES[e.getValue().bits] )
 				result[v].add(i);
 		});
 	}

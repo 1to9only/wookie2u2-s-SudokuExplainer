@@ -13,8 +13,10 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
-import diuf.sudoku.Values;
+import diuf.sudoku.gui.HintPrinter;
 import diuf.sudoku.io.StdErr;
+import diuf.sudoku.solver.accu.AggregatedHint;
+import diuf.sudoku.solver.accu.AppliedHintsSummaryHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.als.Als;
 import diuf.sudoku.utils.Debug;
@@ -94,6 +96,12 @@ public abstract class AHint implements Comparable<AHint> {
 
 	public static final int AVG_CHARS_PER = 80; // per toString (approximate)
 
+	/** The start hint number is 0, before the first hint. */
+	public static int hintNumber = 0;
+	public static void resetHintNumber() {
+		hintNumber = 0; // before the first hint
+	}
+
 	public final AHinter hinter; // The hinter that produced this hint
 	public final int degree;	 // The degree of my hinter
 	public final int type; // DIRECT, WARNING, INDIRECT, AGGREGATE
@@ -156,45 +164,89 @@ public abstract class AHint implements Comparable<AHint> {
 		this.covers = covers;
 	}
 
-	void logHint() {
-		System.out.println();
-		if ( GrabBag.grid != null ) {
-			System.out.format("%d/%s\n", hintNumber, GrabBag.grid.source);
-			System.out.println(GrabBag.grid);
-		}
-		long now = System.nanoTime();
-		System.out.format("%,15d\t%s\n", now-GrabBag.time, toFullString());
-		GrabBag.time = now;
-	}
-	public static int hintNumber = 1;
+//	void logHint() {
+//		System.out.println();
+//		if ( GrabBag.grid != null ) {
+//			System.out.format("%d/%s\n", hintNumber, GrabBag.grid.source);
+//			System.out.println(GrabBag.grid);
+//		}
+//		long now = System.nanoTime();
+//		System.out.format("%,15d\t%s\n", now-GrabBag.time, toFullString());
+//		GrabBag.time = now;
+//	}
 
 	/**
-	 * Apply this hint to the grid.
-	 * <p><b>NOTE</b>: This method is overridden by: ADirectHint
-	 * , AggregatedChainingHint, AppliedHintsSummaryHint, AWarningHint
-	 * , MultipleSolutionsHint, SolutionHint, and St Marks.
+	 * getGrid() gets the grid which contains the cell-to-set, or the first
+	 * redPots; or first greens, oranges, blues, bases, or covers; else null.
+	 * <p>
+	 * I'm overridden by "multi" hints with setPots.
+	 *
+	 * @return the grid of this hint.
+	 */
+	public Grid getGrid() {
+		if ( cell != null )
+			return cell.getGrid();
+		if ( redPots!=null && !redPots.isEmpty() )
+			return redPots.firstKey().getGrid();
+		if ( greens!=null && !greens.isEmpty() )
+			return greens.firstKey().getGrid();
+		if ( oranges!=null && !oranges.isEmpty() )
+			return oranges.firstKey().getGrid();
+		if ( blues!=null && !blues.isEmpty() )
+			return blues.firstKey().getGrid();
+		if ( bases!=null && !bases.isEmpty() )
+			return bases.get(0).getGrid();
+		if ( covers!=null && !covers.isEmpty() )
+			return covers.get(0).getGrid();
+		// I Give up.
+		return null;
+	}
+
+	/**
+	 * Apply this hint to the grid. This wrapper handles isNoisy, and calls the
+	 * applyImpl method, which may be overridden, to actually apply this hint.
+	 *
 	 * @param isAutosolving true (Grid.AUTOSOLVE) makes Cell.set find and set
 	 * subsequent NakedSingles and HiddenSingles; and also makes me find and
 	 * set any NakedSingles caused by removing the redPots. I haven't tackled
 	 * subsequent hidden singles, and I don't think I will, coz I dunno HOW.
-	 * @return numElims = 10*numCellsSet + numMaybesEliminated.
+	 * @param isNoisy true to print details of this hint, including grid.
+	 * @return the score: numCellsSet*10 + numMaybesRemoved
+	 * @throws UnsolvableException on the odd occasion
 	 */
-	public int apply(boolean isAutosolving, boolean isNoisy) { // throws UnsolvableException on the odd occassion
-		assert cell!=null || redPots!=null : "AHint.apply: cell=null AND redPots=null";
+	public final int apply(boolean isAutosolving, boolean isNoisy) {
+		// I handle isNoisy, and applyImpl actually applies this hint.
+		final Grid grid;
+		if ( (grid=getGrid()) == null )
+			isNoisy = false;
+		final String before = isNoisy ? grid.toString() : null;
+		if ( this instanceof AggregatedHint )
+			((AggregatedHint)this).applyIsNoisy = isNoisy;
+		final int numSet = applyImpl(isAutosolving);
+		if ( isNoisy )
+			HintPrinter.details(this, HintPrinter.source(grid), before);
+		return numSet;
+	}
+
+	/**
+	 * Actually apply this hint to the grid.
+	 * <p>
+	 * This default implementation is protected, to be overridden by:<br>
+	 * ADirectHint, AggregatedChainingHint, AppliedHintsSummaryHint
+	 * , AWarningHint, MultipleSolutionsHint, SolutionHint, XColoringHintMulti
+	 * , GemHintMulti.
+	 * <p>
+	 * I'm <b>ALWAYS</b> called via {@link #apply(boolean, boolean)} so I'm
+	 * protected, ergo only accessible to the solver package, which never calls
+	 * me, except through the above public apply method. Clear?
+	 *
+	 * @param isAutosolving set subsequent Naked/Hidden Singles.
+	 * @return the score: numCellsSet*10 + numMaybesRemoved
+	 * @throws UnsolvableException on the odd occasion
+	 */
+	protected int applyImpl(boolean isAutosolving) {
 		if ( isInvalid )
 			return 0; // invalid hints are dead cats!
-		// =====================================================================
-		// BEWARE: change both methods, or remove IS_NOISY completely.
-		// I got damn sick of the mess of debug code which I'm no longer using.
-		// I retained apply_NOISILY in case s__t goes all funky again, and I
-		// need to debug down to that level. I haven't needed to for kenages.
-		// BEWARE: IS_NOISY is too verbose for generate.
-		// =====================================================================
-		if ( isNoisy ) {
-			logHint();
-			return applyNoisily(isAutosolving);
-		}
-
 		int myNumElims = 0;
 		try {
 			if ( cell != null ) {
@@ -215,21 +267,22 @@ public abstract class AHint implements Comparable<AHint> {
 						// nb: occassionally throws UnsolvableException
 						// nb: populates GrabBag.NAKED_SINGLES if isAutosolving
 						myNumElims += pc.canNotBeBits(pinkBits, nakedSingles);
-				if ( isAutosolving ) try {
-					// set any naked singles that were found by canNotBeBits.
-					assert nakedSingles != null;
-					Cell ns; // nakedSingle
-					while ( (ns=nakedSingles.poll()) != null )
-						if ( ns.maybes.size == 1 ) // ignore any already set
-							// nb: might add to GrabBag.NAKED_SINGLES
-							// nb: occassionally throws UnsolvableException
-							myNumElims += 10 * ns.set(ns.maybes.first(), 0
-									, isAutosolving, SB);
-				} catch (Exception ex) { // especially UnsolvableException
-					// nb: SINGLE_QUEUE allways left empty even if not in use
-					SINGLES_QUEUE.clear();
-					throw ex;
-				}
+				if ( isAutosolving )
+					try {
+						// set any naked singles that were found by canNotBeBits.
+						assert nakedSingles != null;
+						Cell ns; // nakedSingle
+						while ( (ns=nakedSingles.poll()) != null )
+							if ( ns.maybes.size == 1 ) // ignore any already set
+								// nb: might add to GrabBag.NAKED_SINGLES
+								// nb: occassionally throws UnsolvableException
+								myNumElims += 10 * ns.set(ns.maybes.first(), 0
+										, isAutosolving, SB);
+					} catch (Exception ex) { // especially UnsolvableException
+						// nb: SINGLE_QUEUE allways left empty even if not in use
+						SINGLES_QUEUE.clear();
+						throw ex;
+					}
 			}
 		} catch (UnsolvableException ex) { // from cell.set or rc.canNotBeBits
 			// error messages are superflous in recursiveSolve and generate, coz
@@ -244,81 +297,6 @@ public abstract class AHint implements Comparable<AHint> {
 		return myNumElims;
 	}
 	private static final Deque<Cell> SINGLES_QUEUE = new LinkedList<>();
-
-	/**
-	 * I separated out this debug version of apply because it's logically more
-	 * complex, so my debugging was causing bugs.
-	 * @param isAuto ie isAutosolving
-	 * @return
-	 */
-	private int applyNoisily(boolean isAuto) {
-		int myNumElims = 0;
-		try {
-			System.out.format("%,13d %s", took(), toString());
-			if ( cell != null ) {
-				System.out.print(" ("+cell.id+"="+value+")");
-				// returns number of cells set (may be >1 when isAutosolving)
-				// nb: occassionally throws UnsolvableException
-				myNumElims += 10 * cell.set(value, 0, isAuto, SB);
-			}
-			if ( redPots != null ) {
-				int pinkBits; // Paul's already covered this one, thanks Cecil.
-				final Deque<Cell> nakedSingles;
-				if ( isAuto )
-					nakedSingles = SINGLES_QUEUE;
-				else
-					nakedSingles = null;
-				System.out.print(" [");
-				String sep = ""; // no leading space for the first one
-				for ( Cell pc : redPots.keySet() ) { // pinkCell
-					// does pinkCell still have any of these red values?
-					if ( (pinkBits=pc.maybes.bits & redPots.get(pc).bits) == 0 )
-						// Yeah, nah, I'm not pokin that one.
-						System.out.print(sep+pc+" empty pinkBits");
-					else {
-						System.out.print(sep+pc+"-"+Values.toString(pinkBits));
-						// ree-mooove the pinkBits? Wha'about a simple kiss boy?
-						// nb: occassionally throws UnsolvableException
-						myNumElims += pc.canNotBeBits(pinkBits, nakedSingles);
-					}
-					sep = " "; // leading space for each subsequent one
-				}
-				System.out.print("]");
-				// set any naked singles that were stripped by canNotBeBits.
-				// nb: necessary now coz set(AUTO) does a small-fast search.
-				if ( isAuto ) try {
-					// set any naked singles that were found by canNotBeBits.
-					assert nakedSingles != null;
-					Cell ns; // nakedSingle
-					while ( (ns=nakedSingles.poll()) != null )
-						if ( ns.maybes.size == 1 ) { // ignore any already set
-							// NB: this MAY add subsequent singles to queue,
-							// but there's no ConModEx from poll, so we poll
-							assert ns.value == 0; // ie it's a naked single
-							int v = ns.maybes.first();
-							System.out.print(" => ("+ns.id+"="+v+")");
-							// nb: occassionally throws UnsolvableException
-							myNumElims += 10 * ns.set(v, 0, isAuto, SB);
-						}
-				} catch (Exception ex) { // especially UnsolvableException
-					// nb: SINGLE_QUEUE allways left empty even if not in use
-					SINGLES_QUEUE.clear();
-					throw ex;
-				}
-			}
-			System.out.println();
-		} catch (UnsolvableException ex) { // from cell.set or rc.canNotBeBits
-			// these error messages are superflous in recursiveSolve, coz we're
-			// just guessing cell values, so we routinely break the puzzle, but
-			// they're important elsewhere. I really don't like using "slow"
-			// reflection to filter them out, but what else?.
-			// NB: there should be an error if depth=0 (top level), but how?
-			if ( !Debug.isMethodNameInTheCallStack(10, "recursiveSolve") )
-				StdErr.whinge("Error applying: "+this.toFullString(), ex);
-			throw ex;
-		}
-		return myNumElims;
-	}
 
 	/** Implementors override this one to return a subtype of AHinter.
 	 * @return the Hinter which discovered this hint. */
@@ -504,7 +482,7 @@ public abstract class AHint implements Comparable<AHint> {
 		return null;
 	}
 
-	/** Get the green (to set) cells=&gt;values.
+	/** Get the green (to set) Cell=&gt;Values.
 	 * <p>NOTE: formerly green+red=orange. Now oranges are separate!
 	 * @param viewNum the view number, zero-based.
 	 * @return the green Pots, else <tt>null</tt> */
@@ -512,24 +490,21 @@ public abstract class AHint implements Comparable<AHint> {
 		return greens;
 	}
 
-	/** Get the red (eliminated) cells=&gt;values.
-	 * <p>NOTE: formerly green+red=orange. Now oranges are separate!
+	/** Get the red (eliminated) Cell=&gt;Values.
 	 * @param viewNum the view number, zero-based
 	 * @return the red Pots, else <tt>null</tt> */
 	public Pots getReds(int viewNum) {
 		return redPots;
 	}
 
-	/** Get the orange (highlighted) cells=&gt;values.
-	 * <p>NOTE: formerly green+red=orange. Now oranges are separate!
+	/** Get the orange (highlighted) Cell=&gt;Values.
 	 * @param viewNum the view number, zero-based
 	 * @return the red Pots, else <tt>null</tt> */
 	public Pots getOranges(int viewNum) {
 		return oranges;
 	}
 
-	/** Get the blue (chains=pre-eliminated, ALS=eliminated-value, fish=fin)
-	 * cells=&gt;values.
+	/** Get the blue (fins, et al) Cell=&gt;Values.
 	 * @param grid the current Grid.
 	 * @param viewNum the view number, zero-based
 	 * @return the red Pots, else <tt>null</tt> */
@@ -577,18 +552,18 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 
 	/**
-	 * the Super markers for GradedEquivalenceMarksHint only.
+	 * the ons for GEMHint only.
 	 * @return Idx[color][value]
 	 */
-	public Idx[][] getSupers() {
+	public Idx[][] getOns() {
 		return null;
 	}
 
 	/**
-	 * The Sub markers for GradedEquivalenceMarksHint only.
+	 * The offs for GEMHint only.
 	 * @return Idx[color][value]
 	 */
-	public Idx[][] getSubs() {
+	public Idx[][] getOffs() {
 		return null;
 	}
 

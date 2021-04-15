@@ -35,7 +35,6 @@ import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyArrays;
 
-
 /**
  * UniqueRectangle implements the Unique Rectangles and Unique Loops Sudoku
  * solving techniques. Supports types 1 to 4 and Hidden. Skewed non-orthogonal
@@ -450,7 +449,7 @@ public final class UniqueRectangle extends AHinter
 					// v2 is a bit more complex. We make it so that v1 is value
 					// 'a' and v2 is value 'b'; so if v2 is locked into r (and
 					// v1 isn't with the above break) then swap v1 and v2; but
-					// we only do so only in this B,D test, because 'a' must be 
+					// we only do so only in this B,D test, because 'a' must be
 					// locked into both B,D and C,D in order to form a Hidden
 					// URT; so the two tests must use the same value for 'a'.
 					if ( commonRegions[i].indexesOf[v2].size == 2 ) {

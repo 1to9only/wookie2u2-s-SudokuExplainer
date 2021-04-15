@@ -13,6 +13,7 @@ import diuf.sudoku.solver.hinters.als.SueDeCoq;
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.*;
 import diuf.sudoku.gen.*;
+import diuf.sudoku.gui.HintPrinter;
 import diuf.sudoku.io.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.checks.*;
@@ -325,7 +326,7 @@ public final class LogicalSolver {
 				try {
 					((Closeable)h).close();
 				} catch (Throwable eaten) {
-					// Do nothing. What can I do about it? We're closing down!
+					// do nothing
 				}
 			}
 		}
@@ -449,7 +450,7 @@ public final class LogicalSolver {
 		want(indirects, new BasicFisherman(Tech.Swordfish));
 
 		// heavies is the heavy weight division. Slow/er indirect hinters.
-		heavies = new ArrayList<>(isAccurate ? 40 : 0); // 2 short Dougie!
+		heavies = new ArrayList<>(isAccurate ? 42 : 0); // We're loaded Dougie!
 		if ( isAccurate ) {
 			// nb: NONE means that there are 0 top1465.d5.mt
 			//     SLOW takes over a minute to run for top1465
@@ -468,13 +469,14 @@ public final class LogicalSolver {
 			// unwant them for speed. It's only fractions of a second. Meh!
 			want(heavies, new BigWing(Tech.TUVWXYZ_Wing));
 			want(heavies, new BigWing(Tech.STUVWXYZ_Wing));
-			// Choose BUG or Coloring or XColoring and/or 3D Mesuda.
-			// Bug: 3D Medusa doesn't find all XColoring hints, so use both!
-			want(heavies, new BUG()); // slowish
-			want(heavies, new Coloring()); // BUG++
-			want(heavies, new XColoring()); // Coloring++
+			// Choose BUG or Coloring or XColoring and/or 3D Mesuda or GEM.
+			// 3D Medusa does not find all XColoring hints, so use both.
+			// GEM finds everything that 3D Medusa does, and more.
+			want(heavies, new BUG());			 // basic
+			want(heavies, new Coloring());		 // BUG++
+			want(heavies, new XColoring());		 // Coloring++
 			want(heavies, new MedusaColoring()); // XColoring++
-			want(heavies, new GEM()); // MedusaColoring++
+			want(heavies, new GEM());			 // Medusa++
 			want(heavies, new UniqueRectangle());
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
@@ -568,14 +570,12 @@ public final class LogicalSolver {
 		// I'm just ignoring this bug for now coz IT'S NEVER USED in anger.
 		nesters.add(new MultipleChainer(Tech.NestedPlus, a));		// 70 secs
 
-		populateTheWantedHintersList(); // => wantedHinters
+		populateWantedHinters();
 	}
 
-	/** Populates the wantedHinters list with directs, indirects, heavies,
-	 * chainers, and nesters; so that we can just loop through them without
-	 * worrying about which category they're in. */
+	/** Populate the wantedHinters. Method suppresses unchecked warnings. */
 	@SuppressWarnings("unchecked")
-	private void populateTheWantedHintersList() {
+	private void populateWantedHinters() {
 		wantedHinters = new ArrayList<>(Settings.THE.getNumWantedTechniques());
 		//NB: unwanted hinters are already filtered-out of the source lists.
 		wantedHinters.addAll(directs);
@@ -934,8 +934,10 @@ public final class LogicalSolver {
 		// HintsAccumulator.add returns false so hinter keeps searching,
 		// adding each hint to the hints List.
 		final IAccumulator accu = new HintsAccumulator(hints);
-		grid.rebuildAllRegionsEmptyCellCounts();
-		grid.rebuildAllRegionsIdxsOfAllValues();
+		// rebuild all the grid's s__t.
+		grid.rebuildAllRegionsEmptyCellCounts(); // Lonely Singles, Hidden Single, Locking, NakedSet, HiddenSet, BUG, Unique Rectangle, all ALS
+		grid.rebuildAllRegionsIdxsOfAllValues(); // Complex and Kraken fish, Medusa, GEM
+		grid.rebuildAllRegionsContainsValues(); // Complex and Kraken fish
 		// get hints from hinters until one of them returns true (I found a
 		// hint) OR if wantMore then run all hinters. nb: wantedHinters now
 		// includes the nesters, which are only required to solve the
@@ -970,8 +972,6 @@ public final class LogicalSolver {
 	// analyse, solveRecursively
 	private boolean getFirst(IHinter[] hinters, Grid grid, IAccumulator accu, boolean isNoisy) {
 		for ( IHinter hinter : hinters ) {
-//if ( hinter.getTech() == Tech.SingleSolutions )
-//	Debug.breakpoint();
 			if ( interrupt()
 			  || (hinter.isEnabled() && findHints(hinter, grid, accu, isNoisy)) )
 				break;
@@ -990,7 +990,8 @@ public final class LogicalSolver {
 			, boolean less, boolean isNoisy) {
 		for ( IHinter hinter : hinters )
 			if ( interrupt()
-			  || (hinter.isEnabled() && (findHints(hinter, grid, accu, isNoisy) && less)) )
+			  || ( hinter.isEnabled()
+			    && (findHints(hinter, grid, accu, isNoisy) && less) ) )
 				break;
 		return accu.hasAny() && less;
 	}
@@ -1050,7 +1051,7 @@ public final class LogicalSolver {
 	 *  an arbitrary out-of-bounds value.
 	 */
 	public double analyseDifficulty(Grid grid, double maxDif) {
-		double dif, puzDif=0.0D; // difficulty, puzzleDifficulty
+		double d, pd=0.0D; // difficulty, puzzleDifficulty
 		IAccumulator accu = new SingleHintsAccumulator();
 		AHint.hintNumber = 1; // reset the hint number
 		// we're now attempting to deal with deceased felines
@@ -1062,21 +1063,22 @@ public final class LogicalSolver {
 		// except Generator skips Kraken Swordfish & Jellyfish which bugger-up
 		// on null table entries, which I do not understand why they are null.
 		enableKrakens(false, 3);
-		final IHinter[] enabledHinters = getEnableds(wantedHinters);
-		grid.rebuildAllRegionsEmptyCellCounts();
-		grid.rebuildAllRegionsIdxsOfAllValues();
+		final IHinter[] hinters = wantedHinters.toArray(new IHinter[wantedHinters.size()]);
+		grid.rebuildAllRegionsEmptyCellCounts(); // Lonely Singles, Hidden Single, Locking, NakedSet, HiddenSet, BUG, Unique Rectangle, all ALS
+		grid.rebuildAllRegionsIdxsOfAllValues(); // Complex and Kraken fish, Medusa, GEM
+		grid.rebuildAllRegionsContainsValues(); // Complex and Kraken fish
 		for ( int pre=grid.countMaybes(),now; pre>0; pre=now ) { // ie !isFull
-			if ( getFirst(enabledHinters, grid, accu, false) ) {
+			if ( getFirst(hinters, grid, accu, false) ) {
 				if ( interrupt() )
-					return puzDif; // not sure what I should return
+					return pd; // not sure what I should return
 				AHint hint = accu.getHint();
 				assert hint != null;
 				// NB: AggregatedChainingHint.getDifficulty returns the maximum
 				// difficulty of all the hints in the aggregate.
-				dif = hint.getDifficulty();
-				assert dif >= Difficulty.Easy.min; // there is no theoretical max
-				if ( dif>puzDif && (puzDif=dif)>maxDif )
-					return puzDif; // maximum desired difficulty exceeded
+				d = hint.getDifficulty();
+				assert d >= Difficulty.Easy.min; // there is no theoretical max
+				if ( d>pd && (pd=d)>maxDif )
+					return pd; // maximum desired difficulty exceeded
 				try {
 					hint.apply(Grid.NO_AUTOSOLVE, false);
 				} catch (UnsolvableException ex) {
@@ -1096,7 +1098,7 @@ public final class LogicalSolver {
 			}
 		}
 		enableKrakens(true, 3);
-		return puzDif;
+		return pd;
 	}
 	private boolean anyDisabled;
 
@@ -1212,6 +1214,7 @@ public final class LogicalSolver {
 	 * @param validate true means run the TooFewClues and TooFewValues
 	 *  validators before solving the puzzle.
 	 * @param isNoisy true logs progress, false does it all quietly.
+	 * @param logHints only true in LogicalSolverTester.
 	 * @return was it solved; else see grid.invalidity
 	 * @throws UnsolvableException which is a RuntimeException means that this
 	 *  puzzle is invalid and/or cannot be solved. See the exceptions message
@@ -1245,28 +1248,22 @@ public final class LogicalSolver {
 			validatePuzzle(grid, accu); // throws UnsolvableException
 		if ( grid.source != null )
 			prepare(grid); // prepare hinters to process this grid
-		// get the hintNumber activated hinters
-		IHinter[] enableds = getEnableds(wantedHinters);
-//		INumberedHinter[] numbereds = getNumberedHinters(enableds);
-		// count the isActuallyHintNumberActivated hinters
-//		final boolean anyNumbered = countActualHNAHs(numbereds) > 0;
-		// if 0 actualHNAH's then just activate them all ONCE, coz it's faster.
-//		if(!anyNumbered) activate(numbereds, true);
+		// Get an array of the wanted hinters
+		IHinter[] hinters = wantedHinters.toArray(new IHinter[wantedHinters.size()]);
 		// and they're off and hinting ...
-		int hintNum = AHint.hintNumber = 1; // BEFORE the first hint
+		int hintNum = AHint.hintNumber = 1; // at the first hint
 		AHint problem, hint;
 		long now;
 		while ( !grid.isFull() ) {
-			// must rebuild BEFORE we validate (RecursiveAnalyser uses). Sigh.
-			grid.rebuildAllRegionsEmptyCellCounts();
-			grid.rebuildAllRegionsIdxsOfAllValues();
+			// must rebuild BEFORE we validate (RecursiveAnalyser uses).
+			grid.rebuildAllRegionsEmptyCellCounts(); // Lonely Singles, Hidden Single, Locking, NakedSet, HiddenSet, BUG, Unique Rectangle, all ALS
+			grid.rebuildAllRegionsIdxsOfAllValues(); // Complex and Kraken fish, Medusa, GEM
+			grid.rebuildAllRegionsContainsValues(); // Complex and Kraken fish
 			// detect invalid grid, meaning a hinter is probably borken!
 			if ( (problem=validatePuzzleAndGrid(grid, false)) != null )
 				throw new UnsolvableException("Houston: "+problem);
-			// activate the hintNumber activated hinters
-//			if(anyNumbered) activate(numbereds, hintNum);
 			// getHints from each enabled hinter
-			if ( !timeHinters(enableds, grid, accu, usage, hintNum) )
+			if ( !timeHinters(hinters, grid, accu, usage, hintNum) )
 				// throws UnsolvableException
 				return carp("Hint not found", grid, true);
 			// apply the hint
@@ -1279,22 +1276,18 @@ public final class LogicalSolver {
 		} // wend
 		if ( isNoisy )
 			System.out.println("<solve "+Settings.took()+"\n"+grid+"\n");
-		AHint.hintNumber = 1; // reset the hint number
+		AHint.resetHintNumber();
 		return true;
 	}
 
 	// Called by solve to time the execution of the getHints methods of
 	// these enabledHinters.
-	private boolean timeHinters(IHinter[] enableds, Grid grid
+	private boolean timeHinters(IHinter[] hinters, Grid grid
 			, IAccumulator accu, UsageMap usageMap, int hintNum) {
 		long start;  boolean any;
-		for ( IHinter hinter : enableds )
+		for ( IHinter hinter : hinters )
 			if ( hinter.isActive() ) {
 				start = System.nanoTime();
-//if ( hintNum==40 ) //&& hinter.getTech()==Tech.AlignedSept )
-//	Debug.breakpoint();
-//if ( hinter.getTech() == Tech.Locking )
-//	Debug.breakpoint();
 				any = hinter.findHints(grid, accu);
 				// NB: numHints & NumElims are set after hint is applied, so
 				// that we know what it DID, not just what we expect it to do.
@@ -1338,7 +1331,7 @@ public final class LogicalSolver {
 		}
 		// + 1 line per Hint (detail)
 		if ( Log.MODE>=Log.VERBOSE_2_MODE && logIt )
-			printHintDetailsLine(Log.out, hintCount, took, grid, numElims, hint, true);
+			HintPrinter.details(Log.out, hintCount, took, grid, numElims, hint, true);
 		// NB: usage was inserted by doHinters2, we just update it
 		if ( usage != null )
 			updateUsage(usage, hint, numElims);
@@ -1349,29 +1342,11 @@ public final class LogicalSolver {
 		// nb: DEAD_CATS.add is "addOnly"; returns false if already exists.
 		if ( numElims==0 && !DEAD_CATS.add(hint) ) {
 			// tell-em it's rooted
-			Log.teeln("WARN: DEAD_CAT disabled "+hint.hinter.tech.name()+" "+hint.toFullString());
+			Log.teeln("WARN: DEAD_CAT disabled "+hint.hinter.tech.name()+": "+hint.toFullString());
 			// disable the offender
 			hint.hinter.setIsEnabled(false);
 		}
 		return numElims;
-	}
-
-	private static void printHintDetailsLine(PrintStream out, int hintCount
-			, long took, Grid grid, int numElims, AHint hint, boolean wantBlankLine) {
-		out.format("%-5d", hintCount); // left justified to differentiate from puzzleNumber in the logFile.
-		out.format("\t%,15d", took); // time between hints includes activate time and rebuilding empty cell counts
-		out.format("\t%2d", grid.countFilledCells());
-		out.format("\t%4d", grid.countMaybes());
-		out.format("\t%3d", numElims);
-		out.format("\t%-30s", hint.hinter);
-		// squeeze hobiwans multiline Kraken format back onto one line
-		if ( hint.hinter.tech.name().startsWith("Kraken") )
-			out.format("\t%s", MyStrings.squeeze(hint.toFullString()));
-		else
-			out.format("\t%s", hint.toFullString());
-		out.println();
-		if ( wantBlankLine )
-			out.println();
 	}
 
 	// Updates the UsageMap with the hint details: adds numHints and numElims,
@@ -1397,26 +1372,6 @@ public final class LogicalSolver {
 		u.maxDifficulty = Math.max(hint.getDifficulty(), u.maxDifficulty);
 		// addonate to subHints Map: for hinters producing multiple hint types.
 		u.addonateSubHints(hint, 1);
-	}
-
-	// get the INumberedHinter[]'s from the enabledHinters[].
-	private INumberedHinter[] getNumberedHinters(IHinter[] enabledHinters) {
-		List<INumberedHinter> list = new LinkedList<>();
-		for ( IHinter h : enabledHinters )
-			if ( h instanceof INumberedHinter )
-				list.add((INumberedHinter)h);
-		return list.toArray(new INumberedHinter[list.size()]);
-	}
-
-	// Counts the isActuallyHintNumberActivated()-hinters, ignoring the
-	// firstHintNumber-activated ones. If there are none we give-up hintNumber
-	// activation, coz it takes about as long to do as it saves.
-	private int countActualHNAHs(INumberedHinter[] activatables) {
-		int count = 0;
-		for ( INumberedHinter nh : activatables )
-			if ( nh.isActuallyHintNumberActivated() )
-				++count;
-		return count;
 	}
 
 	public void prepare(Grid grid) {
@@ -1483,47 +1438,6 @@ public final class LogicalSolver {
 	}
 	private LinkedList<IPreparer> preppersCache; // defaults to null
 	private int prepyModCount; // defaults to 0
-
-	// an enabled hinter is one which finds a hint (any hint) in this puzzle.
-	private IHinter[] getEnableds(List<IHinter> wantedHinters) {
-		List<IHinter> list = new LinkedList<>();
-		for ( IHinter hinter : wantedHinters )
-			if ( hinter.isEnabled() )
-				list.add(hinter);
-		return list.toArray(new IHinter[list.size()]);
-	}
-
-	// Each INumberedHinter is de/activated for each hint.
-	// If it's not active then it's not executed by the timeHinters method.
-	private void activate(INumberedHinter[] numberedHinters, int hintNum) {
-		for ( INumberedHinter nh : numberedHinters )
-			nh.activate(hintNum);
-	}
-
-	// When there are no actual-hintNumber-activated-hinters it's faster to
-	// activate all the hinters once (ie not de/activate them for each hint).
-	private void activate(INumberedHinter[] numbereds, boolean isActive) {
-		for ( INumberedHinter hinter : numbereds )
-			hinter.setIsActive(isActive);
-	}
-
-	// REQUIRED: Used by jUnit test-cases only, so that they don't have to
-	// deal with the complexities of maintaining hinters-lists.
-	public void activate_4JUnit(final boolean active) {
-		IHinter[] wh = wantedHinters.toArray(new IHinter[wantedHinters.size()]);
-		INumberedHinter[] nhs = getNumberedHinters(wh);
-		for ( INumberedHinter nh : nhs )
-			nh.setIsActive(active);
-	}
-
-//RETAIN for debugging
-//	private List<IHinter> actives(IHinter[] enableds) {
-//		List<IHinter> result = new LinkedList<>();
-//		for ( IHinter h : enableds )
-//			if ( h.isActive() )
-//				result.add(h);
-//		return result;
-//	}
 
 	/** Get the solution to this puzzle as soon as possible (ie guessing
 	 * recursively, ie using brute force, ie using a BIG stick).

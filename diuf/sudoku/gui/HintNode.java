@@ -27,7 +27,7 @@ public final class HintNode extends DefaultMutableTreeNode {
 		super();
 		this.hint = hint;
 		this.name = hint.toString();
-		if ( hint.hinter.tech.isNested )
+		if ( hint.hinter!=null && hint.hinter.tech.isNested )
 			name += " (" + hint.getViewCount() + ")";
 	}
 

@@ -14,12 +14,10 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.utils.MyLinkedFifoQueue;
-import diuf.sudoku.utils.MyLinkedHashSet;
 import diuf.sudoku.utils.IMyPollSet;
 import java.util.Deque;
 import java.util.LinkedHashSet;
@@ -28,7 +26,6 @@ import java.util.List;
 import java.util.Set;
 import diuf.sudoku.utils.IFilter;
 import java.util.Arrays;
-
 
 /**
  * An engine for searching a Grid for unary forcing chains and bidirectional

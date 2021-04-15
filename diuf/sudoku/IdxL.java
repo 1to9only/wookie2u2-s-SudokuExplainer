@@ -203,6 +203,12 @@ public class IdxL extends Idx implements Cloneable {
 		super.add(i);
 	}
 
+	@Override
+	public boolean addOnly(int i) {
+		checkLock();
+		return super.addOnly(i);
+	}
+
 	/**
 	 * Add the indice of each of the given cells to this Idx.
 	 * <p>

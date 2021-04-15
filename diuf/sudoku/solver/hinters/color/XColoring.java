@@ -10,8 +10,8 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.BUDDIES;
 import static diuf.sudoku.Grid.CELL_IDS;
+import static diuf.sudoku.Grid.CELLS_REGIONS;
 import diuf.sudoku.Grid.Cell;
-import static diuf.sudoku.Grid.REGIONS;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
@@ -77,17 +77,12 @@ public final class XColoring extends AHinter {
 	/** The first and second colors. */
 	private static final int C1 = 0, C2 = 1;
 
+	// the iceQueue size and mask
 	private static final int Q_SIZE = 32;			// must be a power of 2
 	private static final int Q_MASK = Q_SIZE - 1;	// for this trick to work
 
-	private static final int[] OPPOSITE_COLOR = {1, 0};
-
-	private static boolean isEmpty(int[][] coloredIndiceQueue) {
-		for ( int i=0; i<Q_SIZE; ++i )
-			if ( coloredIndiceQueue[i] != null )
-				return false;
-		return true;
-	}
+	// the opposite color
+	private static final int[] OPPOSITE = {1, 0};
 
 	// ============================ debugger stuff ============================
 
@@ -114,12 +109,9 @@ public final class XColoring extends AHinter {
 	/** The IAccumulator to which any hints found are added. */
 	private IAccumulator accu;
 
-	// it's faster to construct these arrays ONCE
 	// Indice Color Element Queue:
-	//  first index is the queue element index
+	// first index is the queue element index: 0..Q_SIZE-1
 	// second index is 0=indice(0..80), 1=color(0..1)
-	// * Also a healthy ICE habit.
-	// * And we still have no idea what to do about melting it all. sigh.
 	private final int[][] iceQueue = new int[Q_SIZE][];
 	// the two indices of a conjugate pair in a region
 	private final int[] conjugates = new int[2];
@@ -170,6 +162,7 @@ public final class XColoring extends AHinter {
 	private boolean findXColorHints() {
 		Cell cell; // If you need this explaining you're in the wrong codebase.
 		AHint hint; // Similarly.
+		ARegion dr; // a dirty region, to be re-processed.
 		int subtype; // the hint type, if any
 		int i; // the uniquitious general purpose index
 		int n; // the number of whatevers added to the array
@@ -222,24 +215,24 @@ public final class XColoring extends AHinter {
 					iceQueue[1] = new int[]{conjugates[1], C2};
 					write = 2;
 					read = 0;
+					// nb: this is just iceQueue.poll(), without a method call,
+					// which is the main reason why this mess is faster.
 					for ( ice=iceQueue[read], iceQueue[read]=null, read=(read+1)&Q_MASK;
 						  ice!=null;
 						  ice=iceQueue[read], iceQueue[read]=null, read=(read+1)&Q_MASK
 					) {
-						indice = ice[0];
-						color = ice[1];
-						for ( ARegion r : grid.cells[indice].regions ) {
+						for ( ARegion r : grid.cells[ice[0]].regions ) {
 							if ( r.indexesOf[v].size == 2
-//							  // skip the region that got us here
-//							  && r != region
-							  // find an __uncolored__ conjugate
-							  && !bothColors.contains(conjugate=r.idxs[v].otherThan(indice))
+							  // and my conjugate is not colored
+							  && !bothColors.contains(conjugate=r.idxs[v].otherThan(ice[0]))
 							) {
+								indice = ice[0];
+								color = ice[1];
 								step("    Step 2: "+CELL_IDS[indice]+" ("+(color==0?"green":"blue")+")"
 									+" =conjugate=> "+CELL_IDS[conjugate]+" ("+(color==0?"blue":"green")+")"
 									+" in "+r.id);
 								// color it the OPPOSITE color
-								oppositeColor = OPPOSITE_COLOR[color];
+								oppositeColor = OPPOSITE[color];
 								colorSets[oppositeColor].add(conjugate);
 								bothColors.add(conjugate);
 								// add this newly colored cell to the queue
@@ -270,8 +263,7 @@ public final class XColoring extends AHinter {
 							// uncolored cells= colorSet.BUDDIES | colorSet
 							bothBuds.set(colorSet=colorSets[c]);
 							colorSet.forEach((j)->bothBuds.or(BUDDIES[j]));
-							dirtyRegions.clear();
-							any = false; // any for this color only
+							dirtyRegions = 0;
 							// foreach region in the grid
 							for ( ARegion r : grid.regions ) {
 								if ( xSet.setAndNot(r.idxs[v], bothBuds).size() == 1 ) {
@@ -282,30 +274,26 @@ public final class XColoring extends AHinter {
 									bothColors.or(xSet);
 									indice = xSet.peek();
 									bothBuds.or(xSet).or(BUDDIES[indice]);
-									// enqueue cell.regions for re-examination.
-									dirtyRegions.or(REGIONS[indice]);
-									any = true;
+									// enqueue cell.regions for reprocessing
+									dirtyRegions |= CELLS_REGIONS[indice];
 								}
-								// No need to re-examine this region.
-								if ( any )
-									dirtyRegions.remove(r.index);
+								// No need to reprocess this region
+								dirtyRegions &= ~Idx.SHFT[r.index];
 							}
-							// now re-examine the dirty regions, adding any new
-							// ones to the tail-of-queue, until queue is empty.
-							while ( (dri=dirtyRegions.poll()) > -1 ) {
-								ARegion r = grid.regions[dri];
-								if ( xSet.setAndNot(r.idxs[v], bothBuds).size() == 1 ) {
+							// now reprocess the dirty regions, adding any new
+							// ones to the queue, until the queue is empty.
+							// 32 means dirtyRegions==0, ie the queue is empty.
+							while ( (dri=pollDirtyRegions()) != 32 ) {
+								if ( xSet.setAndNot((dr=grid.regions[dri]).idxs[v], bothBuds).size() == 1 ) {
 									step("    Step 3: "+CELL_IDS[xSet.peek()]
-										+" is the only place for "+v+" in DIRTY "+r.id
+										+" is the only place for "+v+" in DIRTY "+dr.id
 										+", so it's "+(c==0?"green":"blue"));
 									colorSet.or(xSet);
 									bothColors.or(xSet);
 									indice = xSet.peek();
 									bothBuds.or(xSet).or(BUDDIES[indice]);
-									// queue cell.regions for re-exam.
-									dirtyRegions.or(REGIONS[indice]);
-									// no need to re-exam this region.
-									dirtyRegions.remove(r.index);
+									// reprocess my regions, except this one
+									dirtyRegions |= CELLS_REGIONS[indice] & ~Idx.SHFT[dr.index];
 								}
 							}
 						}
@@ -323,7 +311,7 @@ public final class XColoring extends AHinter {
 						//     color, then the OTHER color is true.
 						// NOTE: Type 2 is as rare as rocking horse s__t.
 						COLOR: for ( c=0; c<2; ++c ) {
-							o = OPPOSITE_COLOR[c];
+							o = OPPOSITE[c];
 							colorSet = colorSets[c];
 							otherSet = colorSets[o];
 							for ( ARegion r : grid.regions )
@@ -347,7 +335,7 @@ public final class XColoring extends AHinter {
 							//     cells of the same color, then the OTHER
 							//     color is true.
 							COLOR: for ( c=0; c<2; ++c ) { // GREEN, BLUE
-								o = OPPOSITE_COLOR[c];
+								o = OPPOSITE[c];
 								colorSet = colorSets[c];
 								otherSet = colorSets[o];
 								// buddies of THIS color
@@ -478,8 +466,6 @@ public final class XColoring extends AHinter {
 	private final Idx[] colorSets = {new Idx(), new Idx()};
 	// both colors = colorSets[C1] | colorSets[C2]
 	private final Idx bothColors = new Idx();
-	// the indexes of regions to re-examine
-	private final Idx dirtyRegions = new Idx();
 	// The Exception Cell, or X for short
 	private final Idx xSet = new Idx();
 	// buddies of this color | bothColors, and then it's reused for other stuff
@@ -488,5 +474,17 @@ public final class XColoring extends AHinter {
 	private final Idx bothBuds = new Idx();
 	// a temporary Idx: set, read, forget.
 	private final Idx tmp = new Idx();
+
+	// a bitset of indexes of regions that are "dirty", ergo a queue of regions 
+	// to be reprocessed, used by findXColorHints (above) and poll (below).
+	// NOTE: we use just a 32 bit int because there's only 27 regions.
+	private int dirtyRegions;
+
+	// poll the dirtyRegions bitset: remove and return it's first set (1) bit.
+	private int pollDirtyRegions() {
+		int x = dirtyRegions & -dirtyRegions; // lowestOneBit
+		dirtyRegions &= ~x; // remove x
+		return Integer.numberOfTrailingZeros(x);
+	}
 
 }

@@ -19,6 +19,7 @@ import diuf.sudoku.solver.AWarningHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.checks.SolvedHint;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.IAsker;
 import diuf.sudoku.utils.Html;
@@ -40,8 +41,10 @@ import javax.swing.*;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.event.*;
 import javax.swing.filechooser.FileFilter;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Caret;
+import javax.swing.text.Document;
 import javax.swing.tree.*;
-
 
 /**
  * The SudokuFrame is the main window of the application.
@@ -307,8 +310,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 			p.setLinks(h.getLinks(viewNum));
 			p.setBases(h.getBases());
 			p.setCovers(h.getCovers());
-			p.setSupers(h.getSupers());
-			p.setSubs(h.getSubs());
+			p.setSupers(h.getOns());
+			p.setSubs(h.getOffs());
 		}
 		p.repaint();
 	}
@@ -739,16 +742,12 @@ final class SudokuFrame extends JFrame implements IAsker {
 			return hintDetailPane;
 		}
 		hintDetailPane = new JEditorPane("text/html", null) {
-			private static final long serialVersionUID
-					= -5658720148768663350L;
-
+			private static final long serialVersionUID = -5658720148768663350L;
 			@Override
 			public void paint(Graphics g) {
 				Graphics2D g2 = (Graphics2D) g;
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-						 RenderingHints.VALUE_ANTIALIAS_ON);
-				g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-						 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 				super.paint(g);
 			}
 		};
@@ -756,40 +755,112 @@ final class SudokuFrame extends JFrame implements IAsker {
 		hintDetailPane.addMouseListener(new java.awt.event.MouseAdapter() {
 			@Override
 			public void mouseClicked(java.awt.event.MouseEvent e) {
-				int btn = e.getButton();
-				int cnt = e.getClickCount();
-				if ((btn == MouseEvent.BUTTON2 || btn == MouseEvent.BUTTON3) && cnt == 1) {
+				final int btn = e.getButton();
+				if ( (btn==MouseEvent.BUTTON2 || btn==MouseEvent.BUTTON3)
+				  && e.getClickCount() == 1 ) {
 					// single-right-click
-					if (hintDetailHtml != null) {
+					if (hintDetailHtml != null)
 						engine.copyToClipboard(hintDetailHtml);
-					} else {
+					else
 						engine.beep();
-					}
 					e.consume();
 				}
 			}
 		});
 		// make keys do same in hintDetailPane as in the hintsTree
 		hintDetailPane.addKeyListener(new KeyAdapter() {
+			private String target;
+			private int place;
 			@Override
 			public void keyPressed(KeyEvent e) {
 				final int keyCode = e.getKeyCode();
-				if (keyCode == KeyEvent.VK_ENTER) {
+				if ( keyCode == KeyEvent.VK_ENTER ) {
 					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
 					e.consume();
-				} else if (keyCode == KeyEvent.VK_DELETE) {
-					ArrayList<HintNode> hintNodes = getSelectedHintNodes();
-					if (hintNodes != null && !hintNodes.isEmpty()) {
-						Tech deadTech = hintNodes.get(0).getHint().hinter.tech;
-						removeHintsAndDisableHinter(deadTech);
-						hintsTree.clearSelection();
-						repaint();
+				} else if ( keyCode == KeyEvent.VK_DELETE ) {
+					// this mess averts all possible NPE's getting deadTech.
+					// It's ugly but ultimate-safe.
+					try {
+						final ArrayList<HintNode> nodes = getSelectedHintNodes();
+						if ( nodes!=null && !nodes.isEmpty() ) {
+							final HintNode node = nodes.get(0);
+							if ( node != null ) {
+								final AHint hint = node.getHint();
+								if ( hint != null ) {
+									final AHinter hinter = hint.hinter;
+									if ( hinter != null ) {
+										final Tech deadTech = hinter.tech;
+										if ( deadTech != null ) {
+											removeHintsAndDisableHinter(deadTech);
+											hintsTree.clearSelection();
+											repaint();
+										}
+									}
+								}
+							}
+						}
+					} catch (Exception eaten) {
+						// Do nothing, no biggy, it's only a hack
 					}
 					e.consume();
+				// Ctrl-F or Ctrl-F3 to find
+				} else if ( (keyCode==KeyEvent.VK_F || keyCode==KeyEvent.VK_F3)
+						 && e.isControlDown() ) {
+					findFirst();
+					e.consume();
+				// F3 to find next
+				} else if ( keyCode==KeyEvent.VK_F3 ) {
+					if ( target==null || target.isEmpty() || place==-1 )
+						findFirst();
+					else
+						findNext();
+					e.consume();
+				}
+			}
+			private void findFirst() {
+				target = askForString("Target", "Find hint details");
+				if ( target==null || target.isEmpty() ) {
+					place = -1;
+				} else {
+					try {
+						final Caret caret = hintDetailPane.getCaret();
+						final Document doc = hintDetailPane.getDocument();
+						final String text = doc.getText(0, doc.getLength());
+						place = text.indexOf(target);
+						if ( place == -1 ) {
+							caret.setDot(0);
+							engine.beep();
+						} else {
+							caret.setDot(place);
+							caret.moveDot(place+target.length());
+						}
+					} catch (BadLocationException ex) {
+						// Do nothing
+					}
+				}
+			}
+			private void findNext() {
+				assert target!=null && !target.isEmpty();
+				assert place > -1;
+				try {
+					final Caret caret = hintDetailPane.getCaret();
+					final Document doc = hintDetailPane.getDocument();
+					final String text = doc.getText(0, doc.getLength());
+					place = text.indexOf(target, place+target.length());
+					if ( place == -1 ) {
+						caret.setDot(0);
+						engine.beep();
+					} else {
+						caret.setDot(place);
+						caret.moveDot(place+target.length());
+					}
+				} catch (BadLocationException ex) {
+					// Do nothing
 				}
 			}
 		});
 		return hintDetailPane;
+		
 	}
 
 	private JScrollPane getHintsTreeScrollPane() {

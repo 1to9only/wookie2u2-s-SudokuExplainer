@@ -23,7 +23,7 @@ public abstract class AWarningHint extends AHint {
 	}
 
 	@Override
-	public int apply(boolean isAutosolving, boolean isNoisy) {
+	public int applyImpl(boolean isAutosolving) {
 		return 0;
 	}
 

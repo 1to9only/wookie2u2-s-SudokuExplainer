@@ -9,12 +9,8 @@ package diuf.sudoku.solver.checks;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.GrabBag;
-import diuf.sudoku.solver.LogicalSolver;
-import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
@@ -267,19 +263,19 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	 * (in which case the grid is filled with the solution), or
 	 * <tt>false</tt> if the grid has no solution. */
 	private boolean doRecursiveSolve(Grid grid, boolean isReverse, boolean isNoisy) {
-		boolean isSolved;
+		boolean result;
 		try {
-			isSolved = recursiveSolve(grid, 1, isReverse, null, isNoisy);
+			result = recursiveSolve(grid, 1, isReverse, null, isNoisy);
 		} catch (UnsolvableException unexpected) {
 			// from the top level of recursiveSolve, meaning that the puzzle
 			// is invalid somehow.
-			isSolved = false;
+			result = false;
 		}
 		if ( IS_NOISY ) {
 			final String s; if(isReverse) s="back"; else s="for";
-			noiseln("doRecursiveSolve "+s+"wards returns "+isSolved+NL+grid);
+			noiseln("doRecursiveSolve "+s+"wards returns "+result+NL+grid);
 		}
-		return isSolved;
+		return result;
 	}
 
 	/**
@@ -361,7 +357,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	private final IAccumulator accu = new SingleHintsAccumulator();
 
 	// the singles are both passed the above apcu explicitly.
-	private final AHinter[] THE_SINGLES = new AHinter[] {
+	private final AHinter[] singlesHinters = new AHinter[] {
 		    new HiddenSingle() // NB: hidden first, coz it's quicker this way
 		  , new NakedSingle()  // when we run them both anyway.
 	};
@@ -370,22 +366,26 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	// Locking uses the HintsApplicumulator under the hood, and then adds
 	// to the "normal" accu an AppliedHintsSummaryHint, whose apply method
 	// returns numElims, so that everything else still works as per normal.
-	private final AHinter[] FOUR_QUICK_FOXES = new AHinter[] {
+	private final AHinter[] fourQuickFoxes = new AHinter[] {
 		  new Locking(apcu) // nb: the apcu applies hints immediately
 		, new NakedSet(Tech.NakedPair)
 		, new HiddenSet(Tech.HiddenPair)
 		, new BasicFisherman(Tech.Swampfish)
 	};
 
-	/** (1) Fill all naked and hidden singles.
-	 * Again, not necessary in theory (pure brute-force will suffice), but
-	 * some 17-clued Sudoku would require (too?) many iterations without. */
+	/**
+	 * (1) Fill all naked and hidden singles, and eliminate using the four
+	 * quick foxes: Locking, NakedPair, HiddenPair, Swampfish; exhaustively.
+	 * <p>
+	 * In theory logical-solving is not required (pure brute-force suffices),
+	 * but in practice some 17-clued Sudokus do too many iterations without.
+	 *
+	 * @throws throws UnsolvableException if the grid is found to be rooted.
+	 */
 	private boolean solveLogically(Grid grid, boolean isNoisy) {
 		// localise fields for speed
 		final HintsApplicumulator myApcu = apcu;
 		final IAccumulator myAccu = accu;
-		final AHinter[] theSingles = THE_SINGLES;
-		final AHinter[] fourQuickFoxes = FOUR_QUICK_FOXES;
 
 		// reset my hint applicumulator (and my hint accumulator just in case)
 		myApcu.reset();
@@ -397,8 +397,8 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 		// returning true immediately if the grid is filled (ie solved).
 		do {
 			any = false;
-			// the SINGLES use the apcu whereas the FOXES are manually applied.
-			for ( AHinter hinter : theSingles )
+			// singles use myApcu where-as foxes are applied manually.
+			for ( AHinter hinter : singlesHinters )
 				// apcu immediately applies hints
 				if ( (hinter.findHints(grid, myApcu)) // throws UnsolvableException
 				  && (any|=true)
@@ -409,7 +409,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 				if ( hinter.findHints(grid, myAccu) // throws UnsolvableException
 				  && (hint=myAccu.getHint()) != null
 				  && (any|=true)
-				  && hint.apply(true, isNoisy) > 0 // Grid.AUTOSOLVE // throws UnsolvableException
+				  && hint.apply(true, isNoisy) > 0 // throws UnsolvableException
 				  && grid.isFull() )
 					return true;
 		} while ( any );

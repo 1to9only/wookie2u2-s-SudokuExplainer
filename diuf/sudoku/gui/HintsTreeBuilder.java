@@ -75,7 +75,12 @@ public final class HintsTreeBuilder {
 			// choose the appropriate Map for this type of hint
 			final Map<String,HintNode> theMap = maps[Math.min(hint.type,2)];
 			// get hinter name, not hintTypeName which defaults to hinterName.
-			final String hinterName = hint.hinter.toString();
+			final String hinterName;
+			if ( hint.hinter == null )
+				// we get away with it coz it's the only hint without a hinter
+				hinterName = hint.getClass().getSimpleName().replaceAll("Hint$", "");
+			else
+				hinterName = hint.hinter.toString();
 			HintNode hinterNode = theMap.get(hinterName);
 			if ( hinterNode == null ) { // create a new hinterNode
 				hinterNode = new HintNode(hinterName);

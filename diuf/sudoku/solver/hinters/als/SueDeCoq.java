@@ -113,11 +113,9 @@ public class SueDeCoq extends AHinter {
 		this.onlyOne = accu.isSingle();
 		try {
 			if ( onlyOne )
-				result = findHintsInt(grid.rows)
-					  || findHintsInt(grid.cols);
+				result = search(grid.rows) || search(grid.cols);
 			else
-				result = findHintsInt(grid.rows)
-					   | findHintsInt(grid.cols);
+				result = search(grid.rows) | search(grid.cols);
 		} finally {
 			// clean-up after myself
 			this.grid = null;
@@ -130,13 +128,13 @@ public class SueDeCoq extends AHinter {
 
 	/**
 	 * Searches each intersection of the given {@code lines} with the boxes,
-	 * delegating the search to {@link #checkIntersection}.
+	 * delegating the search to {@link #searchIntersection}.
 	 *
 	 * @param lines the array of rows or cols
 	 * @return
 	 */
-	private boolean findHintsInt(ARegion[] lines) {
-		// get all possible intersections between rows/cols and boxs
+	private boolean search(ARegion[] lines) {
+		// we're looking at each intersection between lines and boxs
 		final Idx empties = grid.getEmpties();
 		boolean result = false;
 		// foreach row/col
@@ -149,8 +147,8 @@ public class SueDeCoq extends AHinter {
 				// get the intersection
 				if ( interSet.setAndAny(lineSet, boxSet.setAnd(box.idx, empties))
 				  && interSet.size() > 1
-				  // check the intersection
-				  && checkIntersection() ) {
+				  // search this intersection
+				  && searchIntersection() ) {
 					result = true;
 					if ( onlyOne )
 						return result;
@@ -161,7 +159,7 @@ public class SueDeCoq extends AHinter {
 	}
 
 	/**
-	 * Checks all possible combos of cells in the intersection. If a combo
+	 * Searches all possible combos of cells in the intersection. If a combo
 	 * holds 2 more candidates than cells, a SDC could possibly exist.
 	 * <p>
 	 * The method doesn't use recursion. There can be only two or three cells
@@ -170,7 +168,7 @@ public class SueDeCoq extends AHinter {
 	 * @param onlyOne
 	 * @return
 	 */
-	private boolean checkIntersection() {
+	private boolean searchIntersection() {
 		Cell c1, c2, c3;
 		int nPlus, cands1, cands2, cands3;
 		final int n = interSet.cellsN(grid, interCells);

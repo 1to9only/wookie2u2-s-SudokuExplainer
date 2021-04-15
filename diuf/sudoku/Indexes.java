@@ -451,6 +451,13 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 		return SB.toString();
 	}
 	private static final StringBuilder SB = new StringBuilder(NUM_BITS);
+	
+	public static String toString(int bits) {
+		SB.setLength(0);
+		for ( int i : INDEXES[bits] )
+			SB.append(i);
+		return SB.toString();
+	}
 
 	// ---------------- plumbing ----------------
 	// dealing with all Javas s__t.

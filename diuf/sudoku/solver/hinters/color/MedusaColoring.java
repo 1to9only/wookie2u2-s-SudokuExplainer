@@ -8,7 +8,6 @@ package diuf.sudoku.solver.hinters.color;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import static diuf.sudoku.Grid.BOXS;
 import static diuf.sudoku.Grid.BUDDIES;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.EFFECTED_BOXS;
@@ -35,6 +34,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Set;
+import static diuf.sudoku.Grid.BOX_OF;
 
 /**
  * MedusaColoring implements the 3D Medusa Coloring Sudoku solving technique
@@ -581,7 +581,7 @@ public class MedusaColoring extends AHinter implements IPreparer
 					// foreach of the four boxes effected by this source cell.
 					// See EFFECTED_BOXS for a definition there-of.
 					// i is the index in grid.regions of the effected box
-					for ( int i : INDEXES[EFFECTED_BOXS[BOXS[ci]]] ) {
+					for ( int i : INDEXES[EFFECTED_BOXS[BOX_OF[ci]]] ) {
 						// if there's only one v remaining in the effected box,
 						// excluding this colors cells + there buddies.
 					    // NOTE: the buds method has an internal cache.
@@ -591,7 +591,7 @@ public class MedusaColoring extends AHinter implements IPreparer
 						  // and get the cell to paint (NEVER null)
 						  && (cell2=grid.cells[tmp2.peek()]) != null
 						  // the "10 paces" rule (see method comment block).
-						  && tmp3.setAndNot(grid.regions[BOXS[ci]].idxs[v]
+						  && tmp3.setAndNot(grid.regions[BOX_OF[ci]].idxs[v]
 										  , BUDDIES[cell2.i]).size() == 1
 						  // NB: no pre-check coz buds incl this colors cells
 						) {

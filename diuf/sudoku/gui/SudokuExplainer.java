@@ -96,13 +96,9 @@ final class SudokuExplainer implements Closeable {
 	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	/**
-	 * This switch is for a BUG in the application of multiple user-selected
-	 * hints. A group of hints that are all individually valid send the damn
-	 * grid invalid when applied as a group; and I have, as yet, been unable
-	 * to work-out what the hell I've done wrong, like orange juice in my
-	 * redPots, or some other stupid bloody thing! Sigh.
+	 * Should apply detect and render invalid grid after hint apply'd?
 	 */
-	private static final boolean GOT_DODGY_HINTS = true;
+	private static final boolean HANDLE_INVALID_GRID = true;
 
 	private Grid grid;					// The Sudoku grid
 	public LogicalSolver solver;		// The Sudoku solver
@@ -185,7 +181,7 @@ final class SudokuExplainer implements Closeable {
 		if ( !Settings.THE.get(Settings.isFilteringHints) )
 			// copy "as is"
 			filteredHints = new ArrayList<>(unfilteredHints);
-		else { 
+		else {
 			// unfiltered -> filter -> filtered
 			filteredHints = new ArrayList<>(unfilteredHints.size());
 			for ( AHint hint : unfilteredHints )
@@ -867,22 +863,20 @@ final class SudokuExplainer implements Closeable {
 	}
 
 	/**
-	 * Apply the selected hints. Applying a "direct" hint means setting the
-	 * cell value. Applying an "indirect" hint means removing the removable
-	 * potentials. Some hints do a bit of both, just to keep it interesting,
-	 * for instance a Direct Naked Triple.
-	 *
-	 * Multiple hints may be user-selected and applied all in one hit. BUT
-	 * there's a bug in applying multiple hints: a group of hints that are
-	 * ALL individually valid sends the grid invalid when they are applied
-	 * all in one hit, and I'll be ____ed if I know what I've done wrong!
-	 *
-	 * You HAVE been warned. Sigh.
+	 * Apply the selected hints.<br>
+	 * Apply a direct hint means setting the cell value.<br>
+	 * Apply an indirect hint means eliminating its redPots.<br>
+	 * Apply a multi hint does both; eg: Direct Naked Triple.
+	 * <p>
+	 * Aside: I know think hint categories are superfluous and we'd be better
+	 * off if AHint (the base) was multi-hint based, with subtypes ADirectHint,
+	 * AIndirectHint, AMultiHint (wafer thin), and ANonHint; each implementing
+	 * the apply method appropriately for hints of this category.
 	 */
 	void applySelectedHints() {
 		final int n = selectedHints.size();
 		if ( n > 0 ) {
-			String backup = grid.toString();
+			final String backup = grid.toString();
 			try {
 				if ( grid.isFull() )
 					return;
@@ -890,53 +884,65 @@ final class SudokuExplainer implements Closeable {
 				for ( AHint hint : selectedHints ) {
 					undos.addFirst(grid.toString());
 					hint.apply(Grid.NO_AUTOSOLVE, true);
-					if ( grid.isFull() )
+					if ( grid.isFull() ) {
+						// print the solution
+						System.out.format("\nSOLUTION: %s\n", grid.toShortString());
 						break;
-// This is temporary code to deal with a bug where the application of multiple
-// hints (where all hints there-in are valid if applied individually) sends the
-// grid invalid; so I check validity after applying each hint, and reject the
-// whole selection when we hit the first hint that makes the grid invalid. It's
-// then upto the user to unselect the offending hint and try again, or, give-up
-// applying multiple hints! Sigh on that sigh. May I borrow your cheese grater?
-// 2020-10-21 It also detects my dodgy Skycrapper hints. Good!
-if ( GOT_DODGY_HINTS ) {
-	if ( solver.recursiveAnalyser.countSolutions(grid, false) != 1 ) {
-		Log.print(NL+"Funky grid:"+NL+grid+NL);
-		grid.restore(backup);
-		Log.print(NL+"Restored (previous) grid:"+NL+grid+NL);
-		IllegalStateException ex =
-			new IllegalStateException("invalid after: "+hint.toFullString());
-		// pucker-up folks
-		beep(); beep(); beep();
-		gridPanel.flashBackgroundPink();
-		displayError(ex);
-		throw ex;
-	}
-}
+					}
+					// AggregatedHint (et al) sends grid invalid
+					if ( HANDLE_INVALID_GRID ) {
+						handleInvalidGrid(backup, hint);
+					}
 				}
 				if ( Settings.THE.get(Settings.isGreenFlash) )
 					try {
 						if ( solver.solveWithSingles(grid, null) )
 							gridPanel.flashBackgroundAqua();
 					} catch(Throwable eaten) {
-						// Do nothing: don't care if she doesn't flash!
+						// Do nothing: Failed-flashers aren't worth chasing.
 					}
 			} catch(UnsolvableException ex) { // from hint.apply
-				System.out.flush();
-				System.out.format(NL+ex+NL);
+				final PrintStream out = System.out;
+				out.flush();
+				out.format(NL+ex+NL);
 				for ( AHint h : selectedHints )
-					System.out.format("%s%s", h.toFullString(), NL);
-				System.out.print(NL+"Dodgy grid:"+NL+grid+NL);
-				ex.printStackTrace(System.out);
-
+					out.format("%s%s", h.toFullString(), NL);
+				out.print(NL+"Invalid grid:"+NL+grid+NL);
+				ex.printStackTrace(out);
 				grid.restore(backup);
-				System.out.print(NL+"Restored grid:"+NL+grid+NL);
-
-				System.out.flush();
+				out.print(NL+"Restored grid:"+NL+grid+NL);
+				out.flush();
 			}
 		}
 		clearHints();
 		repaintAll();
+	}
+
+	/**
+	 * I'm dealing with a bug in AggregatedHint (all hints there-in are valid
+	 * when applied individually) which sends the grid invalid; so we check the
+	 * grid's validity after applying each hint, and reject the whole selection
+	 * upon the first hint that sends the grid invalid. It's then upto the user
+	 * to unselect the offending hint and retry; or not select multiple hints.
+	 * This is also a last line of defence against ANY invalid hint.
+	 * @throws IllegalStateException if the grid is invalid.
+	 */
+	private void handleInvalidGrid(String backup, AHint hint) {
+		if ( solver.recursiveAnalyser.countSolutions(grid, false) != 1 ) {
+			// Just log it; System.out is on catch of my throw
+			Log.print(NL+"Invalid (post-hint) grid:"+NL+grid+NL);
+			grid.restore(backup);
+			Log.print(NL+"Restored (pre-hint) grid:"+NL+grid+NL);
+			// prepare
+			IllegalStateException ex = new IllegalStateException(
+					"Invalid after: "+hint.toFullString());
+			// pucker-up
+			beep(); beep(); beep();
+			gridPanel.flashBackgroundPink();
+			// show and frow
+			displayError(ex);
+			throw ex;
+		}
 	}
 
 	void invokeGetNextHint(final boolean wantMore, final boolean wantSolution) {
@@ -993,7 +999,7 @@ if ( GOT_DODGY_HINTS ) {
 			grid.source = null;
 			GridFactory.pasteClipboardTo(grid);
 			AHinter.hackTop1465 = grid.hackTop1465();
-			AHint.hintNumber = 1; // reset the hint number
+			AHint.resetHintNumber();
 			frame.setTitle(ATV+"    (clipboard)");
 		} catch (IOException ex) {
 			backup.copyTo(grid);
@@ -1057,7 +1063,7 @@ if ( GOT_DODGY_HINTS ) {
 		else if ( !grid.isMaybesLoaded )
 			grid.rebuildMaybesAndS__t();
 		GrabBag.grid = grid;
-		AHint.hintNumber = 1; // reset the hint number
+		AHint.resetHintNumber();
 		AHinter.hackTop1465 = grid.hackTop1465();
 		return recentFiles.add(grid.source);
 	}
@@ -1068,7 +1074,7 @@ if ( GOT_DODGY_HINTS ) {
 	 * @param stringData the puzzle to load.
 	 */
 	void loadStringIntoGrid(String stringData) {
-		AHint.hintNumber = 1; // reset the hint number
+		AHint.resetHintNumber();
 		grid.source = null; // default to null, may be set by grid.load from 3rd line in stringData
 		grid.load(stringData);
 		GrabBag.grid = grid;

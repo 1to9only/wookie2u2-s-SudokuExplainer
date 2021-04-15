@@ -20,7 +20,7 @@ import java.util.Set;
 
 
 /**
- * An aggregation of all hints found in a pass through a hinter (Chains and 
+ * An aggregation of all hints found in a pass through a hinter (Chains and
  * Franken HdkFisherman, to speed-up autosolving puzzles in
  * {@link diuf.sudoku.test.LogicalSolverTester} because these hinter take some
  * time, and typically generate multiple hints when they hint at all.
@@ -28,7 +28,7 @@ import java.util.Set;
  * Design note: There's nothing "Chaining" in this class. To make this class
  * into an abstract AggregatedHint all that needs to change is make toString
  * return a String constant passed into my constructor.
- * 
+ *
  * @author Keith Corlett 2017 Dec
  */
 public final class AggregatedHint extends AHint implements IActualHint {
@@ -39,7 +39,7 @@ public final class AggregatedHint extends AHint implements IActualHint {
 	private double maxDifficulty;
 
 	/** Constructs a new aggregate of the given AChainingHint's.
-	 * 
+	 *
 	 * @param hinter The Chains which produced this hint
 	 * @param hints The {@code Collection<AChainingHint>} to be aggregated.
 	 * @param hintTypeName The name of the hinter which created me; used as the
@@ -55,15 +55,16 @@ public final class AggregatedHint extends AHint implements IActualHint {
 	 * @param isAutosolving
 	 * @return the total number of eliminations. */
 	@Override
-	public int apply(boolean isAutosolving, boolean isNoisy) {
+	public int applyImpl(boolean isAutosolving) {
 		int sumElims = 0;
 		for ( AHint hint : hints ) {
 			if ( Log.MODE >= Log.VERBOSE_4_MODE )
 				Log.format("%32s%s%s", "", MyStrings.squeeze(hint.toFullString()), NL);
-			sumElims += hint.apply(isAutosolving, isNoisy);
+			sumElims += hint.apply(isAutosolving, applyIsNoisy);
 		}
 		return sumElims;
 	}
+	public boolean applyIsNoisy;
 
 	/**
 	 * @return the green Pots: cell=>value to be set by these hints

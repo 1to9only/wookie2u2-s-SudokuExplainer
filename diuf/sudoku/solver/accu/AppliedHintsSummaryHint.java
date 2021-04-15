@@ -14,7 +14,7 @@ import diuf.sudoku.solver.AHint;
  * An AppliedHintsSummaryHint is produced by
  * {@link diuf.sudoku.solver.hinters.lock.Locking} AFTER we've used the
  * {@link HintsApplicumulator} to apply (not just accumulate) all the hints,
- * to pass the total-numElims back to {@link AHint#apply} via the "standard"
+ * to pass the total-numElims back to {@link AHint#applyImpl} via the "standard"
  * HintsAccumulator.
  * <p>
  * Note that there's nothing specific to Locking here, it's only that Locking
@@ -46,7 +46,7 @@ public final class AppliedHintsSummaryHint extends AHint {
 	}
 
 	@Override
-	public int apply(boolean isAutosolvingUnused, boolean isNoisyUnused) {
+	public int applyImpl(boolean isAutosolvingUnused) {
 		return numElims;
 	}
 

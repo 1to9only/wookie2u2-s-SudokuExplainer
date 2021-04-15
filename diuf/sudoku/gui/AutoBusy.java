@@ -28,7 +28,6 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.text.JTextComponent;
 
-
 /**
  * Utilities to improve Swings perceived speed.
  * <p>

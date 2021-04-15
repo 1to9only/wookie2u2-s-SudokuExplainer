@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver.hinters.color;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
@@ -13,6 +14,7 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
+import diuf.sudoku.gui.HintPrinter;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
@@ -122,16 +124,16 @@ public class XColoringHintMulti extends AHint {
 		return links;
 	}
 
-	// @return numElims = 10*numCellsSet + numMaybesEliminated.
 	@Override
-	public int apply(boolean isAutosolving, boolean isNoisy) {
-		int numElims = 0;
-		for ( Cell c : setPots.keySet() ) {
-			Values toSet = setPots.get(c);
-			assert toSet.size == 1; // ONE value per cell in a setPots!
-			numElims += c.set(toSet.first(), 0, isAutosolving, null) * 10;
-		}
-		return numElims;
+	public Grid getGrid() {
+		if ( setPots!=null && !setPots.isEmpty() )
+			return setPots.firstKey().getGrid();
+		return null;
+	}
+
+	@Override
+	public int applyImpl(boolean isAutosolving) {
+		return setPots.setCells(isAutosolving) * 10;
 	}
 
 	@Override

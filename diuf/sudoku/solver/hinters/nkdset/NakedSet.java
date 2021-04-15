@@ -113,6 +113,10 @@ public final class NakedSet
 	 * @return
 	 */
 	public boolean search(ARegion r, Grid grid, IAccumulator accu) {
+		// we need 3 empty cells in the region for a Naked Pair to do any good:
+		// 2 in the Pair, plus atleast 1 other to remove maybes from.
+		if ( r.emptyCellCount < this.degreePlus1 )
+			return false;
 		// localise everything for speed
 		final int degreePlus1 = this.degreePlus1;
 		final int degree = this.degree;
@@ -122,10 +126,6 @@ public final class NakedSet
 		int i, n, card, nkdSetValsBits, nkdSetIdxBits;
 		// presume failure, ie that no hint will be found
 		boolean result = false;
-		// we need 3 empty cells in the region for a Naked Pair to do any good:
-		// 2 in the Pair, plus atleast 1 other to remove maybes from.
-		if ( r.emptyCellCount < degreePlus1 )
-			return false;
 		// candidates := region.cells with 2..$degree maybes
 		n = 0; // number of candidate cells
 		for ( Cell cell : r.cells )

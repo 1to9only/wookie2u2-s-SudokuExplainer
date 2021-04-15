@@ -1,4 +1,4 @@
-GEM: Graded Equivalence Marks is the last word in coloring techniques.
+GEM: Graded Equivalence Marks is the ultimate in coloring technique.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 KRC's notes appear between two lines of tildes, like this.
@@ -114,13 +114,12 @@ general rule that can be applied instead of my "paintMonoBoxs" method, I'm just
 too stupid to understand precisely what it is.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-It is critical that the links used are truly strong; for example assume 5 is
-bilocal to two cells holding (1359') and (2578). It is clear that at parity(i)
-5 will be true in the second one, but it is NOT clear where it should be at
-parity(ii) so, without supporting evidence, it cannot be marked. However if one
-of the other candidates in cell 2 has the opposite parity mark, say (2"578) or
-if that cell can see a cell holding 5", then the matter is settled, as there is
-only possible parity for 5 in each cell.
+It is critical that the links used are truly strong; for example assume 5 has
+just two places in a region, and those two cells have the possible values 1359'
+and 2578. At parity(i) the second cell is 5, but we don't know where to put 5
+at parity(ii) so, with no other evidence, it can't be marked. However if one of
+the other candidates in cell 2 has the opposite parity mark 2"578, or if that
+cell sees a cell holding 5", then it's settled: we can mark 5 in cell 2.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SE: This definately lines-up with the exclusion rules in Medusa3dColoring.

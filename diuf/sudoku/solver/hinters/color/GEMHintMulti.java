@@ -6,12 +6,13 @@
  */
 package diuf.sudoku.solver.hinters.color;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
-import diuf.sudoku.Values;
+import diuf.sudoku.gui.HintPrinter;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
@@ -37,8 +38,8 @@ public class GEMHintMulti extends AHint {
 	private final int resultColor;
 	private final String steps;
 	private final ARegion region;
-	private final Idx[][] supers;
-	private final Idx[][] subs;
+	private final Idx[][] ons;
+	private final Idx[][] offs;
 
 	public GEMHintMulti(AHinter hinter, int v, Pots redPots, int subtype
 			, Set<Cell> cause, int resultColor, String steps, Pots setPots
@@ -57,8 +58,8 @@ public class GEMHintMulti extends AHint {
 		this.steps = steps;
 		this.setPots = setPots;
 		this.region = region;
-		this.supers = ons;
-		this.subs = offs;
+		this.ons = ons;
+		this.offs = offs;
 	}
 
 	// super does both blue and green, so override again for none.
@@ -104,13 +105,13 @@ public class GEMHintMulti extends AHint {
 	}
 
 	@Override
-	public Idx[][] getSupers() {
-		return supers;
+	public Idx[][] getOns() {
+		return ons;
 	}
 
 	@Override
-	public Idx[][] getSubs() {
-		return subs;
+	public Idx[][] getOffs() {
+		return offs;
 	}
 
 	// The GUI sorts hints by Score then Indice, and this is the only hint in
@@ -122,16 +123,21 @@ public class GEMHintMulti extends AHint {
 		return setPots.size() * 10;
 	}
 
+	@Override
+	public Grid getGrid() {
+		if ( setPots!=null && !setPots.isEmpty() )
+			return setPots.firstKey().getGrid();
+		return null;
+	}
+
 	// @return numElims = 10*numCellsSet + numMaybesEliminated.
 	@Override
-	public int apply(boolean isAutosolving, boolean isNoisy) {
-		int numElims = 0;
-		for ( Cell c : setPots.keySet() ) {
-			Values toSet = setPots.get(c);
-			assert toSet.size == 1; // ONE value per cell in a setPots!
-			numElims += c.set(toSet.first(), 0, isAutosolving, null) * 10;
-		}
-		return numElims;
+	public int applyImpl(boolean isAutosolving) {
+		if ( isInvalid )
+			return 0; // invalid hints are dead cats!
+		// set the setPots, and then eliminate the redPots
+		return setPots.setCells(isAutosolving) * 10
+			 + super.applyImpl(isAutosolving);
 	}
 
 	@Override

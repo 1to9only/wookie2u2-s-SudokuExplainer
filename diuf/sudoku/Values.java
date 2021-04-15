@@ -6,11 +6,9 @@
  */
 package diuf.sudoku;
 
-import static diuf.sudoku.Indexes.FIRST_INDEX;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.utils.Frmt;
 import java.util.Iterator;
-
 
 /**
  * A 1-based (nonstandard) java.util.BitSet'ish set of the values 1..9.

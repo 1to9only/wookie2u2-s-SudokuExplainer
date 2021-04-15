@@ -31,11 +31,9 @@ import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMyPollSet;
 import diuf.sudoku.utils.IMySet;
 import diuf.sudoku.utils.MyArrays;
-import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
-
 
 /**
  * A MultipleChainer is an engine for searching a Grid for multiple and
