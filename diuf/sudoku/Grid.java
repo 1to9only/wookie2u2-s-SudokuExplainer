@@ -969,31 +969,44 @@ public final class Grid {
 	 * so this code is not and should not be optimised for performance. KISS!
 	 * <p>
 	 * NB: rebuildAllMyOtherS__t respects maybes read from file EXCEPT if they
-	 * break a core Sudoku rule: like one instance of value per region, in
-	 * which case they're history SILENTLY, which is a worry, but fixing it's
-	 * s__tloads faster than detecting it. Programming can be WEIRD like that.
+	 * break the core Sudoku rule: one instance of value per region, in which
+	 * case they're history SILENTLY, which is a worry, but fixing it's faster
+	 * than detecting it. Programming can be WEIRD like that.
 	 * <p>
 	 * NB: rebuilding r.indexesOf all values IS NECESSARY or test-cases fail!
 	 * Which is a bit of a worry, because I feel that I should be able to do
 	 * it all "minimally", without resorting to The Hammer of Odin.
 	 */
 	private void rebuildAllMyOtherS__t() {
-
-		// 1. clear cell values from siblings
+		// clear cell values from siblings
 		for ( Cell cell : this.cells )
 			cell.knockCellValueOffSiblingsMaybes();
+		// rebuild all my s__t
+		rebuildAllRegionsS__t();
+	}
 
-		// 2. rebuild regions empty-cell counts
+	/**
+	 * Rebuild regions data-structures: empty-cells counts, containsValue, and
+	 * indexesOf. Done ONCE after each change to the grid. The results are
+	 * accessible via attributes, coz that's faster than method invocation.
+	 */
+	public void rebuildAllRegionsS__t() {
+		// rebuild regions empty-cell counts.
+		// Lonely Singles, Hidden Single, Locking, NakedSet, HiddenSet, BUG
+		// , Unique Rectangle, all the ALS's
 		rebuildAllRegionsEmptyCellCounts();
-
-		// 3. regions containsValue array
+		// regions containsValue array
+		// Complex/Krakenfisherman
 		rebuildAllRegionsContainsValues();
-
-		// 4. rebuild regions indexesOf all values:
-		//    ie set the Indexes region.indexesOf[value]
-		//       of each region in regions
-		//       of each value in 1..9
+		// r.indexesOf[v]: rebuild regions indexesOf all values.
+		// ie set the Indexes region.indexesOf[value]
+		//    of each region in regions
+		//    of each value in 1..9
+		// Medusa, GEM, Complex/Krakenfisherman
 		rebuildAllRegionsIndexsOfAllValues();
+		// r.idxs[v]: rebuild regions idxs of all values.
+		// XColoring, Medusa, GEM, Complex/KrakenFisherman
+		rebuildAllRegionsIdxsOfAllValues();
 	}
 
 	/** set the r.emptyCellCount of all regions. */

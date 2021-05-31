@@ -126,6 +126,9 @@ public final class XYWing extends AHinter {
 			cmnIdx.and(xy.buds);
 		else // XY-Wings just needs xy removed.
 			cmnIdx.remove(xy.i);
+		if ( cmnIdx.isEmpty() )
+			return null; // happens 14.48% of time in XYZ
+
 		// we are not our own victims. Draculla insists!
 		assert !cmnIdx.contains(xz.i);
 		assert !cmnIdx.contains(yz.i);
@@ -134,8 +137,9 @@ public final class XYWing extends AHinter {
 		// XY_Wing  pass 76,591 of 76,591 = skip  0.00%
 		// XYZ_Wing pass 62,942 of 73,596 = skip 14.48%
 		final int n = cmnIdx.cellsN(grid, victims);
-		if ( n == 0 )
-			return null; // happens 14.48% of time in XYZ
+//		if ( n == 0 )
+//			return null; // happens 14.48% of time in XYZ
+		assert n > 0;
 
 		// get the zCand (the z value as a bitset) to remove from victims.
 		final int zCand = xz.maybes.bits & yz.maybes.bits; // intersection
@@ -148,7 +152,7 @@ public final class XYWing extends AHinter {
 
 		// Get the removable (red) potential values.
 		Pots reds = null;
-		for ( int i=0; i<n; ++i ) // nb '<n' (NOT just iterate victimsArray)
+		for ( int i=0; i<n; ++i ) // nb '<n' (NOT the whole victimsArray)
 			if ( (victims[i].maybes.bits & zCand) != 0 ) {
 				if(reds==null) reds = new Pots();
 				reds.put(victims[i], new Values(zCand, false));

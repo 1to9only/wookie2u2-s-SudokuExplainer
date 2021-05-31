@@ -67,7 +67,7 @@ public final class XYWingHint extends AHint implements IActualHint, IChildHint {
 	}
 
 	@Override
-	public Set<Cell> getPinkCells(int notUsed) {
+	public Set<Cell> getBlueCells(int notUsed) {
 		return new MyLinkedHashSet<>(xy);
 	}
 

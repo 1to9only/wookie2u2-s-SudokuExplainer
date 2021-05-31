@@ -472,7 +472,7 @@ public final class LogicalSolver {
 			// Choose BUG or Coloring or XColoring and/or 3D Mesuda or GEM.
 			// 3D Medusa does not find all XColoring hints, so use both.
 			// GEM finds everything that 3D Medusa does, and more.
-			want(heavies, new BUG());			 // basic
+			want(heavies, new BUG());			 // basic and slow
 			want(heavies, new Coloring());		 // BUG++
 			want(heavies, new XColoring());		 // Coloring++
 			want(heavies, new MedusaColoring()); // XColoring++
@@ -836,8 +836,7 @@ public final class LogicalSolver {
 			return true;
 		}
 		++AHint.hintNumber;
-		grid.rebuildAllRegionsEmptyCellCounts();
-		grid.rebuildAllRegionsIdxsOfAllValues();
+		grid.rebuildAllRegionsS__t();
 		if ( getFirst(validators, grid, accu, false)
 		  || getFirstCat(grid, prev, curr, accu, "Directs", directs)
 		  || getFirstCat(grid, prev, curr, accu, "Indirects", indirects)
@@ -935,9 +934,7 @@ public final class LogicalSolver {
 		// adding each hint to the hints List.
 		final IAccumulator accu = new HintsAccumulator(hints);
 		// rebuild all the grid's s__t.
-		grid.rebuildAllRegionsEmptyCellCounts(); // Lonely Singles, Hidden Single, Locking, NakedSet, HiddenSet, BUG, Unique Rectangle, all ALS
-		grid.rebuildAllRegionsIdxsOfAllValues(); // Complex and Kraken fish, Medusa, GEM
-		grid.rebuildAllRegionsContainsValues(); // Complex and Kraken fish
+		grid.rebuildAllRegionsS__t();
 		// get hints from hinters until one of them returns true (I found a
 		// hint) OR if wantMore then run all hinters. nb: wantedHinters now
 		// includes the nesters, which are only required to solve the
@@ -1064,9 +1061,7 @@ public final class LogicalSolver {
 		// on null table entries, which I do not understand why they are null.
 		enableKrakens(false, 3);
 		final IHinter[] hinters = wantedHinters.toArray(new IHinter[wantedHinters.size()]);
-		grid.rebuildAllRegionsEmptyCellCounts(); // Lonely Singles, Hidden Single, Locking, NakedSet, HiddenSet, BUG, Unique Rectangle, all ALS
-		grid.rebuildAllRegionsIdxsOfAllValues(); // Complex and Kraken fish, Medusa, GEM
-		grid.rebuildAllRegionsContainsValues(); // Complex and Kraken fish
+		grid.rebuildAllRegionsS__t();
 		for ( int pre=grid.countMaybes(),now; pre>0; pre=now ) { // ie !isFull
 			if ( getFirst(hinters, grid, accu, false) ) {
 				if ( interrupt() )
@@ -1255,10 +1250,8 @@ public final class LogicalSolver {
 		AHint problem, hint;
 		long now;
 		while ( !grid.isFull() ) {
-			// must rebuild BEFORE we validate (RecursiveAnalyser uses).
-			grid.rebuildAllRegionsEmptyCellCounts(); // Lonely Singles, Hidden Single, Locking, NakedSet, HiddenSet, BUG, Unique Rectangle, all ALS
-			grid.rebuildAllRegionsIdxsOfAllValues(); // Complex and Kraken fish, Medusa, GEM
-			grid.rebuildAllRegionsContainsValues(); // Complex and Kraken fish
+			// rebuild before validate for RecursiveAnalyser.
+			grid.rebuildAllRegionsS__t();
 			// detect invalid grid, meaning a hinter is probably borken!
 			if ( (problem=validatePuzzleAndGrid(grid, false)) != null )
 				throw new UnsolvableException("Houston: "+problem);

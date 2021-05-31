@@ -78,7 +78,7 @@ public final class NakedSet
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		// SingleHintsAccumulator.add returns true to indicate to all hinters
 		// that I want you to wind-up the search at the first hint.
-		final boolean exitEarly = accu.isSingle();
+		final boolean oneOnly = accu.isSingle();
 		// presume failure, ie that no hint will be found
 		boolean result = false;
 		for ( ARegion r : grid.regions ) { // 27 = 9*box, 9*row, 9*col
@@ -94,7 +94,7 @@ public final class NakedSet
 //  && "15".equals(r.cells[5].maybes.toString())
 //  && !Debug.isClassNameInTheCallStack(5, "RecursiveAnalyser") )
 //	Debug.breakpoint();
-			if ( (result |= search(r, grid, accu)) && exitEarly )
+			if ( (result |= search(r, grid, accu)) && oneOnly )
 				break;
 		}
 		return result;
@@ -189,7 +189,7 @@ public final class NakedSet
 		for ( int i : INDEXES[ALL_BITS & ~nkdSetIdxBits] )
 			if ( ((sib=region.cells[i]).maybes.bits & nkdSetValsBits) != 0 ) {
 				// sib maybe any nkdSetValue
-				if(reds==null) reds = new Pots(9-degree, 1F);
+				if(reds==null) reds = new Pots();
 				reds.put(sib, sib.maybes.intersectBits(nkdSetValsBits));
 			}
 //++cnshCnt;

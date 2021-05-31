@@ -16,7 +16,6 @@ import diuf.sudoku.Result;
 import diuf.sudoku.gui.HintPrinter;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.accu.AggregatedHint;
-import diuf.sudoku.solver.accu.AppliedHintsSummaryHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.als.Als;
 import diuf.sudoku.utils.Debug;
@@ -285,12 +284,11 @@ public abstract class AHint implements Comparable<AHint> {
 					}
 			}
 		} catch (UnsolvableException ex) { // from cell.set or rc.canNotBeBits
-			// error messages are superflous in recursiveSolve and generate, coz
-			// we're guessing cell values, so we routinely break the puzzle, but
-			// they're important elsewhere. I really don't like using "slow"
-			// reflection to filter them out, but what else?.
+			// Messages unwanted in recursiveSolve, generate and GEM.tropoSolve.
+			// We guess cell values so break puzzle, but they are important 
+			// elsewhere. Don't like slow reflection filter, but what else?
 			// NB: there should be an error if depth==0 (top level): How to?
-			if ( !Debug.isMethodNameInTheCallStack(10, "recursiveSolve", "generate") )
+			if ( !Debug.isMethodNameInTheCallStack(10, "recursiveSolve", "generate", "gemSolve") )
 				StdErr.whinge("Error applying: "+this.toFullString(), ex);
 			throw ex;
 		}

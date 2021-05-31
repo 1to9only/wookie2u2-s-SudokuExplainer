@@ -289,12 +289,12 @@ public final class HiddenSingle extends AHinter {
 	 * <p>
 	 * Do you want your code to look good, and therefore be maintainable, or to
 	 * run efficiently? In the "big" Sudoku hinters (especially A*E) it can ONLY
-	 * run if it runs quickly, so I've gone the whole hog on speed! And I'm 
+	 * run if it runs quickly, so I've gone the whole hog on speed! And I'm
 	 * guessing that I've done A5+E for the first time, anywhere. PC's were too
 	 * slow previously to allow nutter like me to take on challenges like that.
 	 * <p>
 	 * See the rant in this classes comments for more.
-	 * 
+	 *
 	 * @return was one-or-more hint found?
 	 */
 	@Override

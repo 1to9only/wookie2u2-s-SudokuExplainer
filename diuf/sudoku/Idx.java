@@ -690,7 +690,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param bb
 	 * @return
 	 */
-	public boolean setAndMultiple(Idx aa, Idx bb) {
+	public boolean setAndMany(Idx aa, Idx bb) {
 		a0 = aa.a0 & bb.a0;
 		a1 = aa.a1 & bb.a1;
 		a2 = aa.a2 & bb.a2;

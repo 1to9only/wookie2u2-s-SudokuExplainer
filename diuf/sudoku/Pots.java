@@ -11,6 +11,7 @@ import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.MyLinkedHashMap;
 import java.util.Arrays;
@@ -565,11 +566,14 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * a setPots, not a normal "redPots", or greens, or anything stupid.
 	 *
 	 * @param isAutosolving
-	 * @return 
+	 * @return
 	 */
 	public int setCells(boolean isAutosolving) {
 		Values v;  int numSet = 0;
 		for ( java.util.Map.Entry<Cell,Values> e : entrySet() ) {
+//System.out.println(e.getKey()+"=>"+e.getValue());
+//if ( "I9".equals(e.getKey().id) )
+//	Debug.breakpoint();
 			v = e.getValue();
 			assert v.size == 1; // ONE value per cell in a setPots!
 			numSet += e.getKey().set(FIRST_VALUE[v.bits], 0, isAutosolving, null);

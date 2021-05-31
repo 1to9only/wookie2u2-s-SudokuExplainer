@@ -12,10 +12,11 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
-import diuf.sudoku.gui.HintPrinter;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
+import diuf.sudoku.utils.Log;
 import java.util.List;
 import java.util.Set;
 
@@ -136,8 +137,18 @@ public class GEMHintMulti extends AHint {
 		if ( isInvalid )
 			return 0; // invalid hints are dead cats!
 		// set the setPots, and then eliminate the redPots
-		return setPots.setCells(isAutosolving) * 10
-			 + super.applyImpl(isAutosolving);
+		final Grid grid = setPots.firstKey().getGrid();
+		final String backup = grid.toString();
+		try {
+			return setPots.setCells(isAutosolving) * 10
+				 + super.applyImpl(isAutosolving);
+		} catch ( UnsolvableException ex ) {
+			Log.teeln("WARN: GEMHintMulti.applyImpl: "+ex);
+			Log.teeln("reverted to");
+			Log.teeln(backup);
+			grid.load(backup);
+			return 0;
+		}
 	}
 
 	@Override

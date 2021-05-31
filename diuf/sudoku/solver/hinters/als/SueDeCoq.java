@@ -22,9 +22,9 @@ import diuf.sudoku.solver.hinters.AHinter;
 
 
 /**
- * Implements the Sue De Coq Sudoku solving technique. Sue De Coq is lumped-in
- * with ALS's because I don't know where it belongs, and it's basis is "almost
- * almost locked sets": 2 cells with 4 values, 3 cells with 5 values.
+ * Implements the Sue De Coq Sudoku solving technique. SueDeCoq is in the als
+ * package because I don't know where to put it. It's based on "almost almost
+ * locked sets": 2 cells with 4 values, 3 cells with 5 values (not ALS's).
  *
  * @author Keith Corlett 2021 Jan
  */
@@ -134,7 +134,7 @@ public class SueDeCoq extends AHinter {
 	 * @return
 	 */
 	private boolean search(ARegion[] lines) {
-		// we're looking at each intersection between lines and boxs
+		// examine each intersection between lines and boxs
 		final Idx empties = grid.getEmpties();
 		boolean result = false;
 		// foreach row/col
@@ -145,8 +145,7 @@ public class SueDeCoq extends AHinter {
 			for ( Box box : line.intersectingBoxs ) {
 				this.box = box;
 				// get the intersection
-				if ( interSet.setAndAny(lineSet, boxSet.setAnd(box.idx, empties))
-				  && interSet.size() > 1
+				if ( interSet.setAndMany(lineSet, boxSet.setAnd(box.idx, empties))
 				  // search this intersection
 				  && searchIntersection() ) {
 					result = true;
@@ -160,10 +159,10 @@ public class SueDeCoq extends AHinter {
 
 	/**
 	 * Searches all possible combos of cells in the intersection. If a combo
-	 * holds 2 more candidates than cells, a SDC could possibly exist.
+	 * holds 2 more candidates than cells, an SDC could possibly exist.
 	 * <p>
-	 * The method doesn't use recursion. There can be only two or three cells
-	 * in an intersection for an SDC.
+	 * This method doesn't use recursion because there can be only two or three
+	 * cells in an intersection for an SDC.
 	 *
 	 * @param onlyOne
 	 * @return
@@ -336,17 +335,13 @@ public class SueDeCoq extends AHinter {
 					// get the extra candidates that are in both line and box
 					bothActCands = boxActCands & lineActCands;
 					// all cells in the box that dont belong to the SDC
-					tmpSet.set(boxSet);
-					tmpSet.andNot(boxActSet);
-					tmpSet.andNot(interActSet);
+					tmpSet.setExcept(boxSet, boxActSet, interActSet);
 					// all candidates that can be eliminated in the box
 					// (including extra candidates contained in both sets)
 					tmpCands = ((interActCands | boxActCands) & ~lineActCands) | bothActCands;
 					eliminate(tmpSet, tmpCands, theReds);
 					// now the row/col
-					tmpSet.set(lineSet);
-					tmpSet.andNot(lineActSet);
-					tmpSet.andNot(interActSet);
+					tmpSet.setExcept(lineSet, lineActSet, interActSet);
 					// all candidates that can be eliminated in the row/col
 					// (including extra candidates contained in both sets)
 					tmpCands = ((interActCands | lineActCands) & ~boxActCands) | bothActCands;
@@ -389,7 +384,7 @@ public class SueDeCoq extends AHinter {
 	private void eliminate(Idx idx, int cands, Pots pots) {
 		if ( VSIZE[cands]>0 && idx.size()>0 )
 			idx.forEach(grid.cells, (c) -> {
-				int elims = c.maybes.bits & cands;
+				final int elims = c.maybes.bits & cands;
 				if ( elims != 0 )
 					for ( int v : VALUESES[elims] )
 						pots.upsert(c, v);

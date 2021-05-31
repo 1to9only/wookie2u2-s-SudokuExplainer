@@ -316,7 +316,7 @@ public final class XColoring extends AHinter {
 							otherSet = colorSets[o];
 							for ( ARegion r : grid.regions )
 								// nb: I'm hijacking xSet
-								if ( xSet.setAndMultiple(colorSet, r.idx) ) {
+								if ( xSet.setAndMany(colorSet, r.idx) ) {
 									step("    Step 4.2: Multiple cells {"+xSet.ids()+"}"
 										+" in "+r.id+" are "+(c==0?"green":"blue")
 										+", which is invalid, so the "+(c==0?"blue":"green")

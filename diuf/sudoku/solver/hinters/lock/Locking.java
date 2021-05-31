@@ -96,7 +96,7 @@ public final class Locking extends AHinter {
 	}
 
 	/**
-	 * Abnormal HintsApplicumulator Constructor.
+	 * Constructor for "speed mode".
 	 * <p>
 	 * This constructor is used by RecursiveAnalyser ie RecursiveSolver passing
 	 * a HintsApplicumulator so that getHints immediately applies any hints it
@@ -168,7 +168,7 @@ public final class Locking extends AHinter {
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 
-		// normal "vanilla" operation
+		// normal mode
 		if ( !useApcu ) { // if my HintsApplicumulator is null
 			if ( accu.isSingle() )
 				// user wants 1 hint so prefer pointing to claiming.
@@ -189,7 +189,9 @@ public final class Locking extends AHinter {
 			return result;
 		}
 
-		// CAUTION: Weird S__t!
+		// speed mode
+		//
+		// CAUTION: Seriously Weird S__t!
 		//
 		// This instance was created with a HintsApplicumulator which we use
 		// to apply all point & claim hints in one pass through the regions

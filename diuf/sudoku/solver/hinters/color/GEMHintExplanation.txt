@@ -1,3 +1,4 @@
+</pre><hr><pre>
 <u>GUI Rendering</u>
 * '+' means "on": a '+' next to a digit in the Grid means this is an "on".
   If this color is true then this cell is set to this value; but an "on" isn't
@@ -14,41 +15,42 @@
   eliminated explicitly when the cell is set, it happens automatically.
 * The GREEN/BLUE digit in a larger font renders the value to set this cell to.
 
+</pre><hr><pre>
 <u>Explanation</u>
 GEM (Graded Equivalence Marks) is the "ultimate" coloring technique. Coloring
 has two sets of cell-values painted in two colors: GREEN and BLUE.
 
 Our first task is to find the value that has at least 2 conjugate relationships
-(ie there are two places for this value in at least 2 regions) and has the most
-bivalue cells (ie is one of two potential values of a cell). We keep score:
-each conjugate relationship is 1 point, and each bivalue is 1 point, and the
-total score in this implementation must be at least 7 in order to be searched,
-because that's the minimum score that produces a hint in top1465; but note that
-there's nothing magical about top1465, so 7 is very probably too high for ALL
-possible Sudoku puzzles, it just works for MY puzzles. A real expert could get
-this right. I'm just a computer programmer, so I do what works for me, in the
-hope that it also works for others. Experts have facts. Pragmatists have hope.
-Therefore expert pragmatists are ____ed, but at least we know we're ____ed, and
-so are up-front about it, in the hope that an expert will correct us. You can
-can lower or remove this restriction as suits your requirements.
+(ie there are two places for this value in at least 2 regions) and is in the
+most bivalue cells (one of two potential values of a cell). We keep score for
+each value: a conjugate pair is 1 point, and a bivalue cell is 1 point.
+
+This implementation searches values with a total score of 7 or more, because 7
+is the minimum score that produces a hint in top1465. There's nothing magical
+about top1465. 7 is probably too high for ALL possible Sudoku puzzles. An expert
+could get this right. I'm just a computer programmer, so I'm doing what works
+for me, in the hope that it also works for others. Experts have facts.
+Pragmatists have hope. So expert pragmatists are ____ed, but at least we know
+that we're ____ed, and so are cheerfully up-front about it, in the hope that an
+expert will come along and correct us. Lower or remove this constraint to suit
+your requirements. It exists only for speed.
 
 So we start with a value that has two possible positions in a region. We paint
 the first position GREEN, so the second will be BLUE.
 
-It's important to get your head around the "strong" bidirectionality of
-this-and-all coloring relationships:
+It's important to get your head around the "strong" bidirectionality of this
+and indeed all coloring relationships:
                 If cell A is value     then cell B is NOT value,
-and conversely, If cell B is NOT value then cell A is value.
+<b>and conversely</b>, If cell B is NOT value then cell A is value.
 Every painted cell-value has a "strong" (bidirectional) relationship with every
 other painted cell-value, so it's one in, all in; and one out, all out; and ONE
 of the two colors MUST be true. Ergo assert green XOR blue. Got it?
 
 We look at the three regions containing each cell we paint (it's box, row, and
-col). If this region also has two possible locations for this value then we
-paint this value of the other cell the other color.
+col). If this region also has two possible locations for this value then paint
+this value of the other cell the other color.
 
-If a cell has two potential values then we paint the other value the other
-color.
+If a cell has two potential values then paint the other value the other color.
 
 When each cell-value is painted we also "off" (rendered as a '-' next to it's
 digit) each other occurrence of this value in each of this cells three regions.
@@ -116,14 +118,21 @@ Then (if there's any eliminations) we look for "confirmations":
 * "color is true" means all cell-values rendered in a larger this-color font
   will be set when this hint is applied, including "ons" with the full-colors.
 
-Then (for contradiction and confirmation) set consequent naked/hidden singles.
+Then we set consequent naked/hidden singles.
+* for contradictions and confirmations we start from the given setPots. For an
+  eliminations hint we see if eliminations leave any naked or hidden singles,
+  and produce a setPots of them (else it's just a "normal" eliminations hint).
 * setPots are set in the grid, using autosolve so that any consequent naked or
   hidden singles are also set (recursively).
   - Naked Single: If a cell has one potential value then set it to that value.
   - Hidden Single: If value has one place in a region then set it to the value.
-* Eliminations: eliminate the redPots from the grid.
-* Note: Greediness makes GEM Type * hints likely to be the last hint, because I
-  just hate it when a few singles are left-out in the cold, so I made GEM chase
-  them down. If you disagree then set CONSEQUENT_SINGLES = false in GEM.java.
+* Eliminations: we use all the reasonably fast hinters (upto 20ms/elim) to
+  eliminate maybes from the grid in the hunt for more singles.
+* NOTE: Consequent singles make GEM more likely to solve the puzzle, because I
+  hate it when a few cells are left-out in the cold, so GEM chases them down,
+  but it does so silently: no justification is provided for consequent singles.
+  If you demur then set CONSEQUENT_SINGLES and CONSEQUENT_SINGLES_TOO = false
+  in GEM.java. It's perfectly sane and reasonable to demur. I'm just greedy.
+  If you need a complete explanation of all hints then switch-off CS.
 
 And then we go for a little lie down.

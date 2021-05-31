@@ -43,49 +43,52 @@ and then press the digit key: 1..9.
 Spacebar, delete, backspace, or 0 (zero) all clear the current cell value.
 If you stuff-up then Ctrl-Z goes back one step at a time. Ctrl-Y does a redo.
 <p>
-When you've got your whole puzzle punched-in do NOT forget to Ctrl-S for save
-BEFORE you start solving it. A reload might be handy. I always forget to save.
-Sigh.
+When you've got your whole puzzle punched-in press Ctrl-S to save. Now's a good
+time to double-check that the puzzle is punched-in 100% correctly, before you
+start solving it. A reload might be handy later.
+<p>
+Press F7 to validate: ie check it has one and only one solution. I have seen
+published Sudoku's with insufficient clues; some idiot rushing to meet a
+deadline.
 <p>
 If you get stuck press F5 for a hint. To apply that hint and get the next one
 just press enter.
 <p>
 Anyway, that's probably enough to get you started. Have fun with it. Come back
-and read the advanced stuff when you get bored.
+and read the advanced stuff when your tennis elbow flares up (get bored).
 <p>
 <h2>Advanced Stuff</h2>
 <p>
 More "advanced" Sudokuists will want to remove maybes (potential values).
-That's those small grey digits in the empty cells. To do that just right-click
-on the small grey digit, or with the keyboard: select the cell with the arrow
-keys and then Ctrl-digit to remove/restore the maybe. You can't restore an
-illegal maybe.
+That's those small grey digits in the empty cells. To remove a maybe just right
+click on the small grey digit; or using the keyboard: select the cell with the
+arrow keys and then Ctrl-digit. The same procedure also restores a maybe; just
+right-click where it should be. You can't restore an invalid one.
 <p>
 You'll notice that <b>Sudoku Explainer</b> enforces the basic rule of Sudoku:
 <i>"There will be one-and-only-one instance of each value in each region"</i>.
 So when you punch a 7 into a cell then all the 7's disappear from the other
-cells in it's box (the 3x3 thingummy), row (horizontal), and col (vertical).
+cells in it's box (the 3x3 thingummy), row (horizontal), and col (vertical),
+and no matter what you do you can't get them back.
 <p>
 Sudoku puzzle books are all a bit soft (it's an expert scale) so just seeing the
 maybes could get you unstuck; but if not then press F5 to find a hint. Then you
-can just press enter to apply that hint and get the next one, and the next, and
-the next... Sudoku Solvered! Too Bloody Easy!
+can just press enter to apply that hint and get next, and next... Solvered!
 <p>
 The following "frequently used" <b>buttons</b> are arranged along the bottom
-of the form (I never use the buttons. I do hope they still work):
+of the form (I don't use the buttons, or the menus. I hope they still work):
 <ul>
  <li><b>Clear hints</b> clears the hints tree and refreshes the Sudoku grid.
  <li><b>Solve step</b> applies the selected hint (if any) and gets the next
   (simplest possible) step in solving the puzzle. Click the [Solve step]
   button again to apply the selected hint, and get the next one; or just
   double-click on the hint in the hints tree, or click in the hintsTree (to
-  select it) and press enter. That's how to watch the Sudoku puzzle being 
-  solved: Just Keep Pressing Enter! which takes all the fun out of it really.
-  Sigh. Except that SE solves any Sudoku puzzle, even really <i>really</i>
-  <i><b>really</b></i> hard ones (like conceptis's above), and my challenge is
-  to solve all <u>possible</u> Sudoku puzzles using logic, and to do so faster
-  than everybody-else, mainly because whacking-off gets boring eventually, I
-  had superfluous hair (sigh), and it was there.
+  select it) and press enter. That's how to watch a Sudoku puzzle being solved:
+  Just Keep Pressing Enter! which takes all the fun out of it really, except
+  that SE solves any Sudoku puzzle, even really <i>really</i> <i><b>really</b></i>
+  hard ones (like conceptis's above). My challenge is to solve all <u>possible</u>
+  Sudoku puzzles as simply as possible to provide a step-by-step explanation;
+  and do it all as quickly as possible; just because Sudoku was there.
  <li><b>Get next hint</b> to get hints again without applying the current one.
   Why would you do that? Because there's a button for it, obviously!<br>
  <li><b>Apply hint</b> to apply the current hint, without getting the next one.
@@ -94,138 +97,162 @@ of the form (I never use the buttons. I do hope they still work):
   possible, because there's a button for it, which is nice really, isn't it.
  <li><b>Get all hints</b> which can be applied to the current grid. Hold down
   the shift key to get even more hints, but be forewarned, this can take a
-  a minute or three on my i7. The HintsTree is grouped by category &amp;
-  hinter, in increasing order of difficulty (now increasing eliminations).
-  You'll need to expand each category by clicking on it. Be warned that 20,000+
-  hints may be produced, so the GUI bogs, especially when "Filter hints" is NOT
-  selected. It filters with the old "does it remove any NEW maybes" trick. So
-  if all of a-more-complex-hints actions (cells set &amp; maybes eliminated)
-  are already covered by a simpler hint then the latter is suppressed, which
-  keeps the hint-count down, so the GUI doesn't bog.
- <li>It's also worth noting that the larger Aligned*Exclusion hints can take
-  several (maybe 5) seconds to DOM-parse because of profligate color tags.
-  A GUI programmer with HTML/styles knowledge could help here. I wouldn't have
-  a clue what a style is. I don't have any.
+  minute (or three) on my i7. The HintsTree is grouped by category &amp; hinter, in
+  increasing eliminations or difficulty, depending on "Filter Hints".
+  Expand each category by clicking on it. Be warned that 20,000+ hints may be
+  produced when Filter hints isn't selected, so the GUI bogs down.
+  Filter hints checks "does it do anything new", so when a more complex hints
+  actions (cells set &amp; maybes eliminated) are already covered by a simpler
+  hint then the latter is suppressed, reducing hints, so it won't bog.
+ <li>A large Aligned*Exclusion hint takes upto like 10 seconds to DOM-parse
+  because of profligate use of color tags. A GUI programmer with HTML/styles
+  could help here. I wouldn't have a clue what a style is. I don't have any.
 </ul>
-<p>Some other stuff also worth a mention:
-<ul>
- <li><b>File menu ~ load next Puzzle</b> or just Ctrl-P loads the "next"
-  puzzle. The meaning of "next" depends on what you've got open. The <i>.mt</i>
-  files (magic-tour) are a multi-puzzle format, but next on a <i>.txt</i> file
-  opens the next text-file in the current directory. <b>NOTE</b> that when you
-  open the next puzzle Sudoku Explainer analyses the puzzle automatically,
-  which may take a while, depending on the difficulty of the puzzle and which
-  Solving Techniques you've got enabled.
- <li><b>File menu ~ Reload</b> (Alt-F-R) or just Ctrl-R reloads the saved
-  puzzle from disk. I find this really handy. It'll even let you try chaining
-  manually, if you're over 90, have a decade to kill, and are <b>SERIOUSLY</b>
-  sexually frustrated but find that you no longer have the manual dexte....
-  Never mind. Ctrl-R to reload the puzzle. OK?
+<p>
+Some other stuff also worth a mention:<ul>
+ <li><b>File menu ~ load next Puzzle</b> or just Ctrl-P loads the next puzzle.
+  The meaning of "next" depends on what you've got open. The <i>.mt</i> files
+  (magic-tour) are a multi-puzzle format, but next on a <i>.txt</i> file opens
+  the next text-file in the current directory. <b>NOTE</b> that when you open
+  the next puzzle SE analyses the puzzle automatically, which may take a while,
+  depending on the difficulty of the puzzle and which Solving Techniques you've
+  got enabled (some are MUCH slower than others).
+ <li><b>File menu ~ Reload</b> (Alt-F-R) or just Ctrl-R reloads the saved puzzle
+  from disk. I find this really handy.
  <li><b>File menu ~ log View</b> for techies: view hints of a type in the .log
   of a previous LogicalSolverTester run, to re/exercise the hinter/s and/or see
   how hinttype/s look in GUI.
- <li><b>Tools menu ~ Reset Potential Values</b> restores the maybes in the
-  current grid, which is handy if you bugger-it-all-up and want to restore the
-  grid to a valid state before trying again. But note that reset PV's doesn't
-  remove cell values, even if they're wrong.
+ <li><b>Tools menu ~ Reset Potential Values</b> restores the puzzles maybes,
+  which is handy if you bugger-it-all-up and want to restore the puzzle to a
+  valid state before trying again. Note that reset doesn't remove cell values,
+  even if they're wrong. Use Ctrl-Z or Reload for that.
  <li><b>F6 - Get a clue</b> points you towards the next step. Shift-F6 gives
   you a bit more information (it's basically the hint for simpler techniques).
   For harder techniques a clue is the help I think I should want when solving
-  a Sudoku manually because it tells me which technique to apply next, 
-  allowing me to skip all the inapplicable techniques; but what I actually use
-  is the hints, but I'm a programmer, so for me the challenge is writing the
-  code to produce the hints to solve all Sudoku puzzles, not solving A puzzle,
-  as I presume it is for most people. Clues are there if you want them.
+  a Sudoku manually because it tells me which technique to apply next, allowing
+  me to skip all the inapplicable techniques; but what I actually use is the
+  hints, but I'm a programmer, so for me the challenge is writing the code to
+  produce the hints to solve all Sudoku puzzles, not solving A puzzle, as I
+  presume it is for most people. Clues are there if you want them.
  <li><b>F7 - Check validity</b> checks that there are no doubled values; that
   each empty cell has at least 1 potential value; that all regions have a
-  possible location for each unplaced value; and finally that the Sudoku has
-  a unique (one and only one) solution. This is pretty handy. I'm not really
+  possible location for each unplaced value; and finally that the Sudoku has a
+  unique (one and only one) solution. This is pretty handy. I'm not really
   surprised (just disgusted) at the prevalence of blatant basic invalidities
-  (like 16 clues) in published Sudokus, because morons are always in a hurry.
- <li><b>F9 - Analyse</b> tells you how hard the puzzle is, and gives you a
-  summary of steps which may be used to solve it. Note that this is far from
-  the only solution to the puzzle, it's just <b>a</b> (not THE) simplest recipe
-  with the enabled Solving Techniques. There may be other shorter recipes that
-  don't increase the difficulty. I'm not seeking the shortest simplest path,
-  just the simplest; because that's simpler. Yeah? A real guru could do better,
-  I'm sure. Contemplating <i>A*</i>ing edges this meaty scares me. sigh.
+  (like 16 clues) in published Sudokus, because idiots are always in a hurry.
+  Quality takes time. Get over it.
+ <li><b>F9 - Analyse</b> tells you how hard the puzzle is, and summarises the
+  steps used to solve it. Note that this is far from the only possible solution
+  to the puzzle, it's just <b>a</b> (not THE) simplest recipe using the enabled
+  Solving Techniques. There may be other shorter recipes that don't increase the
+  difficulty. I'm not seeking the shortest simplest path, just the simplest;
+  because that's simpler. Yeah? <i>A*</i>ing chumpy edges scares me.
  <li>If you want an itemised solution then run the LogicalSolverTester over the
   puzzle and look at the log file. That's why I haven't bothered with it in the
   GUI. I figure most users don't want it, and those that do also want a batch.
- <li><b>Options ~ Solving techniques...</b> allows you to select which Sudoko
-  solving techniques are applicable:
-  <ul>
-   <li>Naked Singles, Hidden Singles, Dynamic Plus and Nested Plus are
+ <li><b>Options ~ Solving techniques...</b> allows you to select which Sudoku
+  solving techniques are applicable:<ul>
+   <li>Naked Singles, Hidden Singles, Dynamic Plus and Nested Plus are all
 	mandatory, so there CheckBoxes are checked and disabled.
    <li>You can't disable singles because they're "core" techniques. It makes no
-	sense to try to solve a Sudoko without them.
-   <li>Dynamic Plus is a catch-all. It's a bit slow, but misses only on the 
+	sense to try to solve a Sudoku without them.
+   <li>Dynamic Plus is a catch-all. It's a bit slow, but misses only on the
 	hardest puzzles. Nested Plus is really slow, mandatory, and ALWAYS hints;
 	in fact Nested Unary (faster) also never fails to find a hint, so maybe it
-	should be the catch-all instead, except that'd preclude Nested Multiple and
-	Nested Plus, where the real disenhirsuterative fun is. sigh.
-   <li><i>Direct*</i> are useless, but which I mean when they're unchecked the
+	should be the catch-all instead, except that precludes Nested Multiple and
+	Nested Plus, where all the really disenhirsuterative fun is. sigh.
+   <li><i>Direct*</i> are useless, but which I mean when they are unchecked the
 	hints are still found by there non-direct equivalents. Direct just runs the
-	same algorithm twice on each pass, which is a waste of time.
+	same algorithm twice on each pass, to show hintier ones sooner, which is
+	just a waste of time, unless it isn't because that's what you really want.
+   <li>Choosing BUG, Coloring, XColoring, Medusa 3D, and/or GEM (Graded
+	Equivalence Marks) is pretty complicated, so here's the break down:<ul>
+	<li>BUG (Bivalue Universal Grave) is the earliest solving technique; which
+	 might reasonably now be regarded as "deprecated" because it's slow and
+	 produces minimal hints, but it still works so it remains.
+	<li>Coloring implements both Simple Coloring (two colors) and MultiColoring
+	 (multiple color-sets). It is faster and finds more hints than BUG. Also it
+	 is the ONLY coloring technique that searches multiple color-sets.
+	 If Coloring is unwanted then multiple color-set hints are found by the
+	 Unary Chainer; they are NOT sought by XColoring, Medusa 3D, or GEM.
+	<li>XColoring (Extended Coloring) finds more Simple Coloring hints, but is
+	 slower.
+	<li>Medusa 3D finds more Simple Coloring hints, but is slower again.
+	<li>GEM (Graded Equivalence Marks) is the "ultimate" simple coloring.
+	 It finds a superset of Medusa 3D's Simple Coloring hints, and is actually
+	 a bit faster than Medusa 3D in this implementation.
+	<li>So, to find the simplest hint as quickly as possible I recommend using
+	 Coloring and GEM together.<ul>
+	 <li>Coloring finds those pesky MultiColoring hints; and it's faster to
+	  find the basic Simple Coloring hints verses GEM.
+	 <li>GEM maximises both the number of hints produced and eliminations per
+	  hint, by being a very naughty boy. They're <b>MY</b> juniper berries!
+	 <li>The GEM spec recommends doing basic Coloring before GEM, and it also
+	  states that the coloring-chart is re-usable, which does not happen in my
+	  implementation, because I'm lazy, so there's an opportunity for someone
+	  mad enough. The coloring-chart could also be used as a mine-field. sigh.
+	</ul>
+	<li>Any and all combos of BUGs and Colorings are fast enough in practice.
+   </ul>
    <li>Naked Pent and Hidden Pent are both degenerate, which means that every
 	hint is the agglomerate of two simpler techniques. In practice this means
 	they don't hint, because we execute solving techniques in (approximate)
 	increasing order of complexity.
-   <li>Mutant Swampfish is degenerate to Finned and Franken Swampfish, so use
-	either (Finned Swampfish and Franken Swampfish) OR Mutant Swampfish, but not
-	all three, or Mutant Swampfish finds no hints, which is a waste of time.
-   <li>The same sort-of-applies to Mutant Swordfish and Mutant Jellyfish. All
-	Finned and Franken hints are found by the Mutant hinters, along with the
-	Mutant-only combinations, because filtering them out is slower; so if you
-	want the Mutants you can drop Finned and Mutant. Just be prepared to wait.
-   <li>BE WARNED: Mutant Jellyfish are TOO SLOW (about 20 minutes for top1465).
-   <li><b>Aligned Ally</b> (one up from Diagon Ally;-):
-    <ul>
-    <li><i>Aligned Pair</i> is fast,
-    <li><i>Aligned Triple</i> is fast enough,
-    <li><i>Aligned Quad</i> is acceptable,
-    <li><i>Aligned Pent</i> is acceptable (I go unhacked),
-    <li><i>Aligned Hex</i> is acceptable (I go unhacked),
-    <li><i>Aligned Sept</i> is too slow unhacked, and acceptable hacked but
-     then hints very rarely. sigh.
-    <li>BE WARNED: Unhacked <i>Aligned Oct, Nona and Dec</i> are so slow there's
-     an APB out on them from the <i>School of Algorithmic Incontinence</i> at
-	 the <i>Walgatt College of Ear Wax Removal and Advanced Masturbation</i>.
-	 My advise is don't use A8+E. They're as rare as chickens lips anyways.
-    <li>BE WARNED: The "correct" Aligned Dec runs for a <b>____ING DAY</b>!!!!
-	<li>Suggestions on AE'ing faster are welcome. City life's made him a bit
-	 slow, Redge.
-    </ul>
-   <li><b>Whips &amp; Chainers:</b>
-    <ul>
-    <li>The <b>Chainers</b> are now so fast compared to the AE debacle that I
+   <li>Mutant Swampfish is degenerate to Finned and Franken Swampfish, so if
+	you really want Mutant Swampfish then unwant Finned and Franken Swampfish,
+	but be warned that Mutant means slow, and it finds no more Swampfish.
+   <li>The same partially applies to Mutant Swordfish and Mutant Jellyfish.
+	Mutant searches all Finned and Franken combos with the Mutant-only combos;
+	so if you want Mutants then drop Finned and Franken. Be prepared to wait.
+   <li>WARNING: Mutant Jellyfish are TOO SLOW (about 20 minutes for top1465).
+   <li>I recommend using both Finned and Franken. Bugger the Mutants! sigh.
+   <li><b>Aligned Ally</b> (one up from Diagon Ally;-):<ul>
+	<li><i>Aligned Pair</i> is fast,
+	<li><i>Aligned Triple</i> is fast enough,
+	<li><i>Aligned Quad</i> is acceptable,
+	<li><i>Aligned Pent</i> is acceptable (I go unhacked),
+	<li><i>Aligned Hex</i> is acceptable (I go unhacked),
+	<li><i>Aligned Sept</i> is too slow unhacked, and acceptable hacked but
+	 then hints very rarely. sigh.
+	<li>WARNING: <i>Aligned Oct, Nona and Dec</i> correct are so slow there's
+	 an APB out on them from the <i>School of Incontinent Geoalgorithmic Heuristics</i>
+	 at the <i>Stanley College of Advanced Masturbation and Ear Wax Removal</i>.
+	<li>WARNING: Aligned Dec correct runs for a <b>____ING DAY</b>!!!
+	<li>Any suggestion on how to do Aligned Exclusion faster is most welcome.
+	<li>I recommend dropping A*E. They're too slow, because they're too rare.
+	 If you really must use A*E then upto A6E is acceptably fast.
+	</ul>
+   <li><b>Whips &amp; Chainers:</b><ul>
+	<li>The <b>Chainers</b> are now so fast compared to the A*E debacle that I
 	 really don't know why you'd disable them, except maybe Nested* if you're
 	 impatient with Shift-F5. I use all Chainers, but not Nested*.
-    <li><i>Unary Chain</i> would be better named Unary Chains and Bidirectional
+	<li><i>Unary Chain</i> would be better named Unary Chains and Bidirectional
 	 Cycles, but that's just too bloody long. Dynamic Chain finds Unary Chains,
 	 but not Bidirectional Cycles, which are "pretty rare" anyways.
-    <li><i>Nishio Chain</i> is when an assumption has contradictory effects,
+	<li><i>Nishio Chain</i> is when an assumption has contradictory effects,
 	 hence the assumption must be wrong.
-    <li><i>Multiple Chain</i> starts from a cell with two <i>or more</i>
-     potential values. If you unwant Multiple then Dynamic takes longer, which
+	<li><i>Multiple Chain</i> starts from a cell with two <i>or more</i>
+	 potential values. If you unwant Multiple then Dynamic takes longer, which
 	 is faster overall; but there's no distinction between static and dynamic
 	 chaining, so hints are incorrectly rated harder than they really are.
-    <li><i>Dynamic Chain</i> removes maybes from the grid to track effects of
+	<li><i>Dynamic Chain</i> removes maybes from the grid to track effects of
 	 each assumption, playing "who's your daddy" on Ass. sigh. Dynamic Chain
 	 finds Unary Chains (but not Cycles) and Multiple Chains. I use Dynamic.
-    <li><i>Dynamic Plus</i> applies Four Quick Foxes (Locking, NakedPair,
+	<li><i>Dynamic Plus</i> applies the Four Quick Foxes (Locking, NakedPair,
 	 HiddenPair, Swampfish) on top of dynamic chains.<br>
 	 This only fails to find a hint on expert level puzzles. Normal people can
 	 rely on it to always find a hint. It's check box is disabled so you can't
-	 disable it, unless you're a programmer.
-    <li><i>Nested Unary</i> always (AFAIK) hints, even on the worlds hardest
-     puzzle (above). "Normal" people can disable it with confidence.
-    <li><i>Nested Multiple/Dynamic/Plus Chains</i> aren't ever used in anger.
+	 disable it, unless you change the code.
+	<li><i>Nested Unary</i> always (AFAIK) hints, even on the worlds hardest
+	 puzzle (above). "Normal" people will simply never use it, except when they
+	 copy paste the above puzzle to prove to themselves that I'm not completely
+	 full of s__t. It's impossible to lick your own elbow!
+	<li><i>Nested Multiple/Dynamic/Plus Chains</i> aren't ever used in anger.
 	 They exist solely for the amusement of afficionados. You can see them with
 	 Shift-F5; just be patient.
 	<li>I normally run with Nested Unary/Multiple/Dynamic disabled, but
 	 <i>Nested Plus</i> is always enabled, as the ultimate catch-all.
-    </ul>
+	</ul>
   </ul>
 </ul>
 <p>
@@ -236,19 +263,23 @@ which is how I find puzzles for my test-cases.
 <p>
 My "standard" test data file is top1465.d5.mt. It contains 1465 Sudoku puzzles
 in "approximate" order of hardest to easiest. I need a variety of puzzles to
-exercise my hinters, and a "standard" for comparative performance testing.
-<ul>
+exercise my hinters, and a "standard" for comparative performance testing:<ul>
  <li>All timings are on an ~2900 Mhz intel i7 notebook solving top1465.d5.mt.
  <li>As a baseline, the original Juillerat implementation took 22 minutes.
  <li>In accuracy (default) mode, with all hinters enabled (all A*E hacked)
-  mine took 37 minutes. So SE has an exclusion problem! sigh.
- <li>so I <b>disable</b> all but "the original" hinters and it takes 1:33,
-  which is "fast enough" in my humble opinion; in fact anything under 10 mins
-  "feels pretty snappy" in the GUI. Anything under 20 mins is "acceptable".
+  mine took 37 minutes. So SE has a bit of an exclusion problem! sigh.
+ <li>so I <b>disable</b> all but "the original" hinters and it takes 1:33 which
+  is "fast enough" in my humble opinion. Anything under 5 minutes feels "nice"
+  in the GUI. Under 10 minutes feels "pretty snappy". Under 20 minutes would be
+  "acceptable"; beyond that it feels like someone stole your lunch.
 </ul>
 <p>
 Try <b>RecursiveSolverTester</b> for speed. It's Knuth's recursive algorithm
 + Four Quick Foxes + Cell.set(AUTOSOLVE) = top1465.d5.mt in 916 ms;
-which is FTL, IMHO. All I did was tweak it.
+which is FTL, IMHO. All I did was tweak it. Note that this is (I presume) not
+repeatable in the current version, because Cell.set is now "non-aggressive".
+<p>
+I should also mention the test-cases. There are test-cases. No guarantees on
+quality. They're minimal and optimistic. Less code equals more speed.
 </body>
 </html>

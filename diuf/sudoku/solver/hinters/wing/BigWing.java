@@ -269,7 +269,7 @@ public class BigWing extends AHinter {
 				cands[0] = c.maybes.bits;
 				// check for enough cells (we need degree cells for an ALS)
 				if ( sets[1].setAndMin(sets[0], AFTER[c.i], degreeMinus1)
-				  // and go move right to the next ALS cell
+				  // and move right to the next ALS cell
 				  && recurse(1) ) {
 					result = true;
 					if ( onlyOne )
@@ -311,17 +311,17 @@ public class BigWing extends AHinter {
 									// double linked
 									yzVs.both = xWing & zWing;
 									// find eliminations
-									reds = eliminate(candidates, victims
-										, cands[i], yz, yzVs, als, theReds);
-									if ( reds != null ) {
-										Pots oranges = new Pots();
+									if ( (reds=eliminate(candidates, victims
+										, cands[i], yz, yzVs, als, theReds)) != null ) {
+										final Pots oranges = new Pots();
 										oranges.put(yz, new Values(yzVs.x));
 										for ( Cell cc : als )
 											if ( cc.maybe(yzVs.x) )
 												oranges.put(cc, new Values(yzVs.x));
 										// create the hint
-										AHint hint = new BigWingHint(this, reds
-											, yz, yzVs, cands[i], als, oranges);
+										final AHint hint = new BigWingHint(this
+											, reds, yz, yzVs, cands[i], als
+											, oranges);
 										result = true;
 										if ( accu.add(hint) )
 											return result; // exit-early

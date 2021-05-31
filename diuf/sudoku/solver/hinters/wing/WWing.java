@@ -105,8 +105,8 @@ public final class WWing extends AHinter
 				// find a "pair" cell (with same 2 maybes)
 				for ( Cell cB : bivalueCells ) {
 					if ( cB.maybes.bits==bitsA && cB!=cA ) {
-	//if ( cellA.id.equals("C6") && cellB.id.equals("H9") )
-	//	Debug.breakpoint();
+//if ( cellA.id.equals("C6") && cellB.id.equals("H9") )
+//	Debug.breakpoint();
 						// ok, we have a pair; can anything be eliminated?
 						// find removable cells: siblings of both A and B
 						// which maybe v0 or v1

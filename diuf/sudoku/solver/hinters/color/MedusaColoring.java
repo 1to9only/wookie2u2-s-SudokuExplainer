@@ -642,7 +642,7 @@ public class MedusaColoring extends AHinter implements IPreparer
 		//     XColoringHintMulti, otherwise could get (rare) invalid hints.
 		for ( ARegion r : grid.regions )
 			for ( int v : VALUESES[colorValues[c]] )
-				if ( tmp1.setAndMultiple(thisColor[v], r.idxs[v]) ) {
+				if ( tmp1.setAndMany(thisColor[v], r.idxs[v]) ) {
 					region = r;
 					cause = tmp1.toCellSet(grid);
 					goodColor = o;
