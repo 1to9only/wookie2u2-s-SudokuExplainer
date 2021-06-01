@@ -15,16 +15,13 @@ import diuf.sudoku.Grid.*;
 import diuf.sudoku.solver.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.hinters.*;
-import diuf.sudoku.solver.hinters.als.*;
-import diuf.sudoku.solver.hinters.chain.MultipleChainer;
-import diuf.sudoku.solver.hinters.chain.UnaryChainer;
+import diuf.sudoku.solver.hinters.chain.*;
 import diuf.sudoku.solver.hinters.fish.*;
 import diuf.sudoku.solver.hinters.hdnset.*;
 import diuf.sudoku.solver.hinters.lock.*;
 import diuf.sudoku.solver.hinters.nkdset.*;
 import diuf.sudoku.solver.hinters.sdp.*;
 import diuf.sudoku.solver.hinters.single.*;
-import diuf.sudoku.solver.hinters.urt.*;
 import diuf.sudoku.solver.hinters.wing.*;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
@@ -122,13 +119,16 @@ public class GEM extends AHinter implements IPreparer
 	// RARE as rocking horse s__t: 0 in top1465
 	private static final boolean CONFIRM_HIDDEN_SINGLES = false;
 
+// KRC 2021-04-19 I've disabled consequent singles because it's utter madness,
+// brought-on by my hatred of seeing "a few" singles left out, which I'm now
+// (mostly) over. It is actually slower, and yields a misleading elim-count.
 	// Should big hints include consequent naked/hidden singles?
-	private static final boolean CONSEQUENT_SINGLES = true;
+	// public for use in test cases
+	public static final boolean CONSEQUENT_SINGLES = false;
 
 	// Should little hints include consequent naked/hidden singles?
-	// false: 1,570,683,200  11818  132,906  142775  11,001  GEM
-	// true : 1,560,177,300  11848  131,682  162376   9,608  GEM
-	private static final boolean CONSEQUENT_SINGLES_TOO = true;
+	// public for use in test cases
+	public static final boolean CONSEQUENT_SINGLES_TOO = false;
 
 	// Should hints be validated internally. Set me true when you ____ with the
 	// promotions method, to check for invalid hints. I'm more forgiving than
@@ -143,7 +143,7 @@ public class GEM extends AHinter implements IPreparer
 	// they PREVENT you from seeing what the problem is. So you disable them
 	// and there's a car crash. Then you try a smash-up derby, and discover how
 	// much you like rubber bumpers; so it's all good.
-	private static final boolean CHECK_HINTS = false;
+	private static final boolean CHECK_HINTS = true;
 //	// should we Log s__t when we CHECK_HINTS?
 //	private static final boolean CHECK_NOISE = true;
 
@@ -163,12 +163,6 @@ public class GEM extends AHinter implements IPreparer
 	private static final String[] CCOLORS = {"<g>green</g>", "<b1>blue</b1>"};
 	// The starting size of the steps StringBuilder. It'll grow if necessary.
 	private static final int STEPS_SIZE = 4096;
-	// An idx containing each cells indice.
-	private static final Idx[] CELL_IDX = new Idx[81];
-	static {
-		for ( int i=0; i<81; ++i )
-			CELL_IDX[i] = new Idx().add2(i);
-	}
 
 	// contradiction retvals:
 	private static final int SUBTYPE_2 = 2; // 2+ green v/ons's in cell
@@ -219,7 +213,8 @@ public class GEM extends AHinter implements IPreparer
 	/**
 	 * ValueScore is the score for each value; only used in the startingValues
 	 * method, to keep the value WITH it's score, so that we can sort the array
-	 * by score descending and keep the value.
+	 * by score descending and keep the value. The array is unsorted back to
+	 * value order (including 0) at the start of each startingValues run.
 	 */
 	private static class ValueScore {
 		public final int value;
@@ -231,6 +226,10 @@ public class GEM extends AHinter implements IPreparer
 		public String toString() {
 			return ""+value+": "+score;
 		}
+		private void clear() {
+			// value remains (it's final)
+			score = 0;
+		}
 	}
 
 	/**
@@ -239,16 +238,8 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	private static void createArray(Idx[][] array) {
 		for ( int c=0; c<2; ++c )
-			createArray(array[c]);
-	}
-
-	/**
-	 * Create a values array 1..9.
-	 * @param array
-	 */
-	private static void createArray(Idx[] array) {
-		for ( int v=1; v<10; ++v )
-			array[v] = new Idx();
+			for ( int v=1; v<10; ++v )
+				array[c][v] = new Idx();
 	}
 
 	/**
@@ -281,8 +272,14 @@ public class GEM extends AHinter implements IPreparer
 	/**
 	 * Used to sort ValueScore's by score descending.
 	 */
-	private static final Comparator<ValueScore> VALUE_SCORE_DESCENDING =
+	private static final Comparator<ValueScore> SCORE_DESCENDING =
 			(ValueScore a, ValueScore b) -> b.score - a.score;
+
+	/**
+	 * Used to sort ValueScore's by value ascending (ie put them back in order).
+	 */
+	private static final Comparator<ValueScore> VALUE_ASCENDING =
+			(ValueScore a, ValueScore b) -> a.value - b.value;
 
 	/**
 	 * promotions needs to know the values that have been eliminated from each
@@ -413,6 +410,9 @@ public class GEM extends AHinter implements IPreparer
 		// We want explanation in GUI and testcases, just not in the batch.
 		// nb: building all the "why" strings slows batch down by a MINUTE!
 		this.wantWhy = Run.type != Run.Type.Batch;
+		// populate the scores array ONCE (cleared thereafter)
+		for ( int i=0; i<10; ++i ) // include zero to not upset sort
+			scores[i] = new ValueScore(i);
 	}
 
 	/**
@@ -429,10 +429,12 @@ public class GEM extends AHinter implements IPreparer
 //	public void report() {
 //		Log.teef("\n%s: minContradiction=%d, minConfirmation=%d, minElimination=%d\n"
 //			, getClass().getSimpleName(), minContradiction, minConfirmation, minElimination);
+//		Log.teef("\n%s: minScore=%d\n", getClass().getSimpleName(), minScore);
 //	}
 //	private int minContradiction = Integer.MAX_VALUE;
 //	private int minConfirmation = Integer.MAX_VALUE;
 //	private int minElimination = Integer.MAX_VALUE;
+//	private int minScore = Integer.MAX_VALUE;
 
 	/**
 	 * Called by solve to find first/all 3D Medusa hints, if any, in this grid.
@@ -469,22 +471,25 @@ public class GEM extends AHinter implements IPreparer
 		boolean result = false;
 		try {
 			clear(done); // supress repeat search keys
-			hashes.clear(); // supress repeat search results (colors)
+			hashes.clear(); // supress repeat searches (colors)
 			// Step 1: foreach value in 2-or-more conjugate relationships,
 			//         order by num conjugates + num bivalues DESCENDING.
-			// WARNING: startingValues filters to score >= 7 coz that's the
-			// lowest score that hints in top1465. THIS MAY BE WRONG!!!
-			for ( int v : startingValues() )
-				for ( ARegion r : grid.regions )
+			// WARNING: startingValues filters to score >= 4 coz that's the
+			// lowest score that hints in top1465. THIS MAY BE WRONG!
+			for ( int i=0,n=startingValues(); i<n; ++i ) {
+				final int v = scores[i].value;
+				for ( ARegion r : grid.regions ) {
 					// if v has 2 possible positions in this region
 					if ( r.indexesOf[v].size == 2
 					  // and we haven't already painted this cell-value.
 					  && !done[v].contains((cell=r.cells[FIRST_INDEX[r.indexesOf[v].bits]]).i)
 					  // and the search finds something
 					  && ( result |= search(cell, v) )
-					  // and the passed accu isSingle
+					  // and we want onlyOne hint
 					  && onlyOne )
-						return result; // we're all done
+						return result; // all done
+				}
+			}
 		} catch ( UncleanException ex ) {
 			// USE_PROMOTIONS -> create[Big]Hint: bad elim or cell-value.
 			Log.teeln("WARN: GEM: "+ex.getMessage());
@@ -507,12 +512,13 @@ public class GEM extends AHinter implements IPreparer
 	 * conjugate pairs, and as many candidates as possible in bivalue cells.
 	 * These bivalue cells allow us to expand the coloring clusters beyond
 	 * the single digit boundary.
+	 * @return the number of value with a score of 4 or more.
 	 */
-	private int[] startingValues() {
+	private int startingValues() {
 		// reset scores
-		final ValueScore[] scores = new ValueScore[10]; // score of values 1..9
-		for ( int i=0; i<10; ++i ) // include zero to not upset sort
-			scores[i] = new ValueScore(i);
+		Arrays.sort(scores, VALUE_ASCENDING); // put them back in values order
+		for ( int v=1; v<10; ++v )
+			scores[v].clear();
 		// count conjugate pairs for each value
 		// build-up a bitset of those values that're in 2+ conjugate pairs
 		int cands = 0;
@@ -528,21 +534,29 @@ public class GEM extends AHinter implements IPreparer
 				for ( int v : VALUESES[c.maybes.bits & cands] )
 					++scores[v].score;
 		// order by score descending
-		Arrays.sort(scores, VALUE_SCORE_DESCENDING);
-		// count scores with a score of atleast 7. The minimum-possible minimum
-		// score is 3, but I use 7 coz it's top1465's minimum-that-hints.
-		// I have no theoretical basis for 7, it's just what works FOR ME!
-		// I'm presuming it'll work for ALL Sudoku puzzles, but it may not!
+		Arrays.sort(scores, SCORE_DESCENDING);
+		// count the number of scores with a score of atleast 4. The minimum
+		// possible minimum score is 3, but I use 4 coz it's top1465's minimum
+		// that hints. There's no theoretical basis for 4, it's just what works
+		// for me. I presume it'll work for all Sudoku puzzles but it may not!
 		int n;
 		for ( n=0; n<10; ++n )
-			if ( scores[n].score < 7 )
+			if ( scores[n].score < 4 // minScore=4 // see above comment
+			  || scores[n].value == 0 ) // stop at value 0 (null terminator)
 				break;
-		// then read-off the values, by score descending
-		final int[] array = new int[n];
-		for ( int i=0; i<n; ++i )
-			array[i] = scores[i].value;
-		return array;
+		return n;
 	}
+	// score of values 1..9 (a field only to support reporting minScore, but it
+	// is also faster (I think) to not recreate the array for every call)
+	private final ValueScore[] scores = new ValueScore[10];
+//KEEP: used to get minScore to report and set the minimum score (above)
+//	// get the score for the given value
+//	private int getScore(int value) {
+//		for ( int i=0; i<10; ++i )
+//			if ( scores[i].value == value )
+//				return scores[i].score;
+//		return -1;
+//	}
 
 	/**
 	 * search this region and value (a conjugate pair) for Medusa 3D Coloring
@@ -599,11 +613,11 @@ public class GEM extends AHinter implements IPreparer
 				// do nothing, just go again
 			}
 
-			// don't search each painted cell-value again.
+			// search each painted cell-value ONCE.
 			for ( int v1 : VALUESES[paintedValues] )
 				done[v1].or(colors[GREEN][v1]).or(colors[BLUE][v1]);
 
-			// search each distinct colors ONCE!
+			// search each distinct colors-sets ONCE.
 			hash = hash(GREEN) | hash(BLUE);
 			if ( hashes.get(hash) != null )
 				return false;
@@ -613,12 +627,14 @@ public class GEM extends AHinter implements IPreparer
 			// NOTE: n limits are top1465 specific. They're probably too high
 			// for some puzzles. There's no theoretical basis for them, they're
 			// just what works for me. Rip them out to be correct.
-			n = squash(GREEN, painted[GREEN])
-			  + squash(BLUE, painted[BLUE]);
+			if ( (n = squash(GREEN, painted[GREEN])
+			        + squash(BLUE, painted[BLUE])) < 3 )
+				return false; // mimimum that does anything is 3
 
 			// Step 5: Analyse the cluster.
 			// 5.1 If either color contains a contradiction
 			//     then the opposite color MUST be true.
+			// nb: minContradiction=3 so there's no filter on it
 			if ( (subtype=contradictions()) != 0
 			  // presuming that the opposite color isn't rooted too (sigh)
 			  && (hint=createBigHint(v, subtype)) != null
@@ -632,42 +648,45 @@ public class GEM extends AHinter implements IPreparer
 				// contradiction is always the last hint I produce.
 				throw STOP_EXCEPTION;
 			}
-			// minElimination=5
-			if ( n > 4 ) {
-				// 5.2 If any uncolored cell-value sees both colors
-				//     then it can be eliminated.
-				if ( subtype==0 && (subtype=eliminations())!=0 ) {
-					// search eliminations for confirmation that color is true.
-					hint = null;
-					// minConfirmation=11
-					if ( n > 10 && (mst=confirmations()) != 0
-					  && (hint=createBigHint(v, mst)) != null
-					) {
-						if ( validSetPots("Confirmation", hint) ) {
-							result = true;
-//							if ( n < minConfirmation )
-//								minConfirmation = n;
-							accu.add(hint);
-							// confirmation is always the last hint I produce.
-							throw STOP_EXCEPTION;
-						} else {
-							hint = null;
-						}
-					} else {
-						hint = createHint(v, subtype);
-						if ( hint!=null && !validEliminations(hint) )
-							hint = null;
-					}
-					if ( hint != null ) {
+			// nb: minElimination=3 so there's no filter on it
+		    // don't look if contradictions bombed (it shouldn't, in prod)
+			if ( subtype == 0
+			  // 5.2 If any uncolored cell-value sees both colors
+			  //     then it can be eliminated.
+			  && (subtype=eliminations()) != 0
+			) {
+				// search eliminations for confirmation that color is true.
+				hint = null;
+				// minConfirmation=11
+				if ( n > 10 &&
+				  // 5.3 promote "little" elimination hint to a big hint
+				  (mst=confirmations()) != 0
+				  && (hint=createBigHint(v, mst)) != null
+				) {
+					if ( validSetPots("Confirmation", hint) ) {
 						result = true;
-//						if ( n < minElimination )
-//							minElimination = n;
-						if ( accu.add(hint) )
-							return result;
-						// upgraded is always the last hint I produce.
-						if ( hint instanceof GEMHintMulti )
-							throw STOP_EXCEPTION;
+//						if ( n < minConfirmation )
+//							minConfirmation = n;
+						accu.add(hint);
+						// confirmation is always the last hint I produce.
+						throw STOP_EXCEPTION;
+					} else {
+						hint = null;
 					}
+				} else {
+					hint = createHint(v, subtype);
+					if ( hint!=null && !validEliminations(hint) )
+						hint = null;
+				}
+				if ( hint != null ) {
+					result = true;
+//					if ( n < minElimination )
+//						minElimination = n;
+					if ( accu.add(hint) )
+						return result;
+					// upgraded is always the last hint I produce.
+					if ( hint instanceof GEMHintMulti )
+						throw STOP_EXCEPTION;
 				}
 			}
 		} catch ( OverpaintException ex ) {
@@ -782,7 +801,7 @@ public class GEM extends AHinter implements IPreparer
 				paint(otherCell, v, o, true, why);
 			}
 			// off (other places for v in region).
-			offs[c][v].or(otherPlaces.setAndNot(r2.idxs[v], CELL_IDX[i]));
+			offs[c][v].or(otherPlaces.setAndNot(r2.idxs[v], CELL_IDXS[i]));
 		}
 
 		// 3. Paint the other value of this bivalue cell the opposite color
@@ -1074,7 +1093,7 @@ public class GEM extends AHinter implements IPreparer
 		}
 
 		// if on.buds leave ONE v in any box that's this color den paint da on.
-		// Finds less than paintMonoBoxs, but even more when we use both. WTF?
+		// WTF: Finds less than paintMonoBoxs, but even more when we use both.
 		// WEIRD: Start from the suspect On, and just shoot back.
 		if ( PROMOTIONS_SHOOTS_BACK ) {
 			Idx[] thisColor;
@@ -1265,10 +1284,10 @@ public class GEM extends AHinter implements IPreparer
 	 * to promote an elimination hint to a multi hint: setting all cell values
 	 * in a color (and the ons).
 	 * <pre>
-	 * (a) If all bar one value is eliminated from a cell, and the remaining
-	 *     cell-value is colored then that whole color is true. (2)
-	 * (b) when all but one value is eliminated from a region and the remaining
-	 *     cell-value is colored then that whole color is true. (0)
+	 * a) If all bar one value is eliminated from a cell, and the remaining
+	 *    cell-value is colored then that whole color is true.
+	 * b) when all but one value is eliminated from a region and the remaining
+	 *    cell-value is colored then that whole color is true.
 	 * </pre>
 	 * NOTE: Don't use ons here! This is why ons are separate from colors.
 	 * If a color is true then all ons are also true, but NOT conversely!
@@ -1282,9 +1301,13 @@ public class GEM extends AHinter implements IPreparer
 	 * regardless of what the passed accu says. A confirmation was usually the
 	 * last hint found, but now that's always: after we add a confirmation to
 	 * accu we throw a STOP_EXCEPTION to stop search. Smelly, but works.
+	 * <p>
+	 * These are as rare as rocking horse s__t: 2 a's and 0 b's in top1465.
 	 *
-	 * @return 0=none, 4="Type (a)", 5="Type (b)". This value is up-shifted to
-	 *  differentiate it from existing "multi" subtypes.
+	 * @return 0: meaning none<br>
+	 * 4: meaning Type A<br>
+	 * 5: meaning Type B<br>
+	 * This value is up-shifted to differentiate it from existing subtypes.
 	 */
 	private int confirmations() {
 		Cell cell;
@@ -1372,6 +1395,9 @@ public class GEM extends AHinter implements IPreparer
 					, pots(GREEN), pots(BLUE) , region, copy(ons), copy(offs));
 			cause = null;
 			region = null;
+//			int s = getScore(value);
+//			if ( s < minScore )
+//				minScore = s;
 			return hint;
 		} catch ( Pots.IToldHimWeveAlreadyGotOneException ex ) {
 			return null; // attempted to set 1 cell to 2 values.
@@ -1661,6 +1687,9 @@ public class GEM extends AHinter implements IPreparer
 	 *  with one potential value, or a region with one place for a value.
 	 */
 	private AHint createHint(int value, int subtype) {
+//		int s = getScore(value);
+//		if ( s < minScore )
+//			minScore = s;
 		if ( CHECK_HINTS ) // deal with any dodgy hints minimally
 			if ( !cleanRedPots() )
 				return null;
@@ -1669,20 +1698,21 @@ public class GEM extends AHinter implements IPreparer
 			// then return them as setPots, and also set the goodColor field.
 			final Pots setPots = eliminateToSingle();
 			if ( setPots!=null && !setPots.isEmpty() ) {
-				// determine goodColor if not already set
-				if ( goodColor == -1 )
-					goodColor = determineGoodColor(setPots);
+// Still finds wrong color occassionally, which I think is worse than BLACK.
+//				// determine goodColor if not already set
+//				if ( goodColor == -1 )
+//					goodColor = determineGoodColor(setPots);
 				// NOTE: do NOT add the Ons, they're definately NOT safe!
 				addConsequentSingles(setPots);
 				if ( CHECK_HINTS ) // deal with any dodgy hints minimally
 					if ( !cleanSetPots(setPots) )
 						return null; // none remain once invalid removed
-				// determine goodColor if not already set; sometimes consequent
-				// singles find it, but other-times it remains -1 (BLACK).
-				if ( goodColor == -1 )
-					goodColor = determineGoodColor(setPots);
-				// NOTE: These "upgraded" hints are weird: both setPots and
-				// redPots are applied.
+// Still finds wrong color occassionally, which I think is worse than BLACK.
+//				// determine goodColor if not already set; sometimes consequent
+//				// singles find it, but other-times it remains -1 (BLACK).
+//				if ( goodColor == -1 )
+//					goodColor = determineGoodColor(setPots);
+				// NOTE: weird hints: both setPots and redPots are applied.
 				final AHint hint = new GEMHintMulti(this, value
 						, new Pots(redPots), subtype, cause, goodColor
 						, steps.toString(), setPots, pots(GREEN), pots(BLUE)
@@ -1912,7 +1942,7 @@ public class GEM extends AHinter implements IPreparer
 		}
 	}
 
-	// BasicApplicumulator: I don't need all the crap in the standard one.
+	// BasicApplicumulator: I don't want the complications in the standard one.
 	private static final IAccumulator APCU = new AAccumulator() {
 		@Override
 		public boolean add(AHint hint) {
@@ -1924,7 +1954,7 @@ public class GEM extends AHinter implements IPreparer
 	};
 
 	/**
-	 * gemSolve uses these to solve the grid after we apply the setPots.
+	 * gemSolve uses HINTERS to solve the grid after we apply the setPots.
 	 * <p>
 	 * Each hinter herein needs to be "pretty fast", say under 20ms/elim.
 	 * Try other hinters but they don't all work. If LogicalSolverTester fails
@@ -1932,8 +1962,14 @@ public class GEM extends AHinter implements IPreparer
 	 * such small returns. Be greedy, just not too greedy.
 	 * <p>
 	 * Minimum hinter speed: I say 20ms/elim because that's 50 eliminations per
-	 * second, but you can be greedier or even more pernicious. Your choice. My
-	 * advise is convert ms/elim to elim/sec and see how it feels to you.
+	 * second, but you can be greedier or even more pernicious. Your choice.
+	 * My advise is convert ms/elim to elim/sec and see how it feels to you.
+	 * A max of 10ms/elim is much better, in my humble opinion. The chainers
+	 * solve every puzzle anyway, and there's no explanation, so speed is the
+	 * only concern, so this should be a minimum rule set, not a maximum one;
+	 * except that relies heavily on the chainers, which are fast per elim, but
+	 * are slower to find hints that CAN be found more simply. So medium then.
+	 * Ergo: I don't think there is a right answer, so I piss about with it.
 	 */
 	private static final IHinter[] HINTERS = {
 		  new NakedSingle()
@@ -1951,33 +1987,37 @@ public class GEM extends AHinter implements IPreparer
 		, new Skyscraper()
 		, new EmptyRectangle()
 		, new BasicFisherman(Tech.Swordfish)
-//These bomb LogicalSolverTester. I don't know why. Investigate if you like.
-//I'm lazy. Greedy, but not too greedy.
+// bomb LogicalSolverTester. I don't know why.
 //		, new Coloring()
 //		, new XColoring()
-		, new MedusaColoring()
-		, new UniqueRectangle()
+// DEAD_CAT so gemSolve stops before the puzzle is solved
+//		, new MedusaColoring()
+//		, new UniqueRectangle()
 		, new NakedSet(Tech.NakedQuad)
 		, new HiddenSet(Tech.HiddenQuad)
 		, new BasicFisherman(Tech.Jellyfish)
-		, new BigWing(Tech.WXYZ_Wing)
-		, new BigWing(Tech.VWXYZ_Wing)
-		, new BigWing(Tech.UVWXYZ_Wing)
-		, new BigWing(Tech.TUVWXYZ_Wing)
+// DEAD_CAT that I can't fix (fails even without cache, which is reinstated)
+//		, new BigWing(Tech.WXYZ_Wing)
+//		, new BigWing(Tech.VWXYZ_Wing)
+//		, new BigWing(Tech.UVWXYZ_Wing)
+//		, new BigWing(Tech.TUVWXYZ_Wing)
 		, new ComplexFisherman(Tech.FinnedSwampfish)
-		, new ComplexFisherman(Tech.FinnedSwordfish) // 11ms/elim
+		, new ComplexFisherman(Tech.FinnedSwordfish) // 9ms/elim
 //		, new ComplexFisherman(Tech.FinnedJellyfish) // 382ms/elim = too slow
-		, new AlsXz()
-		, new AlsXyWing()
-		, new AlsXyChain() // 17ms/elim
+//		, new AlsXz()
+//		, new AlsXyWing()
+//		, new AlsXyChain() // 15ms/elim = too slow
 		, new UnaryChainer(F)
-		, new MultipleChainer(Tech.NishioChain, F)
+// too few hints
+//		, new MultipleChainer(Tech.NishioChain, F)
 		, new MultipleChainer(Tech.MultipleChain, F)
 		, new MultipleChainer(Tech.DynamicChain, F)
 	};
 
 	/**
 	 * Solve the given grid using the HINTERS.
+	 * <p>
+	 * Note that this method mutates the passed grid (ie the copy).
 	 * <p>
 	 * gemSolve needs a distinctive name coz AHint.apply suppresses exception
 	 * logging by it's callers method name alone.
@@ -1987,24 +2027,29 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	private static boolean gemSolve(final Grid grid) {
 		try {
-			grid.rebuildAllRegionsS__t();
 			boolean any;
-			int newMaybes, prevMaybes = grid.countMaybes();
-			for(;;) {
+			int prevMaybes, currMaybes, i,n;
+			IHinter hinter = null;
+			grid.rebuildAllRegionsS__t();
+			for ( prevMaybes=grid.countMaybes(); ; prevMaybes=currMaybes ) {
 				if ( prevMaybes == 0 )
 					return true; // puzzle solved
 				any = false;
-				for ( IHinter hinter : HINTERS )
-					if ( any |= hinter.findHints(grid, APCU) )
+				for ( i=0,n=HINTERS.length; i<n; ++i )
+					if ( any |= (hinter=HINTERS[i]).findHints(grid, APCU) )
 						break;
-				if ( !any
-				  || (newMaybes=grid.countMaybes()) == prevMaybes )
-					break; // just give up on DEAD_CAT to avert an endless loop
-				prevMaybes = newMaybes;
+				if ( !any || (currMaybes=grid.countMaybes()) == prevMaybes ) {
+					Log.teeln();
+					Log.teeln(grid.toString());
+					Log.teeln("WARN: gemSolve: DEAD_CAT: "+hinter);
+					break; // stop on DEAD_CAT to avert an endless loop
+				}
 			}
 		} catch ( Exception eaten ) {
-			// do nothing, just give up and return false. Hinters occassionally
-			// manifest rather odd issues here, which I don't fully understand.
+			// do nothing, just return false. Hinters occassionally manifest
+			// odd issues here, which I don't fully understand.
+//			eaten.printStackTrace(System.out);
+//			Debug.breakpoint();
 		}
 		return false; // puzzle unsolved
 	}
@@ -2035,36 +2080,37 @@ public class GEM extends AHinter implements IPreparer
 		}
 	}
 
-	/**
-	 * Return the goodColor: the first (colors or ons) which contains a setPot
-	 * that is not in the other color; ie the first setPot that's uniquely
-	 * colored either GREEN or BLUE; colors first, then ons.
-	 * <p>
-	 * I'm called twice, before, and if that doesn't work then after, adding
-	 * consequent singles, which gives me more setPots to work with. So I get
-	 * it right eventually about 75% (I guess) of the time, and the rest are
-	 * just "not wrong", ie left black. It's the best I can come-up with.
-	 *
-	 * @param setPots the cell values to be set
-	 */
-	private int determineGoodColor(Pots setPots) {
-		final int gc = goodColor(setPots, colors);
-		if ( gc != -1 )
-			return gc;
-		return goodColor(setPots, ons);
-	}
-	private int goodColor(Pots setPots, Idx[][] idxs) {
-		for ( Entry<Cell,Values> e : setPots.entrySet() ) {
-			final int v = FIRST_VALUE[e.getValue().bits];
-			final int i = e.getKey().i;
-			final boolean g = idxs[GREEN][v].contains(i);
-			final boolean b = idxs[BLUE][v].contains(i);
-			if ( g & !b )
-				return GREEN;
-			else if ( !g & b )
-				return BLUE;
-		}
-		return -1;
-	}
+// Still finds wrong color occassionally, which I think is worse than BLACK.
+//	/**
+//	 * Return the goodColor: the first (colors or ons) which contains a setPot
+//	 * that is not in the other color; ie the first setPot that's uniquely
+//	 * colored either GREEN or BLUE; colors first, then ons.
+//	 * <p>
+//	 * I'm called twice, before, and if that doesn't work then after, adding
+//	 * consequent singles, which gives me more setPots to work with. So I get
+//	 * it right eventually about 75% (I guess) of the time, and the rest are
+//	 * just "not wrong", ie left black. It's the best I can come-up with.
+//	 *
+//	 * @param setPots the cell values to be set
+//	 */
+//	private int determineGoodColor(Pots setPots) {
+//		final int gc = goodColor(setPots, colors);
+//		if ( gc != -1 )
+//			return gc;
+//		return goodColor(setPots, ons);
+//	}
+//	private int goodColor(Pots setPots, Idx[][] idxs) {
+//		for ( Entry<Cell,Values> e : setPots.entrySet() ) {
+//			final int v = FIRST_VALUE[e.getValue().bits];
+//			final int i = e.getKey().i;
+//			final boolean g = idxs[GREEN][v].contains(i);
+//			final boolean b = idxs[BLUE][v].contains(i);
+//			if ( g & !b )
+//				return GREEN;
+//			else if ( !g & b )
+//				return BLUE;
+//		}
+//		return -1;
+//	}
 
 }

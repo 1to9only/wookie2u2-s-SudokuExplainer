@@ -150,9 +150,9 @@ public class IdxL extends Idx implements Cloneable {
 	}
 	
 	@Override
-	public Idx setExcept(Idx aa, Idx bb, Idx cc) {
+	public Idx setAndNot(Idx aa, Idx bb, Idx cc) {
 		checkLock();
-		return super.setExcept(aa, bb, cc);
+		return super.setAndNot(aa, bb, cc);
 	}
 
 	@Override

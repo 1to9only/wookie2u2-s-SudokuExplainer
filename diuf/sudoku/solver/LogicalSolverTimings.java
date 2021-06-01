@@ -7018,7 +7018,7 @@ package diuf.sudoku.solver;
  * hinters under 20ms/elim. Last top1465 run took 03:09 with 194557 GEM elims,
  * which is up from 185959 previously, and is as far as I'd ever want to go.
  * There are other usable hinters, but they're all too slow to warrant. SE will
- * still solve the puzzle, without GEM being so bloody greedy. I'm only doing 
+ * still solve the puzzle, without GEM being so bloody greedy. I'm only doing
  * this because I'm an ornery old git who can't keep it simple.
  * <pre>
  *       time (ns) calls  time/call  elims   time/elim hinter
@@ -7071,6 +7071,123 @@ package diuf.sudoku.solver;
  * 2. Release 6.30.125 2021-04-13 10:04:05 =>
  *    DiufSudoku_V6_30.125.2021-04-13.7z
  * 3. GEM is finito. Next I don't know. I still need a break!
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.126 2021-04-17 06:09:06 GEM mark 13 Moved coloring up the hinters
+ * list and dropped all hinters taking longer than 100ms/elim; so the last
+ * top1465 run took 02:09, which is a minute faster, but most of that comes
+ * from just dropping the slow hinters. GEM is now up to 278910 (from 194557)
+ * mostly from moving it up the food chain. I have also tightened the speed
+ * constraints on gemSolve's hinters, so GEM is now uber-greedy, and still
+ * relatively fast. I'm building to clean-up the logs and create a back-up.
+ * <pre>
+ *      time (ns) calls  time/call  elims  time/elim hinter
+ *     18,156,600 86629        209 423870         42 Naked Single
+ *     16,642,500 44242        376 149460        111 Hidden Single
+ *    100,671,500 29296      3,436  20177      4,989 Locking
+ *     52,518,600 19675      2,669   6739      7,793 Naked Pair
+ *     44,153,700 18363      2,404  12987      3,399 Hidden Pair
+ *    113,283,500 16403      6,906   1644     68,907 Naked Triple
+ *    102,664,100 16041      6,400   1142     89,898 Hidden Triple
+ *     47,632,100 15840      3,007   1190     40,026 Two String Kite
+ *     31,980,700 14650      2,182    372     85,969 Swampfish
+ *     62,144,100 14500      4,285    444    139,964 XY-Wing
+ *     52,964,900 14194      3,731    257    206,089 XYZ-Wing
+ *     77,237,800 13954      5,535    333    231,945 W-Wing
+ *     37,568,700 13730      2,736    321    117,036 Skyscraper
+ *     52,157,200 13567      3,844    435    119,901 Empty Rectangle
+ *     57,162,300 13132      4,352    221    258,652 Swordfish
+ *    403,944,800 13079     30,884    265  1,524,320 Coloring
+ *  1,276,818,000 12870     99,208    698  1,829,252 XColoring
+ *  6,299,794,900 12634    498,638 278910     22,587 GEM
+ *    134,091,300 11545     11,614     85  1,577,544 Naked Quad
+ *    108,628,300 11530      9,421     11  9,875,300 Hidden Quad
+ *    364,676,200 11529     31,631    790    461,615 WXYZ-Wing
+ *    483,880,200 11026     43,885    825    586,521 VWXYZ-Wing
+ *    596,417,200 10609     56,218    369  1,616,306 UVWXYZ-Wing
+ *    496,292,500 10422     47,619     79  6,282,183 TUVWXYZ-Wing
+ *  1,809,912,900 10378    174,399    819  2,209,905 Unique Rectangle
+ *  1,100,125,400  9814    112,097    230  4,783,153 Finned Swampfish
+ *  2,494,679,100  9628    259,106    278  8,973,665 Finned Swordfish
+ * 14,820,512,500  9422  1,572,968   3697  4,008,794 ALS-XZ
+ * 17,571,300,600  6884  2,552,484   3162  5,557,021 ALS-Wing
+ *  8,836,008,300  4276  2,066,419    564 15,666,681 ALS-Chain
+ * 10,069,899,600  3822  2,634,719   1247  8,075,300 Unary Chain
+ *  7,718,521,800  3283  2,351,057   4691  1,645,389 Multiple Chain
+ * 11,357,538,900  1454  7,811,237   7940  1,430,420 Dynamic Chain
+ *    127,383,700     3 42,461,233     30  4,246,123 Dynamic Plus
+ * 86,937,364,500
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  129,327,119,200 (02:09)  88,277,897
+ * NOTES:
+ * 1. Last top1465 run took 02:09, minute faster, discussed above.
+ * 2. Release 6.30.126 2021-04-17 06:09:06 =>
+ *    DiufSudoku_V6_30.126.2021-04-17.7z
+ * 3. GEM is polished. Next I don't know. I still need a break!
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.127 2021-04-24 08:18:07 GEM mark 14 is not greedy.
+ * <pre>
+ *       time (ns)  calls  time/call  elims   time/elim hinter
+ *      22,620,300 101549        222 553210          40 Naked Single
+ *      17,785,700  46228        384 156010         114 Hidden Single
+ *      94,835,100  30627      3,096   5884      16,117 Direct Naked Pair
+ *      87,407,500  30214      2,892  12300       7,106 Direct Hidden Pair
+ *     211,672,600  29276      7,230    853     248,150 Direct Naked Triple
+ *     188,055,400  29223      6,435   1777     105,827 Direct Hidden Triple
+ *     107,225,900  29089      3,686  18197       5,892 Locking
+ *      52,540,200  20195      2,601   4268      12,310 Naked Pair
+ *      46,116,700  19176      2,404   8351       5,522 Hidden Pair
+ *     114,472,600  17666      6,479   1246      91,872 Naked Triple
+ *      95,945,300  17348      5,530   1017      94,341 Hidden Triple
+ *      60,002,000  17152      3,498   1297      46,262 Two String Kite
+ *      40,565,800  15855      2,558    421      96,355 Swampfish
+ *      76,827,000  15677      4,900    572     134,312 XY-Wing
+ *      62,806,400  15277      4,111    283     221,930 XYZ-Wing
+ *      95,346,700  15012      6,351    383     248,946 W-Wing
+ *      48,277,700  14745      3,274    350     137,936 Skyscraper
+ *      70,290,600  14562      4,826    452     155,510 Empty Rectangle
+ *      68,512,400  14110      4,855    231     296,590 Swordfish
+ *     477,219,800  14050     33,965    312   1,529,550 Coloring
+ *   1,600,190,900  13808    115,888    663   2,413,560 XColoring
+ *   2,247,021,200  13566    165,636 129408      17,363 GEM
+ *     173,201,900  12163     14,240     96   1,804,186 Naked Quad
+ *     128,341,600  12146     10,566     11  11,667,418 Hidden Quad
+ *     429,181,700  12145     35,338    871     492,745 WXYZ-Wing
+ *     579,277,000  11591     49,976    877     660,521 VWXYZ-Wing
+ *     716,192,000  11137     64,307    388   1,845,855 UVWXYZ-Wing
+ *     590,075,300  10941     53,932     83   7,109,340 TUVWXYZ-Wing
+ *   2,085,174,600  10893    191,423    888   2,348,169 Unique Rectangle
+ *   1,183,275,500  10281    115,093    230   5,144,676 Finned Swampfish
+ *   2,570,434,400  10094    254,649    281   9,147,453 Finned Swordfish
+ *   3,393,808,600   9888    343,224     11 308,528,054 Finned Jellyfish
+ *  18,566,933,000   9880  1,879,244   3916   4,741,300 ALS-XZ
+ *  21,861,341,000   7153  3,056,247   3293   6,638,730 ALS-Wing
+ *  10,901,786,700   4435  2,458,125    597  18,260,949 ALS-Chain
+ *   4,735,235,700   3952  1,198,187    162  29,229,850 Death Blossom
+ *  11,636,156,900   3809  3,054,911   1189   9,786,507 Unary Chain
+ *   5,733,136,100   3310  1,732,065    218  26,298,789 Nishio Chain
+ *   8,614,406,000   3110  2,769,905   4549   1,893,692 Multiple Chain
+ *  12,104,962,200   1378  8,784,442   7558   1,601,609 Dynamic Chain
+ *     212,457,800      3 70,819,266     30   7,081,926 Dynamic Plus
+ * 112,101,115,800
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  162,353,180,600 (02:42)  110,821,283
+ * NOTES:
+ * 1. Last top1465 run took 02:42, 31 seconds slower, coz of Finned Jellyfish
+ *    and GEM not being greedy so subsequent (slower) hinters`run more often.
+ *    That's fine: anything under 4 minutes feels "pretty snappy" in the GUI.
+ * 2. Release 6.30.127 2021-04-24 08:18:07 =>
+ *    DiufSudoku_V6_30.127.2021-04-24.7z
+ * 3. I'm done with Sudoku Explainer, I guess. I don't think there are any
+ *    unimplemented hinters that I can understand well enough to do them any
+ *    sort of justice, so that's it from me I suppose. Good luck with it.
+ *    From here on out I'll fix reported bugs, probably for a couple of years,
+ *    but other than that I'll find something else to dedicate myself to; after
+ *    I take a good long break. I've been working on this (on and off) for a
+ *    decade, so I've got the s__ts with it. sigh.
  * </pre>
  */
 final class LogicalSolverTimings {

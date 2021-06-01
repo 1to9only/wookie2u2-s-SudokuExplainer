@@ -27,16 +27,16 @@ import java.util.List;
  * <p>
  * A Death Blossom consists of a "stem" cell and an Almost Locked Set (or ALS)
  * for each of the stem cell's candidates. The ALS associated with a particular
- * candidate of the stem cell has that value as one of its own candidates, and
- * within the ALS, every cell that has the value as a candidate can see the
- * stem cell. The ALSes can't overlap; i.e., no cell can belong to more than
- * one ALS. Also, there must be at least one value that is a candidate of every
- * ALS, but is not a candidate of the stem cell.
+ * stem candidate has that value as one of its own candidates, and within the
+ * ALS, every cell that has the value as a candidate sees the stem cell. The
+ * ALSs can't overlap; ie no cell can belong to more than one ALS. Also, there
+ * must be at least one value that is a candidate of every ALS, but is not a
+ * candidate of the stem cell [, this is the value/s to eliminate].
  * <p>
  * Once we've found a Death Blossom, if an outside cell that doesn't belong to
- * one of the ALSes (and isn't the stem cell) can see every cell in each ALS
- * that has that value as a candidate, and the value isn't a candidate of the
- * stem cell, then that value can be eliminated from the outside cell.
+ * one of the ALSs (and isn't the stem cell) sees every cell in each ALS that
+ * has that value as a candidate, and the value isn't a candidate of the stem
+ * cell, then that value can be eliminated from the outside cell.
  *
  * @author Keith Corlett 2020-01-13
  */
@@ -44,8 +44,10 @@ public class DeathBlossom extends AAlsHinter
 		implements diuf.sudoku.solver.IPreparer
 				 , diuf.sudoku.solver.hinters.ICleanUp
 {
-	// the default number of ALSS per candidate value
-	private static final int ALSS_PER_VALUE = 128; // let it grow
+	// the default number of ALSs per candidate value.
+	// We seek a number covering about 90% of use-cases. Let it grow for the
+	// other 10%. Each list grows ONCE, thereafter it retains it's capacity.
+	private static final int ALSS_PER_VALUE = 128;
 
 	/**
 	 * List[]s are pigs, so extend {@code List<Als>} to handle the generics.
@@ -64,21 +66,22 @@ public class DeathBlossom extends AAlsHinter
 
 	/**
 	 * DeathBlossomData is the association of an ALS with it's stem.maybe.
+	 * There's ONE DeathBlossomData (db) per DeathBlossom instance.
 	 */
 	private static class DeathBlossomData {
-		// all candidates in all ALSs in this DeathBlossom
+		// all candidates in all ALSs in this DB.
 		int cands;
-		// candidates yet to be associated with an ALS
+		// candidates yet to be associated with an ALS.
 		int freeCands;
-		// candidates common to ALSs in this DeathBlossom
+		// candidates common to all ALSs in this DB.
+		// NOTE: More than one value is rare in a complete DB.
 		int cmnCands;
-		// all cells in all ALSs in this DB
+		// all cells in all ALSs in this DB.
 		final Idx idx = new Idx();
-		// ALSs in the current DeathBlossomData, by value
-		// each ALS is associated with a stem.maybe
+		// ALSs by value: each ALS is associated with a maybe of the stem cell.
 		final Als[] alssByValue = new Als[10];
-		// Populated in a complete DB: cells in this DB which maybe value
-		// only cands are populated, other values remain null
+		// populated in a complete DB. Cells in this DB which maybe each value.
+		// only cands are populated, other values remain null.
 		final Idx[] vs = new Idx[10];
 		DeathBlossomData() {
 			for ( int v=1; v<10; ++v )
@@ -144,18 +147,20 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	/**
-	 * Finds first/all Death Blossoms in the given Grid.
+	 * Finds first/all Death Blossoms in the given Grid. This findHints method
+	 * is called via my supers IHinter findHints method, passing the rccs,
+	 * alss, and candidates (these are common to all als hinters).
 	 * @return any hint/s found?
 	 */
 	@Override
 	public boolean findHints(Grid grid, Idx[] candidates, Rcc[] rccs
 			, Als[] alss, IAccumulator accu) {
 
-		// BUG: LogicalSolver keeps calling me, even though I'm disabled!
+		// BUG: LogicalSolver calls me after I'm disabled!
 		if ( !isEnabled )
 			return false;
 
-		assert rccs == null; // I find my own, thanks.
+		assert rccs == null; // I roll my own, thanks.
 		this.grid = grid;
 		this.candidates = candidates;
 		this.accu = accu;
@@ -168,17 +173,16 @@ public class DeathBlossom extends AAlsHinter
 		// * There's 1+ value that's a candidate of each ALS but not stem.
 		boolean result = false;
 		try {
-			// build an index (alssByValue) of all the ALS's by there values
+			// build an index of all the ALS's by there values
 			for ( Als als : alss )
 				for ( int v : VALUESES[als.maybes] )
-					// add this ALS if there are any cells in the grid which
-					// see all occurrences of v in this ALS. A cell with an
-					// empty vBuds[v] can't contribute to a DB.
+					// if there are any cells in the grid which see all v's in
+					// this ALS, then file this ALS under v.
 					if ( als.vBuds[v].any() )
 						alssByValue[v].add(als);
-			// get grid cells with 2..3 maybes: 2 is mandatory, but the 3 is
-			// because I find 0 hints on stems with 4+ maybes in top1465; but
-			// the hint and everything handles 4. Change it up if you must.
+			// get grid cells with 2..3 maybes: 2 is mandatory. The 3 is coz
+			// I find 0 hints on stems with 4+ maybes in top1465, but this may
+			// be wrong for other puzzles! Everything else handles 4.
 			final Idx stems = grid.getEmptiesWhere((c) -> {
 				return c.maybes.size < 4;
 			});
@@ -186,9 +190,9 @@ public class DeathBlossom extends AAlsHinter
 			for ( Cell stem : stems.cells(grid) ) { // Iterator. Meh!
 				// initialise DeathBlossom data
 				db.cands = 0; // empty
-				// the stem.maybes assigned to each ALS
+				// the stem.maybes to assign to each ALS
 				db.freeCands = stem.maybes.bits;
-				// each ALS gets added to db.idx
+				// each ALSs cells are added to db.idx
 				db.idx.clear();
 				// ALS's must share a common value other than stem.maybes
 				db.cmnCands = Values.ALL_BITS & ~stem.maybes.bits;
@@ -202,21 +206,20 @@ public class DeathBlossom extends AAlsHinter
 			this.grid = null;
 			this.candidates = null;
 			this.accu = null;
-			clearAlssByValue();
-			db.clear();
+			cleanUp();
 		}
 		return result;
 	}
 
-	// seek an ALS for each stem.maybe
-	// then we search each complete DeathBlossom for eliminations
+	// seek an ALS for each stem.maybe to form a complete DB, then search each
+	// complete DB for eliminations.
 	private boolean recurse(Cell stem) {
-		// preCands: maybes of all ALS's in this DB before we or-in this ALS
-		// preCmnCands: maybes common to all ALS's in DB before and-in this ALS
-		int preCands, preCmnCands;
 		// presume that no hint will be found
 		boolean result = false;
 		if ( db.freeCands != 0 ) {
+			// preCands: maybes of all ALS's already in this DB
+			// preCmnCands: maybes common to all ALS's already in this DB
+			int preCands, preCmnCands;
 			// find an ALS for the next free (unassociated) stem.maybe
 			int v = FIRST_VALUE[db.freeCands];
 			// foreach ALS with v as a candidate
@@ -249,15 +252,14 @@ public class DeathBlossom extends AAlsHinter
 				}
 			}
 		} else {
-			// Found a DeathBlossom, but does it remove anything?
+			// Found a DeathBlossom, but does it eliminate anything?
 			// each stem.maybe is now associated with an ALS (the petal)
 			// * The ALS for each stem.maybe has that value, and
 			//   each ALS.cell which maybe value sees the stem.
 			// * The ALSs don't overlap
 			// * The ALSs share atleast one common maybe, not in stem.maybes.
-			//   If an outside cell (not in ALS or the stem) sees all cells in
-			//   all ALSs which maybe value, then eliminate value from os cell.
-
+			//   If an outside cell (not in ALSs or stem) sees all cells in all
+			//   ALSs which maybe value, then eliminate value from that cell.
 			// get all cells in DB which maybe each value common to all DBs.
 			db.clearVs();
 			for ( int v : VALUESES[stem.maybes.bits] ) // to get the ALS
@@ -274,7 +276,7 @@ public class DeathBlossom extends AAlsHinter
 					victims.forEach(grid.cells, (c)->theReds.upsert(c, cv));
 			}
 			if ( !theReds.isEmpty()) {
-				// Found a DeathBlossom, with eliminations!
+				// Found a DeathBlossom with eliminations.
 				AHint hint = createHint(stem);
 				// validate it
 				if ( HintValidator.DEATH_BLOSSOM_USES ) {
@@ -295,7 +297,7 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	private AHint createHint(Cell stem) {
-		// copy-off theReds and clear them for next time
+		// copy-off theReds field and clear them for next time
 		Pots reds = new Pots(theReds);
 		theReds.clear();
 		// build a list of the ALS's

@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters.als;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
+import static diuf.sudoku.Grid.CELL_IDXS;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
@@ -25,6 +26,12 @@ import diuf.sudoku.solver.hinters.AHinter;
  * Implements the Sue De Coq Sudoku solving technique. SueDeCoq is in the als
  * package because I don't know where to put it. It's based on "almost almost
  * locked sets": 2 cells with 4 values, 3 cells with 5 values (not ALS's).
+ * <p>
+ * Note: there's only two of these in top1465, so Sue De Coqs are rarer than
+ * rocking horse s__t, apparently. I implemented SDC because I wanted to see if
+ * I could understand the logic underpinning them. I can't. It makes no sense;
+ * so this implementation has known limitations and quite probably outrageously
+ * stupid bugs, all because I haven't got a bloody clue. You have been warned.
  *
  * @author Keith Corlett 2021 Jan
  */
@@ -225,25 +232,24 @@ public class SueDeCoq extends AHinter {
 	private boolean checkHouses(int nPlus, int cand) {
 		// store the candidates of the current intersection
 		interActCands = cand;
-		// check lines: all cells not used in the intersection are valid
-		lineSrcSet.set(lineSet);
-		lineSrcSet.andNot(interActSet);
+		// check line cells except intersection cells
+		lineSrcSet.setAndNot(lineSet, interActSet);
 		// now check all possible combinations of cells in row/col
 		return checkLine(nPlus, lineSrcSet, Values.ALL_BITS, true);
 	}
 
 	/**
-	 * Does a non recursive search: All possible combinations of indices in
-	 * {@code srcSet} are tried.
+	 * Search all possible combinations of indices in {@code src}.
 	 * <p>
-	 * This method is called twice:<ul>
-	 * <li>Round 1 searches possible sets of cells from the row/col. A set is
+	 * This method is called exactly twice:<ul>
+	 * <li>pass1 searches possible sets of cells from the row/col. A set is
 	 * valid if it contains candidates from the intersection, has at least one
 	 * cell more than extra candidates (candidates not in the intersection) but
 	 * leaves candidates in the intersection for the box search. If all those
-	 * criteria are met, the method is called recursively for the second run.
-	 * <li>Round 2 searches all possible sets of cells for the box. Each combo
-	 * that meets the SDC criteria is checked for eliminations.
+	 * criteria are met, the method is called recursively for the second pass.
+	 * <li>pass2 searches all possible sets of cells for the box. Each combo
+	 * that meets the SueDeCoq (SDC) criteria is checked for eliminations.
+	 * <li>Note that each pass has it's own stack, and it's own indices array.
 	 * </ul>
 	 *
 	 * @param nPlus
@@ -256,33 +262,44 @@ public class SueDeCoq extends AHinter {
 		if ( src.isEmpty() )
 			return false; // nothing to do!
 		StackEntry p, c; // previous and current StackEntry
-		int indice, tmpCands, bothActCands, anzExtra;
-		final StackEntry[] stack; if(pass1) stack=stack1; else stack=stack2;
-		final int max = src.size();
-		final int maxMinus1 = max - 1;
-		final int maxMinus2 = max - 2;
-		// level 0 is only a marker, we start with level 1
+		int indice, cands, bothCands, anzExtra;
+		final StackEntry[] stack;
+		final int[] indices;
+		if ( pass1 ) {
+			stack = stack1;
+			indices = indices1;
+		} else {
+			stack = stack2;
+			indices = indices2;
+		}
+		// read src into an array to save 0.1 seconds in top1465 (wow).
+		// Note that there's two arrays underneath this, one for each call.
+		final int size = src.toArrayN(indices);
+		final int sizeMinus1 = size - 1;
+		final int sizeMinus2 = size - 2;
+		// level 0 is just a stopper, we start with level 1
 		int level = 1;
 		// presume that no hint/s will be found.
 		boolean result = false;
 		p = stack[0]; // previous StackEntry
-		p.index = -1;
+		p.index = -1; // before first
 		p.cands = 0;
 		p.idx.clear();
 		// get the first cell from sourceSet (there must be at least 1!)
 		c = stack[1]; // current StackEntry
-		c.index = -1;
+		c.index = -1; // before first
 		// check all possible combinations of cells
 		for(;;) {
-			// fall back all levels where nothing can be done anymore
-			while ( stack[level].index > maxMinus2 )
+			// fallback all levels where we're out of indices
+			while ( stack[level].index > sizeMinus2 )
 				if ( --level < 1 )
-					return result; // ok, done
+					return result; // ok, done (level 0 is just a stopper)
 			// ok, calculate next try
 			p = stack[level - 1];
 			c = stack[level];
-			c.idx.set(p.idx);
-			c.idx.add(indice=src.get(++c.index));
+			// current cells = previous cells + this cell
+			c.idx.setOr(p.idx, CELL_IDXS[indice=indices[++c.index]]);
+			// current cands = previous cands + this cells maybes
 			c.cands = p.cands | grid.cells[indice].maybes.bits;
 			// the current cell combo must eliminate at least one candidate in
 			// the current intersection or we dont have to look further.
@@ -290,9 +307,9 @@ public class SueDeCoq extends AHinter {
 			// In round1 okCands is all values, in round2 it's boxOkCands.
 			if ( (c.cands & ~okCands) == 0
 			  // we need some candidates in the intersection
-			  && VSIZE[c.cands & interActCands] > 0 ) {
+			  && (c.cands & interActCands) != 0 ) {
 				// number of candidates not drawn from the intersection
-				anzExtra = VSIZE[tmpCands=c.cands & ~interActCands];
+				anzExtra = VSIZE[cands=c.cands & ~interActCands];
 				// Here we differentiate between the first and second pass:
 				// * In round1 we can switch over to the box if there are still
 				//   candidates (and cells in the box) left.
@@ -310,15 +327,13 @@ public class SueDeCoq extends AHinter {
 						// memorize current selection for second run
 						lineActSet = c.idx;
 						lineActCands = c.cands;
-						boxSrcSet.set(boxSet);
-						boxSrcSet.andNot(interActSet);
 						// exclude all cells that are already used in row/col
-						boxSrcSet.andNot(lineActSet);
+						boxSrcSet.setAndNot(boxSet, interActSet, lineActSet);
 						// candidates from row/col set are not allowed anymore
-						// nb: tmpCands is cands not in the intersection
-						// nb: & Values.ALL_BITS to chop-off extranious hi-bits
-						boxOkCands = ~(lineActCands & ~tmpCands) & Values.ALL_BITS;
-						// and now pass2 (a recursive call)
+						// nb: Values.ALL_BITS drops extranious high-bits
+						// nb: cands is c.cands not in the intersection
+						boxOkCands = Values.ALL_BITS & ~(lineActCands & ~cands);
+						// and now pass2 (ONE recursive call)
 						if ( checkLine(nPlus - (lineActSet.size() - anzExtra)
 								, boxSrcSet, boxOkCands, false) ) {
 							result = true;
@@ -333,19 +348,19 @@ public class SueDeCoq extends AHinter {
 					boxActSet = c.idx;
 					boxActCands = c.cands;
 					// get the extra candidates that are in both line and box
-					bothActCands = boxActCands & lineActCands;
+					bothCands = boxActCands & lineActCands;
 					// all cells in the box that dont belong to the SDC
-					tmpSet.setExcept(boxSet, boxActSet, interActSet);
+					tmpSet.setAndNot(boxSet, boxActSet, interActSet);
 					// all candidates that can be eliminated in the box
 					// (including extra candidates contained in both sets)
-					tmpCands = ((interActCands | boxActCands) & ~lineActCands) | bothActCands;
-					eliminate(tmpSet, tmpCands, theReds);
+					cands = ((interActCands | boxActCands) & ~lineActCands) | bothCands;
+					eliminate(tmpSet, cands, theReds);
 					// now the row/col
-					tmpSet.setExcept(lineSet, lineActSet, interActSet);
+					tmpSet.setAndNot(lineSet, lineActSet, interActSet);
 					// all candidates that can be eliminated in the row/col
 					// (including extra candidates contained in both sets)
-					tmpCands = ((interActCands | lineActCands) & ~boxActCands) | bothActCands;
-					eliminate(tmpSet, tmpCands, theReds);
+					cands = ((interActCands | lineActCands) & ~boxActCands) | bothCands;
+					eliminate(tmpSet, cands, theReds);
 					if ( theReds.size() > 0 ) {
 						// FOUND a Sue De Coq!
 						Pots reds = new Pots(theReds);
@@ -367,12 +382,14 @@ public class SueDeCoq extends AHinter {
 					}
 				}
 			}
-			// on to the next level (if that is possible)
-			if ( stack[level].index < maxMinus1 )
+			// on to the next level (if any)
+			if ( stack[level].index < sizeMinus1 )
 				// ok, go to next level
 				stack[++level].index = stack[level - 1].index;
 		}
 	}
+	final int[] indices1 = new int[6];
+	final int[] indices2 = new int[6];
 
 	/**
 	 * If one of the cells in {@code idx} contains {@code cands} they can

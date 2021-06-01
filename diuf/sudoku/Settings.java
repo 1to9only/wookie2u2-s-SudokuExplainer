@@ -532,6 +532,9 @@ public final class Settings implements Cloneable {
 	//			additional hinters. Last top1465 run took 03:15.
 	// 6.30.125 2021-04-13 10:04:05 GEM mark 12 ultra greedy gemSolve using all
 	//			hinters under 20ms/elim. Last top1465 run took 03:09.
+	// 6.30.126 2021-04-17 06:09:06 GEM mark 13 Moved coloring up the hinters
+	//          list and dropped slowies. Last top1465 run took 02:09.
+	// 6.30.127 2021-04-24 08:18:07 GEM mark 14 is not greedy. sigh.
 
 	//
 	// To Build:
@@ -568,8 +571,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.125";
-	public static final String BUILT = "2021-04-13 10:04:05";
+	public static final String VERSION = "6.30.127";
+	public static final String BUILT = "2021-04-24 08:18:07";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 
@@ -766,7 +769,7 @@ public final class Settings implements Cloneable {
 			lookAndFeelClassName = preferences.get("lookAndFeelClassName", lookAndFeelClassName);
 			wantedTechniques.clear();
 			for ( Tech t : ALL_TECHS )
-				if ( preferences.getBoolean(t.nom, true) )
+				if ( preferences.getBoolean(t.nom, t.defaultWanted) )
 					wantedTechniques.add(t);
 			modificationCount = preferences.getInt(MODIFICATION_COUNT_KEY_NAME, Integer.MIN_VALUE);
 //			System.out.println("Settings.load: mod="+mod);

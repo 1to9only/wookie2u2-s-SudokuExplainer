@@ -351,9 +351,22 @@ public class AlignedExclusion extends AHinter
 	 * The constructor. I read my degree (number of cells in an aligned set)
 	 * from the given Tech, which MUST be a Tech.Aligned*.
 	 *
-	 * @param tech
+	 * @param tech to implement: Tech.Aligned*
+	 * @param defaultIsHacked if there's no existing registry setting should
+	 * this A*E be hacked (align around 2 cells) or not (1 cell).
+	 * defaultIsHacked is true for A23E, because aligned sets of 2 or 3 cells
+	 * need atleast two common excluders in order to produce a hint; larger
+	 * sets of cells (A4+E) actually require 1 cell BUT these are much more
+	 * numerous and hints are much rarer, so the time/elims equation quickly
+	 * goes VERY bad as the size the set increases; to the point where A10E
+	 * correct runs for over a day on top1465, producing less than a dozen
+	 * eliminations. Piss-poor reward for the effort, so don't use it! By
+	 * comparison the "hacked" version uses two excluder cells, which is much
+	 * rarer and more likely to hint, so it examines about a tenth of the sets
+	 * to produce about a third of the hints. Much better value, at the cost of
+	 * missed tricks, which we'll catch later anyways, in the chainers.
 	 */
-	public AlignedExclusion(Tech tech) {
+	public AlignedExclusion(Tech tech, boolean defaultIsHacked) {
 		super(tech);
 		assert tech.name().startsWith("Aligned");
 		// my super.degree comes from the passed Tech.
@@ -382,7 +395,7 @@ public class AlignedExclusion extends AHinter
 		// is inherently a heavy process, because it does combinatorial TIMES
 		// combinatorial comparisons. Hacked takes about a tenth of the time,
 		// and misses about two thirds of the hints. sigh.
-		needTwo = degree<4 || Settings.THE.get("isa"+degree+"ehacked", false);
+		needTwo = Settings.THE.get("isa"+degree+"ehacked", defaultIsHacked);
 		// optimisation: create an "Excluderator" ONCE per AlignedExclusion
 		// intead of deciding to call idx1 or idx2 repeatedly: once for each
 		// cell in each possible combination of $degree cells, ie many times.

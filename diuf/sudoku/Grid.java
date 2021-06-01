@@ -107,6 +107,12 @@ public final class Grid {
 		"col A", "col B", "col C", "col D", "col E", "col F", "col G", "col H", "col I"
 	};
 
+	public static final Idx[] CELL_IDXS = new Idx[81];
+	static {
+		for ( int i=0; i<81; ++i )
+			CELL_IDXS[i] = Idx.of(i);
+	}
+
 	/** The buddies of each cell in the Grid, in an Idx.
 	 * You can calculate this but it's simpler and faster to look it up. */
 	public static final int[] BOX_OF = {
@@ -996,6 +1002,7 @@ public final class Grid {
 		// , Unique Rectangle, all the ALS's
 		rebuildAllRegionsEmptyCellCounts();
 		// regions containsValue array
+		// must do BEFORE IndexesOf
 		// Complex/Krakenfisherman
 		rebuildAllRegionsContainsValues();
 		// r.indexesOf[v]: rebuild regions indexesOf all values.
@@ -1030,23 +1037,23 @@ public final class Grid {
 	 * Rebuild ARegion.indexesOf[value] arrays (not confusing r.idxs[v]!)
 	 */
 	private void rebuildAllRegionsIndexsOfAllValues() {
-		boolean[] rContains;
+		boolean[] rContainsValue;
 		Indexes[] rIndexesOf;
 		Cell[] rCells;
 		final int[] rCellsMaybesBits = new int[9];
-		int sv, bits, i;
+		int sv, bits, i, v;
 		for ( ARegion r : this.regions ) { // there are 27 regions
-			rContains = r.containsValue;
+			rContainsValue = r.containsValue;
 			rIndexesOf = r.indexesOf;
 			rCells = r.cells;
 			for ( i=0; i<9; ++i )
 				rCellsMaybesBits[i] = rCells[i].maybes.bits;
 			// foreach value in 1..9
-			for ( int v=1; v<10; ++v ) { // 27*9 = 243
+			for ( v=1; v<10; ++v ) // 27*9 = 243
 				// nb: pre-rebuildContainsValueArray() to set containsValue!
-				if ( rContains[v] )
+				if ( rContainsValue[v] ) {
 					rIndexesOf[v].clear();
-				else {
+				} else {
 					// set Indexes with bits built locally coz it's faster
 					// than
 					sv = VSHFT[v];
@@ -1056,7 +1063,6 @@ public final class Grid {
 							bits |= ISHFT[i];
 					rIndexesOf[v].set(bits);
 				}
-			}
 		}
 	}
 
@@ -1321,7 +1327,7 @@ public final class Grid {
 	}
 
 	// ------ empty cells ------
-	private static final CellFilter EMPTY_FILTER = new CellFilter() {
+	public static final CellFilter EMPTY_FILTER = new CellFilter() {
 		@Override
 		public boolean accept(Cell c) {
 			return c.value == 0;
@@ -1347,7 +1353,7 @@ public final class Grid {
 	private long emptiesPuzzleID;
 
 	// ------ bivalue cells ------
-	private static final CellFilter BIVALUE_FILTER = new CellFilter() {
+	public static final CellFilter BIVALUE_FILTER = new CellFilter() {
 		@Override
 		public boolean accept(Cell c) {
 			return c.maybes.size == 2;
@@ -1380,7 +1386,7 @@ public final class Grid {
 	 * potential value 1..9 in this Grid.
 	 * @return the CACHED bitIdxs array. Don't modify it's contents!
 	 */
-	private BitIdx[] getBitIdxsImpl() {
+	public BitIdx[] getBitIdxsImpl() {
 		if ( bitIdxs[1] == null )
 			for ( int v=1; v<10; ++v )
 				bitIdxs[v] = new BitIdx(this);

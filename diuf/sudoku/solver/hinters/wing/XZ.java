@@ -6,7 +6,7 @@
  */
 package diuf.sudoku.solver.hinters.wing;
 
-import diuf.sudoku.Grid;
+import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VSHFT;
 
@@ -23,7 +23,8 @@ class XZ {
 	int x; // the x value (may be swapped)
 	int z; // the z value (may be swapped)
 	boolean both; // do both x and z fit the Wing pattern?
-	void set(Grid.Cell yz) {
+	// yz is a bivalue cell
+	void set(Cell yz) {
 		x = FIRST_VALUE[yz.maybes.bits];
 		z = FIRST_VALUE[yz.maybes.bits & ~VSHFT[x]];
 	}

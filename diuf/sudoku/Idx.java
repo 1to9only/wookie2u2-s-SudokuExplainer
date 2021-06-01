@@ -162,6 +162,17 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
+	 * Returns a new Idx containing the given cell indice.
+	 * @param indice the grid.cells indice of the cell to be added to this Idx
+	 * @return a new Idx containing only the given cell indice.
+	 */
+	public static Idx of(int indice) {
+		Idx idx = new Idx();
+		idx.add(indice);
+		return idx;
+	}
+
+	/**
 	 * Returns a new Idx containing the given cells.
 	 * @param cells
 	 * @return
@@ -540,7 +551,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = src.a0;
 		a1 = src.a1;
 		a2 = src.a2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return this;
 	}
 
@@ -561,7 +573,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			a1 = src.a1;
 			a2 = src.a2;
 		}
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 	}
 
 	/**
@@ -575,7 +588,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		this.a0 = a0;
 		this.a1 = a1;
 		this.a2 = a2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return this;
 	}
 
@@ -594,7 +608,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			a1 |= SHFT[i%BITS_PER_ELEMENT];
 		else
 			a2 |= SHFT[i%BITS_PER_ELEMENT];
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 	}
 
 	/**
@@ -610,7 +625,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			a1 |= region.idx.a1;
 			a2 |= region.idx.a2;
 		}
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return this;
 	}
 
@@ -623,7 +639,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = src.a0;
 		a1 = src.a1;
 		a2 = src.a2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return (a0|a1|a2) != 0;
 	}
 
@@ -638,7 +655,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = m0;
 		a1 = m1;
 		a2 = m2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return (a0|a1|a2) != 0;
 	}
 
@@ -652,7 +670,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = aa.a0 & bb.a0;
 		a1 = aa.a1 & bb.a1;
 		a2 = aa.a2 & bb.a2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return this;
 	}
 
@@ -666,7 +685,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = aa.a0 & bb.a0;
 		a1 = aa.a1 & bb.a1;
 		a2 = aa.a2 & bb.a2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return (a0|a1|a2) != 0;
 	}
 
@@ -680,7 +700,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 //		a0 = aa.a0 & bb.a0;
 //		a1 = aa.a1 & bb.a1;
 //		a2 = aa.a2 & bb.a2;
-//		modCount = 1; getMod = 0;
+//		modCount = 1;
+//		getMod = 0;
 //		return (a0|a1|a2) != 0 && size()==1;
 //	}
 
@@ -694,7 +715,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = aa.a0 & bb.a0;
 		a1 = aa.a1 & bb.a1;
 		a2 = aa.a2 & bb.a2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return (a0|a1|a2)!=0 && size()>1;
 	}
 
@@ -709,7 +731,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = aa.a0 & bb.a0;
 		a1 = aa.a1 & bb.a1;
 		a2 = aa.a2 & bb.a2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return (a0|a1|a2)!=0 && size(a0,a1,a2) >= min;
 	}
 
@@ -723,7 +746,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = aa.a0 | bb.a0;
 		a1 = aa.a1 | bb.a1;
 		a2 = aa.a2 | bb.a2;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return this;
 	}
 
@@ -738,7 +762,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 = (aa.a0 & ~bb.a0) & ALL;
 		a1 = (aa.a1 & ~bb.a1) & ALL;
 		a2 = (aa.a2 & ~bb.a2) & ALL;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return this;
 	}
 
@@ -749,11 +774,12 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param cc
 	 * @return this Idx, for method chaining.
 	 */
-	public Idx setExcept(Idx aa, Idx bb, Idx cc) {
+	public Idx setAndNot(Idx aa, Idx bb, Idx cc) {
 		a0 = (aa.a0 & ~bb.a0 & ~cc.a0) & ALL;
 		a1 = (aa.a1 & ~bb.a1 & ~cc.a1) & ALL;
 		a2 = (aa.a2 & ~bb.a2 & ~cc.a2) & ALL;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return this;
 	}
 
@@ -775,7 +801,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	public Idx clear() {
 		a0 = a1 = a2 = 0;
-		modCount = 1; getMod = 0;
+		modCount = 1;
+//		getMod = 0;
 		return this;
 	}
 
@@ -1188,38 +1215,39 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 //		return -1;
 //	}
 
-	/**
-	 * HoDoKuAdapter: get returns the index'th indice from this Idx.
-	 * <p>
-	 * <b>DON'T USE</b> unless you have to. get simulates HoDoKus SudokuSet.get
-	 * method but its a bit slow Redge, with a method call per element, so we
-	 * prefer {@link #forEach}, {@link #toArrayA()}, {@link toArrayB()}, or
-	 * even {@link #toArrayNew()}.
-	 * <p>
-	 * NB: get currently the only use of modCount, which is spread everywhere.
-	 * @param index of the indice you want in this Idx as an array, so just get
-	 * the bloody array and look-it-up yourself! This method is fundamentally
-	 * just a toArray cache!
-	 * @return the index'th indice from this Idx.
-	 */
-	public int get(int index) {
-		boolean doGet;
-		if ( doGet=(getArray == null) )
-			// late-create the getArray, so that if get is never called
-			// then we need never create the getArray.
-			getArray = new int[81];
-		else if ( getMod != modCount )
-			doGet = true;
-		if ( doGet ) {
-			getN = forEach((cnt, i) -> getArray[cnt] = i);
-			getMod = modCount;
-		}
-		if ( index < getN )
-			return getArray[index];
-		return -1;
-	}
-	private int[] getArray;
-	private int getN, getMod;
+//	/**
+//	 * HoDoKuAdapter: get returns the index'th indice from this Idx.
+//	 * <p>
+//	 * <b>DON'T USE</b> unless you have to. get simulates HoDoKus SudokuSet.get
+//	 * method but its a bit slow Redge, with a method call per element, so we
+//	 * prefer {@link #forEach}, {@link #toArrayA()}, {@link toArrayB()}, or
+//	 * even {@link #toArrayNew()}.
+//	 * <p>
+//	 * NB: get currently the only use of modCount, which is spread everywhere.
+//	 *
+//	 * @param index of the indice you want in this Idx as an array, so just get
+//	 * the bloody array and look-it-up yourself! This method is fundamentally
+//	 * just a toArray cache!
+//	 * @return the index'th indice from this Idx.
+//	 */
+//	public int get(int index) {
+//		boolean doGet;
+//		if ( doGet=(getArray == null) )
+//			// late-create the getArray, so that if get is never called
+//			// then we need never create the getArray.
+//			getArray = new int[81];
+//		else if ( getMod != modCount )
+//			doGet = true;
+//		if ( doGet ) {
+//			getN = forEach((cnt, i) -> getArray[cnt] = i);
+//			getMod = modCount;
+//		}
+//		if ( index < getN )
+//			return getArray[index];
+//		return -1;
+//	}
+//	private int[] getArray;
+//	private int getN, getMod;
 
 	// ----------------------------- bulk queries -----------------------------
 
@@ -2012,6 +2040,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * <p>
 	 * My humour is a bit off too! Binary LOLs! What's LOL in binary! NANANA!
 	 * Come at me with that fruit!
+	 *
 	 * @param a0
 	 * @param a1
 	 * @param a2

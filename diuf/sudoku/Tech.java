@@ -70,8 +70,8 @@ public enum Tech {
 
 // Medium
 	// NB: constructor does name().startsWith("Direct")
-	, Locking			(2.1, 1, "Locking", "OR Locking Generalised") // Pointing=2.1 Claiming=2.2
-	, LockingGeneralised(2.1, 1, "Locking Generalised", "OR Locking") // 2.1 for both
+	, Locking			(2.1, 1, "Locking", "OR Locking Generalised", true, true) // Pointing=2.1 Claiming=2.2
+	, LockingGeneralised(2.1, 1, "Locking Generalised", "OR Locking", true, false) // 2.1 for both
 	, DirectNakedPair	(2.3, 2, "Direct Naked Pair")
 	, DirectHiddenPair	(2.4, 2, "Direct Hidden Pair")
 	, DirectNakedTriple	(2.5, 3, "Direct Naked Triple")
@@ -104,12 +104,12 @@ public enum Tech {
 	, TUVWXYZ_Wing		(4.24, 6, "TUVWXYZ-Wing") // SLOW limited ALS-XZ
 	, STUVWXYZ_Wing		(4.25, 7, "STUVWXYZ-Wing") // SLOW limited ALS-XZ
 	// XColoring is Coloring++, which is in turn BUG++
-	, BUG				(4.30, 0, "BUG", "(Bivalue Universal Grave) less than Coloring, and is SLOWER!")
-	, Coloring			(4.31, 2, "Coloring", "finds a superset of BUG hints, and is FASTER.", false)
-	, XColoring			(4.32, 2, "XColoring", "(Extended Coloring) finds Coloring hints and Nishio's", false)
-	, MedusaColoring	(4.33, 2, "Medusa Coloring", "(3D Medusa Coloring) most of XColoring and more", false)
-	, GEM				(4.34, 2, "GEM", "(Graded Equivalence Marks) the ultimate Coloring", false)
-	, URT				(4.35, 0, "Unique Rectangle", "Unique Rectangles and loops", false)
+	, BUG				(4.30, 0, "BUG", "(Bivalue Universal Grave) less than Coloring, and is SLOWER!", true, false)
+	, Coloring			(4.31, 2, "Coloring", "finds a superset of BUG hints, and is FASTER.", false, true)
+	, XColoring			(4.32, 2, "XColoring", "(Extended Coloring) finds Coloring hints and Nishio's", false, true)
+	, MedusaColoring	(4.33, 2, "Medusa Coloring", "(3D Medusa Coloring) most of XColoring and more", false, true)
+	, GEM				(4.34, 2, "GEM", "(Graded Equivalence Marks) the ultimate Coloring", false, true)
+	, URT				(4.35, 0, "Unique Rectangle", "Unique Rectangles and loops", false, true)
 	, FinnedSwampfish	(4.40, 2, "Finned Swampfish")	// with Sashimi
 	, FinnedSwordfish	(4.41, 3, "Finned Swordfish")
 	, FinnedJellyfish	(4.42, 4, "Finned Jellyfish")
@@ -180,6 +180,14 @@ public enum Tech {
 //	}
 
 	/**
+	 * True for most Tech's, False for:<ul>
+	 * <li>BUG (Coloring/XColoring/Medusa/GEM are all much hintier)
+	 * <li>Mutant and Kraken Jellyfish (too slow)
+	 * <li>Aligned 5+ Exclusion (too slow, and basically useless. sigh.)
+	 * </li>
+	 */
+	public final boolean defaultWanted;
+	/**
 	 * <p>If you change any hints difficulty then you'll need to update<ul>
 	 *  <li>{@link diuf.sudoku.Tech}
 	 *  <li>{@link diuf.sudoku.Difficulty}
@@ -209,15 +217,13 @@ public enum Tech {
 	 * the TechSelectDialog only displays warning MsgBox when warning, which is
 	 * counter-intuitively true by default.
 	 *
+	 * @param defaultWanted
 	 * @param difficulty
 	 * @param degree
 	 * @param nom
-	 * @param tip 
+	 * @param tip
 	 */
-	private Tech(double difficulty, int degree, String nom, String tip) {
-		this(difficulty, degree, nom, tip, true);
-	}
-	private Tech(double difficulty, int degree, String nom, String tip, boolean warning) {
+	private Tech(double difficulty, int degree, String nom, String tip, boolean warning, boolean defaultWanted) {
 		this.difficulty = difficulty;
 		this.degree = degree;
 		this.nom = nom;
@@ -231,14 +237,20 @@ public enum Tech {
 		this.isNishio = false;
 		this.tip = tip;
 		this.warning = warning;
+		this.defaultWanted = defaultWanted;
+	}
+
+	private Tech(double difficulty, int degree, String nom, String tip) {
+		this(difficulty, degree, nom, tip, true, true);
 	}
 
 	private Tech(double difficulty, int degree, String nom) {
-		this(difficulty, degree, nom, null, false); // tool tip = none
+		this(difficulty, degree, nom, null, false, true); // tool tip = none
 	}
 
-	private Tech(double difficulty, int degree, String nom
+	private Tech(boolean defaultWanted, double difficulty, int degree, String nom
 			, boolean isMultiple, boolean isDynamic, boolean isNishio) {
+		this.defaultWanted = defaultWanted;
 		this.difficulty = difficulty;
 		this.degree = degree;
 		this.nom = nom;
@@ -252,6 +264,10 @@ public enum Tech {
 		this.isNishio = isNishio;
 		this.tip = null;
 		this.warning = false;
+	}
+	private Tech(double difficulty, int degree, String nom
+			, boolean isMultiple, boolean isDynamic, boolean isNishio) {
+		this(true, difficulty, degree, nom, isMultiple, isDynamic, isNishio);
 	}
 
 	public static Tech Solution(String nom) {

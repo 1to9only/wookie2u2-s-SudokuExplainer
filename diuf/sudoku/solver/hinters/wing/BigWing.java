@@ -1,19 +1,19 @@
 package diuf.sudoku.solver.hinters.wing;
 
 import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.AFTER;
+import static diuf.sudoku.Grid.BUDETTES;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.accu.IAccumulator;
-import static diuf.sudoku.Values.VSIZE;
-import java.util.Arrays;
+import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
+import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import static diuf.sudoku.Grid.AFTER;
-import static diuf.sudoku.Grid.BUDETTES;
-import diuf.sudoku.Values;
+import java.util.Arrays;
 
 
 /**
@@ -64,7 +64,6 @@ public class BigWing extends AHinter {
 		final int sv = VSHFT[value]; //shiftedValue
 		for ( Cell c : wing )
 			if ( (sv & c.maybes.bits) != 0 )
-//				victims.retainAll(c.visible());
 				victims.retainAll(BUDETTES[c.i]);
 		// THIS is the difference between strong and weak. For a weak elim the
 		// victim does NOT need to be a buddy of the yz-cell, so we just remove
@@ -152,9 +151,9 @@ public class BigWing extends AHinter {
 		}
 		if ( theReds.isEmpty() )
 			return null; // none
-		Pots reds = new Pots(theReds);
+		Pots copy = new Pots(theReds);
 		theReds.clear();
-		return reds;
+		return copy;
 	}
 
 	// ============================ instance stuff ============================
@@ -178,6 +177,13 @@ public class BigWing extends AHinter {
 	private final BitIdx victims = new BitIdx();
 	// the yzs cell set
 	private final BitIdx yzs = new BitIdx();
+
+//	private final Grid.CellFilter candidateFilter = new Grid.CellFilter() {
+//		@Override
+//		public boolean accept(Cell c) {
+//			return c.maybes.size>0 && c.maybes.size<degreePlus2;
+//		}
+//	};
 
 	// ---- set and cleared by findHints ----
 	// accu.isSingle() ie is only one hint sought
@@ -212,19 +218,26 @@ public class BigWing extends AHinter {
 		victims.grid = grid;
 		for ( int i=1; i<degree; ++i )
 			sets[i].grid = grid;
+		// WEIRD: gemSolve doesn't increment AHint.hintNumber so cache under
+		// getBitIdxBivalue gets dirty, so use the uncached version instead.
+		// NOW: gemSolve dropped BigWing, so I use the cache.
 		bivalueCells = grid.getBitIdxBivalue();
+//		bivalueCells = grid.getBitIdx(BIVALUE_FILTER);
 		this.accu = accu;
+		// WEIRD: gemSolve -> No cache
 		candidates = grid.getBitIdxs();
+//		candidates = grid.getBitIdxsImpl();
 		onlyOne = accu.isSingle();
 		// presume that no hint will be found
 		boolean result = false;
 		try {
 			// get the candidate cells, with size 2..4
+			// WEIRD: gemSolve -> No cache
 			sets[0] = grid.getBitIdxEmpties().where((c) -> {
 				return c.maybes.size < degreePlus2;
 			});
-			// recurse to build-up $degree ALS cells, examine for wing;
-			// add hints to accu, return any.
+//			sets[0] = grid.getBitIdx(candidateFilter);
+			// recurse to build-up $degree ALS cells; hints to accu, return any
 			result = recurse(0);
 		} finally {
 			// forget all grid and cell references (for GC)
@@ -289,7 +302,7 @@ public class BigWing extends AHinter {
 				}
 			} else { // complete ALS ($degree cells)
 //				assert i == degreeMinus1; // it's an index so it's zero based
-				// degree+1 maybes in degree cells is an Almost Locked Set
+				// degree+1 maybes in degree cells is an Almost Locked Set (ALS)
 				if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] == degreePlus1 ) {
 					yzs.set(BUDETTES[als[0].i]);
 					for ( int j=1; j<degree; ++j )
@@ -305,7 +318,7 @@ public class BigWing extends AHinter {
 								xWing = isWing(yzVs.x, yz, als);
 								zWing = isWing(yzVs.z, yz, als);
 								if ( xWing || zWing ) {
-									// found a TUVWXYZ-Wing pattern
+									// found a BigWing pattern
 									if ( !xWing ) // single linked on z
 										yzVs.swap();
 									// double linked

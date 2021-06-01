@@ -36,8 +36,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.Col;
 import diuf.sudoku.Grid.Row;
-import diuf.sudoku.Indexes;
-import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
@@ -97,19 +96,19 @@ public class EmptyRectangle extends AHinter {
 	 * EMPTY_BOX_BITS is the box.idxsOf[$v].bits of the cells in each ER box
 	 * that must be "empty", ie not maybe $v; all in ARegion.cells indices.
 	 * <p>
-	 * For each ER pattern {@code erBox.idxsOf[v].bits & EMPTY_BOX_BITS[er]==0}
-	 * ie $v is not a maybe in any of the erBox cells that are denoted by a set
+	 * Foreach ER {@code erBox.indexesOf[v].bits & EMPTY_BOX_BITS[er]==0}, ie
+	 * $v is not a maybe in any of the erBox cells that are denoted by a set
 	 * (1) bit in EMPTY_BOX_BITS.
 	 * <p>
-	 * nb: hobiwan's erOffsets are were absolute Grid.cells indices, but what
-	 * I want is the indices in region.cells, coz that is what is in existing
-	 * idxsOf[$v].bits; so I translated<br>
+	 * nb: hobiwan's erOffsets were absolute Grid.cells indices, but what I
+	 * want is the indices in region.cells, coz that is what is in existing
+	 * indexesOf[$v].bits; so I translated them over.<br>
 	 * <p>
 	 * Translated hobiwans erOffsets array of 9 boxs * 9 ER patterns, to my
 	 * EMPTY_BOX_BITS array of 9 ER patterns (no need for one for each box!)
-	 * formatted to bitwise-and with the existing region.idxOf[$v].bits.
+	 * formatted to bitwise-and with the existing region.indexesOf[$v].bits.
 	 * <p>
-	 * Diagram: ARegion.idxOf[$v].bits indice numbers in a Box:
+	 * Diagram: ARegion.indexesOf[$v].bits indice numbers in a Box:
 	 * <pre>
 	 * + - - - +
 	 * | 0 1 2 |
@@ -252,8 +251,10 @@ public class EmptyRectangle extends AHinter {
 				if ( (card=erBox.indexesOf[v].size)<3 || card>5 )
 					continue;
 				boxVBits = erBox.indexesOf[v].bits;
-				for ( int er=0; er<9; ++er ) { // the ER index
-					// skip if the boxs v's don't intersect the ER pattern
+				for ( int er=0; er<9; ++er ) { // the emptyRectangle index
+					// skip if this boxs v's don't match the ER pattern.
+					// nb: EMPTY_BOX_BITS contains the cells that must not
+					// contain the given value in order to form an ER.
 					if ( (boxVBits & EMPTY_BOX_BITS[er]) != 0 )
 						continue;
 					// if cells in the box which maybe $v are all in erRow
@@ -304,12 +305,12 @@ public class EmptyRectangle extends AHinter {
 						// get the red (removable value) cell
 						// and check that it's not in the erBox
 //KEEP4DOC: the combined line is ungrocable.
-						c2y = INDEXES[c2yBits][0];
+						c2y = FIRST_INDEX[c2yBits];
 						redCell = grid.cells[c2y*9+erC];
 						if ( redCell.box == erBox )
 							continue; // Oops!
-						// Empty Rectangle found! No matter which cell in the
-						// erBox turns out to be $v the redCell cannot be $v
+						// Empty Rectangle: No matter which cell in the erBox
+						// turns out to be $v the redCell cannot be $v
 						Cell c2 = grid.cells[c2y*9+c1.x];
 						// create the hint and add it to accu
 						AHint hint = createHint(v, erBox, erRow, erCol
@@ -350,13 +351,12 @@ public class EmptyRectangle extends AHinter {
 							continue;
 						// get the red (removable value) cell
 						// and check that it's not in the erBox
-//KEEP4DOC: the combined line is ungrocable.
-						c2x = INDEXES[c2xBits][0];
+						c2x = FIRST_INDEX[c2xBits];
 						redCell = grid.cells[erR*9+c2x];
 						if ( redCell.box == erBox )
 							continue; // Oops!
-						// Empty Rectangle found! No matter which cell in the
-						// erBox turns out to be $v the redCell cannot be $v
+						// Empty Rectangle: No matter which cell in the erBox
+						// turns out to be $v the redCell cannot be $v
 						Cell c2 = grid.cells[c1.y*9+c2x];
 						// create the hint and add it to the IAccumulator
 						AHint hint = createHint(v, erBox, erRow, erCol
@@ -379,40 +379,25 @@ public class EmptyRectangle extends AHinter {
 
 	private AHint createHint(int v, Box erBox, Row erRow, Col erCol
 			, Cell c1, Cell c2, int boxVBits, Cell redCell, boolean isCol) {
-
-		// build the regions (evens are blue, odds are green)
-		// isCol's are rarer: the roles of row and col are reversed, so
-		// we need to swap the "assisting regions" in the static HTML.
-		ARegion[] regions = new ARegion[]{
-				//blues, greens
-				//evens, odds
-				  erBox, isCol ? erCol : erRow // #SWAPPED
-				, null,  isCol ? erRow : erCol // #SWAPPED
-				, null,  c2.col
-				, null,  c2.row
-			};
+		// build the regions: blue bases, and green covers.
 		List<ARegion> bases = Regions.list(erBox);
 		List<ARegion> covers;
 		if ( isCol )
 			covers = Regions.list(erCol, erBox, c2.col, c2.row);
 		else
 			covers = Regions.list(erBox, erCol, c2.col, c2.row);
-
-		// tag is for debugging: it identifies which method was used to find
-		// this hint: " A:ROW", or " B:COL" designed to be left blank "" for
-		// normal use, and for developers to switch-on when there's bugs.
-//		String debugMessage = isCol ? "B:COL" : "A:ROW";	// for debugging
-		String debugMessage = ""; // for "normal use"
-
+		// for debugging to identify which method found this hint.
+//		String tag = isCol ? "B:COL" : "A:ROW";
+		String tag = "";
 		// build the hightlighted (orange) potential values map
-		Pots orangePots = new Pots(v, c1, c2);
+		Pots oranges = new Pots(v, c1, c2);
 		// build the "fins" (blue) potential values map Cell->Values
-		Pots bluePots = new Pots(v, erBox.atNew(boxVBits));
+		Pots blues = new Pots(v, erBox.atNew(boxVBits));
 		// build the removable (red) potential values map Cell->Values
-		Pots redPots = new Pots(v, redCell);
+		Pots reds = new Pots(v, redCell);
 		// build and return the hint
-		return new EmptyRectangleHint(this, v, bases, covers
-				, orangePots, bluePots, redPots, debugMessage);
+		return new EmptyRectangleHint(this, v, bases, covers, oranges, blues
+				, reds, tag);
 	}
 
 }

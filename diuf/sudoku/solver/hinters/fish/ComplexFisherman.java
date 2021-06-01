@@ -173,7 +173,7 @@ import java.util.List;
  * @author Keith Corlett 2020 Sept 24
  */
 public class ComplexFisherman extends AHinter
-//		implements diuf.sudoku.solver.IReporter
+//		, diuf.sudoku.solver.IReporter
 {
 	// Problem: Hint contains eliminations for non-potential-values.
 	// Fix: createHint check for MIA deletes and sharks; and throws empty reds.
@@ -187,12 +187,13 @@ public class ComplexFisherman extends AHinter
 	private static final int MAX_FINS = 3;
 
 	// maximum number of endo-fins (candidates in two overlapping bases)
-	private static final int MAX_ENDO_FINS = 2;
+	// plus one, coz I use < which coz it's faster than <=.
+	private static final int MAX_ENDO_FINS = 3;
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~ working storage ~~~~~~~~~~~~~~~~~~~~~~~~
 
 	/** A recursion stack entry for each base region in the current baseSet. */
-	private class BaseStackEntry {
+	final class BaseStackEntry {
 		/** The index of the current base region. */
 		int index;
 		/** The index of the previous region (to revert to). */
@@ -454,7 +455,7 @@ public class ComplexFisherman extends AHinter
 				// if there's no endofins
 				if ( (efM0|efM1|efM2) == 0
 				  // or there's not many endofins
-				  || Integer.bitCount(efM0)+Integer.bitCount(efM1)+Integer.bitCount(efM2) <= MAX_ENDO_FINS ) {
+				  || Integer.bitCount(efM0)+Integer.bitCount(efM1)+Integer.bitCount(efM2) < MAX_ENDO_FINS ) {
 					// onto the next level
 					cB = baseStack[++bLevel];
 					cB.index = b + 1;
@@ -463,13 +464,12 @@ public class ComplexFisherman extends AHinter
 			// else we've collected degree covers, so
 			// if there's no endofins to check
 			} else if ( (efM0|efM1|efM2) == 0
-				// or there's not many endofins
-				|| ( Integer.bitCount(efM0)+Integer.bitCount(efM1)+Integer.bitCount(efM2) <= MAX_ENDO_FINS
+				// or there's not too many endofins
+				|| ( Integer.bitCount(efM0)+Integer.bitCount(efM1)+Integer.bitCount(efM2) < MAX_ENDO_FINS
 				  // which have common buddy/s that maybe v
 				  && endoFins.set(efM0,efM1,efM2).commonBuddies(buds).and(vs).any() )
 			) {
-				// search all combinations of covers that fit these bases
-			    if ( searchCovers() ) {
+				if ( searchCovers() ) {
 					// we found a Fish!
 					searchBasesResult = true;
 					if ( oneOnly )

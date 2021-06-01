@@ -104,22 +104,20 @@ public class TwoStringKite extends AHinter {
 					} else
 						continue; // nothing found so continue with next col
 					// the indices within the connecting box could be the same
-					// so not a 2-String-Kite
+					// so not a TwoStringKite
 					if ( rowPair[0] == colPair[0]
 					  || rowPair[0] == colPair[1]
 					  || rowPair[1] == colPair[0]
 					  || rowPair[1] == colPair[1] )
 						continue; // invalid!
-					// ok: two strong links, connected in a box, but can
-					//     anything be deleted?
+					// ok: two strong links connected by a box,
+					//     but can anything be deleted?
 					// take the row of the colPair and
 					//      the col of the rowPair to get there intersection
 					Cell cross = grid.cells[colPair[1].y*9 + rowPair[1].x];
 					if ( (cross.maybes.bits & sv) == 0 )
 						continue;
-					//
-					// 2-String-Kite Found! so create hint and add it to accu
-					//
+					// TwoStringKite Found! so create hint and add it to accu
 					AHint hint = createHint(rowPair, colPair, cross, v);
 					result |= hint!=null;
 					if ( accu.add(hint) )
@@ -147,25 +145,17 @@ public class TwoStringKite extends AHinter {
 	}
 
 	private AHint createHint(Cell[] rowPair, Cell[] colPair, Cell cross, int v) {
-		// build the regions
-		final ARegion[] regions = new ARegion[] {
-			//blue			  green
-			//boxs            row/col
-			  rowPair[0].box, rowPair[1].row
-			, null,           colPair[0].col
-		};
 		List<ARegion> bases = Regions.list(rowPair[0].box);
 		List<ARegion> covers = Regions.list(rowPair[1].row, colPair[0].col);
 		// build the hightlighted (orange) potential values map Cell->Values
-		Pots orangePots = new Pots(v, rowPair[1], colPair[1]);
+		Pots oranges = new Pots(v, rowPair[1], colPair[1]);
 		// build the "fins" (blue) potential values map Cell->Values
-		Pots bluePots = new Pots(v, rowPair[0], colPair[0]);
+		Pots blues = new Pots(v, rowPair[0], colPair[0]);
 		// build the removeable (red) potential values map Cell->Values
-		Pots redPots = new Pots(v, cross);
+		Pots reds = new Pots(v, cross);
 		// build and return the hint
-		return new TwoStringKiteHint(this, v, bases, covers
-				, orangePots, bluePots, redPots
-				, rowPair.clone(), colPair.clone());
+		return new TwoStringKiteHint(this, v, bases, covers, oranges, blues
+				, reds, rowPair.clone(), colPair.clone());
 	}
 
 }

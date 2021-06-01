@@ -41,7 +41,6 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import java.util.LinkedList;
 
 
 /**
@@ -54,15 +53,6 @@ import java.util.LinkedList;
 public final class WWing extends AHinter
 //		implements diuf.sudoku.solver.IReporter
 {
-
-	// nb: caching this ____s-up the the generator!
-	private static Cell[] getBivalueCells(Grid grid) {
-		LinkedList<Cell> list = new LinkedList<>();
-		for ( Cell cell : grid.cells )
-			if ( cell.maybes.size == 2 )
-				list.add(cell);
-		return list.toArray(new Cell[list.size()]);
-	}
 
 	public WWing() {
 		super(Tech.W_Wing);
@@ -84,8 +74,6 @@ public final class WWing extends AHinter
 		int bitsA;
 		// the indices of cells which maybe each potential value
 		final Idx[] candidates = grid.getIdxs();
-		// get an array (for speed) of bivalue (maybes.size==2) cells in grid
-		final Cell[] bivalueCells = getBivalueCells(grid);
 		// two pre-prepaired Idxs of buddies of cellA which maybe 0=v0, 1=v1
 		final Idx bud0 = this.bud0.clear();
 		final Idx bud1 = this.bud1.clear();
@@ -93,41 +81,43 @@ public final class WWing extends AHinter
 		final Idx reds = new Idx();
 		// presume failure, ie that no hint will be found
 		boolean result = false;
-		// foreach cell in the grid except the last one
-		for ( Cell cA : bivalueCells ) {
-			// bivalue cell found, so prepare for the "pair" examination
-			// get the 2 potential values of cellA into an array
-			vA = VALUESES[bitsA=cA.maybes.bits];
-			// pre-prepair 2 Idxs: buddies of cellA which maybe value0/1
-			// if either is empty then there's no W-Wing here.
-			if ( bud0.setAndAny(cA.buds, candidates[vA[0]])
-			  && bud1.setAndAny(cA.buds, candidates[vA[1]]) ) {
-				// find a "pair" cell (with same 2 maybes)
-				for ( Cell cB : bivalueCells ) {
-					if ( cB.maybes.bits==bitsA && cB!=cA ) {
-//if ( cellA.id.equals("C6") && cellB.id.equals("H9") )
-//	Debug.breakpoint();
-						// ok, we have a pair; can anything be eliminated?
-						// find removable cells: siblings of both A and B
-						// which maybe v0 or v1
-						if ( reds.setAndAny(bud0, cB.buds)
-						  // check for W-Wing for potential values valsA
-						  && (hint=checkLink(grid, vA, cA, cB, reds)) != null ) {
-							result = true;
-							if ( accu.add(hint) ) //add ignores nulls
-								return true;
+		// foreach cell in the grid
+		// NOTE: caching bivalue cells bombs gemSolve.
+		for ( Cell cA : grid.cells )
+			if ( cA.maybes.size == 2 ) {
+				// bivalue cell found, so prepare for the "pair" examination
+				// get the 2 potential values of cellA into an array
+				vA = VALUESES[bitsA=cA.maybes.bits];
+				// pre-prepair 2 Idxs: buddies of cellA which maybe value0/1
+				// if either is empty then there's no W-Wing here.
+				if ( bud0.setAndAny(cA.buds, candidates[vA[0]])
+				  && bud1.setAndAny(cA.buds, candidates[vA[1]]) ) {
+					// find a "pair" cell (with same 2 maybes)
+					for ( Cell cB : grid.cells )
+						if ( cB.maybes.bits == bitsA
+						  && cB!=cA ) {
+	//if ( cellA.id.equals("C6") && cellB.id.equals("H9") )
+	//	Debug.breakpoint();
+							// ok, we have a pair; can anything be eliminated?
+							// find removable cells: siblings of both A and B
+							// which maybe v0 or v1
+							if ( reds.setAndAny(bud0, cB.buds)
+							  // check for W-Wing for potential values valsA
+							  && (hint=checkLink(grid, vA, cA, cB, reds)) != null ) {
+								result = true;
+								if ( accu.add(hint) ) //add ignores nulls
+									return true;
+							}
+							if ( reds.setAndAny(bud1, cB.buds)
+							  // check for W-Wing for potential values valsA
+							  && (hint=checkLink(grid, vA, cA, cB, reds)) != null ) {
+								result = true;
+								if ( accu.add(hint) ) //add ignores nulls
+									return true;
+							}
 						}
-						if ( reds.setAndAny(bud1, cB.buds)
-						  // check for W-Wing for potential values valsA
-						  && (hint=checkLink(grid, vA, cA, cB, reds)) != null ) {
-							result = true;
-							if ( accu.add(hint) ) //add ignores nulls
-								return true;
-						}
-					}
 				}
 			}
-		}
 		return result;
 	}
 	// Two preprepaired indexes of siblings of cellA which maybe 0=v0, 1=v1
