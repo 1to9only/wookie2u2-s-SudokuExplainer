@@ -48,19 +48,28 @@ import java.util.List;
 
 /**
  * EmptyRectangle implements the Empty Rectangle Sudoku solving technique.
+ * <p>
+ * An Empty Rectangle is when all cells which maybe v in a box are in one row
+ * and one col in a box; ie in each box all v's appear in one row or one col;
+ * so either the row or the col must contain v. If there's another row or col
+ * with two places for v then v can be eliminated from the cell in this box's
+ * col-or-row at the far end of the other row-or-col. Hard to explain, sorry.
+ * <p>
+ * The package name SDP stands for SingleDigitPattern which is the name of the
+ * HoDoKu class that fathered all the hinters in this directory. All SDP's are
+ * found by the UnaryChainer, but the SDP's are simpler and therefore faster;
+ * and produce hints that more than 1% of users can follow.
  *
- * NOTE: The package name: sdp stands for SingleDigitPatternSolver which is
- * the name of the HoDoKu class which all the hinters in this directory were
- * boosted from.
- *
- * @author Keith Corlett Mar 25
+ * @author Keith Corlett 2020-03-25
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Diagram: The 9 Empty Rectangle patterns
  * <p>
- * Each box can hold 9 different empty rectangles. 'X' means $v not present',
- * The digit: in the top-left of each box is the index of this ER pattern, and
+ * Each box can have one of nine different empty rectangles. In below diagram:
+ * 'X' means v is NOT present; a period '.' means that v must be present in
+ * both the row and the col (more on this below).
+ * The digit in the top-left of each box is the index of this ER pattern, and
  * the next 2 digits are the erRow,erCol offsets for this ER pattern.
  * <pre>
  * index:erRow,erCol
@@ -79,14 +88,21 @@ import java.util.List;
  * + - - - + - - - + - - - +
  * </pre>
  * <p>
- * The '.' cells (erRow and erCol) must contain at least 3 candidates, at least
- * one exclusively within the row or col.
+ * The '.' cells (in erRow and erCol) must contain at least 3 v's, at least one
+ * of which must be exclusively in the row or col (the cell at erRow erCol does
+ * not count).
  * <p>
- * NOTE: with 2 positions the ER degenerates into an X-Chain. With all 3
- * candidates in one row or col the ER pattern is useless.
+ * With 2 positions the ER degenerates into an X-Chain. With all 3 v's in one
+ * row or col the ER pattern is useless.
  * <p>
- * For fast/easy comparison IdxSets of all possible combinations of empty
- * cells for all blocks are created at startup.
+ * For fast/easy comparison we use bitset-indexes of all possible combinations
+ * of the required empty cells in each box, created ONCE at startup.
+ * <p>
+ * Note that this code uses the continue statement, which is slow; but it's
+ * uglier than a hatfull of assholes without it, so I've chosen to retain it
+ * because it's "fast enough" as is. If you want this code to really zing then
+ * performance test; eradicate continue; and test again. I reckon it'll be at
+ * least 10% faster (possibly 50%); but it's already "fast enough".
  *
  * @author hobiwan
  */
@@ -116,9 +132,12 @@ public class EmptyRectangle extends AHinter {
 	 * | 6 7 8 |
 	 * + - - - +
 	 * </pre>
+	 * <p>
+	 * This is a right-to-left representation of a left-to-right reality (ie
+	 * everything is back-to-front; so you must mentally mirror my bits for
+	 * it to make any sense. Sorry about that, but I see no alternative.
 	 */
 	private static final int[] EMPTY_BOX_BITS = new int[] {
-		// bits R-to-L encodes a L-to-R reality (ie everthings back-to-front)
 		// diagram        empty         erBoxOffsets erRowOffset,erColOffset
 		// row 1           bits         0  1  2  3   R, C
 		  Integer.parseInt("000"
@@ -152,13 +171,18 @@ public class EmptyRectangle extends AHinter {
 						 + "000", 2) //{4, 5, 7, 8} 0, 0
 	};
 
-	/** Masks used to detect if all v's in box are in the same row.
-	 * Also used to remove erBox from erRow.idxOf[$v], despite my name. */
+	/**
+	 * Masks used to detect if all v's in box are in the same row.
+	 * Also used to remove erBox from erRow.idxOf[$v], despite my name.
+	 * <p>
+	 * This is a right-to-left representation of a left-to-right reality,
+	 * so you need to mentally invert my rows for it to make sense.
+	 */
 	private static final int[] ROW_BITS = {
 		// 0 = top row
-		  Integer.parseInt("000"		 // remember that bits are a right-to-left
-						 + "000"	 // representatin of left-to-right reality,
-						 + "111", 2) // so you need to mentally invert my rows!
+		  Integer.parseInt("000"
+						 + "000"
+						 + "111", 2)
 		// 1 = middle row
 		, Integer.parseInt("000"
 						 + "111"
@@ -169,13 +193,18 @@ public class EmptyRectangle extends AHinter {
 						 + "000", 2)
 	};
 
-	/** Masks used to detect if all v's in box are in the same col.
-	 * Also used to remove erBox from erCol.idxOf[$v], despite my name. */
+	/**
+	 * Masks used to detect if all v's in box are in the same col.
+	 * Also used to remove erBox from erCol.idxOf[$v], despite my name.
+	 * <p>
+	 * This is a right-to-left representation of a left-to-right reality,
+	 * so you need to mentally mirror my bits for it to make sense.
+	 */
 	private static final int[] COL_BITS = {
 		// 0 = left col
-		  Integer.parseInt("001"		 // remember that bits are a right-to-left
-						 + "001"	 // representatin of left-to-right reality,
-						 + "001", 2) // so you need to mentally mirror my cols!
+		  Integer.parseInt("001"
+						 + "001"
+						 + "001", 2)
 		// 1 = middle col
 		, Integer.parseInt("010"
 						 + "010"
@@ -231,170 +260,172 @@ public class EmptyRectangle extends AHinter {
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		Box erBox;  Row erRow;  Col erCol;  Cell redCell;
-		int card, boxVBits, erR, erC;
+		Box box;
+		Row row;
+		Col col;
+		Cell redCell, c2;
+		AHint hint;
+		int b, v, er, card, boxVs, erR, erC;
 		// these are for the first verse (read on McDuff).
 		int c2yBits, c2y;
-		// these are for the second verse (reverse of the first)
+		// these are for the second verse (an inversion of the first)
 		// I'm using distinct vars coz the names help explain the code.
-		// Over-abstraction causes s__t/meaningless/confusing variable names.
+		// Over-abstraction tends to cause meaningless variable names.
 		int c2xBits, c2x;
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach box: foreach value: foreach ER pattern
-		for ( int b=0; b<9; ++b ) {
-			erBox = grid.boxs[b];
-			for ( int v=1; v<10; ++v ) {
+		for ( b=0; b<9; ++b ) {
+			box = grid.boxs[b];
+			for ( v=1; v<10; ++v ) {
 				// ER patterns needs between 2 and 5 positions for $v, but my
 				// minimum is 3 coz I'm not doing boxes which have 1 value in
 				// either the erRow or erCol, which was optional in hobiwans.
-				if ( (card=erBox.indexesOf[v].size)<3 || card>5 )
-					continue;
-				boxVBits = erBox.indexesOf[v].bits;
-				for ( int er=0; er<9; ++er ) { // the emptyRectangle index
-					// skip if this boxs v's don't match the ER pattern.
-					// nb: EMPTY_BOX_BITS contains the cells that must not
-					// contain the given value in order to form an ER.
-					if ( (boxVBits & EMPTY_BOX_BITS[er]) != 0 )
-						continue;
-					// if cells in the box which maybe $v are all in erRow
-					// or all in erCol then this ER pattern is impossible.
-					if ( (boxVBits & ~ROW_BITS[(erR=erRows[b][er])%3]) == 0 )
-						continue; // all v's in erRow -> impossibles
-					if ( (boxVBits & ~COL_BITS[(erC=erCols[b][er])%3]) == 0 )
-						continue; // all v's in erCol -> impossibles
-					erRow = grid.rows[erR];
-					erCol = grid.cols[erC];
+				if ( (card=box.indexesOf[v].size)>2 && card<6 ) {
+					boxVs = box.indexesOf[v].bits;
+					for ( er=0; er<9; ++er ) { // the ER pattern index
+						// if this boxs v's match the ER pattern.
+						// nb: EMPTY_BOX_BITS contains the cells that must not
+						// contain the given value in order to form an ER.
+						if ( (boxVs & EMPTY_BOX_BITS[er]) == 0
+						  // and box.v's are NOT all in (erRow or erCol)
+						  && (boxVs & ~ROW_BITS[(erR=erRows[b][er])%3]) != 0
+						  && (boxVs & ~COL_BITS[(erC=erCols[b][er])%3]) != 0 ) {
+							row = grid.rows[erR];
+							col = grid.cols[erC];
 
-					// First verse: row => col
-					//
-					// We follow the erRow accross, examining each cell which
-					// maybe $v to see if there's two $v's in that column, and
-					// if so we'll jump up/down to the otherCell in that column
-					// and see if there's a $v at the intersection of his row
-					// and the erCol (redCell), and if so it's an:
-					// Empty Rectangle: $redCell cannot be $v.
-					//
-					// Note that hobiwan did the first and second verse in a
-					// method, reversing the roles by swapping the params and
-					// using a "flip" variable, which I found more confusing
-					// than Elle McPherson in red latex y-fronts, so I have
-					// de-abstracted it, making it easier to follow. So I'm an
-					// idiot but my version took 0.118s where hobiwans took
-					// 3.652s for top1465. So yeah, this is a bit faster.
-					//
-					// foreach cell in the erRow (except erBox) which maybe $v
-					//             (ie remove erBox from the erRow.idxsOf[$v])
-					// nb: We use ROW_BITS even though erBox isn't a row. The
-					//     concept is the same: we remove the three bits that
-					//     are the erBox from the erRow.indexesOf[$v].
-					for ( Cell c1 : erRow.at(erRow.indexesOf[v].bits
-							& ~ROW_BITS[erBox.hNum], false) ) {
-						// the col that contains c1 needs 2 positions for $v
-						if ( c1.col.indexesOf[v].size != 2 )
-							continue;
-						// get the row of otherCell in c1's col which maybe v
-						// nb: c2 becomes "the otherCell" later on, for now we
-						//     need just c2yBits: his row number left-shifted.
-						c2yBits = c1.col.indexesOf[v].bits & ~ISHFT[c1.y];
-						assert Integer.bitCount(c2yBits) == 1;
-						// now if the erCol has $v in c2's row then
-						// it's an ER, and that's the redCell.
-						if ( (erCol.indexesOf[v].bits & c2yBits) == 0 )
-							continue;
-						// get the red (removable value) cell
-						// and check that it's not in the erBox
-//KEEP4DOC: the combined line is ungrocable.
-						c2y = FIRST_INDEX[c2yBits];
-						redCell = grid.cells[c2y*9+erC];
-						if ( redCell.box == erBox )
-							continue; // Oops!
-						// Empty Rectangle: No matter which cell in the erBox
-						// turns out to be $v the redCell cannot be $v
-						Cell c2 = grid.cells[c2y*9+c1.x];
-						// create the hint and add it to accu
-						AHint hint = createHint(v, erBox, erRow, erCol
-								, c1, c2, boxVBits, redCell, false);
-						result = true;
-						if ( accu.add(hint) )
-							return true;
-					}
+							// First verse: row => col
+							//
+							// We follow the erRow accross, examining each cell which
+							// maybe $v to see if there's two $v's in that column, and
+							// if so we'll jump up/down to the otherCell in that column
+							// and see if there's a $v at the intersection of his row
+							// and the erCol (redCell), and if so it's an:
+							// Empty Rectangle: $redCell cannot be $v.
+							//
+							// Note that hobiwan did the first and second verse in a
+							// method, reversing the roles by swapping the params and
+							// using a "flip" variable, which I found more confusing
+							// than Elle McPherson in red latex y-fronts, so I have
+							// de-abstracted it, making it easier to follow. So I'm an
+							// idiot but my version took 0.118s where hobiwans took
+							// 3.652s for top1465. So this is a bit faster. Computers
+							// are utter idiots (they just follow instructions), so
+							// programmers learn to think clearly, like idiots.
+							//
+							// foreach cell in the erRow (except erBox) which maybe $v
+							//             (ie remove erBox from the erRow.idxsOf[$v])
+							// nb: We use ROW_BITS even though erBox isn't a row. The
+							//     concept is the same: we remove the three bits that
+							//     are the erBox from the erRow.indexesOf[$v].
+							for ( Cell c1 : row.at(row.indexesOf[v].bits
+									& ~ROW_BITS[box.hNum], false) ) {
+								// if the col containing c1 has two v's
+								if ( c1.col.indexesOf[v].size == 2 ) {
+									// get the row of otherCell in c1's col which maybe v
+									// nb: c2 becomes "the otherCell" later on, for now we
+									//     need just c2yBits: his row number left-shifted.
+									c2yBits = c1.col.indexesOf[v].bits & ~ISHFT[c1.y];
+									assert Integer.bitCount(c2yBits) == 1;
+									// now if the erCol has $v in c2's row then
+									// it's an ER, and that's the redCell.
+									if ( (col.indexesOf[v].bits & c2yBits) != 0 ) {
+										// get the red (removable value) cell
+										// and check that it's not in the erBox
+//KEEP4DOC: the combined line is ungrockable.
+										c2y = FIRST_INDEX[c2yBits];
+										redCell = grid.cells[c2y*9+erC];
+										if ( redCell.box != box ) {
+											// FOUND Empty Rectangle!
+											c2 = grid.cells[c2y*9+c1.x];
+											// create the hint and add it to accu
+											hint = createHint(v, box, row, col
+													, c1, c2, boxVs, redCell, false);
+											result = true;
+											if ( accu.add(hint) )
+												return result;
+										}
+									}
+								}
+							}
 
-					// Second verse: col => row
-					// We reverse the roles of rows and cols, x and y, etc.
-					//
-					// We follow the erCol, examining each cell which maybe $v
-					// to see if there's two $v's in that row, and if so we
-					// jump left/right to the otherCell in that row and see if
-					// there's a $v in the intersection of his column and the
-					// erRow (redCell), and if so, then it's an:
-					// Empty Rectangle: $redCell cannot be $v.
-					//
-					// foreach cell in ER row (except ER box) which maybe $v
-					//           (ie remove erBox from the erCol.idxsOf[$v])
-					// nb: We use ROW_BITS even though erBox isn't a row. The
-					//     concept is the same: we remove the three bits that
-					//     are the erBox from the erCol.idxOf[$v].
-					for ( Cell c1 : erCol.at(erCol.indexesOf[v].bits
-							& ~ROW_BITS[erBox.vNum], false) ) {
-						// the row that contains c1 needs 2 positions for $v
-						if ( c1.row.indexesOf[v].size != 2 )
-							continue;
-						// get the col of otherCell in c1's row which maybe v
-						// nb: c2 becomes "the otherCell" later on, for now we
-						//     need just his column number left-shifted.
-						c2xBits = c1.row.indexesOf[v].bits & ~ISHFT[c1.x];
-						assert Integer.bitCount(c2xBits) == 1;
-						// now if the erRow has $v in c2's col then
-						// it's an ER, and that's the redCell.
-						if ( (erRow.indexesOf[v].bits & c2xBits) == 0 )
-							continue;
-						// get the red (removable value) cell
-						// and check that it's not in the erBox
-						c2x = FIRST_INDEX[c2xBits];
-						redCell = grid.cells[erR*9+c2x];
-						if ( redCell.box == erBox )
-							continue; // Oops!
-						// Empty Rectangle: No matter which cell in the erBox
-						// turns out to be $v the redCell cannot be $v
-						Cell c2 = grid.cells[c1.y*9+c2x];
-						// create the hint and add it to the IAccumulator
-						AHint hint = createHint(v, erBox, erRow, erCol
-								, c1, c2, boxVBits, redCell, true);
-						result = true;
-						if ( accu.add(hint) )
-							return true;
-					}
+							// Second verse: col => row
+							// We reverse the roles of rows and cols, x and y, etc.
+							//
+							// We follow the erCol, examining each cell which maybe $v
+							// to see if there's two $v's in that row, and if so we
+							// jump left/right to the otherCell in that row and see if
+							// there's a $v in the intersection of his column and the
+							// erRow (redCell), and if so, then it's an:
+							// Empty Rectangle: $redCell cannot be $v.
+							//
+							// foreach cell in ER row (except ER box) which maybe $v
+							//           (ie remove erBox from the erCol.idxsOf[$v])
+							// nb: We use ROW_BITS even though erBox isn't a row. The
+							//     concept is the same: we remove the three bits that
+							//     are the erBox from the erCol.idxOf[$v].
+							for ( Cell c1 : col.at(col.indexesOf[v].bits
+									& ~ROW_BITS[box.vNum], false) ) {
+								// if row containing c1 has 2 v's
+								if ( c1.row.indexesOf[v].size == 2 ) {
+									// get the col of otherCell in c1's row which maybe v
+									// nb: c2 becomes "the otherCell" later on, for now we
+									//     need just his column number left-shifted.
+									c2xBits = c1.row.indexesOf[v].bits & ~ISHFT[c1.x];
+									assert Integer.bitCount(c2xBits) == 1;
+									// now if the erRow has $v in c2's col then
+									// it's an ER, and that's the redCell.
+									if ( (row.indexesOf[v].bits & c2xBits) != 0 ) {
+										// get the red (removable value) cell
+										// and check that it's not in the erBox
+//KEEP4DOC: the combined line is ungrockable.
+										c2x = FIRST_INDEX[c2xBits];
+										redCell = grid.cells[erR*9+c2x];
+										if ( redCell.box != box ) {
+											// FOUND Empty Rectangle!
+											c2 = grid.cells[c1.y*9+c2x];
+											// create the hint and add it to the IAccumulator
+											hint = createHint(v, box, row, col
+													, c1, c2, boxVs, redCell, true);
+											result = true;
+											if ( accu.add(hint) )
+												return result;
+										}
+									}
+								}
+							}
 
-					// This one's a bit weird. A Box with 3-or-more positions
-					// for $v can match only one er-pattern, which we've just
-					// done, so we're outta here.
-					if ( card > 2 )
-						break; // Mike drop!
+							// weird: a Box with 3-or-more v's can match only
+							// one er-pattern, which we've just done, so break
+							if ( card > 2 )
+								break; // Mike drop!
+						}
+					} // next er pattern
 				}
-			}
-		}
+			} // next v
+		} // next box
 		return result;
 	}
 
-	private AHint createHint(int v, Box erBox, Row erRow, Col erCol
-			, Cell c1, Cell c2, int boxVBits, Cell redCell, boolean isCol) {
+	private AHint createHint(final int v, final Box erBox, final Row erRow
+			, final Col erCol, final Cell c1, final Cell c2, final int boxVBits
+			, final Cell redCell, final boolean isCol) {
 		// build the regions: blue bases, and green covers.
-		List<ARegion> bases = Regions.list(erBox);
-		List<ARegion> covers;
+		final List<ARegion> bases = Regions.list(erBox);
+		final List<ARegion> covers;
 		if ( isCol )
-			covers = Regions.list(erCol, erBox, c2.col, c2.row);
+			covers = Regions.list(erCol, erBox, erRow, c2.col, c2.row);
 		else
-			covers = Regions.list(erBox, erCol, c2.col, c2.row);
+			covers = Regions.list(erRow, erBox, erCol, c2.col, c2.row);
 		// for debugging to identify which method found this hint.
-//		String tag = isCol ? "B:COL" : "A:ROW";
-		String tag = "";
+//		final String tag = isCol ? "COL" : "ROW";
+		final String tag = "";
 		// build the hightlighted (orange) potential values map
-		Pots oranges = new Pots(v, c1, c2);
+		final Pots oranges = new Pots(v, c1, c2);
 		// build the "fins" (blue) potential values map Cell->Values
-		Pots blues = new Pots(v, erBox.atNew(boxVBits));
+		final Pots blues = new Pots(v, erBox.atNew(boxVBits));
 		// build the removable (red) potential values map Cell->Values
-		Pots reds = new Pots(v, redCell);
+		final Pots reds = new Pots(v, redCell);
 		// build and return the hint
 		return new EmptyRectangleHint(this, v, bases, covers, oranges, blues
 				, reds, tag);

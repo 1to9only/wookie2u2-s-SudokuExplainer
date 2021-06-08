@@ -10,8 +10,8 @@ package diuf.sudoku.solver;
 /**
  * IActualHint is a marker (aka empty) interface to differentiate the real
  * hints from the pseudo-hints such as messages, warnings, and analysis.
- * nb: I probably should reverse this, and mark the "message hints", because
- * I keep forgetting to implement this interface to mark my new hints.
+ * nb: I should probably invert this, to mark the "pretend hints", coz I keep
+ * forgetting to implement this interface to mark my new hint types. sigh.
  */
 public interface IActualHint {
 }

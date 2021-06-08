@@ -195,9 +195,11 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	/**
 	 * Set this Indexes to the given bits, and look-up the size.
 	 * @param bits
+	 * @return this Indexes for method chaining
 	 */
-	void set(int bits) {
+	public Indexes set(int bits) {
 		this.size = ISIZE[this.bits = bits];
+		return this;
 	}
 
 	/**

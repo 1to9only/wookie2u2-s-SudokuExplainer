@@ -12,13 +12,17 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.solver.AHint;
+import diuf.sudoku.Values;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 
 
 /**
  * Implementation of the Generalized Locking Sudoku solving technique.
+ * <p>
+ * LockingGeneralised is retained because it's a simple solution to a complex
+ * problem; like an arch. It is retained because it's beautiful, and I admire
+ * it, but I never use it, because Locking is faster (but ugly).
  *
  * @author Tarek Maani @SudokuMonster
  * @author KRC 2020 Dec Boosted into DIUF SudokuExplainer.
@@ -49,12 +53,10 @@ public class LockingGeneralised extends AHinter {
 		final Idx[] candidates = grid.getIdxs();
 		// re-used cells which maybe v in this region
 		final Cell[] cells = new Cell[6];
-		// this BitSet is set for each value in each region to all the cells in
-		// the grid which maybe value, then eliminate removes cells to find its
-		// victims, if any... pretty obviously mostly there are no vitims; but
-		// atleast this way we don't need to create a new BitIdx for each item,
-		// we just to clear it instead, which for some reason seems a bit slow!
-		// So... this Set is re-set and mutated for each eliminations search.
+		// this Idx is set for each value in each region to all cells in the
+		// grid which maybe value, then we retainAll each cells buddies to find
+		// the victims, if any. Obviously mostly there are no victims; but this
+		// way we don't need to create a new Idx for each item.
 		final Idx victims = new Idx();
 		// presume that no hint will be found
 		boolean result = false;
@@ -74,15 +76,12 @@ public class LockingGeneralised extends AHinter {
 					for ( i=0; i<n; ++i )
 						victims.and(cells[i].buds);
 					if ( !victims.isEmpty() ) {
-						// build the removable (red) Cell=>Values
-						Pots reds = new Pots();
-						for ( Cell victim : victims.cells(grid) )
-							reds.upsert(victim, v);
-						// create the hint, and add it to accu.
-						AHint hint = new LockingGeneralisedHint(this, reds, n, cells, v, r);
 						result = true;
-						if ( accu.add(hint) )
-							return true;
+						// create the hint, and add it to accu.
+						if ( accu.add(new LockingGeneralisedHint(this
+								, new Pots(victims.cells(grid), new Values(v))
+								, n, cells, v, r)) )
+							return result;
 					}
 				}
 		return result; // were any hint/s found?

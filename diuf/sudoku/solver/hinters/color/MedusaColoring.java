@@ -177,7 +177,8 @@ public class MedusaColoring extends AHinter implements IPreparer
 	 */
 	@Override
 	public void prepare(Grid gridUnused, LogicalSolver logicalSolverUnused) {
-		isEnabled = true; // re-enable me after I've gone DEAD_CAT
+		// re-enable me, in case I went dead-cat in the last puzzle
+		setIsEnabled(true); // use the setter!
 	}
 
 //	@Override

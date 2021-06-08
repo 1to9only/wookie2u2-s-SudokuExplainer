@@ -28,6 +28,10 @@ import diuf.sudoku.solver.accu.IAccumulator;
 /**
  * Implementation of the Hidden Set Sudoku solving technique:
  * (Hidden Pair=2, Hidden Triple=3, Hidden Quad=4).
+ * <p>
+ * A "hidden set" is a set of n cells that are the only possible places for n
+ * values in a region, ie a locked set; therefore all other potential values
+ * can be eliminated from those cells.
  */
 public final class HiddenSet extends AHinter {
 
@@ -37,8 +41,8 @@ public final class HiddenSet extends AHinter {
 	// the Permutations Array (used by the Permutations class)
 	private final int[] thePA;
 
-	// candidateValues: values with 2..$degree possible positions in the region
-	private final int[] candidateValues = new int[9];
+	// values with 2..$degree possible positions in the region
+	private final int[] candiValues = new int[9];
 
 	public HiddenSet(Tech tech) {
 		super(tech);
@@ -48,10 +52,10 @@ public final class HiddenSet extends AHinter {
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		final boolean exitEarly = accu.isSingle();
+		final boolean oneOnly = accu.isSingle();
 		boolean result = false;
 		for ( ARegion r : grid.regions ) // 9boxs+9rows+9cols
-			if ( (result |= search(r, grid, accu)) && exitEarly )
+			if ( (result |= search(r, grid, accu)) && oneOnly )
 				break;
 		return result;
 	}
@@ -79,14 +83,14 @@ public final class HiddenSet extends AHinter {
 			return false;
 
 		// a candidateValue has 2..degree possible positions in this region
-		final int[] candidateValues = this.candidateValues;
+		final int[] candiValues = this.candiValues;
 		// this regions indexesOf values
 		final Indexes[] rio = r.indexesOf;
 		// n is number of candidateValues, v is value, card-inality
 		int n=0, v, card;
 		for ( v=1; v<10; ++v ) // 27*9 = 243
 			if ( (card=rio[v].size)>1 && card<degreePlus1 )
-				candidateValues[n++] = v;
+				candiValues[n++] = v;
 		if ( n < degree )
 			return false;
 
@@ -111,17 +115,16 @@ public final class HiddenSet extends AHinter {
 			// (possible) Hidden Set in the region that we're searching.
 			hdnSetIdx = 0;
 			for ( i=0; i<degree; ++i )
-				hdnSetIdx |= rio[candidateValues[perm[i]]].bits;
+				hdnSetIdx |= rio[candiValues[perm[i]]].bits;
 			if ( VSIZE[hdnSetIdx] != degree )
 				continue; // there aren't degree positions for degree values
 
-//// KRC BUG 2020-08-20 888#top1465.d5.mt apply canNotBeBits UnsolvableException
+//// BUG 2020-08-20 888#top1465.d5.mt UnsolvableException: apply canNotBeBits
 //// So I debug mergeSiameseHints coz there are TWO triples in row 1:
 //// First Naked Triple in A1, B1, C1 on 379 => siamese claiming.
 //// Second Hidden Triple in G1, H1, I1 on 124 => HiddenTriple.
-////
-//// The maybes don't line-up! Siamese presumes that the locking-set MUST be same
-//// as the hidden-set. In this instance it isn't! (There may be others)
+//// Maybes don't line-up! Siamese presumes that the locking-set MUST equal the
+//// hidden-set. In this case it doesn't. There may be other occurrences.
 //if ( Debug.isClassNameInTheCallStack(5, "Locking")
 //  // 1 2 4 8 16 32 64 128 256
 //  // 0 1 2 3 4  5  6  7   8
@@ -133,10 +136,10 @@ public final class HiddenSet extends AHinter {
 			// previously because the hit-rate is too for it to pay-off.
 			hdnSetMaybes = 0;
 			for ( i=0; i<degree; ++i )
-				hdnSetMaybes |= VSHFT[candidateValues[perm[i]]];
+				hdnSetMaybes |= VSHFT[candiValues[perm[i]]];
 
 			// build the removable (red) potentials, to see if there are any.
-			if ( (redPots=reds(r, hdnSetMaybes, hdnSetIdx)) == null )
+			if ( (redPots=eliminate(r, hdnSetMaybes, hdnSetIdx)) == null )
 				continue; // about 80% skip here
 
 			//
@@ -157,22 +160,24 @@ public final class HiddenSet extends AHinter {
 
 	// build the removable (red) potentials separately to check that there are
 	// any BEFORE we declare "found" and create the hint.
-	private Pots reds(ARegion r, int hdnSetMaybes, int hdnSetIdx) {
-		Pots redPots=null;  Cell cell;  int redBits;
+	private Pots eliminate(ARegion r, int hdnSetMaybes, int hdnSetIdx) {
+		Cell cell;
+		int pink;
+		Pots reds = null;
 		// foreach index-of-a-cell-in-the-hidden-set
 		for ( int i : INDEXES[hdnSetIdx] )
-			// redBits := cell.maybes.bits - hdnSetValuesBits
-			if ( (redBits=((cell=r.cells[i]).maybes.bits & ~hdnSetMaybes)) != 0 ) {
+			// pink := cell.maybes.bits & ~hdnSetMaybes
+			if ( (pink=((cell=r.cells[i]).maybes.bits & ~hdnSetMaybes)) != 0 ) {
 //if ( tech == Tech.HiddenTriple
 //  && !Debug.isClassNameInTheCallStack(5, "RecursiveAnalyser")
 //  && cell.id.equals("H1") )
 //	Debug.breakpoint();
 				// yes it's a hidden set, with elimination/s
-				if ( redPots == null )
-					redPots = new Pots();
-				redPots.put(cell, new Values(redBits, false));
+				if ( reds == null )
+					reds = new Pots();
+				reds.put(cell, new Values(pink, false));
 			}
-		return redPots;
+		return reds;
 	}
 
 	private AHint createHint(ARegion region, int hdnSetMaybes, int hdnSetIdx
@@ -230,4 +235,5 @@ public final class HiddenSet extends AHinter {
 		}
 		return null; // No hidden single found
 	}
+
 }

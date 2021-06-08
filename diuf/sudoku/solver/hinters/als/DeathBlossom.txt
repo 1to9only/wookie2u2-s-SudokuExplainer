@@ -6,13 +6,20 @@ http://www.sudokusnake.com/deathblossom.php
 ,2457,247,12345,135,,2358,258,18,,,249,12456,,12456,259,2569,16,,25,29,2356,356,,2359,,,,37,378,3467,,3467,48,,,,,1278,157,,157,258,,78,,237,1237,,1356,134567,245,2456,67,28,,23468,2367,36,2367,,48,,,34,,139,,13,,49,,28,,268,2569,,256,,89,
 
 To understand what a death blossom is, you have to know what an Almost Locked
-Set is (or ALS), which is a group of candidates that is one candidate shy of
-being a Locked Set. In a death blossom there is one cell, called the stem cell,
-that has only two candidates. One candidate shares a value with the fin of one
-ALS, and the other candidate shares a value with the fin of the another ALS.
-Then, if both ALS's cause the elimination of a single candidate, then that
-candidate can be eliminated, because either value of the stem cell eliminates
-it.
+Set (ALS) is. An ALS is a set of cells with one more candidate than cells, ie
+one shy of being a Locked Set. In a death blossom there is one cell, called the
+stem cell, that has only two (usually) candidates. One candidate is shared with
+one ALS, and the other candidate is shared with the other ALS. So if both ALS's
+have a common "non-stem" candidate then it's eliminated, because all possible
+values of the stem cell eliminate it. The same logic applies to a stem cell
+with three or more possible values. Three's are rare. I have never seen a four,
+but I cannot say that they cannot exist.
+
+The logic is: the ALS's share a "non-stem" value (the candidate to eliminate),
+and each ALS is associated with a stem-cell candidate, and an ALS can loose
+only ONE value before it goes invalid, so no matter the value of the stem cell
+one of the ALS's will become a Locked Set; hence we can eliminate that
+candidate from outside cells seeing all occurrences in the Death Blossom.
 
 Consider the example on this page. The stem cell is highlighted in blue with a
 1 and an 8. One ALS is highlighted in yellow in the 5th column, and the other
@@ -63,14 +70,12 @@ cell. The ALSes can't overlap; i.e., no cell can belong to more than one ALS.
 Also, there must be at least one value that is a candidate of every ALS, but
 is not a candidate of the stem cell.
 
-Once we've found a Death Blossom, if an outside cell that doesn't belong to one
-of the ALSes (and isn't the stem cell) can see every cell in each ALS that has
-that value as a candidate, and the value isn't a candidate of the stem cell,
-then that value can be eliminated from the outside cell.
+Once we've found a Death Blossom, if an outside cell (not in any of the ALSes
+and not the stem cell) sees every cell in the ALS's that has that value as a
+candidate (not a stem cell candidate) then that value can be eliminated from
+that cell.
 
-The workings of the Death Blossom is best explained via an example. This example
-is a scrambled version of the example at Andrew Stuart's Advanced Sudoku
-Strategies page.
+Death Blossom example from Andrew Stuart's Advanced Sudoku Strategies page.
 
 We have a stem cell at r1c9 with two candidates 1 and 8. Observe that r1c9 sees
 all the 1s in the blue ALS, and r1c9 sees all the 8s in the yellow ALS. These

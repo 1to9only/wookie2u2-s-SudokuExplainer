@@ -180,26 +180,28 @@ public final class MultipleChainer extends AChainer
 	 * at cells/regions with size &gt; 2 and combining implications.
 	 * <p>
 	 * Note that <b>performance</b> of getMultipleOrDynamicChains is the most
-	 * important to overall performance both because it's the slowest technique
-	 * and it's the most used in: NishioChain, MultipleChain, DynamicChain,
-	 * DynamicPlus, NestedUnary, NestedMultiple, NestedDynamic, and last but
-	 * certainly not least: NestedPlus (10+ seconds!).
+	 * important to overall performance because it's a slow technique and it is
+	 * the most used in: NishioChain, MultipleChain, DynamicChain, DynamicPlus,
+	 * NestedUnary, NestedMultiple, NestedDynamic, and last but certainly not
+	 * least: NestedPlus (10+ seconds per invocation).
 	 * <p>
-	 * <b>Nishio</b> means that we seek contradictions in the implications of
-	 * an assumption. Note that isNishio implies isDynamic.
+	 * <b>Nishio</b> seeks a contradiction in an assumptions implications.
+	 * Note that isNishio implies isDynamic.
 	 * <p>
-	 * <b>Multiple</b> means that we:<ul>
-	 *  <li>Examine cells with more than two maybes (hence the name).</li>
-	 *  <li>Y-Chain means other potential values of this cell are OFF.</li>
+	 * <b>Multiple</b>:<ul>
+	 *  <li>examines cells with more than two maybes (hence the name).</li>
+	 *  <li>Y-Chain means all other potential values of this cell are OFF.</li>
 	 *  <li>X-Chain means that if there are only two positions for this value
 	 *   in the region then the other position is ON.</li>
-	 *  <li>do NOT doContradiction (detected but not reported)</li>
-	 *  <li>ON means the cell is value</li>
+	 *  <li>does NOT doContradiction (detected but not reported); the grid
+	 *  should (under normal circumstances) be contradiction free before a
+	 *  multiple chainer is invoked, but it (mostly, sigh) works anyways.</li>
+	 *  <li>ON means this cell is presumed to be this potential value</li>
 	 *  <li>OFF means the cell is NOT this potential value</li>
 	 * </ul>
 	 * <p>
 	 * <b>Dynamic</b> means that we find hints that rely on combining the
-	 * previously calculated implications of this assumption:
+	 * previously calculated implications of the root assumption:
 	 * <ul>
 	 *  <li>We remove maybes (ie potential values) from the grid in the
 	 *   {@code doChains} method (well actually it's buried down in the
@@ -215,17 +217,19 @@ public final class MultipleChainer extends AChainer
 	 * <p>
 	 * <b>Nested</b> means that this Chainer getHintersEffects of an imbedded
 	 * Chainer, so we're making assumptions on our assumptions, which is always
-	 * fun. Ask a Liberal (with a large L (use a whip, and a chair)).
+	 * fun. Ask a large-L-Liberal (use a whip, and a chair).
 	 * <p>
 	 * <b>NestedPlus</b> getHintersEffects of an imbedded Chainer which itself
 	 * has imbedded FOUR QUICK FOXES, so we use hinters to find the effects of
 	 * our assumptions on our assumptions, which is loads of fun, I assure you.
-	 * Just stick your dick in this Mix Master and I shall plug it in. Ready?
+	 * Just stick your dick in this Mix Master and I'll plug it in for you. Are
+	 * You Ready?
 	 * <p>
-	 * Note that hardest Sudoku puzzles are solved by Nested chaining, so that
-	 * NestedPlus has only "academic value"; ie we do this because we can; ie
-	 * we are impossibly smart-assed smart-asses who implement the useless to
-	 * add colour and flavour to the mere impossible. Gopher Cleetus?
+	 * Note that the hardest Sudoku puzzles are solved by NestedUnary, so
+	 * NestedPlus has only "academic value"; ie we do this just because we can
+	 * and we are total smart-asses who must prove how tiny our equipment is,
+	 * ie we are impossibly smart-assed smart-asses who implement the useless
+	 * to add some colour and flavour to the mere impossible. Gopher Cleetus?
 	 *
 	 * @param hints the HintsList to be populated.
 	 */

@@ -1,0 +1,19 @@
+The align package is still partially used. I've been trying to replace it with
+a new align2 package; but run into the same old performance quagmire.
+
+Aligned234Exclusion are no longer used; they've been superceeded by align2,
+which is actually a tad faster than it's ugly old counterparts.
+
+Aligned5+Exclusion are still used, and they're the slow ones, where it really
+matters. The new version of A5E is like 5 times slower. The new A6E is like 6
+times slower. The new A7E is like 7 times slower, and presumably similar for
+A8910E, which are already FAR too slow; so I give up, and keep the ugly old
+cheesy smelly warty verbose boiler-plate unmaintainable align package.
+
+There's a reason they think she's a witch!
+
+align2 is my attempt to eliminate the profusion of unmaintainable boiler-plate
+code, each customised to it's specific task, for performance; but I just can't
+get it into the same ball park, so I'm sticking with the original align package
+for now, until some magic happens to reveal an Aligned Exclusion algorithm that
+is atleast twice as efficient; and preferably 100 times faster. sigh.

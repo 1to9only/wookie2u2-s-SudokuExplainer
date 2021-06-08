@@ -33,7 +33,6 @@ import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
@@ -78,7 +77,7 @@ public final class AlsXyWing extends AAlsHinter
 			, Rcc[] rccs, Als[] alss, IAccumulator accu) {
 		Rcc rccA, rccB;
 		Als a, b, c;
-		int i,I, j, zMaybes, vA1,vA2, vB1,vB2, a1,a2, b1,b2;
+		int i,m, j, zMaybes, vA1,vA2, vB1,vB2, a1,a2, b1,b2;
 		boolean any;
 		final Idx tmp = this.tmp; // for various checks
 		final Idx zBuds = this.zBuds; // all buds of v (including the ALSs).
@@ -90,7 +89,7 @@ public final class AlsXyWing extends AAlsHinter
 		boolean result = false;
 
 		// foreach distinct pair of RCCs
-		for ( i=0,I=n-1; i<I; ++i ) {
+		for ( i=0,m=n-1; i<m; ++i ) {
 			rccA = rccs[i]; // rccs is an ArrayList whose get is O(1)
 			vA1 = rccA.getCand1();
 			vA2 = rccA.getCand2();

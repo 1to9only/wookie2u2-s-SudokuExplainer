@@ -132,6 +132,9 @@ abstract class AAlsHinter extends AHinter
 	 */
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {
+		// re-enable me, in case I went dead-cat in the last puzzle
+		setIsEnabled(true); // use the setter!
+		// if we're eradicating bugs from Als* or DeathBlossom hints
 		if ( HintValidator.ALS_USES || HintValidator.DEATH_BLOSSOM_USES ) {
 			// clear any existing invalidities before processing a new Grid.
 			// note that HintValidator.solutionValues is already set.
@@ -163,6 +166,9 @@ abstract class AAlsHinter extends AHinter
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
+		// LogicalSolver.solve doesn't disable hinters on da fly, only at start
+		if ( !isEnabled )
+			return false;
 		// get an array 1..9 of indices of grid cells which maybe each value.
 		Idx[] candidates = grid.getIdxs();
 		// get the Almost Locked Sets (N cells with N+1 values)

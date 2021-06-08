@@ -43,27 +43,81 @@ import diuf.sudoku.solver.hinters.AHinter;
 import java.util.List;
 
 /**
- * Skycraper implements the Skyscraper Sudoku solving technique.
- *
- * NOTE: The package name sdp stands for SingleDigitPattern, the HoDoKu class
- * from which all hinters in this directory come.
+ * Skyscraper implements the Skyscraper Sudoku solving technique.
+ * <p>
+ * A Skyscraper is a simplified Unary (single digit) Forcing Chain. A value has
+ * two places in two rows/cols, one of which is in the same col/row, so one of
+ * the two cells at the other "misaligned end" of the Skyscraper must be value;
+ * eliminating value from cells seeing both misaligned ends of the Skyscraper.
+ * <p>
+ * All Skyscrapers are found by the Unary Chainer. Skyscraper exists coz it's
+ * the fastest way to find this narrower pattern. SE is probably faster without
+ * it; but this applies to most hinters. Most patterns are over-simplifications
+ * of a heavier generalised pattern, especially the chainers.
+ * <p>
+ * For speed rely on the chainers; but to explain a puzzle use lighter hinters,
+ * with explanations that users can follow. Maybe 1% of users will ever walk
+ * through the justification of a forcing-chain, let alone apply the technique
+ * manually. Maybe 25% can follow a Skyscraper, hence Skyscraper exists.
+ * <p>
+ * It's around here that we loose most users that downloaded SE to learn how to
+ * solve Sudoku puzzles manually; here-after it's hard work, which folks do NOT
+ * like; so somewhere around SDP we're down to the hardcore thinkers; probably
+ * mostly programmers. Solving these bastards manually can take years. A Korean
+ * family have been solving a Sudoku (a really hard one) for three generations.
+ * Two members of that family have been recognised as Sudoku masters: seriously
+ * ____ing smart bastards; so yeah, most folks tap-out somewhere around here.
+ * <p>
+ * The package-name SDP is an acronym of SingleDigitPattern, the HoDoKu class
+ * from which all hinters in this directory originate.
  *
  * @author Keith Corlett 2020-03-25
  */
 public class Skyscraper extends AHinter {
 
+	/**
+	 * pairs is an array of arrays-of-two-cells. 18 is large enough by
+	 * experimentation. It's a field rather than re-create the array in each
+	 * findHints. Note that all cell references are cleared upon exit, because
+	 * each cell reference holds the whole Grid in memory (a memory leak).
+	 */
+	private final Cell[][] pairs = new Cell[18][2];
+
+	/**
+	 * victims is an Idx containing the indices of cells from which v can be
+	 * removed. It's a field rather than re-create an Idx in each findHints.
+	 */
+	private final Idx victims = new Idx();
+
+	/**
+	 * Constructor.
+	 */
 	public Skyscraper() {
 		super(Tech.Skyscraper);
 	}
 
+	/**
+	 * Find first/all Skyscraper hints in the grid, and add them to the accu.
+	 * If the accu isSingle then stop looking when the first hint is found.
+	 *
+	 * @param grid the grid to search
+	 * @param accu an implementation of IAccumulator
+	 * @return were any hint/s found?
+	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		if ( accu.isSingle() )
-			return search(grid, accu, true)
-				|| search(grid, accu, false);
-		else // nb: use bitwise-or-operator, so both are always executed
-			return search(grid, accu, true)
-				 | search(grid, accu, false);
+		boolean result = false;
+		try {
+			if ( accu.isSingle() )
+				result = search(grid, accu, grid.rows, Grid.ROW, Grid.COL)
+					  || search(grid, accu, grid.cols, Grid.COL, Grid.ROW);
+			else // bitwise-or operator always executes both
+				result = search(grid, accu, grid.rows, Grid.ROW, Grid.COL)
+					   | search(grid, accu, grid.cols, Grid.COL, Grid.ROW);
+		} finally {
+			clear(this.pairs); // each cell reference holds the whole grid
+		}
+		return result;
 	}
 
 	/**
@@ -71,78 +125,90 @@ public class Skyscraper extends AHinter {
 	 *
 	 * @param grid the grid to search
 	 * @param accu the hints accumulator to which I add hints
-	 * @param isRows true for rows, false for cols
+	 * @param regions grid.rows/cols
+	 * @param rType regionType Grid.ROWS/COLS
+	 * @param oType otherType Grid.COLS/ROWS
 	 * @return were any hints found?
 	 */
-	private boolean search(Grid grid, IAccumulator accu, final boolean isRows) {
-		// localise field for speed
-		final Cell[][] pairs = clear(this.pairs);
-		// regions is rows or cols, and "other" is cols or rows
-		final ARegion[] rowsOrCols = isRows ? grid.rows : grid.cols;
-		final int rType = isRows ? Grid.ROW : Grid.COL;
-		final int oType = isRows ? Grid.COL : Grid.ROW;
-		final Idx[] indicesOf = grid.getIdxs();
-		// my variables: a pair is two cells, both in the same row/col
+	private boolean search(Grid grid, IAccumulator accu, final ARegion[] regions
+			, final int rType, final int oType) {
+		// a pair is the two cells in a row/col which both maybe v
 		Cell[] pairA, pairB;
-		// the index (positions of cells) of victim cells
-		final Idx idx = new Idx();
-		// the number pairs collected, and o is short for for otherIndex
-		int pairCnt, o;
+		// the hint, if any
+		AHint hint;
+		int p // the number of pairs collected
+		  , o; // the otherIndex
+		// localise fields for speed (clear is for debugging only)
+		final Cell[][] pairs = this.pairs; // clear(this.pairs); // this.pairs;
+		// indices of removable v's, if any
+		final Idx victims = this.victims;
+		// indices of cells in Grid which maybe value 1..9 (cached)
+		final Idx[] candidates = grid.getIdxs();
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach potential value
 		for ( int v=1; v<10; ++v ) {
-            // find all rowsOrCols with two possible positions for the value 'v'
-			pairCnt = 0;
-			for ( ARegion r : rowsOrCols )
+            // get rows/cols with two places for v
+			p = 0; // p is the number of pairs-of-v's found
+			for ( ARegion r : regions )
 				if ( r.indexesOf[v].size == 2 )
-					r.at(r.indexesOf[v].bits, pairs[pairCnt++]);
-			if ( pairCnt < 2 )
-				continue;
-            // now we evaluate all combinations of those regions
-            for ( int a=0,A=pairCnt-1; a<A; ++a ) {
-				pairA = pairs[a]; // the first pair of cells
-				// foreach subsequent pair (a forward search)
-                for ( int b=a+1; b<pairCnt; ++b ) {
-					pairB = pairs[b]; // the second pair of cells
-                    // one end has to be in the same col/row
-					if (      pairA[0].regions[oType] == pairB[0].regions[oType] )
-						o = 1; // "other" end is 1
-					else if ( pairA[1].regions[oType] == pairB[1].regions[oType] )
-						o = 0; // "other" end is 0
-					else
-						continue; // neither end lines up so not a Skyscraper
-                    // and the "other ends" need to NOT be in same col/row.
-					if ( pairA[o].regions[oType] == pairB[o].regions[oType] )
-						continue; // it's an X-Wing which is not my problem.
-					// so: does it eliminate any maybes?
-					if ( idx.setAnd(pairA[o].buds, pairB[o].buds)
-							.and(indicesOf[v]).isEmpty() )
-						continue; // nothing to eliminate
-					// Skyscraper found!
-					AHint hint = createHint(grid, idx, v, o, pairA, pairB
-							, rType, oType);
-					if ( hint != null ) {
-						result = true;
-						if ( accu.add(hint) )
-							return true;
+					r.at(r.indexesOf[v].bits, pairs[p++]);
+			// if there's atleast two pairs-of-v's
+			if ( p > 1 ) {
+				// examine each distinct pair (A and B) of pairs-of-v's,
+				// using a forwards-only search.
+				for ( int a=0,A=p-1; a<A; ++a ) {
+					pairA = pairs[a]; // the first pair of v's
+					for ( int b=a+1; b<p; ++b ) {
+						pairB = pairs[b]; // the second pair of v's
+						// if "this" end is aligned: in same col/row
+						if ( ( (pairA[0].regions[oType]==pairB[0].regions[oType] && (o=1)==1) // "other" end is 1
+							|| (pairA[1].regions[oType]==pairB[1].regions[oType] && (o=0)==0) ) // "other" end is 0
+						  // and "other" end is misaligned: NOT in same col/row
+						  // otherwise it's an X-Wing, which is not my problem
+						  && pairA[o].regions[oType] != pairB[o].regions[oType]
+						  // and it eliminates any maybes
+						  && victims.setAnd(pairA[o].buds, pairB[o].buds)
+								    .and(candidates[v]).any()
+						) {
+							// FOUND a Skyscraper!
+							hint = createHint(grid, victims, v, o, pairA, pairB
+									, rType, oType);
+							if ( hint != null ) {
+								result = true;
+								if ( accu.add(hint) )
+									return true;
+							}
+						}
 					}
 				}
 			}
 		}
 		return result;
 	}
-	// 18 is large enough, by experimentation
-	private final Cell[][] pairs = new Cell[18][2];
 
-	private AHint createHint(Grid grid, Idx idx, int v, int o
+	/**
+	 * Create and return a new SkyscraperHint.
+	 *
+	 * @param grid the Grid to search
+	 * @param victims indices of those cells from which v can be removed. This
+	 *  is never an empty set.
+	 * @param v the Skyscraper candidate value
+	 * @param o the index of the other end (0 or 1)
+	 * @param pairA the first pair-of-v's
+	 * @param pairB the second pair-of-v's
+	 * @param rType the region type ROW/COL
+	 * @param oType the other type COL/ROW
+	 * @return a new SkyscraperHint
+	 */
+	private AHint createHint(Grid grid, Idx victims, int v, int o
 			, Cell[] pairA, Cell[] pairB, int rType, int oType) {
 		// build the removeable (red) potential values map Cell/s->Value
-		Pots reds = new Pots(v, idx.cells(grid));
+		Pots reds = new Pots(v, victims.cells(grid));
 		// Skyscraper is producing hints with no eliminations!
 		if ( !reds.clean() ) // !!redPots.isEmpty(). sigh.
 			return null; // Never happens. Never say never.
-		// workout the region type from the other-region-type (weird huh?)
+		// workout "this" end from the "other" end (backwards)
 		final int r = o==0 ? 1 : 0;
 		// build the regions
 		List<ARegion> bases = Regions.list(pairA[r].regions[rType]
@@ -155,6 +221,12 @@ public class Skyscraper extends AHinter {
 		return new SkyscraperHint(this, v, bases, covers, reds, oranges);
 	}
 
+	/**
+	 * clear: set every entry in the pairs array of arrays to null.
+	 *
+	 * @param pairs
+	 * @return the pairs array of arrays
+	 */
 	private Cell[][] clear(Cell[][] pairs) {
 		for ( Cell[] pair : pairs )
 			pair[0] = pair[1] = null;

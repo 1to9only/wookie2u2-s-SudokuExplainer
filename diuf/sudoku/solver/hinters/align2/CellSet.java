@@ -12,9 +12,9 @@ import java.util.Collection;
 
 
 /**
- * CellSet is just an alias to allow us to swap between LinkedMatrixCellSet
- * and the other implementation of {@code Set<Cell>} whose name currently
- * alludes me.
+ * CellSet facilitates an easy swap between LinkedMatrixCellSet and any other
+ * implementation of {@code Set<Cell>}. I use LinkedMatrixCellSet for it's Idx
+ * methods, which you will need to add to alternatives to make them work here.
  *
  * @author Keith Corlett
  */

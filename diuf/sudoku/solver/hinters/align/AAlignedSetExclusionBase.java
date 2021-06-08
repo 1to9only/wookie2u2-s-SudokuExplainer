@@ -38,32 +38,30 @@ import diuf.sudoku.utils.IntIntHashMap;
 
 
 /**
- * AAlignedSetExclusionBase is the abstract base class of all Aligned*Exclusion.
+ * AAlignedSetExclusionBase is an abstract base class of all Aligned*Exclusion.
  * It contains common implementations and a few dirty hacks that are best kept
  * in the cupboard under the stairs. OWELS? WHAT OWELS!?!?
  *
- * A partial implementation of the Aligned Set Exclusion Sudoku solving
- * technique, for sets of 2 to (currently) 10.
+ * A partial implementation of Aligned Set Exclusion Sudoku solving technique,
+ * for sets of 2 to (currently) 10.
  * <p>
  * This is copy-paste of AlignedTripleExlusion asat 2019-09-02 10:16:00 with
- * the dependency on it being a Triple removed, taking it back closer to
- * Juillerats original AlignedExclusion, which only actually covered sets of 3.<br>
- * I intend to try AlignedQuadExclusion (degree = 4).<br>
- * Implements the aligned set exclusion Sudoku solving technique for sets
- * of [2 came later], 3, 4, or 5 Cells. I use AlignedPairExclusion for sets of 2
+ * the dependency on it being a Triple removed, so it's closer to Juillerats
+ * original AlignedExclusion, which only actually covered sets of 3.<br>
+ * Implements the aligned set exclusion Sudoku solving technique for sets of
+ * [2 came later], 3, 4, or 5 Cells. I use AlignedPairExclusion for sets of 2
  * because the algorithm is different (no tail cells) [but no longer], and
  * AlignedTripleExclusion for a set of 3, because it's a bit faster; so asat
  * 2019-08-04 10:35 this is only been used to implement AlignQuadExclusion
- * with a degree of 4.<br>
- * Note that nothing should need to change to cover 5 or 6 (or more) Cells,
- * but it'd be quicker to roll your own Sudoku Explainer, whilst simultaneously
- * huffing a line of <i>{@code Cletus's Organic Sun-dried Nut Butter}</i>,
- * and that's just the writing... wait till ya run the little bastard!
+ * with a degree of 4. I shall try AlignedQuadExclusion=4, then Pent=5, Hex=6,
+ * Sept=7, Oct=8, Nona=9, and finally Dec=10. Note that nothing needs to change
+ * to cover 5 or more Cells, but it might be quicker to roll your own Sudoku
+ * Explainer whilst simultaneously huffing a line of <i>{@code Cletus's Organic
+ * Sun-dried Nut Butter}</i> (mind the blue ones) through a didge.
  * <hr><p>
- * KRC 2019-09-04 09:40:00 it looks like I've finally gotten a sane and
- * reasonable AlignedQuad hint, instead of a long list of false positives,
- * so I'm going to create a test-case for it, and then version and zip, and
- * then test it more thoroughly/generally (Shift F5).
+ * KRC 2019-09-04 09:40:00 looks like I've finally gotten a sane and reasonable
+ * AlignedQuad hint, instead of a long list of false positives, so I'm going to
+ * create a test-case for it, then build, then test with Shift-F5 (more hints).
  * <p>
  * KRC 2019-09-05 24:14:00 it looks like AlignedPents are just too slow.
  * I tried it on JUST the first 10 puzzles in top1465.d5.mt, ie the 10 hardest.
@@ -108,59 +106,58 @@ import diuf.sudoku.utils.IntIntHashMap;
  * compare it to DynamicPlus at 0.2 seconds to never not find a bloody hint.
  * So I've just "unavailed" A5Es, unless you're programmer, who I presume is
  * interested in what's actually possible with a modern PC:
- * INSERT NEW i10 AND PRESS ANY KEY TO CONTINUE...
+ * INSERT i10 AND PRESS ANY KEY TO CONTINUE...
  * If CPU's double in speed a couple of more times then A5Es aren't impossible,
  * but DynamicPlus chaining will STILL be faster, and allways find a hint. Why
  * do we do Sudoku puzzles anyways?
  * <hr><p>
  * KRC 2019-09-09 I've just missed 2019-09-09 09:09, damn it Janet!
- * implementing AlignedQuads relegating AlignedSets to Heeza Hazbeen, run out at
- * the bowlers end. We beat the poms! We beat the poms! We BEAT the poms!
+ * implementing AlignedQuads relegating AlignedSets to Heeza Hazbeen, run out
+ * at the bowlers end. We beat the poms! We beat the poms! We BEAT the poms!
  * <hr><p>
  * KRC 2019-09-09 Heeza Hazbeen. AlignTriples/Quads have replaced A7E 3/4
  * and AlignedPents are still too damn slow.
  * <hr><p>
  * KRC 2019-09-11 Re-instating AlignedSetExclusion as an abstract base class
  * for AlignedTripleExclusion, AlignedQuadExclusion, and AlignedPentExclusion
- * in an attempt to dry out the repeated code inherent in copy-paste coding like
- * this. The real implementation differences lie in the allowOrExclude methods,
- * so the "generic version" of all the other methods should provide acceptable
- * performance, I hope.
+ * in an attempt to dry-out repeated-code inherent in my copy-paste coding. The
+ * real differences lie in da allowOrExclude methods. I hope "generic versions"
+ * of all the other methods are fast enough.
  * <p>
  * KRC 2019-09-11 relegated AlignedSetExclusion to the abstract class
  * AAlignedSetExclusionBase and modified AlignedTripleExclusion,
  * AlignedQuadExclusion, and AlignedPentExclusion to use the protected methods
- * exposed therein, to mostly-clean-up my cut-and-paste coding. Also moved
- * A5E to just before DynamicPlus in the LogicalSolver chainers list. It's
- * still to slow, but that doesn't matter so much any more.
+ * exposed therein, to mostly-clean-up my cut-and-paste coding. Also moved A5E
+ * to just before DynamicPlus in the LogicalSolver chainers list. It's still
+ * too slow, but that doesn't matter so much any more.
  * <hr><p>
- * KRC 2019-09-25 Rewrote all Aligned*Exclusion classes to just build the
- * allowed values array, to work-out if a hint is possible, and only if so then
- * come back and build the excludedCombosMap. The "normal" approach of just
- * building the map on the presumption that it's going to be used is just too
- * slow for such large n's and such low hit rates. So the allowOrExclude method
- * is history. Each of my subclasses implements it's own isAnyComboValueExcluded
- * method, and then later its own buildExcludedCombosMap. This solution runs in
- * about 10% of the time of Juillerats implementation. Not too shabby.
+ * KRC 2019-09-25 Rewrote all Aligned*Exclusion classes to build the allowed
+ * values array, to work-out if a hint is possible, and only if so then come
+ * back and build the excludedCombosMap. The optimistic approach of building
+ * the map on the presumption that it's going to be used is just too slow for
+ * such large n's with such low hit rates. So allowOrExclude is history. Each
+ * of my subclasses implements it's own isAnyComboValueExcluded, and then later
+ * its own buildExcludedCombosMap. This solution runs in about 10% of the time
+ * of Juillerats implementation. It's an improvement, so we're getting there.
  * <hr><p>
- * KRC 2019-09-30 V6 rewrite again to naively loop through the candidate
- * cells instead of using the Permutations class, so we get any-common-excluded
- * and isSiblingOf the minimum number of times, which QUARTERS the runtime.
- * This change renders AAlignedSetExclusionBase nearly useless. The only
- * surviving methods common to AlignedTripleExclusion and AlignedQuadExclusion
- * are populateCandidatesAndExcluders and createRedPotentials... @maybe both
- * could/should probably be used by AlignedPentExclusion also. It was only
- * separated out when I started down the idx path because I was exploring.
+ * KRC 2019-09-30 V6 rewrite again to naively loop through the candidate cells
+ * instead of using the Permutations class, so we get any-common-excluded and
+ * isSiblingOf the minimum number of times, which QUARTERS the runtime. This
+ * change renders AAlignedSetExclusionBase nearly useless. The only surviving
+ * methods common to AlignedTripleExclusion and AlignedQuadExclusion are
+ * populateCandidatesAndExcluders and createRedPotentials. Both should probably
+ * be used by AlignedPentExclusion also. It was separated out when I started
+ * down the idx path because I was exploring.
  * <hr><p>
- * KRC 2019-10-08 I'm about to build and release 6.30.024 and I thought I
- * should comment on the A*E debacle. It's slower than a wet week, and it's not
- * going to get any faster under my watch. I'm not saying it can't get any
- * faster, I'm just saying that I don't know how to make it any faster; so I
- * cheated and instituted and -REDO argument to LogicalSolverTester which parses
- * a previous logFile to workout which hinters to call. Pretty snazzy, and also
- * a dirty-low-down-nasty-hack. We've also implemented the above @maybe along
- * the way, so A3..8E now all extend AAlignedSetExclusionBase, and A2E extends my
- * base-class AAAlignedExclusionBase, so we're all cousins again atleast.
+ * KRC 2019-10-08 building 6.30.024 and I thought I should comment on the A*E
+ * debacle. It's slower than a wet week, and it's not getting any faster under
+ * my tutelage. I'm not saying it can't get it any faster, I'm just saying that
+ * I don't know how to make it any faster; so I cheat and instituted and -REDO
+ * switch in LogicalSolverTester which parses a previous logFile to calculate
+ * which hinters to call. Pretty snazzy, and also a dirty-low-down-nasty-hack.
+ * I also implemented populateCandidatesAndExcluders and createRedPotentials
+ * in AAlignedSetExclusionBase. A3..8E extend AAlignedSetExclusionBase. A2E
+ * extends my base-class AAAlignedExclusionBase, so we're all cousins atleast.
  * <hr><p>
  * KRC 2019-10-23 Here's the latest. All A*E's extend AAlignedSetExclusionBase,
  * including Aligned2Exclusion, which used to be the odd-man out. I decided the
@@ -184,10 +181,10 @@ import diuf.sudoku.utils.IntIntHashMap;
  * but it still doesn't use my methods, because I reckon the code which is
  * specific to 2 cells is faster-enough to be worth retaining.
  * <hr><p>
- * KRC 2020-02-19 The latest A5+E uses a switch on anyLevel to determine in ANY
- * combo to my right is allowed when all maybes of all cells to my right have
+ * KRC 2020-02-19 The latest A5+E uses a switch on anyLevel to determine if ALL
+ * combos to my right are allowed when all maybes of all cells to my right have
  * already been allowed. So in A10E what was an O(n*n*n*n*n*n*n*n*n) ie n^9
- * operation in is now an O(n) operation at best, and O(n^9)=same at worste.
+ * operation in is now an O(n) operation at best, and O(n^9) at worst, ie same.
  * <pre>
  * If the rightmost cell is the excluded cell it's all worste-case (ie s__t).
  * If SECOND rightmost cell is the excluded cell it's NEARLY all worste-case.
@@ -195,7 +192,7 @@ import diuf.sudoku.utils.IntIntHashMap;
  * If there is NO excluded cell (ie 99.99999% of cases) it's middle case; your
  * mileage may vary. I haven't measured it. To do so I'd stick a long counter
  * in each case of each anyLevel switch to be measured.
- * "Rodney used his foreskin as an air-break in the downhill."
+ * "My Uncle Rodney used his foreskin as an air-break in the downhill."
  * "You should have seen him in the ski jump."
  * </pre>
  * <hr><p>
@@ -258,16 +255,18 @@ import diuf.sudoku.utils.IntIntHashMap;
  *       report method of each wantedHinter that implements IReporter.
  *     * and then closes its LogicalSolver, which in turn closes each
  *       wantedHinter that implements Closeable.
- *   - NOTE: Currently there is no facility to report or close in the GUI, where
+ *   - NOTE: Currently there is no facility to report or close in the GUI where
  *     it'd be pretty useless because both these methods rely on a full set of
  *     statisitics from the puzzle-set to be analysed, ie top1465.d5.mt
- *   - WARN: Please <b>NEVER</b> mix java.io.Closeable with ICleanUp, which is a
- *     hack I stuck in to allow INumberedHinters to wewease Woderwich at the end
+ *   - WARN: Please <b>NEVER</b> mix java.io.Closeable with ICleanUp which is a
+ *     hack I stuck in to allow INumberedHinters to wewease Woderwich at da end
  *     of processing of each puzzle, which ain't bloody Closeing time. Clear!
- *  * To report (or close) from an A*E just uncomment the implements interface
- *    and the method definition (which may need a refresh). Suggest you try this
- *    first with A5E_2H (disable the other A*E's) to get the hang of it BEFORE
- *    you start messing about with A10_1C which takes a wet week to run. Out!
+ * * To report (or close) from an A*E just uncomment the implements interface
+ *   and the method definition (which may need a refresh). Suggest you try dis
+ *   first with A5E_2H (disable the other A*E's) to get the hang of it BEFORE
+ *   you start messing about with A10_1C which takes a wet week to run.
+ * * The align2 package was intended to replace align; to remove boiler-plate,
+ *   Faster for A234E, but slower for A5+E, so this old boiler-plate survives.
  * </pre>
  */
 public abstract class AAlignedSetExclusionBase extends AHinter
@@ -780,7 +779,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * and returns the new numCmnExclBits. There's probably a "better way" of
 	 * doing it in OO-land (which costs 1000 times as much), but I'm an old
 	 * man, I only measure the performance of my code in nanoseconds (reread
-	 * this comment in 30 years time, it'll grow on you), so I can groc it.
+	 * this comment in 30 years time, it'll grow on you), so I can grock it.
 	 *
 	 * @param cmnExclBits int[] input/output the maybes.bits of the common
 	 * excluder cells.

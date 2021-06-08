@@ -35,9 +35,7 @@ import java.util.List;
 public final class NakedSet
 		extends AHinter
 		implements diuf.sudoku.solver.hinters.ICleanUp
-//				 , diuf.sudoku.solver.IReporter
 {
-//private int cnshCnt, cnshPass;
 
 	// just used in an assert to check that I'm not being chained directly.
 	private static final String ChainersHintsAccumulatorName =
@@ -51,13 +49,6 @@ public final class NakedSet
 		assert degree>=2 && degree<=5; // Pair, Triple, Quad, Pent
 		this.thePA = new int[degree]; // the Permutations Array
 	}
-
-//	@Override
-//	public void report() {
-//		diuf.sudoku.utils.Log.teef(
-//              "// "+tech.name+" pass %,14d of %,14d = skip %4.2f\n"
-//				, cnshPass, cnshCnt, Log.pct(cnshPass, cnshCnt));
-//	}
 
 	@Override
 	public void cleanUp() {
@@ -81,49 +72,35 @@ public final class NakedSet
 		final boolean oneOnly = accu.isSingle();
 		// presume failure, ie that no hint will be found
 		boolean result = false;
-		for ( ARegion r : grid.regions ) { // 27 = 9*box, 9*row, 9*col
-//// MIA: Naked Pair in 1106#top1465.d5.mt at E6 and F6 on 1 and 5
-//// in both box 5 and row 6
-////...279...9......7..746..........35...48.6...3..68..2.........3.8..1....5.17.9....
-////1356,3568,135,,,,13468,14568,1468,,23568,1235,345,13458,1458,1368,,1268,1235,,,,1358,158,1389,12589,1289,127,29,129,479,124,,,68,68,1257,,,579,,1257,179,19,,1357,359,,,15,15,,149,1479,2456,2569,259,457,2458,245678,146789,,1246789,,2369,239,,234,2467,4679,2469,,23456,,,345,,24568,468,2468,2468
-////1106#C:\Users\User\Documents\NetBeansProjects\DiufSudoku\top1465.d5.mt
-//if ( tech == Tech.NakedPair
-//  && "row 6".equals(r.id)
-//  // both E6 and F6 maybe 1 or 5
-//  && "15".equals(r.cells[4].maybes.toString())
-//  && "15".equals(r.cells[5].maybes.toString())
-//  && !Debug.isClassNameInTheCallStack(5, "RecursiveAnalyser") )
-//	Debug.breakpoint();
-			if ( (result |= search(r, grid, accu)) && oneOnly )
+		for ( ARegion r : grid.regions ) // 27 = 9*box, 9*row, 9*col
+			if ( (result|=search(r, grid, accu)) && oneOnly )
 				break;
-		}
 		return result;
 	}
 
 	/**
-	 * Strap in, this one's weird. The Locking hinter has a habit of finding
-	 * Naked Pairs/Triples, but Locking finds only a subset of the possible
-	 * eliminations, so Locking asks NakedSet.search "Is this a NakedSet?
-	 * And if so please do the eliminations for me, coz that's your gig?";
-	 * and also does the "normal" search.
+	 * WEIRD: The Locking hinter has a habit of finding Naked Pairs/Triples,
+	 * but Locking finds only a subset of the possible eliminations, so Locking
+	 * asks NakedSet "Is this a NakedSet? And if so do the eliminations for me,
+	 * coz that's your gig?"; and search also does the "normal" search.
 	 *
 	 * @param r
 	 * @param grid
 	 * @param accu
 	 * @return
 	 */
-	public boolean search(ARegion r, Grid grid, IAccumulator accu) {
-		// we need 3 empty cells in the region for a Naked Pair to do any good:
-		// 2 in the Pair, plus atleast 1 other to remove maybes from.
+	public boolean search(final ARegion r, final Grid grid, final IAccumulator accu) {
+		// no point looking unless this region has an "extra" empty cell to
+		// possibly remove maybes from. Note that I'm public, so done here.
 		if ( r.emptyCellCount < this.degreePlus1 )
 			return false;
-		// localise everything for speed
+		AHint hint;
+		int i, n, card, nkdSetValsBits, nkdSetIdxBits;
 		final int degreePlus1 = this.degreePlus1;
 		final int degree = this.degree;
 		final Cell[] candi = this.candidateCells;
 		final int[] thePA = this.thePA;
-		AHint hint;
-		int i, n, card, nkdSetValsBits, nkdSetIdxBits;
+		final int rti = r.typeIndex;
 		// presume failure, ie that no hint will be found
 		boolean result = false;
 		// candidates := region.cells with 2..$degree maybes
@@ -149,7 +126,7 @@ public final class NakedSet
 			nkdSetIdxBits = 0;
 			for ( i=0; i<degree; ++i )
 				// left-shift the cells index in this type of region
-				nkdSetIdxBits |= ISHFT[candi[perm[i]].indexIn[r.typeIndex]];
+				nkdSetIdxBits |= ISHFT[candi[perm[i]].indexIn[rti]];
 			// So, are we in Direct or normal Mode?
 			if ( tech.isDirect ) {
 				// DIRECT MODE: hint only if it causes a Hidden Single
@@ -181,7 +158,7 @@ public final class NakedSet
 	private AHint createNakedSetHint(Grid grid, ARegion region
 			, int nkdSetIdxBits, int nkdSetValsBits) {
 		final int degree = this.degree;
-		// JUST Build removable (red) potentials AND NO OTHER S__T!
+		// just build removable (red) potentials AND NO OTHER S__T!
 		// to find out if this Naked Set removes any maybes (96+% don't)
 		Pots reds = null;
 		Cell sib;
@@ -192,22 +169,15 @@ public final class NakedSet
 				if(reds==null) reds = new Pots();
 				reds.put(sib, sib.maybes.intersectBits(nkdSetValsBits));
 			}
-//++cnshCnt;
 		if ( reds == null )
-			// NakedPair   2,176 of 69,407 = skip 96.86%
-			// NakedTriple   403 of 25,733 = skip 98.43%
-			// NakedQuad      22 of 14,113 = skip 99.84%
 			return null;
-//++cnshPass;
-
-		// Find additional pointing/claiming eliminations.
+		// find additional pointing/claiming eliminations.
 		final List<Cell> nkdSetCellList = region.atNewArrayList(nkdSetIdxBits);
 		ARegion[] regions = new ARegion[]{region};
 		if ( region instanceof Grid.Box)
 			regions = claimFromOtherCommonRegion(region, nkdSetCellList
 					, nkdSetValsBits, reds, regions);
-
-		// Build highlighted (orange) potentials
+		// build highlighted (orange) potentials
 		final Pots oranges = new Pots(degree, 1F);
 		for ( Cell cell : nkdSetCellList )
 			oranges.put(cell, cell.maybes.intersectBits(nkdSetValsBits));

@@ -17,6 +17,7 @@ import diuf.sudoku.utils.MyLinkedHashMap;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 
@@ -161,6 +162,18 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 			if(cell==null) break; // handle a null terminated cell list
 			put(cell, new Values(values)); // put a new Values, to be safe
 		}
+	}
+
+	/**
+	 * Constructs a new Pots containing an entry for each Cell in 'cells' =>
+	 * a <b>new instance</b> of Values which contains the given 'values'.
+	 * @param cells Cell's to put.
+	 * @param v the value.
+	 */
+	public Pots(List<Cell> cells, int v) {
+		super(Math.max(MIN_CAPACITY,cells.size()), 1F);
+		for ( Cell cell : cells )
+			put(cell, new Values(v)); // put a new Values for each to be safe
 	}
 
 	/**

@@ -255,8 +255,11 @@ public final class Values implements Iterable<Integer> {
 		bits = size = 0;
 	}
 
-	/** Constructs a new Values Set containing the given (unshifted) value.
-	 * @param value the value (unshifted) to store. */
+	/**
+	 * Construct a new Values Set containing the given (unshifted) value.
+	 *
+	 * @param value the value (unshifted) to store.
+	 */
 	public Values(int value) {
 		assert value>0 && value<10;
 		bits = VSHFT[value];

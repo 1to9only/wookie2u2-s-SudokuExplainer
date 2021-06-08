@@ -422,7 +422,8 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	@Override
 	public void prepare(Grid gridUnused, LogicalSolver logicalSolverUnused) {
-		isEnabled = true; // re-enable me after I've gone DEAD_CAT
+		// re-enable me, in case I went dead-cat in the last puzzle
+		setIsEnabled(true); // use the setter!
 	}
 
 //	@Override
@@ -456,10 +457,12 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		// DEAD_CAT disables a hinter DURING solve (which only does disabled
+		// DEAD_CAT disables a hinter DURING solve (which does disabled only
 		// BEFORE kick-off) so each hinter that's ever gone DEAD_CAT checks
 		// isEnabled itself. I'm re-enabled by the prepare method, so I'm down
-		// for this puzzle only. I'll get you next time Batman.
+		// for this puzzle only. I'll get you next time Batman. Unfortunately
+		// when you reload the current puzzle prepare is not called. I should
+		// change the GUI to call it.
 		if ( !isEnabled )
 			return false;
 		Cell cell;
@@ -493,7 +496,8 @@ public class GEM extends AHinter implements IPreparer
 		} catch ( UncleanException ex ) {
 			// USE_PROMOTIONS -> create[Big]Hint: bad elim or cell-value.
 			Log.teeln("WARN: GEM: "+ex.getMessage());
-			isEnabled = false; // disable me for this puzzle only
+			// disable me for this puzzle (re-enabled by prepare)
+			setIsEnabled(false); // use the setter!
 		} catch ( StopException meh ) {
 			// thrown after a contradiction/confirmation hint is added to accu
 			result = true;

@@ -31,11 +31,10 @@ import javax.swing.*;
  * I use this class just to find-out stuff. It's not referenced elsewhere in
  * the project, but I import whatever classes I want, and leave them there...
  * so do NOT Ctrl-Shift-I.
- * <p>I just copy-paste and comment-out the previous main method, and (mostly)
- * leave it there as a reference. I only delete questions I find really
- * embarrassing, like the one about string equals being broken. It isn't,
- * I just didn't groc the damn API code properly, because it's spaz, or they
- * know something I don't, which seems likely, and yet...
+ * <p>
+ * I copy-paste and comment-out the previous main method, and leave it there as
+ * a reference; I delete only the majorly embarrassing stuff.
+ *
  * @author Keith Corlett 2013
  */
 

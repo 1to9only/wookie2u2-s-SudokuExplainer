@@ -23,29 +23,31 @@ one of these two ALS's, which "pushes" the other common value z into the other
 ALS (we don't know yet which is which), so other cells which see all z's in
 both ALS's are history.
 <p>
-The "push" is the tricky bit. Each ALS may loose only <u>one</u> value before it
-goes invalid. So for instance, if ALS-A has {2} then the {3} is pushed into the
-other ALS. ALS-A can't have both {2} and {3} because that leaves ALS-B with
-insufficient values to fill it's cells, which is invalid. Hence the other common
-value z ({3}) is "pushed" into the other ALS.
+The "push" is the tricky bit. Each ALS may loose only <u>one</u> value before it goes
+invalid. If ALS-A has {2} it pushes the {3} into the other ALS. ALS-A cannot
+have both {2} and {3} because it leaves ALS-B with insufficient values to cover
+it's cells. Hence the other common value z ({3}) is "pushed" into the other ALS.
 <p>
 <u>ALS Blurb</u>
 <p>
 An "Almost Locked Set" (ALS) is exactly what it sounds like.
 A Naked/Hidden Pair/Triple/Quad/etc is a "Locked Set",
-and an ALS is "almost locked" because it has just has one more potential value than its number of cells,
-so if any value where removed from those cells it becomes a Locked Set.
-ALSs aren't very useful until we chain them together in groups of
-2=ALS-XZ, 3=ALS-Wing, or more=ALS-Chains; or Death Blossom, or Big Wings, or whatever;
-the point is that additional logic is always applied on top of ALS's in order to produce hints.
+and an ALS is "almost locked" because it has just has one more potential value
+than its number of cells, so if any value where removed from those cells it
+becomes a Locked Set. Further, each ALS may loose only one value before it
+goes invalid because it has insufficient potential values to fill it's cells.
 <p>
-An ALS-XZ is just an ALS-Chain of length 2. ALS-XZ's and ALS-Wings have slightly
+ALSs are not very useful until we chain them together in groups of 2=ALS-XZ,
+3=ALS-Wing, or more=ALS-Chains; or Death Blossom, or Big Wings, or whatever;
+the point is that additional logic is applied to ALS's to produce hints.
+<p>
+An ALS-XZ is an ALS-Chain of length 2. ALS-XZs and ALS-Wings have slightly
 different rules, so they are handled separately to ALS-Chains, and so have
 differentiating hint-type names.
 In ALS-XZ and ALS-Wings the RCC (x) is allowed to appear in the overlap, if any,
-of the two sets, in ALS-Chains this is forbidden because it breaks the "and
-reciprocally" rule. There's other extraneous differences (if you really want
-to know then you'll have to read the codez) but that's the crux of it.
+of each pair of ALSs, in ALS-Chains this is forbidden because it breaks the "and
+reciprocally" rule. There are other extraneous differences. If you really want
+to know then you need to read the code, but that's the crux of it.
 <p>
 <!--debugMessage-->{5}
 </body>

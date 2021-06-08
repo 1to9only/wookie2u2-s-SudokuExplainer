@@ -34,16 +34,16 @@ import static diuf.sudoku.Values.VSIZE;
  * for sets of between 2 and 10 cells.
  * <p>
  * Aligned Exclusion eliminates potential values of "candidate cells" that are
- * aligned around the "excluder cell/s". The candidate cells form "the aligned
+ * aligned around the "excluder cell/s". The candidate cells are "the aligned
  * set" and the "common excluders" are the cells they're aligned around.
  * <p>
- * There's only one way to do exclusion, and it's expensive. We must go through
- * all the possible combinations of the potential values of each aligned set to
- * see if each combo is allowed (rules below). If it is then we record each
- * cells presumed value in its cell (that's important); then we just check if
- * all potential cell values have been "allowed"; and if not then there is an
+ * There's only one way to do exclusion, and it's expensive. We go through all
+ * the possible combinations of the potential values of each aligned set to see
+ * if each combo is allowed (rules below). If it is then we record each cells
+ * presumed value in its cell (that's important); then we just check if all
+ * potential cell values have been "allowed"; and if not then there is an
  * "exclusion", so we raise a hint. It sounds simple enough; but the actual
- * implementation is mega-confundussed by details, trying to make an inherently
+ * implementation is uber-confundussed by details, trying to make an inherently
  * combinatorial-times-combinatorial process (ie bloody slow) a bit faster; to
  * bring it up to "usable" speed, which I have thus far failed to do. sigh.
  * <p>
@@ -63,33 +63,31 @@ import static diuf.sudoku.Values.VSIZE;
  * I mentioned "candidate" cells without defining them: A "candidate" is an
  * unset cell which sees (same box, row, or col) the requisite number of
  * excluder cells. An excluder cell is one with 2..degree potential values.
- * The "requisite number" of excluder cells depends on the size of the aligned
+ * The requisite number of excluder cells depends on the size of the aligned
  * set, and also on the users "hacked" setting. An aligned set of 2 or 3 cells
  * only produces hints when those cells are aligned around two excluder cells.
  * Aligned sets of 4 to 10 cells CAN still produce a hint when aligned around a
- * single cell, but hints from a single excluder cell are MUCH rarer.
- * <p>
- * Aligned4Exclusion is always "correct": aligned around a single cell, because
- * it's still "fast enough" when done that way.
+ * single cell, but hints from a single excluder cell are MUCH rarer. About one
+ * third of hints come from the 10% of sets aligned around two or more cells.
  * <p>
  * I call aligning around a single cell "correct" coz it finds all available
  * hints; and I call aligning 5 to 10 cells around two or more cells "hacked"
  * coz it's a hack. Sets aligned around multiple excluder cells are much much
  * more likely to produce a hint; so "hacked mode" processes roughly one tenth
  * of the aligned sets to produce about a third of the hints. This matters coz
- * AlignedExclusion is inherently a slow process; so most users simply will not
+ * AlignedExclusion is innately a slow process; so most users simply will not
  * wait for the correct version of the algorithm to run over larger sets; but
  * they may wait for the hacked version of 5, 6, or even 7 cells; but 8, 9 and
- * 10 cells are still too slow, even hacked, in my humble opinion. Ready please
- * Mr Moore.
+ * 10 cells are still too slow, even hacked, in my humble opinion. A4E is now
+ * always correct: aligned around a single cell, because it's "fast enough".
  * <p>
  * Note that this implementation of AlignedExclusion uses the "stack iteration"
- * technique (twice) that I have boosted from the ALS's in HoDoKu, by hobiwan.
- * HoDoKu is another open source Sudoku solver. Download my version from the
- * Sudoku Explainer homepage on SourceFroge: it's faster.
+ * technique (twice) taken from the ALS's in HoDoKu, by hobiwan. HoDoKu is
+ * another open source Sudoku solver. Download from the Sudoku Explainer
+ * homepage on SourceForge (my version is faster for nets).
  * <p>
  * AlignedExclusion is MUCH more compact than the Aligned*Exclusion classes,
- * which are "mass boiler-plate" code. AlignedExclusion is maintainable, but it
+ * which are mostly boiler-plate code. AlignedExclusion is maintainable, but it
  * is tricky and slower. The old Aligned5Exclusion runs in 70 seconds, and this
  * version runs in 211 seconds (A5E top1465), ie THREE TIMES as long! BFFIIK!
  * <p>
@@ -168,10 +166,10 @@ import static diuf.sudoku.Values.VSIZE;
  *    36,872,632,100  4309    8,557,120   0              0 Aligned Nona
  *    23,259,449,700  4309    5,397,876   0              0 Aligned Dec
  *
- * 2021-01-23 12:57 AlignedExclusion is now faster for A2..4E and takes about
- * twice as long for A5..10E, so the old "align" package is still preferred for
- * the big slow A*E's, but align2 is ALWAYS used for the small ones. Here's the
- * latest comparisons. Note: A2E, A9E, and A10E left out coz they don't hint.
+ * 2021-01-23 12:57 AlignedExclusion is now faster for A2..4E but is slower for
+ * A5..10E, so the old "align" package is still preferred for the big A*E's;
+ * align2 is ALWAYS used for A234E. Here's the latest comparisons.
+ * Note: A2E, A9E, and A10E are left out coz they don't hint.
  * -- old align --
  *     2,020,619,100  3863      523,069   4    505,154,775 Aligned Triple
  *     7,659,148,200  3859    1,984,749   6  1,276,524,700 Aligned Quad
@@ -303,9 +301,9 @@ public class AlignedExclusion extends AHinter
 	// so it will be removed by the hint we produce.
 	private final Cell[] candidates;
 
-	// the cells candidate can use as an excluder; so to build an aligned set
-	// we're looking for the minimum required "common" excluders, which all
-	// candidates in the set can "see" (ie same box, row, or col).
+	// the excluder cells for each candidate. To build an aligned set we seek
+	// the minimum required "common excluders" seen by all cells in the set (ie
+	// same box, row, or col).
 	private final CellSet[] exclSets = new CellSet[81]; // 1 per candidate
 
 	// an array of $degree cells: rightmost is each available candidate cell,
@@ -463,7 +461,6 @@ public class AlignedExclusion extends AHinter
 	 * The Aligned Exclusion Sudoku solving technique.
 	 * HIGH LEVEL PSEUDOCODE:
 	 * foreach set of $degree cells aligned around there common excluder cell/s
-	 *   // "combo" ONLY means a possible combination of potential values.
 	 * 	 foreach combo of the potential values of the cells in the aligned set
 	 *   skipping this presumed value if it is already taken by a sibling cell
 	 *     if this combo does NOT contain all of any excluder cells maybes then
@@ -548,7 +545,7 @@ public class AlignedExclusion extends AHinter
 
 		// foreach possible combination of candidate cells (an aligned set)
 		// CELL_INNER non-loop exists to break instead of continue;ing CELL,
-		// because continue is terminally bloody slow!
+		// because continue is slow, and break is fast. sigh.
 		CELL: for(;;) CELL_INNER: do {
 			// fallback levels while this level has no more cells to search
 			while ( cStack[cl].index > lastCandidate ) {
@@ -598,30 +595,31 @@ public class AlignedExclusion extends AHinter
 				vStack[cl].set(cell);
 				if ( cl < degreeMinus1 ) {
 					// incomplete "aligned set"
-					// the next level starts with the next cell (forward-only
-					// search). Note that cellStack[cl].index has already been
-					// pre-incremented to the index of my next candidate cell.
+					// cStack[cl].index is already incremented to the index of
+					// my next candidate cell, so the next level starts at the
+					// next cell, ie a forward-only search.
 					cStack[cl+1].index = cStack[cl].index;
 					// move right to the next level in the cellStack
 					++cl;
 				} else {
 					// we have a complete "aligned set"
-					// 1. ce.excluders.cellsMaybes(): set EXCLUDERS_MAYBES
-					//    to maybes.bits of the excluder cells.
-					// 2. clean: remove EXCLUDERS_MAYBES which have a maybe
+					// 1. ce.excluders.cellsMaybes() sets EXCLUDERS_MAYBES to
+					//    maybes.bits of the excluder cells.
+					// 2. clean removes EXCLUDERS_MAYBES which have a maybe
 					//    that is not anywhere in the aligned set;
 					//    then sort EXCLUDERS_MAYBES by size ASCENDING;
-					//    then remove superset/duplicate excluders.
+					//    then remove superset/duplicate excluders;
 					//    and repopulate the numExcls array with the number of
 					//    excluders with size <= each level
 					// 3. continue the CELL loop if < minExcls remaining;
 					//    which happens "quite often".
 					if ( (numExcls=clean(ce.excls.cellsMaybes(), minExcls)) < minExcls )
 						break; // to continue the CELL loop;
-					// skip this aligned-set if it's already known to not
-					// hint, in its current state; but if cell.maybes have
-					// changed since last examination then re-examine them;
-					// eliminates something like 99.3% re-examinations.
+					// skip this aligned-set if it's already known to not hint
+					// in its current state; but if maybes of the aligned set
+					// or the excluder cells have changed since the last exam
+					// then re-examine this aligned set. Averts about 99.3% of
+					// re-exams, so is much faster, despite the slow Hash get.
 					// NB: skip now includes the excluders in totalMaybes
 					if ( !nonHinters.skip(cStack, degree, numExcls, firstPass) ) {
 						// valuesLevel = the first
@@ -719,7 +717,9 @@ public class AlignedExclusion extends AHinter
 											while ( allowed[wl] == cStack[wl].cands ) {
 												if ( wl == 0 ) {
 													// record that this aligned set did not hint.
-													nonHinters.put(); break CELL_INNER; // continue CELL;
+													nonHinters.put();
+													// continue CELL;
+													break CELL_INNER;
 												}
 												--wl; // test the next value at the workLevel
 											}
@@ -804,7 +804,9 @@ public class AlignedExclusion extends AHinter
 										while ( allowed[wl] == cStack[wl].cands ) {
 											if ( wl == 0 ) { // all values allowed!
 												// record this aligned set did not hint.
-												nonHinters.put(); break CELL_INNER; // continue CELL;
+												nonHinters.put();
+												// continue CELL;
+												break CELL_INNER;
 											}
 											--wl; // move the workLevel left one place
 										}
@@ -886,8 +888,8 @@ public class AlignedExclusion extends AHinter
 		final Idx empties = grid.getEmpties();
 		// find all possible excluders: with maybes.size 2..$degree
 		final Idx excluderSized = empties.where(grid.cells, (c) -> {
-					return c.maybes.size<degreePlus1;
-				  });
+			return c.maybes.size<degreePlus1;
+		});
 		// an Idx of the excluders of each cell
 		final Idx cellExcluders = new Idx();
 		// clear my output fields
@@ -897,7 +899,7 @@ public class AlignedExclusion extends AHinter
 		// build the excluder-sibling-cells-set of each candidate cell
 		// foreach cell in grid which has more than one potential value
 		for ( Cell cell : empties.cells(grid) )
-			// if this cell has atleast 1 excluders
+			// if this cell has atleast 1 excluder
 			if ( cellExcluders.setAndAny(cell.buds, excluderSized) ) {
 				candidates[numCandidates++] = cell;
 				exclSets[cell.i] = new CellSet(grid.cells, cellExcluders);
@@ -921,8 +923,8 @@ public class AlignedExclusion extends AHinter
 		final Idx empties = grid.getEmpties();
 		// find all possible excluders: with maybes.size 2..$degree
 		final Idx excluderSized = empties.where(grid.cells, (c) -> {
-					return c.maybes.size<degreePlus1;
-				  });
+			return c.maybes.size<degreePlus1;
+		});
 		// an Idx of the excluders of each cell
 		final Idx cellExcluders = new Idx();
 		// clear my output fields
@@ -1044,17 +1046,19 @@ public class AlignedExclusion extends AHinter
 	}
 
 	/**
-	 * Clean-out all defective excludersMaybes.
+	 * Clean-out all defective excluder cells.
 	 * <pre>
 	 * 1. remove excluders which contain any value that is not in any cell in
-	 *    the aligned set, because no combo of the potential values of da cells
-	 *    in da aligned set will cover it; so it's useless.
+	 *    the aligned set, because no combo of the potential values of the
+	 *    cells in the aligned set will cover it; so it's bloody useless.
 	 * 2. sort the remaining maybes by size ASCENDING; Note that bubbleSort
 	 *    seems to be MORE efficient than TimSort for small (n&lt;12) arrays.
 	 * 3. remove excluders that are a superset of (contain all values in) any
 	 *    other excluder, including any duplicates. Every set that covers 125
-	 *    also covers 12, so given 12,125 remove 125 without effecting result,
-	 *    because 125 just wastes CPU-time in the DOG_____ING loop.
+	 *    also covers 12, so given 12,125 remove 125 without effecting result.
+	 *    We do this because 125 just wastes CPU-time in the DOG_____ING loop.
+	 * </pre>
+	 * @return the new (possibly reduced) number of excluder cells.
 	 */
 	private int clean(int numExcls, int minExcls) {
 		final int[] a = EXCLUDERS_MAYBES;
@@ -1068,7 +1072,7 @@ public class AlignedExclusion extends AHinter
 		for ( i=0; i<numExcls; ++i )
 			if ( (a[i] & ~allCands) != 0 ) {
 				if ( --numExcls < minExcls )
-					return numExcls; // don't both removing
+					return numExcls; // don't bother removing
 				// remove i: move i-and-all-to-its-right left one spot.
 				for ( j=i,J=numExcls; j<J; ++j )
 					a[j] = a[j+1];

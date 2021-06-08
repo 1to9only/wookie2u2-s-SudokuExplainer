@@ -11,10 +11,13 @@ import static diuf.sudoku.Grid.BUDDIES;
 import static diuf.sudoku.Grid.CELL_IDS;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.CellFilter;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.wing.BitIdx;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -1438,6 +1441,16 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		or(TMP);
 	}
 	private static final Idx TMP = new Idx();
+
+	public List<Cell> thatMaybe(Grid grid, int v) {
+		final int sv = VSHFT[v];
+		List<Cell> cells = new LinkedList<>();
+		forEach(grid.cells, (c) -> {
+			if ( (c.maybes.bits & sv) != 0 )
+				cells.add(c);
+		});
+		return cells;
+	}
 
 	// ------------------------ Visitor2: count, indice -----------------------
 	//

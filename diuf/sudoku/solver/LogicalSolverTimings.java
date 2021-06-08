@@ -7189,6 +7189,62 @@ package diuf.sudoku.solver;
  *    I take a good long break. I've been working on this (on and off) for a
  *    decade, so I've got the s__ts with it. sigh.
  * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.128 2021-05-04 14:37:08 No real changes, just cleaning up crap, and
+ * building to release because I'm going shopping this afternoon.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     20,469,147 101571        201 553450         36 Naked Single
+ *     17,987,166  46226        389 155970        115 Hidden Single
+ *     86,628,008  30629      2,828   5884     14,722 Direct Naked Pair
+ *     76,280,251  30216      2,524  12300      6,201 Direct Hidden Pair
+ *    184,254,967  29278      6,293    853    216,008 Direct Naked Triple
+ *    169,920,952  29225      5,814   1777     95,622 Direct Hidden Triple
+ *     97,855,023  29091      3,363  18204      5,375 Locking
+ *     46,651,802  20194      2,310   4269     10,928 Naked Pair
+ *     40,356,091  19174      2,104   8350      4,833 Hidden Pair
+ *     95,260,054  17665      5,392   1244     76,575 Naked Triple
+ *     83,670,009  17348      4,823   1021     81,949 Hidden Triple
+ *     57,220,586  17151      3,336   1295     44,185 Two String Kite
+ *     50,410,316  15856      3,179    420    120,024 Swampfish
+ *     68,524,587  15679      4,370    572    119,798 XY-Wing
+ *     56,964,668  15279      3,728    285    199,876 XYZ-Wing
+ *     90,307,573  15013      6,015    383    235,790 W-Wing
+ *     48,045,933  14746      3,258    351    136,883 Skyscraper
+ *     57,777,317  14563      3,967    451    128,109 Empty Rectangle
+ *     67,955,459  14112      4,815    230    295,458 Swordfish
+ *    157,352,309  14052     11,197    101  1,557,943 Naked Quad
+ *    129,889,877  14033      9,256     11 11,808,170 Hidden Quad
+ *    428,461,366  14032     30,534    312  1,373,273 Coloring
+ *  1,408,882,005  13790    102,166    663  2,125,010 XColoring
+ *  1,961,667,516  13548    144,793 129204     15,182 GEM
+ *    103,724,266  12145      8,540      0          0 Jellyfish
+ *    393,416,126  12145     32,393    871    451,683 WXYZ-Wing
+ *    510,989,131  11591     44,084    877    582,655 VWXYZ-Wing
+ *    636,199,928  11137     57,124    386  1,648,186 UVWXYZ-Wing
+ *    525,946,077  10942     48,066     83  6,336,699 TUVWXYZ-Wing
+ *  1,839,036,783  10894    168,811    887  2,073,322 Unique Rectangle
+ *  1,139,694,201  10283    110,832    229  4,976,830 Finned Swampfish
+ *  2,564,155,987  10097    253,952    282  9,092,751 Finned Swordfish
+ * 14,983,891,340   9890  1,515,054   3917  3,825,348 ALS-XZ
+ * 18,053,314,973   7162  2,520,708   3296  5,477,340 ALS-Wing
+ *  8,859,084,237   4441  1,994,839    596 14,864,235 ALS-Chain
+ *  3,981,054,266   3959  1,005,570    162 24,574,409 Death Blossom
+ * 10,163,700,410   3816  2,663,443   1192  8,526,594 Unary Chain
+ *  5,151,647,433   3314  1,554,510    231 22,301,504 Nishio Chain
+ *  7,271,437,929   3110  2,338,082   4549  1,598,469 Multiple Chain
+ * 10,364,200,487   1378  7,521,190   7558  1,371,288 Dynamic Chain
+ *     93,848,599      3 31,282,866     30  3,128,286 Dynamic Plus
+ * 92,138,135,155
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465   137,644,704,100 (02:17)        93,955,429
+ * NOTES:
+ * 1. Last top1465 run took 02:17, 25 seconds faster, with Jellyfish.
+ * 2. Release 6.30.128 2021-05-04 14:37:08 =>
+ *    DiufSudoku_V6_30.128.2021-05-04.7z
+ * 3. No idea what I should do next. Maybe nothing.
+ * </pre>
  */
 final class LogicalSolverTimings {
 

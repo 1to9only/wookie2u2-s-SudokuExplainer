@@ -8,7 +8,6 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.hinters.chain.AChainingHint;
-import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Hash.LSH4;
 import static diuf.sudoku.utils.Hash.LSH8;
 import diuf.sudoku.utils.MyLinkedList;
@@ -230,9 +229,8 @@ public class Ass {
 			// MyLinkedList is a tad faster than java.util.LinkedList
 			// I tried an array, which works. It was faster, and the code is no
 			// more complex really. It was fastest when array grows one by one.
-			// I also tried replacing the chainers queues with circular arrays,
-			// which was faster, but much harder to groc, coz most of the gains
-			// come from doing add and poll inline.
+			// I replaced chainers queues with circular arrays, which is harder
+			// to grock, but faster with gains from inline add and poll.
 			parents = new MyLinkedList<>();
 			parents.linkLast(parent);
 		}

@@ -17,17 +17,18 @@ Therefore <r>we can remove <b>{3}</b></r>.
 <u>Explanation</u>
 <p>
 The logic is: if <b>z</b> is not in ALS A, then ALS A contains <b>x</b> because
-only one digit may miss from an ALS. That means that ALS C must contain <b>y</b>
-and thus ALS B must contain <b>z</b>. The other way round works also: If ALS B
-does not contain <b>z</b> then ALS A must. Hence <b>z</b> can be removed from
-other cells which see all z's in both ALS A and ALS B.
+only one digit may be removed from an ALS. That means that ALS C must contain
+<b>y</b> and thus ALS B must contain <b>z</b>. The other way round works also:
+If ALS B does not contain <b>z</b> then ALS A must. Hence <b>z</b> can be
+eliminated from other cells seeing all z's in both ALS A and ALS B.
 <p>
 Note that <b>x</b> and <b>y</b> may not be the same digit.
 <p>
 The restriction in Restricted Common Candidate is that all instances of the
 value in both ALSs must see each other (be in the same box, row, or col).<br>
 <p>
-An ALS-Wing is an ALS-Chain of length 3. ALS-Wings are handled separately
-because in ALS-Chains the RC's may not be in the overlap, if any, of the ALS's.
+An ALS-Wing is an ALS-Chain of length 3. ALS-Wings are done separately because
+in ALS-Chains only the RCCs are excluded from the physical overlap, if any, of
+the two ALSs.
 </body>
 </html>

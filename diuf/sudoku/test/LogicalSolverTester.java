@@ -32,7 +32,7 @@ import java.util.*;
  * <p>
  * Recommended Hinter Selection:<ul>
  * <li>All hinters should be selected by default, so just unselect stuff in
- * this list. Ergo: Select everything that's not mentioned here! 
+ * this list. Ergo: Select everything that's not mentioned here!
  * <li>The Naked Single and Hidden Single hinters are permanently selected coz
  *  it just doesn't make any sense to try to solve a Sudoku without them.
  * <li>Use Coloring OR BUG (Bivalue Universal Grave). Coloring is faster and

@@ -18,6 +18,7 @@ import diuf.sudoku.io.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.checks.*;
 import diuf.sudoku.solver.hinters.*;
+import diuf.sudoku.solver.hinters.align.*;
 import diuf.sudoku.solver.hinters.align2.*;
 import diuf.sudoku.solver.hinters.als.*;
 import diuf.sudoku.solver.hinters.bug.*;
@@ -153,7 +154,14 @@ public final class LogicalSolver {
 	 * Normal people would chuck align2, but I can't because I just love how
 	 * succinct and clever it is, so I seek a magic efficiency bullet. sigh.
 	 */
-	private static final boolean USE_ALIGN2 = false; //@check false align2 slow
+	private static final boolean USE_ALIGN2 = false; //@check false
+
+	/**
+	 * true uses original BasicFisherman, which is faster than BasicFisherman1.
+	 * I reimplemented BasicFisherman looking for speed, and failed. They are
+	 * both fast enough, but BasicFisherman is faster than BasicFisherman1.
+	 */
+	private static final boolean USE_OLD_FISH = true; // @check true
 
 	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
@@ -205,7 +213,7 @@ public final class LogicalSolver {
 
 	/** These Hinters remove maybes, setting cell values only indirectly. */
 	private List<IHinter> indirects;
-	/** we locking.setIsSiamese(true) in the GUI only. */
+	/** we locking.setSiamese in the GUI only. */
 	public Locking locking;
 	/** Hidden Pair/Triple used (cheekily) by Locking to upgrade siamese
 	 * locking hints to the full HiddenSet hint, with extra eliminations. */
@@ -401,8 +409,8 @@ public final class LogicalSolver {
 		// Naked Single and Hidden Single hardcoded because not having them is
 		// crazy. DynamicPlus and NestedPlus are catch-alls. The user unwants
 		// other hinter types in the GUI, which changes the registry Settings,
-		// which the want method reads via the wantedTechs field, which I
-		// refresh at the start of this method.
+		// which the want method reads via the wantedTechs field, refreshed at
+		// the start of this method.
 
 		// Regarding execution order:
 		// The solve/etc methods just loop-through the wantedHinters list,
@@ -433,25 +441,36 @@ public final class LogicalSolver {
 		else if ( Log.MODE >= Log.NORMAL_MODE )
 			Log.println("LogicalSolver: unwanted: LockingGeneralised");
 		want(indirects, new NakedSet(Tech.NakedPair));
-		// nb: hiddenPair used (cheekily) by Locking to upgrade siamese
-		// locking hints to the full HiddenSet hint, with extra eliminations.
+		// nb: Locking cheekily uses HiddenPair to upgrade siamese locking
+		// hints to the full HiddenSet hint, with extra eliminations.
+		// Always set the variables, even in SPEED mode (search setSiamese).
 		want(indirects, hiddenPair = new HiddenSet(Tech.HiddenPair));
 		want(indirects, new NakedSet(Tech.NakedTriple));
 		// nb: hiddenTriple used (cheekily) by Locking to upgrade siamese
 		// locking hints to the full HiddenSet hint, with additional elims.
 		want(indirects, hiddenTriple = new HiddenSet(Tech.HiddenTriple));
-		want(indirects, new TwoStringKite());
-		want(indirects, new BasicFisherman(Tech.Swampfish)); // aka X-Wing
-		want(indirects, new XYWing(Tech.XY_Wing));
-		want(indirects, new XYWing(Tech.XYZ_Wing));
-		want(indirects, new WWing());
-		want(indirects, new Skyscraper());
-		want(indirects, new EmptyRectangle());
-		want(indirects, new BasicFisherman(Tech.Swordfish));
+		if ( isAccurate ) {
+			want(indirects, new TwoStringKite());
+			if ( USE_OLD_FISH )
+				want(indirects, new BasicFisherman(Tech.Swampfish)); // aka X-Wing
+			else
+				want(indirects, new BasicFisherman1(Tech.Swampfish)); // aka X-Wing
+			want(indirects, new XYWing(Tech.XY_Wing));
+			want(indirects, new XYWing(Tech.XYZ_Wing));
+			want(indirects, new WWing());
+			want(indirects, new Skyscraper());
+			want(indirects, new EmptyRectangle());
+			if ( USE_OLD_FISH )
+				want(indirects, new BasicFisherman(Tech.Swordfish));
+			else
+				want(indirects, new BasicFisherman1(Tech.Swordfish));
+		}
 
 		// heavies is the heavy weight division. Slow/er indirect hinters.
-		heavies = new ArrayList<>(isAccurate ? 42 : 0); // We're loaded Dougie!
+		heavies = new ArrayList<>(isAccurate ? 42 : 0); // TMOLTUAE (dead horse)
 		if ( isAccurate ) {
+			want(heavies, new NakedSet(Tech.NakedQuad));
+			want(heavies, new HiddenSet(Tech.HiddenQuad)); // NONE in top1465
 			// Choose BUG or Coloring or XColoring and/or 3D Mesuda or GEM.
 			// BUG is old and slow: it finds minimal hints.
 			// Coloring finds a superset of BUG's simple-coloring.
@@ -466,9 +485,10 @@ public final class LogicalSolver {
 			want(heavies, new XColoring());		 // Coloring++
 			want(heavies, new MedusaColoring()); // XColoring++
 			want(heavies, new GEM());			 // Medusa++
-			want(heavies, new NakedSet(Tech.NakedQuad));
-			want(heavies, new HiddenSet(Tech.HiddenQuad)); // NONE in top1465
-			want(heavies, new BasicFisherman(Tech.Jellyfish));
+			if ( USE_OLD_FISH )
+				want(heavies, new BasicFisherman(Tech.Jellyfish));
+			else
+				want(heavies, new BasicFisherman1(Tech.Jellyfish));
 			want(heavies, new NakedSet(Tech.NakedPent));	   // DEGENERATE
 			want(heavies, new HiddenSet(Tech.HiddenPent)); // DEGENERATE
 			want(heavies, new BigWing(Tech.WXYZ_Wing));
@@ -490,7 +510,7 @@ public final class LogicalSolver {
 			want(heavies, new ComplexFisherman(Tech.FrankenSwampfish));	// NONE
 			want(heavies, new ComplexFisherman(Tech.FrankenSwordfish));	// OK
 			want(heavies, new ComplexFisherman(Tech.FrankenJellyfish));	// OK
-			// Krakens and Mutants are interleaved: Swamp, Sword, and Jelly
+			// Krakens & Mutants interleaved: Swamp, Sword, then Jelly
 			want(heavies, new KrakenFisherman(Tech.KrakenSwampfish));	// OK
 			want(heavies, new ComplexFisherman(Tech.MutantSwampfish));	// NONE
 			want(heavies, new KrakenFisherman(Tech.KrakenSwordfish));	// SLOW
@@ -498,38 +518,34 @@ public final class LogicalSolver {
 			want(heavies, new KrakenFisherman(Tech.KrakenJellyfish));	// SLOW
 			want(heavies, new ComplexFisherman(Tech.MutantJellyfish));	// TOO SLOW
 
-			// new align2.AlignedExclusion is faster than the old align package
-			// for A2E, A3E, and A4E, which are all "relatively fast".
-			// But takes 3 times A5E, 4 times A6E, 5 times A7E; presumably and
-			// so on for A8E, A9E, and A10E; which is TOO LONG!
+			// align2 is faster than align for A234E; but takes 3 times A5E,
+			// 4 times A6E, 5 times A7E; and presumably so on for 8, 9 & 10.
+//			want(heavies, new Aligned2Exclusion()); // fast enough.
+//			want(heavies, new Aligned3Exclusion()); // fast enough.
+//			want(heavies, new Aligned4Exclusion(im)); // acceptable.
 			want(heavies, new AlignedExclusion(Tech.AlignedPair, T));
 			want(heavies, new AlignedExclusion(Tech.AlignedTriple, T));
 			want(heavies, new AlignedExclusion(Tech.AlignedQuad, F));
-			if ( USE_ALIGN2 ) {
-				// The user chooses if A5+E is correct (slow) or hacked (fast).
-				// The hacked version is about ten times faster.
-				// The hacked version finds about a third of the hints.
-				// AlignedExclusion constr read "isa"+degree+"ehacked" Setting.
+			// The user chooses if A5+E is correct (slow) or hacked (fast).
+			// The hacked version is about ten times faster.
+			// The hacked version finds about a third of the hints.
+			if ( !USE_ALIGN2 ) {
+				// wantAE reads the "isa${degree}ehacked" Setting to choose
+				// which Aligned*Exclusion (_1C or _2H) class to construct.
+				wantAE(heavies,  5, im, T); // isabeet slow! User choice.
+				wantAE(heavies,  6, im, T); // reeally slow! User choice.
+				wantAE(heavies,  7, im, T); // ____ing slow! User choice.
+				wantAE(heavies,  8, im, T); // 21yr old dog! User choice.
+				wantAE(heavies,  9, im, T); // old tortoise! User choice.
+				wantAE(heavies, 10, im, T); // conservative! User choice.
+			} else {
+				// AE constructor reads the "isa${degree}ehacked" Setting.
 				want(heavies, new AlignedExclusion(Tech.AlignedPent, T));
 				want(heavies, new AlignedExclusion(Tech.AlignedHex, T));
 				want(heavies, new AlignedExclusion(Tech.AlignedSept, T));
 				want(heavies, new AlignedExclusion(Tech.AlignedOct, T));
 				want(heavies, new AlignedExclusion(Tech.AlignedNona, T));
 				want(heavies, new AlignedExclusion(Tech.AlignedDec, T));
-			} else {
-//				want(heavies, new Aligned2Exclusion()); // fast enough.
-//				want(heavies, new Aligned3Exclusion()); // fast enough.
-//				want(heavies, new Aligned4Exclusion(im)); // acceptable.
-				// The user chooses if A5+E is correct (slow) or hacked (fast).
-				// The hacked version is about ten times faster.
-				// The hacked version finds about a third of the hints.
-				// wantAE read "isa"+degree+"ehacked" Setting to constr appr.
-				wantAE(heavies,  5, im, T); // isabeet slow! User choice.
-				wantAE(heavies,  6, im, T); // reeally slow! User choice.
-				wantAE(heavies,  7, im, T); // ____ing slow! User choice.
-				wantAE(heavies,  8, im, T); // 29yr old dog! User choice.
-				wantAE(heavies,  9, im, T); // old tortoise! User choice.
-				wantAE(heavies, 10, im, T); // conservative! User choice.
 			}
 		}
 
@@ -721,31 +737,29 @@ public final class LogicalSolver {
 	 * It exists to handle the user-selectable A*E's:<ul>
 	 * <li>A5E, A6E, A7E, A8E are user selectable (correct mode or hacked):<ul>
 	 *  <li>_2H for Hacked (fast) 2-excluder-cells finds about a third of hints
-	 *   in about a tenth of the time (ie smartass cheating bastard mode); OR
+	 *   in about a tenth of the time (ie cheating hack bastard mode); OR
 	 *  <li>_1C for Correct (slow) 1-excluder-cell mode for more hints is
 	 *   4*4*4 + 5*5*5*5 + 6*6*6*6*6 + 7*7*7*7*7*7 + 8*8*8*8*8*8*8
 	 *   + 9*9*9*9*9*9*9*9 + 9*9*9*9*9*9*9*9*9 = 432,690,476 more head-aches.
 	 *  </ul>
 	 * <li>A2E, A3E, and A4E are correct only. There is no _1C or _2H.
-	 * <li>A9E and A10E are both hacked permanently, ie checkbox disabled.
-	 *   While both these _1C classes exist they're not tested (too slow).
 	 * </ul>
-	 * NB: looking-up the class name and instantiating it through reflection
-	 * is slower than instantiating it directly, which would require a big
-	 * switch, which I don't like. This is fast enough as long as the
-	 * constructor/s and configureHinters stay off the critical path.
-	 * The downside of late-linking is design tools miss these usages.
+	 * NB: looking-up the class name and instantiating it through reflection is
+	 * slower than instantiating it directly, but requires a big switch, which
+	 * I don't like. This is fast enough as long as the constructor/s and
+	 * configureHinters stay off the critical path.<br>
+	 * The downside of soft-linking is most design tools miss these usages.
 	 * SEE: class comment block in AAlignedSetExclusionBase for more.
 	 *
 	 * @param list {@code List<IHinter>} the hinters list to add the new
 	 *  instance to
 	 * @param num the number of cells in the aligned sets to be processed
 	 * @param im interruptMonitor to pass through to the A*E
-	 * @param defaultIsHacked is false everywhere this method is used because
-	 * I'm only used on the larger (A5+E) sets, where correct is too slow, but
-	 * hacked is still acceptable. The average user does NOT care whether or
-	 * not the hint found is the simplest possible or not, so long as it's
-	 * found quickly.
+	 * @param defaultIsHacked is used the first time SE runs, to provide a
+	 *  default for "should this AlignedExclusion be hacked", meaning aligned
+	 *  around two excluder cells; which for A5+E means searching about a tenth
+	 *  of the aligned sets to find about a third of the hints; so it's MUCH
+	 *  faster, which really matters because A5+E are all really slow.
 	 */
 	private void wantAE(List<IHinter> list, int num, IInterruptMonitor im
 			, boolean defaultIsHacked) {
@@ -774,9 +788,8 @@ public final class LogicalSolver {
 		, "Nona", "Dec"
 	};
 
-	private static final IFormatter<IHinter> TECH_NAME = (IHinter h) -> h==null
-			? ""
-			: h.getTech().name();
+	private static final IFormatter<IHinter> TECH_NAME = (IHinter h) ->
+			h==null ? "" : h.getTech().name();
 
 	/** Tester Logging Only: This method is used by LogicalSolverTester to
 	 * display the names of the "wanted" hinters to the developer.
@@ -958,7 +971,8 @@ public final class LogicalSolver {
 			if ( !grid.isPrepared() ) // when we get first hint from this grid
 				prepare(grid); // prepare wanted IPreparer's to process grid
 			any = getAll(wantedHinters, grid, accu, !wantMore, isNoisy);
-			// and don't forget to revert doSiamese or Generate goes mad
+			// unset doSiamese or Generate goes mental. I'm in two minds RE
+			// putting this in a finally block: safer but slower. This works.
 			locking.clearSiamese();
 		}
 		if (Log.MODE >= Log.VERBOSE_2_MODE) {

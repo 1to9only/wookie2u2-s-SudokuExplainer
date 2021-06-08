@@ -31,9 +31,9 @@
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Sudoku Explainer is released under more or less the same conditions. Use it.
- * Change it. Booste it. But any problems are not my problem. Of course I care,
- * but I can not offer any warranties, because doing so would take all the fun
- * out of it.
+ * Change it. But any problems are not my problem. Of course I care, because I
+ * really want it to be useful, but I can not offer any warranty, because doing
+ * so takes all the fun out of it.
  */
 package diuf.sudoku.solver.hinters.color;
 

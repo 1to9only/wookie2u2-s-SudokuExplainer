@@ -44,8 +44,8 @@ import java.util.Set;
  * which I found nonsensical when I started on Sudokus, so here's a quick
  * explanation.
  * <p>
- * Locking is when a candidate is "locked&nbsp;into" a region. My names are 
- * just a bit more specific (coz that's what makes sense to me):<ul>
+ * Locking is when a candidate is "locked into" a region. My names are just a
+ * bit more specific, because that's what makes sense to me:<ul>
  * <li><b>Pointing</b> is when all candidates in a box are in one row-or-col,
  *  therefore we can remove all other candidates from the row-or-col.
  * <li>for example: both cells that maybe 5 in box1 are both in colC,
@@ -130,17 +130,12 @@ public final class Locking extends AHinter {
 	}
 
 	/**
-	 * doSiamese is only ever set to true by LogicalSolver.getAllHints (ie in
-	 * the GUI) when !wantMore (ie find first hint only).
+	 * doSiamese is set true by LogicalSolver.getAllHints (in the GUI) when
+	 * !wantMore (ie find first hint only).
 	 *
-	 * KRC 2020-08-20 I'm making LogicalSolverTester make the LogicalSolver
-	 * setSiamese in order to locate a puzzle which causes a BUG that I've
-	 * misplaced. The bug is in mergeSiameseHints when multiple-pointClaims
-	 * finds a hidden triple on the top row, but there's TWO hidden triples
-	 * there and it's finding the wrong one, and so totally buggering up the
-	 * eliminations resulting in all potential values being removed from Cell
-	 * H1 (if memory serves me correctly). I just didn't record which puzzle
-     * it was so I must go through this rigmarole just to find it again.
+	 * KRC 2020-08-20 LogicalSolverTester now makes LogicalSolver setSiamese in
+	 * order to locate the puzzle causing bug in mergeSiameseHints when it find
+	 * the wrong hidden triple (1 of 2) on top row -> kill all H1 candidates.
 	 */
 	private boolean doSiamese;
 	private HiddenSet hiddenPair, hiddenTriple;

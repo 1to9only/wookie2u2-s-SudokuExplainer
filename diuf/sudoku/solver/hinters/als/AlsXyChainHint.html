@@ -3,9 +3,9 @@
 <h2>HoDoKu ALS-Chain</h2>
 <p>
 The Chain of Almost Locked Sets (ALSs):
-<pre>{0}</pre> share the Restricted Common Candidates (RCCs) such that they
-"push" each other along the chain resulting in the z value (<b>{1}</b>)
-being in either the first or the last ALS.
+<pre>{0}</pre> share the Restricted Common Candidates (RCCs) such that they push
+each other along the chain resulting in the z value (<b>{1}</b>) being in either
+the first or the last ALS.
 <p>
 Hence values common to the first and last ALS can be removed from other cells
 which see all occurrences of that value in both the first and last ALS.
@@ -14,21 +14,21 @@ Therefore <r>we can remove <b>{4}</b></r>.
 <p>
 <u>Explanation</u>
 <p>
-The logic is: each pair of ALSs in the chain (A and B, B and C, and so on) share
-a common restricted* candidate, and if an Almost Locked Set, by definition,
-looses just one of it's values then it becomes a Locked Set. An ALS may not
-loose two values or it goes invalid. So, when we chain ALSs on there RC's, we
-know that each RC will be in this ALS or that ALS; so another value in "the
-receiving ALS" is "pushed" into the next ALS in the chain, and so on around the
-chain; so they fall-down like dominoes IN EITHER DIRECTION; so with a "loop" of
-ALSs that meet back at the first and last ALS, we can remove all values common
-to the first and last ALS from any cells outside of both ALSs which see all
-occurrences of that value in both ALSs. Simples!
+The logic is: each pair of ALSs in the chain (A-B, B-C, etc) share a common
+restricted (see below) candidate. If an ALS looses one of it's values then it
+becomes a Locked Set. An ALS may loose ONLY ONE value because it must retain a
+value for each of it's cells, in order for the Sudoku to remain valid.
+So when we chain ALSs on there RCCs, we know that each RCC will be in this ALS
+or that ALS; so another value in the receiving ALS is "pushed" into the next ALS
+in the chain, and so on around the chain; so they all fall-down like dominoes
+IN EITHER DIRECTION; so given a "loop" of ALSs meeting back at the first and
+last ALS, we can remove all values common to the first and last ALS from any
+cells outside of both ALSs which see all occurrences of that value in both of
+these two ALSs, including those in the other ALSs in the chain.
 <p>
-A "restricted" candidate is a value where all occurrences in both ALS's see
-each other, so that this value will be one ALS or the other, and in ALS chains
-only it implies that the value does not appear in the physical overlap, if any,
-of the two ALS's.
+All occurrences of a "restricted" candidate in both ALSs see each other, so that
+this value must be one ALS or the other. In ALS-Chains only it also implies that
+the value does not appear in the physical overlap, if any, of the two ALSs.
 <p>
 <!--debugMessage-->{3}
 </body>

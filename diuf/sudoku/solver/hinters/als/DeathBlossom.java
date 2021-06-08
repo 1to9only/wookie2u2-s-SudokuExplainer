@@ -135,8 +135,6 @@ public class DeathBlossom extends AAlsHinter
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {
 		super.prepare(grid, logicalSolver);
-		// re-enable me, in case I went dead-cat in the last puzzle
-		setIsEnabled(true); // use the setter!
 	}
 
 	// clean-up after the puzzle is solved

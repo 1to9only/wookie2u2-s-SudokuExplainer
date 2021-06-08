@@ -423,7 +423,7 @@ public abstract class AChainer extends AHinter
 					& ~ISHFT[cell.indexIn[rti]];
 			// (2) lookup Integer.numberOfTrailingZeros(i), and otherCell
 			// NB: you can do both in one line, and then push that into the
-			//   "new Ass" line (below), but it is totally ungrocable,
+			//   "new Ass" line (below), but it is totally ungrockable,
 			//   and its already pretty bloody hard to comprehend.
 			otherCell = region.cells[FIRST_INDEX[i]];
 

@@ -1,4 +1,4 @@
-NOTE: The ComplexFisherman and KrakenFisherman are both based on HoDoKu code
+The ComplexFisherman and KrakenFisherman are both based on HoDoKu code
 by Bernhard Hobiger.
 
 Here is hobiwan's licence statement:
@@ -21,3 +21,11 @@ Here is hobiwan's licence statement:
  * You should have received a copy of the GNU General Public License
  * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
  */
+
+===============================================================================
+
+BasicFisherman1 is a reimplementation of BasicFisherman using hobiwans "stack
+technique" to search all possible combinations of bases; because it's faster
+(but more complex) than Nicholas Juillerats Permutations technique. The next
+method of the Permutations class is still a bit slow. A stack is faster, it's
+just harder to get your head around how the bastard works.

@@ -25,7 +25,7 @@ import java.util.Iterator;
  * been populated with the next possible combination of 'nOnes' in 'nBits'.
  * <p>
  * <b>For example:</b>
- * {@code 
+ * {@code
  * final int nOnes = 3; // the number of elements in a combination
  * final int nBits = 5; // the size of the master Set
  * final int[] array = new int[nOnes]; // working storage
@@ -38,7 +38,7 @@ import java.util.Iterator;
  * System.out.println(sb);
  * }
  * generates the following binary numbers:
- * {@code 
+ * {@code
  * 00111
  * 01011
  * 01101
@@ -95,17 +95,15 @@ public final class Permutations implements Iterable<int[]> {
 			throw new IllegalArgumentException("nBits "+nBits+" > 64");
 		this.nBits = nBits;
 		this.nOnes = array.length;
-
 		// constant attributes
 		this.mask = (1L << (nBits - nOnes)) - 1;
 		this.array = array;
-
 		// mutable attributes
 		this.value = (1 << nOnes) - 1;
 		this.isLast = (nBits == 0);
 	}
 
-	// skeeky fazeekie to use this class with the original code.
+	// sneeky fazeekie to use this class with the original code.
 	public Permutations(int nOnes, int nBits) {
 		this(nBits, new int[nOnes]);
 	}
@@ -117,10 +115,14 @@ public final class Permutations implements Iterable<int[]> {
 		return result;
 	}
 
-	/** @return the next permutation.
-	 * Use <tt>Long.toBinaryString(perms.next())</tt> to see what's going on. */
+	/**
+	 * Returns the next possible combination of nOnes elements in nBits.
+	 *
+	 * @return the next permutation.
+	 * Use <tt>Long.toBinaryString(perms.next())</tt> to see what's going on.
+	 */
 	public long next() {
-		if (isLast)
+		if ( isLast )
 			return value;
 		// remember this value
 		final long v = value;
@@ -406,8 +408,8 @@ public final class Permutations implements Iterable<int[]> {
 		return sb.toString();
 	}
 
-	/** 
-	 * this main-line is a bloody hackfest, so do whatever you like with it, 
+	/**
+	 * this main-line is a bloody hackfest, so do whatever you like with it,
 	 * just preserve the existing please. You'll see how. And please tell us
 	 * what you were doing in a comment in your code.
 	 */
@@ -421,11 +423,11 @@ public final class Permutations implements Iterable<int[]> {
 			// out, so my timings are correct.
 			long start, finish;
 			start = System.currentTimeMillis();
-			
+
 			// use combinations to calculate how many combos in 10 elements in
 			// a Set of 44, to switch output back on for last 100 elements.
 			long last100 = combinations(10, 44) - 100;
-			
+
 			long i = 0;
 			for ( int[] perm : new Permutations(10,44) ) {
 				if ( ++i>100 && i<last100 ) // skip the middle
@@ -440,7 +442,7 @@ public final class Permutations implements Iterable<int[]> {
 		} else if ( false ) {
 			// Q: Verify combinations is a faster count.
 			// A: Yes it is.
-			
+
 			// numOnes is the size of a permutation: the number of 1's in each
 			// bitset produced.
 			final int numOnes = 10; // %,15d guess

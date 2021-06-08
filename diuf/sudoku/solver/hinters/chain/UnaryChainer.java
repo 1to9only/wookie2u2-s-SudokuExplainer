@@ -36,15 +36,16 @@ import java.util.Arrays;
  * KRC 2019-11-01 I've split the Chainer class into two subtypes: UnaryChainer
  * and MultipleChainer; leaving the shared methods (like offToOns and onToOffs)
  * in an abstract AChainer class. I've done this to distinguish between the two
- * mostly disjunct techniques. I find focusing-in makes the code easier to groc
- * (ie understand) despite its multi-level-ness actually making more complex.
+ * mostly disjunct techniques. Focus makes the code easier to grock, despite
+ * its multi-level-ness making it actually more complex.
+ * <p>
  * Dynamic and Unary chains have two disjunct sets of "upper level" methods;
  * they really only share the onToOff and offToOn methods, plus a few helper
- * methods; which sounds like inheritance to me. I hope Scoobie finds this
- * design easier to follow, but it is still a total bitch!
+ * methods; which sounds like inheritance to me. I find this design easier to
+ * follow, but it's still a bitch!
  */
 public final class UnaryChainer extends AChainer {
-	
+
 	// faster to create array once and clear-and-reuse it, even when only
 	// creating hint (ie not too often). The GC isnt very smart. This array
 	// is currently only used in createBidirectionalCycleHint but could be
@@ -67,8 +68,6 @@ public final class UnaryChainer extends AChainer {
 	 * @param isAggregate true if all chaining hints should be aggregated into
 	 *  one which is added to the SingleHintsAccumulator which was passed into
 	 *  the getHints method. This is set to true when Mode is SPEED.
-	 * @param firstHintNumber the number of the first hint that this Tech finds
-	 * in top1465.d5.mt... yes it's a dirty hack.
 	 * @param isImbedded true ONLY if this is an imbedded (nested) Chainer.
 	 * true prevents the superclass AChainer from caching my hints.
 	 */
@@ -121,7 +120,7 @@ public final class UnaryChainer extends AChainer {
 	 * That is do other possible positions for this value get "off"ed?
 	 * When isXChain {@code IFilter<Cell>} accepts cells with 2-or-more maybes;
 	 * when false we examine only cells with 2 potential values (ie we seek
-	 * Y-only-cycles, of which there are just a dozen in top1465, ie these 
+	 * Y-only-cycles, of which there are just a dozen in top1465, ie these
 	 * switches are a bit of a wank, IMHO).
 	 * @param isYChain look for Chains and Cycles with Y-Links:
 	 * makes onToffs(...) seek consequent naked singles (ie do other potential
@@ -334,7 +333,7 @@ public final class UnaryChainer extends AChainer {
 //			conjugatesHC = LSH8[initAss.value] ^ initAss.cell.hashCode;
 //		else
 //			conjugatesHC = 4096 ^ LSH8[initAss.value] ^ initAss.cell.hashCode;
-		
+
 		int ancestorsHC;
 		Ass a, e; // an assumption and it's effect
 		boolean found;
@@ -370,7 +369,7 @@ public final class UnaryChainer extends AChainer {
 						duQ.add(e);
 				} // wend
 			// about 1 in 3 OFFs causes an ON, so offToOns returns any?
-			} else if ( offToOns(a, toOff, true, isYChain, effects) ) { 
+			} else if ( offToOns(a, toOff, true, isYChain, effects) ) {
 				while ( (e=effects.poll()) != null ) {
 					// if the Conjugate equals our initial assumption...
 					if ( e.hashCode == conjugatesHC )

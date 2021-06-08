@@ -12,14 +12,15 @@ import java.util.ArrayList;
 import java.util.Comparator;
 
 /**
+ * Sort a file lexicographically ASCENDING.
  *
- * @author User
+ * @author Keith Corlett
  */
 public class Sort {
 	public static void main(String[] args) {
 		ArrayList<String> lines = null;
 		try {
-			lines = IO.slurp(new File(IO.HOME+"tmp.txt"));
+			lines = IO.slurp(new File(IO.HOME+"_#new.txt"));
 			lines.sort(new Comparator<String>() {
 				@Override
 				public int compare(String a, String b) {

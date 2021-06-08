@@ -38,16 +38,16 @@ public final class Regions {
 	}
 
 	// it's just faster to not do a varargs call unless you have/want to
-	public static List<ARegion> list(ARegion r1, ARegion r2) {
-		List<ARegion> regions = new ArrayList<>(2);
+	public static ArrayList<ARegion> list(ARegion r1, ARegion r2) {
+		ArrayList<ARegion> regions = new ArrayList<>(2);
 		regions.add(r1);
 		regions.add(r2);
 		return regions;
 	}
 
 	// it's just faster to not do a varargs call unless you have/want to
-	public static List<ARegion> list(ARegion r1, ARegion r2, ARegion r3) {
-		List<ARegion> regions = new ArrayList<>(3);
+	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3) {
+		ArrayList<ARegion> regions = new ArrayList<>(3);
 		regions.add(r1);
 		regions.add(r2);
 		regions.add(r3);
@@ -55,12 +55,24 @@ public final class Regions {
 	}
 
 	// I've given up and I'm doing a varargs call. This method is non-performant!
-	public static List<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4) {
-		List<ARegion> result = new ArrayList<>(4);
+	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4) {
+		ArrayList<ARegion> result = new ArrayList<>(4);
 		result.add(r1);
 		result.add(r2);
 		result.add(r3);
 		result.add(r4);
+		return result;
+	}
+
+	// I give up. Wear a varargs call. This method is non-performant!
+	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion... regions) {
+		ArrayList<ARegion> result = new ArrayList<>(4+regions.length);
+		result.add(r1);
+		result.add(r2);
+		result.add(r3);
+		result.add(r4);
+		for ( ARegion r : regions )
+			result.add(r);
 		return result;
 	}
 
@@ -73,24 +85,45 @@ public final class Regions {
 		return result;
 	}
 
-	// I give up. Wear a varargs call. This method is non-performant!
-	public static List<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion... regions) {
-		List<ARegion> result = new ArrayList<>(4+regions.length);
-		result.add(r1);
-		result.add(r2);
-		result.add(r3);
-		result.add(r4);
-		for ( ARegion r : regions )
-			result.add(r);
+	public static ArrayList<ARegion> list(int size, ARegion[] regions, int bits) {
+		return list(size, regions, INDEXES[bits]);
+	}
+
+	public static ArrayList<ARegion> list(int size, ARegion[] regions, int[] indexes) {
+		ArrayList<ARegion> result = new ArrayList<>(size);
+		for ( int i : indexes )
+			result.add(regions[i]);
 		return result;
 	}
 
-	public static List<ARegion> select(int size, ARegion[] regions
-			, Indexes indexes) {
-		List<ARegion> result = new ArrayList<>(size);
-		for ( int i : INDEXES[indexes.bits] )
-			result.add(regions[i]);
-		return result;
+	/**
+	 * Repopulate the given idx with the 'bits' cells in regions.
+	 *
+	 * @param regions
+	 * @param bits
+	 * @param idx the result Idx
+	 */
+	public static void select(ARegion[] regions, int bits, final Idx idx) {
+		idx.clear();
+		for ( int i=0; i<9; ++i )
+			if ( (bits & ISHFT[i]) != 0 )
+				idx.or(regions[i].idx);
+	}
+
+	/**
+	 * Repopulate the given array with 'bits' regions.
+	 *
+	 * @param regions to select from
+	 * @param bits bitset of indexes in regions
+	 * @param array to repopulate
+	 * @return the number of regions added to array.
+	 */
+	public static int select(ARegion[] regions, int bits, final ARegion[] array) {
+		int n = 0;
+		for ( int i=0; i<9; ++i )
+			if ( (bits & ISHFT[i]) != 0 )
+				array[n++] = regions[i];
+		return n;
 	}
 
 	public static String typeName(List<ARegion> rs) {
@@ -254,6 +287,14 @@ public final class Regions {
 			if ( used[i] )
 				mask |= REGION_TYPE_MASK[REGION_TYPE[i]];
 		return mask;
+	}
+
+	public static String toString(ARegion[] regions, int n) {
+		final StringBuilder sb = new StringBuilder(n*6);
+		sb.append(regions[0].id);
+		for ( int i=1; i<n; ++i )
+			sb.append(", ").append(regions[i].id);
+		return sb.toString();
 	}
 
 	private Regions() {} // never used

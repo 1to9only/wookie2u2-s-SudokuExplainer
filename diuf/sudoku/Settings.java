@@ -535,6 +535,7 @@ public final class Settings implements Cloneable {
 	// 6.30.126 2021-04-17 06:09:06 GEM mark 13 Moved coloring up the hinters
 	//          list and dropped slowies. Last top1465 run took 02:09.
 	// 6.30.127 2021-04-24 08:18:07 GEM mark 14 is not greedy. sigh.
+	// 6.30.128 2021-05-04 14:37:08 No real changes, just cleaning up crap.
 
 	//
 	// To Build:
@@ -571,8 +572,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.127";
-	public static final String BUILT = "2021-04-24 08:18:07";
+	public static final String VERSION = "6.30.128";
+	public static final String BUILT = "2021-05-04 14:37:08";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

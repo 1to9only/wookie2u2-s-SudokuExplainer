@@ -65,19 +65,20 @@ import javax.swing.UIManager;
  * few trivial tasks. All non-trivial tasks are delegated to other classes. So,
  * I am the business delegate, and my super-power is knowing a bit (not a lot)
  * about the GUI, and knowing all of the "action" classes, so that I can bring
- * it all together. In short: I am the glue.
+ * it all together. In short: I'm the glue.
  * <p>
  * This design keeps the GUI focused on GUI-stuff and the actions blissfully
  * unaware that there even IS a GUI. I'm the only part that knows about the GUI
- * and the actions, and the other two remain as ignorant as possible of each
- * other. Clear?
+ * and the actions, so that the other two remain ignorant of each other. If the
+ * action classes need to know about the GUI it goes via an interface that
+ * exposes only the required methods in "abstract" form.
  * <p>
  * There's a few cases, such as asking the user (IAsker), interrupting a long
  * running task (IInterruptMonitor), and reporting run statistics (IReporter)
- * where there really is no choice but for the actions to to be aware of
- * aspects of the GUI; but these "incursions" are always limited to just the
- * minimal aspect using an interface. So every-time the GUI sticks it's bits in
- * an action it does-so via an interface. Condoms are a good idea! Clear?
+ * where there really is no choice but for the actions to be aware of aspects
+ * of the GUI; but these "incursions" are always limited to the minimal
+ * required using an interface. So every-time the GUI sticks stuff in an action
+ * it does-so via an interface. Condoms are good!
  * <p>
  * So, obviously, anytime the GUI needs to know about an action it delegates
  * the details to me, by calling my "generic" (undetailed) method.
@@ -87,6 +88,9 @@ import javax.swing.UIManager;
  * classes knowledge of the GUI. Ideally actions remain blissfully unaware of
  * the existence of any GUI; which isn't always practical, so we use interfaces
  * to limit such exposure.
+ * <p>
+ * If a new web-interface is required you implement your web stuff and a new
+ * SudokuExplainerWeb. The action classes don't need to change (much, sigh).
  *
  * @see diuf.sudoku.gui.SudokuFrame
  * @see diuf.sudoku.solver.LogicalSolver

@@ -27,7 +27,16 @@ import java.util.Set;
 
 
 /**
- * A BasicFishHint is raised by the BasicFisherman.
+ * A BasicFishHint is raised by the BasicFisherman (and BasicFisherman1). It's
+ * the Data Transfer Object (DTO) of a "basic" Fish hint. It provides a textual
+ * summary of this hint in the LogicalSolverTester (where speed is THE issue),
+ * and also provides HTML to hopefully fully explain this hint to the GUI user
+ * (where speed is much less of an issue).
+ * <p>
+ * BasicFisherman is one of the FOUR QUICK FOXES in the RecursiveSolver (brute
+ * force), and in the DynamicPlus MultipleChainer (and NestedPlus); so 
+ * BasicFishHint implements IChildHint.getParents, enabling us to play "who's
+ * your daddy" with our Assumptions.
  */
 public final class BasicFishHint extends AHint implements IActualHint, IChildHint {
 
@@ -39,19 +48,18 @@ public final class BasicFishHint extends AHint implements IActualHint, IChildHin
 	 * Construct a new BasicFishHint. You can tell which fish by the degree:
 	 * 2=Swampfish, 3=Swordfish, 4=Jellyfish.
 	 * @param hinter the AHinter which created this hint.
-	 * @param valueToRemove the int value to be removed from whatever cells.
-	 * @param greenPots the highlighted (green) potential values.
-	 * @param redPots the removable (red) potential values.
+	 * @param v the int value to be removed from whatever cells.
+	 * @param greens the highlighted (green) potential values.
+	 * @param reds the removable (red) potential values.
 	 * @param bases regions to highlight in blue
 	 * @param covers regions to highlight in green
 	 * @param debugMessage appears in the hint below the title
 	 */
-	public BasicFishHint(AHinter hinter, Pots redPots, int valueToRemove
-			, Pots greenPots, List<ARegion> bases, List<ARegion> covers
-			, String debugMessage) {
-		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null, null, bases, covers);
-		this.valueToRemove = valueToRemove;
-		this.cells = greenPots.keySet();
+	public BasicFishHint(AHinter hinter, Pots reds, int v, Pots greens
+			, String debugMessage, List<ARegion> bases, List<ARegion> covers) {
+		super(hinter, AHint.INDIRECT, null, 0, reds, greens, null, null, bases, covers);
+		this.valueToRemove = v;
+		this.cells = greens.keySet();
 		this.debugMessage = debugMessage;
 	}
 
@@ -70,7 +78,7 @@ public final class BasicFishHint extends AHint implements IActualHint, IChildHin
 
 	@Override
 	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
-			, IAssSet prntOffs) {
+			, IAssSet parentOffs) {
 		MyLinkedList<Ass> result = null;
 		// make basesAndCovers null safe
 		final Collection<ARegion> bases = this.bases;
@@ -83,7 +91,7 @@ public final class BasicFishHint extends AHint implements IActualHint, IChildHin
 				  && currGrid.cells[c.i].maybes.no(v)
 				  && !Regions.contains(covers, c) ) {
 					if(result==null) result = new MyLinkedList<>();
-					result.add(prntOffs.getAss(c, v));
+					result.add(parentOffs.getAss(c, v));
 				}
 		if (result==null)
 			throw new UnsolvableException("Not a chaining hint!");

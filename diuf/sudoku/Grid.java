@@ -992,9 +992,9 @@ public final class Grid {
 	}
 
 	/**
-	 * Rebuild regions data-structures: empty-cells counts, containsValue, and
-	 * indexesOf. Done ONCE after each change to the grid. The results are
-	 * accessible via attributes, coz that's faster than method invocation.
+	 * Rebuild data-structures in all regions: emptyCellCount, containsValue,
+	 * indexesOf, and idxs. Run ONCE after each change to the grid. Results are
+	 * accessed via public attributes, which are faster than getters.
 	 */
 	public void rebuildAllRegionsS__t() {
 		// rebuild regions empty-cell counts.
@@ -1009,7 +1009,7 @@ public final class Grid {
 		// ie set the Indexes region.indexesOf[value]
 		//    of each region in regions
 		//    of each value in 1..9
-		// Medusa, GEM, Complex/Krakenfisherman
+		// basically everywhere: Locking and LockingGeneralised so always used
 		rebuildAllRegionsIndexsOfAllValues();
 		// r.idxs[v]: rebuild regions idxs of all values.
 		// XColoring, Medusa, GEM, Complex/KrakenFisherman
@@ -1546,47 +1546,44 @@ public final class Grid {
 	/**
 	 * The guts of {@link #getIdxs}: Returns an array of Idx's, one per value
 	 * 1..9 of the Grid.cells indice of each cell which maybe each value;<br>
-	 * so grid.getIdxs()[1] gets you indices of grid cells which maybe 1.
+	 * so grid.getIdxs()[1] returns indices of grid cells which maybe 1.
 	 *
-	 * @return Idx[potential value 1..9]
+	 * @return Idx[1..9]
 	 */
-	private Idx[] getIdxsImpl() {
+	private Idx[] getIdxsActual() {
+		// rebuild the cached array
 		for ( int v=1; v<10; ++v )
 			idxs[v].unlock().clear();
 		for ( Cell cell : cells )
-			if ( cell.maybes.bits != 0 ) // ie cell.value==0, cell is not set
+			if ( cell.maybes.bits != 0 ) // ie cell is not set
 				for ( int v : VALUESES[cell.maybes.bits] )
 					idxs[v].add(cell.i);
 		for ( int v=1; v<10; ++v )
-			idxs[v].lock(); // so it'll throw RTE when you try to change it
+			idxs[v].lock(); // make it throw RTE when you try to change it
 		// set the caching-control fields for the getIdxs method
 		idxsPuzzleID = puzzleID;
 		idxsHintNumber = AHint.hintNumber;
-		// return the array (which is cached in a private field)
+		// return the cached array
 		return idxs;
 	}
-
-	/**
-	 * Returns the existing indices if the AHint.hintNumber is the same (ie
-	 * this Grid is the same) as last time indices were calculated, otherwise
-	 * return getIdxsActual() to calculate the new indices and return them.
-	 * @return the indices for the current grid
-	 */
-	public Idx[] getIdxs() {
-		// re-populate idxs when grid has changed, or it's a new puzzle
-		if ( idxsHintNumber==AHint.hintNumber && idxsPuzzleID==puzzleID )
-			return idxs;
-		return getIdxsImpl();
-	}
-	/** idxs[value] is the indices in this Grid which maybe value 1..9.
-	 * You {@code Idx[] idxs = grid.getIdxs()}. The idxs are private and remain
-	 * empty until YOU call getIdxs(), unlike most Grid fields. */
+	// indices of cells in this Grid which maybe each value 1..9
 	private final IdxL[] idxs = new IdxL[] {
 		  null      , new IdxL(), new IdxL(), new IdxL(), new IdxL()
 		, new IdxL(), new IdxL(), new IdxL(), new IdxL(), new IdxL()
 	};
 	private long idxsPuzzleID; // 0 is invalid, to fire first time
 	private int idxsHintNumber; // 0 is invalid, to fire first time
+
+	/**
+	 * Returns the existing indices if hintNumber and puzzleID are the same as
+	 * last time, otherwise getIdxsActual() rebuilds and returns them.
+	 * @return the indices for the current grid
+	 */
+	public Idx[] getIdxs() {
+		if ( idxsHintNumber==AHint.hintNumber && idxsPuzzleID==puzzleID )
+			return idxs;
+		return getIdxsActual();
+	}
 
 	/**
 	 * Re-index the values in the regions. Sets each regions.idxsOf array field

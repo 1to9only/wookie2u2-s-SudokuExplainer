@@ -1,0 +1,16 @@
+The chain package is the acme of the original DIUF Sudoku Explainer by Nicolas
+Juillerat, which HEAVILY relied upon chaining to find lots of hints which can,
+and therefore now are, found by simpler but slower (when added up) techniques.
+
+2021-04-27 the current implementation has a funky design. AChainer implements
+IHinter's findHints method to cache hints, delegating to actuallyFindTheHints
+of each of it's two subclasses, UnaryChainer and MultipleChainer.
+
+UnaryChainer finds single-value chains and bidirectional cycles.
+
+MultipleChainer does all the rest; it finds chains on two-or-more values. It
+handles "dynamic" chaining; where the state of the grid is updated to reflect
+the current set of assumptions, so that we can optionally run hinters to find
+eliminations that are applied back to our working grid. It even does nesting,
+where one chainer uses another simpler chainer, so we're making assumptions on
+our assumptions; which is always fun.
