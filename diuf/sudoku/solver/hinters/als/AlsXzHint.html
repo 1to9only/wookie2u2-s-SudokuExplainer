@@ -8,38 +8,40 @@ The two Almost Locked Sets (ALSs):<pre>
 </pre>
 share the Restricted Common Candidate (RCC) x = {2}{6}.
 <p>
-All x's ({2}'s) in both ALSs see each other (that's the Restriction) so only one
-of these two ALSs can contain a {2}, so the other ALS will contain the other
-common value z {3}.
+All x = {2}'s in both ALSs see each other (that's the Restriction) so only one of
+these two ALSs will contain a {2}, so the other ALS will contain the other common
+value z = {3}.
 <p>
-Hence no cell which sees all {3}'s in both ALSs may be {3}.
+Hence {3} is eliminated from external cells seeing all {3}'s in <u>both</u> ALSs.
 <p>
 Therefore <r>we can remove <b>{4}</b></r>. 
 <p>
 <u>Explanation</u>
 <p>
-The logic is: all x's in these two ALS's see each other, so that x will be in
+The logic is: all x's in these two ALS's see each other, so that x must be in
 one of these two ALS's, which "pushes" the other common value z into the other
-ALS (we don't know yet which is which), so other cells which see all z's in
-both ALS's are history.
+ALS. We don't yet know which ALS is which, but that doesn't matter because we
+eliminate only from cells seeing all z's in <u>both</u> of these ALSs.
 <p>
-The "push" is the tricky bit. Each ALS may loose only <u>one</u> value before it goes
-invalid. If ALS-A has {2} it pushes the {3} into the other ALS. ALS-A cannot
-have both {2} and {3} because it leaves ALS-B with insufficient values to cover
-it's cells. Hence the other common value z ({3}) is "pushed" into the other ALS.
+The "push" is tricky. The rule is that each ALS can loose only <u>one</u> value before
+going invalid. But why? ALS-A cannot contain both {2} and {3} because that leaves
+ALS-B with not enough values to place one value in each of its cells; ergo the
+Sudoku is invalid, and we MUST avoid sending the Sudoku invalid.
 <p>
 <u>ALS Blurb</u>
 <p>
 An "Almost Locked Set" (ALS) is exactly what it sounds like.
-A Naked/Hidden Pair/Triple/Quad/etc is a "Locked Set",
-and an ALS is "almost locked" because it has just has one more potential value
-than its number of cells, so if any value where removed from those cells it
-becomes a Locked Set. Further, each ALS may loose only one value before it
-goes invalid because it has insufficient potential values to fill it's cells.
+A Naked Pair/Triple/Quad/etc is the simplest "Locked Set", and an ALS is "almost
+locked" because it has just has one more potential value than its number of
+cells, so if any value where removed from those cells it becomes a Locked Set.
+Further, each ALS may loose only one value before it goes invalid because 
+eliminating a second value leaves it with insufficient potential values to fill
+all of it's cells.
 <p>
 ALSs are not very useful until we chain them together in groups of 2=ALS-XZ,
 3=ALS-Wing, or more=ALS-Chains; or Death Blossom, or Big Wings, or whatever;
-the point is that additional logic is applied to ALS's to produce hints.
+the point is that additional logic needs to be applied to ALSs in order to
+produce a hint.
 <p>
 An ALS-XZ is an ALS-Chain of length 2. ALS-XZs and ALS-Wings have slightly
 different rules, so they are handled separately to ALS-Chains, and so have

@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
@@ -40,12 +41,17 @@ import java.util.Set;
 /**
  * Implementation of Locking (Pointing and Claiming) solving techniques.
  * <p>
- * "Pointing" and "Claiming" are collectively known as "Locking", a term
- * which I found nonsensical when I started on Sudokus, so here's a quick
- * explanation.
+ * Locking is when a candidate is "locked into" a region; ie when these are
+ * the only cells in a region that maybe this value then one of them MUST
+ * be this value (each value must appear in each region), eliminating the
+ * value from other cells in other region/s common to all cells in the set.
  * <p>
- * Locking is when a candidate is "locked into" a region. My names are just a
- * bit more specific, because that's what makes sense to me:<ul>
+ * Note that in "standard" Sudoku with region types: box, row, and col there
+ * is only one other possible type-of-region common to two-or-more cells. For
+ * a box it's either a row or a col; and for a row-or-col it's a box; hence I
+ * have decomposed Locking into Pointing and Claiming; because I found the term
+ * Locking nonsensical when I started my Sudoku journey (I get it now), so here
+ * are my definitions of my preferred "simpler" terms:<ul>
  * <li><b>Pointing</b> is when all candidates in a box are in one row-or-col,
  *  therefore we can remove all other candidates from the row-or-col.
  * <li>for example: both cells that maybe 5 in box1 are both in colC,
@@ -61,13 +67,12 @@ import java.util.Set;
  * Locking may use a HintsApplicumulator to apply each Pointing and Claiming
  * hint as soon as it is found, so that "all" hints are applied in one pass
  * through the grid. Then I add a AppliedHintsSummaryHint to the "normal"
- * Single/Default/Chains IAccumulator to pass the eliminatedMaybesCount back
- * to the {@code apply()} method (to keep track of "the score").
+ * Single/Default/Chains IAccumulator to pass nElims back to {@code apply()} 
+ * to keep track of "the score".
  * <p>
  * NB: If you implement Resetable you'll need to put a null apcu check in the
- * existing reset method, because LogicalSolver reset will invoke it when
- * there is nothing to be reset because apcu remains null when I'm created
- * outside of the RecursiveAnaylser (ie in "normal" mode).
+ * existing reset method, coz LogicalSolver calls reset when there's nothing
+ * to reset; ie outside of RecursiveAnaylser; ie "normal" mode.
  * <p>
  * KRC 2020-02-29 Added mergeSiameseHints and eliminateSubsets to this already
  * too-complex class. Used only in the GUI when !wantMore && !isFilter.
@@ -77,7 +82,7 @@ import java.util.Set;
  * eliminateSubsets occurred to me after implementing siamese to remove any/all
  * hints which have been superceeded by an "upgraded" HiddenSetHint (but beware
  * it works with ALL hints in the accu), so that the best (highest score) hint
- * is selected, so I can just press enter again.
+ * is selected, so that I can just press enter again.
  */
 public final class Locking extends AHinter {
 
@@ -87,7 +92,9 @@ public final class Locking extends AHinter {
 	// each region of each effected cell, and it's maybes before eliminations
 	private final RegionQueue dirtyRegions;
 
-	/** Default Constructor. */
+	/**
+	 * Constructor for "normal mode".
+	 */
 	public Locking() {
 		super(Tech.Locking);
 		this.apcu = null;
@@ -174,8 +181,8 @@ public final class Locking extends AHinter {
 			// nb: unusual bitwise-or operator (|) so they're both executed.
 			boolean result = pointing(grid, accu)
 						   | claiming(grid, accu);
-			// GUI only: remove any hints whose eliminations are a subset of
-			// any other hints eliminations.
+			// GUI only: siamese: remove any hints whose eliminations are a
+			// subset of any other hints eliminations.
 			if ( result && accu instanceof HintsAccumulator && accu.size()>1
 			  // don't do this if isFilteringHints is off, so user sees all
 			  && Settings.THE.getBoolean(Settings.isFilteringHints, false) )
@@ -188,9 +195,9 @@ public final class Locking extends AHinter {
 		//
 		// CAUTION: Seriously Weird S__t!
 		//
-		// This instance was created with a HintsApplicumulator which we use
-		// to apply all point & claim hints in one pass through the regions
-		// within the RecursiveAnalyser, because it's a bit quicker that way.
+		// I was created by RecursiveAnalyser with a HintsApplicumulator to
+		// apply all point and claim hints in one pass through the regions.
+		// It's just a bit quicker that way.
 		//
 		// We do an exhaustive search, so that when a maybe is removed from a
 		// region that's already been searched we search it again. This is a
@@ -349,8 +356,7 @@ public final class Locking extends AHinter {
 					// get the 2-or-3 cells in base which maybe v
 					// nb: when we get here we're ALWAYS gonna create a hint,
 					// so it's OK to create the cells array which we'll need.
-					cells = Grid.cas(card);
-					cnt = box.maybe(VSHFT[v], cells);
+					cnt = box.maybe(VSHFT[v], cells=Cells.array(card));
 					assert cnt == card;
 					hint = createHint("Point", box, cover, cells, card, v, grid);
 					if ( hint != null ) {
@@ -434,7 +440,7 @@ public final class Locking extends AHinter {
 //if ( isDirty )
 //	Debug.breakpoint();
 					// borrow the cells array
-					cells = Grid.cas(card);
+					cells = Cells.array(card);
 					cnt = base.maybe(VSHFT[v], cells);
 					assert cnt == card;
 					// create the hint and add it to the accumulator
@@ -744,7 +750,7 @@ public final class Locking extends AHinter {
 			else
 				continue;
 			if ( r2.indexesOf[v].size > card ) {
-				box.maybe(VSHFT[v], cells=Grid.cas(card));
+				box.maybe(VSHFT[v], cells=Cells.array(card));
 				hint = createHint("PointFrom", box, r2, cells, card, v, grid);
 				if ( hint != null ) {
 					result |= true;
@@ -768,7 +774,7 @@ public final class Locking extends AHinter {
 				|| ((b & ROW2)==b && (offset=1)==1)
 				|| ((b & ROW3)==b && (offset=2)==2) )
 			  && line.crossingBoxs[offset].indexesOf[v].size > card ) {
-				line.maybe(VSHFT[v], cells=Grid.cas(card));
+				line.maybe(VSHFT[v], cells=Cells.array(card));
 //// java.lang.AssertionError: BAD Claim: empty redPots at row 4 -> box 4 on 3 in [D1:2{15}, D2:2{45}]
 //if ( line==grid.rows[3] && line.crossingBoxs[offset]==grid.boxs[3] && v==3 )
 //	Debug.breakpoint();

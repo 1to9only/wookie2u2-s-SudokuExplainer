@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -21,22 +21,21 @@ import java.util.List;
 
 
 /**
- * DeathBlossom implements the Death Blossom solving technique.
+ * DeathBlossom implements the Death Blossom Sudoku solving technique.
  * <p>
  * Explanation from https://www.sudopedia.org/wiki/Solving_Technique
  * <p>
- * A Death Blossom consists of a "stem" cell and an Almost Locked Set (or ALS)
+ * A Death Blossom consists of a stem cell and an Almost Locked Set (or ALS)
  * for each of the stem cell's candidates. The ALS associated with a particular
  * stem candidate has that value as one of its own candidates, and within the
  * ALS, every cell that has the value as a candidate sees the stem cell. The
  * ALSs can't overlap; ie no cell can belong to more than one ALS. Also, there
  * must be at least one value that is a candidate of every ALS, but is not a
- * candidate of the stem cell [, this is the value/s to eliminate].
+ * candidate of the stem cell; these are the value/s (usually one) to eliminate.
  * <p>
- * Once we've found a Death Blossom, if an outside cell that doesn't belong to
- * one of the ALSs (and isn't the stem cell) sees every cell in each ALS that
- * has that value as a candidate, and the value isn't a candidate of the stem
- * cell, then that value can be eliminated from the outside cell.
+ * Having found a Death Blossom, if an outside cell (not in the ALSs) sees all
+ * occurrences of that value (which is in all the ALSs and not in the stem) in
+ * the DeathBlossom, then we can eliminate that value from the outside cell.
  *
  * @author Keith Corlett 2020-01-13
  */
@@ -145,9 +144,15 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	/**
-	 * Finds first/all Death Blossoms in the given Grid. This findHints method
-	 * is called via my supers IHinter findHints method, passing the rccs,
-	 * alss, and candidates (these are common to all als hinters).
+	 * Finds first/all Death Blossoms in the given Grid.
+	 * <p>
+	 * This findHints method is called via my supers IHinter findHints method,
+	 * passing the rccs, alss, and candidates (common to all als hinters).
+	 * <p>
+	 * I call the recurse method for each eligible "stem" cell; recurse
+	 * associates each stem candidate with an ALS containing that value,
+	 * and then searches each completed Death Blossom for eliminations.
+	 *
 	 * @return any hint/s found?
 	 */
 	@Override
@@ -178,14 +183,16 @@ public class DeathBlossom extends AAlsHinter
 					// this ALS, then file this ALS under v.
 					if ( als.vBuds[v].any() )
 						alssByValue[v].add(als);
-			// get grid cells with 2..3 maybes: 2 is mandatory. The 3 is coz
-			// I find 0 hints on stems with 4+ maybes in top1465, but this may
-			// be wrong for other puzzles! Everything else handles 4.
+			// get grid cells with 2..3 maybes: 2 is mandatory. 3 is because I
+			// find 0 hints on stems with 4+ maybes in top1465, but may occurr
+			// in other puzzles. All the other code handles 4. For correctness
+			// you should bump the < 4 upto < 5, until it is proven that 4 can
+			// never produce a hint, as I suspect. Sometimes I'm too efficient.
 			final Idx stems = grid.getEmptiesWhere((c) -> {
 				return c.maybes.size < 4;
 			});
 			// foreach empty cell in the grid
-			for ( Cell stem : stems.cells(grid) ) { // Iterator. Meh!
+			for ( Cell stem : stems.cells(grid) ) {
 				// initialise DeathBlossom data
 				db.cands = 0; // empty
 				// the stem.maybes to assign to each ALS
@@ -226,7 +233,7 @@ public class DeathBlossom extends AAlsHinter
 				// vBuds[v] is buddies common to all ALS.cells which maybe v
 				if ( als.vBuds[v].contains(stem.i)
 				  // the ALSs can't overlap
-				  && !db.idx.andAny(als.idx)
+				  && db.idx.andNone(als.idx)
 				  // the ALSs share a common maybe other than stem.maybes
 				  && (db.cmnCands & als.maybes) != 0
 				) {
@@ -238,7 +245,8 @@ public class DeathBlossom extends AAlsHinter
 					db.freeCands &= ~VSHFT[v];
 					db.alssByValue[v] = als;
 					db.idx.or(als.idx);
-					// try to find an ALS for the next freeCand
+					// try to find an ALS for the next freeCand, or if there
+					// are none then search this completed DB for eliminations
 					if ( (result|=recurse(stem)) && onlyOne )
 						return result; // exit early
 					// remove this ALS from my DeathBlossom
@@ -258,18 +266,20 @@ public class DeathBlossom extends AAlsHinter
 			// * The ALSs share atleast one common maybe, not in stem.maybes.
 			//   If an outside cell (not in ALSs or stem) sees all cells in all
 			//   ALSs which maybe value, then eliminate value from that cell.
-			// get all cells in DB which maybe each value common to all DBs.
+			// get cells which maybe each value common to all ALSs.
 			db.clearVs();
-			for ( int v : VALUESES[stem.maybes.bits] ) // to get the ALS
+			for ( int v : VALUESES[stem.maybes.bits] ) // to get each ALS
 				for ( int cv : VALUESES[db.cmnCands] ) // common value
 					db.vs[cv].or(db.alssByValue[v].vs[cv]);
 			// populate theReds field with removable Cell=>Values
+			// foreach value that is common to all ALSs in this DeathBlossom
+			// which is NOT a candidate of the stem-cell. In order to get here
+			// at least one cv exists.
 			for ( int cv : VALUESES[db.cmnCands] ) {
-				// victims = cells which see all cv's in the DB
-				db.vs[cv].commonBuddies(victims);
-				victims.and(candidates[cv]); // which maybe cv
-				victims.andNot(db.idx); // not in the DB
-				victims.remove(stem.i); // not the stem cell
+				// build the victims Idx = cells which:
+				db.vs[cv].commonBuddies(victims); // sees all cv's in the DB
+				victims.and(candidates[cv]); // and maybe cv itself
+				victims.andNot(db.idx); // and is not in any of the ALSs
 				if ( victims.any() )
 					victims.forEach(grid.cells, (c)->theReds.upsert(c, cv));
 			}

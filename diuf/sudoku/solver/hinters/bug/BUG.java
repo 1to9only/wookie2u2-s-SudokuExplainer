@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.bug;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
@@ -115,7 +116,7 @@ public final class BUG extends AHinter
 
 			V_LOOP: for ( v=1; v<10; ++v ) {
 
-				// skip if value is placed in region, or has 2 possible positions
+				// skip if value is placed in region, or has 2 places
 				if ( (card=region.indexesOf[v].size)==0 || card==2 )
 					continue;
 
@@ -135,9 +136,8 @@ public final class BUG extends AHinter
 //++bcCnt;
 				// BUG BugCell pass 45,309 of 46,421 = skip 2.40%
 				if ( newBugCell == null )
-					// v appears more than once, but no cell has more than two
-					// potential values, therefore this is not a BUG pattern.
-					return false;
+					// no cell has more than two potential values.
+					return false; // not a BUG
 //++bcPass;
 
 				// Good: a new BUG cell has been found
@@ -157,7 +157,7 @@ public final class BUG extends AHinter
 						sc.canNotBe(v); // throws UnsolvableException
 				} catch (UnsolvableException ex) { // should never happen
 					// v was the last potential value for the cell
-					return false; // Not a BUG newBugCell has no potential values remaining
+					return false; // not a BUG
 				}
 
 				// and add bugCells siblings to the set of common siblings
@@ -172,7 +172,7 @@ public final class BUG extends AHinter
 				// BUG NonBug  pass 38,532 of 45,309 = skip 14.96%
 //++nbCnt;
 				if ( bcPots.size()>1 && allBugValues.size>1
-				  && cmnSibsIdx.isEmpty() )
+				  && cmnSibsIdx.none() )
 					return false; // None of type 1, 2 or 3
 //++nbPass;
 
@@ -219,7 +219,7 @@ public final class BUG extends AHinter
 			if ( numBugCells == 2 )
 				// Yeah, Potential BUG type-4 pattern found
 				result |= addBug4Hint();
-		} else if ( !cmnSibsIdx.isEmpty() ) {
+		} else if ( !cmnSibsIdx.none() ) {
 			if ( numBugCells == 2 )
 				// Yeah, Potential BUG type-4 pattern found
 				result = addBug4Hint();
@@ -240,7 +240,7 @@ public final class BUG extends AHinter
 
 	private boolean addBug2Hint(Grid grid) {
 		// check that cells were found
-		if ( cmnSibsIdx==null || cmnSibsIdx.isEmpty() )
+		if ( cmnSibsIdx==null || cmnSibsIdx.none() )
 			return false;
 		assert allBugValues.size == 1;
 		int v = allBugValues.first(); // theBugValue
@@ -272,7 +272,7 @@ public final class BUG extends AHinter
 	 */
 	private boolean addBug3Hint(Grid grid) {
 		boolean result = false;
-		assert !cmnSibsIdx.isEmpty();
+		assert !cmnSibsIdx.none();
 		assert bcPots.size()!=1 && allBugValues.size!=1;
 		// common cells list
 		ArrayList<Cell> ccsList = new ArrayList<>(cmnSibsIdx.size());
@@ -290,13 +290,14 @@ public final class BUG extends AHinter
 			// how many common cells are there
 			final int n = ccsList.size();
 			// common cells array
-			Cell[] ccsArray = ccsList.toArray(new Cell[n]);
+//			Cell[] ccsArray = ccsList.toArray(new Cell[n]);
+			Cell[] ccsArray = ccsList.toArray(Cells.array(n));
 			// foreach dd (degree) between (greater of 2 or n) and 6
 			for ( int dd=Math.max(2, n); dd<7; ++dd ) {
 				final int cc = dd - 1; // degreeMinusOne (cc is dd-1, right?)
 				// NB: create these once per degree, not per permutation
 				Values[] potentialValueses = new Values[dd];
-				Cell[] nakedCells = Grid.cas(cc); // something borrowed!
+				Cell[] nakedCells = Cells.array(cc); // something borrowed!
 				Values otherCmnValues = new Values();
 				// foreach possible combination of the missing $degree-1 cells
 				P_LOOP: for ( int[] perm : new Permutations(n, IAS[cc]) ) {
@@ -362,7 +363,7 @@ public final class BUG extends AHinter
 	private boolean addBug4Hint() {
 		boolean result = false;
 		assert bcPots.size()==2;
-		assert allBugValues.size==1 || !cmnSibsIdx.isEmpty();
+		assert allBugValues.size==1 || !cmnSibsIdx.none();
 		// get the two BUG cells
 		Cell c1, c2;
 		{	// This block just localises 'it'.

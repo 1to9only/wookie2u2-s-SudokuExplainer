@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -175,8 +175,9 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	// these methods set this Indexes outright, overwritting existing.
 
-	/** Copies the indexes from 'src' into this Indexes Set. */
-	void copyFrom(Indexes src) {
+	/** Set this Indexes state to that of the 'src'; called copy to avoid any
+	 * conflict with the established set methods. */
+	void copy(Indexes src) {
 		this.bits = src.bits;
 		this.size = src.size;
 	}

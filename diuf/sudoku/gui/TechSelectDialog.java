@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -42,7 +42,7 @@ class TechSelectDialog extends JDialog {
 	private static final long serialVersionUID = -7071292711961723801L;
 
 	private final SudokuExplainer engine;
-	private final SudokuFrame parentSudokuFrame;
+	private final SudokuFrame parentFrame;
 
 	private JPanel contentPanel = null;
 	private JPanel northPanel = null;
@@ -60,7 +60,7 @@ class TechSelectDialog extends JDialog {
 	TechSelectDialog(SudokuFrame parent, SudokuExplainer engine) {
 		super(parent, "Solving Techniques Selection", true);
 		this.engine = engine;
-		this.parentSudokuFrame = parent;
+		this.parentFrame = parent;
 		initialise();
 		fillTechniques();
 	}
@@ -86,18 +86,13 @@ class TechSelectDialog extends JDialog {
 
 			boolean enable = true;
 			final JCheckBox chk = new JCheckBox();
-			chk.setText( Frmt.enspace(tech.name()) );
+			chk.setText(Frmt.dbl(tech.difficulty)+" "+Frmt.enspace(tech.name()));
 			chk.setToolTipText(tech.tip);
 
-			// these techs are all hardcoded ON (you can't unwant them).
+			// "core" techs are always wanted, so the user can't unwant them.
 			switch (tech) {
 			case NakedSingle:
 			case HiddenSingle:
-			case DynamicPlus:
-			case NestedPlus: // NestedPlus is actually softcoded on, but it's
-							 // the ultimate catch-all, so don't tell users!
-							 // Programmers can just comment this line out in
-							 // order to deselect NestedPlus.
 				chk.setSelected(true);
 				chk.setEnabled(false);
 				enable = false;
@@ -124,6 +119,7 @@ class TechSelectDialog extends JDialog {
 				case Swampfish:
 				case Swordfish:
 				case Jellyfish:
+				case WXYZ_Wing:
 				case FinnedSwampfish:
 				case FrankenSwampfish:
 				case KrakenSwampfish:
@@ -171,7 +167,7 @@ class TechSelectDialog extends JDialog {
 							wantedTechs.add(tech);
 						} else
 							wantedTechs.remove(tech);
-						
+
 					}
 				});
 			}
@@ -192,7 +188,7 @@ class TechSelectDialog extends JDialog {
 			}
 		} // next tech
 	}
-	
+
 	// uncheck the JCheckBox of the given Tech and remove it from wantedHinters
 	private void unselect(Tech tech) {
 		wantedTechs.remove(tech);
@@ -295,6 +291,15 @@ class TechSelectDialog extends JDialog {
 	}
 
 	private void setWantedRules() {
+		// I want to require DynamicPlus OR NestedUnary+, but still allow the
+		// user to override that requirement. If you override then you risk not
+		// finding solutions to puzzles that SE can solve. Just be patient!
+		// Note that DynamicPlus only misses on the HARDEST Sudoku puzzles,
+		// but NestedUnary and everything thereafter ALWAYS hint!
+		if ( !anyWanted(Tech.DynamicPlus, Tech.NestedUnary, Tech.NestedMultiple
+				, Tech.NestedDynamic, Tech.NestedPlus)
+		  && !confirmNoSafetyNet() )
+			return;
 		// Coloring xor BUG (you can have neither, but not both).
 		// Coloring finds a superset of BUG hints, and is faster.
 		// I should probably remove BUG altogether, for simplicity.
@@ -305,8 +310,28 @@ class TechSelectDialog extends JDialog {
 		setVisible(false);
 		engine.clearHints();
 		engine.recreateLogicalSolver();
-		parentSudokuFrame.refreshDisabledRulesWarning();
+		parentFrame.refreshDisabledRulesWarning();
 		dispose();
+	}
+
+	// does wantedTechs.containsAny(techs)?
+	private boolean anyWanted(Tech... techs) {
+		for ( Tech t : techs )
+			if ( wantedTechs.contains(t) )
+				return true;
+		return false;
+	}
+	
+	private static final String NO_SAFETY_NET_QUESTION = 
+"Select \"Dynamic Plus\" as a safety-net for \"normal\" Sudoku puzzles;"+System.lineSeparator()
++"and/or \"Nested Unary\" as a safety-net for ALL Sudoku puzzles,"+System.lineSeparator()
++"or alternately Nested Multiple/Dynamic/Plus. If you don't select"+System.lineSeparator()
++"a catch-all you risk not getting solutions to Sudoku puzzles that"+System.lineSeparator()
++"Sudoku Explainer can actually solve. Just be patient!"+System.lineSeparator()
++"Do you wish to ignore this most excellent advice and continue anyway?";
+
+	private boolean confirmNoSafetyNet() {
+		return parentFrame.ask(NO_SAFETY_NET_QUESTION, "Confirm no safety-net");
 	}
 
 	private JPanel getCancelButtonPanel() {

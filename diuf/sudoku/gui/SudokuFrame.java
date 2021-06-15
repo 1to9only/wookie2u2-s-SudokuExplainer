@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.regex.Pattern;
 import javax.swing.*;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.event.*;
@@ -79,6 +80,16 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	private static final long serialVersionUID = 8247189707924329043L;
+
+	// these are just shorthand because the longhand is annoying
+	private static final int B1 = MouseEvent.BUTTON1;
+	private static final int B2 = MouseEvent.BUTTON2;
+	private static final int B3 = MouseEvent.BUTTON3;
+
+	// these are just shorthand because the longhand is alloying
+	private static final int SHIFT = Event.SHIFT_MASK;
+	private static final int ALT = Event.ALT_MASK;
+	private static final int CTRL = Event.CTRL_MASK;
 
 	private static final Font DIALOG_BOLD_12 = new Font("Dialog", Font.BOLD, 12);
 
@@ -226,15 +237,12 @@ final class SudokuFrame extends JFrame implements IAsker {
 	/**
 	 * Sets the contents of the hintsTree JTree control.
 	 */
-	void setHintsTree(HintNode root, HintNode selected, boolean isFilterEnabled) {
+	void setHintsTree(HintNode root, HintNode selected) {
 		getHintsTree();
 		hintsTree.setEnabled(false);
 		hintsTree.setModel(new DefaultTreeModel(root));
 		// Dis/enable the Filter checkbox and menu item.
 		chkFilterHints.setSelected(Settings.THE.get(Settings.isFilteringHints));
-// isFilterEnabled is now ignored: @todo remove isFilterEnabled param
-// otherwise you can't turn off filterHints when it filters down to one hint
-//		chkFilterHints.setEnabled(isFilterEnabled);
 		chkFilterHints.setEnabled(true);
 		mitFilterHints.setSelected(chkFilterHints.isSelected());
 		mitFilterHints.setEnabled(chkFilterHints.isEnabled());
@@ -248,7 +256,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	 * Clears the contents of the hintsTree JTree control.
 	 */
 	void clearHintsTree() {
-		setHintsTree(EMPTY_HINTS_TREE, null, false);
+		setHintsTree(EMPTY_HINTS_TREE, null);
 	}
 
 	/**
@@ -593,13 +601,13 @@ final class SudokuFrame extends JFrame implements IAsker {
 				int btn = e.getButton();
 				int cnt = e.getClickCount();
 				int mod = e.getModifiersEx();
-				if (btn == MouseEvent.BUTTON1 && cnt == 2) {
+				if ( btn==B1 && cnt==2 ) {
 					// double-left-click: as per VK_ENTER
 					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
 					e.consume();
-				} else if (btn == MouseEvent.BUTTON3 && cnt == 1) {
+				} else if ( btn==B3 && cnt==1 ) {
 					// single-right-click
-					if ((mod & InputEvent.CTRL_DOWN_MASK) != 0) {
+					if ( (mod & InputEvent.CTRL_DOWN_MASK) != 0 ) {
 						// Ctrl-single-right-click
 						if (!engine.copyUnfilteredHintsListToClipbard()) {
 							engine.beep();
@@ -737,6 +745,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 		lblPuzzleRating.setText("0.00");
 	}
 
+	private static final Pattern CELL_ID_PATTERN = Pattern.compile("[A-I][1-9]");
+
 	private JEditorPane getHintDetailPane() {
 		if (hintDetailPane != null) {
 			return hintDetailPane;
@@ -756,14 +766,20 @@ final class SudokuFrame extends JFrame implements IAsker {
 			@Override
 			public void mouseClicked(java.awt.event.MouseEvent e) {
 				final int btn = e.getButton();
-				if ( (btn==MouseEvent.BUTTON2 || btn==MouseEvent.BUTTON3)
-				  && e.getClickCount() == 1 ) {
-					// single-right-click
+				final int clks = e.getClickCount();
+				// right-click: copy the html-text to the clipboard
+				if ( clks==1 && (btn==B2 || btn==B3) ) {
 					if (hintDetailHtml != null)
 						engine.copyToClipboard(hintDetailHtml);
 					else
 						engine.beep();
 					e.consume();
+				// double-left-click: if the selected text looks like a cell id
+				// then focus on (yellow background) that cell in the grid.
+				} else if ( clks==2 && btn==B1 ) {
+					final String id = hintDetailPane.getSelectedText();
+					if ( id.length()==2 && CELL_ID_PATTERN.matcher(id).matches() )
+						gridPanel.setFocusedCellS(id);
 				}
 			}
 		});
@@ -860,7 +876,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			}
 		});
 		return hintDetailPane;
-		
+
 	}
 
 	private JScrollPane getHintsTreeScrollPane() {
@@ -940,8 +956,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					int mod = e.getModifiers();
-					boolean wantMore = (mod & ActionEvent.SHIFT_MASK) != 0;
-					boolean wantSolution = (mod & ActionEvent.CTRL_MASK) != 0;
+					boolean wantMore = (mod & SHIFT) != 0;
+					boolean wantSolution = (mod & CTRL) != 0;
 					getAllHintsInBackground(wantMore, wantSolution);
 				}
 			});
@@ -1368,8 +1384,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 						GenerateDialog gd = generateDialog;
 						if (gd != null && IO.GENERATED_FILE.equals(src.file)) {
 							gd.setVisible(true);
-							gd.requestFocusInWindow();
 							gd.generate();
+							hintsTree.requestFocusInWindow();
 							return;
 						}
 						// load the next puzzle

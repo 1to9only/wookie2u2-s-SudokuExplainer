@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gen;
@@ -10,13 +10,10 @@ import diuf.sudoku.Difficulty;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Run;
-import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.GrabBag;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.checks.RecursiveAnalyser;
-import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.Log;
 import java.util.Random;
 
@@ -56,7 +53,9 @@ public final class Generator implements IInterruptMonitor {
 
 	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
-	private static final int MAX_ANALYSE_FAILURES = 4; // an arbitrary small number
+	// an arbitrary small number of UsolvableExceptions are acceptable, but too
+	// many indicate that an IHinter is broken. Four seems to work OK for me.
+	private static final int MAX_ANALYSE_FAILURES = 4;
 
 	// Set by the Stop button to interrupt the symmetry loop in generate.
 	// nb: I'm a volatile variable, meaning I'm accessed accross threads.
@@ -86,9 +85,10 @@ public final class Generator implements IInterruptMonitor {
 	 * Generate a Sudoku grid matching the given parameters. Called only by
 	 * GenerateDialog.GeneratorThread.run()
 	 * <p>
-	 * Depending on the speed of your PC and the given parameters, generation
-	 * can take "a while". This implementation actually repeatedly generates
-	 * random puzzles until the difficulty is between the given minD and maxD.
+	 * This implementation generates random puzzles until it hits one with a
+	 * difficulty between the given minD and maxD. Depending on the hardware,
+	 * generation of an IDKFA can take upto 10 minutes, ie too slow.
+	 *
 	 * @param syms {@code List<Symmetry>} used to strip cell
 	 *  values symmetrically.
 	 * @param diff Difficulty the desired degree of difficulty.
@@ -98,31 +98,39 @@ public final class Generator implements IInterruptMonitor {
      * For Easy, isExact makes no difference.<br>
      * For IDKFA, isExact=false accepts any valid puzzle.<br>
      * This parameter is really a hang-over from the days when the user had to
-     * wait upto a minute for a puzzle of specific difficulty to generate. Now
-	 * puzzles are cached, but I've retained this parameter because my cactus
-	 * isn't done flowering (ie I'm too lazy to get rid of it).
+     * wait for a puzzle of specific difficulty to generate. Now that puzzles
+	 * are cached it's pretty-much never used, but I've retained this parameter
+	 * because there are no bones in ice-cream.
 	 * @return the generated grid.
 	 */
 	public Grid generate(Symmetry[] syms, Difficulty diff, boolean isExact) {
 		// tell logicalSolver to ask me if we've been interrupted by the user
 		// every-so-often, and if so then exit immediately.
-		solver.setMonitor((IInterruptMonitor)this);
+		solver.setInterruptMonitor((IInterruptMonitor)this);
 		try {
 			return cache.generate(syms, diff, isExact);
 		} finally {
 			// tell the logicalSolver that I won't be interrupting him now.
-			solver.setMonitor(null);
+			solver.setInterruptMonitor(null);
 		}
 	}
 
 	// This method recieves the call back from the cache to actually generate
-	// a new SudokuPuzzle. It sticks each generated puzzle in the cache, and
+	// a new Sudoku puzzle. It sticks each generated puzzle in the cache, and
 	// keeps going until it hits one of the desired Difficulty. This can take
-	// a while (5+ minutes), so the puzzle cache is well worth the hastle.
+	// a while (10 minutes), so the puzzle cache is worth the hastle.
 	Grid generate(PuzzleCache cache, Symmetry[] syms, Difficulty wantDifficulty
 			, boolean isExact) {
 		Run.Type prevRunType = Run.setRunType(Run.Type.Generator);
 		try {
+			// the puzzle, stripped of every clue that can be stripped without
+			// sending the puzzle invalid
+			Grid puzzle;
+			Symmetry symm; // the current Symmetry
+			double d; // the difficulty rating of this puzzle
+			// evaluate this once and for all
+			final boolean isIDKFA = wantDifficulty == Difficulty.IDKFA;
+			// get and validate the minimum and maximum difficulty sought
 			final double minD;
 			if ( isExact )
 				minD = wantDifficulty.min;
@@ -130,63 +138,63 @@ public final class Generator implements IInterruptMonitor {
 				minD = 0.0D;
 			final double maxD = wantDifficulty.max;
 			assert maxD>minD;
-			final int n = syms.length; // 1 is OK
-			assert n>0;
+			// a Symmetry is required
+			final int n = syms.length;
+			assert n>0; // 1 is OK
+			// a random number generator is needed
 			Random rnd = new Random();
-			Grid puzzle;
-			Symmetry symm;
-			double pDiff; // puzzleDifficulty
+			// how many UnsolvableExceptions so far
 			int analyseFailures = 0;
-			int max = 81*81; // nb: most folks won't wait this long
+			// most folks won't wait this long for it to fail
+			int max = 81*81;
+			// foreach symmetry, starting a random index in the array
 			for ( int i=rnd.nextInt(n); ; i=(i+1)%n ) {
 				if ( --max < 1 ) // shot cat: stop this endless loop
 					throw new RuntimeException("Generator.generate: tapped out at 81*81 tries!");
-				// IDKFA: hardcode symm=None to fix non-understood wandering.
-				// (coz it takes distant monarch ages with a random symmetry)
+				// Use only Symmetry.None for IDKFA else it takes too long!
 				// There is something SERIOUSLY weird going on with symmetry,
 				// I blame the JIT compiler, so I KISS it. A little too ironic?
-				if ( wantDifficulty == Difficulty.IDKFA )
+				if ( isIDKFA )
 					symm = Symmetry.None;
 				else
 					symm = syms[i];
-				// generate a random solution (ie build a solved Sudoku)
-				// nb: this is the fast part.
+				// build a solved random Sudoku (fast).
 				Grid solution = analyser.buildRandomPuzzle(rnd);
 				if(isInterrupted) return null;
-				// remove as many clues from solution as possible using symm.
-				// nb: this is the slow part.
+				// strip as many clues as possible using this Symmetry (slow).
 				puzzle = strip(rnd, solution, symm);
-				if ( puzzle == null )
-					continue; // just try again
 				if(isInterrupted) return null;
-				// analyse his difficulty and return him if he in desired range
-				// NB: this is the slow part, @maybe make him interruptible?
-				Grid copy = new Grid(puzzle);
-				// analysing typically subsecond, but is "unbounded".
-				// 15 mins is worste ever, so I no use BIG A*E's now.
-				solver.prepare(copy);
-				try {
-					pDiff = solver.analyseDifficulty(copy, maxD);
-					if(isInterrupted) return null;
-					cache.set(getDifficulty(pDiff), puzzle);
-					if ( Log.MODE >= Log.NORMAL_MODE )
-						System.out.format("%4.1f\t%-20s\t%s%s", pDiff
-								, symm, puzzle.toShortString(), NL);
-					if ( pDiff>=minD && pDiff<=maxD )
-						return puzzle;
-				} catch (UnsolvableException ex) {
-					// a hinter produced an invalid hint on this random puzzle,
-					// which is no biggy, unless it happens too often, in which
-					// case the hinter is most probably totally ROOTED (again)!
-					if ( ++analyseFailures > MAX_ANALYSE_FAILURES ) {
-// this is just noise now, but keep for when we have problems.
-//						Log.teeln("Generator.generate failed: MAX_ANALYSE_FAILURES="+MAX_ANALYSE_FAILURES+" exceeded.");
-//						Log.teeTrace(ex);
-						return null;
+				// if puzzle NOT null then analyse it, else try next Symmetry.
+				// Note that continue is (usually) slower.
+				if ( puzzle != null ) {
+					// analyse his difficulty and return him if he in desired range
+					// NB: this is the slow part, @maybe make him interruptible?
+					Grid copy = new Grid(puzzle);
+					// analysing typically subsecond, but is "unbounded".
+					// 15 mins is worste ever, so I no use BIG A*E's now.
+					solver.prepare(copy);
+					try {
+						d = solver.analyseDifficulty(copy, maxD);
+						cache.set(getDifficulty(d), puzzle);
+						if ( Log.MODE >= Log.NORMAL_MODE )
+							System.out.format("%4.1f\t%-20s\t%s%s", d, symm, puzzle.toShortString(), NL);
+						if ( d>=minD && d<=maxD )
+							return puzzle;
+						if(isInterrupted) return null;
+					} catch (UnsolvableException ex) {
+						// a hinter produced an invalid hint on this random puzzle,
+						// which is no biggy, unless it happens too often, in which
+						// case a hinter is most likely COMPLETELY ROOTED (again)!
+						if ( ++analyseFailures > MAX_ANALYSE_FAILURES ) {
+	// this is just noise now, but keep for when we have problems.
+	//						Log.teeln("Generator.generate failed: MAX_ANALYSE_FAILURES="+MAX_ANALYSE_FAILURES+" exceeded.");
+	//						Log.teeTrace(ex);
+							return null;
+						}
 					}
+					rnd = new Random(); // reseed the Randomiser (the easy way)
+					if(isInterrupted) return null;
 				}
-				rnd = new Random(); // reseed the Randomiser (the easy way)
-				if(isInterrupted) return null;
 			}
 		} finally {
 			Run.type = prevRunType; // generator ONLY used in the GUI
@@ -195,18 +203,16 @@ public final class Generator implements IInterruptMonitor {
 
 	// semi-randomly remove cell values using the given symmetry
 	private Grid strip(Random rnd, Grid grid, Symmetry symmetry) {
-
-		Grid solution = new Grid(grid);
-		// build the indexes array := randomly shuffled array of ints 0..80
-		final int[] indexes = shuffledIndexesNew(rnd, 81);
-
-		int i, index, countDown, y, x, count;  Point[] points;  Cell cell;
-		Cell[] gCells = grid.cells;
-		Cell[] sCells = solution.cells;
+		int i, index, countDown, count;  Point[] points;  Cell cell;
+		boolean any, wereAnyRemoved;
+		final Grid solution = new Grid(grid);
+		// randomly shuffle indexes: an array of ints 0..80
+		final int[] indexes = shuffledIndexes(rnd, 81);
+		final Cell[] gCells = grid.cells;
+		final Cell[] sCells = solution.cells;
 		// the rubbish bin: indices of cells which when cleared don't remove
 		// anything, so it's a bit faster if we never try that trick again.
-		boolean[] rubbish = new boolean[81];
-		boolean isAnyRemoved, wereAnyRemoved;
+		final boolean[] rubbish = new boolean[81];
 		// do while wereAnyRemoved: ie: we found some cells to clear.
 		do {
 			countDown = 81; // Number of indexes to check: we stop at 0.
@@ -227,21 +233,19 @@ public final class Generator implements IInterruptMonitor {
 			do {
 				// isInterrupted is set when the user presses the Stop button.
 				if(isInterrupted) return null;
-				// we get the random index of this i, and then we get the
-				// 1,2,or4 symmetric points from the symmetry for that index.
+				// get the random index at this i
 				index = indexes[i];
-				y = index / 9;
-				x = index % 9;
-				points = symmetry.getPoints(x, y);
+				// get 1,2,or4 points from the symmetry for that index.
+				points = symmetry.getPoints(index%9, index/9); // (x, y)
 				// remove the cell at each point, remembering isAnyRemoved.
-				isAnyRemoved = false;
+				any = false;
 				for ( Point p : points )
 					if ( (cell=gCells[p.y*9+p.x]).value != 0 ) {
-						cell.value = 0; // nb: this leaves the grid in a dirty (borken) state: we MUST call grid.rebuildMaybesAndS__t() (below) to clean-up the maybes, indexes, counts, and all my s__t.
-						isAnyRemoved = true;
+						cell.value = 0; // nb: leaved grid "dirty", so we call grid.rebuildMaybesAndS__t() below to clean-up maybes, indexes, counts, etc.
+						any = true;
 					}
-				if ( !isAnyRemoved ) {
-					// none were removed so remember this index as rubbish
+				if ( !any ) {
+					// none were removed so remember that this index is rubbish
 					rubbish[i] = true;
 					// increment the index, skipping existing rubbish.
 					for(;;) {
@@ -252,10 +256,7 @@ public final class Generator implements IInterruptMonitor {
 					// NOTE: rebuild the maybes here before we countSolutions
 					// (generate only place were grid IS borken; so fix here).
 					grid.rebuildMaybesAndS__t();
-					// Solve the puzzle forwards and backwards:
-					//  if there are zero solutions then there are 0 solutions
-					//  if the two solutions are equal there is 1 solution
-					//  if the two solutions differ there's 2-or-more solutions
+					// bruteForceSolve the puzzle both forwards and backwards
 					switch ( count = analyser.countSolutions(grid, false) ) {
 						case 1: // Success: still a unique solution
 							wereAnyRemoved = true; // cell values removed
@@ -271,10 +272,10 @@ public final class Generator implements IInterruptMonitor {
 								if(!rubbish[i] || --countDown<1) break;
 							}
 							break;
-						case 0:
-							return null;
+						case 0: // the puzzle is COMPLETELY rooted
+							return null; // Never happens. Never say never.
 						default:
-							throw new UnsolvableException("Invalid solution count="+count);
+							throw new UnsolvableException("Unknown countSolutions="+count);
 					}
 				}
 			} while ( !wereAnyRemoved && --countDown>0 );
@@ -283,30 +284,40 @@ public final class Generator implements IInterruptMonitor {
 		return grid;
 	}
 
-	private int[] shuffledIndexesNew(final Random rnd, final int n) {
-		final int[] indexes = new int[n];
-		for ( int i=0; i<n; ++i )
-			indexes[i] = i;
+	// return a new array of n indexes shuffled into pseudo-random order
+	private static int[] shuffledIndexes(final Random rnd, final int n) {
+		assert n <= 81;
 		// shuffle once
 		for ( int i=0; i<n; ++i ) {
-			int p1 = rnd.nextInt(n);
-			int p2;
-			do {
-				p2 = rnd.nextInt(n);
-			} while (p2 == p1);
+			final int p1 = rnd.nextInt(n);
+			final int p2 = otherThan(p1, rnd, n); // random other than p1
 			// swap p1 and p2
-			int temp = indexes[p1];
+			final int temp = indexes[p1];
 			indexes[p1] = indexes[p2];
 			indexes[p2] = temp;
 		}
 		return indexes;
 	}
+	private static final int[] indexes = new int[81];
+	static {
+		// a new array of 0..80
+		for ( int i=0; i<81; ++i )
+			indexes[i] = i;
+	}
 
-	private Difficulty getDifficulty(double desiredMaxDifficulty) {
-		// in ASCENDING order: Easy, Medium, Hard, Fiendish, Nightmare
-		//                   , Diabolical, IDKFA
+	// return a random integer 0..n-1 other than p1
+	private static int otherThan(int p1, Random rnd, final int n) {
+		int p2;
+		do {
+			p2 = rnd.nextInt(n);
+		} while (p2 == p1);
+		return p2;
+	}
+
+	private static Difficulty getDifficulty(double targetMax) {
+		// Easy, Medium, Hard, Fiendish, Nightmare, Diabolical, IDKFA
 		for ( Difficulty d : Difficulty.values() )
-			if ( desiredMaxDifficulty <= d.max )
+			if ( targetMax <= d.max )
 				return d;
 		return null;
 	}

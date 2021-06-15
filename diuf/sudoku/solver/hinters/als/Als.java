@@ -1,4 +1,16 @@
 /*
+ * Project: Sudoku Explainer
+ * Copyright (C) 2006-2007 Nicolas Juillerat
+ * Copyright (C) 2013-2021 Keith Corlett
+ * Available under the terms of the Lesser General Public License (LGPL)
+ *
+ * This class is based on HoDoKu's Als class, by Bernhard Hobiger. Kudos to
+ * hobiwan. Mistakes are mine.
+ *
+ * Here's hobiwans standard licence statement:
+ *
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
  * Copyright (C) 2008-12  Bernhard Hobiger
  *
  * This file is part of HoDoKu.
@@ -42,7 +54,7 @@ import java.util.List;
  * in an actual Locked Set (a Naked Pair/Triple/etc) in this region are ignored
  * in ALS_Chains.
  *
- * @author hobiwan
+ * @author hobiwan. Adapted to SE by KRC.
  */
 public class Als {
 
@@ -51,7 +63,13 @@ public class Als {
 	// turn the first n elements of array into a LinkedList
 	static LinkedList<Als> linkedList(int n, Als[] array) {
 		LinkedList<Als> list = new LinkedList<>();
-		for ( int i=0; i<=n; ++i )
+		// the last ALS may not exist, so stop at end-of-array
+		final int I;
+		if ( n < array.length )
+			I = n;
+		else
+			I = array.length - 1;
+		for ( int i=0; i<=I; ++i )
 			list.add(array[i]);
 		return list;
 	}
@@ -63,11 +81,12 @@ public class Als {
 		return result;
 	}
 
-	static List<ARegion> regions(Collection<Als> alss) {
-		ArrayList<ARegion> result = new ArrayList<>(alss.size());
+	static List<ARegion> regionsList(Collection<Als> alss) {
+		List<ARegion> ll = new LinkedList<>();
 		for ( Als a : alss )
-			result.add(a.region);
-		return result;
+			if ( a != null ) // sometimes the last als in alss is null
+				ll.add(a.region);
+		return ll;
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ instance stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

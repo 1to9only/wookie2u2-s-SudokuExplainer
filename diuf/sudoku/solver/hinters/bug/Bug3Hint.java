@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.bug;
@@ -101,12 +101,8 @@ public final class Bug3Hint extends ABugHint implements IActualHint {
 
 	@Override
 	public double getDifficulty() {
-		// get my base difficulty := hinter.tech.difficulty
-		double d = super.getDifficulty();
-		// plus bonus 0.1 for each cell in the naked/hidden set
-		d += degree*0.1;
-		// Pair=6.2, Triple=6.3, Quad=6.4
-		return d;
+		// hinter.tech.difficulty + 0.1 for each cell in the naked/hidden set
+		return super.getDifficulty() + degree*0.1;
 	}
 
 	@Override

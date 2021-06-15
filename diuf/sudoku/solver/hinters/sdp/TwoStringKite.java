@@ -1,15 +1,17 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
- *
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * The algorithm for the TwoStringKite solving technique was boosted from the
  * current release (AFAIK) of hobiwan's HoDoKu by Keith Corlett in March 2020.
- * Here is hobiwans licence statement. Kudos to hobiwan. The mistakes are mine.
-*
+ * Kudos to hobiwan. The mistakes are mine.
+ *
+ * Here's hobiwans standard licence statement:
+ *
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
  * Copyright (C) 2008-12  Bernhard Hobiger
  *
  * This file is part of HoDoKu.
@@ -107,16 +109,15 @@ public class TwoStringKite extends AHinter {
 							go = swap(rowPair) | swap(colPair);
 						else
 							go = false; // nothing found so onto next col
-						// the indices within the connecting box could be the
-						// same, so not a TwoStringKite
+						// No double-ups in a TwoStringKite
 						if ( go
 						  && rowPair[0] != colPair[0]
 						  && rowPair[0] != colPair[1]
 						  && rowPair[1] != colPair[0]
 						  && rowPair[1] != colPair[1]
 						) {
-							// ok: two strong links connected by a box,
-							//     but does it eliminate any maybes?
+							// two strong links connected by a box,
+							// but does it eliminate any maybes?
 							// take the row of the colPair
 							//  and the col of the rowPair
 							//   to get there intersection

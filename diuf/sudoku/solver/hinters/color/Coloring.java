@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * Coloring started life as a copy-paste of the ColoringSolver from HoDoKu by
@@ -69,23 +69,22 @@ import java.util.Arrays;
  */
 public final class Coloring extends AHinter {
 
-	/** First color of a coloring pair. Index in {@link #sets} */
+	/** First color of a coloring pair. Index in {@link #colors} */
 	private static final int C1 = 0;
-	/** Second color of a coloring pair. Index in {@link #sets} */
+	/** Second color of a coloring pair. Index in {@link #colors} */
 	private static final int C2 = 1;
 	/** Maximum number of color pairs. */
 	private static final int MAX_COLOR = 20;
 
 	/**
-	 * Sets containing the indices of colored cells for all candidates.
-	 * sets[v] contains the color pairs for candidate v in 1..9.
-	 * sets[v][i] contains a color pair for candidate v, i is just a counter
-	 *   starting at 0 and going up to a maximum of MAX_COLOR-1; the specific
-	 *   value of which is numColorPairs[v].
-	 * sets[v][i][C1] contains indices of cells which are color-1 (blue).
-	 * sets[v][i][C2] contains indices of cells which are color-2 (green).
+	 * indices of colored cells for each candidate.
+	 * colors[v] contains the color pairs for candidate v in 1..9.
+	 * colors[v][i] contains a color pair for candidate v, i is a color-set
+	 *  index 0..MAX_COLOR-1; the max i+1 for this v is in numColorPairs[v].
+	 * colors[v][i][C1] contains indices of cells which are color-1 (blue).
+	 * colors[v][i][C2] contains indices of cells which are color-2 (green).
 	 */
-	private final Idx[][][] sets = new Idx[10][MAX_COLOR][2];
+	private final Idx[][][] colors = new Idx[10][MAX_COLOR][2];
 	/** Number of color pairs for each candidate. */
 	private final int[] numColorPairs = new int[10];
 	/** Step number of the sudoku for which coloring was calculated. -1 means
@@ -101,8 +100,8 @@ public final class Coloring extends AHinter {
 	/** This candidate: the one we're currently processing. This is a field
 	 * just to reduce the amount of stack-work: the handbrake of recursion. */
 	private int candidate;
-	/** theseSets = sets[candidate][anzColorPair].
-	 * This variable exists just to save repeated array-look-ups into the sets
+	/** theseSets = colors[candidate][anzColorPair].
+	 * This variable exists just to save repeated array-look-ups into the colors
 	 * array-of-arrays-of-arrays-of-SudokuSets, now it's just a look-up into an
 	 * array-of-SudokuSets (Are you confused yet? Good, coz I sure am. Think
 	 * about it.) */
@@ -122,8 +121,8 @@ public final class Coloring extends AHinter {
 			hintNumbers[v] = -1;
 			numColorPairs[v] = 0;
 			for ( int j=0; j<MAX_COLOR; ++j ) {
-				sets[v][j][C1] = new Idx();
-				sets[v][j][C2] = new Idx();
+				colors[v][j][C1] = new Idx();
+				colors[v][j][C2] = new Idx();
 			}
 		}
 	}
@@ -165,7 +164,7 @@ public final class Coloring extends AHinter {
 	 * @return true if any hint/s were found, else false
 	 */
 	private boolean findSimpleColors() {
-		Idx set1, set2;
+		Idx c1, c2; // indices of cells in the two colors
 		AHint hint;
 		int v, numColors, i;
 		boolean any;
@@ -182,29 +181,29 @@ public final class Coloring extends AHinter {
 			numColors = doColoring(v);
 			// now check for eliminations
 			for ( i=0; i<numColors; ++i ) {
-				set1 = sets[v][i][C1];
-				set2 = sets[v][i][C2];
+				c1 = colors[v][i][C1];
+				c2 = colors[v][i][C2];
 				// color wrap (rare): if two cells with the same color see each
 				// other, then we can remove all candidates of that color.
 				any = false;
-				if ( checkColorWrap(set1) )
-					any = redPots.addAll(set1.cells(grid), new Values(v));
-				if ( checkColorWrap(set2) )
-					any |= redPots.addAll(set2.cells(grid), new Values(v));
+				if ( checkColorWrap(c1) )
+					any = redPots.addAll(c1.cells(grid), new Values(v));
+				if ( checkColorWrap(c2) )
+					any |= redPots.addAll(c2.cells(grid), new Values(v));
 				if ( any ) {
 					// build the hint and add it to accu
 					hint = new ColoringHint(this, Subtype.SimpleColorWrap
-							, potsArray(v, set1, set2), v, redPots);
+							, potsArray(v, c1, c2), v, redPots);
 					result = true;
 					if ( accu.add(hint) )
 						return result;
 				} else {
 					// color trap (more common): any candidate that sees two
 					// cells of opposite colors can be removed.
-					if ( checkCandidateToDelete(set1, set2, v, redPots) ) {
+					if ( checkCandidateToDelete(c1, c2, v, redPots) ) {
 						// nb: creating the hint clears the existing redPots!
 						hint = new ColoringHint(this, Subtype.SimpleColorTrap
-								, potsArray(v, set1, set2), v, redPots);
+								, potsArray(v, c1, c2), v, redPots);
 						result = true;
 						if ( accu.add(hint) )
 							return result;
@@ -258,7 +257,7 @@ public final class Coloring extends AHinter {
 		final Idx cmnBuds = this.cmnBuds.clear();
 		final Idx[] buds = Grid.BUDDIES;
 		final Idx vs = idxs[v];
-		// for each a, b: cmnBuds += grid.buds[a] & grid.buds[b] & idxs[v] 
+		// for each a, b: cmnBuds += grid.buds[a] & grid.buds[b] & idxs[v]
 		a.forEach((ai)->b.forEach((bi)->cmnBuds.orAnd(buds[ai], buds[bi], vs)));
 		if ( cmnBuds.none() )
 			return false;
@@ -273,7 +272,7 @@ public final class Coloring extends AHinter {
 	 * doColoring actually colors the grid. "Coloring the grid" means that each
 	 * candidate that is part of at least one conjugate pair is assigned a
 	 * color. "Assigned a color" means that the candidate is added to one of
-	 * the {@link #sets}.
+	 * the {@link #colors}.
 	 * <p>
 	 * The algorithm is pretty straight-forward:<ul>
 	 * <li>first eliminate all candidates, that are not part of at least one
@@ -317,9 +316,9 @@ public final class Coloring extends AHinter {
 		while ( startSet.any() ) {
 			// get the first (ie the next) indice
 			indice = startSet.peek();
-			// pre-set the sets-fields for the new color
+			// pre-set the colors-fields for the new color
 			candidate = cand;
-			colorSets = sets[cand][numColorPairs[cand]];
+			colorSets = colors[cand][numColorPairs[cand]];
 			colorSets[C1].clear();
 			colorSets[C2].clear();
 			// recursively search indice/candidate for coloring pairs,
@@ -332,11 +331,11 @@ public final class Coloring extends AHinter {
 			recurse(indice, true); // start with C1, then C2, C1, C2...
 			// a colorChain consists of atleast two cells (one on, one off)
 			// HiddenSingles are discarded
-			if ( colorSets[C1].isEmpty() || colorSets[C2].isEmpty() ) {
+			if ( colorSets[C1].none() || colorSets[C2].none() ) {
 				colorSets[C1].clear();
 				colorSets[C2].clear();
 			} else
-				numColorPairs[cand]++;
+				++numColorPairs[cand];
 		}
 		return numColorPairs[cand];
 	}
@@ -346,11 +345,10 @@ public final class Coloring extends AHinter {
 	 * Recursively colors the candidate/cell index with any conjugate pairs in
 	 * the three Regions which contain the cell at index.
 	 * <p>
-	 * This method removes each index from the startSet field, which stops my
-	 * callers containing loop (weird science). This method also adds each
-	 * index to the 'theseSets' array of SudokuSet field using the 'C1'=0 and
-	 * 'C2'=1 constants: (if on C1 else C2); to split the candidates into two
-	 * color groups.
+	 * Weird science: This method removes each index from the startSet field,
+	 * which stops my callers containing loop. This method adds each indice to
+	 * the colorSets array: (if on C1 else C2); to split the candidates into
+	 * two color-sets.
 	 * <p>
 	 * Note that the conjugate method also reads the preset fields candidate
 	 * and free, so these must be set before you call me:<ul>
@@ -363,9 +361,8 @@ public final class Coloring extends AHinter {
 	 * costs us something, so minimising them is optimal, which is at odds with
 	 * an OO-design mind-set, that's all. I just prefer speed.
 	 *
-	 * @param indice grid.cells index of the cell to color;<br>
-	 *  -1 means none, ie stop coloring.
-	 * @param on true means use {@link #C1}, or false to use {@link #C2}
+	 * @param indice the indice of the cell to color; -1 to stop coloring.
+	 * @param on true for {@link #C1} (green), false for {@link #C2} (blue)
 	 */
 	private void recurse(int indice, boolean on) {
 		// give-up if there's no conjugate, or we've already done this index
@@ -389,15 +386,19 @@ public final class Coloring extends AHinter {
 	 * {@code candidate} in ARegion {@code r}. Returns the indice of the other
 	 * cell which maybe candidate in region, or -1 meaning no conjugate pair.
 	 * <p>
-	 * A conjugate is the other place for value in region. The region has just
-	 * two places for value, here's one, what's the other one. We call both of
-	 * them a conjugate pair.
+	 * A conjugate is the other place for value in region: the region has just
+	 * two places for value, here's one, what's the other one. We call both
+	 * cells a conjugate pair.
 	 * <p>
 	 * This method reads the candidate field; and
 	 * sets/reads conjugateSet, not referenced externally.
 	 * <p>
+	 * This method is the ONLY use of the conjugateSet field, which is a field
+	 * to avoid repeatedly creating an Idx instance, and all stack-work. It's
+	 * faster to not have to create a new stack-frame when invoking a method.
+	 * <p>
 	 * We poll()-off the first one or two indices in conjugateSet, because poll
-	 * is faster than get(i) coz it doesn't have to initialise the conjugateSet.
+	 * is faster than get(i), because poll doesn't initialise the conjugateSet.
 	 *
 	 * @param indice grid.cells indice of cell for which a conjugate is sought
 	 * @param r the ARegion to look in
@@ -406,7 +407,7 @@ public final class Coloring extends AHinter {
 	private int conjugate(int indice, ARegion r) {
 		if ( r.indexesOf[candidate].size != 2 )
 			return -1; // no conjugate pair, so stop coloring.
-		// must be a conjugate pair, find the other index
+		// return the indice of the other cell in this conjugate pair
 		conjugateSet.setAnd(candidateSet, r.idx);
 		int result = conjugateSet.poll();
 		if ( result == indice )
@@ -434,7 +435,7 @@ public final class Coloring extends AHinter {
 		// foreach value: foreach color
 		for ( v=1; v<10; ++v ) {
 			numColors = doColoring(v);
-			vSets = sets[v];
+			vSets = colors[v];
 			// first see if cells of one color can see opposite cells of
 			// another color pair. if so, eliminate all cells with that color.
 			// NOTE: a->b != b->a, so ALL combinations must be checked.
@@ -493,7 +494,7 @@ public final class Coloring extends AHinter {
 	 */
 	private boolean isMultiColor1(Idx set, Idx a, Idx b) {
 		// NOTE: none of the sets can be empty or you can't get here
-		assert !set.isEmpty() && !a.isEmpty() && !b.isEmpty();
+		assert !set.none() && !a.none() && !b.none();
 		// see if sets-buds intersect both a and b
 		final int a0=a.a0, a1=a.a1, a2=a.a2;
 		final int b0=b.a0, b1=b.a1, b2=b.a2;
@@ -517,7 +518,7 @@ public final class Coloring extends AHinter {
 	 * @return
 	 */
 	private boolean isMultiColor2(Idx a, Idx b) {
-		if ( a.isEmpty() || b.isEmpty() )
+		if ( a.none() || b.none() )
 			return false;
 		final int n = a.size();
 		final int[] indices = a.toArrayA();

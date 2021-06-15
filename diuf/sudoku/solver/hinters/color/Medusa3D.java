@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.BUDDIES;
@@ -37,20 +38,20 @@ import java.util.Set;
 import static diuf.sudoku.Grid.BOX_OF;
 
 /**
- * MedusaColoring implements the 3D Medusa Coloring Sudoku solving technique
- * as described in the https://www.sudopedia.org/wiki/3D_Medusa article.
+ * Medusa3D implements the 3D Medusa Coloring Sudoku solving technique as
+ * described in the https://www.sudopedia.org/wiki/3D_Medusa article.
  * <p>
- * See field notes in ./Coloring.txt
+ * See field notes in ./#Coloring.txt
  * <p>
  * This implementation also includes one extension of the above specification.
  * It finds a naked single in an effected box, which leaves a naked single in
  * the source box... which I call the "10 paces" rule. Search for that.
  * <p>
- * Note that MedusaColoring hijacks XColoring's hint types.
+ * Note that Medusa3D hijacks XColoring's hint types.
  *
  * @author Keith Corlett 2021-03-04
  */
-public class MedusaColoring extends AHinter implements IPreparer
+public class Medusa3D extends AHinter implements IPreparer
 //		, diuf.sudoku.solver.IReporter
 {
 
@@ -157,8 +158,8 @@ public class MedusaColoring extends AHinter implements IPreparer
 	/**
 	 * The constructor.
 	 */
-	public MedusaColoring() {
-		super(Tech.MedusaColoring);
+	public Medusa3D() {
+		super(Tech.Medusa3D);
 		// create the colors array.
 		for ( int c=0; c<2; ++c )
 			for ( int v=1; v<10; ++v )
@@ -515,11 +516,11 @@ public class MedusaColoring extends AHinter implements IPreparer
 	/**
 	 * A "mono-box" is a box with only one place remaining for v, which also
 	 * leaves the "causal box" with one place remaining for v, constituting a
-	 * "strong" bidirectional link. This is an addition to 3D Medusa borrowed
-	 * from XColoring, adapted to 3D Medusa's needs. It's a common-enough case
+	 * "strong" bidirectional link. This is an additional rule borrowed from
+	 * XColoring, adapted to 3D Medusa's needs. It's a common-enough case
 	 * producing "some" extra eliminations: without was 20724, with is 28601.
 	 * So this relatively straight-forward addition makes 3D Medusa nearly 1.5
-	 * times as effective. Something to write home about, but only 1000 words.
+	 * times as effective. Something to write home about, but only 50 words.
 	 * <p>
 	 * In XColoring if painting a cell-value green leaves any of it's effected
 	 * boxs with one-and-only-one remaining place for value then it's green.
@@ -664,7 +665,7 @@ public class MedusaColoring extends AHinter implements IPreparer
 			for ( int v2 : VALUESES[colorValues[c] & ~VSHFT[v1]] )
 				if ( tmp1.setAndAny(thisColor[v1], thisColor[v2]) ) {
 					cell = grid.cells[tmp1.peek()];
-					cause = Grid.cellSet(cell);
+					cause = Cells.set(cell);
 					// we want explanation in GUI and testcases
 					if ( wantWhy )
 						steps.append(NL).append("<u>Contradiction</u>").append(NL)

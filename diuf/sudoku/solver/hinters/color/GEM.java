@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
@@ -381,7 +381,7 @@ public class GEM extends AHinter implements IPreparer
 	}
 
 	/** The hashCode of each color, independent of it's color. */
-	private final Map<Integer,Object> hashes = new HashMap<>(128, 0.75F);
+	private final Map<Long,Object> hashes = new HashMap<>(128, 0.75F);
 	private static final Object PRESENT = new Object();
 
 	// the (presumably) "good" color to display "results" in the hint.
@@ -479,12 +479,15 @@ public class GEM extends AHinter implements IPreparer
 			//         order by num conjugates + num bivalues DESCENDING.
 			// WARNING: startingValues filters to score >= 4 coz that's the
 			// lowest score that hints in top1465. THIS MAY BE WRONG!
-			for ( int i=0,n=startingValues(); i<n; ++i ) {
+			for ( int i=0,n=startingValues(); i<n; ++i ) { // repopulate scores
 				final int v = scores[i].value;
 				for ( ARegion r : grid.regions ) {
+//if ( v==7 && r.id.equals("box 4") )
+//	Debug.breakpoint();
 					// if v has 2 possible positions in this region
 					if ( r.indexesOf[v].size == 2
 					  // and we haven't already painted this cell-value.
+					  // nb: this cell is the first in r which maybe v
 					  && !done[v].contains((cell=r.cells[FIRST_INDEX[r.indexesOf[v].bits]]).i)
 					  // and the search finds something
 					  && ( result |= search(cell, v) )
@@ -572,7 +575,7 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	private boolean search(Cell cell, int v) {
 		AHint hint;
-		Integer hash;
+		Long hash;
 		int subtype;
 		final int n;
 		int mst; // multi-hint subtype
@@ -617,23 +620,24 @@ public class GEM extends AHinter implements IPreparer
 				// do nothing, just go again
 			}
 
-			// search each painted cell-value ONCE.
+			// we search each value that was painted ONCE.
 			for ( int v1 : VALUESES[paintedValues] )
 				done[v1].or(colors[GREEN][v1]).or(colors[BLUE][v1]);
 
-			// search each distinct colors-sets ONCE.
+			// we search each distinct both-color-sets ONCE.
+			// nb: these hashes are 64 bits, to reduce collisions.
 			hash = hash(GREEN) | hash(BLUE);
 			if ( hashes.get(hash) != null )
 				return false;
 			hashes.put(hash, PRESENT);
 
 			// sum the total number of cell-values colored.
-			// NOTE: n limits are top1465 specific. They're probably too high
-			// for some puzzles. There's no theoretical basis for them, they're
-			// just what works for me. Rip them out to be correct.
+			// WARN: n limits are top1465 specific. They're probably too high
+			// for some puzzles. There is no theoretical basis for them, they
+			// are just what works for me. Remove this limit for correctness.
 			if ( (n = squash(GREEN, painted[GREEN])
 			        + squash(BLUE, painted[BLUE])) < 3 )
-				return false; // mimimum that does anything is 3
+				return false; // too few cells painted
 
 			// Step 5: Analyse the cluster.
 			// 5.1 If either color contains a contradiction
@@ -689,7 +693,7 @@ public class GEM extends AHinter implements IPreparer
 					if ( accu.add(hint) )
 						return result;
 					// upgraded is always the last hint I produce.
-					if ( hint instanceof GEMHintMulti )
+					if ( hint instanceof GEMHintBig )
 						throw STOP_EXCEPTION;
 				}
 			}
@@ -706,16 +710,21 @@ public class GEM extends AHinter implements IPreparer
 	}
 
 	/**
-	 * Paint this cell this color, and paint it's consequences recursively.
+	 * Paint this cell this color, and all of it's consequences, recursively.
+	 * Where "all consequences" are two fold: (1) if this value has two places
+	 * in any of this cells box, row, or col, then the other place is painted
+	 * the opposite color; and (2) if the cell has just two potential values,
+	 * then other value is painted the other color. "Recursively" means this
+	 * search is applied to each painted cell; so that painting just one cell
+	 * has the effect of painting it and it's whole consequence tree.
 	 * <p>
-	 * WARNING: You must check that the cell-value is not already painted this
-	 * color BEFORE you call paint. It's a performance thing with why String.
+	 * WARNING: You check that the cell-value is not already painted this color
+	 * before calling paint, because building the why parameter is slow.
 	 * <p>
-	 * The paint method implements Steps 2 to 4 of ./Coloring.txt using a
-	 * recursive DFS, where the instructions specify a BFS, without saying so
-	 * explicitly, which is a big warning sign. Experienced programmers prefer
-	 * DFS for speed, but newbs typically think BFS. Being an experienced
-	 * programmer (an arrogant old prick) I countermanded the spec.
+	 * Paint implements Steps 2 to 4 of ./Coloring.txt with a recursive DFS,
+	 * where the instructions imply a BFS, without saying so explicitly, which
+	 * is a warning. DFS is faster, but newbs tend to think in BFS. So being an
+	 * experienced programmer (a mad old prick), I "fixed" it.
 	 * <pre>
 	 * 1. Paint the given cellValue the given color.
 	 * 2. If any region containing this cell except the given region (nullable)
@@ -726,6 +735,12 @@ public class GEM extends AHinter implements IPreparer
 	 * </pre>
 	 * Paint populates the two colors: GREEN and BLUE, by value;
 	 * and also populates the paintedValues bitset.
+	 * <p>
+	 * When a cell-value is painted (1) all other places for this value in the
+	 * cells box, row, and col are "off"ed (displayed with a '-' to the right);
+	 * and (2) all other potential values of this cell "off"ed. These offs are
+	 * used in eliminations: if a cell-value is "off"ed by both colors then it
+	 * can be eliminated.
 	 * <p>
 	 * IMPROVED: The why String is now constructed ONLY in the GUI + testcases
 	 * when we might want to use it as part of the HTML to display to the user.
@@ -804,7 +819,7 @@ public class GEM extends AHinter implements IPreparer
 				// paint otherCell-v the opposite color, recursively.
 				paint(otherCell, v, o, true, why);
 			}
-			// off (other places for v in region).
+			// off the other places for v in r2.
 			offs[c][v].or(otherPlaces.setAndNot(r2.idxs[v], CELL_IDXS[i]));
 		}
 
@@ -951,23 +966,28 @@ public class GEM extends AHinter implements IPreparer
 	}
 
 	/**
-	 * Produce a hashCode of a color of 9 Idx's that's NOT cached.
+	 * Calculate an uncached hash64 of a color (of the upto 9 Idx's).
+	 * <p>
+	 * Note that these hashes are now 64 bits, reducing collisions to 17.
+	 * I use the new hash64 method of Idx, which does NOT cache.
+	 *
 	 * @param c the color: GREEN or BLUE
-	 * @return hash of colors[c][*]
+	 * @return hash64 of colors[c][*]
 	 */
-	private int hash(int c) {
-		int hc = 0;
+	private long hash(int c) {
+		long hc = 0L;
 		Idx idx;
 		final Idx[] thisColor = colors[c];
 		for ( int v : VALUESES[colorValues[c]] )
-			hc |= Idx.hashCode((idx=thisColor[v]).a0, idx.a1, idx.a2);
+			hc |= Idx.hash64((idx=thisColor[v]).a0, idx.a1, idx.a2);
 		return hc;
 	}
 
 	/**
-	 * Squash all values of this color into result.
+	 * Accumulate (or) the indices of all values of this color into result.
 	 *
 	 * @param c the color: GREEN or BLUE
+	 * @return result.cardinality (the number of indices in the result)
 	 */
 	private int squash(final int c, final Idx result) {
 		result.clear();
@@ -1070,8 +1090,8 @@ public class GEM extends AHinter implements IPreparer
 
 		// 2b. If an on has an OPPOSITE colored cell-mate (of another value)
 		//     then paint it.
-		squash(GREEN, painted[GREEN]);
-		squash(BLUE, painted[BLUE]);
+		squash(GREEN, painted[GREEN]); // all-values painted green
+		squash(BLUE, painted[BLUE]); // all-values painted blue
 		for ( c=0; c<2; ++c ) {
 			o = OPPOSITE[c];
 			for ( int v1 : VALUESES[colorValues[c]] )
@@ -1130,7 +1150,7 @@ public class GEM extends AHinter implements IPreparer
 	}
 
 	/**
-	 * Rebuild OFF_VALUES: a bitset of the values eliminated by the given color
+	 * Rebuild OFF_VALS: a bitset of the values eliminated by the given color
 	 * from each cell in the grid.
 	 *
 	 * @param c the color: GREEN or BLUE
@@ -1196,7 +1216,7 @@ public class GEM extends AHinter implements IPreparer
 					if ( tmp1.setAndAny(thisColorOns[v1], thisColorOns[v2]) ) {
 						// report first only (confusing if we show all)
 						cell = grid.cells[tmp1.peek()];
-						cause = Grid.cellSet(cell);
+						cause = Cells.set(cell);
 						goodColor = OPPOSITE[c];
 						if ( wantWhy )
 							steps.append(NL).append("<u>Contradiction</u>").append(NL)
@@ -1232,7 +1252,7 @@ public class GEM extends AHinter implements IPreparer
 			for ( i=0; i<81; ++i )
 				if ( counts[i]>0 && counts[i]==grid.cells[i].maybes.size ) {
 					cell = grid.cells[i];
-					cause = Grid.cellSet(cell);
+					cause = Cells.set(cell);
 					goodColor = OPPOSITE[c];
 					if ( wantWhy )
 						steps.append(NL)
@@ -1394,7 +1414,7 @@ public class GEM extends AHinter implements IPreparer
 			if ( CHECK_HINTS ) // deal with any dodgy hints minimally
 				if ( !cleanSetPots(setPots) )
 					return null; // none remain once invalid removed
-			final AHint hint = new GEMHintMulti(this, value, new Pots(redPots)
+			final AHint hint = new GEMHintBig(this, value, new Pots(redPots)
 					, subtype, cause, goodColor, steps.toString(), setPots
 					, pots(GREEN), pots(BLUE) , region, copy(ons), copy(offs));
 			cause = null;
@@ -1717,7 +1737,7 @@ public class GEM extends AHinter implements IPreparer
 //				if ( goodColor == -1 )
 //					goodColor = determineGoodColor(setPots);
 				// NOTE: weird hints: both setPots and redPots are applied.
-				final AHint hint = new GEMHintMulti(this, value
+				final AHint hint = new GEMHintBig(this, value
 						, new Pots(redPots), subtype, cause, goodColor
 						, steps.toString(), setPots, pots(GREEN), pots(BLUE)
 						, region, copy(ons), copy(offs));

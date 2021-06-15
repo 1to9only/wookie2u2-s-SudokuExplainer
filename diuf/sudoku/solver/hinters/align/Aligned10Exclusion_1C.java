@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align;
@@ -381,7 +381,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 												}
 
 												// read common excluder cells from grid at idx09
-												if ( (numCmnExcls = idx09.cellsN(grid, cmnExcls)) == 1 ) {
+												if ( (numCmnExcls = idx09.cellsN(grid.cells, cmnExcls)) == 1 ) {
 													cmnExclBits[0] = cmnExcls[0].maybes.bits;
 													numCmnExclBits = 1;
 												} else {

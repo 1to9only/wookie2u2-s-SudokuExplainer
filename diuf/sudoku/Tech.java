@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -52,6 +52,7 @@ public enum Tech {
 	// for the LogicalAnalyser
 	Solution(0.0, 0, "The Solution")
 
+// Validators
 	// puzzleValidators
 	, TooFewClues		(0.0, 0, "Too Few Clues")
 	, TooFewValues		(0.0, 0, "Too Few Values")
@@ -76,14 +77,15 @@ public enum Tech {
 	, DirectHiddenPair	(2.4, 2, "Direct Hidden Pair")
 	, DirectNakedTriple	(2.5, 3, "Direct Naked Triple")
 	, DirectHiddenTriple	(2.6, 3, "Direct Hidden Triple") // longest nom is 20 characters
+
 // Hard
 	// indirects
 	, NakedPair			(3.0, 2, "Naked Pair")
 	, HiddenPair		(3.1, 2, "Hidden Pair")
 	, NakedTriple		(3.2, 3, "Naked Triple")
 	, HiddenTriple		(3.3, 3, "Hidden Triple")
-	, TwoStringKite		(3.4, 4, "Two String Kite")
-	, Swampfish			(3.5, 2, "Swampfish") // aka X-Wing: I call them Swampfish coz they're Fish, not Wings! Luke, Yoda, swamp.
+	, Swampfish			(3.4, 2, "Swampfish") // aka X-Wing: I call them Swampfish coz they're Fish, not Wings! Luke, Yoda, swamp.
+	, TwoStringKite		(3.5, 4, "Two String Kite")
 
 // Fiendish
 	, XY_Wing			(3.6, 2, "XY-Wing")
@@ -98,42 +100,41 @@ public enum Tech {
 
 // Nightmare
 	// heavies
-	, WXYZ_Wing			(4.21, 3, "WXYZ-Wing") // fast limited ALS-XZ
-	, VWXYZ_Wing		(4.22, 4, "VWXYZ-Wing") // fast limited ALS-XZ
-	, UVWXYZ_Wing		(4.23, 5, "UVWXYZ-Wing") // fast limited ALS-XZ
-	, TUVWXYZ_Wing		(4.24, 6, "TUVWXYZ-Wing") // SLOW limited ALS-XZ
-	, STUVWXYZ_Wing		(4.25, 7, "STUVWXYZ-Wing") // SLOW limited ALS-XZ
-	// XColoring is Coloring++, which is in turn BUG++
-	, BUG				(4.30, 0, "BUG", "(Bivalue Universal Grave) less than Coloring, and is SLOWER!", true, false)
-	, Coloring			(4.31, 2, "Coloring", "finds a superset of BUG hints, and is FASTER.", false, true)
-	, XColoring			(4.32, 2, "XColoring", "(Extended Coloring) finds Coloring hints and Nishio's", false, true)
-	, MedusaColoring	(4.33, 2, "Medusa Coloring", "(3D Medusa Coloring) most of XColoring and more", false, true)
-	, GEM				(4.34, 2, "GEM", "(Graded Equivalence Marks) the ultimate Coloring", false, true)
-	, URT				(4.35, 0, "Unique Rectangle", "Unique Rectangles and loops", false, true)
-	, FinnedSwampfish	(4.40, 2, "Finned Swampfish")	// with Sashimi
-	, FinnedSwordfish	(4.41, 3, "Finned Swordfish")
-	, FinnedJellyfish	(4.42, 4, "Finned Jellyfish")
-	, ALS_XZ			(4.50, 0, "ALS-XZ")				// ALSs
-	, ALS_Wing			(4.51, 0, "ALS-Wing")
-	, ALS_Chain			(4.52, 0, "ALS-Chain")
-	, DeathBlossom		(4.53, 0, "Death Blossom")		// stem + ALSs
-	, SueDeCoq			(4.54, 0, "Sue De Coq")			// AALSs
-	, FrankenSwampfish	(4.60, 2, "Franken Swampfish")
-	, FrankenSwordfish	(4.61, 3, "Franken Swordfish")
-	, FrankenJellyfish	(4.62, 4, "Franken Jellyfish")
-	// Mutants are too slow to be allowed: 1,764 seconds for just 20 hints.
-	, KrakenSwampfish	(4.70, 2, "Kraken Swampfish")				// OK
-	, MutantSwampfish	(4.71, 2, "Mutant Swampfish", "Degenerate")	// NONE
-	, KrakenSwordfish	(4.72, 3, "Kraken Swordfish", "30 seconds")	// OK
-	, MutantSwordfish	(4.73, 3, "Mutant Swordfish", "105 seconds")// SLOW
-	, KrakenJellyfish	(4.74, 4, "Kraken Jellyfish", "85 seconds")	// SLOW
-	, MutantJellyfish	(4.75, 4, "Mutant Jellyfish", "20 minutes")	// TOO SLOW
-	, NakedQuad			(4.80, 4, "Naked Quad")
-	, HiddenQuad		(4.81, 4, "Hidden Quad")
-	, NakedPent			(4.92, 5, "Naked Pent", "Degenerate")
-	, HiddenPent			(4.93, 5, "Hidden Pent", "Degenerate")
+	, BUG				(4.30, 0, "BUG",       "DROP (Bivalue Universal Grave) subset of Coloring. SLOW!", true, false)
+	, Coloring			(4.31, 2, "Coloring",  "KEEP BUG++ and FASTER. The ONLY Multi-Coloring!", false, true)
+	, XColoring			(4.32, 2, "XColoring", "KEEP (Extended Coloring) Simple-Coloring++", false, true)
+	, Medusa3D			(4.33, 2, "Medusa 3D", "DROP (3D Medusa Coloring) XColoring++", false, true)
+	, GEM				(4.34, 2, "GEM",       "KEEP (Graded Equivalence Marks) Medusa++", false, true)
+	, NakedQuad			(4.40, 4, "Naked Quad")
+	, HiddenQuad		(4.41, 4, "Hidden Quad")
+	, NakedPent			(4.50, 5, "Naked Pent", "Degenerate")
+	, HiddenPent			(4.51, 5, "Hidden Pent", "Degenerate")
+	, WXYZ_Wing			(4.61, 3, "WXYZ-Wing") // fast limited ALS-XZ
+	, VWXYZ_Wing		(4.62, 4, "VWXYZ-Wing") // fast limited ALS-XZ
+	, UVWXYZ_Wing		(4.63, 5, "UVWXYZ-Wing") // fast limited ALS-XZ
+	, TUVWXYZ_Wing		(4.64, 6, "TUVWXYZ-Wing") // SLOW limited ALS-XZ
+	, STUVWXYZ_Wing		(4.65, 7, "STUVWXYZ-Wing") // SLOW limited ALS-XZ
+	, URT				(4.70, 0, "Unique Rectangle", "Unique Rectangles and loops", false, true)
+	, FinnedSwampfish	(4.80, 2, "Finned Swampfish")	// with Sashimi
+	, FinnedSwordfish	(4.81, 3, "Finned Swordfish")
+	, FinnedJellyfish	(4.82, 4, "Finned Jellyfish")
+	, ALS_XZ			(4.90, 0, "ALS-XZ")				// ALSs
+	, ALS_Wing			(4.91, 0, "ALS-Wing")
+	, ALS_Chain			(4.92, 0, "ALS-Chain")
+	, DeathBlossom		(4.93, 0, "Death Blossom")		// stem + ALSs
+	, SueDeCoq			(4.94, 0, "Sue De Coq")			// Almost ALSs
 
 // Diabolical
+	, FrankenSwampfish	(5.00, 2, "Franken Swampfish")
+	, FrankenSwordfish	(5.01, 3, "Franken Swordfish")
+	, FrankenJellyfish	(5.02, 4, "Franken Jellyfish")
+	// Mutants are too slow to be allowed: 1,764 seconds for just 20 hints.
+	, KrakenSwampfish	(5.10, 2, "Kraken Swampfish")				// OK
+	, MutantSwampfish	(5.11, 2, "Mutant Swampfish", "Degenerate")	// NONE
+	, KrakenSwordfish	(5.20, 3, "Kraken Swordfish", "30 seconds")	// OK
+	, MutantSwordfish	(5.21, 3, "Mutant Swordfish", "2 minutes")	// SLOW
+	, KrakenJellyfish	(5.30, 4, "Kraken Jellyfish", "9 minutes")	// TOO SLOW
+	, MutantJellyfish	(5.31, 4, "Mutant Jellyfish", "20 minutes")	// TOO SLOW
 	, AlignedPair	(6.1, 2, "Aligned Pair")
 	, AlignedTriple	(6.2, 3, "Aligned Triple")
 	, AlignedQuad	(6.3, 4, "Aligned Quad")
@@ -142,8 +143,7 @@ public enum Tech {
 	, AlignedSept	(6.6, 7, "Aligned Sept", "6 minutes correct") // VERY SLOW
 	, AlignedOct		(6.7, 8, "Aligned Oct",  "19 minutes correct")// TOO SLOW
 	, AlignedNona	(6.8, 9, "Aligned Nona", "3 hours correct")	  // SEA ANCHOR
-	, AlignedDec		(6.9,10, "Aligned Dec",  "6 hours correct")	  // SEA ANCHOR
-
+	, AlignedDec		(6.9,10, "Aligned Dec",  "6 hours correct")	  // DROPPED ANCHOR
 	// chains       level                      Multi,Dynam,Nishi
 	, UnaryChain	(7.0, 0, "Unary Chain",    false,false,false)
 	, NishioChain	(7.5, 0, "Nishio Chain",   false,true ,true )
@@ -167,6 +167,16 @@ public enum Tech {
 			if ( !namesSet.contains(it.next().name()) )
 				it.remove();
 		return techs;
+	}
+
+	public static String names(Tech[] techs) {
+		final StringBuilder sb = new StringBuilder(512);
+		for ( Tech tech : techs ) {
+			if ( sb.length() > 0 )
+				sb.append(", ");
+			sb.append(tech.name());
+		}
+		return sb.toString();
 	}
 
 //not used
@@ -217,13 +227,15 @@ public enum Tech {
 	 * the TechSelectDialog only displays warning MsgBox when warning, which is
 	 * counter-intuitively true by default.
 	 *
-	 * @param defaultWanted
 	 * @param difficulty
 	 * @param degree
 	 * @param nom
 	 * @param tip
+	 * @param warning
+	 * @param defaultWanted
 	 */
-	private Tech(double difficulty, int degree, String nom, String tip, boolean warning, boolean defaultWanted) {
+	private Tech(double difficulty, int degree, String nom, String tip
+			, boolean warning, boolean defaultWanted) {
 		this.difficulty = difficulty;
 		this.degree = degree;
 		this.nom = nom;
@@ -248,8 +260,9 @@ public enum Tech {
 		this(difficulty, degree, nom, null, false, true); // tool tip = none
 	}
 
-	private Tech(boolean defaultWanted, double difficulty, int degree, String nom
-			, boolean isMultiple, boolean isDynamic, boolean isNishio) {
+	private Tech(boolean defaultWanted, double difficulty, int degree
+			, String nom, boolean isMultiple, boolean isDynamic
+			, boolean isNishio) {
 		this.defaultWanted = defaultWanted;
 		this.difficulty = difficulty;
 		this.degree = degree;
@@ -265,8 +278,8 @@ public enum Tech {
 		this.tip = null;
 		this.warning = false;
 	}
-	private Tech(double difficulty, int degree, String nom
-			, boolean isMultiple, boolean isDynamic, boolean isNishio) {
+	private Tech(double difficulty, int degree, String nom, boolean isMultiple
+			, boolean isDynamic, boolean isNishio) {
 		this(true, difficulty, degree, nom, isMultiple, isDynamic, isNishio);
 	}
 
@@ -280,4 +293,5 @@ public enum Tech {
 	public String toString() {
 		return nom;
 	}
+
 }

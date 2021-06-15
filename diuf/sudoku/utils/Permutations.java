@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -255,12 +255,9 @@ public final class Permutations implements Iterable<int[]> {
 	}
 
 	/*
-	 * The combinations method was boosted directly from hobiwan's HoDoKu
-	 * SudokuUtil class, so hobiwan.kudos+=100; and many thanks too.
-	 *
-	 * The only change is to up the return value from an int to a long. Why the
-	 * hell hell did he limit it to an int? There might be a reason, other than
-	 * not wanting to wait all day to iterate a permutation of that size.
+	 * LICENCE: combinations was boosted from HoDoKu's SudokuUtil class.
+	 * I presume it's OK to modify GNU GPL code under the LGPL licence.
+	 * Kudos to hobiwan. Mistakes are mine.
 	 *
 	 * http://sourceforge.net/projects/hodoku/files/
 	 *
@@ -301,8 +298,8 @@ public final class Permutations implements Iterable<int[]> {
 	 * to make it throw at (10, 44) which takes 34.151 seconds, so expect
 	 * it to take atleast 100 seconds JUST to iterate them all... try it!
 	 * <p>
-	 * The only change is to up the return value from an int to a long. Why the
-	 * hell hell did he limit it to an int? There might be a reason.
+	 * The only change is to widen the return value to a long. Why the hell did
+	 * he limit it to an int? There might be a reason.
 	 *
 	 * @param k the number of elements in each combination (nOnes)
 	 * @param n the size of the master list (nBits)

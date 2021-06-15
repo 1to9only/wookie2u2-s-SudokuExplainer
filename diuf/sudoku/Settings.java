@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -536,7 +537,18 @@ public final class Settings implements Cloneable {
 	//          list and dropped slowies. Last top1465 run took 02:09.
 	// 6.30.127 2021-04-24 08:18:07 GEM mark 14 is not greedy. sigh.
 	// 6.30.128 2021-05-04 14:37:08 No real changes, just cleaning up crap.
-
+	// 6.30.129 2021-05-13 10:25:09 Build for backup before I experiment with
+	//			some GUI changes. Not a release.
+	// 6.30.130 2021-05-17 10:19:10 GenerateDialog and TechSelectDialog are
+	//			now more flexible. The description in the GenerateDialog is
+	//			a generated list of Tech's in this Difficulty range. The Tech
+	//			difficulty (a base for hints of this type) is displayed in the
+	//			TechSelectDialog. The user can look at TechSelect and Generate
+	//			side-by-side to see which tech's generate Difficulty requires,
+	//			but unfortunately TechSelect is still modal. sigh.
+	// 6.30.131 2021-05-19 08:07:11 Building for release because we're going
+	//			shopping today. I've been pissing-about with BasicFisherman1
+	//			to make it faster than BasicFisherman, and failing. sigh.
 	//
 	// To Build:
 	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
@@ -572,8 +584,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.128";
-	public static final String BUILT = "2021-05-04 14:37:08";
+	public static final String VERSION = "6.30.131";
+	public static final String BUILT = "2021-05-19 08:07:11";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 
@@ -651,7 +663,7 @@ public final class Settings implements Cloneable {
 	private final Map<String, Boolean> booleans = new HashMap<>(16, 0.75F);
 
 	private String lookAndFeelClassName = null;
-	private EnumSet<Tech> wantedTechniques = EnumSet.noneOf(Tech.class); // an empty EnumSet of Tech's
+	private EnumSet<Tech> wantedTechs = EnumSet.noneOf(Tech.class); // an empty EnumSet of Tech's
 
 	private int modificationCount; // defaults to 0 automagically
 	private static final String MODIFICATION_COUNT_KEY_NAME = "mod";
@@ -736,25 +748,39 @@ public final class Settings implements Cloneable {
 	}
 
 	public int getNumWantedTechniques() {
-		return wantedTechniques.size();
+		return wantedTechs.size();
 	}
 	public EnumSet<Tech> getWantedTechniques() {
-		return EnumSet.copyOf(wantedTechniques);
+		return EnumSet.copyOf(wantedTechs);
 	}
 	public EnumSet<Tech> setWantedTechniques(EnumSet<Tech> techs) {
-		EnumSet<Tech> pre = EnumSet.copyOf(wantedTechniques);
-		wantedTechniques = techs;
+		EnumSet<Tech> pre = EnumSet.copyOf(wantedTechs);
+		wantedTechs = techs;
 		return pre;
 	}
 	public void justSetWantedTechniques(EnumSet<Tech> techs) {
-		wantedTechniques = techs;
+		wantedTechs = techs;
 	}
 
-	public boolean areAllWanted(Tech... rules) {
+	public boolean allWanted(Tech... rules) {
 		for ( Tech r : rules )
-			if ( !this.wantedTechniques.contains(r) )
+			if ( !this.wantedTechs.contains(r) )
 				return false;
 		return true;
+	}
+
+	public boolean anyWanted(Tech... rules) {
+		for ( Tech r : rules )
+			if ( this.wantedTechs.contains(r) )
+				return true;
+		return false;
+	}
+
+	public boolean anyWanted(List<Tech> rules) {
+		for ( Tech r : rules )
+			if ( this.wantedTechs.contains(r) )
+				return true;
+		return false;
 	}
 
 	public int getModificationCount() {
@@ -768,10 +794,10 @@ public final class Settings implements Cloneable {
 			for ( String fieldName : BOOLEAN_FIELD_NAMES )
 				booleans.put(fieldName, preferences.getBoolean(fieldName, true));
 			lookAndFeelClassName = preferences.get("lookAndFeelClassName", lookAndFeelClassName);
-			wantedTechniques.clear();
+			wantedTechs.clear();
 			for ( Tech t : ALL_TECHS )
 				if ( preferences.getBoolean(t.nom, t.defaultWanted) )
-					wantedTechniques.add(t);
+					wantedTechs.add(t);
 			modificationCount = preferences.getInt(MODIFICATION_COUNT_KEY_NAME, Integer.MIN_VALUE);
 //			System.out.println("Settings.load: mod="+mod);
 		} catch (SecurityException ex) {
@@ -788,7 +814,7 @@ public final class Settings implements Cloneable {
 			if ( lookAndFeelClassName != null )
 				preferences.put("lookAndFeelClassName", lookAndFeelClassName);
 			for ( Tech t : ALL_TECHS )
-				preferences.putBoolean(t.nom, wantedTechniques.contains(t));
+				preferences.putBoolean(t.nom, wantedTechs.contains(t));
 //			// increment and store the modification count
 			preferences.putInt(MODIFICATION_COUNT_KEY_NAME, ++modificationCount);
 			try {
@@ -865,7 +891,7 @@ public final class Settings implements Cloneable {
 	public Object clone() throws CloneNotSupportedException {
 		Settings copy = (Settings) super.clone();
 		copy.lookAndFeelClassName = this.lookAndFeelClassName;
-		copy.wantedTechniques = EnumSet.copyOf(wantedTechniques);
+		copy.wantedTechs = EnumSet.copyOf(wantedTechs);
 		copy.xml = copy.toXml();
 		return copy;
 	}

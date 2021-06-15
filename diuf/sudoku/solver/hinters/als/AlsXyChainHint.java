@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -40,7 +40,7 @@ public class AlsXyChainHint extends AHint implements IActualHint {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " in "+Frmt.csv(Als.regions(alss));
+			s += " in "+Frmt.csv(Als.regionsList(alss));
 		return s;
 	}
 
@@ -48,7 +48,7 @@ public class AlsXyChainHint extends AHint implements IActualHint {
 	public String toStringImpl() {
 		StringBuilder sb = new StringBuilder(64);
 		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.csv(Als.regions(alss)));
+		  .append(Frmt.csv(Als.regionsList(alss)));
 		return sb.toString();
 	}
 
@@ -62,17 +62,19 @@ public class AlsXyChainHint extends AHint implements IActualHint {
 		StringBuilder sb = Frmt.getSB();
 		int i = 0, c; String r;
 		for ( Als als : alss ) {
-			//Produces for example:
-			//     (a) <b1>row 1: A1 G1 I1</b1>\n
-			//     (b) <b2>col G: G1 G6</b2>\n
-			if(als.region==null) r=""; else r=als.region.id+": ";
-			// there's only 5 colors, same as my largest ALS-Chain
-			c = (i%5) + 1;
-			sb.append("    (").append(alpha((char)i)).append(") ") // nb: In Java calculating a char is a complete, total, and utter pain in the ____ing ass. Thank you Buggus Duckus for your charming comments. Your views have been noted, and will be completely ignored in due time. Sigh.
-			  .append("<b").append(c).append('>')
-			  .append(r).append(Frmt.and(als.cells))
-			  .append("</b").append(c).append('>').append(NL);
-			++i;
+			if ( als != null ) { // the last als in alss may be null
+				//Produces for example:
+				//     (a) <b1>row 1: A1 G1 I1</b1>\n
+				//     (b) <b2>col G: G1 G6</b2>\n
+				if(als.region==null) r=""; else r=als.region.id+": ";
+				// there's only 5 colors, same as my largest ALS-Chain
+				c = (i%5) + 1;
+				sb.append("    (").append(alpha((char)i)).append(") ") // nb: In Java calculating a char is a complete, total, and utter pain in the ____ing ass. Thank you Buggus Duckus for your charming comments. Your views have been noted, and will be completely ignored in due time. Sigh.
+				  .append("<b").append(c).append('>')
+				  .append(r).append(Frmt.and(als.cells))
+				  .append("</b").append(c).append('>').append(NL);
+				++i;
+			}
 		}
 		// remove the trailing NL (or you can't see whole hint of long chain)
 		sb.setLength(sb.length()-1);

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.bug;
@@ -51,12 +51,8 @@ public final class Bug2Hint extends ABugHint implements IActualHint {
 
 	@Override
 	public double getDifficulty() {
-		// get my base difficulty := hinter.tech.difficulty
-		double d = super.getDifficulty();
-		// plus 0.1 for being a Bug 2 Hint (I'm not real sure about this)
-		d += 0.1;
-		// currently 6.0 + 0.1 = 6.1
-		return d;
+		// hinter.tech.difficulty + 0.1 for Bug 2 (not real sure about this)
+		return super.getDifficulty() + 0.1;
 	}
 
 	@Override

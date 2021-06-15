@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -34,12 +34,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Comparator;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 
 /**
@@ -60,10 +58,13 @@ import java.util.Set;
 @SuppressWarnings("ManualArrayToCollectionCopy")
 public final class Grid {
 
-	// always do this first, else toString exception in debugger
+	// do first else toString gets an exception in the debugger
 	private static final char[] DIGITS = ".123456789".toCharArray();
 
+	// the ubiquitious newline sequence (sigh)
 	private static final String NL = diuf.sudoku.utils.Frmt.NL;
+
+	/** A java.util.Random for public use. */
 	public static final Random RANDOM = new Random();
 
 	/**
@@ -107,6 +108,7 @@ public final class Grid {
 		"col A", "col B", "col C", "col D", "col E", "col F", "col G", "col H", "col I"
 	};
 
+	/** An Idx containing the indice of each cell in the Grid. */
 	public static final Idx[] CELL_IDXS = new Idx[81];
 	static {
 		for ( int i=0; i<81; ++i )
@@ -127,7 +129,7 @@ public final class Grid {
 	  , 6, 6, 6, 7, 7, 7, 8, 8, 8
 	};
 
-	// a bitset of the 3 regions of each cell in the Grid.
+	/** a bitset of the 3 regions of each cell in the Grid. */
 	public static final int[] CELLS_REGIONS = new int[81];
 	static {
 		for ( int i=0; i<81; ++i )
@@ -136,10 +138,12 @@ public final class Grid {
 			                 | Idx.SHFT[18+(i%9)];	// col
 	}
 
-	// An idx of the cells in each region, for when we have the region index
-	// but not the region and don't want to waste time getting the region,
-	// in order to get an Idx of it's cells.
-	public static final IdxL[] RIDX = new IdxL[27];
+//RIDX no longer used
+//	/** An idx of the cells in each region, for when we have the region index
+//	 * but not the region and don't want to waste time getting the region, in
+//	 * order to get an Idx of it's cells. Note that the collection is static,
+//	 * but it's contents are (re)initialised when a Grid is constructed. */
+//	public static final IdxL[] RIDX = new IdxL[27];
 
 	public static final IdxL[] BUDDIES = new IdxL[81];
 	static {
@@ -160,9 +164,10 @@ public final class Grid {
 		}
 	}
 
-	/** Indices of siblings: The indices of cells which are in the same box,
-	 * row, or col, as the index cell, except the index cell itself. */
-	public static final int[][] VISIBLE_INDICES  = new int[][] {
+	/** Indices of buddies (siblings): cells in the same box, row, or col as
+	 * this cell, except this cell itself. These indices are the junk in the
+	 * trunk of the public BITIDX_BUDDIES array of BitIdx's. */
+	private static final int[][] BUDDIES_INDICES  = new int[][] {
 			{ 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,27,36,45,54,63,72},
 			{ 0, 2, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,28,37,46,55,64,73},
 			{ 0, 1, 3, 4, 5, 6, 7, 8, 9,10,11,18,19,20,29,38,47,56,65,74},
@@ -246,11 +251,11 @@ public final class Grid {
 			{ 8,17,26,35,44,53,60,61,62,69,70,71,72,73,74,75,76,77,78,79}
 	};
 
-	/** Indices of "forward" siblings: The indices of sibling cells whose
-	 * index is greater than the current cell; so that we can loop through
-	 * this array, and search for sibling relationships which we have not
-	 * already been examined. Supports a forward only siblings search. */
-	public static final int[][] FORWARD_INDICES = new int [][] {
+	/** Indices of "forward" buddies (siblings): indices of cells in the same
+	 * box, row, or col whose index is greater than the current cell; used to
+	 * support a forwards-only search of buddies. These indices are the junk in
+	 * the trunk of the public FOLLOWING array of BitIdx's. */
+	private static final int[][] FOLLOWING_INDICES = new int [][] {
 			  {1,2,3,4,5,6,7,8,9,10,11,18,19,20,27,36,45,54,63,72}
 			, {2,3,4,5,6,7,8,9,10,11,18,19,20,28,37,46,55,64,73}
 			, {3,4,5,6,7,8,9,10,11,18,19,20,29,38,47,56,65,74}
@@ -334,20 +339,17 @@ public final class Grid {
 			, {}
 	};
 
-	public static final BitIdx[] BUDETTES = new BitIdx[81];
-	public static BitIdx[] AFTER = new BitIdx[81];
+	/** A BitIdx of the buddies (siblings) of each cell in the Grid. */
+	public static final BitIdx[] BITIDX_BUDDIES = new BitIdx[81];
+	/** A BitIdx of the "forward" buddies (siblings) of each cell in the Grid.
+	 * Forward just means having an index greater than the index cell, for use
+	 * in a forwards-only search. */
+	public static BitIdx[] BITIDX_FOLLOWING = new BitIdx[81];
 	static {
 		for ( int i=0; i<81; ++i ) {
-			BUDETTES[i] = new BitIdx(VISIBLE_INDICES[i]);
-			AFTER[i] = new BitIdx(FORWARD_INDICES[i]);
+			BITIDX_BUDDIES[i] = new BitIdx(BUDDIES_INDICES[i]);
+			BITIDX_FOLLOWING[i] = new BitIdx(FOLLOWING_INDICES[i]);
 		}
-	}
-
-	public static Set<Cell> cellSet(Cell... cells) {
-		Set<Cell> result = new HashSet<>(cells.length, 1.0F);
-		for ( Cell c : cells )
-			result.add(c);
-		return result;
 	}
 
 	/**
@@ -424,102 +426,30 @@ public final class Grid {
 	};
 
 	/**
-	 * Return the common row, col, or box of two Cells; else null.
-	 * Note that box comes LAST (for a change).
-	 * @param a Cell
-	 * @param b Cell
-	 * @return ARegion
-	 */
-	public static ARegion commonRegion(Cell a, Cell b) {
-		if ( a.row == b.row )
-			return a.row;
-		if ( a.col == b.col )
-			return a.col;
-		if ( a.box == b.box )
-			return a.box;
-		return null;
-	}
-
-	/**
-	 * Returns the Grid.cells indice of the cell with the given id.
+	 * Returns the indice (in grid.cells) of the Grid.Cell with the given id.
 	 * <p>
-	 * Note that I'm a static method, so you don't need the grid to
-	 * reverse engineer a Cell.id into it's indice.
+	 * I'm static, so you don't need a grid to get the indice of an id.
 	 *
-	 * @param id
+	 * @param id a two character String, in the range A1..I9.
 	 * @return {@code (id.charAt(1)-'1')*9 + (id.charAt(0)-'A')}
 	 */
 	public static int indice(String id) {
-		//     2nd char is y (row)    1st char is x (col)
-		return (id.charAt(1)-'1')*9 + (id.charAt(0)-'A');
-	}
-
-//KEEP4DOC: not used but retain for noobs to see how to JUST CALCULATE IT!
-//	/**
-//	 * Get the Grid.cells indice from y and x coordinates.
-//	 * <p>
-//	 * <b>NOTE</b>: coordinates are given y, x; as per the matrix (not the
-//	 * usual x, y).
-//	 *
-//	 * @param y the row number 0..8 (vertical coordinate)
-//	 * @param x the col number 0..8 (horizontal coordinate)
-//	 * @return the Grid.cells indice of the cell
-//	 */
-//	public static int indice(int y, int x) {
-//		return y * 9 + x;
-//	}
-
-	/** Cell ArrayS ~ late populated! coz the larger arrays were never used. */
-	private static final Cell[][] CAS = new Cell[82][]; // factorial 81
-	static {
-		// note that a cell has 20 siblings. larger arrays are late populated
-		// if they are ever used, except the last one, which contains 82 cells
-		// because remember I'm taking a size arguement, and just sometimes
-		// they're a bit WRONG, so it won't AIOOBE if just create an extra.
-		// Lazy but it works.
-		for ( int i=0; i<21; ++i )
-			CAS[i] = new Cell[i];
-		CAS[81] = new Cell[81];
+		//     2nd char is y (row)      1st char is x (col)
+		return indice(id.charAt(1)-'1', id.charAt(0)-'A');
 	}
 
 	/**
-	 * cas (Cell ArrayS) returns the {@code Cell[]} of the given size from the
-	 * Grids cell array cache, rather than create temporary arrays (slow). If
-	 * you're storing the array then it's up to you to clone() the bastard; coz
-	 * the array I return might be returned again the next time I'm called, so
-	 * it's contents will be arbitrarily overwritten.
+	 * Get the Grid.cells indice from y (row) and x (col) coordinates.
 	 * <p>
-	 * <b>You have been warned!</b>
+	 * <b>NOTE</b>: coordinates are given y, x; as per the matrix (not the
+	 * usual x, y).
 	 *
-	 * @param size the size of the cached array to retrieve
-	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
+	 * @param y the row number 0..8 (vertical coordinate)
+	 * @param x the col number 0..8 (horizontal coordinate)
+	 * @return the Grid.cells indice of the cell
 	 */
-	public static Cell[] cas(int size) {
-		Cell[] cells = CAS[size];
-		// late populate CellsArrayS 21..80
-		if ( cells == null )
-			cells = CAS[size] = new Cell[size];
-		return cells;
-	}
-
-	/**
-	 * Convenience method to get a new List of a re-usable cells array.
-	 * @param cells
-	 * @param numCells
-	 * @return
-	 */
-	public static ArrayList<Cell> list(Cell[] cells, int numCells) {
-		ArrayList<Cell> result = new ArrayList<>(numCells);
-		for ( int i=0; i<numCells; ++i )
-			result.add(cells[i]);
-		return result;
-	}
-
-	public static List<ARegion> regionList(ARegion... regions) {
-		List<ARegion> result = new ArrayList<>(regions.length);
-		for ( ARegion r : regions )
-			result.add(r);
-		return result;
+	public static int indice(int y, int x) {
+		return y * 9 + x;
 	}
 
 	// ============================= instance land ============================
@@ -589,7 +519,9 @@ public final class Grid {
 
 	// ----------------------------- constructors -----------------------------
 
-	/** Construct a new 9x9 Sudoku grid. All cells are set to empty. */
+	/**
+	 * Construct a new empty 9x9 Sudoku grid.
+	 */
 	public Grid() {
 		for(int y=0; y<9; ++y) for(int x=0; x<9; ++x)
 			cells[y*9+x] = new Cell(x, y, Values.all());
@@ -667,7 +599,8 @@ public final class Grid {
 	}
 
 	/**
-	 * Constructor: Loads the given puzzle (in lines) into a new Grid.
+	 * Construct a new 9x9 Sudoku Grid, and load the puzzle in 'lines'.
+	 *
 	 * @param lines
 	 */
 	private Grid(String[] lines) {
@@ -675,15 +608,19 @@ public final class Grid {
 		load(lines); // just call load rather than re-implement it (badly)
 	}
 
-	/** The copy constructor builds an "exact" copy of the 'src' Grid. All cell
+	/**
+	 * The copy constructor creates a new "exact" copy of the 'src' Grid. Cell
 	 * values and maybes are copied, as are each regions idxOf, emptyCellCount,
 	 * and containsValue arrays.
-	 * @param src the source Grid to copy from. */
+	 *
+	 * @param src the source Grid to copy from.
+	 */
 	public Grid(Grid src) { // 83+90+243+27=443
 		int i;
 		for ( i=0; i<81; ++i )
 			cells[i] = new Cell(src.cells[i]);
-		// build regions, crossingBoxs, cells.siblings, cells.notSees, regions.idx, puzzleID
+		// build regions, crossingBoxs, cells.siblings, cells.notSees
+		// , regions.idx, puzzleID
 		initialise();
 		// copy src.regions: indexesOf, idxs, emptyCellCount, containsValue
 		// overwrites the regions.idxs, but ____ it.
@@ -697,9 +634,8 @@ public final class Grid {
 	// Constructor assistant: Does NOT rely on state: cells values or maybes.
 	// I just wire up the physical relationships between Grids component parts,
 	// like putting each cell in it's regions, and finding the crossings, and
-	// the "sibling" relationships, and creating indexes.
-	// @param src is non-null only when called by the copy constructor, to copy
-	// the regions over instead of initialising all there s__t from scratch.
+	// the "sibling" relationships, and creating indexes. This method is run
+	// ONCE only, when the grid is being constructed.
 	private void initialise() {
 		// populate the grids regions arrays
 		int i, x, y;  Row row;  Col col;
@@ -735,8 +671,11 @@ public final class Grid {
 			}
 		}
 		// populate each regions idx
+		// WARNING: initialises regions idx array, and they are used, so keep!
 		for ( ARegion r : regions )
-			RIDX[r.index] = r.idx.addAll(r.cells).lock();
+//RIDX no longer used
+//			RIDX[r.index] = r.idx.addAll(r.cells).lock();
+			r.idx.addAll(r.cells).lock();
 		// grid.puzzleID tells hinters "we've changed puzzles".
 		this.puzzleID = RANDOM.nextLong();
 	}
@@ -987,14 +926,14 @@ public final class Grid {
 		// clear cell values from siblings
 		for ( Cell cell : this.cells )
 			cell.knockCellValueOffSiblingsMaybes();
-		// rebuild all my s__t
+		// rebuild all the s__t in all the regions
 		rebuildAllRegionsS__t();
 	}
 
 	/**
 	 * Rebuild data-structures in all regions: emptyCellCount, containsValue,
-	 * indexesOf, and idxs. Run ONCE after each change to the grid. Results are
-	 * accessed via public attributes, which are faster than getters.
+	 * indexesOf, and idxs. Run ONCE after each change to the grid. Results
+	 * are accessed via public attributes, which are faster than getters.
 	 */
 	public void rebuildAllRegionsS__t() {
 		// rebuild regions empty-cell counts.
@@ -1123,18 +1062,23 @@ public final class Grid {
 	 * in this grid, and set invalidity message and invalidRegion, else 0.
 	 */
 	public int firstDoubledValue() {
-		Values seen = new Values(); // the cell values that we've encountered
-		for (ARegion region : regions) { // 9 boxs, 9 rows, 9 cols
-			for (Cell cell : region.cells) { // 27 * 9 = 243
-				if ( cell.value == 0		  // cell is empty
-				  || seen.visit(cell.value) ) // OR this value is new to us
-					continue;
-				// Bugger: value appears more than once in this region
-				invalidity = "Multiple "+cell.value+"'s in "+region;
-				invalidRegion = region;
-				return cell.value;
-			}
-			seen.clear();
+		int seen, sv;
+		// foreach of the 27 regions in this grid
+		for ( ARegion region : regions ) { // 9 boxs, 9 rows, 9 cols
+			// clear the bitset of cell.values we've seen in this region
+			seen = 0;
+			// foreach cell in this region
+			for ( Cell cell : region.cells ) // 27 * 9 = 243
+				// if this cell is NOT empty
+				if ( cell.value != 0 )  {
+					// and we've seen this cells value before
+					if ( (seen & (sv=VSHFT[cell.value])) != 0 ) {
+						invalidity = "Multiple "+cell.value+"'s in "+region;
+						invalidRegion = region;
+						return cell.value;
+					} else // remember that we've seen this cells value
+						seen |= sv;
+				}
 		}
 		return 0;
 	}
@@ -1145,9 +1089,10 @@ public final class Grid {
 	 */
 	public boolean hasHomelessValues() {
 
-		//DEBUG: 2020-10-23 if s__t is ____ed then rebuild s__t before use.
+		//DEBUG: 2020-10-23 if s__t looks ____ed then rebuild s__t before use.
 		if ( true ) { // @check true
 			// rebuild containsValue array for this and all subsequent hinters.
+			// Note this is necessary for brute force, even if it's a bit slow.
 			rebuildAllRegionsContainsValues(); // safety first!
 		} else { // DEBUG: rebuild ALL my s__t (slower but more reliable)
 			// rebuild containsValue array for each region
@@ -1159,6 +1104,7 @@ public final class Grid {
 					}
 				}
 			}
+			// rebuild indexesOf array for each region
 			int bits, i;
 			Cell[] rcs;
 			for ( int v=1; v<10; ++v ) {
@@ -1178,8 +1124,8 @@ public final class Grid {
 			}
 		}
 
-		// each region which has no possible position for each value has that
-		// value set in one of it's cells, else it's buggered.
+		// each region which has no possible position for this value must have
+		// this value set in one of it's cells, else it's gone tits-up.
 		for ( ARegion r : regions ) // 27
 			for ( int v=1; v<10; ++v ) // 27*9 = 243
 				if ( r.indexesOf[v].size==0 && !r.containsValue[v] ) { // 243*9 = 4,374
@@ -1210,7 +1156,7 @@ public final class Grid {
 	 * @return A Cell array. */
 	public Cell[] get(String... ids) {
 		final int n = ids.length;
-		Cell[] array = cas(n);
+		Cell[] array = Cells.array(n);
 		for ( int i=0; i<n; ++i )
 			array[i] = get(ids[i]);
 		return array;
@@ -1632,9 +1578,17 @@ public final class Grid {
 	private long emptyCellsPuzzleID;
 
 	/**
-	 * Returns a new Idx of empty cells matching the given CellFilter.
-	 * @param f
-	 * @return
+	 * Returns a new Idx of empty cells that are accepted by the CellFilter,
+	 * which is typically implemented by a lambda expression.
+	 * <p>
+	 * I'm inordinately proud of this method. I think it's pretty clever.
+	 * I think the Java-techies who implemented closures are bloody geniuses.
+	 *
+	 * @param f typically a lambda expression implementing CellFilter accept,
+	 *  but any implementation of CellFilter will do nicely. Remember that all
+	 *  cells passed to your filter are empty, ie have value == 0
+	 * @return a new Idx (not the cached empties Idx) containing filtered
+	 *  indices
 	 */
 	public Idx getEmptiesWhere(CellFilter f) {
 		return getEmpties().where(cells, f);
@@ -1958,8 +1912,13 @@ public final class Grid {
 	 */
 	public final class Cell implements Comparable<Cell> {
 
-		/** i (short for index) is my indice in the Grid.cells array<br>
-		 * so: {@code y*9 + x} */
+		/**
+		 * i is my indice in the Grid.cells array.<br>
+		 * So: {@code i = y*9 + x}<br>
+		 * Note: the term "indice" always means a cells index in Grid.cells, to
+		 * differentiate it from all other indexes in the application, because
+		 * indices are heavily used, so are a bit special
+		 */
 		public final int i;
 
 		/** id is my {@code $columnChar$rowNumber} A1..I9 */
@@ -2526,11 +2485,11 @@ public final class Grid {
 
 //KEEP4DOC: not used: keep to show noobs how JUST CALCULATE IT!
 //		/**
-//		 * City life's made him a bit slow Redge. It's under the bonnet son.
-//		 * It takes longer to invoke a method than the method takes, so don't
-//		 * invoke a method, unless of course you couldn't give a s__t about
-//		 * performance because you're not, and never will be, on any critical
-//		 * path, because you're doing something unusual like creating a hint.
+//		 * Is the given value among this Cell's potential values?
+//		 * <p>
+//		 * It takes longer to invoke this method than the method takes, so we
+//		 * don't invoke any method, unless of course we really want to and we
+//		 * are not on the critical path, like when creating a hint.
 //		 *
 //		 * @param value
 //		 * @return true if the potential values of this cell contain the given
@@ -2552,20 +2511,21 @@ public final class Grid {
 			return false;
 		}
 
-		/**
-		 * Get the cell indexes that form the "house" of this cell. The cell
-		 * indexes have to be greater than this cell index. The "house" cells
-		 * are all the cells that are in the same block, row or column.
-		 * <p>
-		 * The iteration order is guaranteed to be the same on each invocation
-		 * of this method for the same cell. This is necessary to ensure that
-		 * hints of the same difficulty are always returned in the same order.
-		 *
-		 * @return array of the cell indexes that are controlled by this cell
-		 */
-		public int[] forwardIndices() {
-			return Grid.FORWARD_INDICES[i];
-		}
+//no longer used
+//		/**
+//		 * Get the cell indexes that form the "house" of this cell. The cell
+//		 * indexes have to be greater than this cell index. The "house" cells
+//		 * are all the cells that are in the same block, row or column.
+//		 * <p>
+//		 * The iteration order is guaranteed to be the same on each invocation
+//		 * of this method for the same cell. This is necessary to ensure that
+//		 * hints of the same difficulty are always returned in the same order.
+//		 *
+//		 * @return array of the cell indexes that are controlled by this cell
+//		 */
+//		public int[] forwardIndices() {
+//			return Grid.FOLLOWING_INDICES[i];
+//		}
 
 		/**
 		 * Get siblings with indexes greater than mine.
@@ -2577,7 +2537,7 @@ public final class Grid {
 		 * @return an index of my "forward" siblings
 		 */
 		public BitIdx forwards() {
-			BitIdx result = Grid.AFTER[i];
+			BitIdx result = Grid.BITIDX_FOLLOWING[i];
 			result.grid = Grid.this;
 			return result;
 		}
@@ -2589,7 +2549,7 @@ public final class Grid {
 		 * @return the cells that are controlled by this cell
 		 */
 		public BitIdx visible() {
-			BitIdx result = Grid.BUDETTES[i];
+			BitIdx result = Grid.BITIDX_BUDDIES[i];
 			result.grid = Grid.this;
 			return result;
 		}
@@ -2825,7 +2785,7 @@ public final class Grid {
 		private void copyFrom(ARegion src) {
 			// deep copy the indexesOf and idxs of all values 1..9
 			for ( int v=1; v<10; ++v ) {
-				indexesOf[v].copyFrom(src.indexesOf[v]);
+				indexesOf[v].copy(src.indexesOf[v]);
 				idxs[v].set(src.idxs[v]);
 			}
 			emptyCellCount = src.emptyCellCount;
@@ -2905,7 +2865,7 @@ public final class Grid {
 		 */
 		public Cell[] at(int bits, boolean dummy) {
 			final int n = ISIZE[bits];
-			Cell[] array = cas(n);
+			Cell[] array = Cells.array(n);
 			int cnt = at(bits, array);
 			assert cnt == n;
 			return array;

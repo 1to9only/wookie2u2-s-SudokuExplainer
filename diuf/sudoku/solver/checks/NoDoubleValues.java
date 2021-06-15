@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.checks;
@@ -18,7 +18,10 @@ import java.util.List;
 
 
 /**
- * This class checks that no value appears more than once in each region.
+ * NoDoubleValues validates that no value appears more than once in a region.
+ * <p>
+ * Note: the grid implements the actual examination in the firstDoubledValue
+ * method, so all this class need do is present it's result as an IHinter.
  */
 public final class NoDoubleValues extends AWarningHinter {
 
@@ -36,9 +39,10 @@ public final class NoDoubleValues extends AWarningHinter {
 		if ( doubledValue == 0 )
 			return false; // it's all good
 
-		// Poo: more than one cell in $invalidRegion is set to $doubledValue.
+		// Crap: more than one cell in $invalidRegion is set to $doubledValue.
 		accu.add(new WarningHint(this, grid.invalidity
 				, "NoDoubleValues.html", grid.invalidity) {
+			// override getRedCells to show the GUI user the naughty cells
 			@Override
 			public Set<Cell> getRedCells() {
 				Set<Cell> result = new LinkedHashSet<>(8, 1F);
@@ -47,10 +51,12 @@ public final class NoDoubleValues extends AWarningHinter {
 						result.add(c);
 				return result;
 			}
+			// override getBases to show the GUI user the naughty region
 			@Override
 			public List<ARegion> getBases() {
 				return Regions.list(grid.invalidRegion);
 			}
+			// all else is handled by WarningHint, especially toStringImpl.
 		});
 		return true;
 	}

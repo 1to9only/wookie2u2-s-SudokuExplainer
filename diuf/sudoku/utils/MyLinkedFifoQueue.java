@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -52,7 +52,7 @@ public final class MyLinkedFifoQueue<E> extends AbstractQueue<E> implements Queu
 	 * Add all 'c' to this Queue. Note that Collection has no alternative to an
 	 * iterator, which is a bit slow Redge.
 	 *
-	 * @param c 
+	 * @param c
 	 */
 	public MyLinkedFifoQueue(Collection<E> c) {
 		super();
@@ -96,7 +96,7 @@ public final class MyLinkedFifoQueue<E> extends AbstractQueue<E> implements Queu
 	 * Add all of 'c' to this Queue.  Note that Collection has no alternative
 	 * to an iterator, which is a bit slow Redge.
 	 * @param c
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public boolean addAll(Collection<? extends E> c) {
@@ -122,26 +122,22 @@ public final class MyLinkedFifoQueue<E> extends AbstractQueue<E> implements Queu
 		switch ( c.size ) {
 			case 0:
 				return false;
-			// this is the most commonly used path because Ass.parents is a
-			// MyLinkedList and most (what percentage?) Ass's have 1 parent.
-			case 1: { // this block to localise variables
-				// all this to not create an iterator we're not going to really use
-				Node<E> n = new Node<>(c.first.item);
-				foot.next = n;
-				foot = n;
+			// Most Ass's have 1 parent, so no need for a slow iterator.
+			case 1: { // this block localises variables
+				Node<E> node = new Node<>(c.first.item);
+				foot.next = node;
+				foot = node;
 				++size;
 				return true;
 			}
-			default: { // this block to localise variables
-				// Do addAll inline without a ____ing iterator!
-				Node<E> n;
-				for ( MyLinkedList.Node<E> cn = c.first;
-					  cn != null;
-					  cn = cn.next
-				) {
-					n = new Node<>(cn.item);
-					foot.next = n;
-					foot = n;
+			// Some Ass's have multiple parents. Still no slow iterator coz I'm
+			// a MyLinkedList, which exposes it's internal data-structures.
+			default: { // this block localises variables
+				Node<E> node;
+				for ( MyLinkedList.Node<E> cn=c.first; cn!=null; cn=cn.next ) {
+					node = new Node<>(cn.item);
+					foot.next = node;
+					foot = node;
 					++size;
 				}
 				return true;

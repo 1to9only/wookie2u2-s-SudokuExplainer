@@ -1,8 +1,13 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
+ *
+ * The Rcc class is boosted from HoDoKu's RestrictedCommonCandidate class.
+ * Kudos to hobiwan. Mistakes are mine.
+ *
+ * Here's hobiwans standard licence statement:
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -24,11 +29,8 @@
  * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
  */
 package diuf.sudoku.solver.hinters.als;
-// Almost Locked Set from HoDoKu
 
 import java.io.Serializable;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 
 /**
@@ -37,36 +39,26 @@ import java.util.logging.Logger;
  * and optionally cannot be in the intersection of the two ALS's;<br>
  * and optionally must be more than one cell (no bivalue cells).
  *
- * @author hobiwan originally but this ones a bit of a KRC hack, with fruit
- * juice, but no gannets.
+ * @author hobiwan, but this version has been hacked by KRC.
  */
-public class Rcc implements Comparable<Rcc>, Cloneable, Serializable {
-
+public class Rcc implements Comparable<Rcc>, Serializable//, Cloneable
+{
     private static final long serialVersionUID = 1L;
 
     /** Index of first ALS in a {@code List<Als>} kept externally. */
-    private int als1;
+    public final int als1;
 
     /** Index of second ALS in a {@code List<Als>} kept externally. */
-    private int als2;
+    public final int als2;
 
     /** First RC, must be != 0. */
-    private int cand1;
+    public final int cand1;
 
-    /** Second rc; if {@code cand2==0} als1 and als2 have only one RC value. */
-    private int cand2;
+    /** Second RC; if {@code cand2==0} als1 and als2 have only one RC value. */
+    public int cand2;
 
-    /** Used for propagation checks in ALS-Chains
-	 * (see {@link AlsSolver#getAlsXYChain()} for details).
-     * 0: none, 1: cand1 only, 2: cand2 only, 3: both.
-     */
-    private int actualRC;
-
-    /**
-     * Creates a new instance of {@code RestricteCommon}.
-     */
-    public Rcc() {
-    }
+    /** Used in ALS-Chains: 0=none, 1=cand1, 2=cand2, 3=both. */
+    public int whichRC;
 
     /**
      * Constructs a new {@code Rcc} for ALSs which are presumed to be singly
@@ -83,104 +75,110 @@ public class Rcc implements Comparable<Rcc>, Cloneable, Serializable {
     }
 
     /**
-     * Returns a shallow copy of {@code this}. Since the class holds only
-     * base types, this is sufficient.
+     * New propagation rules for ALS-Chains: When finding a link in a chain
+	 * the actual RCs of {@code prevRc} are excluded from {@code this}, so I
+	 * adjust {@code this.whichRC} accordingly.
+     * <p>
+     * Returns: if resulting {@code this.whichRC > 0},<br>
+	 * then return true meaning the chain continues,<br>
+	 * else return false.
+     * <p>
+     * If a chain starts with a doubly-linked RC ({@code rc==null && cand2!=0})
+	 * then one of the two RCs is chosen depending on {@code firstTry),
+	 * searching both possible links in a chain.
      *
-     * @return
+     * @param p the Rcc of the previous link in the current chain
+     * @param isFirst when <tt>prevRC==null</tt> (first link in a chain)<br>
+	 *  should we use <tt>cand1</tt> (the first attempt)<br>
+	 *  or <tt>cand2</tt> (the second attempt).
+     * @return does any RC-value remain to be examined
      */
-    @Override
-    public Object clone() {
-        try {
-            Rcc newRC = (Rcc)super.clone();
-            return newRC;
-        } catch (CloneNotSupportedException ex) {
-            Logger.getLogger(getClass().getName()).log(Level.SEVERE, "Error while cloning (RC)", ex);
-            return null;
-        }
-    }
-
-    /**
-     * New propagation rules for ALS-Chains: the actual RCs of parameter
-     * {@code rc} are excluded from {@code this},
-     * {@code this.actualRC} is adjusted as necessary;
-     * if {@code this.actualRC} is greater than {@code 0} the
-     * chain can be continued and
-     * true is returned, else false is returned.<br><br>
-     *
-     * If a chain starts with a doubly linked RC ({@code rc == null},
-	 * {@code cand2 != 0}), one of the RCs can be chosen freely; this results
-	 * in two different tries for the chain search.
-     *
-     * @param prevRC RC of the previous link in a chain
-     * @param firstTry Only used, if {@code rc == null}: if set, {@code cand1}
-	 *  is used else {@code cand2}
-     * @return true if an actual RC remains, false otherwise
-     */
-    public boolean checkRC(Rcc prevRC, boolean firstTry) {
+    public boolean whichRC(Rcc p, boolean isFirst) {
 		// NOTE: terniaries are slow!
 		if ( cand2 == 0 )
-			actualRC = 1;
+			whichRC = 1; // cand1 only
 		else
-			actualRC = 3;
-        if ( prevRC == null ) { // previous rc is not provided
-			// start of chain: pick your RC
+			whichRC = 3; // both
+        if ( p == null ) {
+			// start of chain: pick the RC to examine
             if ( cand2 != 0 )
-				if ( firstTry )
-					actualRC = 1;
+				if ( isFirst )
+					whichRC = 1; // examine cand1
 				else
-					actualRC = 2;
+					whichRC = 2; // examine cand2
         } else
-			switch ( prevRC.actualRC ) {
-				case 0: break; // actualRC is already set
-				case 1: actualRC = checkRCInt(prevRC.cand1, 0, cand1, cand2); break;
-				case 2: actualRC = checkRCInt(prevRC.cand2, 0, cand1, cand2); break;
-				case 3: actualRC = checkRCInt(prevRC.cand1, prevRC.cand1, cand1, cand2); break;
+			// continueing chain: pick my RC based on prevRC.whichRC
+			switch ( p.whichRC ) {
+				case 0: break; // whichRC is already set
+				case 1: whichRC = check(p.cand1, 0, cand1, cand2); break; // cand1 only
+				case 2: whichRC = check(p.cand2, 0, cand1, cand2); break; // cand2 only
+				case 3: whichRC = check(p.cand1, p.cand2, cand1, cand2); break; // both cand1 and cand2
 				default: break;
 			}
-        return actualRC != 0;
+        return whichRC != 0;
     }
 
     /**
-     * Checks duplicates (all possible combinations); both {@code c12} and
-	 * {@code c22} (the second RC values) may be 0, meaning none.
+     * Suppress duplicate candidate values from the previous to the current RCC
+	 * in the chain by returning the value of the current whichRC:<br>
+	 * 0=none, 1=cand1, 2=cand2, 3=both.
+	 * <p>
+	 * <pre>
+	 * SPEED: This is a static method. All values are passed in, especially
+	 * this.cand1 and this.cand2. Static methods are faster to invoke, ergo
+	 * Javas this-injection (unsurprisingly) slows-down each call.
+	 * I also tried:
+	 * 1. all params final. No faster.
+	 * 2. tried eliminating else's. Slower (WTF?). Revert.
+	 * 3. I had already removed the getters and setters from als1, als2, cand1,
+	 *    cand2, and whichRC to "debeanify" the Rcc class, but it's slower, but
+	 *    I'm still in two minds RE reverting ALL of these changes. sigh.
+	 * I am learning that hobiwan was pretty bloody good at writing FAST code,
+	 * even when my previous experience tell me it might be faster to do things
+	 * differently the impirical evidence keeps on telling me otherwise. I am
+	 * tempted to blame "hot box" for the losses, and try again tomorrow in the
+	 * cool of early morning. I have no air-conditioning, nor the money, nor da
+	 * inclination to contribute to the destruction of my bloody planet by
+	 * using one. If it's hot then my PC runs slower. Get Over It!
+	 * An evaporative-PC-cooler might work though. sigh.
+	 * </pre>
      *
-     * @param c11 First ARC of first link
-     * @param c12 Second ARC of first link (may be 0)
-     * @param c21 First PRC of second link
-     * @param c22 Second PRC of second link (may be 0)
-     * @return
+     * @param p1 previous RCC first candidate
+     * @param p2 previous RCC second candidate (may be 0)
+     * @param c1 current RCC first candidate
+     * @param c2 current RCC Second candidate (may be 0)
+     * @return the value of this.whichRC.
      */
-    private int checkRCInt(int c11, int c12, int c21, int c22) {
+    private static int check(final int p1, final int p2, final int c1, final int c2) {
 		// NOTE: terniaries are slow!
-        if ( c12 == 0 ) { // one ARC
-            if ( c22 == 0 ) // one ARC one PRC
-                if ( c11 == c21 )
+        if ( p2 == 0 ) { // one previous RC
+            if ( c2 == 0 ) // one current RC
+                if ( p1 == c1 )
 					return 0;
 				else
 					return 1;
-			else // one ARC two PRCs
-                if ( c11 == c22 )
+			else // two current RCs
+                if ( p1 == c2 )
 					return 1;
-				else if ( c11 == c21 )
+				else if ( p1 == c1 )
 					return 2;
 				else
 					return 3;
-		} else { // two ARCs
-            if (c22 == 0) // two ARCs one PRC
-                if ( c11==c21 || c12==c21 )
+		} else // two ARCs
+            if ( c2 == 0 ) // two ARCs one PRC
+                if ( p1==c1 || p2==c1 )
 					return 0;
 				else
 					return 1;
-            else // two ARCs two PRCs
-                if ( (c11==c21 && c12==c22) || (c11==c22 && c12==c21) )
+			else // two ARCs two PRCs
+                if ( (p1==c1 && p2==c2) || (p1==c2 && p2==c1) )
 					return 0;
-				else if ( c11==c22 || c12==c22 )
+				else if ( p1==c2 || p2==c2 )
 					return 1;
-				else if ( c11==c21 || c12==c21 )
+				else if ( p1==c1 || p2==c1 )
 					return 2;
 				else
 					return 3;
-		}
     }
 
     /**
@@ -191,7 +189,7 @@ public class Rcc implements Comparable<Rcc>, Cloneable, Serializable {
     public String toString() {
         return "alss=" + als1 + "/" + als2
 			 + " cands=" + cand1 + "/" + cand2
-			 + " arc=" + actualRC;
+			 + " arc=" + whichRC;
     }
 
     /**
@@ -209,86 +207,6 @@ public class Rcc implements Comparable<Rcc>, Cloneable, Serializable {
 		  && (result=cand1 - r.cand1) == 0 )
 			result = cand2 - r.cand2;
         return result;
-    }
-
-    /**
-     * Getter for {@link #als1}.
-     * @return
-     */
-    public int getAls1() {
-        return als1;
-    }
-
-    /**
-     * Setter for {@link #als1}.
-     * @param als1
-     */
-    public void setAls1(int als1) {
-        this.als1 = als1;
-    }
-
-    /**
-     * Getter for {@link #als2}.
-     * @return
-     */
-    public int getAls2() {
-        return als2;
-    }
-
-    /**
-     * Setter for {@link #als2}.
-     * @param als2
-     */
-    public void setAls2(int als2) {
-        this.als2 = als2;
-    }
-
-    /**
-     * Getter for {@link #cand1}.
-     * @return
-     */
-    public int getCand1() {
-        return cand1;
-    }
-
-    /**
-     * Setter for {@link #cand1}.
-     * @param cand1
-     */
-    public void setCand1(int cand1) {
-        this.cand1 = cand1;
-    }
-
-    /**
-     * Getter for {@link #cand2}.
-     * @return
-     */
-    public int getCand2() {
-        return cand2;
-    }
-
-    /**
-     * Setter for {@link #cand2}.
-     * @param cand2
-     */
-    public void setCand2(int cand2) {
-        this.cand2 = cand2;
-    }
-
-    /**
-     * Getter for {@link #actualRC}.
-     * @return
-     */
-    public int getActualRC() {
-        return actualRC;
-    }
-
-    /**
-     * Setter for {@link #actualRC}.
-     * @param actualRC
-     */
-    public void setActualRC(int actualRC) {
-        this.actualRC = actualRC;
     }
 
 }

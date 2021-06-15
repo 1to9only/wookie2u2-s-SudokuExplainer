@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
@@ -18,6 +18,7 @@ import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.Ass;
+import diuf.sudoku.Regions;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -58,7 +59,7 @@ public final class LockingHint extends AHint implements IActualHint, IChildHint 
 			, Pots redPots, ARegion base, ARegion cover
 			, String debugMessage) {
 		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null, null
-				, Grid.regionList(base), Grid.regionList(cover));
+				, Regions.list(base), Regions.list(cover));
 		this.valueToRemove = valueToRemove;
 		this.cellSet = greenPots.keySet();
 		this.base = base;

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -13,7 +13,7 @@ import diuf.sudoku.solver.hinters.als.SueDeCoq;
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.*;
 import diuf.sudoku.gen.*;
-import diuf.sudoku.gui.HintPrinter;
+import diuf.sudoku.gui.Print;
 import diuf.sudoku.io.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.checks.*;
@@ -150,16 +150,12 @@ import java.util.Set;
 public final class LogicalSolver {
 
 	/**
-	 * true uses new "align2", which is a slower than the old "align" package.
-	 * Normal people would chuck align2, but I can't because I just love how
-	 * succinct and clever it is, so I seek a magic efficiency bullet. sigh.
+	 * true uses new "align2", which is slower than original "align" package.
 	 */
 	private static final boolean USE_ALIGN2 = false; //@check false
 
 	/**
 	 * true uses original BasicFisherman, which is faster than BasicFisherman1.
-	 * I reimplemented BasicFisherman looking for speed, and failed. They are
-	 * both fast enough, but BasicFisherman is faster than BasicFisherman1.
 	 */
 	private static final boolean USE_OLD_FISH = true; // @check true
 
@@ -242,6 +238,11 @@ public final class LogicalSolver {
 	 * <p>see: {@code HKEY_CURRENT_USER\Software\JavaSoft\Prefs\diuf\sudoku} */
 	private EnumSet<Tech> wantedTechs = Settings.THE.getWantedTechniques();
 
+	/** If a Tech is wanted by the user (in the Options ~ Solving Techniques
+	 * Dialog) then it'll be used to solve puzzles, else it won't.
+	 * <p>see: {@code HKEY_CURRENT_USER\Software\JavaSoft\Prefs\diuf\sudoku} */
+	private EnumSet<Tech> unwanted = EnumSet.noneOf(Tech.class);
+
 	/**
 	 * LogicalSolver solve/apply detect DEAD_CAT, a hint which does not set a
 	 * Cell and does not remove any maybes). If we see a DEAD_CAT twice presume
@@ -259,12 +260,13 @@ public final class LogicalSolver {
 	 * {@code getFirstHint}. */
 	final Mode mode; // SPEED or ACCURACY
 
-	/** My monitor (the parent Generator) to pass to hinters so that they can
-	 * interrupt themselves when the user interrupts the parent Generator.
-	 * So null except when I'm created by the Generator. */
-	IInterruptMonitor monitor = null;
-	public void setMonitor(IInterruptMonitor monitor) {
-		this.monitor = monitor;
+	/** My interruptMonitor (the parent Generator) to pass to hinters so that
+	 * they can interrupt themselves when the user interrupts the Generator;
+	 * so always null except when the LogicalSolver is created by a Generator.
+	 */
+	IInterruptMonitor interruptMonitor = null;
+	public void setInterruptMonitor(IInterruptMonitor im) {
+		this.interruptMonitor = im;
 	}
 
 	/** singlesSolution is weird: it's set by LS.solveWithSingles and then read
@@ -343,7 +345,7 @@ public final class LogicalSolver {
 	/** return has the monitor (parent Generator) been interrupted by user.
 	 * isInterrupted would be a better name, but it's too long. */
 	private boolean interrupt() {
-		final IInterruptMonitor m = this.monitor;
+		final IInterruptMonitor m = this.interruptMonitor;
 		return m!=null && m.isInterrupted();
 	}
 
@@ -371,12 +373,15 @@ public final class LogicalSolver {
 
 		// T/F is shorthand for true/false; to make the code fit on a line.
 		final boolean T = true, F = false;
-		// im is shorthand for InterruptMonitor
-		final IInterruptMonitor im = monitor;
+		// im is shorthand for interruptMonitor
+		final IInterruptMonitor im = interruptMonitor;
 
 		// refetch the wantedTechs field, in case they've changed; then my want
 		// method reads this field, rather than re-fetching it every time.
 		this.wantedTechs = Settings.THE.getWantedTechniques();
+
+		// empty the unwanted-techs set, for the want method to populate.
+		this.unwanted.clear();
 
 		// puzzleValidators check puzzle obeys Sudoku rules once, upon load.
 		puzzleValidators = new IHinter[] { // Dial 1900 Love-a-Duck Now!
@@ -438,23 +443,23 @@ public final class LogicalSolver {
 		want(indirects, locking = new Locking()); // Pointing and Claiming
 		if ( !wantedTechs.contains(Tech.Locking) )
 			indirects.add(new LockingGeneralised());
-		else if ( Log.MODE >= Log.NORMAL_MODE )
-			Log.println("LogicalSolver: unwanted: LockingGeneralised");
+		else
+			unwanted.add(Tech.LockingGeneralised);
 		want(indirects, new NakedSet(Tech.NakedPair));
-		// nb: Locking cheekily uses HiddenPair to upgrade siamese locking
-		// hints to the full HiddenSet hint, with extra eliminations.
-		// Always set the variables, even in SPEED mode (search setSiamese).
+		// nb: When FilterHints, Locking uses HiddenPair to upgrade siamese
+		// locking hints to a HiddenSet hint with additional eliminations.
+		// Always set the variables even in SPEED mode (for setSiamese).
 		want(indirects, hiddenPair = new HiddenSet(Tech.HiddenPair));
 		want(indirects, new NakedSet(Tech.NakedTriple));
 		// nb: hiddenTriple used (cheekily) by Locking to upgrade siamese
 		// locking hints to the full HiddenSet hint, with additional elims.
 		want(indirects, hiddenTriple = new HiddenSet(Tech.HiddenTriple));
 		if ( isAccurate ) {
-			want(indirects, new TwoStringKite());
 			if ( USE_OLD_FISH )
-				want(indirects, new BasicFisherman(Tech.Swampfish)); // aka X-Wing
+				want(indirects, new BasicFisherman(Tech.Swampfish));
 			else
-				want(indirects, new BasicFisherman1(Tech.Swampfish)); // aka X-Wing
+				want(indirects, new BasicFisherman1(Tech.Swampfish));
+			want(indirects, new TwoStringKite());
 			want(indirects, new XYWing(Tech.XY_Wing));
 			want(indirects, new XYWing(Tech.XYZ_Wing));
 			want(indirects, new WWing());
@@ -466,25 +471,28 @@ public final class LogicalSolver {
 				want(indirects, new BasicFisherman1(Tech.Swordfish));
 		}
 
-		// heavies is the heavy weight division. Slow/er indirect hinters.
-		heavies = new ArrayList<>(isAccurate ? 42 : 0); // TMOLTUAE (dead horse)
+		// heavies are slower indirect hinters. The heavy-weigth division.
+		heavies = new ArrayList<>(isAccurate ? 42 : 0); //Ready please Mr Adams
 		if ( isAccurate ) {
+			// Choosing Coloring: BUG, Coloring, XColoring, Mesuda, and/or GEM.
+			// * DROP BUG: It's old and slow. Finds minimal hints.
+			// * KEEP Coloring: A superset of BUG. The only multi-coloring:
+			//   searches more than two coloring-sets.
+			// * KEEP XColoring: A superset of Colorings simple-coloring:
+			//   searches two coloring-sets. Hints where both Medusa and GEM
+			//   miss, which is fine so long as we use XColoring.
+			// * DROP Medusa3D: It's counter-productive when used with GEM.
+			//   Medusa and GEM both paint cell-values, not just cells.
+			// * KEEP GEM: the "ultimate" coloring is a superset of Medusa3D.
+			//   Note that my impl doesn't completely impl the specification!
+			// * They're all so fast it makes ____-all difference.
+			want(heavies, new BUG());       // slow basic  DROP
+			want(heavies, new Coloring());  // BUG++       KEEP multicolor
+			want(heavies, new XColoring()); // Coloring++  KEEP GEM misses some
+			want(heavies, new Medusa3D());  // XColoring++ DROP
+			want(heavies, new GEM());       // Medusa3D++  KEEP "ultimate"
 			want(heavies, new NakedSet(Tech.NakedQuad));
 			want(heavies, new HiddenSet(Tech.HiddenQuad)); // NONE in top1465
-			// Choose BUG or Coloring or XColoring and/or 3D Mesuda or GEM.
-			// BUG is old and slow: it finds minimal hints.
-			// Coloring finds a superset of BUG's simple-coloring.
-			// Coloring is the only one that does multi-coloring.
-			// XColoring finds a superset of Colorings simple-coloring.
-			// Medusa/GEM misses some XColoring hints, so use both.
-			// GEM finds a superset of Medusa.
-			// I actually use Coloring, XColoring, and GEM because they're all
-			// fast enough for it to make very little difference overall.
-			want(heavies, new BUG());			 // basic and slow
-			want(heavies, new Coloring());		 // BUG++
-			want(heavies, new XColoring());		 // Coloring++
-			want(heavies, new MedusaColoring()); // XColoring++
-			want(heavies, new GEM());			 // Medusa++
 			if ( USE_OLD_FISH )
 				want(heavies, new BasicFisherman(Tech.Jellyfish));
 			else
@@ -497,15 +505,14 @@ public final class LogicalSolver {
 			want(heavies, new BigWing(Tech.TUVWXYZ_Wing));
 			want(heavies, new BigWing(Tech.STUVWXYZ_Wing));
 			want(heavies, new UniqueRectangle());
-			// <<-- COLORING WAS HERE
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedSwordfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedJellyfish));
-			want(heavies, new AlsXz());
-			want(heavies, new AlsXyWing());
-			want(heavies, new AlsXyChain());
-			want(heavies, new DeathBlossom());
+			want(heavies, new AlsXz()); // ALS + bivalue cell
+			want(heavies, new AlsXyWing()); // 2 ALSs + bivalue cell
+			want(heavies, new AlsXyChain()); // 3+ ALSs + bivalue cell
+			want(heavies, new DeathBlossom()); // 2 ALSs + bivalue; 3 ALSs + trivalue; or even 4 ALSs + quadvalue
 			want(heavies, new SueDeCoq()); // AALS's
 			want(heavies, new ComplexFisherman(Tech.FrankenSwampfish));	// NONE
 			want(heavies, new ComplexFisherman(Tech.FrankenSwordfish));	// OK
@@ -518,17 +525,19 @@ public final class LogicalSolver {
 			want(heavies, new KrakenFisherman(Tech.KrakenJellyfish));	// SLOW
 			want(heavies, new ComplexFisherman(Tech.MutantJellyfish));	// TOO SLOW
 
-			// align2 is faster than align for A234E; but takes 3 times A5E,
-			// 4 times A6E, 5 times A7E; and presumably so on for 8, 9 & 10.
-//			want(heavies, new Aligned2Exclusion()); // fast enough.
-//			want(heavies, new Aligned3Exclusion()); // fast enough.
-//			want(heavies, new Aligned4Exclusion(im)); // acceptable.
-			want(heavies, new AlignedExclusion(Tech.AlignedPair, T));
-			want(heavies, new AlignedExclusion(Tech.AlignedTriple, T));
-			want(heavies, new AlignedExclusion(Tech.AlignedQuad, F));
+			// align2 (new) is faster than align (old) for A234E;
+			if ( false ) { // always use align2 (old retained for prosterity)
+				want(heavies, new Aligned2Exclusion()); // fast enough.
+				want(heavies, new Aligned3Exclusion()); // fast enough.
+				want(heavies, new Aligned4Exclusion(im)); // acceptable.
+			} else {
+				want(heavies, new AlignedExclusion(Tech.AlignedPair, T));
+				want(heavies, new AlignedExclusion(Tech.AlignedTriple, T));
+				want(heavies, new AlignedExclusion(Tech.AlignedQuad, F));
+			}
+			// align2 takes 3*A5E, 4*A6E, 5*A7E; presume so on for 8, 9, 10.
 			// The user chooses if A5+E is correct (slow) or hacked (fast).
-			// The hacked version is about ten times faster.
-			// The hacked version finds about a third of the hints.
+			// Hacked finds about a third of hints in about a tenth of time.
 			if ( !USE_ALIGN2 ) {
 				// wantAE reads the "isa${degree}ehacked" Setting to choose
 				// which Aligned*Exclusion (_1C or _2H) class to construct.
@@ -565,27 +574,30 @@ public final class LogicalSolver {
 		// DynamicPlus is Dynamic Chaining + Four Quick Foxes (Point & Claim,
 		// Naked Pairs, Hidden Pairs, and Swampfish). It only misses on hardest
 		// puzzles, so hardcoded as safery-net, so user can't unwant it.
-		chainers.add(new MultipleChainer(Tech.DynamicPlus, a)); // safety-net
+		// A safety-net for all the but the hardest puzzles
+		want(chainers, new MultipleChainer(Tech.DynamicPlus, a));
 
 		// Nested means imbedded chainers: assumptions on assumptions.
 		// The only way to ever see a nested hint is with Shift-F5 in the GUI.
 		nesters = new ArrayList<>(4);
 		// advanced					 // approx time per call on an i7 @ 2.9GHz
-		// NestedUnary covers The Hardest Sudoku according to conceptis.com
+		// NestedUnary covers THE Hardest Sudoku according to conceptis.com.
+		// The actual safety-net, always hints!
 		want(nesters, new MultipleChainer(Tech.NestedUnary, a));	//  4 secs
 		want(nesters, new MultipleChainer(Tech.NestedMultiple, a));	// 10 secs
 		// experimental
 		want(nesters, new MultipleChainer(Tech.NestedDynamic, a));	// 15 secs
 		// NestedPlus is Dynamic + Dynamic + Four Quick Foxes => confusing!
-		// NestedPlus is the real safety-net (so user can't unwant it), but
-		// it's (mostly) only invoked in Shift-F5 coz NestedUnary hints first.
-		// Only THE HARDEST puzzles get through to NestedUnary; so if it's on
-		// it always hints before we get through to the ultimate keeper.
 		// @bug 2020 AUG: NestedPlus produced invalid hints, so now uses the	// PRODUCED INVALID HINTS!
 		// HintValidator to log and ignore them. NOT adequate! Needs fixing!
 		// I'm just ignoring this bug for now coz IT'S NEVER USED in anger.
-		nesters.add(new MultipleChainer(Tech.NestedPlus, a));		// 70 secs
+		want(nesters, new MultipleChainer(Tech.NestedPlus, a));		// 70 secs
 
+		if ( Log.MODE >= Log.NORMAL_MODE )
+			if ( !unwanted.isEmpty() )
+				Log.println("unwantedTechs: "+unwanted.toString());
+
+		// repopulate the wantedHinters list
 		populateWantedHinters();
 	}
 
@@ -710,19 +722,19 @@ public final class LogicalSolver {
 	/**
 	 * A better name would be addHinterIfWanted but that's just too verbose.
 	 * If this 'hinter' is wanted then add it to the Collection 'c'; otherwise
-	 * just whinge about it in the log-file: you may want that later.
+	 * just add the tech to the unwanted list, for printing after all the want
+	 * methods have been called.
 	 *
 	 * @param c {@code Collection<IHinter>} the hinters-list to add this hinter
 	 *  to, if it's wanted.
 	 * @param hinter to want, or not.
 	 */
 	private void want(Collection<IHinter> c, IHinter hinter) {
-		// remember Resetables even if not wanted. It can't hurt.
-		// add to c only if wanted
-		if ( wantedTechs.contains(hinter.getTech()) )
+		final Tech tech = hinter.getTech();
+		if ( wantedTechs.contains(tech) )
 			c.add(hinter);
-		else if ( Log.MODE >= Log.NORMAL_MODE )
-			Log.println("LogicalSolver: unwanted: "+hinter.getTech().name());
+		else
+			unwanted.add(tech);
 	}
 
 	/**
@@ -763,26 +775,26 @@ public final class LogicalSolver {
 	 */
 	private void wantAE(List<IHinter> list, int num, IInterruptMonitor im
 			, boolean defaultIsHacked) {
-		final String name = "Aligned "+WOG[num];
-		if ( Settings.THE.getBoolean(name, false) ) {
-			try {
+		try {
+			final Tech tech = Tech.valueOf("Aligned"+WOG[num]);
+			if ( Settings.THE.getBoolean(tech.nom, false) ) {
 				final boolean isHacked =
-					Settings.THE.get("isa"+num+"ehacked", defaultIsHacked);
+						Settings.THE.get("isa"+num+"ehacked", defaultIsHacked);
 				final String className = "diuf.sudoku.solver.hinters.align."
-					+ "Aligned"+num+"Exclusion"+(isHacked?"_2H":"_1C");
+						+ "Aligned"+num+"Exclusion"+(isHacked?"_2H":"_1C");
 				final Class<?> clazz = Class.forName(className);
 				final java.lang.reflect.Constructor<?> constructor =
 					clazz.getConstructor(IInterruptMonitor.class);
 				final IHinter hinter =
 					(IHinter)constructor.newInstance(im);
 				list.add(hinter);
-			} catch (Exception ex) {
-				StdErr.exit("wantAE fubarred", ex);
-			}
-		} else if ( Log.MODE >= Log.NORMAL_MODE )
-			Log.println("LogicalSolver: unwanted: "+name.replaceFirst(" ", ""));
+			} else
+				unwanted.add(tech);
+		} catch (Exception ex) {
+			StdErr.exit("wantAE fubarred", ex);
+		}
 	}
-	// num in wogalini. Think shape: a hexagon has sex sides, in New Zealand.
+	// Num in wogalini. Think shape: a hexagon has sex sides, in New Zealand.
 	private static final String[] WOG = new String[] {
 		  "#0", "#1", "Pair", "Triple", "Quad", "Pent", "Hex", "Sept", "Oct"
 		, "Nona", "Dec"
@@ -1117,40 +1129,42 @@ public final class LogicalSolver {
 	}
 	private boolean anyDisabled;
 
-	/** Get the solution of this Grid. Used by generate and by the Tools ~
-	 * Analyse menu-item in the SudokuFrame.
-	 * @param grid puzzle to solve
-	 * @return an AHint which is either an AnalysisHint or a WarningHint. */
+	/**
+	 * Get the Solution of this puzzle. Used by generate and by the <i>Tools ~
+	 * Analyse</i> menu-item in the SudokuFrame.
+	 *
+	 * @param grid a copy of the Grid to solve (not the GUI's grid)
+	 * @return an AHint which is either an AnalysisHint or a WarningHint.
+	 */
 	public AHint analyse(Grid grid) {
-		GrabBag.grid = grid; // this is a new grid, not the one in the GUI.
+		GrabBag.grid = grid; // this is a copy-to-sove, not the GUI's grid.
 		if (Log.MODE >= Log.NORMAL_MODE)
 			Log.format("%sanalyse: %s%s%s%s", NL, grid.source, NL, grid, NL);
-		SingleHintsAccumulator accu = new SingleHintsAccumulator();
-		long t0 = System.nanoTime();
+		final SingleHintsAccumulator accu = new SingleHintsAccumulator();
+		final long t0 = System.nanoTime();
 		if ( grid.isFull() )
 			return new WarningHint(recursiveAnalyser
 					, "The Sudoku has been solved", "SudokuSolved.html");
 		// execute just the puzzle validators.
 		if ( getFirst(puzzleValidators, grid, accu, false) )
 			return accu.getHint();
-		LogicalAnalyser logicalAnalyser = new LogicalAnalyser(this);
-		if ( logicalAnalyser.findHints(grid, accu) ) {
-			// logicalAnalyser.findHints allways returns true,
-			// only the type of hint returned varies for success or failure;
-			// and they're both WarningHints; so s__t gets sticky downstream.
-			long t1 = System.nanoTime();
-			AHint hint = accu.getHint();
+		final LogicalAnalyser analyser = new LogicalAnalyser(this);
+		// LogicalAnalyser.findHints allways returns true, only the returned
+		// hint-type varies: solved=AnalysisHint or invalid="raw" WarningHint,
+		// which are both WarningHints; so telling them apart is a bit tricky.
+		if ( analyser.findHints(grid, accu) ) {
+			final long t1 = System.nanoTime();
+			final AHint hint = accu.getHint(); // a SolutionHint
 			if (Log.MODE >= Log.NORMAL_MODE) {
 				Log.format("%,15d\t%2d\t%4d\t%3d\t%-30s\t%s%s"
 						, t1-t0, grid.countFilledCells(), grid.countMaybes()
 						, hint.getNumElims(), hint.getHinter(), hint, NL);
 				if ( hint instanceof AnalysisHint )
-					Log.println(((AnalysisHint)hint)
-							.appendUsageMap(new StringBuilder(1024)));
+					Log.println(((AnalysisHint)hint).appendUsageMap());
 			}
 			return hint;
 		}
-		return null; // should never happen, but never say never.
+		return null; // Never happens. Never say never.
 	}
 
 	/**
@@ -1215,17 +1229,16 @@ public final class LogicalSolver {
 
 	/**
 	 * Solve 'grid' logically to populate 'usageMap' and return success.
-	 * In English: Solves the given Sudoku puzzle (the 'grid') using logic
-	 * to populate the given 'usageMap' with a summary of which Hinters were
-	 * invoked how often, and how long each took to run; returning "was the
-	 * puzzle solved", which should be true for any/every valid puzzle, but
-	 * never say never. An invalid puzzle should throw an UnsolvableException
-	 * (a RuntimeException) so solve should never return false. Never say
-	 * never.
+	 * In English: Solves the given Sudoku puzzle (the 'grid') using logic to
+	 * populate the given 'usageMap' with a summary of which Hinters were used
+	 * how often, and how long each took to run; to return "was the puzzle
+	 * solved", which should be true for any/every valid puzzle, but never say
+	 * never. An invalid puzzle should throw an UnsolvableException (a
+	 * RuntimeException) so solve never returns false. Never say never.
 	 *
-	 * @param grid Grid the Sudoku puzzle to solve
-	 * @param usage UsageMap to populate with hinter usage: hint count, elapsed
-	 *  (execution) time, and the number of maybes eliminated
+	 * @param grid Grid containing the Sudoku puzzle to be solved
+	 * @param usage UsageMap (empty) that I populate with hinter usage: number
+	 *  of calls, hint count, elapsed time, and number of maybes eliminated
 	 * @param validate true means run the TooFewClues and TooFewValues
 	 *  validators before solving the puzzle.
 	 * @param isNoisy true logs progress, false does it all quietly.
@@ -1233,9 +1246,7 @@ public final class LogicalSolver {
 	 * @return was it solved; else see grid.invalidity
 	 * @throws UnsolvableException which is a RuntimeException means that this
 	 *  puzzle is invalid and/or cannot be solved. See the exceptions message
-	 *  (if any) for details, and/or grid.invalidity field.<br>
-	 *  Clear as bloody mud, right? Well good. Don't send me invalid crap and I
-	 *  won't make you struggle to access the error message. Sigh.
+	 *  (if any) for details, and/or grid.invalidity field.
 	 */
 	public boolean solve(Grid grid, UsageMap usage, boolean validate
 			, boolean isNoisy, boolean logHints) {
@@ -1257,8 +1268,8 @@ public final class LogicalSolver {
 		// when called by the GUI we don't need to validate any longer because
 		// my caller (the LogicalAnalyser) already has, in order to handle the
 		// hint therefrom properly; so now we only validate here when called by
-		// the LogicalSolverTester, which is all a bit dodgy, but only a bit...
-		// and all because it's hard to differentiate "invalid" messages. Sigh.
+		// the LogicalSolverTester, which is all a bit dodgy, but only a bit;
+		// all because it's hard to differentiate "problem" messages. Sigh.
 		if ( validate )
 			validatePuzzle(grid, accu); // throws UnsolvableException
 		if ( grid.source != null )
@@ -1312,13 +1323,14 @@ public final class LogicalSolver {
 	}
 
 	// Apply this hint to the grid.
-	// @param hint AHint to apply
-	// @param hintCount int is the 1 based count of hints in this puzzle
-	// @param took long nanoseconds between now and previous hint
-	// @param grid Grid to apply the hint to
-	// @param usage UsageMap for the updateUsage method (below)
+	// @param hint to apply
+	// @param hintCount is the 1 based count of hints in this puzzle
+	// @param took nanoseconds between now and previous hint
+	// @param grid to apply the hint to
+	// @param usage for the updateUsage method (below)
 	// @param noisy if true log progress, else do it quietly
-	// throws UnsolvableException
+	// @throws UnsolvableException on the odd occassion
+	// @return the number of cell-values eliminated (and/or 10 per cell set)
 	private int apply(AHint hint, int hintCount, long took, Grid grid
 			, UsageMap usage, boolean isNoisy, boolean logHints) {
 		if ( hint == null )
@@ -1344,7 +1356,7 @@ public final class LogicalSolver {
 		}
 		// + 1 line per Hint (detail)
 		if ( Log.MODE>=Log.VERBOSE_2_MODE && logIt )
-			HintPrinter.details(Log.out, hintCount, took, grid, numElims, hint, true);
+			Print.hint(Log.out, hintCount, took, grid, numElims, hint, true);
 		// NB: usage was inserted by doHinters2, we just update it
 		if ( usage != null )
 			updateUsage(usage, hint, numElims);
@@ -1369,20 +1381,23 @@ public final class LogicalSolver {
 	private void updateUsage(UsageMap usageMap, AHint hint, int numElims) {
 		Usage u = usageMap.get(hint.hinter);
 		if ( u == null ) {
-			// Locking upgrades siamese hints to HiddenPair/Triple, so
-			// usage may not yet exist, so now we must add it.
-			// nb: the time has already been allocated to Locking even
-			// though it's actually (now) a hidden-set hint. Sigh.
-			usageMap.addon(hint.hinter, 1, 1, numElims, 0L);
-			u = usageMap.get(hint.hinter);
+			// Locking upgrades siamese hints to HiddenPair/Triple, so usage
+			// may not yet exist, so add it. The time is already allocated to
+			// Locking even-though it's a hidden-set hint. Sigh.
+			u = usageMap.addon(hint.hinter, 1, 1, numElims, 0L);
 			u.maxDifficulty = hint.getDifficulty();
 			return;
 		}
-		u.numHints += (hint instanceof AggregatedHint)
-				? ((AggregatedHint)hint).hints.size()
-				: 1;
+		// nb: terniaries are slower.
+		if ( hint instanceof AggregatedHint )
+			u.numHints += ((AggregatedHint)hint).hints.size();
+		else
+			++u.numHints;
 		u.numElims += numElims;
-		u.maxDifficulty = Math.max(hint.getDifficulty(), u.maxDifficulty);
+		// nb: Math.max is slower.
+		double d = hint.getDifficulty();
+		if ( d > u.maxDifficulty )
+			u.maxDifficulty = d;
 		// addonate to subHints Map: for hinters producing multiple hint types.
 		u.addonateSubHints(hint, 1);
 	}
@@ -1401,37 +1416,12 @@ public final class LogicalSolver {
 	}
 
 	/**
-	 * USING CACHE: select {@code LinkedList<IPreparer>} from hinters where
-	 * implements IPreparer.
+	 * Cache {@code LinkedList<IPreparer>} from hinters where isa IPreparer.
 	 * <p>
-	 * The preppersCache is updated when it's out-dated. That is: when
-	 * preppersCache is null (ie doesn't exist yet); or
-	 * Settings.THE.getModificationCount() differs from when preppersCache
-	 * was read previously; in case the wantedHinters have changed; otherwise
-	 * we prepare no-longer-wanted-hinters, causing head-aches, despite<br>
-	 * <i>excessive masturbation with eel spleen oil engendering blindness,
-	 * and "no" I don't want to taste your eel spleen oil. I don't care if it's
-	 * very nice. Nor do I want to pay for power, which I can get free from the
-	 * sun; or buy your oil, cosmetics, plastic bags, packaging, brand, wolf
-	 * nipple chips, pop-up toaster, pop-up restaurant, your stupid 1000 hour
-	 * television, or your mind-bogellingly dumb refried billy nut cheese.
-	 * In fact I won't pay for you. You're w____less. Now go away, or I shall
-	 * taunt you a second time! That does it: The next gannet who comes within
-	 * fifty yards of me is gonna bloody die! Allright make it Ten! Five?!?<br>
-	 * <br>
-	 * But that's a tautology Boris.<br>
-	 * <br>
-	 * I'll rip ya' bloody arms off.<br>
-	 * <br>
-	 * Pangalin Shawn?<br>
-	 * <br>
-	 * Make it three. But that's my final offer.<br>
-	 * <br>
-	 * What sort of eye-wateringly-idiotic idiots <b>BUY</b> prepping?<p>
-	 * <br>
-	 * Probably the same sort of moron who appoints a ____ing rapist AG
-	 * <u>after</u> Me Too.
-	 * </i>
+	 * The cache is updated when it's out-dated, that is: when the cache does
+	 * not exist yet or Settings.THE.getModificationCount() differs from when
+	 * the cache was read previously; in case the wantedHinters have changed,
+	 * otherwise we will prepare no-longer-wanted-hinters, which is no biggy.
 	 *
 	 * @param hinters the wantedHinters list
 	 * @return A cached {@code LinkedList<IPreparer>}
@@ -1521,7 +1511,7 @@ public final class LogicalSolver {
 
 	private boolean carp(UnsolvableException ex, Grid grid, boolean throwIt) {
 		grid.invalidity = ex.getMessage();
-		if (throwIt) {
+		if ( throwIt ) {
 			if (Log.MODE >= Log.NORMAL_MODE)
 				System.out.print(NL+grid+NL);
 			throw ex;

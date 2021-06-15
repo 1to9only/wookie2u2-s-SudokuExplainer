@@ -1,31 +1,32 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.hdnset;
 
+import diuf.sudoku.Ass;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
+import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.Ass;
-import static diuf.sudoku.Indexes.ISHFT;
-import diuf.sudoku.Regions;
-import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
-import diuf.sudoku.utils.MyLinkedHashSet;
-import java.util.Set;
 import diuf.sudoku.utils.IAssSet;
-import diuf.sudoku.solver.hinters.IChildHint;
+import diuf.sudoku.utils.MyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedList;
+import java.util.Set;
 
 
 /**
@@ -58,9 +59,9 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 		this.hdnSetRegionIdxBits = hdnSetRegionIdxBits;
 		this.hdnSetValues = hdnSetValues;
 		this.hdnSetValuesArray = hdnSetValues.toArrayNew();
-		assert super.degree == hdnSetValuesArray.length
-				: " degree "+degree+" != length "+hdnSetValuesArray.length
-				+ " " + diuf.sudoku.utils.Frmt.csv(hdnSetValuesArray);
+		assert hdnSetValuesArray.length == super.degree
+			: "hdnSetValuesArray "+java.util.Arrays.toString(hdnSetValuesArray)
+			+" length "+hdnSetValuesArray.length+" != degree "+degree;
 		this.region = region;
 		this.hdnSetIdx = Idx.of(cells);
 	}
@@ -70,27 +71,42 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 		return new MyLinkedHashSet<>(cells);
 	}
 
+	/**
+	 * Find the parentOffs which eliminate any hidden-set value from any other
+	 * cell in the region, and so forced these values into only the hidden-set
+	 * cells.
+	 *
+	 * @param initGrid the initial Grid (without erasures when isDynamic)
+	 * @param currGrid the current Grid (with erasures when isDynamic)
+	 * @param prntOffs a complete Set of the parent Off assumptions
+	 * @return a List of the Off assumptions which must be true before this
+	 *  hint becomes applicable; ie the s__t that caused me
+	 */
 	@Override
 	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
 			, IAssSet prntOffs) {
 		final MyLinkedList<Ass> result = new MyLinkedList<>(); // the result
 		final Cell[] ic = initGrid.cells; // initialCells
-		final Cell[] rc = this.region.cells; // regionCells
-		final int[] hdnSetVals = this.hdnSetValuesArray;
-		final int bits = this.hdnSetRegionIdxBits;
+		final Cell[] rc = this.region.cells; // regionCells (in current grid)
+		final int[] vs = this.hdnSetValuesArray;
 		Cell cc; // currentCell ie currGrid.cell
-		Ass p; // completeParent
-		int j,J, initBits, v; // index, second index, initGrid cells maybes bits
+		Ass p; // parent = the complete parent, with it's own parents, if any
+		int j // index
+		  , J // index ceiling
+		  , initBits // initGrid.cells[indice].maybes.bits
+		  , v; // the candidate value
 		// foreach cell in my region EXCEPT the hidden-set-cells
-		for ( int i=0; i<9; ++i )
-			if ( (bits & ISHFT[i]) == 0 ) // EXCEPT hidden-set-cells
-				// for each hidden-set-value of this cell in the initGrid
-				if ( (initBits=ic[(cc=rc[i]).i].maybes.bits) != 0 )
-					for ( j=0,J=degree; j<J; ++j )
-						if ( (initBits & VSHFT[v=hdnSetVals[j]]) != 0
-						  && (p=prntOffs.getAss(cc, v)) != null )
-							// This assumption must be true before I am applicable
-							result.add(p);
+		for ( int i : INDEXES[Indexes.ALL_BITS & ~hdnSetRegionIdxBits] )
+			// if this initGrid.cell has any maybes
+			if ( (initBits=ic[(cc=rc[i]).i].maybes.bits) != 0 )
+				// foreach hidden-set-value
+				for ( j=0,J=degree; j<J; ++j )
+					// if this initGrid.cell maybe this hidden-set-value
+					if ( (initBits & VSHFT[v=vs[j]]) != 0
+					  // and a parent-off exists for this cell-value
+					  && (p=prntOffs.getAss(cc, v)) != null )
+						// this parent must be true before I am applicable
+						result.add(p);
 		return result;
 	}
 

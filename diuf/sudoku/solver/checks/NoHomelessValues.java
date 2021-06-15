@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.checks;
@@ -12,10 +12,12 @@ import diuf.sudoku.solver.accu.IAccumulator;
 
 
 /**
- * Check that no unplaced value has no remaining possible positions in any
- * region.
- * <p>IE: Foreach region, foreach unplaced value: check that this value has
- * at-least one possible position in this region.
+ * NoHomelessValues validates that no unplaced value has no remaining possible
+ * positions in any region, ie foreach region, foreach unplaced value: check
+ * that this value has at-least one possible position in this region.
+ * <p>
+ * Note: grid now implements the actual examination in the hasHomelessValues
+ * method, so all this class need do is present it's results as an IHinter.
  */
 public final class NoHomelessValues extends AWarningHinter {
 

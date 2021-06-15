@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -411,23 +411,22 @@ public class MyHashMap<K,V>
 
 	/**
 	 * Associates the specified value with the specified key in this map.
-	 * If the map previously contained a mapping for the key, the old
+	 * If the map contains an existing entry for this key, then the old
 	 * value is replaced.
 	 *
 	 * @param key the key with which the specified value is to be associated
 	 * @param value value to be associated with the specified key
 	 * @return the previous value associated with <tt>key</tt>, or <tt>null</tt>
-	 * if there was no mapping for <tt>key</tt>. Note that I reject a
-	 * <tt>null</tt> key. If you use null-keys then please just use a bloody
-	 * java.util.HashMap!
+	 * if there was no mapping for <tt>key</tt>. Note that I reject null-keys;
+	 * if you require null-keys use a java.util.HashMap.
 	 */
 	@Override
 	public V put(K key, V value) {
 		assert key != null : "MyHashMap.put: key is null!"; 
 		K k;
 		V previousValue;
-		int hash, i;
-		{ // this block just localises h
+		final int hash, i;
+		{ // this block localises h, to calculate hash and i
 			int h = key.hashCode();
 			h ^= (h >>> 20) ^ (h >>> 12);
 			hash = h ^ (h >>> 7) ^ (h >>> 4);

@@ -1,32 +1,28 @@
-The BUG (Bivalue Universal Grave) class is fundamentally deprecated. It has been
-superceeded by Coloring, XColoring, Medusa3DColoring, and finally GEM (Graded
-Equivalence Marks) because they all find more hints in less time than BUG does.
+The BUG (Bivalue Universal Grave) class is superceeded by Coloring, XColoring,
+Medusa3D, and GEM (Graded Equivalence Marks) because they all find more hints
+in less time than BUG does. BUG should therefore be regarded as "deprecated".
 
 I do not use BUG any longer; instead I use Coloring, XColoring, and GEM.
 * BUG is slow and finds only the minimal coloring sets; those that outright
   invalidate the puzzle (ie a subset of contradictions, as eliminations).
-* Coloring is the only one that does Multi-Coloring, ie uses multiple coloring
-  sets to produce a hint.
-* XColoring extends simple (single set) coloring to find more hints using some
+* Coloring is the only one that does Multi-Coloring, ie searches more than two
+  colors to produce a hint.
+* XColoring extends simple (two colors) coloring to find more hints using some
   simple "extended" rules.
-* Medusa3DColoring colors cell-values, not just cells. It finds more hints than
-  XColoring, but for reasons I do not fully understand it doesn't find ALL of 
-  the XColoring or even the simple Coloring hints, so one strongly suspects that
-  there must be something very wrong with my implementation. sigh. But I don't
-  use it, so I'm not worried about it enough to even attempt to fix it. Let the
-  old bastard maunder in his own muck is my approach.
-* GEM is a version of Medusa which finds all the same hints, and more besides.
-  GEM is a partial implementation of the Graded Equivalence Marks specification,
-  which I cannot understand, because I am stupid. It finds many more hints than
-  Medusa3DColoring but I'm pretty sure it's still missing tricks because I have
-  not implemented a few of the specified elimination criteria, because they make
-  no sense to me: they're just gibberish. In fact the whole specification makes
-  eff-all sense to me. I would need to interview the expert who wrote the spec
-  in order to get my head around the problem in order to produce a comprehensive
-  implementable specification document; probably on the back of a fag packet.
-  That's always been the way, since before Adam was a lad.
-* My GEM implementation started as a copy-paste of Medusa3DColoring, because 
-  they are fundamentally the same problem, so it finds everything that Medusa
-  does, and more besides.
+* Medusa3D colors cell-values, not just cells. It finds more hints than
+  XColoring, but for reasons I do not understand Medusa doesn't find ALL of the
+  XColoring or even Coloring hints, so I suspect there's something wrong with my
+  Medusa3D and subsequent GEM implementations.
+* GEM started as a copy-paste of Medusa3D, coz they're fundamentally the same
+  problem, so GEM finds everything that Medusa does, and more besides. GEM is
+  only a partial implementation of the Graded Equivalence Marks spec, which I
+  can't understand, because I'm stupid. It finds many more hints than Medusa3D
+  but I'm pretty sure it's still missing tricks coz I can't implement a few of
+  the specified elimination criteria, because they make no sense to me: they're
+  just gibberish. In fact the whole specification makes little sense to me. I
+  would need to interview the expert who wrote the spec in order to get my head
+  around the problem to write a comprehensive spec on the back of a fag packet.
+  That's always been the way, since before Adams daddy identified a persistent
+  itch. Viva La France!
 
 Nothing is ever perfect.

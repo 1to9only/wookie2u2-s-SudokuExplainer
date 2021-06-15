@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -137,9 +137,7 @@ final class SudokuExplainer implements Closeable {
 	// Note that Log.out is set before we invoke the constructor.
 	private SudokuExplainer() {
 		grid = new Grid();
-		solver = LogicalSolverFactory.get();
-
-		GrabBag.logicalSolver = solver;
+		GrabBag.logicalSolver = solver = LogicalSolverFactory.get();
 		asker = frame = new SudokuFrame(grid, this);
 		gridPanel = frame.gridPanel;
 
@@ -182,15 +180,15 @@ final class SudokuExplainer implements Closeable {
 		filteredHints = null;
 		if ( unfilteredHints == null )
 			return;
-		if ( !Settings.THE.get(Settings.isFilteringHints) )
-			// copy "as is"
-			filteredHints = new ArrayList<>(unfilteredHints);
-		else {
+		if ( Settings.THE.get(Settings.isFilteringHints) ) {
 			// unfiltered -> filter -> filtered
 			filteredHints = new ArrayList<>(unfilteredHints.size());
 			for ( AHint hint : unfilteredHints )
 				if ( filterAccepts(hint) )
 					addFilteredHint(hint);
+		} else {
+			// copy "as is"
+			filteredHints = new ArrayList<>(unfilteredHints);
 		}
 		filteredHints.sort(AHint.BY_SCORE_DESC_AND_INDICE);
 	}
@@ -677,7 +675,6 @@ final class SudokuExplainer implements Closeable {
 		clearUndos();
 		solutionValues = null;
 		solutionValuesGridId = 0L;
-//		frame.showWelcomeText();
 		frame.setTitle(Settings.ATV+"    "+Settings.BUILT);
 	}
 
@@ -688,8 +685,6 @@ final class SudokuExplainer implements Closeable {
 		gridPanel.setSudokuGrid(grid);
 		gridPanel.clearSelection(true);
 		clearHints();
-//		// nb: empty string "" is displayed as an empty unumbered list.
-//		frame.setHintDetailArea(null);
 	}
 
 	/** @return the current Grid. */
@@ -975,17 +970,16 @@ final class SudokuExplainer implements Closeable {
 	}
 
 	private void repaintHintsTree() {
-		final List<AHint> fh = filteredHints;
-		if ( fh == null )
+		if ( filteredHints == null ) {
 			frame.clearHintsTree();
-		else {
-			final HintNode root = new HintsTreeBuilder().build(fh);
-			final HintNode selected;
-			if ( fh.isEmpty() )
-				selected = null; // Never say never
-			else
-				selected = root.getNodeFor(fh.get(0));
-			frame.setHintsTree(root, selected, fh.size()>1);
+		} else {
+			// select the first hint, or none if the list is empty
+			final List<AHint> hints = filteredHints;
+			final HintNode root = new HintsTreeBuilder().build(hints);
+			// terniaries are fast enough here, at the "top" level
+			final HintNode selected = hints.isEmpty() ? null
+					: root.getNodeFor(hints.get(0));
+			frame.setHintsTree(root, selected);
 		}
 	}
 

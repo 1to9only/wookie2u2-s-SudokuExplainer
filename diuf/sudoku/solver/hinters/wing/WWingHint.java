@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.wing;
@@ -42,7 +42,7 @@ public final class WWingHint extends AHint implements IActualHint {
 		this.cellB = cellB;
 		this.wCellA = wCellA;
 		this.wCellB = wCellB;
-		this.wABCommonRegion = Grid.commonRegion(wCellA, wCellB);
+		this.wABCommonRegion = Regions.common(wCellA, wCellB);
 	}
 
 	@Override

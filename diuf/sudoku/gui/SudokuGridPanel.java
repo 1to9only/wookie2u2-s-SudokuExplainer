@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -18,6 +18,7 @@ import diuf.sudoku.Settings;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.hinters.als.Als;
+import diuf.sudoku.utils.Log;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -650,9 +651,15 @@ class SudokuGridPanel extends JPanel {
 	}
 
 	private void repaintCell(Cell cell) {
-		if (cell == null)
-			return;
-		repaint(cell.x*COS+H_GAP, cell.y*COS+V_GAP, COS, COS);
+		if ( cell != null )
+			repaint(cell.x*COS+H_GAP, cell.y*COS+V_GAP, COS, COS);
+	}
+	
+	public void setFocusedCellS(String id) {
+		if ( id == null )
+			setFocusedCell(null);
+		else
+			setFocusedCell(grid.get(id));
 	}
 
 	private void setFocusedCell(Cell cell) {
@@ -881,25 +888,40 @@ class SudokuGridPanel extends JPanel {
 		} // next region
 	}
 
+	/**
+	 * paint the ALSs, if any, in me the SudokuGridPanel. Note that alss may be
+	 * null, in which case I am never called, but it should never be empty.
+	 *
+	 * @param g
+	 * @param alss 
+	 */
 	private void paintAlss(final Graphics g, Collection<Als> alss) {
-		int i = 0;
+		// If you're seeing this then add another ALS_COLORS and ALS_BG_COLORS.
+		if ( alss.size() > ALS_COLORS.length )
+			Log.println("WARN: paintAlss: more ALS's than colors!");
+		int i = 0; // the color index
 		for ( Als a : alss ) {
-			// null backgroundColor: I paint just the cells later.
-			paintRegions(g, a.regions(), ALS_COLORS[i], null);
-			for ( Cell cell : a.cells ) {
-				// paint the cell background
-				g.setColor(ALS_BG_COLORS[i]);
-				g.fillRect(cell.x*COS+2, cell.y*COS+2, COS-4, COS-4);
-				// paint the foreground
-				g.setColor(ALS_COLORS[i]);
-				for ( int v : VALUESES[cell.maybes.bits] )
-					drawStringCentered3D(g, DIGITS[v]
-						, cell.x*COS + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
-						, cell.y*COS + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
-						, smallFont2
-					);
+			if ( a != null ) { // the last als may be null. sigh.
+				// null backgroundColor: I paint backgrounds of my cells.
+				paintRegions(g, a.regions(), ALS_COLORS[i], null);
+				for ( Cell cell : a.cells ) {
+					// paint the cell background
+					g.setColor(ALS_BG_COLORS[i]);
+					g.fillRect(cell.x*COS+2, cell.y*COS+2, COS-4, COS-4);
+					// paint the foreground
+					g.setColor(ALS_COLORS[i]);
+					for ( int v : VALUESES[cell.maybes.bits] )
+						drawStringCentered3D(g, DIGITS[v]
+							, cell.x*COS + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
+							, cell.y*COS + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
+							, smallFont2
+						);
+				}
+				// prevent AIOOBE if there's ever more ALS's than there are colors,
+				// by making the color index wrap around to zero. If you see two
+				// blue ALSs then add another ALS_COLORS and ALS_BG_COLORS.
+				i = (i+1) % ALS_COLORS.length;
 			}
-			++i;
 		}
 	}
 

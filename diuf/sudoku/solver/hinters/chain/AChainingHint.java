@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.chain;
@@ -104,12 +104,12 @@ public abstract class AChainingHint extends AHint
 	 * @return an {@code ArrayList<Ass>}.
 	 */
 	ArrayList<Ass> getAncestorsList(Ass target) {
-		ArrayList<Ass> ancestorsList;
-		if ( (ancestorsList=ancestorsMap.get(target)) == null ) {
-			ancestorsList = getAncestorsListImpl(target);
-			ancestorsMap.put(target, ancestorsList);
+		ArrayList<Ass> list;
+		if ( (list=ancestorsMap.get(target)) == null ) {
+			list = getAncestorsListImpl(target);
+			ancestorsMap.put(target, list);
 		}
-		return ancestorsList;
+		return list;
 	}
 	HashMap<Ass, ArrayList<Ass>> ancestorsMap = new HashMap<>(16, 1F);
 
@@ -693,9 +693,9 @@ public abstract class AChainingHint extends AHint
 		}
 		return null; // we also get here if not found
 	}
-	
+
 	public String chainType() {
-		if ( isXChain ) 
+		if ( isXChain )
 			if ( isYChain )
 				return "XY";
 			else

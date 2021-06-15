@@ -1,10 +1,14 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
- * Based on HoDoKu's FishSolver, so here's hobiwan's licence statement:
+ * Based on HoDoKu's FishSolver, by Bernhard Hobiger. KrakenFisherman has been
+ * modified extensively from hobiwans original; especially funky KrakenTables
+ * caching all possible chains in a Grid. Kudos to hobiwan. Mistakes are mine.
+ *
+ * Here's hobiwans standard licence statement:
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -658,8 +662,14 @@ public class KrakenFisherman extends AHinter
 											chains.add(kt2sets[dk].getAss(cell, fv2));
 									});
 									// build the actual hint, which "wraps" the base hint.
-									kraken = new KrakenFishHint(this, reds, base, new Values(v2)
-											, KrakenFishHint.Type.TWO, chains, new Idx(kfM0,kfM1,kfM2));
+									kraken = new KrakenFishHint(this
+											, reds
+											, base
+											, new Values(v2)
+											, KrakenFishHint.Type.TWO
+											, chains
+											, new Idx(kfM0,kfM1,kfM2)
+									);
 
 									ok = true;
 									if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
@@ -712,6 +722,37 @@ public class KrakenFisherman extends AHinter
 	 */
 	private final Ass[] kt1Asses = new Ass[81];
 
+	private static final class Kt1Visitor implements Idx.UntilFalseVisitor {
+		public KrakenTables tables; // crapon tables
+		public int candidate; // the Fish candidate value
+		public int kd; // krakenDelete
+		public Ass[] asses; // cooincident with grid.cells
+		@Override
+		public boolean visit(int fin) {
+			if ( (asses[fin]=kt1Search(tables.ons[fin][candidate], kd, candidate, tables)) == null ) {
+				// clean-up for next time
+				Arrays.fill(asses, null);
+				return false;
+			}
+			return true;
+		}
+	}
+
+	// I create ONE instance of a static visitor rather than create a new one
+	// for each and every visit because it is more efficient. The tables and
+	// candidate fields are set ONCE in searchForKraken, then isKrakenTypeOne
+	// sets the kd and asses fields, and then we call fins.untilFalse to visit
+	// (below) each fin-cell. kt1Search then searces the implication-tree (ie
+	// the KrakenTables) of the given ON (tables.ons[fin][candidate]) for the
+	// target "$kd-$candidate" implication.
+	//
+	// I am in two minds: I suspect it may be faster to use kt2Search approach
+	// of finding ALL implications of each ON once, and then look up target in
+	// the tree (ie cache WHOLE implication tree of each ON in an OFFs Idx, den
+	// test if the Idx contains "$kd-$candidate"), so that kt1 and kt2 both use
+	// a single implication cache.
+	private static final Kt1Visitor KT1_VISITOR = new Kt1Visitor();
+
 	/**
 	 * <b>WARNING</b>: This code is untested because I don't have a single
 	 * instance of Kraken Fish Type 1, nor am I bright enough to figure out
@@ -730,36 +771,6 @@ public class KrakenFisherman extends AHinter
 		KT1_VISITOR.asses = asses;
 		return fins.untilFalse(KT1_VISITOR);
 	}
-	// I create ONE instance of a static visitor rather than create a new one
-	// for each and every visit because it is more efficient. The tables and
-	// candidate fields are set ONCE in searchForKraken, then isKrakenTypeOne
-	// sets the kd and asses fields, and then we call fins.untilFalse to visit
-	// (below) each fin-cell. kt1Search then searces the implication-tree (ie
-	// the KrakenTables) of the given ON (tables.ons[fin][candidate]) for the
-	// target "$kd-$candidate" implication.
-	//
-	// I am in two minds about all  I suspect it may be faster to just use
-	// the kt2Search approach of finding ALL implications of each ON once, and
-	// then look up this target in the tree (ie cache WHOLE implication tree of
-	// each ON in an OFFs Idx, then test if the Idx contains "$kd-$candidate"),
-	// so kt1 and kt2 would both use a single implication cache.
-	private static final Kt1Visitor KT1_VISITOR = new Kt1Visitor();
-
-	private static final class Kt1Visitor implements Idx.UntilFalseVisitor {
-		public KrakenTables tables; // crapon tables
-		public int candidate; // the Fish candidate value
-		public int kd; // krakenDelete
-		public Ass[] asses; // cooincident with grid.cells
-		@Override
-		public boolean visit(int fin) {
-			if ( (asses[fin]=kt1Search(tables.ons[fin][candidate], kd, candidate, tables)) == null ) {
-				// clean-up for next time
-				Arrays.fill(asses, null);
-				return false;
-			}
-			return true;
-		}
-	}
 
 	/**
 	 * kt1Search: Kraken Type 1 Chaining: returns the Ass that OFFs targetValue
@@ -769,44 +780,61 @@ public class KrakenFisherman extends AHinter
 	 * Stack: {@link #searchKrakens} -> {@link isKrakenTypeTwo} -> kt2Search
 	 * all private in KrakenFisherman; so we can communicate via fields.
 	 * <p>
-	 * Note: each time we add to the queue: first we need to check this Ass is
-	 * not and never has been in the queue, for which I use {@link Eff#seen}.
+	 * NOTE: when we enqueue an Ass, first we need to check this Ass never has
+	 * been in the queue, for which I use {@link Eff#seen}; otherwise we end-up
+	 * in an infinite-loop when an Ass causes itself. Large-L Liberal. Sigh.
 	 *
 	 * @param initialOn the initial assumption (which is always an ON) has
 	 *  effects, which cause effects, and so on; forming a consequence tree,
 	 *  which we now search for the target index and value.
-	 * @param tIndice targetIndex of the Cell we seek to eliminate from
-	 * @param tValue targetValue to seek the elimination of
+	 * @param tIndice targetIndex of the Cell I seek to eliminate from
+	 * @param tValue targetValue I seek the elimination of
+	 * @param tables the current KrakenTables
 	 * @return the target Ass, ie the Ass which eliminates targetValue from the
 	 *  grid cell at targetIndice, else null meaning "not found"
 	 */
 	private static Ass kt1Search(Eff initialOn, int tIndice, int tValue
 			, KrakenTables tables) {
-		// seen null initialOn in generate, where s__t gets a bit ____ed up.
+		// seen null initialOn in generate, where s__t gets ____ed up. sigh.
 		if ( initialOn == null )
 			return null;
 		assert initialOn.isOn; // the ON must be an ON
 		assert initialOn.hasKids; // all ONs have effects
+		Eff[] kids; // p.kids of this parent
 		Eff p, k; // p for parent, k for kid
-		// queue is a circular buffer. read and write move independently, but
-		// write outruns read, until read catches up at the end. The buffer
+		int i, n; // index of kid, and number of kids in this parent
+		// Q is a circular buffer. read and write move independently, but write
+		// always outruns read, until read catches up at the end. The buffer
 		// must be large enough so that write NEVER overtakes read. The only
-		// way to work that out is trial by fire.
-		int r=0, w=0, i,n;
+		// way to work that out is trial by fire. QSIZE must be a power of 2.
+		int r=0, w=0;
 		// calc the hashCode of the target "tIndice-tValue" Assumption ONCE.
 		final int targetHC = Ass.hashCode(tIndice%9, tIndice/9, tValue, false);
-		tables.clearSeens(); // set all Eff.seen = false in the KrakenTable
+		// mark the whole KrakenTable as unseen
+		tables.clearSeens();
+		// This for-loop walks down the implication-tree of the initialOn; we
+		// return the first assumption whose hashCode field equals the target.
+		// NOTE: circular buffer is fast, but hard to follow. Basically we just
+		// poll (remove and return the head) until the queue is empty. Most of
+		// the speed gain comes from doing everything inline. There is no fast
+		// implementation that looks pretty. Any Class is slower. Get over it!
 		for ( p=initialOn; p!=null; p=Q[r], Q[r]=null, r=(r+1)&QMASK ) {
-			// mark this Eff as "we have seen this one" in the KrakenTable
+			// mark "we've seen this Eff" in the KrakenTable
 			p.seen = true;
 			// its faster to read a field than invoke hashCode()
 			if ( p.hashCode == targetHC )
 				return p;
-			for ( i=0,n=p.numKids; i<n; ++i )
-				if ( !(k=p.kids[i]).seen ) {
-					Q[w] = k;
-					w = (w+1) & QMASK;
-				}
+			// add each of my kids which has not yet been seen to the queue.
+			// This "not yet been seen" test averts chasing implication-loops,
+			// ie averts this implication-walker going into an infinite loop.
+			if ( (n=p.numKids) > 0 ) {
+				kids = p.kids;
+				for ( i=0; i<n; ++i )
+					if ( !(k=kids[i]).seen ) {
+						Q[w] = k;
+						w = (w+1) & QMASK;
+					}
+			}
 		}
 		return null;
 	}
@@ -1003,21 +1031,26 @@ public class KrakenFisherman extends AHinter
 					}
 		}
 	}
-	// the circular buffer used in both kt1Search and kt2Search.
-	// 64 seems safe to me; 32 works for top1465; 16 does not; so 32 it is.
+	// Q is the circular buffer that is used in both kt1Search and kt2Search.
+	// NOTE: QSIZE needs to be large enough for write to NEVER overtake read.
+	// 16 doesn't work for top1465; 32 works so 32 it is; 64 feels safe to me.
+	// I am consciously choosing to live dangerously, in the persute of speed.
+	// NOTE: QSIZE must be a power of 2 in order for the & QMASK trick to work!
 	private static final int QSIZE = 32;
-	// the mask used to zero the read and write indexes at end of array
-	// nb: QSIZE must be a power of 2 just for the & QMASK trick.
+	// the mask used to zero the read and write indexes when past end-of-queue.
+	// NOTE: QSIZE must be a power of 2 in order for the & QMASK trick to work!
 	private static final int QMASK = QSIZE - 1;
 	// The queue array is a circular buffer: read and write indexes move
-	// independantly. Write allways outruns read, but never overtakes it.
-	// Think of them as doing laps of a race track (the array) which is
-	// made large enough to achieve the "never overtakes" rule.
-	// nb: When read catches up with write it is the end of the queue.
-	// nb: A Messy impl forced by requirement for uber-performance.
+	// independently. Write allways outruns read, but never overtakes it.
+	// Think of them as doing laps of a race track (the array) which is large
+	// enough to achieve the "write never overtakes read" rule.
+	// NOTE: When read overtakes write the queue is empty (end of loop).
+	// NOTE: Messy implementation is forced by my uber-performance requirement.
 	// original fast Queue : 33,906 ms (69.7%)
 	// for top1465.F10.mt  : 25,887 ms (64.3%)
-	// with split on p.isOn: 20,296 ms (51.4%) 
+	// with split on p.isOn: 20,296 ms (51.4%)
+	// NOTE: QSIZE must be a power of 2 in order for the & QMASK trick to work!
+	// If you tell ____wits s__t three times they probably actually hear you.
 	private static final Eff[] Q = new Eff[QSIZE];
 	// an array coz even an ArrayList is too slow here.
 	private Eff[] kids;

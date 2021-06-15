@@ -1,17 +1,18 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- *
  * The concept of the EmptyRectangle solving technique was boosted from the
- * current release (AFAIK) of HoDoKu by Keith Corlett in March 2020, so below is
- * hobiwans standard licence statement. Kudos should flow back to him. I'm just
- * the monkey at the keyboard who's too thick to follow hobiwans code, so I
- * gave-up and rolled my own from scratch. So this code is (pretty much) all
- * mine. All the mistakes are definately mine.
+ * current release (AFAIK) of HoDoKu by Keith Corlett in March 2020. Kudos to
+ * hobiwan. I'm just the monkey at the keyboard who's too thick to follow the
+ * code, so I gave-up and rolled my own from scratch; so this code is (pretty
+ * much) all mine. Mistakes are most definately mine.
+ *
+ * Here's hobiwans standard licence statement:
+ *
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Copyright (C) 2008-12  Bernhard Hobiger
  *
@@ -109,10 +110,10 @@ import java.util.List;
 public class EmptyRectangle extends AHinter {
 
 	/**
-	 * EMPTY_BOX_BITS is the box.idxsOf[$v].bits of the cells in each ER box
-	 * that must be "empty", ie not maybe $v; all in ARegion.cells indices.
+	 * EMPTY_BOX_BITS is the box.indexesOf[$v].bits (box.cells indices) which
+	 * must NOT maybe $v in order for this box to form an ER.
 	 * <p>
-	 * Foreach ER {@code erBox.indexesOf[v].bits & EMPTY_BOX_BITS[er]==0}, ie
+	 * Foreach ER {@code erBox.indexesOf[v].bits & EMPTY_BOX_BITS[er]==0} ie
 	 * $v is not a maybe in any of the erBox cells that are denoted by a set
 	 * (1) bit in EMPTY_BOX_BITS.
 	 * <p>

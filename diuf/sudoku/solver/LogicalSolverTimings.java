@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -7244,6 +7244,187 @@ package diuf.sudoku.solver;
  * 2. Release 6.30.128 2021-05-04 14:37:08 =>
  *    DiufSudoku_V6_30.128.2021-05-04.7z
  * 3. No idea what I should do next. Maybe nothing.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.129 2021-05-13 10:25:09 Build for backup before I experiment with
+ * some GUI changes. A non-release build, but all tests pass anyway.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     19,359,300 101570        190 553450         34 Naked Single
+ *     17,683,800  46225        382 155970        113 Hidden Single
+ *     87,421,200  30628      2,854   5884     14,857 Direct Naked Pair
+ *     74,455,600  30215      2,464  12300      6,053 Direct Hidden Pair
+ *    185,843,600  29277      6,347    853    217,870 Direct Naked Triple
+ *    164,674,100  29224      5,634   1777     92,669 Direct Hidden Triple
+ *     99,759,800  29090      3,429  18204      5,480 Locking
+ *     48,114,900  20193      2,382   4269     11,270 Naked Pair
+ *     40,126,700  19173      2,092   8350      4,805 Hidden Pair
+ *     96,705,000  17664      5,474   1244     77,737 Naked Triple
+ *     81,801,300  17347      4,715   1021     80,118 Hidden Triple
+ *     56,865,200  17150      3,315   1295     43,911 Two String Kite
+ *     34,453,500  15855      2,173    420     82,032 Swampfish
+ *     71,327,700  15678      4,549    572    124,698 XY-Wing
+ *     57,120,500  15278      3,738    285    200,422 XYZ-Wing
+ *     88,144,900  15012      5,871    383    230,143 W-Wing
+ *     44,865,200  14745      3,042    351    127,821 Skyscraper
+ *     55,871,600  14562      3,836    451    123,883 Empty Rectangle
+ *     60,824,500  14111      4,310    230    264,454 Swordfish
+ *    159,247,300  14051     11,333    101  1,576,705 Naked Quad
+ *    125,781,500  14032      8,963     11 11,434,681 Hidden Quad
+ *    412,763,900  14031     29,417    312  1,322,961 Coloring
+ *  1,376,994,400  13789     99,861    663  2,076,914 XColoring
+ *  1,944,406,600  13547    143,530 129205     15,049 GEM
+ *    377,655,300  12143     31,100    871    433,588 WXYZ-Wing
+ *    504,093,000  11589     43,497    877    574,792 VWXYZ-Wing
+ *    618,649,100  11135     55,558    386  1,602,717 UVWXYZ-Wing
+ *    515,542,000  10940     47,124     83  6,211,349 TUVWXYZ-Wing
+ *  1,893,507,900  10892    173,843    887  2,134,732 Unique Rectangle
+ *  1,136,341,600  10281    110,528    229  4,962,190 Finned Swampfish
+ *  2,557,078,900  10095    253,301    282  9,067,655 Finned Swordfish
+ * 14,506,942,000   9888  1,467,126   3915  3,705,476 ALS-XZ
+ * 17,613,812,300   7162  2,459,342   3296  5,343,996 ALS-Wing
+ *  8,485,136,300   4441  1,910,636    596 14,236,805 ALS-Chain
+ *  3,982,628,600   3959  1,005,968    162 24,584,127 Death Blossom
+ *  9,981,436,300   3816  2,615,680   1192  8,373,688 Unary Chain
+ *  4,884,515,100   3314  1,473,903    231 21,145,087 Nishio Chain
+ *  7,199,133,600   3110  2,314,833   4549  1,582,574 Multiple Chain
+ * 10,198,821,100   1378  7,401,176   7558  1,349,407 Dynamic Chain
+ *     96,973,500      3 32,324,500     30  3,232,450 Dynamic Plus
+ * 89,956,878,700
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  134,077,309,500 (02:14)  91,520,347
+ * NOTES:
+ * 1. Last top1465 run took 02:14, 3 seconds faster, but BFIIK what config.
+ * 2. A Non-release build, to back-up and remove the log-files.
+ * 3. Next I experiment with making several GUI controls use the same event
+ *    handler, so that I can just press enter in grid, view-number-combo, and
+ *    hints-tree and it'll apply the current hint and get the next one.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.130 2021-05-17 10:19:10 GenerateDialog and TechSelectDialog are now
+ * more flexible. The description in the GenerateDialog is a generated list of
+ * Tech's in this Difficulty range. The Tech difficulty (a base for hints of
+ * this type) is displayed in the TechSelectDialog. The user can look at
+ * TechSelect and Generate side-by-side to see which tech's generate Difficulty
+ * requires, but unfortunately TechSelect is still modal. sigh.
+ * <p>
+ * FYI I looked at the event handlers, but there propagation makes no sense to
+ * me, so I gave up. I still think it's possible for each control event-handler
+ * to delegate to a "generic" form-level event handler, but I can't see HOW.
+ * <pre>
+ *       time (ns)  calls  time/call  elims   time/elim hinter
+ *      28,968,500 101535        285 552860          52 Naked Single
+ *      24,499,500  46249        529 155910         157 Hidden Single
+ *     108,106,700  30658      3,526   5884      18,372 Direct Naked Pair
+ *     101,726,600  30245      3,363  12313       8,261 Direct Hidden Pair
+ *     224,181,300  29306      7,649    853     262,815 Direct Naked Triple
+ *     203,392,400  29253      6,952   1797     113,184 Direct Hidden Triple
+ *     119,831,500  29118      4,115  18194       6,586 Locking
+ *      61,683,000  20225      3,049   4268      14,452 Naked Pair
+ *      55,403,200  19207      2,884   8354       6,631 Hidden Pair
+ *     126,927,700  17695      7,173   1246     101,868 Naked Triple
+ *     111,705,600  17377      6,428   1017     109,838 Hidden Triple
+ *      61,245,200  17181      3,564   1296      47,257 Two String Kite
+ *      42,018,900  15885      2,645    420     100,045 Swampfish
+ *      80,002,600  15708      5,093    572     139,864 XY-Wing
+ *      66,131,500  15308      4,320    283     233,680 XYZ-Wing
+ *     108,803,400  15043      7,232    383     284,081 W-Wing
+ *      45,905,700  14776      3,106    350     131,159 Skyscraper
+ *      63,264,800  14593      4,335    451     140,276 Empty Rectangle
+ *      73,325,000  14142      5,184    230     318,804 Swordfish
+ *     501,761,600  14082     35,631    312   1,608,210 Coloring
+ *   1,791,742,600  13840    129,461    664   2,698,407 XColoring
+ *   2,370,067,300  13597    174,308 129849      18,252 GEM
+ *      19,856,800  12192      1,628      0           0 Jellyfish
+ *     478,146,600  12192     39,218    928     515,244 WXYZ-Wing
+ *     668,803,700  11627     57,521    882     758,280 VWXYZ-Wing
+ *     831,104,000  11170     74,405    394   2,109,401 UVWXYZ-Wing
+ *     665,841,000  10972     60,685     83   8,022,180 TUVWXYZ-Wing
+ *     344,049,000  10924     31,494      4  86,012,250 STUVWXYZ-Wing
+ *   2,386,183,700  10922    218,474    891   2,678,096 Unique Rectangle
+ *   1,359,340,000  10308    131,872    230   5,910,173 Finned Swampfish
+ *   3,090,471,500  10121    305,352    281  10,998,119 Finned Swordfish
+ *   4,133,428,300   9915    416,886     11 375,766,209 Finned Jellyfish
+ *  18,189,039,000   9907  1,835,978   3950   4,604,820 ALS-XZ
+ *  24,185,097,700   7173  3,371,685   3306   7,315,516 ALS-Wing
+ *  10,125,477,600   4443  2,278,973    600  16,875,796 ALS-Chain
+ *   4,509,156,100   3957  1,139,539    163  27,663,534 Death Blossom
+ *   1,150,254,000   3813    301,666     11 104,568,545 Sue De Coq
+ *  12,136,811,300   3811  3,184,678   1193  10,173,353 Unary Chain
+ *   5,323,764,700   3308  1,609,360    218  24,420,938 Nishio Chain
+ *   8,489,509,900   3108  2,731,502   4569   1,858,067 Multiple Chain
+ *  11,208,957,500   1374  8,157,902   7527   1,489,166 Dynamic Chain
+ *     108,720,100      3 36,240,033     30   3,624,003 Dynamic Plus
+ * 115,774,707,100
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465   173,260,347,000 (02:53)       118,266,448
+ * NOTES:
+ * 1. Last top1465 run took 02:53, 39 secs slower, but I'm using STUVWXYZ-Wing,
+ *    FinnedJellyfish, DeathBlossom, and Sue De Coq; so it's all bloody good.
+ *    Anything under about 5 minutes feels "pretty snappy" in the GUI.
+ * 2. A Non-release build, to back-up and remove the log-files.
+ * 3. Next I really don't know.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.131 2021-05-19 08:07:11 Building for release because we're going
+ * shopping today. I've been pissing-about with BasicFisherman1 to make it
+ * faster than BasicFisherman, and failing. sigh.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     20,251,900 101447        199 553440         36 Naked Single
+ *     15,889,800  46103        344 155980        101 Hidden Single
+ *     85,186,000  30505      2,792   5884     14,477 Direct Naked Pair
+ *     77,786,100  30092      2,584  12313      6,317 Direct Hidden Pair
+ *    188,329,700  29153      6,460    853    220,785 Direct Naked Triple
+ *    166,498,300  29100      5,721   1797     92,653 Direct Hidden Triple
+ *     96,065,700  28965      3,316  18203      5,277 Locking
+ *     48,071,800  20069      2,395   4269     11,260 Naked Pair
+ *     41,759,400  19049      2,192   8357      4,996 Hidden Pair
+ *     96,761,900  17537      5,517   1244     77,782 Naked Triple
+ *     82,827,500  17220      4,809   1021     81,123 Hidden Triple
+ *     36,552,800  17023      2,147    620     58,956 Swampfish
+ *     53,020,100  16787      3,158   1109     47,808 Two String Kite
+ *     69,311,400  15678      4,420    572    121,173 XY-Wing
+ *     59,104,600  15278      3,868    285    207,384 XYZ-Wing
+ *     87,834,200  15012      5,850    383    229,332 W-Wing
+ *     41,489,400  14745      2,813    351    118,203 Skyscraper
+ *     54,627,700  14562      3,751    451    121,125 Empty Rectangle
+ *     79,500,900  14111      5,633    230    345,656 Swordfish
+ *    413,795,700  14051     29,449    312  1,326,268 Coloring
+ *  1,379,306,800  13809     99,884    663  2,080,402 XColoring
+ *  1,963,830,900  13567    144,750 129187     15,201 GEM
+ *    101,914,300  12164      8,378      0          0 Jellyfish
+ *    378,247,400  12164     31,095    929    407,155 WXYZ-Wing
+ *    499,497,500  11598     43,067    879    568,256 VWXYZ-Wing
+ *    622,960,400  11143     55,905    390  1,597,334 UVWXYZ-Wing
+ *    515,965,200  10947     47,133     83  6,216,448 TUVWXYZ-Wing
+ *  1,870,560,600  10899    171,626    887  2,108,862 Unique Rectangle
+ *  1,137,611,600  10288    110,576    229  4,967,736 Finned Swampfish
+ *  2,557,964,100  10102    253,213    282  9,070,794 Finned Swordfish
+ * 15,967,336,900   9895  1,613,677   3954  4,038,274 ALS-XZ
+ * 21,225,784,800   7162  2,963,667   3296  6,439,861 ALS-Wing
+ *  9,312,628,500   4441  2,096,966    596 15,625,215 ALS-Chain
+ *  3,902,142,600   3959    985,638    162 24,087,300 Death Blossom
+ *  9,851,201,000   3816  2,581,551   1192  8,264,430 Unary Chain
+ *  4,829,186,400   3314  1,457,207    231 20,905,568 Nishio Chain
+ *  7,139,132,600   3110  2,295,541   4549  1,569,385 Multiple Chain
+ * 10,130,730,900   1378  7,351,764   7558  1,340,398 Dynamic Chain
+ *    111,687,200      3 37,229,066     30  3,722,906 Dynamic Plus
+ * 95,312,354,600
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  140,409,620,900 (02:20)  95,842,744
+ * NOTES:
+ * 1. Last top1465 run took 02:20, 19 secs faster than previous, but no longer
+ *    using STUVWXYZ-Wing, FinnedJellyfish, and Sue De Coq. It's all good.
+ *    Anything under about 5 minutes feels "pretty snappy" in the GUI. Overall,
+ *    BasicFisherman1 is about 8 seconds slower than BasicFisherman so I stick
+ *    with the original BasicFisherman, which keeps getting better and better.
+ * 2. Release 6.30.131 2021-05-19 08:07:11
+ *    as DiufSudoku_V6_30.131.2021-05-19.7z
+ * 3. Next I really don't know, bit I'll think of something.
  * </pre>
  */
 final class LogicalSolverTimings {

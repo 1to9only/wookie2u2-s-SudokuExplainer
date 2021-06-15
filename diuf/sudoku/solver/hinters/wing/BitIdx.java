@@ -12,30 +12,30 @@ import java.util.Set;
 
 
 /**
- * A {@code Set<Cell>} backed by a {@link BitSet}. This class wraps a BitSet
+ * A {@link Set<Cell>} backed by a {@link BitSet}. This class wraps a BitSet
  * into a Set of Cells by adding/removing the indice each cell which is
  * present/absent to the BitIdx, then when you iterate the set we turn those
- * indices back into Cells from the given Grid. My BitSet is public to that
+ * indices back into Cells from the given Grid. The BitSet is public so that
  * you can use ALL of it's methods yourself. Each Set method is translated
  * into BitSet speak. My grid attribute is required for iteration and any
  * other method which produces Cell/s. It's public so that you can set it
  * yourself externally. I persist it in my copy constructor.
  * <p>
  * BitIdx was Sukaku CellSet. I don't know where Nicholas got CellSet from, but
- * I do not that he's not Mladen Dobrichev, who I think wrote SudokuMonster.
+ * I do not that he's not Mladen Dobrichev, who I guess wrote SudokuMonster.
  * <p>
- * WARN: Be sure to clean-up any BitIdx fields, they hold the Grid in memory!
+ * WARNING: Clean-up any BitIdx fields, they hold the whole Grid in memory!
  * <p>
- * I made a few changes:<ul>
+ * I made a few changes to Sukaku's CellSet:<ul>
  * <li>
  * Firstly, my grid is stateful, where CellSet's was stateless; so BitIdx has a
  * public grid attribute and new constructors. The Grid methods that create
  * BitIdxs set the grid. The copy-con copies src.grid, so it's persistent; and
  * its a publicly settable attribute. That should cover all bases. The downside
  * is there's no longer a no-arg constructor, you must supply a Grid. If you
- * really need a no-arg-con then create one, but you must set the grid BEFORE
- * you iterate. If you're bean-anal then provide getters and setters to the
- * private grid attribute; for me it's just providing hooks I never use.
+ * really need a default-constructor then create one, but you must set the grid
+ * BEFORE iterating. If you're bean-anal then write getters and setters for the
+ * private grid attribute; they're just hooks I never use.
  * <li>
  * Secondly, the size method now (correctly) returns cardinality instead of
  * size (capacity); and I implemented the toArray(T[] a) method, because the
@@ -45,8 +45,15 @@ import java.util.Set;
  * using the CellIterator, because iterators are slow.
  * </ul>
  * <p>
- * KRC 2021-01-03 BitIdx used only in diuf.sudoku.solver.hinters.wing2
- * package and the producing Grid methods, but it may be useful elsewhere.
+ * In Sudoku Explainer, the only user of BitIdx is {@link BigWing}, but the
+ * BitIdx has it's feeler in everything, especially the Grid; so eradicating
+ * BitIdx from BigWing (use the "normal" Idx instead) would eradicate lots of
+ * code; which would be A Real Good Thing, except that I've tried and failed to
+ * do this a couple of times. In the end I gave-up and stuck with BitIdx, and
+ * put-up with its spread throughout my codebase, like mould.
+ * <p>
+ * KRC 2021-01-03 BitIdx used only in diuf.sudoku.solver.hinters.wing2 package
+ * and the producing Grid methods, but it may be useful elsewhere.
  * <p>
  * KRC 2021-01-03 RANT: I've stated previously that I'm not a fan of ANY BitSet
  * class: it's an oxymoron. One uses a bitset for performance, but pushing the
@@ -61,9 +68,9 @@ import java.util.Set;
  * from iterate DESPITE setting the grid in clone(); so just copy-con instead!
  * <p>
  * I saw some SERIOUSLY weird s__t. The orig was modified instead of the clone,
- * which can only be explained by a Netbeans compiler bug! I am hereby accusing
- * the compiler-boys of doing some weird caching-s__t to speed-up BitSet's,
- * which are, and will always be, too slow (see above)!
+ * which AFAIK can only be explained by a Netbeans compiler bug! I am hereby
+ * accusing the compiler of doing some weird caching-s__t to speed-up BitSet's,
+ * which are, and will always be, too bloody slow (see above)!
  * <p>
  * I suspect compiled-code-cache wasn't updated when I swapped over to clone(),
  * so my called-method was still glommed-onto the old original BitSet instance.
@@ -71,12 +78,13 @@ import java.util.Set;
  * be updated BECAUSE it's caller had changed which BitSet it points at. The
  * moral of the story is "Do NOT do compiled-code-caching". Coz It Sux! And if
  * you must do compiled-code-caching then "clean and build" MUST atleast do a
- * complete clean and build, from scratch; rebuilding EVERYthing, as if on a
- * virgin box. No more dirty stop-outs! We know how to wait.
+ * complete bloody clean followed by a complete bloody build, from scratch;
+ * rebuilding EVERYthing, as if on a virgin box. We know how to wait.
  * <p>
  * For those who do not know, when Netbeans starts doing weird s__t, including
  * refusing to run code which compiles, or ClassNotFoundException, or won't run
- * your test-cases, or just because Netbeans bights The Big One:
+ * your test-cases, or just because Netbeans is a piece of s__t:
+ * <pre>
  * 1. Close Netbeans.
  * 2. In Explorer: goto C:\Users\User\AppData\Roaming\NetBeans\8.2
  * 3. Select All files and Shift-Delete to completely-delete all files.
@@ -85,7 +93,8 @@ import java.util.Set;
  *    * redo all your fonts/formatting/etc preferences.
  *    * open all your favourite projects, to re-cache them in CURRENT state.
  * WARNING: ALL of your code history is gone! ALL preferences, settings, tools,
- * etc, etc, etc have been deleted! You're back on "virgin" install. Enjoy.
+ * etc, etc, etc have been deleted! You're back on a "virgin" install. Enjoy.
+ * </pre>
  *
  * @author Mladen Dobrichev, 2019
  * @author Keith Corlett 2020-12-22 port into DIUF SudokuExplainer
@@ -296,21 +305,12 @@ public class BitIdx implements Set<Cell> {
 	public interface CellFilter {
 		public boolean accept(Cell c);
 	}
-//useless as tits on a bull	
-//	/**
-//	 * removeAll cells which do NOT match the given CellFilter.
-//	 * Typically CellFilter is implemented with a lambda expression.
-//	 * @param f
-//	 */
-//	public BitIdx filter(CellFilter f) {
-//		for ( Iterator<Cell> it=this.iterator(); it.hasNext(); )
-//			if ( !f.accept(it.next()) )
-//				it.remove();
-//		return this;
-//	}
+
 	/**
-	 * Returns a new BitIdx containing this.filter(CellFilter).
-	 * Typically CellFilter is implemented with a lambda expression.
+	 * Returns a new BitIdx containing a copy of this where f.accept(Cell).
+	 * <p>
+	 * CellFilter is typically implemented by a lambda expression.
+	 *
 	 * @param f
 	 * @return
 	 */

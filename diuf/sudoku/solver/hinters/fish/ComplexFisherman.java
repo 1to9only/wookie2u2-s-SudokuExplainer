@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * Based on HoDoKu's FishSolver, so here's hobiwan's licence statement:
@@ -175,19 +175,20 @@ import java.util.List;
 public class ComplexFisherman extends AHinter
 //		, diuf.sudoku.solver.IReporter
 {
+	// MIA is an acronym for "Missing In Action". REDS are the eliminations.
 	// Problem: Hint contains eliminations for non-potential-values.
-	// Fix: createHint check for MIA deletes and sharks; and throws empty reds.
-	// MIA means missing in action. MIA_REDS is almost a WMD 404 Error.
+	// Fix: createHint checks for missing deletes/sharks, throwing "No reds".
+	// This is a HACK: No non-existant cell-value should ever be eliminated,
+	// but it happened, and I dunno HOW, so I treat symptoms, not da disease.
 	private static final boolean MIA_REDS = false;
 
-	// Fish Settings
 	// maximum number of fins (extra cells which maybe v in a base)
-	// NOTE: 3 finds the same number of hints as 4; just one Swamp turns Sword.
-	//       4 finds exactly the same hints as 5.
+	// NOTE: 3 finds the same number of hints as 4, but a Swamp goes Sword.
+	// 5 finds exactly the same hints as 4. This has big performance impact.
 	private static final int MAX_FINS = 3;
 
-	// maximum number of endo-fins (candidates in two overlapping bases)
-	// plus one, coz I use < which coz it's faster than <=.
+	// one more than the maximum number of endo-fins (candidates in two
+	// overlapping bases), because I use < which coz it's faster than <=.
 	private static final int MAX_ENDO_FINS = 3;
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~ working storage ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -321,12 +322,11 @@ public class ComplexFisherman extends AHinter
 		seekFinned = tech.nom.startsWith("Finned");
 		seekFranken = tech.nom.startsWith("Franken");
 		seekMutant = tech.nom.startsWith("Mutant");
-//		assert !seekMutant : "Mutants are too slow to be allowed!";
 		// it's basic unless it's one of the complex fish types.
 		// NB: ComplexFisherman NOT used for basic fish, because BasicFisherman
 		// is faster; but it CAN find basic fish, just uncomment-out the code.
 		seekBasic = !seekFinned && !seekFranken && !seekMutant;
-		assert !seekBasic : "basic fish commented out, use BasicFisherman!";
+		assert !seekBasic : "Basic-fish are found faster by the BasicFisherman, so the basic-fish code is commented-out in the ComplexFisherman!";
 
 		// initialise the two recursion-stacks
 		for ( int i=0,n=baseStack.length; i<n; ++i )
@@ -390,8 +390,8 @@ public class ComplexFisherman extends AHinter
 		// presume that no hints will be found
 		searchBasesResult = false;
 		// find eligible bases and allCovers; the actual covers are calculated
-		// in searchCovers because eligibility depends on the current baseSet.
-		if ( !findEligibleBasesAndCovers(baseType) )
+		// in searchCovers because eligibility depends on the current bases.
+		if ( !selectBasesAndAllCovers(baseType) )
 			return false;
 
 		// clear everything before we start
@@ -505,7 +505,7 @@ public class ComplexFisherman extends AHinter
 	 * access for EVERYthing, which sux, but ya can't have it both ways.
 	 * searchCovers calls the myCommonBuddies method, which also has no local
 	 * variables, and is therefore stackframeless. This is about 15% faster
-	 * overall than the "normal" Idx.commonBuddies method call.
+	 * overall than the "normal" Idx.commonBuddies method call. Still too slow.
 	 *
 	 * @return were hint/s found?
 	 */
@@ -620,9 +620,8 @@ public class ComplexFisherman extends AHinter
 				if ( (fM0|fM1|fM2) != 0
 				  // but not too many of them
 				  && Integer.bitCount(fM0)+Integer.bitCount(fM1)+Integer.bitCount(fM2) <= MAX_FINS
-				  // with common buddy/s that maybe v
-				  // this ONLY method call, and myCommonBuddies is stackless,
-				  // ie frameless, ie a near-jump (GOSUB return), ie fast!
+				  // with common buddy/s that maybe v: the ONLY method call and
+				  // myCommonBuddies is stackframeless, ie fast!
 				  && myCommonBuddies() ) {
 					// ******************* COMPLEX FISCH ******************
 					// Candidate is deletable if in covers but not bases,
@@ -678,12 +677,11 @@ public class ComplexFisherman extends AHinter
 	// !(is a BOX used as a base)?
 	private boolean boxIsNotBase;
 
-	// FAST: with common buddy/s that maybe v
+	// FAST: do the fin/s have any common buddy/s that maybe v?
 	//   IE: fins.set(fM0,fM1,fM2).commonBuddies(buds).and(vs).any()
-	// sets (b0,b1,b2) to buddies of all fins (fM0,fM1,fM2)
-	// returns any?
-	// PERFORMANCE: fully exploded: fast, but very verbose.
-	// Exploded version is about 17% faster (overall) than Idx.commonBuddies.
+	// sets (b0,b1,b2) to buddies of all fins (fM0,fM1,fM2) and returns any?
+	// SPEED: stackframeless and fully exploded. Fast but verbose. About 17%
+	// faster overall than Idx.commonBuddies, which is quite an improvement.
 	private boolean myCommonBuddies() {
 		b0=vs.a0; b1=vs.a1; b2=vs.a2;
 		if ( fM0 != 0 ) {
@@ -731,9 +729,8 @@ public class ComplexFisherman extends AHinter
 		return true;
 	}
 	private int b0,b1,b2; // fin buddies (an Idx)
-	private int i, n;
-	// an array of the values in a 9-bit word
-	private int[] word;
+	private int i, n; // index and number thereof
+	private int[] word; // an array of the indexes of set-bits in a 9-bit word
 
 //	@Override
 //	public void report() {
@@ -784,7 +781,7 @@ public class ComplexFisherman extends AHinter
 			// shiftedCand: the Fish candidate value as a left-shifted bitset
 			final int sc = VSHFT[candidate];
 			// skip if there's no deletes and no sharks.
-			if ( deletes.isEmpty() && sharks.isEmpty() ) {
+			if ( deletes.none() && sharks.none() ) {
 				carp("no deletes and no sharks");
 				return null; // pre-tested by each call so shouldn't occur
 			}
@@ -932,15 +929,17 @@ public class ComplexFisherman extends AHinter
 	}
 
 	/**
-	 * find the bases and allCovers for a Fish of my type and {@link #degree}.
-	 * The actual covers are calculated in searchCovers because eligibility
-	 * depends on the current bases.
+	 * Select the bases and allCovers in a Fish of my type and {@link #degree}.
+	 * Repopulates the bases array with numBases base regions; and also 
+	 * repopulates the allCovers array with numAllCovers potential cover
+	 * regions. The actual covers array is calculated later in searchCovers
+	 * because the covers are dependant on the current bases.
 	 *
 	 * @param baseType ROW, or COL
-	 * @return are there at least degree bases and allCovers; else we can skip
-	 * this Fish search when I return false.
+	 * @return are there at least degree bases and allCovers: ie should we
+	 *  search this Fish.
 	 */
-	private boolean findEligibleBasesAndCovers(int baseType) {
+	private boolean selectBasesAndAllCovers(int baseType) {
 		numBases = numAllCovers = 0;
 		addRegions(grid.rows, baseType==ROW, seekMutant);
 		addRegions(grid.cols, baseType==COL, seekMutant);

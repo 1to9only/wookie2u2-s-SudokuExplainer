@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.checks;
@@ -9,6 +9,7 @@ package diuf.sudoku.solver.checks;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
@@ -77,11 +78,14 @@ public final class RecursiveAnalyser extends AWarningHinter {
 		super(Tech.SingleSolutions);
 	}
 
-	/** Build a random solved Sudoku puzzle. If the grid has only one solution,
+	/**
+	 * Build a random solved Sudoku puzzle. If the grid has only one solution,
 	 * this solution will be found. If however the grid has multiple solutions,
 	 * then a pseudo-random one will be returned.
+	 *
 	 * @param rnd the random number generator (not null).
-	 * @return the solution Grid. */
+	 * @return the solution Grid.
+	 */
 	public Grid buildRandomPuzzle(Random rnd) {
 		Grid solution = new Grid();
 		boolean success = recursiveSolve(solution, 1, false, rnd, false);
@@ -92,32 +96,29 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	/**
 	 * Find the number of ways that this Sudoku grid can be solved.
 	 * <p>
-	 * The meaning of the returned value is:
-	 * <ul>
-	 *  <li><b>0</b> means the Sudoku has no solution.
-	 *  This actually means that we failed to solve the puzzle using
-	 *  RecursiveAnalyser (ie "The Brute Force" algorithm) and the
-	 *  current Four Quick Foxes:
-	 *  <ul>
-	 *   <li>Locking using a HintsApplicumulator</li>
-	 *   <li>NakedSet(Tech.NakedPair)</li>
-	 *   <li>HiddenSet(Tech.HiddenPair)</li>
-	 *	 <li>BasicFisherman(Tech.Swampfish).</li>
-	 *	</ul>
-	 *  This never happens with the code in its current stable state,
-	 *  therefore this puzzle must actually be invalid.
-	 *  Either that or (most likely) whichever hinter you are working on has
-	 *  produced an invalid hint (Try using the HintValidator on it);
-	 *  or (less likely) something is broken in the Four Quick Foxes,
-	 *  or the HintsApplicumulator, or the RecursiveAnalyser
-	 *  (whichever has changed most recently).</li>
+	 * The meaning of the returned value is:<ul>
+	 *  <li><b>0</b> means the Sudoku has no solution (ie is invalid).
+	 * <pre>This actually means that we failed to solve the puzzle
+	 * using RecursiveAnalyser (ie Knuths Brute Force algorithm)
+	 * and the Four Quick Foxes:
+	 *   * Locking using the HintsApplicumulator
+	 *   * NakedSet(Tech.NakedPair)
+	 *   * HiddenSet(Tech.HiddenPair)
+	 *   * BasicFisherman(Tech.Swampfish).
+	 * With the code in good order, no solution is not possible,
+	 * therefore (ie never) this puzzle is actually invalid;
+	 * or (most likely) the-most-recently-modified-hinter produced
+	 *    an invalid hint so use the HintValidator;
+	 * or (less likely) s__t broke in the Four Quick Foxes;
+	 * or (wtf) HintsApplicumulator or RecursiveAnalyser is rooted.
+	 *    Start with whichever has changed most recently.</pre>
 	 *  <li><b>1</b> means the Sudoku has exactly one solution (ie is valid)
-	 *  </li>
-	 *  <li><b>2</b> means the Sudoku has <b>more than one</b> solution
-	 *  (ie is invalid)</li>
+	 *  <li><b>2</b> means the Sudoku has <b>more than one</b> solution (ie is
+	 *   invalid)
 	 * </ul>
 	 *
 	 * @param grid the Sudoku grid
+	 * @param isNoisy makes the tabanid refry fairy dust on Tuesdays
 	 * @return int the number of solutions to this puzzle (see above)
 	 */
 	public int countSolutions(Grid grid, boolean isNoisy) {
@@ -397,7 +398,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 		// returning true immediately if the grid is filled (ie solved).
 		do {
 			any = false;
-			// singles use myApcu where-as foxes are applied manually.
+			// singles use the apcu where-as foxes are applied manually.
 			for ( AHinter hinter : singlesHinters )
 				// apcu immediately applies hints
 				if ( (hinter.findHints(grid, myApcu)) // throws UnsolvableException
@@ -407,9 +408,11 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 			for ( AHinter hinter : fourQuickFoxes )
 				// note that Locking is using the apcu "under the hood".
 				if ( hinter.findHints(grid, myAccu) // throws UnsolvableException
+				  // get any apply the hint
 				  && (hint=myAccu.getHint()) != null
 				  && (any|=true)
 				  && hint.apply(true, isNoisy) > 0 // throws UnsolvableException
+				  // before seeing if the grid is full
 				  && grid.isFull() )
 					return true;
 		} while ( any );
@@ -422,45 +425,44 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	 *     which is fastest because it gives us the highest probability
 	 *     of guessing correctly. */
 	private Cell getLeastCell(Grid grid) {
-		Cell leastCell = null;
-		int leastCard = 10;
 		int card;
+		Cell leastCell = null;
+		int least = 10;
 		for ( Cell cell : grid.cells )
 			if ( cell.value == 0
-			  && (card=cell.maybes.size) < leastCard ) {
-				leastCard = card;
+			  && (card=cell.maybes.size) < least ) {
 				leastCell = cell;
-				if ( card == 2 ) // there's no point looking any further
-					break;
+				if ( (least=card) < 3 )
+					break; // no point looking any further
 			}
 		return leastCell;
 	}
 
-	/** (3) Try each potential value for the leastCell.
-	 * Note that isReverse has no effect when rnd!=null. */
-	private int[] getValuesToGuess(Cell leastCell, Random rnd
-			, boolean isReverse) {
-		final int maybesBits = leastCell.maybes.bits;
-		// nb: values is a new array, or we need a big cache! So I tried a big
-		// cache, but it was SLOWER than new, and I can't figure out WHY!?!?
-		// The upside is generating a random puzzle is already the fast part.
-		// Mrs Sudoku is a Lincoln Continental: Easy to fill. Bitch to strip.
-		final int[] values = new int[leastCell.maybes.size];
-		final int start; if(isReverse) start=8; else start=0; // INCLUSIVE
-		final int stop; if(isReverse) stop=-1; else stop=9; // EXCLUSIVE
-		final int delta; if(isReverse) delta=-1; else delta=1; // back/forwards
-		int count, v, value;
+	/**
+	 * (3) Try each potential value for the leastCell.
+	 * Note that reverse has no effect when rnd!=null; but AFAIK this is only
+	 * ever used forwards, never in reverse, so it doesn't matter.
+	 */
+	private int[] getValuesToGuess(Cell least, Random rnd, boolean reverse) {
+		int count, v, rv, value;
+		final int cands = least.maybes.bits;
+		// nb: values is a new array, else big cache! So try big cache, but its
+		// SLOWER! BFIIK! Upside is generating puzzle is already the fast part.
+		// Miss Sudoku is Mrs Lincoln Continental: Easy to fill. Hard to strip.
+		final int[] values = new int[least.maybes.size];
+		final int start; if(reverse) start=8;  else start=0; // INCLUSIVE
+		final int stop;  if(reverse) stop=-1;  else stop=9;  // EXCLUSIVE
+		final int delta; if(reverse) delta=-1; else delta=1; // back/forwards
 		if ( rnd == null ) {
-			// populate 'values' array with the cells maybes (potential values)
-			for ( count=0, v=start; v!=stop; v+=delta )
-				if ( (maybesBits & VSHFT[value=v+1]) != 0 )
+			// populate values with the cells potential values
+			for ( count=0,v=start; v!=stop; v+=delta )
+				if ( (cands & VSHFT[value=v+1]) != 0 )
 					values[count++] = value;
 		} else {
 			// random generator given so combine with a random value.
-			int randomValue = rnd.nextInt(9); // a random start point
-			for ( count=0, v=start; v!=stop; v+=delta ) {
-				value = ((v+randomValue) % 9) + 1;
-				if ( (maybesBits & VSHFT[value]) != 0 )
+			for ( count=0,v=start,rv=rnd.nextInt(9); v!=stop; v+=delta ) {
+				value = ((v+rv) % 9) + 1;
+				if ( (cands & VSHFT[value]) != 0 )
 					values[count++] = value;
 			}
 			// Shuffle the values into random order before returning them.
@@ -474,7 +476,11 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	/** shuffle values once. */
 	private int[] shuffle(Random rnd, int[] values) {
 		int i1, i2, temp;
-		for ( int i=0,n=values.length; i<n; ++i ) {
+		// KRC introduced howMany to sort twice to increase randomness, coz I
+		// am seeing LOTS of demi-shuffles, with a better than average chance
+		// of atleast three values having not been moved at all. I hope that
+		// doubling the number of swaps greatly decreases the chances.
+		for ( int i=0,n=values.length,howMany=n<<1; i<howMany; ++i ) {
 			i1 = rnd.nextInt(n);
 			do {
 				i2 = rnd.nextInt(n);

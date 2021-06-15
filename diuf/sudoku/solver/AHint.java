@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -13,7 +13,7 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
-import diuf.sudoku.gui.HintPrinter;
+import diuf.sudoku.gui.Print;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.accu.AggregatedHint;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -39,17 +39,6 @@ import java.util.Set;
  * @see {@link IndirectHint}
  */
 public abstract class AHint implements Comparable<AHint> {
-
-	/**
-	 * Returns a new Cell[] of the first n cells.
-	 * @param n the number of cells to copy
-	 * @param cells the cells to copy from
-	 * @return a new Cell[] containing a copy of the first n cells. */
-	public static Cell[] copy(int n, Cell[] cells) {
-		Cell[] result = new Cell[n];
-		System.arraycopy(cells, 0, result, 0, n);
-		return result;
-	}
 
 	/**
 	 * Returns a real <b>java.util.</b>ArrayList of the given hint.
@@ -223,7 +212,7 @@ public abstract class AHint implements Comparable<AHint> {
 			((AggregatedHint)this).applyIsNoisy = isNoisy;
 		final int numSet = applyImpl(isAutosolving);
 		if ( isNoisy )
-			HintPrinter.details(this, HintPrinter.source(grid), before);
+			Print.hint(this, grid, before);
 		return numSet;
 	}
 
@@ -253,8 +242,8 @@ public abstract class AHint implements Comparable<AHint> {
 				// nb: occassionally throws UnsolvableException
 				myNumElims += 10 * cell.set(value, 0, isAutosolving, SB);
 			}
-			if ( redPots != null ) {
-				int pinkBits; // Paul Hogan said "No comment".
+			if ( redPots!=null && !redPots.isEmpty() ) {
+				int pink; // a bitset of removable values
 				final Deque<Cell> nakedSingles;
 				if ( isAutosolving )
 					nakedSingles = SINGLES_QUEUE;
@@ -262,32 +251,32 @@ public abstract class AHint implements Comparable<AHint> {
 					nakedSingles = null;
 				for ( Cell pc : redPots.keySet() ) // pinkCell
 					// if pinkCell still has any of these red values?
-					if ( (pinkBits=pc.maybes.bits & redPots.get(pc).bits) != 0 )
+					if ( (pink=pc.maybes.bits & redPots.get(pc).bits) != 0 )
 						// nb: occassionally throws UnsolvableException
 						// nb: populates GrabBag.NAKED_SINGLES if isAutosolving
-						myNumElims += pc.canNotBeBits(pinkBits, nakedSingles);
+						myNumElims += pc.canNotBeBits(pink, nakedSingles);
 				if ( isAutosolving )
+					// set any nakedSingles found by canNotBeBits
 					try {
-						// set any naked singles that were found by canNotBeBits.
 						assert nakedSingles != null;
 						Cell ns; // nakedSingle
 						while ( (ns=nakedSingles.poll()) != null )
-							if ( ns.maybes.size == 1 ) // ignore any already set
-								// nb: might add to GrabBag.NAKED_SINGLES
-								// nb: occassionally throws UnsolvableException
+							// ignore any already set cells
+							if ( ns.maybes.size == 1 )
+								// may add to GrabBag.NAKED_SINGLES
+								// may throw UnsolvableException
 								myNumElims += 10 * ns.set(ns.maybes.first(), 0
 										, isAutosolving, SB);
 					} catch (Exception ex) { // especially UnsolvableException
-						// nb: SINGLE_QUEUE allways left empty even if not in use
-						SINGLES_QUEUE.clear();
+						SINGLES_QUEUE.clear(); // even if unused
 						throw ex;
 					}
 			}
 		} catch (UnsolvableException ex) { // from cell.set or rc.canNotBeBits
-			// Messages unwanted in recursiveSolve, generate and GEM.tropoSolve.
+			// Whinges unwanted in recursiveSolve, generate and gemSolve.
 			// We guess cell values so break puzzle, but they are important 
 			// elsewhere. Don't like slow reflection filter, but what else?
-			// NB: there should be an error if depth==0 (top level): How to?
+			// NB: should whinge if depth==0 (top level) but how to?
 			if ( !Debug.isMethodNameInTheCallStack(10, "recursiveSolve", "generate", "gemSolve") )
 				StdErr.whinge("Error applying: "+this.toFullString(), ex);
 			throw ex;

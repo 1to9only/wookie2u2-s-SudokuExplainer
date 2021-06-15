@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.fish;
@@ -34,15 +34,17 @@ import java.util.Set;
  * (where speed is much less of an issue).
  * <p>
  * BasicFisherman is one of the FOUR QUICK FOXES in the RecursiveSolver (brute
- * force), and in the DynamicPlus MultipleChainer (and NestedPlus); so 
+ * force), and in the DynamicPlus MultipleChainer (and NestedPlus); so
  * BasicFishHint implements IChildHint.getParents, enabling us to play "who's
  * your daddy" with our Assumptions.
  */
-public final class BasicFishHint extends AHint implements IActualHint, IChildHint {
+public final class BasicFishHint extends AHint
+		implements IActualHint, IChildHint
+{
 
 	final int valueToRemove;
 	final Set<Cell> cells;
-	String debugMessage;
+	final String debugMessage;
 
 	/**
 	 * Construct a new BasicFishHint. You can tell which fish by the degree:
@@ -57,7 +59,8 @@ public final class BasicFishHint extends AHint implements IActualHint, IChildHin
 	 */
 	public BasicFishHint(AHinter hinter, Pots reds, int v, Pots greens
 			, String debugMessage, List<ARegion> bases, List<ARegion> covers) {
-		super(hinter, AHint.INDIRECT, null, 0, reds, greens, null, null, bases, covers);
+		super(hinter, AHint.INDIRECT, null, 0, reds, greens, null, null, bases
+				, covers);
 		this.valueToRemove = v;
 		this.cells = greens.keySet();
 		this.debugMessage = debugMessage;
@@ -176,13 +179,13 @@ public final class BasicFishHint extends AHint implements IActualHint, IChildHin
 	public String toHtmlImpl() {
 		final String nn; if(degree<2) nn=""; else nn=NUMBER_NAMES[degree-2];
 		return Html.produce(this, "BasicFishHint.html"
-			, getHtmlHintTypeName()					// {0} "Swampfish (nee X-Wing)"
-			, Integer.toString(valueToRemove)		//  1
-			, Regions.typeName(bases)				//  2
-			, Regions.typeName(covers)				//  3
-			, nn									//  4 number name; BasicFishHint only
-			, debugMessage							//  5 debugMessage
-			, redPots.toString()					//  6
+			, getHtmlHintTypeName()				// {0} "Swampfish (nee X-Wing)"
+			, Integer.toString(valueToRemove)	//  1
+			, Regions.typeName(bases)			//  2
+			, Regions.typeName(covers)			//  3
+			, nn								//  4 number name; BasicFishHint only
+			, debugMessage						//  5 debugMessage
+			, redPots.toString()				//  6
 		);
 	}
 

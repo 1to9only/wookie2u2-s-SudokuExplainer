@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -17,6 +17,7 @@ import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
@@ -44,17 +45,18 @@ import javax.swing.border.TitledBorder;
 
 
 /**
- * The GenerateDialog is allways on top. It allows the user to enter desired
- * parameters and generate a new Sudoku puzzle, which is the paragon of
- * Sudokuness: You see a duck, and I see his feet.
- * <p>The tricky (slow) part is analysing the puzzle, not actually generating
- * it. If we wanted to sit in a loop generating thousands of puzzles of random
- * difficulty that'd be quick, however generating a puzzle that's exactly
- * "Fiendish" is difficult, so I've pushed that onto a background thread.
- * When you press the generate button is displays a puzzle from the cache and
- * then replaces that puzzle in the background, which takes upto a few seconds.
- * <p>Note that all the supporting code for this form is in the package
- * {@code diuf.sudoku.gen}, which is a bit weird but it works for me.
+ * The GenerateDialog allows the user to provide the parameters required to
+ * generate a new Sudoku puzzle. It is always on top.
+ * <p>
+ * The tricky (slow) part is analysing the puzzle, not actually generating it.
+ * If we accept puzzles of random difficulty it's fast, but generating a puzzle
+ * that's exactly Fiendish is a bit more difficult, so when you press the
+ * [Generate] button it displays a puzzle from the cache, and then replaces
+ * that puzzle in the background, which may take several minutes for an IDKFA.
+ * <p>
+ * Note that all the supporting code for this form is in the package
+ * {@code diuf.sudoku.gen}, which is a bit weird, but it works for me.
+ *
  * @author Nicolas Juillerat 2006-2007
  * @author Keith Corlett 2018 Mar - Commented this class.
  */
@@ -64,23 +66,34 @@ public final class GenerateDialog extends JDialog {
 
 	// load the PuzzleCache when the GenerateDialog form is first loaded, to
 	// give him time to load/generate a cache of puzzles BEFORE you press the
-	// Generate button.
+	// Generate button. This only matters the first time a machine loads the
+	// generate form, and most users will poke-around-a-bit before pressing
+	// generate for the first time, so I'm relying on that time to pre-cache,
+	// which'll probably work for everything except IDKFA which can take upto
+	// like 10 minutes to generate. Let's hope they don't go big first.
 	static {
 		PuzzleCache.staticInitialiser();
 	}
 
-	// Techs we require the user to use, they're not used here!
+	// Techs we want the user to want. These are really for speed, not actually
+	// required for safety.
 	private static final Tech[] SAFE_TECHS = new Tech[] {
-		// these are really for speed, not actually required for safety
-		  Tech.NakedSingle
-		, Tech.HiddenSingle
-		, Tech.Locking
-		, Tech.NakedPair
-		, Tech.HiddenPair
-		, Tech.Swampfish // aka X-Wing, but I prefer a fish related name.
-		// keeper: DynamicPlus is required coz it allways (AFAIK) finds a hint.
-		// ~50ms per call. Not used unless user unwants too many hinters.
-		, Tech.DynamicPlus
+			  Tech.NakedSingle
+			, Tech.HiddenSingle
+			, Tech.Locking
+			, Tech.NakedPair
+			, Tech.HiddenPair
+			, Tech.Swampfish // aka X-Wing, but I prefer a fish related name.
+	};
+
+	// One of these techs is required as a safety net. DynamicPlus only misses
+	// on the very hardest puzzles, but all the Nested hinters ALWAYS hint.
+	private static final Tech[] SAFETY_NETS = new Tech[] {
+			  Tech.DynamicPlus
+			, Tech.NestedUnary
+			, Tech.NestedMultiple
+			, Tech.NestedDynamic
+			, Tech.NestedPlus
 	};
 
 	private final SudokuFrame frame;
@@ -88,12 +101,15 @@ public final class GenerateDialog extends JDialog {
 	private JButton btnGenerate;
 	private JButton btnNext;
 	private JButton btnPrev;
-	private JLabel lblDifficulty;
+	private JButton btnClose;
+	private JComboBox<Difficulty> cboDifficulty;
+	private JRadioButton rdoExactDifficulty;
+	private JRadioButton rdoMaxDifficulty;
+	private JLabel lblDescription;
 	private JCheckBox chkAnalysis;
 
 	// a Set of the symettries selected for use.
-	private final EnumSet<Symmetry> selectedSymmetries
-			= EnumSet.noneOf(Symmetry.class);
+	private final EnumSet<Symmetry> selectedSyms = EnumSet.noneOf(Symmetry.class);
 
 	private Difficulty difficulty = Difficulty.Fiendish;
 	private boolean isExact = true;
@@ -101,7 +117,7 @@ public final class GenerateDialog extends JDialog {
 	private volatile GeneratorThread generatorThread = null;
 	private final List<Grid> sudokuList = new ArrayList<>();
 	private int sudokuIndex = 0;
-	private final Map<Grid, AHint> analysisses = new HashMap<>();
+	private final Map<Grid, AHint> analysisMap = new HashMap<>();
 	private final JCheckBox[] chkSymmetries = new JCheckBox[Symmetry.ALL.length];
 
 	/**
@@ -120,58 +136,67 @@ public final class GenerateDialog extends JDialog {
 	}
 
 	private void initParameters() {
-		// Select the 4/8 pointed symmetries coz they seem to be fastest.
-//		selectedSymmetries.add(Symmetry.Bidiagonal_4);	// 4
-//		selectedSymmetries.add(Symmetry.Orthogonal_4);	// 4
-//		selectedSymmetries.add(Symmetry.Rotate90_4);	// 4
-//		selectedSymmetries.add(Symmetry.Full_8);		// 8
-		selectedSymmetries.addAll(Arrays.asList(Symmetry.ALL));
+		selectedSyms.addAll(Arrays.asList(Symmetry.ALL));
 		sudokuList.add(engine.getGrid());
 	}
 
-	private boolean checkRuleSetIsSafe() {
-		return Settings.THE.areAllWanted(SAFE_TECHS);
+	private boolean checkSafeTechs() {
+		return Settings.THE.allWanted(SAFE_TECHS)
+			&& Settings.THE.anyWanted(SAFETY_NETS);
 	}
 
-	private static final String CONTINUE_QUESTION =
+	private static final String UNSAFE_QUESTION =
 "<html><body>" +
 "<b>Warning:</b> not all the \"safe\" solving techniques are enabled.<br>" +
 "Sudoku Explainer may not be able to generate a Sudoku puzzle using only<br>" +
-"the selected techniques, it may loop for ever until you stop it.<br>" +
+"the selected techniques, the generator may just run for ever.<br>" +
+"<br>" +
+"<u>Safe Techs</u> Select ALL of: " + Tech.names(SAFE_TECHS) +"<br>" +
+"These are for speed really, not safety. Tick Tock!<br>" +
+"<br>" +
+"<u>Safety Nets</u> Select ONE of: " + Tech.names(SAFETY_NETS) + "<br>" +
+"ONE of these is needed for safety, else puzzles may not solve.<br>" +
+"DynamicPlus covers normal puzzles; Nested all cover ALL puzzles.<br>" +
 "<br>" +
 "Do you wish to continue anyway?" +
 "</body></html>";
 
-	private boolean userConfirmsUnsafe() {
-		return confirmedUnsafe
-			|| (confirmedUnsafe = JOptionPane.YES_OPTION ==
-				JOptionPane.showConfirmDialog(this, CONTINUE_QUESTION
+	private boolean userOverridesUnsafe() {
+		return overriddenUnsafe
+			|| (overriddenUnsafe = JOptionPane.YES_OPTION ==
+				JOptionPane.showConfirmDialog(this, UNSAFE_QUESTION
 						, getTitle(), JOptionPane.YES_NO_OPTION
 						, JOptionPane.QUESTION_MESSAGE));
 	}
-	private boolean confirmedUnsafe = false;
+	private boolean overriddenUnsafe = false;
+
+	private static final String NL = System.lineSeparator();
+	private static final String BAD_TECHS_MESSAGE =
+		"No Sudoku solving techniques are wanted that are in the"+NL
+		+"selected difficulty, so generate would just run for ever,"+NL
+		+"without replacing the cached Sudoku puzzle."+NL
+		+NL
+		+"Menu: Options ~ Solving techniques... to choose more techs,"+NL
+		+"or just choose another difficulty to generate.";
 
 	private void initGUI() {
 		// This
-		setTitle("Generate a Sudoku");
+		setTitle("Generate Sudoku");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		setResizable(false);
 
 		// Overall layout
 		getContentPane().setLayout(new BorderLayout());
 
-		// parameters pane: contains symmetryPanel, difficultyPanel
+		// Parameters Panel: contains topPanel, middlePanel
 		JPanel paramPanel = new JPanel();
 		paramPanel.setLayout(new BoxLayout(paramPanel, BoxLayout.Y_AXIS));
 		getContentPane().add(paramPanel, BorderLayout.CENTER);
 
-		// Command pane
-		JPanel commandPanel = new JPanel(new GridLayout(1, 2)); //1 row, 2 cols
-		getContentPane().add(commandPanel, BorderLayout.SOUTH);
+		// Bottom Panel: Control Buttons
+		JPanel bottomPanel = new JPanel(new GridLayout(1, 2)); //1 row, 2 cols
+		getContentPane().add(bottomPanel, BorderLayout.SOUTH);
 		JPanel pnlGenerate = new JPanel(new FlowLayout(FlowLayout.CENTER));
-		commandPanel.add(pnlGenerate);
-		JPanel pnlClose = new JPanel(new FlowLayout(FlowLayout.CENTER));
-		commandPanel.add(pnlClose);
+		bottomPanel.add(pnlGenerate);
 
 		btnPrev = new JButton();
 		btnPrev.setText("<");
@@ -190,18 +215,25 @@ public final class GenerateDialog extends JDialog {
 		btnGenerate.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 12));
 		btnGenerate.setText("Generate");
 		btnGenerate.setMnemonic(KeyEvent.VK_G);
-		btnGenerate.setToolTipText("Generate a new Sudoku");
+		btnGenerate.setToolTipText("Generate a new Sudoku puzzle");
 		btnGenerate.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if (generatorThread == null) {
-					// validate everything and start a new generatorThread
-					if ( selectedSymmetries.isEmpty() ) {
+				if ( generatorThread == null ) {
+					// a symmetry is required
+					if ( selectedSyms.isEmpty() ) {
 						carp("Generate", "Please select at least one symmetry");
 						return;
 					}
-					if ( !checkRuleSetIsSafe() && !userConfirmsUnsafe() )
+					// check the "safe" (faster) techs are selected
+					if ( !checkSafeTechs() && !userOverridesUnsafe() )
 						return;
+					// check selected techs can produce this difficulty
+					if ( !Settings.THE.anyWanted(difficulty.techs()) ) {
+						carp("Generate", BAD_TECHS_MESSAGE);
+						return;
+					}
+					// start a new generatorThread
 					startNewGeneratorThread();
 				} else {
 					stopGeneratorThread();
@@ -223,7 +255,7 @@ public final class GenerateDialog extends JDialog {
 		});
 		pnlGenerate.add(btnNext);
 
-		JButton btnClose = new JButton();
+		btnClose = new JButton();
 		btnClose.setText("Close");
 		btnClose.setMnemonic(KeyEvent.VK_C);
 		btnClose.addActionListener(new ActionListener() {
@@ -232,61 +264,60 @@ public final class GenerateDialog extends JDialog {
 				close();
 			}
 		});
+		JPanel pnlClose = new JPanel(new FlowLayout(FlowLayout.CENTER));
 		pnlClose.add(btnClose);
+		bottomPanel.add(pnlClose);
 
-		// Parameters - Symmetry pane
-		JPanel symmetryPanel = new JPanel();
-		symmetryPanel.setBorder(new TitledBorder("Allowed symmetry types"));
-		paramPanel.add(symmetryPanel);
-		symmetryPanel.setLayout(new GridLayout(5, 2)); //was 3, 4
+		// Top Panel: Symmetry
+		JPanel topPanel = new JPanel();
+		topPanel.setBorder(new TitledBorder("Allowed symmetry types"));
+		paramPanel.add(topPanel);
+		topPanel.setLayout(new GridLayout(5, 2)); //was 3, 4
 		int i = 0;
 		for ( final Symmetry symmetry : Symmetry.values() ) {
 			final JCheckBox chkSymmetry = chkSymmetries[i++] = new JCheckBox();
-			chkSymmetry.setSelected(selectedSymmetries.contains(symmetry));
+			chkSymmetry.setSelected(selectedSyms.contains(symmetry));
 			chkSymmetry.setText(symmetry.toString());
 			chkSymmetry.setToolTipText(symmetry.getDescription());
 			chkSymmetry.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					if (chkSymmetry.isSelected()) {
-						selectedSymmetries.add(symmetry);
+						selectedSyms.add(symmetry);
 					} else {
-						selectedSymmetries.remove(symmetry);
+						selectedSyms.remove(symmetry);
 					}
 				}
 			});
-			symmetryPanel.add(chkSymmetry);
+			topPanel.add(chkSymmetry);
 		}
 
-		// Parameters - Difficulty
-		JPanel difficultyPanel = new JPanel(new BorderLayout());
-		difficultyPanel.setBorder(new TitledBorder("Difficulty"));
-		paramPanel.add(difficultyPanel);
+		// Middle Panel: Difficulty
+		JPanel middlePanel = new JPanel(new BorderLayout());
+		middlePanel.setBorder(new TitledBorder("Difficulty"));
+		paramPanel.add(middlePanel);
 
-		JPanel diffChooserPanel = new JPanel();
-		diffChooserPanel.setLayout(new BoxLayout(diffChooserPanel
-				, BoxLayout.X_AXIS));
-		difficultyPanel.add(diffChooserPanel, BorderLayout.NORTH);
+		JPanel difficultyPanel = new JPanel();
+		difficultyPanel.setLayout(new BoxLayout(difficultyPanel, BoxLayout.X_AXIS));
+		middlePanel.add(difficultyPanel, BorderLayout.NORTH);
 
-		final JComboBox<Difficulty> cboDiff = new JComboBox<>();
+		cboDifficulty = new JComboBox<>();
 		for ( Difficulty d : Difficulty.values() )
-			cboDiff.addItem(d);
-		cboDiff.setToolTipText(
-				"Choose the difficulty of the Sudoku to generate");
-		cboDiff.setSelectedItem(Difficulty.Fiendish);
-		cboDiff.addActionListener(new ActionListener() {
+			cboDifficulty.addItem(d);
+		cboDifficulty.setToolTipText("Choose the difficulty of the Sudoku to generate");
+		cboDifficulty.setSelectedItem(Difficulty.Fiendish);
+		cboDifficulty.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				difficulty = (Difficulty)cboDiff.getSelectedItem();
-				lblDifficulty.setText(difficulty.html());
+				difficulty = (Difficulty)cboDifficulty.getSelectedItem();
+				lblDescription.setText(difficulty.html);
 				setSelectedSymmetries(difficulty);
 			}
 		});
-		diffChooserPanel.add(cboDiff);
+		difficultyPanel.add(cboDifficulty);
 
-		final JRadioButton rdoExactDifficulty = new JRadioButton("Exact");
-		rdoExactDifficulty.setToolTipText(
-				"Generate a Sudoku with exactly the chosen difficulty");
+		rdoExactDifficulty = new JRadioButton("Exact");
+		rdoExactDifficulty.setToolTipText("Generate a Sudoku with exactly the chosen difficulty");
 		rdoExactDifficulty.setMnemonic(KeyEvent.VK_E);
 		rdoExactDifficulty.addActionListener(new ActionListener() {
 			@Override
@@ -295,61 +326,47 @@ public final class GenerateDialog extends JDialog {
 					isExact = true;
 			}
 		});
-		diffChooserPanel.add(rdoExactDifficulty);
+		difficultyPanel.add(rdoExactDifficulty);
 
-		final JRadioButton rdoMaximumDifficulty = new JRadioButton("Maximum");
-		rdoMaximumDifficulty.setToolTipText(
-				"Generate a Sudoku with at most the chosen difficulty");
-		rdoMaximumDifficulty.setMnemonic(KeyEvent.VK_M);
-		rdoMaximumDifficulty.addActionListener(new ActionListener() {
+		rdoMaxDifficulty = new JRadioButton("Maximum");
+		rdoMaxDifficulty.setToolTipText("Generate a Sudoku with at most the chosen difficulty");
+		rdoMaxDifficulty.setMnemonic(KeyEvent.VK_M);
+		rdoMaxDifficulty.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if (rdoMaximumDifficulty.isSelected())
+				if (rdoMaxDifficulty.isSelected())
 					isExact = false;
 			}
 		});
-		diffChooserPanel.add(rdoMaximumDifficulty);
-		ButtonGroup group = new ButtonGroup();
-		group.add(rdoExactDifficulty);
-		group.add(rdoMaximumDifficulty);
+		difficultyPanel.add(rdoMaxDifficulty);
+		ButtonGroup difficultyRadioGroup = new ButtonGroup();
+		difficultyRadioGroup.add(rdoExactDifficulty);
+		difficultyRadioGroup.add(rdoMaxDifficulty);
 		rdoExactDifficulty.setSelected(true);
 
-		JPanel pnlDifficulty = new JPanel(new BorderLayout());
-		pnlDifficulty.setBorder(new TitledBorder("Description"));
-		difficultyPanel.add(pnlDifficulty, BorderLayout.CENTER);
-		lblDifficulty = new JLabel();
-		lblDifficulty.setText(
+		lblDescription = new JLabel();
+		lblDescription.setText(
 				"<html><body><b>This</b><br>is just<br>a text.</body></html>");
-		lblDifficulty.setToolTipText("Explanations of the chosen difficulty");
-		pnlDifficulty.add(lblDifficulty, BorderLayout.NORTH);
+		lblDescription.setToolTipText("Explanation of the chosen difficulty");
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				lblDifficulty.setText(difficulty.html());
+				lblDescription.setText(difficulty.html);
 			}
 		});
+		final JPanel pnlDescription = new JPanel(new BorderLayout());
+		pnlDescription.setBorder(new TitledBorder("Description"));
+		pnlDescription.add(lblDescription, BorderLayout.NORTH);
+		middlePanel.add(pnlDescription, BorderLayout.CENTER);
 
-		// Parameters - Warning label
-		JPanel warningPanel = new JPanel();
-		warningPanel.setBorder(new TitledBorder("Warning"));
-		paramPanel.add(warningPanel);
-		JLabel lblWarning = new JLabel();
-		warningPanel.add(lblWarning);
-		lblWarning.setText(
-  "<html><body>It can take for ever to generate a replacement IDKFA.<br>"
-+ "The easier the faster, but EGBDF. Gopher Cleetus?</body></html>"
-		);
-
-		// Parameters - options
+		// Option Panel: Analysis
 		JPanel optionPanel = new JPanel();
 		optionPanel.setBorder(new TitledBorder(""));
 		optionPanel.setLayout(new GridLayout(1, 1));
 		paramPanel.add(optionPanel, BorderLayout.NORTH);
-		chkAnalysis = new JCheckBox(
-				"Show the analysis of the generated Sudoku");
-		chkAnalysis.setToolTipText(
-		"Show the difficulty rating of this Sudoku and the simplest"
-		+ " techniques that are necessary to solve it.");
+		chkAnalysis = new JCheckBox("Show the analysis of the generated Sudoku");
+		chkAnalysis.setToolTipText("Solve the Sudoku to rate its difficulty,"
+				+ " and summarise the techiques required.");
 		chkAnalysis.setMnemonic(KeyEvent.VK_A);
 		chkAnalysis.setSelected(true);
 		chkAnalysis.addActionListener(new ActionListener() {
@@ -359,6 +376,15 @@ public final class GenerateDialog extends JDialog {
 			}
 		});
 		optionPanel.add(chkAnalysis);
+
+		// set the minimum size of the dialog, otherwise the dialog isn't tall
+		// enough to fit the maximum height of lblDesciption (which shrinks and
+		// grows as the description changes) so it and controls below it are
+		// pushed below the bottom of the dialog, which sux, especially when
+		// the user can't resize the dialog to fix it.
+		setMinimumSize(new Dimension(440, 440));
+		setResizable(false); // prevent user accidentally disappearing controls
+		pack();
 	}
 
 	private void setSelectedSymmetries(Difficulty diff) {
@@ -367,23 +393,23 @@ public final class GenerateDialog extends JDialog {
 		case Medium:
 		case Hard:
 		case Fiendish:
-			selectedSymmetries.addAll(Arrays.asList(Symmetry.ALL));
+			selectedSyms.addAll(Arrays.asList(Symmetry.ALL));
 			break;
 		case Nightmare:
-			selectedSymmetries.addAll(Arrays.asList(Symmetry.ALL));
-			selectedSymmetries.remove(Symmetry.Full_8); // basically impossible
+			selectedSyms.addAll(Arrays.asList(Symmetry.ALL));
+			selectedSyms.remove(Symmetry.Full_8); // basically impossible
 			break;
 		case Diabolical:
-			selectedSymmetries.clear();
-			selectedSymmetries.addAll(Arrays.asList(Symmetry.SMALLS)); // basically impossible with 4 or 8
+			selectedSyms.clear();
+			selectedSyms.addAll(Arrays.asList(Symmetry.SMALLS)); // basically impossible with 4 or 8
 			break;
 		case IDKFA:
-			selectedSymmetries.clear();
-			selectedSymmetries.add(Symmetry.None); // basically impossible with anything but none
+			selectedSyms.clear();
+			selectedSyms.add(Symmetry.None); // basically impossible with anything but none
 		}
 		// refresh the selected symetries check boxes
 		for ( int i=0,n=chkSymmetries.length; i<n; ++i )
-			chkSymmetries[i].setSelected(selectedSymmetries.contains(Symmetry.ALL[i]));
+			chkSymmetries[i].setSelected(selectedSyms.contains(Symmetry.ALL[i]));
 		repaint();
 	}
 
@@ -393,9 +419,11 @@ public final class GenerateDialog extends JDialog {
 
 	private void startNewGeneratorThread() {
 		// Generate grid
-		Symmetry[] syms = selectedSymmetries.toArray(
-				new Symmetry[selectedSymmetries.size()] );
-		generatorThread = new GeneratorThread(syms, difficulty, isExact);
+		generatorThread = new GeneratorThread(
+				  selectedSyms.toArray(new Symmetry[selectedSyms.size()])
+				, difficulty
+				, isExact
+		);
 		generatorThread.start();
 	}
 
@@ -403,7 +431,7 @@ public final class GenerateDialog extends JDialog {
 		if ( generatorThread!=null && generatorThread.isAlive() ) {
 			generatorThread.interrupt();
 			try {
-				generatorThread.join();
+				generatorThread.join(500); // wait half a second
 			} catch (InterruptedException ex) {
 				StdErr.whinge(ex);
 			}
@@ -425,8 +453,7 @@ public final class GenerateDialog extends JDialog {
 		private final Difficulty diff;
 		private final boolean isExact;
 		private Generator generator;
-	    public GeneratorThread(Symmetry[] syms, Difficulty diff
-				, boolean isExact) {
+	    public GeneratorThread(Symmetry[] syms, Difficulty diff, boolean isExact) {
 			super("GeneratorThread");
 			this.syms = syms;
 			this.diff = diff;
@@ -434,19 +461,21 @@ public final class GenerateDialog extends JDialog {
 		}
 		@Override
 		public void interrupt() {
-			generator.interrupt();
+			if ( generator != null )
+				generator.interrupt();
 		}
 		@Override
 		public void run() {
 			// first update the GUI on the Swing thread
+			// BUG: only works the first time, and I don't understand why.
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
 				public void run() {
-					engine.setGrid(new Grid());
+					engine.setGrid(new Grid()); // clear the grid
 					AutoBusy.setBusy(GenerateDialog.this, true);
 					AutoBusy.setBusy(btnGenerate, false);
 					btnGenerate.setText("Stop");
-					btnGenerate.repaint();
+					repaint();
 				}
 			});
 			// then generate a new puzzle (ie fetch it from the cache)
@@ -457,28 +486,17 @@ public final class GenerateDialog extends JDialog {
 				@Override
 				public void run() {
 					if ( solution != null ) {
-//						try {
-							sudokuList.add(solution);
-							sudokuIndex = sudokuList.size() - 1;
-
-//							IO.save(solution.toString(), IO.GENERATED_FILE);
-//							solution.source = new PuzzleID(IO.GENERATED_FILE);
-//							engine.clearUndos();
-							engine.saveFile(IO.GENERATED_FILE); // also adds to recentFiles, and catches IOException in a standard way
-
-							frame.setTitle(IO.GENERATED_FILE.getAbsolutePath());
-							refreshSudokuPanel();
-//						} catch (IOException ex) {
-//							final String msg = "Save generated error";
-//							StdErr.whinge(msg, ex);
-//							carp(msg, ex.toString());
-//						}
+						sudokuList.add(solution);
+						sudokuIndex = sudokuList.size() - 1;
+						refreshSudokuPanel(); // sets engine.grid
+						engine.saveFile(IO.GENERATED_FILE); // also adds to recentFiles, and catches IOException in a standard way
+						frame.setTitle(IO.GENERATED_FILE.getAbsolutePath());
 					}
 					if ( GenerateDialog.this.isVisible() ) {
 						AutoBusy.setBusy(GenerateDialog.this, false);
 						AutoBusy.setBusy(btnGenerate, false);
 						btnGenerate.setText("Generate");
-						btnGenerate.repaint();
+						repaint();
 					}
 				}
 			});
@@ -502,17 +520,17 @@ public final class GenerateDialog extends JDialog {
 	}
 
 	private void refreshSudokuPanel() {
-		Grid sudoku = sudokuList.get(sudokuIndex);
-		engine.setGrid(sudoku);
+		Grid grid = sudokuList.get(sudokuIndex);
+		engine.setGrid(grid);
 		// Generate buggers-up krakens
 		btnPrev.setEnabled(sudokuIndex > 0);
 		btnNext.setEnabled(sudokuIndex < sudokuList.size()-1);
 		if ( chkAnalysis.isSelected() ) {
-			// Display analysis of the Sudoku
-			AHint analysis = analysisses.get(sudoku);
-			if (analysis == null) {
+			// Display the analysis of this Sudoku
+			AHint analysis = analysisMap.get(grid);
+			if ( analysis == null ) {
 				analysis = engine.analyse();
-				analysisses.put(sudoku, analysis);
+				analysisMap.put(grid, analysis);
 			}
 			engine.showHint(analysis);
 		}

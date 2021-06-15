@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
@@ -52,8 +53,7 @@ public final class UniqueRectangle extends AHinter
 		implements diuf.sudoku.solver.hinters.ICleanUp
 //				 , diuf.sudoku.solver.IReporter
 {
-	// Int ArrayS ~ We need 9 of them
-	// to save on creating an array for each call (garbage eradication)
+	// Int ArrayS: 9 of them save creating array in each call (no garbage)
 	private static final int[][] IAS1 = new int[9][];
 	private static final int[][] IAS2 = new int[9][];
 	private static final int[][] IAS3 = new int[9][];
@@ -408,7 +408,7 @@ public final class UniqueRectangle extends AHinter
 			final Idx extraBuds = Grid.cmnBudsNew(extraCells);
 			extraBuds.removeAll(extraCells);
 			extraBuds.and(candidates[theExtraValue]);
-			if ( extraBuds.isEmpty() )
+			if ( extraBuds.none() )
 				return null; // there's no hint here. Move along!
 			// build the removable (red) potentials
 			final Pots redPots = new Pots(theExtraValue, extraBuds.cells(grid));
@@ -585,7 +585,7 @@ public final class UniqueRectangle extends AHinter
 		// WARNING: We can only get away with using the cas so long as the
 		// array is NEVER retained! otherCells contents could be modified
 		// at any arbitrary time in the future. All this to reduce GC.
-		final Cell[] otherCells = Grid.cas(n - 1);
+		final Cell[] otherCells = Cells.array(n - 1);
 
 		Values cmnMaybes;  Cell cell;
 		int i, cnt, nkdSetValuesBits;

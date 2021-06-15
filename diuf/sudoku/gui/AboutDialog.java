@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -77,7 +77,7 @@ public final class AboutDialog extends JDialog {
 			lblCopyright.setText("(C) 2005-2007 Nicolas Juillerat");
 			lblCopyright.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
 			lblCopyright2 = new JLabel();
-			lblCopyright2.setText("(C) 2013-2020 Keith Corlett");
+			lblCopyright2.setText("(C) 2013-2021 Keith Corlett");
 			lblCopyright2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
 			lblTitle = new JLabel();
 			lblTitle.setText("Sudoku Explainer");

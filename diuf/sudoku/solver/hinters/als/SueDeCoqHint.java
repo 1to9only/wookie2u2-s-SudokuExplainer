@@ -1,14 +1,14 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -25,8 +25,8 @@ public class SueDeCoqHint extends AHint implements IActualHint {
 
 	public SueDeCoqHint(AHinter hinter, Pots reds, Pots greens, Pots blues
 			, Pots purples, ARegion base, ARegion cover) {
-		super(hinter, reds, greens, null, blues, Grid.regionList(base)
-				, Grid.regionList(cover));
+		super(hinter, reds, greens, null, blues
+				, Regions.list(base), Regions.list(cover));
 		this.purples = purples;
 	}
 

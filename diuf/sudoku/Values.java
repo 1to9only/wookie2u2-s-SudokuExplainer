@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -459,20 +459,6 @@ public final class Values implements Iterable<Integer> {
 		return this;
 	}
 
-	/** visit is a faster version of: not(v) and then set(v)
-	 * <p>Used only by Grid.firstDoubledValue() for speed.
-	 * @param value to look for and remember.
-	 * @return was value'th bit unset before we visited it? It's set now! */
-	public boolean visit(int value) {
-		final int sv = VSHFT[value]; // shiftedValue: the bitset value of value.
-		final boolean result = (bits & sv) == 0; // is the value'th bit NOT set
-		if ( result ) { // if the value'th bit is NOT set
-			bits |= sv; // set the value'th bit
-			++size;		// and increase my size
-		}
-		return result; // value'th bit was NOT previously set (it is now).
-	}
-
 	// ------------------------------- factories ------------------------------
 
 	/** Create a new Values Set containing the intersection of this and 'a'.
@@ -850,7 +836,7 @@ public final class Values implements Iterable<Integer> {
 	 */
 	public static String toString(int bits, String sep, String lastSep) {
 		if ( bits == 0 )
-			return "-";
+			return "-"; // this appears in AlsXzHint text, so MUST remain ""
 		SB.setLength(0);
 		final int[] array = VALUESES[bits];
 		final int n = array.length;

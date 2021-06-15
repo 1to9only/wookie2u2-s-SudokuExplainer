@@ -5,9 +5,11 @@
 ALSs : {2}
 </b></pre>
 Regardless of the correct value of the stem cell {0}, one of these Almost Locked
-Sets (ALS) will become a Locked Set (LS), and <b>ALL</b> of these Locked Sets
-preclude the same value/s; hence we can eliminate those value/s, without needing
-to know which ALS will become an LS.
+Sets (ALSs) will become a Locked Set (LS), and <b>ALL</b> of these Locked Sets preclude
+the same candidate/s.
+<p>
+Hence we can eliminate those common candidates/s without knowing which ALS will
+become an LS.
 <p>
 Therefore <r>we can remove <b>{1}</b></r>.
 <p>
@@ -21,27 +23,27 @@ candidate of the stem cell has that value as one of its own candidates, and
 within the ALS, every cell that has the value as a candidate can see the stem
 cell. The ALSs can't overlap; ie no cell can belong to more than one ALS. Also,
 there must be at least one value that is a candidate of every ALS, but is not a
-candidate of the stem cell. (1) This is the eliminatable value.
+candidate of the stem cell. (1) These are the value/s (usually one) to
+eliminate.
 <p>
-Once we've found a Death Blossom, if an outside cell that doesn't belong to one
-of the ALSes (and isn't the stem cell) can see every cell in each ALS that has
-that value as a candidate, and the value isn't a candidate of the stem cell,
-then that value can be eliminated from the outside cell.
+Having found a Death Blossom, if an outside cell (not in any of the ALSs) sees
+all occurrences of that value (in all ALSs and not in the stem cell) in the
+Death Blossom then we can eliminate that value from the outside cell.
 <p>
 <hr>
 <p>
-(1) The-value-to-eliminate must be common to all ALSs in the DeathBlossom and
+(1) Each value-to-eliminate must be common to all ALSs in the DeathBlossom and
 not a potential value of the stem cell; which makes sense: the main logic is
-one of the ALSs must become an LS, so all ALSs must share that nonstem-value,
+one of the ALSs will become an LS, so all ALSs must share that nonstem-value,
 precluding it from external cell/s seeing all instances in the DeathBlossom.
 <p>
-There's nothing stopping DeathBlossom eliminating multiple values, it's just
-rarer than rocking horse s__t. In fact it never happens in top1465; so to the
-best of my knowledge, it never ACTUALLY happens; but SE handles multiple anyway,
-just in case; but this "feature" is untested (caveat emptor).
+There's nothing to stop a DeathBlossom eliminating multiple values, it's just
+rarer than rocking horse s__t. In fact it never happens in top1465, but SE
+handles multiples anyway, just in case, but it's untested, so caveat emptor.
 <p>
 NOTE: SE's DeathBlossom implementation examines stems with 2 or <u><b>3</b></u>
-maybes, because DB is slow and top1465 doesn't have any 4's; but I'm lead to
-believe that 4's exist, so the code handles them. So if you're a stickler for
-correctness go change the &lt; 4 to &lt; 5. I'm (too, on occasion) eficaphilic.
+maybes, because DB is slow and top1465 doesn't have any DB's on 4 values, but I
+believe that 4's do exist, so the rest of the code handles them. If you're a
+stickler for correctness please change the &lt; 4 to &lt; 5. I am prone to
+excessive efficiency, ergo I'm a lazy bastard.
 </body></html>

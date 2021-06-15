@@ -1,11 +1,13 @@
 package diuf.sudoku.solver.hinters.lock2;
 
 import diuf.sudoku.Ass;
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
@@ -23,26 +25,38 @@ import java.util.Set;
  */
 public class LockingGeneralisedHint extends AHint implements IChildHint {
 
+	// the cells which maybe value in this region
 	private final Cell[] cells;
+	// the locking candidate value
 	private final int value;
+	// the region
 	private final ARegion region;
 
-	public LockingGeneralisedHint(AHinter hinter, Pots reds, int n, Cell[] cells
+	/**
+	 * Constructor.
+	 *
+	 * @param hinter the instance of LockingGeneralised
+	 * @param reds the removable (red) Cell=&gt;Values
+	 * @param indexes region.indexesOf[value].bits
+	 * @param value the locking candidate value
+	 * @param region the region containing
+	 */
+	public LockingGeneralisedHint(AHinter hinter, Pots reds, int indexes
 			, int value, ARegion region) {
 		super(hinter, reds);
-		this.cells = copy(n, cells); // copy the re-used array!
+		this.cells = region.atNew(indexes);
 		this.value = value;
 		this.region = region;
 	}
 
 	@Override
 	public Pots getGreens(int viewNum) {
-		return new Pots(value, cells);
+		return new Pots(value, cells); // cells which maybe value
 	}
 
 	@Override
 	public List<ARegion> getBases() {
-		return Grid.regionList(this.region);
+		return Regions.list(this.region);
 	}
 
 	public Cell[] getSelectedCells() {
@@ -51,7 +65,7 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 
 	@Override
 	public Set<Cell> getAquaCells(int viewNum) {
-		return Grid.cellSet(this.cells);
+		return Cells.set(this.cells);
 	}
 
 	@Override

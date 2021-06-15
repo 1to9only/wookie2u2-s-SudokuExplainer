@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.checks;
@@ -55,41 +55,41 @@ public final class AnalysisHint extends AWarningHint implements IActualHint {
 		}
 	}
 
-	private void appendUsage(StringBuilder mySB, IHinter myHinter, Usage usage) {
+	private void appendUsage(StringBuilder sb, IHinter h, Usage u) {
 		final String difficulty;
-		if ( usage.maxDifficulty > 0.0 )
-			difficulty = " "+Frmt.dbl(usage.maxDifficulty);
+		if ( u.maxDifficulty > 0.0 )
+			difficulty = " "+Frmt.dbl(u.maxDifficulty);
 		else
 			difficulty = "";
-		int numHints = usage.numHints;
+		int numHints = u.numHints;
 		if ( numHints > 0 ) {
-			if(numHints < 10) mySB.append(' ');
-			mySB.append(numHints).append(" x ")
-			  .append(myHinter).append(difficulty).append(NL);
+			if(numHints < 10) sb.append(' ');
+			sb.append(numHints).append(" x ")
+			  .append(h).append(difficulty).append(NL);
 			// if this hinter produced more than one type of hint
-			// then append a count of each hint type
-			if ( usage.subHintsMap.size() > 1 )
-				appendSubHints(mySB, usage.subHintsMap);
+			// then append a count of each type of hint
+			if ( u.subHintsMap.size() > 1 )
+				appendSubHints(sb, u.subHintsMap);
 		}
 	}
 
-	// I Made appendUsageMap public returns mySB so that I can log a formatted
-	// summary of an AnalysisHint without all the HTML-extras. Note that you'll
-	// need to cast me to AnalysisHint to access this method.
-	public StringBuilder appendUsageMap(StringBuilder mySB) {
+	// Cast me to AnalysisHint to access this method.
+	public StringBuilder appendUsageMap() {
+		return appendUsageMap(new StringBuilder(1024));
+	}
+	// appendUsageMap takes mySB so that I can log a formatted summary of an
+	// AnalysisHint without all the HTML-extras.
+	private StringBuilder appendUsageMap(StringBuilder sb) {
 		Usage usage;
-		for ( IHinter myHinter : usageMap.keySet() )
-			if ( (usage=usageMap.get(myHinter)) == null )
-				// you can only get here when the catch-all was executed, coz
-				// the puzzle wasn't solved with the selected techniques, which
-				// most commonly means you just need to select more techniques;
-				// and/or (but less commonly) you broke a bloody hinter (again)!
-				mySB.append(" 1 x catch-all usage data is unavailable (18.96)").append(NL)
-				    .append(" 1 x enable some bloody hinters ya putz! (42.42)").append(NL)
-				    .append(" 1 x or you've broken a bloody hinter!   (86.69)").append(NL);
+		for ( IHinter h : usageMap.keySet() )
+			if ( (usage=usageMap.get(h)) == null )
+				// we ONLY get here when the catch-all was executed (no usage)
+				sb.append(" 1 x catch-all usage data is unavailable (18.96)").append(NL)
+				  .append(" 1 x enable some bloody hinters ya putz  (42.42)").append(NL)
+				  .append(" 1 x or you've broken a bloody hinter    (86.69)").append(NL);
 			else
-				appendUsage(mySB, myHinter, usage);
-		return mySB;
+				appendUsage(sb, h, usage);
+		return sb;
 	}
 
 	@Override

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -108,15 +108,15 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public Idx set(int a0, int a1, int a2) {
+	public void setNullSafe(Idx src) {
 		checkLock();
-		return super.set(a0, a1, a2);
+		super.setNullSafe(src);
 	}
 
 	@Override
-	public Idx set(Grid.ARegion[] regions) {
+	public Idx set(int a0, int a1, int a2) {
 		checkLock();
-		return super.set(regions);
+		return super.set(a0, a1, a2);
 	}
 
 	@Override
@@ -138,39 +138,15 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public boolean setAny(Idx aa) {
-		checkLock();
-		return super.setAny(aa);
-	}
-
-	@Override
 	public Idx setAndNot(Idx aa, Idx bb) {
 		checkLock();
 		return super.setAndNot(aa, bb);
 	}
-	
+
 	@Override
 	public Idx setAndNot(Idx aa, Idx bb, Idx cc) {
 		checkLock();
 		return super.setAndNot(aa, bb, cc);
-	}
-
-	@Override
-	public Idx setAllExcept(Idx s2) {
-		checkLock();
-		return super.setAllExcept(s2);
-	}
-
-	@Override
-	public void orNot(Idx s2) {
-		checkLock();
-		super.orNot(s2);
-	}
-
-	@Override
-	public boolean orAndAny(Idx s1, Idx s2) {
-		checkLock();
-		return super.orAndAny(s1, s2);
 	}
 
 	@Override
@@ -180,21 +156,9 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public void not() {
-		checkLock();
-		super.not();
-	}
-
-	@Override
 	public Idx clear() {
 		checkLock();
 		return super.clear();
-	}
-
-	@Override
-	public Idx fill() {
-		checkLock();
-		return super.fill();
 	}
 
 	@Override
@@ -239,12 +203,6 @@ public class IdxL extends Idx implements Cloneable {
 	public Idx andNot(Idx other) {
 		checkLock();
 		return super.andNot(other);
-	}
-
-	@Override
-	public boolean andNotAny(Idx other) {
-		checkLock();
-		return super.andNotAny(other);
 	}
 
 	@Override

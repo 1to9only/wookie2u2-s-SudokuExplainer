@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -29,32 +29,31 @@ public final class UsageMap extends TreeMap<IHinter, Usage> {
 	}
 
 	/**
-	 * Add the values if hinter already exists, else insert it.
-	 * <p>Used by LogicalSolver.timeHinters, and by the local addonate(...).
+	 * Add the given values if hinter exists, else add a new Usage for hinter.
 	 */
-	void addon(IHinter hinter, int numCalls, int numHints, int numElims, long time) {
-		Usage existing = super.get(hinter);
-		if (existing == null)
-			put(hinter, new Usage(numCalls, numHints, numElims, time));
-		else {
-			existing.numCalls += numCalls;
-			existing.numHints += numHints;
-			existing.numElims += numElims;
-			existing.time += time;
+	Usage addon(IHinter hinter, int numCalls, int numHints, int numElims, long time) {
+		Usage u = super.get(hinter);
+		if ( u == null ) {
+			put(hinter, u = new Usage(numCalls, numHints, numElims, time));
+		} else {
+			u.numCalls += numCalls;
+			u.numHints += numHints;
+			u.numElims += numElims;
+			u.time += time;
 		}
+		return u;
 	}
 
 	/**
-	 * Adds the given toAddOn UsageMap to this UsageMap. Used to produce the
-	 * run-total-usages from each puzzles-usages.
-	 * <p>Used only by LogicalSolverTester.
+	 * Adds the given toAddOn UsageMap to this UsageMap.
+	 *
 	 * @param toAddOn UsageMap to add on
 	 */
 	public void addonate(UsageMap toAddOn) {
-		Usage u;
+		Usage a; // each Usage to add
 		for ( IHinter hinter : toAddOn.keySet() ) {
-			u = toAddOn.get(hinter);
-			addon(hinter, u.numCalls, u.numHints, u.numElims, u.time);
+			a = toAddOn.get(hinter);
+			addon(hinter, a.numCalls, a.numHints, a.numElims, a.time);
 		}
 	}
 

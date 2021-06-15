@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.fish;
@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters.fish;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.ISIZE;
@@ -35,8 +36,8 @@ import java.util.List;
  * bases are cols, and covers are rows.
  * <p>
  * BasicFisherman1 is a re-implementation of BasicFisherman using hobiwans
- * "stack technique" to search all possible combinations of bases; because it
- * is (I hope) faster than Nicholas Juillerats Permutations technique. The
+ * "iterable stack-frame technique" to search all possible combos of bases;
+ * because it is (I hope) faster than Nicholas Juillerats Permutations. The
  * Permutations class next method is a bit slow. A stack is faster (I hope),
  * but it's pretty hard to get your head around how a stack works. It's used
  * to search all possible combinations of degree bases amongst N bases having
@@ -76,7 +77,26 @@ import java.util.List;
  *  50,410,316  15856  3,179  420  120,024 Swampfish
  *  67,955,459  14112  4,815  230  295,458 Swordfish
  * 103,724,266  12145  8,540    0        0 Jellyfish
- * IBFIIK: It's slower again! So stick with the original. sigh.
+ * But it's slower again! So let's just stick with the original. sigh.
+ * <p>
+ * KRC 2021-05-18 Trying to Make this faster again.
+ *  55,137,900  17023  3,239  620   88,932 Swampfish
+ *  74,345,200  14111  5,268  230  323,240 Swordfish
+ * 105,820,000  12164  8,699    0        0 Jellyfish
+ * And it's slower again, so try again. sigh.
+ * 
+ *  56,645,800  17023  3,327  620   91,364 Swampfish
+ *  75,291,200  14111  5,335  230  327,353 Swordfish
+ * 108,898,900  12164  8,952    0        0 Jellyfish
+ * And it's slower again, so try again. sigh.
+ * 
+ *  55,080,200  17023  3,235  620   88,839 Swampfish
+ *  71,863,700  14111  5,092  230  312,450 Swordfish
+ * 104,190,200  12164  8,565    0        0 Jellyfish
+ * Jesus this is frustrating. Just use the original!
+ *  39,287,900  17023  2,307  620   63,367 Swampfish
+ *  65,620,800  14111  4,650  230  285,307 Swordfish
+ *  17,561,400  12164  1,443    0        0 Jellyfish
  *
  * @author Keith Corlett 2021-05-01
  */
@@ -99,8 +119,8 @@ public class BasicFisherman1 extends AHinter {
 	}
 
 	/**
-	 * This array contains those bases having 2..degree places for v. It's
-	 * important to note that the stack index is into this array, not bases!
+	 * This array contains those bases having 2..degree places for v.
+	 * Note that the stack index is into this array (not possibleBases).
 	 */
 	private final ARegion[] bases = new ARegion[9];
 
@@ -114,32 +134,27 @@ public class BasicFisherman1 extends AHinter {
 	private final BaseStackEntry[] stack;
 
 	/**
-	 * covers is an array of the cover regions in this Fish.
-	 */
-	private final ARegion[] covers;
-
-	/**
 	 * Constructor.
 	 * @param tech to implement: Swampfish=2, Swordfish=3, Jellyfish=4.
 	 */
 	public BasicFisherman1(Tech tech) {
 		super(tech);
-		// check that we were passed a Tech that I implement
+		// check that I was passed a Tech that I actually implement
 		assert tech==Tech.Swampfish || tech==Tech.Swordfish || tech==Tech.Jellyfish;
 		// the working stack entries are index 1..degree; 0 is just a stopper.
 		stack = new BaseStackEntry[degreePlus1];
 		for ( int i=0; i<degreePlus1; ++i )
 			stack[i] = new BaseStackEntry();
-		// the cover Regions array
-		covers = new ARegion[degree];
 	}
 
-//	private Grid grid;
+	// the grid to search
+	private Grid grid;
+	// the IAccumulator to which I add hints
 	private IAccumulator accu;
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-//		this.grid = grid;
+		this.grid = grid;
 		this.accu = accu;
 		boolean result = false;
 		try {
@@ -152,10 +167,9 @@ public class BasicFisherman1 extends AHinter {
 						| search(grid.cols, grid.rows);
 			}
 		} finally {
-//			this.grid = null;
+			this.grid = null;
 			this.accu = null;
 			Arrays.fill(this.bases, null);
-			Arrays.fill(this.covers, null);
 		}
 		return result;
 	}
@@ -163,118 +177,86 @@ public class BasicFisherman1 extends AHinter {
 	/**
 	 * Search all combinations of bases in N possibleBases having 2..degree v's
 	 * for a Fish of size degree. Create a hint for each Fish and add it to the
-	 * accu. If the accu says "stop now" then we stop now, producing one hint.
+	 * accu. If the accu says "stop now" then I stop, to produce one hint.
 	 *
 	 * @param possibleBases grid.rows/cols
-	 * @param possibleCovers grid.cols/rows
+	 * @param covers grid.cols/rows
 	 * @return were any hints found?
 	 */
-	private boolean search(ARegion[] possibleBases, ARegion[] possibleCovers) {
+	private boolean search(ARegion[] possibleBases, ARegion[] covers) {
 		// Search each possible combination of degree bases in n bases
-		// the previous and current stack entry
-		BaseStackEntry p, c;
-		// the current level in the stack of base-entries
-		int level, i, tmp, b, baseBits, n, m;
-		// the removable (red) potentials, if any
-		Pots reds = null;
+		BaseStackEntry c; // current stack entry
+		int level // current level in the stack
+			, i // ubiquitios index
+			, card // cardinality: number of v's in this possible base
+			, n; // number of bases
 		// presume that no hint will be found
 		boolean result = false;
-		// for each possible fish candidate value
+		// foreach possible fish candidate value
 		for ( int v=1; v<10; ++v ) {
 //System.out.println(""+v+" possibleBases: "+Regions.toString(possibleBases, 9));
 			// bases array := possibleBases having 2..degree places for v
 			n = 0;
-			for ( ARegion r : possibleBases )
-				// tmp is the number of v's in this possibleBase
-				if ( (tmp=r.indexesOf[v].size)>1 && tmp<degreePlus1 )
-					bases[n++] = r;
+			for ( ARegion base : possibleBases )
+				// cardinality: the number of v's in this possibleBase
+				if ( (card=base.indexesOf[v].size)>1 && card<degreePlus1 )
+					bases[n++] = base;
 //System.out.println(""+v+": bases: "+Regions.toString(bases, n));
 			// if there's sufficient bases to form a fish of my size
 			if ( n >= degree ) {
-				// the first level is 1. We always start at it's beginning.
+				// the first level is 1. Start at it's first base.
 				stack[level=1].index = 0;
-				// it's faster to minus 1 ONCE than repeatedly >= n
-				m = n - 1;
 				// keep going until all levels of the stack are exhausted; we
-				// build the stack up from left to right. 0 is just a stopper;
-				// active entries are at index 1..degree. Stack is an array of
-				// degreePlus1 BaseStackEntry.
+				// build the stack up from left-to-right. Stack is an array of
+				// degreePlus1 BaseStackEntry. 0 is just a stopper; active
+				// entries are at index 1..degree.
 				// ============================================================
-				// PERFORMANCE this loop runs billions of times, so we do the
-				// minimum required as efficiently as possible.
+				// PERFORMANCE this loop runs billions of times, so do the
+				// minimum required, efficiently.
 				// ============================================================
 				LOOP: for(;;) {
 					// fallback levels while this level is exhausted
-					while ( (c=stack[level]).index > m )
+					// and set the current stack entry
+					while ( (c=stack[level]).index >= n )
 						if ( --level < 1 )
 							break LOOP; // all done
-					// get the previous stack entry
-					p = stack[level - 1];
 					// current v's = previous v's + this bases v's
-					// uses the current base index, and post-increments it.
-					// to be clear, this builds-up, from left-to-right a bitset
-					// of the indexes of all the cells in the bases which maybe
-					// v, so when level==degree c.vs is all v's in degree bases
-					c.vs = p.vs | bases[c.index++].indexesOf[v].bits;
+					c.vs = stack[level-1].vs | bases[c.index++].indexesOf[v].bits;
 					// if the fish is not yet complete
 					if ( level < degree ) {
-						// move onto the next level in the stack
-						stack[++level].index = c.index; //index is already next
-					} else {
-						// we have degree bases (ie the fish is "complete")
-						assert level == degree;
-//System.out.print("complete: "+v+":");
-//for ( i=1; i<degreePlus1; ++i )
-//	System.out.print(" "+bases[stack[i].index-1].id);
-//System.out.println(" = "+diuf.sudoku.Indexes.toString(c.vs));
-						// but do they contain degree v's?
-						if ( ISIZE[c.vs] == degree ) {
-							// Found a Fish, but does it produce any eliminations?
-							// ================================================
-							// PERFORMANCE not a big issue from here down; this
-							// runs thousands of times, not billions.
-							// ================================================
-//System.out.print("fish: "+v+":");
-//for ( i=1; i<degreePlus1; ++i )
-//	System.out.print(" "+bases[stack[i].index-1].id);
-//System.out.println(" = "+diuf.sudoku.Indexes.toString(c.vs));
-							// build a bitset of bases, to strip from cover v's
-							baseBits = 0;
-							for ( i=1; i<degreePlus1; ++i )
-								baseBits |= ISHFT[bases[stack[i].index-1].index % 9];
-//System.out.println("baseBits: "+Indexes.toString(baseBits));
-							// get the cover regions
-							Regions.select(possibleCovers, c.vs, covers);
-//System.out.println("covers: "+Regions.toString(covers, nn));
-							// build removable (red) Cell=>Values
-							// v's in the covers but not in the bases
-							for ( ARegion cover : covers )
-								// tmp is removable v's = cover v's - the bases
-								if ( (tmp=cover.indexesOf[v].bits & ~baseBits) != 0 ) {
-//System.out.println("pink: "+covers[i].id+" "+Indexes.toString(pink));
-									for ( b=0; b<9; ++b )
-										if ( (tmp & ISHFT[b]) != 0 ) {
-											if ( reds == null )
-												reds = new Pots();
-											reds.put(cover.cells[b], new Values(v));
-										}
-								}
-							// if there are any eliminations
-							if ( reds != null ) {
-								// FOUND a Fish, with eliminations!
-//System.out.println("reds: "+reds);
-								// create the hint
-								final AHint hint = createHint(v, reds);
-//System.out.println("hint: "+hint);
-								// remember that we found a hint
-								result = true;
-								// add the hint to the accu
-								// if the passed accu isSingle then stop
-								if ( accu.add(hint) )
-									return result;
-								// clean-up for next time
-								reds = null;
-							}
+						// if there's not already too many v's in these bases
+						if ( ISIZE[c.vs] < degreePlus1 )
+							// move onto the next level in the stack, starting
+							// with the base after current base (forward-only).
+							stack[++level].index = c.index;
+					} else if ( ISIZE[c.vs] == degree ) {
+						// It's a fish, but does it eliminate anything?
+						// ====================================================
+						// PERFORMANCE not such an issue here; it runs
+						// thousands of times, not billions.
+						// ====================================================
+						// get indices of the v's in the bases
+						baseVs.set(bases[stack[1].index-1].idxs[v]);
+						for ( i=2; i<degreePlus1; ++i )
+							baseVs.or(bases[stack[i].index-1].idxs[v]);
+						// get indices of the v's in the covers
+						coverVs.clear();
+						for ( i=0; i<9; ++i )
+							if ( (c.vs & ISHFT[i]) != 0 )
+								coverVs.or(covers[i].idxs[v]);
+						// if there's any v's in covers and not bases
+						if ( coverVs.andNot(baseVs).any() ) {
+							// FOUND a Fish, with eliminations!
+							final Pots reds = new Pots();
+							final int fv = v;
+							coverVs.forEach(grid.cells, (cc) ->
+								reds.put(cc, new Values(fv))
+							);
+							final AHint hint = createHint(v, reds
+									, Regions.list(degree, covers, c.vs));
+							result = true;
+							if ( accu.add(hint) )
+								return result; // exit-early
 						}
 					}
 				}
@@ -282,15 +264,20 @@ public class BasicFisherman1 extends AHinter {
 		}
 		return result;
 	}
+	// indices of v's in the base regions
+	private final Idx baseVs = new Idx();
+	// indices of v's in the cover regions
+	private final Idx coverVs = new Idx();
 
 	/**
 	 * Construct a new BasicFishHint, mostly from fields.
 	 *
 	 * @param v the Fish candidate value
 	 * @param reds the removable Cell=>Values
+	 * @param coversL a List of cover regions in this fish
 	 * @return a new BasicFishHint, always.
 	 */
-	private AHint createHint(final int v, final Pots reds) {
+	private AHint createHint(final int v, final Pots reds, final List<ARegion> coversL) {
 		// get highlighted (green) potentials = the corners
 		final Pots greens = new Pots();
 		for ( int i=1; i<degreePlus1; ++i )
@@ -301,8 +288,6 @@ public class BasicFisherman1 extends AHinter {
 		final List<ARegion> basesL = new ArrayList<>(degree);
 		for ( int i=1; i<degreePlus1; ++i )
 			basesL.add(bases[stack[i].index-1]);
-		// get a List of cover regions in this fish
-		final List<ARegion> coversL = Regions.list(covers);
 		// construct the hint and return it
 		return new BasicFishHint(this, reds, v, greens, "", basesL, coversL);
 	}

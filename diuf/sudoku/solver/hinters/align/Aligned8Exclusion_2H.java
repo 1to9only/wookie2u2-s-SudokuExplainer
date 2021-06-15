@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align;
@@ -276,7 +276,7 @@ public final class Aligned8Exclusion_2H extends Aligned8ExclusionBase
 											continue;
 
 										// get the common excluder cells from grid at idx07
-										numCmnExcls = idx07.cellsN(grid, cmnExcls);
+										numCmnExcls = idx07.cellsN(grid.cells, cmnExcls);
 										// performance enhancement: examine smaller maybes sooner.
 //KRC#2020-06-30 10:20:00
 // before :     29,064,463,400	   4467	     6,506,483	      1	29,064,463,400	Aligned Oct

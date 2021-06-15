@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -22,9 +22,9 @@ import java.util.Set;
 
 
 /**
- * Static helper methods dealing with Grid.ARegion's. There's just so many of
- * them I thought it was worth creating a class to hold them all, and try to
- * get on top of my rather profligate enmethodonation methodology.
+ * The Regions class contains static helper methods for Grid.ARegion's. There
+ * are so many of them I thought it was worth gathering them together into a
+ * class, mainly to keep them out of the Grid class, which is already to big.
  *
  * @author Keith Corlett 2020-10-14
  */
@@ -126,6 +126,24 @@ public final class Regions {
 		return n;
 	}
 
+	/**
+	 * Return the common row, col, or box of two Cells; else null.
+	 * Note that box comes LAST (for a change).
+	 *
+	 * @param a Cell
+	 * @param b Cell
+	 * @return ARegion
+	 */
+	public static ARegion common(Cell a, Cell b) {
+		if ( a.row == b.row )
+			return a.row;
+		if ( a.col == b.col )
+			return a.col;
+		if ( a.box == b.box )
+			return a.box;
+		return null;
+	}
+
 	public static String typeName(List<ARegion> rs) {
 		if ( rs!=null && rs.size()>0 && rs.get(0)!=null )
 			return rs.get(0).typeName;
@@ -159,14 +177,15 @@ public final class Regions {
 		return sb.toString();
 	}
 
-	public static String ids(Idx rs) {
-		final StringBuilder sb = new StringBuilder(rs.size() * 6);
-		rs.forEach((cnt, ri) -> {
-			if(cnt>0) sb.append(' ');
-			sb.append(IDS[ri]);
-		});
-		return sb.toString();
-	}
+//not used
+//	public static String ids(Idx rs) {
+//		final StringBuilder sb = new StringBuilder(rs.size() * 6);
+//		rs.forEach((cnt, ri) -> {
+//			if(cnt>0) sb.append(' ');
+//			sb.append(IDS[ri]);
+//		});
+//		return sb.toString();
+//	}
 
 	// returns CSV of the finned region/s. Mostly there's one fin. Multiple
 	// fins are almost always in the one base. Just occassionally: BUGGER!

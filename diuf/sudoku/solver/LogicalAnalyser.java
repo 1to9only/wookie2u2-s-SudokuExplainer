@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -16,17 +16,17 @@ import diuf.sudoku.solver.accu.IAccumulator;
 
 
 /**
- * A LogicalAnalyser solves a Sudoku puzzle (a Grid) logically, to work-out
- * how difficult that is, and produce a summary of the solving techniques that
- * were applied in order to solve the puzzle.
+ * A LogicalAnalyser is a wrapper that turns the LogicalSolver into an IHinter.
+ * It solves a Sudoku puzzle (a Grid) logically, to work-out how difficult that
+ * is, and produce a summary of the solving techniques that were applied in
+ * order to solve the puzzle.
  * <p>
- * Well, actually I'm only wafer-thin: just a wrapper to turn a LogicalSolver
- * into an IHinter. LogicalAnalyser and LogicalSolver are co-dependant, so they
- * MUST be in the same package. The analyser calls back the LogicalSolver passed
- * to it's constructor, so it's best if analysers are always automatic variables
- * (not fields) so that: he comes, he's used, he goes (an interesting sex life);
- * rather than make the GC deal with yet another billabong: a cut-off closed
- * loop of references.
+ * I'm only wafer-thin: I just present the LogicalSolver in IHinter's clothes.
+ * LogicalAnalyser and LogicalSolver are codependant, so they MUST be in the
+ * same package. The analyser calls back the LogicalSolver passed to it's
+ * constructor, so it's best if analysers are always automatic variables (not
+ * fields) so that: he comes, he's used, he goes; rather than make the GC deal
+ * with a cut-off closed-loop of references.
  * @see diuf.sudoku.solver.checks.AnalysisHint
  * 
  * @author Keith Corlett
@@ -34,8 +34,10 @@ import diuf.sudoku.solver.accu.IAccumulator;
 public final class LogicalAnalyser extends AWarningHinter
 		implements IPreparer
 {
-
-	private final LogicalSolver logicalSolver;
+	/**
+	 * The LogicalSolver that created me (ie was passed to my constructor).
+	 */
+	private final LogicalSolver solver;
 	
 	/**
 	 * When true the {@link LogicalAnalyser#findHints} method prints out the
@@ -58,8 +60,9 @@ public final class LogicalAnalyser extends AWarningHinter
 	public boolean isNoisy = false;
 
 	/**
-	 * Note that the only constructor is package visible, and is only called
-	 * by LogicalSolver (except in the JUnit test-case, which is a bit trixie).
+	 * Note that the only constructor is package visible, and is only called by
+	 * LogicalSolver (except in the JUnit test-case, which is a bit trixie).
+	 *
 	 * @param solver My master LogicalSolver.
 	 */
 	LogicalAnalyser(LogicalSolver solver) {
@@ -67,27 +70,29 @@ public final class LogicalAnalyser extends AWarningHinter
 		// of all (wanted) techniques, so we just use Tech.Solution, giving us
 		// degree 0, and difficulty 0.0, which is NOT representative. Sigh.
 		super(Tech.Solution);
-		this.logicalSolver = solver;
+		this.solver = solver;
 	}
 
 	/**
 	 * {@inheritDoc}
 	 *
-	 * <p>This implementation produces a single AnalysisHint (a subtype of
-	 * WarningHint) containing the difficulty rating of the Sudoku puzzle,
-	 * and a list of the hints that were applied to solve it.
-	 * <p>If the Sudoku is not valid then a "raw" WarningHint is produced,
-	 * but the puzzle is pre-validated by the caller (LogicalSolver.analyse)
-	 * so the puzzle is valid so this should never happen. Never say never.
+	 * <p>
+	 * This implementation produces a single AnalysisHint (a WarningHint)
+	 * containing the difficulty rating of the Sudoku puzzle and a list of
+	 * the hints that were applied in order to solve it.
+	 * <p>
+	 * If the puzzle cannot be solved (is invalid) then a "raw" WarningHint is
+	 * produced, but it's pre-validated by LogicalSolver.analyse, so it should
+	 * never be invalid, so this should never happen. Never say never.
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		try {
 			// run the puzzleValidators and the gridValidators seperately
 			// here because differentiating a WarningHint is complicated.
-			AHint hint = logicalSolver.validatePuzzleAndGrid(grid, false);
-			if ( hint != null )
-				return accu.add(hint);
+			AHint warning = solver.validatePuzzleAndGrid(grid, false);
+			if ( warning != null )
+				return accu.add(warning);
 			// NB: synchronized so that the generator thread waits for the
 			// analyse (ie solve) to complete before generating a puzzle to
 			// replenish its cache. We can't run two solves concurrently coz
@@ -102,13 +107,12 @@ public final class LogicalAnalyser extends AWarningHinter
 			// this recipe but not right now. I'll need a backup, too much has
 			// changed right now for me to do a high risk Ignoto change.
 			UsageMap usageMap = new UsageMap();
-			boolean result;
+			boolean isSolved;
 			synchronized ( GrabBag.ANALYSE_LOCK ) {
-				// call-back the logicalSolver which created me.
-				// solve(grid, usage, validate, isNoisy, logHints)
-				result = logicalSolver.solve(grid, usageMap, false, isNoisy, false);
+				// call-back the LogicalSolver that created me.
+				isSolved = solver.solve(grid, usageMap, false, isNoisy, false);
 			}
-			if ( result )
+			if ( isSolved )
 				accu.add(new AnalysisHint(this, usageMap));
 			else
 				accu.add(new WarningHint(this, "Unsolvable", "NoSolution.html"));

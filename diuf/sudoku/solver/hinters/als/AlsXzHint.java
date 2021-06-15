@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -27,27 +27,20 @@ public class AlsXzHint extends AHint implements IActualHint {
 
 	private final Als a;
 	private final Als b;
-	private final int pinkBits;
+	private final int zsZapped; // bitset of z-values removed by single-link
 	private final boolean anyDoubleLinked;
-	private final String debugMessage, rccMaybes, aCells, bCells;
+	private final String debugMessage, rccsString;
 
-	public AlsXzHint(AHinter hinter, Als a, Als b, int pinkBits
-			, Pots orangePots, Pots bluePots, Pots redPots
-			, boolean anyDoubleLinked
-			, String rccMaybes // pass this in coz we need the rcc to get it
-			, String aCells, String bCells // pass these in coz we need the grid to get them
-			, String debugMessage
-	) {
+	public AlsXzHint(AHinter hinter, Als a, Als b, int zsZapped, Pots reds,
+			boolean anyDoubleLinked, String rccsString, String debugMessage) {
 		// nb: what are normally greens are oranges here
-		super(hinter, redPots, null, orangePots, bluePots
-				, Regions.list(a.region), Regions.list(b.region));
+		super(hinter, reds, null, null, null, Regions.list(a.region)
+				, Regions.list(b.region));
 		this.a = a;
 		this.b = b;
-		this.pinkBits = pinkBits;
+		this.zsZapped = zsZapped;
 		this.anyDoubleLinked = anyDoubleLinked;
-		this.rccMaybes = rccMaybes;
-		this.aCells = aCells;
-		this.bCells = bCells;
+		this.rccsString = rccsString;
 		this.debugMessage = debugMessage;
 	}
 
@@ -61,7 +54,7 @@ public class AlsXzHint extends AHint implements IActualHint {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
 			s += " in "+a.region.id+" and "+b.region.id
-			  +" on "+rccMaybes;
+			  +" on "+rccsString;
 		return s;
 	}
 
@@ -70,7 +63,7 @@ public class AlsXzHint extends AHint implements IActualHint {
 		StringBuilder sb = Frmt.getSB();
 		sb.append(getHintTypeName()).append(":")
 		  .append(" in ").append(a.region.id).append(" and ").append(b.region.id)
-		  .append(" on ").append(rccMaybes);
+		  .append(" on ").append(rccsString);
 		return sb.toString();
 	}
 
@@ -79,14 +72,18 @@ public class AlsXzHint extends AHint implements IActualHint {
 		final String filename = anyDoubleLinked
 				? "AlsXzDblLnkdHint.html"
 				: "AlsXzHint.html";
-		String zBlurb = pinkBits == 0 ? ""
+		// Calculate ONCE at HTML-time: we need "" (not "-") if no z-values
+		// removed by single-link, else we see a stray - in the html.
+		final String zsString = zsZapped==0 ? ""
+				: Values.andS(zsZapped);
+		final String zBlurb = zsZapped==0 ? ""
 				: "<br>and another (non-restricted) common candidate z = "
-				  +"<b>"+Values.andS(pinkBits)+"</b>";
+				  +"<b>"+zsString+"</b>";
 		return Html.produce(this, filename
 			, a.toString()			//{0}
 			, b.toString()			// 1
-			, rccMaybes				// 2 x's
-			, Values.andS(pinkBits)	// 3 z's
+			, rccsString			// 2 x's
+			, zsString				// 3 z's
 			, redPots.toString()	// 4
 			, debugMessage			// 5
 			, zBlurb				// 6

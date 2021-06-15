@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gen;
@@ -69,7 +69,7 @@ public final class PuzzleCache {
 			StringBuilder sb = new StringBuilder();
 			for ( int i=0; i<NUM_DIFFICULTIES; ++i ) {
 				if ( PUZZLE_CACHE[i] == null )
-					return;
+					return; // No save if there's an empty slot
 				sb.append(PUZZLE_CACHE[i].toShortString()).append(NL);
 			}
 			IO.save(sb.toString(), IO.PUZZLE_CACHE);
@@ -90,35 +90,43 @@ public final class PuzzleCache {
 		needToGenerate = false;
 	}
 
-	// the PuzzleCache's generate retrieves a puzzle from the cache and then
-	// replaces it in the background; else (cache-miss) I generate in-line and
-	// return it; then also generate all difficulties in a background thread.
-	Grid generate(Symmetry[] syms, Difficulty difficulty, boolean isExact) {
-		Grid puzzle = PUZZLE_CACHE[difficulty.index];
-		if ( puzzle != null ) { // cache-hit: subsequent calls come here
-			PUZZLE_CACHE[difficulty.index] = null;
-			produce(syms, difficulty); // replace him in the background
-		} else { // cache-miss: probably the first "priming" read
-			puzzle = generator.generate(this, syms, difficulty, isExact);
-			// produceAll() attempts to fill the cache
+	void set(Difficulty diff, Grid puzzle) {
+		PUZZLE_CACHE[diff.index] = puzzle;
+	}
+
+	// PuzzleCache.generate retrieves a puzzle from the cache and then replaces
+	// it in the background; else (cacheMiss) I generate in-line and return it;
+	// then generate all difficulties in a background thread.
+	Grid generate(Symmetry[] syms, Difficulty d, boolean isExact) {
+		Grid puzzle = PUZZLE_CACHE[d.index];
+		if ( puzzle != null ) {
+			// cache-hit: so generate a replacement Sudoku in the background.
+			PUZZLE_CACHE[d.index] = null;
+			produce(syms, d);
+		} else {
+			// cache-miss: so generate a new Sudoku in this thread.
+			puzzle = generator.generate(this, syms, d, isExact);
+			// ensure the cache is full
 			if ( !gotAllDifficulties() )
 				produceAll(); // complete the cache in the background
 		}
 		return puzzle;
 	}
 
-	void set(Difficulty diff, Grid puzzle) {
-		PUZZLE_CACHE[diff.index] = puzzle;
+	private boolean gotAllDifficulties() {
+		for ( int i=0; i<NUM_DIFFICULTIES; ++i )
+			if ( PUZZLE_CACHE[i] == null )
+				return false;
+		return true;
 	}
 
 	private void produceAll() {
 		Thread thread = new Thread("GenerateAllPuzzles") {
 			@Override
 			public void run() {
-				// Note that PUZZLE_CACHE recieves all generated puzzles, not
-				// just the last one, with the desired degree of Difficulty.
-				// A low percentage of puzzles are difficult, so just filling
-				// IDKFA will (usually) also fill ALL the lesser levels.
+				// A very small percentage of puzzles are IDKFA, so finding an
+				// IDKFA is almost guaranteed to fill ALL of the easier levels,
+				// so DIFFICULTIES is sorted hardest-to-easiest (IDKFA first).
 				for ( Difficulty d : DIFFICULTIES )
 					if ( PUZZLE_CACHE[d.index] == null )
 						generate(Symmetry.ALL, d, true);
@@ -134,35 +142,26 @@ public final class PuzzleCache {
 	 * produce runs after a cache-hit, to refill the cache by generating a
 	 * puzzle to replace the one we just "vended"... I'm the self-refiller
 	 * in a self-refilling vending machine.
+	 *
 	 * @param selectedSyms
-	 * @param d 
+	 * @param d
 	 */
 	private void produce(final Symmetry[] selectedSyms, final Difficulty d) {
-		// Too speed generation up:
-		// * IDFKA is (apparently) only possible with NO symmetry. All I can
-		//   say is I've never seen an IDKFA produced with any Symmetry.
-		// * Diabolical too slow (3+ mins) with only 4-and-8-point Symmetries,
-		//   so we add Symmetry.SMALLS to the useful symmetries, to generate a
-		//   replacement puzzle relatively quickly (20 secs vs 2 min)
-		final Symmetry[] usefulSyms =
-				  d==Difficulty.IDKFA ? Symmetry.NONE
-				: d==Difficulty.Diabolical ? addSmalls(selectedSyms)
-				: selectedSyms;
+		// determine the useful symmetries from the users selection
+		final Symmetry[] syms = usefulSymmetries(d, selectedSyms);
 		// now generate a replacement puzzle
-		Thread thread = new Thread("GeneratePuzzle") {
+		final Thread generatorThread = new Thread("GeneratePuzzle") {
 			@Override
 			public void run() {
-				// generate a replacement puzzle. But first we wait a quarter
-				// of a second for the GUIs analyse to start/run, then we...
+				// Wait a-quarter-second for GUIs analyse to start...
 				try{Thread.sleep(250);}catch(InterruptedException eaten){}
-				// then we synchronize so that my background generate starts 
-				// as soon as the foreground analyse completes, so that two
-				// LogicalSolvers aren't solving concurrently, which trips over
-				// stateful static vars like the GrabBag. Please note that the
-				// use of GrabBag.ANALYSE_LOCK is pure unadulterated irony!
+				// then we synchronize so that my background generate starts
+				// when the foreground analyse completes, so two LogicalSolvers
+				// don't run concurrently and trip over stateful static vars
+				// like GrabBag. GrabBag.ANALYSE_LOCK is aggregiously ironic.
 				synchronized ( GrabBag.ANALYSE_LOCK ) {
 					try {
-						generate(usefulSyms, d, true);
+						generate(syms, d, true);
 					} catch (Throwable eaten) {
 						// Do nothing ~ no "standard" stack trace to StdErr.
 					}
@@ -170,17 +169,22 @@ public final class PuzzleCache {
 				savePuzzleCache();
 			}
 		};
-		thread.setDaemon(true);
-		Runtime.getRuntime().addShutdownHook(thread);
-		thread.start();
+		generatorThread.setDaemon(true);
+		Runtime.getRuntime().addShutdownHook(generatorThread);
+		generatorThread.start();
 	}
 
-	private boolean gotAllDifficulties() {
-		final Grid[] cache = PUZZLE_CACHE;
-		for ( int i=0,n=NUM_DIFFICULTIES; i<n; ++i )
-			if ( cache[i] == null )
-				return false;
-		return true;
+	// Determine the useful symmetries to speed-up generation:
+	// * IDKFA is never (AFAIK) produced with anything but NONE Symmetry, and
+	//   it's still too slow (upto like 10 minutes) with that.
+	// * Diabolical is too slow (2+ mins) with only 4-and-8-point Symmetries,
+	//   so add Symmetry.SMALLS to generate a replacement puzzle in ~20 secs.
+	private Symmetry[] usefulSymmetries(Difficulty d, Symmetry[] selectedSyms) {
+		switch ( d ) {
+			case IDKFA: return Symmetry.NONE;
+			case Diabolical: return addSmalls(selectedSyms);
+			default: return selectedSyms;
+		}
 	}
 
 	// addSmalls returns all the Symmetry.SMALLS plus the 4-and-8-point

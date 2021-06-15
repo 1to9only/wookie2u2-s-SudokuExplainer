@@ -1,11 +1,36 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
+ *
+ * This class is based on HoDoKu's SimpleColoring class, by Bernhard Hobiger,
+ * published under GNU's GPL licence. Kudos to hobiwan. Mistakes are mine. KRC.
+ *
+ * Here's hobiwans standard licence statement:
+ *
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ * Copyright (C) 2008-12  Bernhard Hobiger
+ *
+ * This file was NOT part of HoDuKo, but the ideas where.
+ *
+ * HoDoKu is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * HoDoKu is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
  */
 package diuf.sudoku.solver.hinters.color;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.BUDDIES;
@@ -29,8 +54,8 @@ import java.util.LinkedList;
 /**
  * XColoring implements the Extended Coloring Sudoku solving technique.
  * <p>
- * Extended Coloring involves chains of bi-location candidates. Cells in
- * regions with 2 places for v are "colored" so that either colorA or colorB
+ * Extended Coloring involves chains of bi-location candidates: Cells in
+ * regions with 2 places for v are "colored", so that either colorA or colorB
  * contains v. The variable v is the Coloring candidate value, BTW.
  * <p>
  * Then X-forcing chains are located: if we presume this colored cell contains
@@ -41,33 +66,40 @@ import java.util.LinkedList;
  * contains v or colorB contains v. If any cell sees two-or-more cells of the
  * same color, then the OTHER color must contain v. Similarly if all cells in
  * a region see cells of the same color then the OTHER color must contain v.
- * <p>
+ * <pre>
  * KRC 2021-03-03 I was getting invalid hints from the version of this class
- * based on hobiwan's [Simple]Coloring, so I rewrote it from scratch; but it's
+ * based on hobiwan's SimpleColoring, so I rewrote it from scratch; but it's
  * still rooted, and the code looks to me like it follows the algorithm. Either
  * my code is wrong in some way that I'm too stupid to understand (likely), or
  * the actual published algorithm is just plain wrong (unlikely).
- * <p>
+ *
  * I tried alterations (Step K:) to get it to work, without any joy. So now I
  * find myself at a loss. It finds all the hints in the test-cases, but it also
- * finds many false-positives: invalid hints. So I guess I have to declare that
- * the actual published algorithm is just plain wrong, which I do NOT think.
+ * finds many false-positives: invalid hints. So reluctantly declare that the
+ * actual published algorithm is wrong, which I do NOT think. sigh.
+ *
  * Surely anyone who published an algorithm would go to the trouble of testing
  * it over many many puzzles BEFORE they publish, to check that it doesn't do
  * unexpected things, like find false positives; so my actual conclusion is I'm
  * too stupid to understand the published algorithm, and also too stupid to
  * understand the authors intent, and so make it work despite his publication.
- * <p>
+ *
  * KRC 2021-03-03 09:35 Having failed to sort-out above invalid hint issues, I
  * have decided to password protect XColoring, so that only coders can use it.
  * My thinking is: I've tried everything I can think of to avoid/avert invalid
  * hints and either I'm misunderstanding the algorithm or it's WRONG! I think
- * it's just plain WRONG! All-though one should never underestimate one's own
- * capacity for sheer unadulterated stupidity. In which case I'm REALLY thick!
- * <pre>
- * ========================================================
- * !!!! THEREFORE Tech.XColoring is password protected !!!!
- * ========================================================
+ * it's just plain WRONG! Allthough one should never underestimate one's own
+ * capacity for sheer unadulterated stupidity.
+ * 
+ * KRC 2021-05-11 At some time in the past I fixed the above invalid hint issue
+ * but forgot to comment on it. XColoring is no longer password protected. The
+ * problem with coloring is that if any of it is wrong then it's all wrong.
+ * 
+ * KRC 2021-05-17 Investigated XColoring-hints found after GEM has run (moved
+ * GEM up in LogicalSolver.configureHinters). I can confirm that the XColoring
+ * algorithm finds hints that GEM misses, because GEM requires "and conversely"
+ * to paint a cell-value, so XColoring keeps painting where GEM stops. So we
+ * use Coloring (for multi and fast basics), XColoring (for misses) and GEM.
  * </pre>
  *
  * @author Keith Corlett 2021-02-27
@@ -116,7 +148,8 @@ public final class XColoring extends AHinter {
 	// the two indices of a conjugate pair in a region
 	private final int[] conjugates = new int[2];
 	// we reuse this ONE array to read the cells in an Idx
-	private final Cell[] cells = new Cell[81];
+//	private final Cell[] cells = new Cell[81];
+	private final Cell[] cells = Cells.array(81);
 	// we reuse this Pots rather than create one every time when we miss 99%.
 	private final Pots redPots = new Pots();
 	// we reuse this Pots rather than create one every time when we miss 99%.
@@ -140,8 +173,8 @@ public final class XColoring extends AHinter {
 		this.accu = accu;
 		boolean result;
 		try {
-			// find Extended Colors
-			result = findXColorHints();
+			// find all/first X-Color hints
+			result = search();
 		} finally {
 			this.grid = null;
 			this.candidates = null;
@@ -159,7 +192,7 @@ public final class XColoring extends AHinter {
 	 *
 	 * @return were any hint/s found?
 	 */
-	private boolean findXColorHints() {
+	private boolean search() {
 		Cell cell; // If you need this explaining you're in the wrong codebase.
 		AHint hint; // Similarly.
 		ARegion dr; // a dirty region, to be re-processed.
@@ -189,14 +222,14 @@ public final class XColoring extends AHinter {
 			debug("=================");
 			// foreach region
 			for ( ARegion region : grid.regions ) {
-				// with just 2 places for value
+				// with 2 places for v
 				if ( region.indexesOf[v].size == 2 ) {
 					// --------------------------------------------------------
 					// Step 1: Select a conjugate pair (the only two places for
 					// v in a region). Color the first C1, and second C2.
 					bothColors.set(region.idxs[v]);
 					n = region.idxs[v].toArrayN(conjugates);
-					assert n == 2;
+					assert n == 2 : "Oops: n = "+n;
 					colorSets[C1].clear().add(conjugates[0]);
 					colorSets[C2].clear().add(conjugates[1]);
 					debug("");
@@ -370,7 +403,8 @@ public final class XColoring extends AHinter {
 								// 4.1 If a cell sees both GREEN and BLUE,
 								//     then exclude v from this cell.
 								// get cells = all uncolored v's in grid.
-								n = xSet.setAndNot(candidates[v], bothColors).cellsN(grid, cells);
+								n = xSet.setAndNot(candidates[v], bothColors)
+										.cellsN(grid.cells, cells);
 								// foreach uncolored v in grid
 								for ( i=0; i<n; ++i ) {
 									cell = cells[i];

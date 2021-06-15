@@ -1,6 +1,6 @@
 package diuf.sudoku.solver.hinters.wing;
 
-import diuf.sudoku.Grid;
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
@@ -25,20 +25,20 @@ import java.util.Set;
  */
 class BigWingHint extends AHint implements IActualHint {
 
-	private final int[] wingValues;
+	private final int[] wingValues; // als values - yz values
 	private final int x; // the primary value to eliminate
 	private final int z; // the second value in a double-linked Wing
-	private final boolean both;
-	private final Cell yz;
-	private final Cell[] als;
-	private final Cell[] all;
+	private final boolean both; // are both x and z linked: ie isDoubleLinked
+	private final Cell yz; // the bivalue cell to complete the Wing pattern
+	private final Cell[] als; // the cells in the ALS (Almost Locked Set)
+	private final Cell[] all; // the ALS cells and the yz Cell
 
-	BigWingHint(AHinter hinter, Pots reds, Cell yz, XZ yzVs
+	BigWingHint(AHinter hinter, Pots reds, Cell yz, int x, int z, boolean both
 			, int alsCands, Cell[] als, Pots oranges) {
 		super(hinter, reds, null, oranges, null, null, null);
-		this.x = yzVs.x;
-		this.z = yzVs.z;
-		this.both = yzVs.both;
+		this.x = x;
+		this.z = z;
+		this.both = both;
 		this.yz = yz;
 		this.wingValues = VALUESES[alsCands ^ yz.maybes.bits];
 		this.als = als.clone(); // copy reused array
@@ -50,12 +50,12 @@ class BigWingHint extends AHint implements IActualHint {
 
 	@Override
 	public Set<Cell> getAquaCells(int viewNum) {
-		return Grid.cellSet(als);
+		return Cells.set(als);
 	}
 
 	@Override
 	public Set<Cell> getBlueCells(int viewNum) {
-		return Grid.cellSet(yz);
+		return Cells.set(yz);
 	}
 
 	@Override

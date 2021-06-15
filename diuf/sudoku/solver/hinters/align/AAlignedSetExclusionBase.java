@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align;
@@ -276,11 +276,11 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	// so if you rename me you need to change SUPER_NAME also.
 	private static final String SUPER_NAME = "AHinter";
 
-	/** The size of the candidatesArray. */
+	/** The size of the CANDIDATES_ARRAY. */
 	protected static final int NUM_CANDIDATES = 64; // array size; 81-17=64
 
-	/** We need only one candidatesArray for ALL Aligned*Exclusion so long as
-	 * we're single threaded. If you're multi-threading kill the static! */
+	/** We need only one CANDIDATES_ARRAY for ALL Aligned*Exclusion so long as
+	 * we're single threaded. If you multithread drop the static. */
 	protected static final Cell[] CANDIDATES_ARRAY = new Cell[NUM_CANDIDATES];
 
 	/** We need only one excludersArray for ALL Aligned*Exclusion so long as

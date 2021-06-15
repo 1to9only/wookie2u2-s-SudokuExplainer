@@ -1,17 +1,17 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
+import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.MyLinkedHashMap;
 import java.util.Arrays;
@@ -58,6 +58,24 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		Pots copy = new Pots();
 		for ( Cell c : src.keySet() )
 			copy.put(c, new Values(src.get(c)));
+		return copy;
+	}
+
+	/**
+	 * Make a shallow copy of this (your redPots), clear this, and return the
+	 * copy.
+	 * <p>
+	 * copyAndClear is used on redPots, when a redPots field is used to avoid
+	 * repeatedly creating a new Pots in each call when it just remains empty
+	 * in most calls, because the hinter doesn't find any eliminations. So we
+	 * create ONE redPots field, add eliminations to it, and then copy-it-off
+	 * when we create the hint.
+	 *
+	 * @return a copy of this (theReds) which is then cleared
+	 */
+	public Pots copyAndClear() {
+		Pots copy = new Pots(this);
+		this.clear();
 		return copy;
 	}
 
@@ -377,8 +395,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 *  count the bastards afterwards. sigh.
 	 */
 	public boolean upsert(Cell cell, int value) {
-		final Values existing = get(cell);
-		if ( existing != null )
+		final Values existing;
+		if ( (existing=get(cell)) != null )
 			return existing.add(value);
 		put(cell, new Values(value));
 		return true;
@@ -397,15 +415,37 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
-	 * upsert all these cells with Values v.
-	 * @param cells
-	 * @param v
+	 * Upsert numCells cells with Values v.
+	 *
+	 * @param v the value to be eliminated/set
+	 * @param numCells the number of cells actually in the cells array
+	 * @param cells the re-usable array of cells
 	 * @return this Pots.
 	 */
-	public Pots upsertAll(Collection<Cell> cells, int v) {
-		if ( cells != null )
-			for ( Cell cell : cells )
-				upsert(cell, new Values(v));
+	public Pots upsertAll(int v, int numCells, Cell[] cells) {
+		for ( int i=0; i<numCells; ++i )
+			upsert(cells[i], new Values(v));
+		return this;
+	}
+
+	/**
+	 * Upsert (update or insert) each cell in idx which maybe(v). Update means
+	 * v is added to the existing Values instance for this Cell. Insert means
+	 * the cell is added with a new Values(v). If a cell in 'idx' is not
+	 * maybe(v) then it's skipped, which I find convenient.
+	 *
+	 * @param idx containing indices of cells to be (probably) added
+	 * @param grid the grid itself
+	 * @param v the value to add for each cell, presuming that cell.maybe(v),
+	 *  else this cell is skipped.
+	 * @return this Pots.
+	 */
+	public Pots upsertAll(Idx idx, Grid grid, int v) {
+		final int sv = VSHFT[v];
+		idx.forEach(grid.cells, (cell) -> {
+			if ( (cell.maybes.bits & sv) != 0 )
+				upsert(cell, v);
+		});
 		return this;
 	}
 
@@ -428,38 +468,25 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
-	 * Populate this Potential Values Map with cells[idxs] => value, that is
-	 * from the cell that is at each set-bit in the given idxs bitset in the
-	 * given cells array, to a new instance of Values containing the given
-	 * value, which averts any future accidental collisions.
+	 * Populate this Pots with {@code r.cells[bits].maybe(v) => new Values(v)},
+	 * ie with the cell at each set-bit (1) in 'bits' in 'r'.cells that
+	 * maybe v, to a new Values(v) to avert any future collisions.
 	 * <p>
-	 * This method is currently only called by the Fisherman's
-	 * createPointFishHint method.
+	 * Each cell is put (not upsert) replacing any existing Values for cell.
+	 * <p>
+	 * Called by {@link diuf.sudoku.solver.hinters.fish.BasicFisherman#search}.
 	 *
-	 * @param cells array of cells
-	 * @param idxs int left-shifted Indexes bitset into the cells array
-	 * @param value for each cell. Note that a new instance of Values is
-	 * created for each cell, to avert future accidental collisions.
+	 * @param r the ARegion to eliminate from
+	 * @param bits a bitset of indexes into cells array
+	 * @param v a new Values(value) is created for each cell, to avert any
+	 *  future collisions.
 	 */
-	public void populate(Cell[] cells, int idxs, int value) {
-		assert idxs != 0;
-		for ( int i : INDEXES[idxs] )
-			put(cells[i], new Values(value));
-	}
-
-	/**
-	 * Populate this Potential Values Map with indexed cells (which maybe
-	 * shiftedValue) => value.
-	 * <p>This method currently only used by BasicFisherman.createHint.
-	 * @param cells array of cells
-	 * @param idxs indexes into cells array, as a left-shifted bits-set
-	 * @param shiftedValue = Values.SHFT[value]
-	 * @param value of each pot.
-	 */
-	public void populate(Cell[] cells, int idxs, int shiftedValue, int value) {
-		for ( int i : INDEXES[idxs] )
-			if ( (cells[i].maybes.bits & shiftedValue) != 0 )
-				put(cells[i], new Values(value));
+	public void addAll(ARegion r, int bits, int v) {
+		final int sv = VSHFT[v];
+		final Cell[] cells = r.cells;
+		for ( int i : INDEXES[bits] )
+			if ( (cells[i].maybes.bits & sv) != 0 )
+				put(cells[i], new Values(v));
 	}
 
 	/** remove all these cells from these Pots.
@@ -582,14 +609,17 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @return
 	 */
 	public int setCells(boolean isAutosolving) {
-		Values v;  int numSet = 0;
+		Cell cell;
+		Values values;
+		int numSet = 0;
 		for ( java.util.Map.Entry<Cell,Values> e : entrySet() ) {
-//System.out.println(e.getKey()+"=>"+e.getValue());
-//if ( "I9".equals(e.getKey().id) )
+			cell = e.getKey();
+			values = e.getValue();
+//System.out.println("Pots.setCells: set "+cell+" => "+values);
+//if ( "I9".equals(cell.id) )
 //	Debug.breakpoint();
-			v = e.getValue();
-			assert v.size == 1; // ONE value per cell in a setPots!
-			numSet += e.getKey().set(FIRST_VALUE[v.bits], 0, isAutosolving, null);
+			assert values.size == 1; // ONE value per cell in a setPots!
+			numSet += cell.set(FIRST_VALUE[values.bits], 0, isAutosolving, null);
 		}
 		return numSet;
 	}
@@ -699,7 +729,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		// use an Iterator to delete as we go
 		for ( Iterator<Cell> it=keySet().iterator(); it.hasNext(); )
 			// remove any elims which aren't in this cells maybes
-			// and if that leaves no values then remove this cell as well
+			// and if that leaves none then also remove this cell
 			if ( (vs=get(c=it.next())).removeBits(vs.bits & ~c.maybes.bits) == 0 )
 				it.remove();
 		return !isEmpty(); // ie any remaining

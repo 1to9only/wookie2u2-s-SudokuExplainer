@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
@@ -23,15 +24,13 @@ import diuf.sudoku.solver.hinters.AHinter;
 
 
 /**
- * Implements the Sue De Coq Sudoku solving technique. SueDeCoq is in the als
- * package because I don't know where to put it. It's based on "almost almost
- * locked sets": 2 cells with 4 values, 3 cells with 5 values (not ALS's).
+ * Implements the Sue De Coq Sudoku solving technique. SueDeCoq is in the ALS
+ * package because I don't know where to put it. It's based on Almost Almost
+ * Locked Sets (AALSs): 2 cells with 4 values, 3 cells with 5 values.
  * <p>
- * Note: there's only two of these in top1465, so Sue De Coqs are rarer than
- * rocking horse s__t, apparently. I implemented SDC because I wanted to see if
- * I could understand the logic underpinning them. I can't. It makes no sense;
- * so this implementation has known limitations and quite probably outrageously
- * stupid bugs, all because I haven't got a bloody clue. You have been warned.
+ * WARN: There's only a few SueDeCoq in top1465: rarer than rocking horse s__t,
+ * apparently. I implemented SueDeCoq to understand its logic, but I can't, so
+ * this implementation probably contains outrageous bugs. You have been warned.
  *
  * @author Keith Corlett 2021 Jan
  */
@@ -59,7 +58,7 @@ public class SueDeCoq extends AHinter {
 	/** All final indices in the current intersection (only cells that are not set yet) */
 	private final Idx interSet = new Idx();
 	// the atmost 3 empty cells in the intersection between line and box
-	private final Cell[] interCells = new Cell[3];
+	private final Cell[] interCells = Cells.array(3);
 	/** All indices in row/col that can hold additional cells (row/col - set cells - intersection) */
 	private final Idx lineSrcSet = new Idx();
 	/** All indices in box that can hold additional cells (box - set cells - intersection) */
@@ -171,15 +170,16 @@ public class SueDeCoq extends AHinter {
 	 * This method doesn't use recursion because there can be only two or three
 	 * cells in an intersection for an SDC.
 	 *
-	 * @param onlyOne
 	 * @return
 	 */
 	private boolean searchIntersection() {
 		Cell c1, c2, c3;
 		int nPlus, cands1, cands2, cands3;
-		final int n = interSet.cellsN(grid, interCells);
+		// read the interSet into the interCells array
+		final int n = interSet.cellsN(grid.cells, interCells);
 		final int m = n - 1;
 		boolean result = false;
+		// indices of the 3 cells in the intersection of line and box
 		interActSet.clear();
 		for ( int i1=0; i1<m; ++i1 ) {
 			// all candidates of the first cell
@@ -225,13 +225,12 @@ public class SueDeCoq extends AHinter {
 	 * intersection and delegates the check to
 	 * {@link #checkHouses(int, sudoku.Idx, int, int, boolean, boolean) }.
 	 * @param nPlus How many more candidates than cells
-	 * @param cand Candidates in the intersection
-	 * @param onlyOne
+	 * @param cands Candidates in the intersection
 	 * @return
 	 */
-	private boolean checkHouses(int nPlus, int cand) {
+	private boolean checkHouses(int nPlus, int cands) {
 		// store the candidates of the current intersection
-		interActCands = cand;
+		interActCands = cands;
 		// check line cells except intersection cells
 		lineSrcSet.setAndNot(lineSet, interActSet);
 		// now check all possible combinations of cells in row/col
@@ -241,12 +240,12 @@ public class SueDeCoq extends AHinter {
 	/**
 	 * Search all possible combinations of indices in {@code src}.
 	 * <p>
-	 * This method is called exactly twice:<ul>
-	 * <li>pass1 searches possible sets of cells from the row/col. A set is
-	 * valid if it contains candidates from the intersection, has at least one
-	 * cell more than extra candidates (candidates not in the intersection) but
-	 * leaves candidates in the intersection for the box search. If all those
-	 * criteria are met, the method is called recursively for the second pass.
+	 * This method calls itself recursively ONCE, so there's two passes:<ul>
+	 * <li>pass1 searches possible sets of cells from the row/col. A valid set
+	 * contains candidates from the intersection and has at least one cell more
+	 * than extra candidates (candidates not in the intersection), but leaves
+	 * candidates in the intersection for the box search. If all criteria are
+	 * met then this method calls itself recursively for pass2.
 	 * <li>pass2 searches all possible sets of cells for the box. Each combo
 	 * that meets the SueDeCoq (SDC) criteria is checked for eliminations.
 	 * <li>Note that each pass has it's own stack, and it's own indices array.
@@ -259,7 +258,7 @@ public class SueDeCoq extends AHinter {
 	 * @return
 	 */
 	private boolean checkLine(int nPlus, Idx src, int okCands, boolean pass1) {
-		if ( src.isEmpty() )
+		if ( src.none() )
 			return false; // nothing to do!
 		StackEntry p, c; // previous and current StackEntry
 		int indice, cands, bothCands, anzExtra;
@@ -268,7 +267,7 @@ public class SueDeCoq extends AHinter {
 		if ( pass1 ) {
 			stack = stack1;
 			indices = indices1;
-		} else {
+		} else { // pass2
 			stack = stack2;
 			indices = indices2;
 		}
@@ -304,7 +303,7 @@ public class SueDeCoq extends AHinter {
 			// the current cell combo must eliminate at least one candidate in
 			// the current intersection or we dont have to look further.
 			// the cells must not contain candidates that are not in okCands;
-			// In round1 okCands is all values, in round2 it's boxOkCands.
+			// In pass1 okCands is all values, in pass2 it's boxOkCands.
 			if ( (c.cands & ~okCands) == 0
 			  // we need some candidates in the intersection
 			  && (c.cands & interActCands) != 0 ) {
@@ -318,7 +317,7 @@ public class SueDeCoq extends AHinter {
 				if ( pass1 ) {
 					// level equals the number of current cells in the row/col
 					if ( level>anzExtra && level-anzExtra<nPlus ) {
-						// The combination of cells contains candidates from the
+						// The combination of cells contains candidates from da
 						// intersection, it has at least one cell more than the
 						// number of additional candidates (so it eliminates at
 						// least one cell from the intersection) and there are
@@ -374,8 +373,8 @@ public class SueDeCoq extends AHinter {
 						// and in the box become endo fins (for display)
 						Pots purples = potify(boxActSet, interActSet, boxActCands, new Pots());
 						// create the hint and add it to the IAccumulator
-						AHint hint = new SueDeCoqHint(this, reds, greens
-								, blues, purples, line, box);
+						AHint hint = new SueDeCoqHint(this, reds, greens, blues
+								, purples, line, box);
 						result = true;
 						if ( accu.add(hint) )
 							return result;

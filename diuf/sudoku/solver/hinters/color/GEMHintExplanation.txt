@@ -1,39 +1,27 @@
 </pre><hr><pre>
-<u>GUI Rendering</u>
-* '+' means "on": a '+' next to a digit in the Grid means this is an "on".
-  If this color is true then this cell is set to this value; but an "on" isn't
-  a "full" colored cell-value, used in logic; it's JUST an extra value to set.
-* One exception: contradictions use ons: an "on" is treated the same as a full
-  colored cell-value when repudiating a colors validity. If an "on" is proven
-  invalid then it's whole color is invalid, hence the other color must be true.
-  One out, all out. This is pretty hard to get your head around. Read it again.
-* '-' means "off": a '-' next to a digit in the Grid means this is an "off".
-  If this color is true then value is eliminated from cell. If both colors "off"
-  the same cell-value then it can be eliminated, so it's painted red.
-* A <r>red -</r> means this cell-value CAN be eliminated. A <r>red digit</r> means that it
-  WILL be eliminated when this hint is applied. Cell-values do not need to be
-  eliminated explicitly when the cell is set, it happens automatically.
-* The GREEN/BLUE digit in a larger font renders the value to set this cell to.
-
-</pre><hr><pre>
 <u>Explanation</u>
-GEM (Graded Equivalence Marks) is the "ultimate" coloring technique. Coloring
-has two sets of cell-values painted in two colors: GREEN and BLUE.
+GEM (Graded Equivalence Marks) is the "ultimate" coloring technique.
+
+This is an explanation of how GEM paints cell-values and uses those to produce
+contradiction and elimination hints. I wrote this because the GEM specification
+is gibberish.
+
+GEM paints two sets of cell-values in two colors: GREEN and BLUE.
 
 Our first task is to find the value that has at least 2 conjugate relationships
 (ie there are two places for this value in at least 2 regions) and is in the
 most bivalue cells (one of two potential values of a cell). We keep score for
 each value: a conjugate pair is 1 point, and a bivalue cell is 1 point.
 
-This implementation searches values with a total score of 7 or more, because 7
-is the minimum score that produces a hint in top1465. There's nothing magical
-about top1465. 7 is probably too high for ALL possible Sudoku puzzles. An expert
-could get this right. I'm just a computer programmer, so I'm doing what works
-for me, in the hope that it also works for others. Experts have facts.
-Pragmatists have hope. So expert pragmatists are ____ed, but at least we know
-that we're ____ed, and so are cheerfully up-front about it, in the hope that an
-expert will come along and correct us. Lower or remove this constraint to suit
-your requirements. It exists only for speed.
+This implementation searches values with a total score of 4 or more, because 4
+is the min score that produces a hint in top1465, but there's nothing magical
+about top1465, so 4 may be too high for some Sudoku puzzles. An expert could get
+this right. I'm just a computer programmer, so I'm doing what works for me, in
+the hope that it always works. Experts have facts. Pragmatists have hope. So
+expert pragmatists are ____ed, but at least we know that we're ____ed, and so
+are cheerfully up-front about it, in the hope that a real expert will provide
+empirical support, or repudiate the contention. Lower or remove this constraint
+to suit your requirements. It's only for speed.
 
 So we start with a value that has two possible positions in a region. We paint
 the first position GREEN, so the second will be BLUE.
@@ -52,9 +40,9 @@ this value of the other cell the other color.
 
 If a cell has two potential values then paint the other value the other color.
 
-When each cell-value is painted we also "off" (rendered as a '-' next to it's
-digit) each other occurrence of this value in each of this cells three regions.
-These "off"s are used later in eliminations.
+When each cell-value is painted we also "off" (rendered as a '-' to the right
+of the digit) each other occurrence of this value in each of this cells three
+regions. These "off"s are used later in eliminations.
 
 Thus we paint all the consequences of painting each cell-value, recursively.
 
@@ -88,42 +76,44 @@ paintPromotions:
 We keep doing paintMonoBoxs and paintPromotions as long as either of them finds
 something to paint full-colors ("ons" don't count).
 
-Then we look for "contradictions":
+Then we look for "contradictions" (big hints which set cell values):
 * If there's two green/ons with different values in one cell then blue is true.
 * If there's two green/ons with the same value in a region then blue is true.
 * If green off's all of a cells values then blue is true.
-* If all v's in a region see a green v then blue is true.
-* And conversely from blue to green, obviously. I'm being terse.
+* If all v's in a region see green v's then blue is true.
+* And vice-versa from blue to green, obviously. I'm just being terse.
 * If any contradiction is found then stop searching for more hints.
-* "blue is true" means all cell-values rendered in a larger blue font are set
-  when this hint is applied; including "ons" with the full-colors.
+* "blue is true" means all cell-values (including "ons") rendered in a larger
+  blue font are set when this hint is applied.
 
-Then we look for "eliminations":
+Then we look for "eliminations" (little hints that eliminate cell values):
 * Both colors in a single tri+valued cell eliminate all other values.
 * An uncolored v sees both colored v's so eliminate it.
 * An uncolored v sees green and has some other blue value so eliminate it.
-* If both colors have an "off" for the same cell-value then eliminate it.
+* If both colors "off" the same cell-value then eliminate it. This rule covers
+  both previous rules (and more besides) which still exist to provide specific
+  explanations; this rule exists as a catch all.
 * Eliminations are rendered as a RED '-' in the GUI, and if that's added to the
   actual eliminations (the redPots) then the value is also RED; but if the cell
   value is set then the elimination is automatic. It's a tad more complex than
   it really needs to be, but it shows exactly what's happening.
 
 Then (if there's any eliminations) we look for "confirmations":
-* If all bar one value is eliminated from a cell, and the remaining cell-value
-  is colored then that whole color is true.
-* When all but one occurrence of a value is eliminated from a region and the
-  remaining cell-value is colored then that whole color is true.
+* If all bar one value is actually eliminated from a cell, and the remaining
+  cell-value is colored then that whole color is true.
+* When all but one occurrence of a value is actually eliminated from a region
+  and the remaining cell-value is colored then that whole color is true.
 * Note that both of these rules use the actual eliminations (the redPots).
 * If any confirmation is found then stop searching for more hints.
-* "color is true" means all cell-values rendered in a larger this-color font
-  will be set when this hint is applied, including "ons" with the full-colors.
+* "color is true" means all cell-values (including "ons") rendered in a larger
+  this-color font will be set when this hint is applied.
 
-Then we set consequent naked/hidden singles.
+Then we set consequent naked/hidden singles (currently disabled).
 * for contradictions and confirmations we start from the given setPots. For an
   eliminations hint we see if eliminations leave any naked or hidden singles,
   and produce a setPots of them (else it's just a "normal" eliminations hint).
 * setPots are set in the grid, using autosolve so that any consequent naked or
-  hidden singles are also set (recursively).
+  hidden singles are also set, recursively.
   - Naked Single: If a cell has one potential value then set it to that value.
   - Hidden Single: If value has one place in a region then set it to the value.
 * Eliminations: we use all the reasonably fast hinters (upto 20ms/elim) to
@@ -133,6 +123,29 @@ Then we set consequent naked/hidden singles.
   but it does so silently: no justification is provided for consequent singles.
   If you demur then set CONSEQUENT_SINGLES and CONSEQUENT_SINGLES_TOO = false
   in GEM.java. It's perfectly sane and reasonable to demur. I'm just greedy.
-  If you need a complete explanation of all hints then switch-off CS.
+  If you want a complete explanation of all hints then switch this s__t off.
 
 And then we go for a little lie down.
+
+Note that this is (I'm pretty sure) an incomplete implementation of the GEM
+specification, because I'm too stupid to understand the spec, which summarises
+elimination and contradiction tests that are just jibberish to me, so I ignore
+the ____ out of them. It's possible that I've completely implemented the spec
+without understanding it, but is obviously unlikely. sigh. KRC 2021-05-17.
+
+</pre><hr><pre>
+<u>GUI Rendering</u>
+* '+' means "on": a '+' next to a digit in the Grid means this is an "on".
+  If this color is true then this cell is set to this value; but an "on" isn't
+  a "full" colored cell-value, used in logic; it's JUST an extra value to set.
+* One exception: contradictions use ons: an "on" is treated the same as a full
+  colored cell-value when repudiating a colors validity. If an "on" is proven
+  invalid then it's whole color is invalid, hence the other color must be true.
+  One out, all out. This is pretty hard to get your head around. Read it again.
+* '-' means "off": a '-' next to a digit in the Grid means this is an "off".
+  If this color is true then value is eliminated from cell. If both colors "off"
+  the same cell-value then it can be eliminated, so it's painted red.
+* A <r>red -</r> means this cell-value CAN be eliminated. A <r>red digit</r> means that it
+  WILL be eliminated when this hint is applied. Cell-values do not need to be
+  eliminated explicitly when the cell is set, it happens automatically.
+* The GREEN/BLUE digit in a larger font renders the value to set this cell to.

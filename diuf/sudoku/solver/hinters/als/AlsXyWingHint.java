@@ -1,12 +1,11 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
@@ -15,7 +14,6 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
-import java.util.Set;
 
 
 /**
@@ -31,23 +29,20 @@ public class AlsXyWingHint extends AHint implements IActualHint {
 	private final Als c;
 	private final int x;
 	private final int y;
-	private final String z;
+	private final String zString;
 
-	public AlsXyWingHint(
-			  AHinter hinter
-			, Pots redPots, Pots orangePots, Pots bluePots
-			, Als a, Als b, Als c
-			, int x, int y, String z
-	) {
-		// nb: what are normally greens are oranges here.
-		super(hinter, redPots, null, orangePots, bluePots
-				, Regions.list(a.region), Regions.list(b.region));
+	public AlsXyWingHint(AHinter hinter, Pots redPots, Als a, Als b, Als c
+			, int x, int y, String zString) {
+		// greens, oranges, and blues are now all null because I do all my own
+		// presentation, via the getAlss method, new in SudokuGridPanel.
+		super(hinter, redPots, null, null, null, Regions.list(a.region)
+				, Regions.list(b.region));
 		this.a = a;
 		this.b = b;
 		this.c = c;
 		this.x = x;
 		this.y = y;
-		this.z = z;
+		this.zString = zString;
 	}
 
 	@Override
@@ -55,23 +50,17 @@ public class AlsXyWingHint extends AHint implements IActualHint {
 		return Als.list(a, b, c);
 	}
 
-//	@Override
-//	public Set<Cell> getAquaCells(int viewNumUnused) {
-//		// nb: what are normally greens are oranges here.
-//		return oranges.keySet();
-//	}
-
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " in "+Frmt.csv(Als.regions(getAlss()));
+			s += " in "+Frmt.csv(Als.regionsList(getAlss()));
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+Frmt.csv(Als.regions(getAlss()));
+		return getHintTypeName()+": "+Frmt.csv(Als.regionsList(getAlss()));
 	}
 
 	@Override
@@ -83,7 +72,7 @@ public class AlsXyWingHint extends AHint implements IActualHint {
 			, redPots.toString()	// 3
 			, Integer.toString(x)	// 4
 			, Integer.toString(y)	// 5
-			, z						// 6
+			, zString				// 6
 		);
 	}
 }

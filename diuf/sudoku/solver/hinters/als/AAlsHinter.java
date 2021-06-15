@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
@@ -266,7 +267,7 @@ abstract class AAlsHinter extends AHinter
 	private void findLockedSets(Grid grid) {
 		for ( ARegion r : grid.regions ) {
 			final int n = r.emptyCellCount; // the size of the master set
-			Cell[] rEmptyCells = r.emptyCells(Grid.cas(n));
+			Cell[] rEmptyCells = r.emptyCells(Cells.array(n));
 			// for speed: unpack maybes.bits of empty cells into an array
 			final int[] maybeses = diuf.sudoku.Idx.IAS_A[n];
 			for ( int i=0; i<n; ++i )
@@ -350,13 +351,13 @@ abstract class AAlsHinter extends AHinter
 	for ( int v : VALUESES[cmnMaybes] ) {
 		// get indices of v in both ALSs
 		// none of these may be in the overlap
-		if ( !bothVs.setOr(a.vs[v], b.vs[v]).andAny(overlap)
+		if ( bothVs.setOr(a.vs[v], b.vs[v]).andNone(overlap)
 		  // if all v's in both ALSs see each other then v is an RC
 		  && bothVs.andEqualsThis(bothVBuds.setAnd(a.vAll[v], b.vAll[v])) )
 			if ( rcc == null )
 				rccs.add(rcc=new Rcc(i, j, v));
 			else // a rare second RC value in the one RCC
-				rcc.setCand2(v);
+				rcc.cand2 = v;
 	}
 	// </OUTDENT>
 

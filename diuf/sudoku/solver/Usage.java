@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -78,7 +78,9 @@ public final class Usage {
 			subHintsMap.put(hintTypeName, new Pair<>(numHints, difficulty));
 		else {
 			existing.a += numHints;
-			existing.b = Math.max(existing.b, difficulty);
+			// Math.max is slower.
+			if ( difficulty > existing.b )
+				existing.b = difficulty;
 		}
 	}
 

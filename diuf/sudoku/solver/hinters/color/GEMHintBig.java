@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2020 Keith Corlett
+ * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
@@ -21,14 +21,16 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * GEMHintMulti is GEM (Graded Equivalence Marks) Type 2+ (Big) hints.
+ * GEMHintBig is GEM (Graded Equivalence Marks) Type 2+ (Multi) hints. It's
+ * unusual in that it has both cell values to set and eliminations, so the
+ * applyImpl method is overridden to perform both operations.
  * <p>
- * Based on XColoringHintMulti to display SetPots, redPots, and the markers
- * (colored +'s and -'s).
+ * Based on XColoringHintMulti to display SetPots, redPots, and the
+ * markers (colored +'s and -'s).
  *
  * @author Keith Corlett 2021-03-24
  */
-public class GEMHintMulti extends AHint {
+public class GEMHintBig extends AHint {
 
 	private final int v;
 	private final int subtype;
@@ -42,7 +44,7 @@ public class GEMHintMulti extends AHint {
 	private final Idx[][] ons;
 	private final Idx[][] offs;
 
-	public GEMHintMulti(AHinter hinter, int v, Pots redPots, int subtype
+	public GEMHintBig(AHinter hinter, int v, Pots redPots, int subtype
 			, Set<Cell> cause, int resultColor, String steps, Pots setPots
 			, Pots greens, Pots blues, ARegion region, Idx[][] ons
 			, Idx[][] offs
@@ -128,6 +130,8 @@ public class GEMHintMulti extends AHint {
 	public Grid getGrid() {
 		if ( setPots!=null && !setPots.isEmpty() )
 			return setPots.firstKey().getGrid();
+		if ( redPots!=null && !redPots.isEmpty() )
+			return redPots.firstKey().getGrid();
 		return null;
 	}
 
@@ -135,9 +139,9 @@ public class GEMHintMulti extends AHint {
 	@Override
 	public int applyImpl(boolean isAutosolving) {
 		if ( isInvalid )
-			return 0; // invalid hints are dead cats!
+			return 0; // invalid hints are not applicable
 		// set the setPots, and then eliminate the redPots
-		final Grid grid = setPots.firstKey().getGrid();
+		final Grid grid = getGrid();
 		final String backup = grid.toString();
 		try {
 			return setPots.setCells(isAutosolving) * 10
@@ -220,8 +224,8 @@ public class GEMHintMulti extends AHint {
 	public boolean equals(Object obj) {
 		return this == obj
 			|| ( obj != null
-			  && obj instanceof GEMHintMulti
-			  && this.hashCode() == ((GEMHintMulti) obj).hashCode() );
+			  && obj instanceof GEMHintBig
+			  && this.hashCode() == ((GEMHintBig) obj).hashCode() );
 	}
 	private int hc;
 
