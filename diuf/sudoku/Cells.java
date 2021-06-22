@@ -57,21 +57,30 @@ public class Cells {
 			result.add(cells[i]);
 		return result;
 	}
-	
+
 	// ============================= Cell arrays ==============================
 
 	/**
-	 * Cell ArrayS: late populated coz larger arrays were never used. These
-	 * arrays are created once, rather than creating cells arrays on the fly
-	 * throughout the application. It is faster to reuse an existing array.
+	 * CAS (Cell ArrayS) are created ONCE, for re-use, rather than creating
+	 * temporary cells arrays on the fly throughout the codebase. It's just a
+	 * bit faster to reuse an array verses rolling your own on the fly.
+	 * <p>
 	 * The intent is that the array is gotten, populated, and read; and then
-	 * it's contents are forgotten. Be sure to clear the array when you have
-	 * finished with it, because each Cell reference holds the whole grid in
-	 * memory, and a Grid is "quite large" so if multiple grids are retained
-	 * for no purpose it slows-down the whole application. Care is required.
-	 * If you're unsure then just create your own cells array, for now, but
-	 * come-back-to-it later and consider using the CAS for speed. Peruse any
-	 * of the classes which call the array method before you start.
+	 * your reference is forgotten. Be sure to "forget" your array reference
+	 * when you have finished with it, because every Cell reference holds the
+	 * whole grid in memory, and a Grid is "quite large" so if multiple grids
+	 * are retained (for no purpose) it slows-down the whole application.
+	 * <p>
+	 * Care is required when using the CAS. If you're unsure then just create
+	 * your own cells array, for now, but come-back-to-it later and try using
+	 * the CAS for speed. Peruse an existing class that uses the CAS before you
+	 * use it for the first time.
+	 * <p>
+	 * The arrays of 0..20 and 81 are created at start-up. The rest of the CAS
+	 * is late-populated rather than creating many large arrays that are simply
+	 * never used.
+	 * <p>
+	 * See {@link #array(int size)}
 	 */
 	private static final Cell[][] CAS = new Cell[82][];
 	static {
@@ -83,12 +92,27 @@ public class Cells {
 	}
 
 	/**
-	 * cas (Cell ArrayS) returns the {@code Cell[]} of the given size from the
-	 * Grids cell array cache, rather than create temporary arrays (slow).
+	 * Returns the {@code Cell[]} of the given size from the CAS (Cell ArrayS
+	 * cache), rather than creating new temporary arrays everywhere, which is a
+	 * bit slow.
 	 * <p>
-	 * If you stash the array then it's up to you to clone() it; because the
-	 * array I return might be returned again the next time I'm called, so it's
-	 * contents may be overwritten arbitrarily. <b>You have been warned!</b>
+	 * The intention is that I grant you (my caller) a "lease" on the returned
+	 * array: so you populate the array, you loop through it, and then you just
+	 * forget it; typically using automatic variables, which simply dissappear
+	 * with your stackframe. You cannot use the CAS or call a method which uses
+	 * the CAS inside a method that uses the CAS. I'm single use baby! The CAS
+	 * is just a speed thing, if you strike any trouble then I recommend you
+	 * "Don't use the bloody CAS!".
+	 * <p>
+	 * <b>WARNING:</b> If you retain the returned array then it's up to you to
+	 * clone() it, because the same array may be returned again the next time I
+	 * am called, arbitrarily overwriting it's contents. Usually this situation
+	 * means your method/class needs it's own re-usable cell array, rather than
+	 * taking the convenient CAS route.
+	 * <p>
+	 * Note that cell-arrays of size 1..20 and 81 are created at start-up, but
+	 * all the rest are created on demand, rather than create lots of unused
+	 * arrays; yielding good (I hope) balance between memory use and speed.
 	 *
 	 * @param size the size of the cached array to retrieve
 	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
@@ -104,7 +128,7 @@ public class Cells {
 	/**
 	 * Clear the given cells array.
 	 *
-	 * @param cells 
+	 * @param cells
 	 */
 	public static void clear(Cell[] cells) {
 		for ( int i=0,n=cells.length; i<n; ++i )
@@ -112,10 +136,11 @@ public class Cells {
 	}
 
 	/**
-	 * Returns a new Cell[] of the first n cells.
+	 * Returns a new Cell[] of the first n cells
+	 * in the given re-usable cells array.
 	 *
 	 * @param n the number of cells to copy
-	 * @param cells the cells array to copy from
+	 * @param cells the re-usable cells array to copy from
 	 * @return a new Cell[] containing a copy of the first n cells.
 	 */
 	public static Cell[] copy(int n, Cell[] cells) {

@@ -22,7 +22,7 @@ import java.util.Collection;
  *
  * @author Keith Corlett 2020 Apr 21
  */
-public class AlsXyWingHint extends AHint implements IActualHint {
+public class AlsWingHint extends AHint implements IActualHint {
 
 	private final Als a;
 	private final Als b;
@@ -31,7 +31,7 @@ public class AlsXyWingHint extends AHint implements IActualHint {
 	private final int y;
 	private final String zString;
 
-	public AlsXyWingHint(AHinter hinter, Pots redPots, Als a, Als b, Als c
+	public AlsWingHint(AHinter hinter, Pots redPots, Als a, Als b, Als c
 			, int x, int y, String zString) {
 		// greens, oranges, and blues are now all null because I do all my own
 		// presentation, via the getAlss method, new in SudokuGridPanel.
@@ -65,7 +65,7 @@ public class AlsXyWingHint extends AHint implements IActualHint {
 
 	@Override
 	public String toHtmlImpl() {
-		return Html.produce(this, "AlsXyWingHint.html"
+		return Html.produce(this, "AlsWingHint.html"
 			, a.format()			//{0}
 			, b.format()			// 1
 			, c.format()			// 2

@@ -381,7 +381,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 												}
 
 												// read common excluder cells from grid at idx09
-												if ( (numCmnExcls = idx09.cellsN(grid.cells, cmnExcls)) == 1 ) {
+												if ( (numCmnExcls = idx09.cellsN(grid, cmnExcls)) == 1 ) {
 													cmnExclBits[0] = cmnExcls[0].maybes.bits;
 													numCmnExclBits = 1;
 												} else {

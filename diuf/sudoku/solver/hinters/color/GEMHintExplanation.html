@@ -1,10 +1,11 @@
-</pre><hr><pre>
+<hr>
+<pre>
 <u>Explanation</u>
 GEM (Graded Equivalence Marks) is the "ultimate" coloring technique.
 
 This is an explanation of how GEM paints cell-values and uses those to produce
 contradiction and elimination hints. I wrote this because the GEM specification
-is gibberish.
+is confusing.
 
 GEM paints two sets of cell-values in two colors: GREEN and BLUE.
 
@@ -17,9 +18,9 @@ This implementation searches values with a total score of 4 or more, because 4
 is the min score that produces a hint in top1465, but there's nothing magical
 about top1465, so 4 may be too high for some Sudoku puzzles. An expert could get
 this right. I'm just a computer programmer, so I'm doing what works for me, in
-the hope that it always works. Experts have facts. Pragmatists have hope. So
-expert pragmatists are ____ed, but at least we know that we're ____ed, and so
-are cheerfully up-front about it, in the hope that a real expert will provide
+the hope that it works for others. Experts have facts. Pragmatists have hope.
+Hence expert pragmatists are ____ed, but at least we know that we're ____ed, and
+so are cheerfully up-front about it, in the hope that a real expert will provide
 empirical support, or repudiate the contention. Lower or remove this constraint
 to suit your requirements. It's only for speed.
 
@@ -42,36 +43,36 @@ If a cell has two potential values then paint the other value the other color.
 
 When each cell-value is painted we also "off" (rendered as a '-' to the right
 of the digit) each other occurrence of this value in each of this cells three
-regions. These "off"s are used later in eliminations.
+regions, and each other potential value of this cell. The "off"s are used later.
 
 Thus we paint all the consequences of painting each cell-value, recursively.
 
-paintMonoBoxs: a Hidden Single in a box that's effected by (2 boxs left/right,
-and 2 boxs above/below) the painted cell-value.
-Shoot back: if this cell-value also leaves a Hidden Single in the source box
-then we paint it this color: a bidirectional relationship, a "strong" link;
-else it is just an "on": a unidirectional relationship, a "weak" link. If blue
-turns out to be true then we set this cell to this value, but setting this cell
-to this value says absolutely nothing about the truth/falsehood of blue; ergo
-there's no "and conversely" with ons, they're JUST ons.
+paintMonoBoxs: paint a HiddenSingle in a box effected by (2 boxs left/right,
+and 2 boxs above/below) each painted cell-value.
+Shoot back (a KRC original): if this cell-value also leaves a HiddenSingle in
+the source box then paint it this color: a "strong" bidirectional relationship;
+else it is just an "on": a "weak" unidirectional relationship. If blue turns out
+to be true then we set this cell to this value, but setting this cell to this
+value implies absolutely nothing about the verity of blue; ergo there is no "and
+conversely" with an "on", it's JUST an "on".
 
 paintPromotions:
-* When all but one cell mates or siblings of a colored cell-value are "off"ed,
-  the survivor is an "on" of that color.
-  - If all bar one value is "off"ed from a cell (one color) then "on" it.
-  - If all bar one place is "off"ed from a region (same value, one color) then
+* When all but one cell mates or siblings of a cell-value are "off"ed by this
+  color, the survivor is an "on" of this color.
+  - If all bar one value is "off"ed from a cell (this color) then "on" it.
+  - If all bar one place is "off"ed in a region (same value, this color) then
     "on" it.
 * An "on" seeing/with the opposite color is painted it's own color.
-  - If an "on" sees the opposite color (same value) then paint it.
   - If an "on" has an opposite colored cell-mate (any value) then paint it.
-* Shoot back (a KRC original): if an "on" leaves ONE v in any box that is this
-  color then paint the on; as per paintMonoBoxs but this time we start from the
-  effect, for which we seek a cause.
-  - This finds occurrences that paintMonoBoxs doesn't. Looking at extra finds
-    one sees paints where the "cause" has no DIRECT link to the "effect". The
-    colors gang-up to leave a Hidden Single in effected box, and that Hidden
-    Single leaves a Hidden Single in a "cause" box, so yes, it's a strong link.
-    But WTF: Why does paintMonoBoxs find occurrences that this misses?
+  - If an "on" sees the opposite color (same value) then paint it.
+* Shoot back (a KRC original): if an "on" leaves ONE v of this color in any box
+  then paint the on; as per paintMonoBoxs but here we start from the effect, for
+  which we seek a cause.
+  - This finds occurrences that paintMonoBoxs doesn't. When looking at the extra
+    finds, one sees paints where the "cause" has no DIRECT link to the "effect".
+    Colored cells of this value gang-up to leave a HiddenSingle in the effected
+    box, which "causes" a HiddenSingle in a box, so yes there's a strong link,
+    but WTF: Why does paintMonoBoxs find occurrences that this rule misses?
 
 We keep doing paintMonoBoxs and paintPromotions as long as either of them finds
 something to paint full-colors ("ons" don't count).
@@ -82,14 +83,14 @@ Then we look for "contradictions" (big hints which set cell values):
 * If green off's all of a cells values then blue is true.
 * If all v's in a region see green v's then blue is true.
 * And vice-versa from blue to green, obviously. I'm just being terse.
-* If any contradiction is found then stop searching for more hints.
+* When a contradiction hint is found then stop searching for other hints.
 * "blue is true" means all cell-values (including "ons") rendered in a larger
   blue font are set when this hint is applied.
 
 Then we look for "eliminations" (little hints that eliminate cell values):
-* Both colors in a single tri+valued cell eliminate all other values.
-* An uncolored v sees both colored v's so eliminate it.
-* An uncolored v sees green and has some other blue value so eliminate it.
+* If a cell has values of both colors then eliminate all other potential values.
+* If an uncolored v sees both colored v's then eliminate it.
+* If an uncolored v sees green and has some other blue value then eliminate it.
 * If both colors "off" the same cell-value then eliminate it. This rule covers
   both previous rules (and more besides) which still exist to provide specific
   explanations; this rule exists as a catch all.
@@ -99,12 +100,11 @@ Then we look for "eliminations" (little hints that eliminate cell values):
   it really needs to be, but it shows exactly what's happening.
 
 Then (if there's any eliminations) we look for "confirmations":
-* If all bar one value is actually eliminated from a cell, and the remaining
+* If all bar one value is actually eliminated from a cell and the remaining
   cell-value is colored then that whole color is true.
-* When all but one occurrence of a value is actually eliminated from a region
+* If all but one occurrence of a value is actually eliminated from a region
   and the remaining cell-value is colored then that whole color is true.
 * Note that both of these rules use the actual eliminations (the redPots).
-* If any confirmation is found then stop searching for more hints.
 * "color is true" means all cell-values (including "ons") rendered in a larger
   this-color font will be set when this hint is applied.
 
@@ -114,26 +114,21 @@ Then we set consequent naked/hidden singles (currently disabled).
   and produce a setPots of them (else it's just a "normal" eliminations hint).
 * setPots are set in the grid, using autosolve so that any consequent naked or
   hidden singles are also set, recursively.
-  - Naked Single: If a cell has one potential value then set it to that value.
-  - Hidden Single: If value has one place in a region then set it to the value.
+  - NakedSingle: If a cell has one potential value then set it to that value.
+  - HiddenSingle: If value has one place in a region then set it to the value.
 * Eliminations: we use all the reasonably fast hinters (upto 20ms/elim) to
   eliminate maybes from the grid in the hunt for more singles.
-* NOTE: Consequent singles make GEM more likely to solve the puzzle, because I
+* Consequent singles make GEM more likely to solve the puzzle, because I just
   hate it when a few cells are left-out in the cold, so GEM chases them down,
   but it does so silently: no justification is provided for consequent singles.
   If you demur then set CONSEQUENT_SINGLES and CONSEQUENT_SINGLES_TOO = false
   in GEM.java. It's perfectly sane and reasonable to demur. I'm just greedy.
-  If you want a complete explanation of all hints then switch this s__t off.
+  If you want a complete explanation of all hints then switch this crap off.
 
 And then we go for a little lie down.
-
-Note that this is (I'm pretty sure) an incomplete implementation of the GEM
-specification, because I'm too stupid to understand the spec, which summarises
-elimination and contradiction tests that are just jibberish to me, so I ignore
-the ____ out of them. It's possible that I've completely implemented the spec
-without understanding it, but is obviously unlikely. sigh. KRC 2021-05-17.
-
-</pre><hr><pre>
+</pre>
+<hr>
+<pre>
 <u>GUI Rendering</u>
 * '+' means "on": a '+' next to a digit in the Grid means this is an "on".
   If this color is true then this cell is set to this value; but an "on" isn't
@@ -145,7 +140,18 @@ without understanding it, but is obviously unlikely. sigh. KRC 2021-05-17.
 * '-' means "off": a '-' next to a digit in the Grid means this is an "off".
   If this color is true then value is eliminated from cell. If both colors "off"
   the same cell-value then it can be eliminated, so it's painted red.
-* A <r>red -</r> means this cell-value CAN be eliminated. A <r>red digit</r> means that it
+* A red <r>-</r> means this cell-value CAN be eliminated. A red <r>digit</r> means that it
   WILL be eliminated when this hint is applied. Cell-values do not need to be
   eliminated explicitly when the cell is set, it happens automatically.
 * The GREEN/BLUE digit in a larger font renders the value to set this cell to.
+</pre>
+<hr>
+<pre>
+<u>Unfinished GEM</u>
+My GEM is an incomplete implementation of the specification in #GEM.txt because
+I'm too stupid to understand the spec, so I'm ignoring the ____ out of it, and
+implementing what makes sense to me. Of course it's possible that I have blindly
+completely implemented the spec, but I don't think it's likely. To be clear, I
+find the spec confusing (gibberish in places), and it's demonstrably WRONG on
+one point, which erodes ones confidence. ~KRC 2021-05-21.
+</pre>

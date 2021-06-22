@@ -172,18 +172,17 @@ abstract class AAlsHinter extends AHinter
 			return false;
 		// get an array 1..9 of indices of grid cells which maybe each value.
 		Idx[] candidates = grid.getIdxs();
-		// get the Almost Locked Sets (N cells with N+1 values)
-		final Als[] alss = getAlss(grid, candidates);
-		// get the Restricted Common Candidates of those ALSs
-		// if my subclass said I should in my constructor
+		// get the Almost Locked Sets (N cells with N+1 values between them)
+		final Als[] myAlss = getAlss(grid, candidates);
+		// if findRCCs then get the Restricted Common Candidates of those ALSs
 		final Rcc[] rccs;
 		if ( findRCCs )
-			rccs = getRccs(alss); // for all ALS's
+			rccs = getRccs(myAlss); // for AlsXz, AlsWing, AlsChain
 		else
-			rccs = null; // for DeathBlossom
-		// call my sub-types ALS hint search: rummage the RCCs to see if any
-		// of them fit the pattern, and if so raise a hint and add it to accu.
-		return findHints(grid, candidates, rccs, alss, accu);
+			rccs = null; // for DeathBlossom only
+		// call my subclasses "custom" findHints method to search the grid for
+		// instances of this specific pattern; raise a hint and add it to accu.
+		return findHints(grid, candidates, rccs, myAlss, accu);
 	}
 
 	/**

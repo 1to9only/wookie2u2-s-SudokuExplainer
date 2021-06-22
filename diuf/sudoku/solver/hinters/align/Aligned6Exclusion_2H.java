@@ -291,7 +291,7 @@ public final class Aligned6Exclusion_2H extends Aligned6ExclusionBase
 									continue;
 
 								// read common excluder cells from grid at idx05
-								if ( (numCmnExcls = idx05.cellsN(grid.cells, cmnExcls)) < 2 )
+								if ( (numCmnExcls = idx05.cellsN(grid, cmnExcls)) < 2 )
 									continue;
 								// performance enhancement: examine smaller maybes sooner.
 //KRC#2020-06-30 10:20:00

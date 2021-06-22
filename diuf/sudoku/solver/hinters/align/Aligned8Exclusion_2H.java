@@ -276,7 +276,7 @@ public final class Aligned8Exclusion_2H extends Aligned8ExclusionBase
 											continue;
 
 										// get the common excluder cells from grid at idx07
-										numCmnExcls = idx07.cellsN(grid.cells, cmnExcls);
+										numCmnExcls = idx07.cellsN(grid, cmnExcls);
 										// performance enhancement: examine smaller maybes sooner.
 //KRC#2020-06-30 10:20:00
 // before :     29,064,463,400	   4467	     6,506,483	      1	29,064,463,400	Aligned Oct

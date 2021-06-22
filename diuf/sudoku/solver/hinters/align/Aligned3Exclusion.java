@@ -266,7 +266,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 
 						// read common excluder cells from grid at idx02
 						// A3E requires atleast 2 common excluder cells.
-						if ( (numCmnExcls=idx02.cellsN(grid.cells, cmnExcls)) < 2 )
+						if ( (numCmnExcls=idx02.cellsN(grid, cmnExcls)) < 2 )
 							continue;
 						// performance enhancement: examine smaller maybes sooner.
 						//KRC#2020-06-30 10:20:00 bubbleSort is a bit faster

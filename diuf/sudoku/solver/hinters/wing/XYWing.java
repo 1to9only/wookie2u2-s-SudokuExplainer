@@ -136,7 +136,7 @@ public final class XYWing extends AHinter {
 		// get the victim cells at cmnIdx in grid
 		// XY_Wing  pass 76,591 of 76,591 = skip  0.00%
 		// XYZ_Wing pass 62,942 of 73,596 = skip 14.48%
-		final int n = cmnIdx.cellsN(grid.cells, victims);
+		final int n = cmnIdx.cellsN(grid, victims);
 //		if ( n == 0 )
 //			return null; // happens 14.48% of time in XYZ
 		assert n > 0;

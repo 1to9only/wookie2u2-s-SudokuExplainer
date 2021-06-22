@@ -64,6 +64,12 @@ import java.util.Arrays;
  * <p>
  * Multi Coloring is much more complex and I don't pretend to understand it.
  * It involves multiple (more-than-two) sets of cells (colors).
+ * <p>
+ * KRC 2021-05-22 I just looked at splitting Tech.Coloring into ColoringSimple
+ * and ColoringMulti, because XColoring finds more elims for a simple coloring.
+ * It's a bust because LogicalSolver.configureHinters and the TechSelectDialog
+ * get messy fast, so it's better to leave it as it is, with XColoring finding
+ * JUST the additional elims after findSimpleColoring has run.
  *
  * @author Keith Corlett 2020 Sept 21
  */
@@ -168,7 +174,7 @@ public final class Coloring extends AHinter {
 		AHint hint;
 		int v, numColors, i;
 		boolean any;
-		Pots redPots = this.redPots;
+		final Pots redPots = this.redPots;
 		redPots.clear();
 		// presume that no hints will be found
 		boolean result = false;

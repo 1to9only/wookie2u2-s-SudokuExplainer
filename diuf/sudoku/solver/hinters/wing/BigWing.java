@@ -15,6 +15,7 @@ import static diuf.sudoku.Grid.BITIDX_BUDDIES;
 import static diuf.sudoku.Grid.BITIDX_FOLLOWING;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.utils.Debug;
 
 
 /**
@@ -39,15 +40,16 @@ import static diuf.sudoku.Values.VSHFT;
 public class BigWing extends AHinter {
 
 	/**
-	 * Does value form a Wing in these cells?
+	 * Does value form a Wing in these cells? Ie do all occurrences of value
+	 * in the ALS see the YZ cell?
 	 *
-	 * @param value the candidate value
-	 * @param yz the bivalue cell (completes the wing)
-	 * @param als the cells in the almost locked set (guts of the wing)
-	 * @return do all ALS cells which maybe value see the yz cell?
+	 * @param sv the left-shifted candidate value, VSHFT[x] or VSHFT[z]
+	 *  in ALS-XZ terms
+	 * @param yz cell contains values x and z, to complete the wing
+	 * @param als the cells in this Almost Locked Set
+	 * @return do all ALS cells which maybe value see the YZ cell?
 	 */
-	private static boolean isWing(int value, Cell yz, Cell[] als) {
-		final int sv = VSHFT[value];
+	private static boolean isWing(final int sv, Cell yz, Cell[] als) {
 		for ( Cell c : als )
 			if ( (c.maybes.bits & sv)!=0 && yz.notSees[c.i] )
 				return false;
@@ -55,44 +57,66 @@ public class BigWing extends AHinter {
 	}
 
 	/**
-	 * Weak eliminate 'value' from the 'wing' pattern, adding
-	 * eliminations to reds, and return were any found?
+	 * Find any eliminations in these wing cells.
 	 * <p>
-	 * Note that weak and strong are separate methods for speed only.
+	 * NB: the x and z values, and both are in an instance of the XZ class, to
+	 * enable me to set both and swap x and z, and have my caller see those
+	 * changes; ie it's a mutable DTO, which suits multithreading, even though
+	 * this code is not currently (ie yet) multithreaded. For efficiency, we
+	 * create a single instance of XZ at the start of each BigWing.findHints
+	 * and pass it around; so that each thread has it's own single instance.
 	 *
-	 * @param victims I reuse THE instance: contents don't matter.
-	 * @param value the value to eliminate
+	 * @param vs indices of cells in grid which maybe each value 1..9
+	 * @param victims I set the passed instance, overwriting contents
+	 * @param wingCands the candidates of all the wing cells combined
+	 * @param yz the bivalue which completes the Wing pattern
+	 * @param xz the single instance of XZ containing the x and z values, and
+	 *  the both (isDoubleLinked) flag, so that x and z can be swapped and
+	 *  those changes are visible to my caller.
 	 * @param als an array of the ALS cells
-	 * @param yz the bivalue cell which completes the Wing pattern
-	 * @param reds theReds: THE removable (red) potentials
-	 * @return where any eliminations found?
+	 * @param reds the Pots (a single instance) to add any eliminations too.
+	 *  This parameter exists only for speed. We reuse a single instance rather
+	 *  than create an empty Pots in 99+% of calls to eliminate.<br>
+	 *  If there are any eliminations theReds is copied and cleared after the
+	 *  hint is created. Upon return reds contains any eliminations.
+	 * @return are there any eliminations?
 	 */
-	private static boolean weak(BitIdx victims, int value, Cell[] als
-			, Cell yz, Pots reds) {
-		final int sv = VSHFT[value]; //shiftedValue
-		for ( Cell c : als )
-			if ( (c.maybes.bits & sv) != 0 )
-				victims.retainAll(BITIDX_BUDDIES[c.i]);
-		// This is the difference between strong and weak. For a weak elim each
-		// victim does NOT need to be a buddy of the yz-cell, so we just remove
-		// yz from the victims. One is not one's own victim. Draculla insists.
-		victims.remove(yz);
-		if ( victims.isEmpty() )
-			return false;
-		boolean result = false;
-		for ( Cell victim : victims )
-			result |= reds.upsert(victim, value);
-		return result;
+	private static boolean eliminate(final BitIdx[] vs, BitIdx victims
+			, int wingCands, Cell yz, XZ xz, Cell[] als, Pots reds) {
+		// find strong links on the zValue
+		final boolean strongZ = strong(victims.set(vs[xz.z]), xz.z, als, yz, reds);
+		// if both x and z conform to the Wing pattern
+		if ( xz.both ) {
+			// find strong links on the xValue
+			final boolean strongX = strong(victims.set(vs[xz.x]), xz.x, als, yz, reds);
+			// find weak links
+			boolean weak = false;
+			// weakCands are those only in the ALS (wingCands - yz.maybes)
+			for ( int w : VALUESES[wingCands ^ yz.maybes.bits] )
+				weak |= weak(victims.set(vs[w]), w, als, yz, reds);
+			// if this wing has no weak-links then
+			// it's double linked only if strongZ & strongX
+			if ( !weak ) {
+				if ( !strongZ ) {
+					xz.both = false;
+					xz.swap(); // make x the link, I think
+				} else if ( !strongX )
+					xz.both = false;
+			}
+		}
+		return !reds.isEmpty();
 	}
 
 	/**
 	 * Strong eliminate 'value' from the 'wing' pattern, adding
 	 * eliminations to reds, and return were any found?
 	 * <p>
-	 * Note that weak and strong are separate methods for speed only.
+	 * Note that weak and strong are separate methods for speed only.<br>
+	 * Strong elims are buddies of all cells which maybe v including YZ, and<br>
+	 * in weak elims are buddies of ALS cells which maybe v (excluding YZ).
 	 *
-	 * @param victims I reuse THE instance: contents don't matter.
-	 * @param value the value to eliminate
+	 * @param victims victims.set(grid.getIdxs[xz.z or xz.x])
+	 * @param value the value to eliminate; xz.z or xz.x
 	 * @param als an array of the ALS cells
 	 * @param yz the bivalue cell which completes the Wing pattern
 	 * @param reds theReds: THE removable (red) potentials
@@ -116,59 +140,42 @@ public class BigWing extends AHinter {
 	}
 
 	/**
-	 * Find any eliminations in these wing cells.
-	 * <p>
-	 * NB: the x and z values, and both are in an instance of the XZ class, to
-	 * enable me to set both and swap x and z, and have my caller see those
-	 * changes; ie it's a mutable DTO, which suits multithreading, even though
-	 * this code is not currently (ie yet) multithreaded. For efficiency, we
-	 * create a single instance of XZ at the start of each BigWing.findHints
-	 * and pass it around; so that each thread has it's own single instance.
+	 * Weak eliminate 'value' from the 'wing', add elims to reds, return any.
+	 * <pre>
+	 * Note that weak and strong are separate methods for speed only.
+	 * Strong elims are buds of all Wing cells which maybe v, including YZ;
+	 * whereas weaks are buds of all ALS cells which maybe v, excluding YZ.
+	 * </pre>
 	 *
-	 * @param vs indices of cells in grid which maybe each value 1..9
-	 * @param victims I reuse THE instance: contents don't matter
-	 * @param wingCands the candidates of all the wing cells combined
-	 * @param yz the bivalue which completes the Wing pattern
-	 * @param xz the single instance of XZ containing the x and z values, and
-	 *  the both (isDoubleLinked) flag, so that x and z can be swapped and
-	 *  those changes are visible to my caller.
+	 * @param victims victims.set(grid.getIdxs[xz.z or xz.x])
+	 * @param value the value to eliminate; xz.z or xz.x
 	 * @param als an array of the ALS cells
-	 * @param reds the Pots (a single instance) to add any eliminations too.
-	 *  This parameter exists only for speed. We reuse a single instance rather
-	 *  than create an empty Pots in 99+% of calls to eliminate.<br>
-	 *  If there are any eliminations theReds is copied and cleared after the
-	 *  hint is created. Upon return reds contains any eliminations.
-	 * @return are there any eliminations?
+	 * @param yz the bivalue cell which completes the Wing pattern
+	 * @param reds theReds: THE removable (red) potentials
+	 * @return any eliminations found?
 	 */
-	private static boolean eliminate(final BitIdx[] vs, BitIdx victims
-			, int wingCands, Cell yz, XZ xz, Cell[] als, Pots reds) {
-		// find strong links on the zValue
-		final boolean strongZ =
-				strong(victims.set(vs[xz.z]), xz.z, als, yz, reds);
-		// if both x and z conform to the Wing pattern
-		if ( xz.both ) {
-			// find strong links on the xValue
-			final boolean strongX =
-					strong(victims.set(vs[xz.x]), xz.x, als, yz, reds);
-			// find weak links
-			boolean weak = false;
-			for ( int w : VALUESES[wingCands ^ yz.maybes.bits] ) //ie weakCands
-				weak |= weak(victims.set(vs[w]), w, als, yz, reds);
-			// is it really double linked?
-			if ( !weak ) {
-				if ( !strongZ ) {
-					xz.both = false;
-					xz.swap();
-				} else if ( !strongX )
-					xz.both = false;
-			}
-		}
-		return !reds.isEmpty();
+	private static boolean weak(BitIdx victims, int value, Cell[] als
+			, Cell yz, Pots reds) {
+		final int sv = VSHFT[value]; //shiftedValue
+		for ( Cell c : als )
+			if ( (c.maybes.bits & sv) != 0 )
+				victims.retainAll(BITIDX_BUDDIES[c.i]);
+		// This is the difference between strong and weak. For a weak elim each
+		// victim does NOT need to be a buddy of the yz-cell, so we just remove
+		// yz from the victims. One is not one's own victim. Draculla insists.
+		victims.remove(yz);
+		if ( victims.isEmpty() )
+			return false;
+		boolean result = false;
+		for ( Cell victim : victims )
+			result |= reds.upsert(victim, value);
+		return result;
 	}
 
 	// ============================ instance stuff ============================
 
 	// degree is the number of cells in an ALS.
+	// WXYZ=3, UWXYZ=4, TUWXYZ=5, STUWXYZ=6
 	private final int degreePlus2 = degree + 2;
 	// degree is the number of cells in an ALS.
 	private final int degreeMinus1 = degree - 1;
@@ -266,7 +273,7 @@ public class BigWing extends AHinter {
 
 	/**
 	 * Recursively build-up $degree cells in the ALS array, then check each YZ
-	 * cell for a big-wing; add hints to accu; returning any.
+	 * bivalue cell for a BigWing; add hints to accu; returning any.
 	 * <p>
 	 * Note that recursion is used just put an arbitrary number of cells in the
 	 * ALS array (there's no fancy permutations search or anything); its just
@@ -288,12 +295,12 @@ public class BigWing extends AHinter {
 		for ( Cell c : sets[i] ) {
 			als[i] = c;
 			if ( i == 0 ) { // the first cell is handled differently
-				// sets[0] contains only cells with <= degree maybes,
-				// so there's no need to check that here.
+				// sets[0] contains only cells with <= degree+1 maybes,
+				// so there's no need to recheck for it here.
 				cands[0] = c.maybes.bits;
 				// check for enough cells (we need degree cells for an ALS)
 				if ( sets[1].setAndMin(sets[0], BITIDX_FOLLOWING[c.i], degreeMinus1)
-				  // and move right to the next ALS cell
+				  // and move right to find the next ALS cell
 				  && recurse(1) ) {
 					result = true;
 					if ( onlyOne )
@@ -305,56 +312,63 @@ public class BigWing extends AHinter {
 				  // and theres enough cells to my right; we need degree
 				  // cells to form an ALS, of which this is the (i+1)'th
 				  && sets[i+1].setAndMin(sets[i], BITIDX_FOLLOWING[c.i], degreeMinus1-i)
-				  // and move right to the next ALS cell
+				  // and move right to find the next ALS cell
 				  && recurse(i+1) ) {
 					result = true;
 					if ( onlyOne )
 						return result; // exit-early
 				}
 			} else { // complete ALS ($degree cells)
-				assert i == degreeMinus1; // it's an index so it's zero based
+				// the ALS now always contains degree cells
+				// Minus1 because i is 0-based and degree is 1-based
+				assert i == degreeMinus1;
 				// degree+1 maybes in degree cells is an Almost Locked Set
 				if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] == degreePlus1 ) {
+					// get buddies of any ALS cell, except the ALS cells
 					yzs.set(BITIDX_BUDDIES[als[0].i]);
 					for ( int j=1; j<degree; ++j )
 						yzs.addAll(BITIDX_BUDDIES[als[j].i]);
 					yzs.removeAll(als);
+					// foreach possible yz that is bivalue
 					if ( yzs.retainAllAny(bivalueCells) ) {
 						for ( Cell yz : yzs ) {
-							// both yz.maybes must be shared with the ALS
-							if ( VSIZE[cands[i] & yz.maybes.bits] == 2 ) {
-								// get x and z values (in ALS-XZ terms)
-								xz.set(yz);
-								// is there a wing on x and/or z?
-								xWing = isWing(xz.x, yz, als);
-								zWing = isWing(xz.z, yz, als);
-								if ( xWing | zWing ) {
-									// found a BigWing pattern, but does it
-									// eliminate anything?
-									// if only z is linked then swap x and z
-									if ( !xWing )
-										xz.swap();
-									// double linked
-									xz.both = xWing & zWing;
-									// find any eliminations
-									if ( eliminate(candidates, victims, cands[i]
-											, yz, xz, als, theReds) ) {
-										// FOUND a BigWing on x and possibly z
-										final Pots oranges = new Pots();
-										oranges.put(yz, new Values(xz.x));
-										for ( Cell cc : als )
-										  if ( cc.maybe(xz.x) )
-											oranges.put(cc, new Values(xz.x));
-										// we found one
-										result = true;
-										// create the hint and add it to accu
-										final AHint hint = new BigWingHint(this
-												, theReds.copyAndClear(), yz
-												, xz.x, xz.z, xz.both, cands[i]
-												, als, oranges);
-										if ( accu.add(hint) )
-											return result; // exit-early
-									}
+							// if both yz.maybes are shared with the ALS
+							if ( VSIZE[cands[i] & yz.maybes.bits] == 2
+							  // and get x and z values from the yz cell.
+							  // My XZ is mutable so that we can swap values,
+							  // to make x the primary link (always exists),
+							  // and z the secondary link (an optional extra)
+							  && xz.set(yz)
+							  // and x and/or z forms a wing
+							  && ( (xWing=isWing(VSHFT[xz.x], yz, als))
+							     | (zWing=isWing(VSHFT[xz.z], yz, als)) )
+							) {
+								// found a wing, but does it eliminate anything?
+								// if only z forms a wing
+								if ( !xWing )
+									xz.swap(); // make z the only link (ie x)
+								// double linked
+								xz.both = xWing & zWing;
+								// find any eliminations
+								if ( eliminate(candidates, victims, cands[i]
+										, yz, xz, als, theReds) ) {
+//if ( xz.both )
+//	Debug.breakpoint();
+									// FOUND a BigWing on x and possibly z
+									final Pots oranges = new Pots();
+									oranges.put(yz, new Values(xz.x));
+									for ( Cell cc : als )
+									  if ( cc.maybe(xz.x) )
+										oranges.put(cc, new Values(xz.x));
+									// we found one
+									result = true;
+									// create the hint and add it to accu
+									final AHint hint = new BigWingHint(this
+											, theReds.copyAndClear(), yz
+											, xz.x, xz.z, xz.both, cands[i]
+											, als, oranges);
+									if ( accu.add(hint) )
+										return result; // exit-early
 								}
 							}
 						}
@@ -387,10 +401,12 @@ public class BigWing extends AHinter {
 		 *  and x does not then the x and z values are swapped, so that when we
 		 *  are all done the x value always forms a Wing (the z value may not).
 		 */
-		void set(Cell yz) {
-			assert yz.maybes.size == 2; // ensure it's a bivalue cell
+		boolean set(Cell yz) {
+			// ensure yz is bivalue, else x/z values might go screwy
+			assert yz.maybes.size == 2;
 			x = FIRST_VALUE[yz.maybes.bits];
 			z = FIRST_VALUE[yz.maybes.bits & ~VSHFT[x]];
+			return true;
 		}
 		/**
 		 * Swap the x and z values.
@@ -400,6 +416,12 @@ public class BigWing extends AHinter {
 			x = z;
 			z = tmp;
 		}
+		// for debugging only, but keep in prod (never called)
+		@Override
+		public String toString() {
+			return "x="+x+", z="+z+", both="+both;
+		}
+		
 	}
 
 }

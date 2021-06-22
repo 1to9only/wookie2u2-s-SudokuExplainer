@@ -15,7 +15,6 @@ import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
-import static diuf.sudoku.Values.ALL_BITS;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
@@ -23,6 +22,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Permutations;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
+import static diuf.sudoku.Values.ALL;
 
 
 /**
@@ -284,7 +284,7 @@ public final class HiddenSet extends AHinter {
 		// foreach value EXCEPT the hidden set values
 		// nb: Logically it should be foreach value that has been removed, but
 		// there's no fast way to calculate that, AFAIK, so this is faster.
-		for ( int v : VALUESES[ALL_BITS & ~values] )
+		for ( int v : VALUESES[ALL & ~values] )
 			if ( VSIZE[bits=r.indexesOf[v].bits & ~indexes] == 1 )
 				// this aligned set causes a Hidden Single
 				return new HiddenSetDirectHint(this, cells, vs, greens, reds, r

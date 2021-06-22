@@ -242,12 +242,12 @@ public class HintValidator {
 		if ( invalidities.putIfAbsent(invalidity, PRESENT) == null ) {
 			Log.teef("%s\n", grid);
 			// NOTE: invalidity contains a leading space
-			Log.teef(lastMessage=String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness));
+			Log.teef(prevMessage=String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness));
 			return true;
 		}
 		return false;
 	}
-	public static String lastMessage;
+	public static String prevMessage;
 
 	public static void clear() {
 		invalidities.clear();
@@ -270,11 +270,11 @@ public class HintValidator {
 	public static boolean reportSetPots(String reporterName, Grid grid, String invalidity, String badness) {
 		// always set the lastMessage
 		// NOTE: the invalidity String contains a leading space
-		lastMessage = String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);
+		prevMessage = String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);
 		// supress duplicate messages, ie report each invalidity once only
 		if ( invalidities.putIfAbsent(invalidity, PRESENT) == null ) {
 			Log.teef("%s\n", grid);
-			Log.teef(lastMessage);
+			Log.teef(prevMessage);
 			return true;
 		}
 		return false;

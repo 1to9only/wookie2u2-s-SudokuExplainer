@@ -179,7 +179,7 @@ public final class Values implements Iterable<Integer> {
 	// Note that ALL_BITS also works for Indexes. It's just 9 (1) bits,
 	// regardless of whether those bits represent 1..9 or 0..8.
 	/** The bits of all values (1,2,3,4,5,6,7,8,9) == 111,111,111 == 511 */
-	public static final int ALL_BITS = (1<<ALL_SIZE)-1;
+	public static final int ALL = (1<<ALL_SIZE)-1;
 
 	/** An array of shifted bitset-values (faster than 1&lt;&lt;v-1) with a
 	 * representation of 0 (which isn't a value) but makes SHFT[1] the shifted
@@ -214,7 +214,7 @@ public final class Values implements Iterable<Integer> {
 
 	/** Creates a new filled (1,2,3,4,5,6,7,8,9) Values Set. */
 	static Values all() {
-		return new Values(ALL_BITS, ALL_SIZE, false);
+		return new Values(ALL, ALL_SIZE, false);
 	}
 	/** Creates a new empty () Values Set. */
 	static Values none() {
@@ -352,7 +352,7 @@ public final class Values implements Iterable<Integer> {
 
 	/** Sets all values (ie indexes) in this Values. */
 	public void fill() {
-		bits = ALL_BITS; //111,111,111
+		bits = ALL; //111,111,111
 		size = ALL_SIZE; //9
 	}
 

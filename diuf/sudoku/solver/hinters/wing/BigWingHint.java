@@ -26,8 +26,8 @@ import java.util.Set;
 class BigWingHint extends AHint implements IActualHint {
 
 	private final int[] wingValues; // als values - yz values
-	private final int x; // the primary value to eliminate
-	private final int z; // the second value in a double-linked Wing
+	private final int x; // the primary link value to eliminate
+	private final int z; // the secondary link value only in a double-link Wing
 	private final boolean both; // are both x and z linked: ie isDoubleLinked
 	private final Cell yz; // the bivalue cell to complete the Wing pattern
 	private final Cell[] als; // the cells in the ALS (Almost Locked Set)
@@ -104,6 +104,10 @@ class BigWingHint extends AHint implements IActualHint {
 	@Override
 	public String toStringImpl() {
 		String s = getHintTypeName()+": "+Frmt.ssv(als)+" and "+yz.id+" on ";
+		// It appears that somehow x and z have swapped roles so that:
+		// z is now the primarary (mandatory) link value, and
+		// x is now the secondary (optional) link value.
+		// So I'll BFFIIK! I find this s__t infinitety confusing!
 		if ( both )
 			s += x + " and " + z;
 		else
@@ -131,8 +135,8 @@ class BigWingHint extends AHint implements IActualHint {
 
 	@Override
 	public String toHtmlImpl() {
-		// double-linked wings have more eliminations, so seperate explanation
-		String filename = both ? "BigWing2Hint.html" : "BigWingHint.html";
+		// double-linked wings have there own explanation for more eliminations
+		String filename = both ? "BigWingHintDL.html" : "BigWingHint.html";
 		return Html.produce(hinter, filename
 			, Frmt.csv(als)				//{0}
 			, Frmt.and(als)				// 1
@@ -145,7 +149,7 @@ class BigWingHint extends AHint implements IActualHint {
 			, NUMBER_NAMES[degree-2]	// 8
 			, NUMBER_NAMES[degree-3]	// 9
 			, hinter.tech.nom			// 10
-			// double-linked wings are called rings (only used in BigWing2Hint)
+			// double-linked wings are called rings (used in BigWingHintDL)
 			, hinter.tech.nom.replaceFirst("-Wing", "-Ring") // 11
 		);
 	}

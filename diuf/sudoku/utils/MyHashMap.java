@@ -422,7 +422,7 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public V put(K key, V value) {
-		assert key != null : "MyHashMap.put: key is null!"; 
+		assert key != null : "MyHashMap.put: key is null!";
 		K k;
 		V previousValue;
 		final int hash, i;

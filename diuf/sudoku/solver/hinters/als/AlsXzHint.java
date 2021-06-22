@@ -70,7 +70,7 @@ public class AlsXzHint extends AHint implements IActualHint {
 	@Override
 	public String toHtmlImpl() {
 		final String filename = anyDoubleLinked
-				? "AlsXzDblLnkdHint.html"
+				? "AlsXzHintBig.html"
 				: "AlsXzHint.html";
 		// Calculate ONCE at HTML-time: we need "" (not "-") if no z-values
 		// removed by single-link, else we see a stray - in the html.

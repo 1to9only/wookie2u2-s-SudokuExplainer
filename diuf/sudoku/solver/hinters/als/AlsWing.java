@@ -44,7 +44,12 @@ import java.util.Arrays;
 
 
 /**
- * AlsXyWing implements the Almost Locked Set XY-Wing Sudoku solving technique.
+ * AlsWing implements the Almost Locked Set XY-Wing Sudoku solving technique.
+ * <p>
+ * I extend AAlsHinter which implements IHinter.findHints to find the ALSs,
+ * determine there RCCs (connections), and call my "custom" findHints method
+ * passing everything into my implementation of a specific search technique.
+ * <p>
  * The ALS-XY-Wing is formed by three Almost Locked Sets (ALSs). The values x
  * and y are common to a pair of ALSs. The x-values are Restricted Common
  * Candidates (RCCs). All occurrences of a restricted value in two ALSs see
@@ -58,21 +63,24 @@ import java.util.Arrays;
  *
  * @author Keith Corlett 2020 May 5
  */
-public final class AlsXyWing extends AAlsHinter
+public final class AlsWing extends AAlsHinter
 //implements diuf.sudoku.solver.IReporter
 {
 
-	public AlsXyWing() {
-		// see param explanations in the AlsXyChain constructor.
-		// Tech, allowLockedSets, findRCCs, allowOverlaps, forwardOnly, useStartAndEnd
-		super(Tech.ALS_Wing
-				, true	// allowLockedSets: my Almost Locked Sets include cells
-						// that are part of a Locked Set in the region.
-				, true	// findRCCs: run getRccs to find values connecting ALSs
-				, true	// allowOverlaps: include
-				, true	// forwardOnly
-				, false	// useStartAndEnd
-		);
+	/**
+	 * Constructor.
+	 * <pre>Super constructor parameters:
+	 * * tech = Tech.ALS_Wing
+	 * * allowLockedSets = true my Almost Locked Sets include cells that are
+	 *   part of a Locked Set in the region.
+	 * * findRCCs = true run getRccs to find values connecting ALSs
+	 * * allowOverlaps = true the ALSs are allowed to physically overlap
+	 * * forwardOnly = true do a forward only search for RCCs
+	 * * useStartAndEnd = false I don't need start and end indexes for each ALS
+	 * </pre>
+	 */
+	public AlsWing() {
+		super(Tech.ALS_Wing, true, true, true, true, false);
 	}
 
 	// findHints was boosted mainly from HoDoKu AlsSolver.getAlsXYWingInt
@@ -193,7 +201,7 @@ public final class AlsXyWing extends AAlsHinter
 								// get z values as a bitset
 								final int zBits = redPots.valuesOf();
 								// build the hint
-								final AHint hint = new AlsXyWingHint(
+								final AHint hint = new AlsWingHint(
 									  this
 									, new Pots(redPots)
 									, a, b, c

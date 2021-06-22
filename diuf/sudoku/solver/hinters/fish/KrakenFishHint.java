@@ -30,8 +30,9 @@ import java.util.Set;
 
 /**
  * KrakenFishHint is the data transfer object for a Kraken Fish hint.
- * It "wraps" a ComplexFishHint to modify the reported hint-type-name
- * and hint-HTML, and provide links to help the user follow the chains.
+ * <p>
+ * A KrakenFishHint "wraps" the "cause" ComplexFishHint to modify the reported
+ * hint-type-name and hint-HTML, and provide links to portray the chains.
  *
  * @author Keith Corlett 2020-10-07
  */
@@ -47,27 +48,34 @@ public class KrakenFishHint extends AHint implements IActualHint {
 		}
 	}
 
-	final ComplexFishHint cause;
-	final Type hType;
-	final Values valsToRemove;
-	final List<Ass> chains;
-	final Idx fins;
-	KrakenFishHint(AHinter hinter, Pots reds, ComplexFishHint cause
-			, Values valsToRemove, Type type, List<Ass> chains, Idx fins) {
+	private final ComplexFishHint cause;
+	private final Type hType;
+//not used
+//	private final Values valsToRemove;
+	private final List<Ass> chains;
+//not used
+//	private final Idx fins;
+	KrakenFishHint(AHinter hinter
+			, Pots reds
+			, ComplexFishHint cause
+//			, Values valsToRemove
+			, Type type
+			, List<Ass> chains
+//			, Idx fins
+	) {
 		super(hinter, reds);
 		this.cause = cause;
 		this.hType = type;
-		this.valsToRemove = valsToRemove;
+//		this.valsToRemove = valsToRemove;
 		this.chains = chains;
-		this.fins = fins;
+//		this.fins = fins;
 		cleanPots();
 	}
 
 	private void cleanPots() {
 		// add the cause hints eliminations (if any) to mine
-		// if it's red then it's a bloody RED (only)!
-		redPots.addAll(cause.redPots)
-			   .removeFromAll(getGreens(0), getOranges(0)
+		// and if it's a red then it's a RED only!
+		redPots.addAll(cause.redPots).removeFromAll(getGreens(0), getOranges(0)
 					, getBlues(null, 0), getPurples(), getYellows());
 	}
 
@@ -111,13 +119,15 @@ public class KrakenFishHint extends AHint implements IActualHint {
 		return cause.covers;
 	}
 
-	// used by getLinks (a copy-paste from AChainer rather than make AChainer
-	// visible outside of the package just to make this static method visible
-	// to me, or move this method to a FishTools class, ie I should create a
-	// new FishTools class, but find myself currently unable to do so coz my
-	// tackle-box has crumpetitis and lemmings do not suicide if left alone)
+	/**
+	 * Used by getLinks (a copy-paste from AChainer rather than make AChainer
+	 * visible outside of the package just to make this static method visible
+	 * to me, or move this method to a FishTools class, ie I should create a
+	 * new FishTools class, but find myself currently unable to do so coz my
+	 * tackle-box has crumpetitis and lemmings won't suicide by themselves).
+	 */
 	private ArrayList<Ass> getAncestorsList(Ass target) {
-		// we need each distinct ancestor (my parents, and my parents parents,
+		// We need each distinct ancestor (my parents, and my parents parents,
 		// and there parents, and so on) of the target Ass.
 		// MyFunkyLinkedHashSet does the distinct for us, quickly & easily
 		// because it's add-method is add-only (it doesn't update existing).

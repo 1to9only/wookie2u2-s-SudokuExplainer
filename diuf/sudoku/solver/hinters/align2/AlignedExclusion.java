@@ -1046,22 +1046,26 @@ public class AlignedExclusion extends AHinter
 	}
 
 	/**
-	 * Clean-out all defective excluder cells.
+	 * Remove "defective" excluders from the EXCLUDERS_MAYBES array,
+	 * and return the new possibly-reduced numExcls.
 	 * <pre>
+	 * The rules for "defective" excluders are:
 	 * 1. remove excluders which contain any value that is not in any cell in
-	 *    the aligned set, because no combo of the potential values of the
-	 *    cells in the aligned set will cover it; so it's bloody useless.
-	 * 2. sort the remaining maybes by size ASCENDING; Note that bubbleSort
-	 *    seems to be MORE efficient than TimSort for small (n&lt;12) arrays.
+	 *    the aligned set, because no combination of the potential values of
+	 *    the cells in the aligned set can ever cover (be a superset of) it,
+	 *    so it will never contribute to an exclusion, ergo it's useless.
+	 * 2. sort the remaining maybes by size ASCENDING; Note that bubbleSort is
+	 *    faster than TimSort for small (approx n&lt;12) arrays.
 	 * 3. remove excluders that are a superset of (contain all values in) any
 	 *    other excluder, including any duplicates. Every set that covers 125
 	 *    also covers 12, so given 12,125 remove 125 without effecting result.
 	 *    We do this because 125 just wastes CPU-time in the DOG_____ING loop.
+	 *    Two excluders which maybe 12 are also just a waste of CPU time.
 	 * </pre>
 	 * @return the new (possibly reduced) number of excluder cells.
 	 */
 	private int clean(int numExcls, int minExcls) {
-		final int[] a = EXCLUDERS_MAYBES;
+		final int[] a = EXCLUDERS_MAYBES; // localise for brevity and speed
 		int i, j,J, k;
 		boolean any;
 		// 1. if all my values are not in the aligned set then remove me
@@ -1112,13 +1116,13 @@ public class AlignedExclusion extends AHinter
 		Cell cell; // the cell at this level 1..degree in the stack
 		Idx excls; // excludersIdx: excluders common to all cells in an aligned set
 		int cands; // remember the complete cell.maybes.bits
-		// @check: commented out: for debugging only
-		@Override
-		public String toString() {
-			if ( cell == null )
-				return "-";
-			return ""+index+":"+cell.toFullString()+"->"+excls;
-		}
+//		// @check: commented out: for debugging only
+//		@Override
+//		public String toString() {
+//			if ( cell == null )
+//				return "-";
+//			return ""+index+":"+cell.toFullString()+"->"+excls;
+//		}
 	}
 
 	static final class ValsStackEntry {
@@ -1150,11 +1154,11 @@ public class AlignedExclusion extends AHinter
 			cands = cell.maybes.bits; // default to the full set of maybes
 			sees = cell.sees;
 		}
-		// @check commented out: for debugging only
-		@Override
-		public String toString() {
-			return diuf.sudoku.Values.toString(cand);
-		}
+//		// @check commented out: for debugging only
+//		@Override
+//		public String toString() {
+//			return diuf.sudoku.Values.toString(cand);
+//		}
 	}
 
 	/**

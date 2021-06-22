@@ -95,7 +95,7 @@ public class GEMHint extends AHint {
 	}
 	
 	private String htmlHintTypeName() {
-		return getHintTypeName().replaceFirst("GEM", "GEM (Graded Equivalence Marks)");
+		return getHintTypeName().replaceFirst("GEM", "sudopedia.org GEM (Graded Equivalence Marks)");
 	}
 
 	@Override
@@ -104,7 +104,7 @@ public class GEMHint extends AHint {
 		sb.append("<html><body>").append(NL);
 		if ( isInvalid )
 			sb.append("<h2>").append("<r>INVALID</r> ").append(getHintTypeName()).append("</h2>").append(NL)
-			  .append("<r><b>").append(HintValidator.lastMessage).append("</b></r><p>").append(NL);
+			  .append("<r><b>").append(HintValidator.prevMessage).append("</b></r><p>").append(NL);
 		else
 			sb.append("<h2>").append(htmlHintTypeName()).append("</h2>").append(NL);
 	    sb.append("There are two extended coloring sets:<pre>").append(NL)
@@ -121,10 +121,9 @@ public class GEMHint extends AHint {
 		}
 		sb.append("<p>").append(NL)
 		  .append("Therefore <r>we can remove <b>").append(redPots.toString()).append("</b></r>.").append(NL);
+	    // append the pre-made html-snippet in GEMHintExplanation.html
 		sb.append("<p>").append(NL)
-		  .append("<pre>").append(NL)
-		  .append(Html.load(this, "GEMHintExplanation.txt")).append(NL)
-		  .append("</pre>").append(NL);
+		  .append(Html.load(this, "GEMHintExplanation.html"));
 		sb.append("</body></html>").append(NL);
 		return Html.colorIn(sb.toString());
 	}

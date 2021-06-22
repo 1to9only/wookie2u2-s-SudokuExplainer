@@ -43,7 +43,11 @@ import diuf.sudoku.solver.accu.IAccumulator;
 
 
 /**
- * AlsXz implements the ALZ-XZ Sudoku solving technique.
+ * AlsXz implements the Almost Locked Set XZ Sudoku solving technique.
+ * <p>
+ * I extend AAlsHinter which implements IHinter.findHints to find the ALSs,
+ * determine there RCCs (connections), and call my "custom" findHints method
+ * passing everything into my implementation of a specific search technique.
  * <p>
  * An ALS-XZ is when an Almost Locked Set is linked to a bivalue-cell (XZ) by a
  * common candidate, eliminating the other candidate of the bivalue-cell from
@@ -59,10 +63,19 @@ public final class AlsXz extends AAlsHinter
 //implements diuf.sudoku.solver.IReporter
 {
 
+	/**
+	 * Constructor.
+	 * <pre>Super constructor parameters:
+	 * * tech = Tech.ALS_XZ
+	 * * allowLockedSets = true my Almost Locked Sets include cells that are
+	 *   part of a Locked Set in the region.
+	 * * findRCCs = true run getRccs to find values connecting ALSs
+	 * * allowOverlaps = true the ALSs are allowed to physically overlap
+	 * * forwardOnly = true do a forward only search for RCCs
+	 * * useStartAndEnd = false I don't need start and end indexes for each ALS
+	 * </pre>
+	 */
 	public AlsXz() {
-		// NB: I don't use HintValidator, so I don't need a LogicalSolver.
-		// See super param explanations in the AlsXyChain constructor.
-		// Tech, allowLockedSets, findRCCs, allowOverlaps, forwardOnly, useStartAndEnd
 		super(Tech.ALS_XZ, true, true, true, true, false);
 	}
 

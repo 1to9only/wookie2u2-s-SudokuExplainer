@@ -382,7 +382,7 @@ public final class Aligned8Exclusion_1C extends Aligned8ExclusionBase
 										}
 
 										// get the common excluder cells from grid at idx07
-										if ( (numCmnExcls = idx07.cellsN(grid.cells, cmnExcls)) == 1 ) {
+										if ( (numCmnExcls = idx07.cellsN(grid, cmnExcls)) == 1 ) {
 											cmnExclBits[0] = cmnExcls[0].maybes.bits;
 											numCmnExclBits = 1;
 										} else {

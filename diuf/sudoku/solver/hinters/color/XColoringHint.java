@@ -10,7 +10,6 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
@@ -80,16 +79,21 @@ public class XColoringHint extends AHint {
 		return s;
 	}
 
+	private String htmlHintTypeName() {
+		// handles both XColoring and Medusa3D hint-types
+		return "sudopedia.org "+getHintTypeName();
+	}
+
 	@Override
 	protected String toHtmlImpl() {
 		StringBuilder sb = new StringBuilder(1024);
 		sb.append("<html><body>").append(NL);
 		if ( isInvalid )
-			sb.append("<h2>").append("<r>INVALID</r> ").append(getHintTypeName()).append("</h2>").append(NL)
-			  .append("<k><b>").append(HintValidator.lastMessage).append("</b></k><p>").append(NL);
+			sb.append("<h2>").append("<r>INVALID</r> ").append(htmlHintTypeName()).append("</h2>").append(NL)
+			  .append("<k><b>").append(HintValidator.prevMessage).append("</b></k><p>").append(NL);
 		else
-			sb.append("<h2>").append(getHintTypeName()).append("</h2>").append(NL);
-	    sb.append("There are two extended coloring sets:<pre>").append(NL)
+			sb.append("<h2>").append(htmlHintTypeName()).append("</h2>").append(NL);
+	    sb.append("There are two extended coloring sets on ").append(v).append(":<pre>").append(NL)
 		  .append("<g>GREEN: ").append(greenCells).append("</g>").append(NL)
 		  .append("<b1>BLUE : ").append(blueCells).append("</b1>").append(NL)
 		  .append("</pre>").append(NL)

@@ -18,9 +18,10 @@ import java.util.List;
 
 
 /**
- * ComplexFishHint is a hint from ComplexFisherman. I'm used directly for
- * "normal" (non-Kraken) hints, and I'm also "wrapped" by a KrakenFishHint,
- * where I am the "base" or "cause" hint.
+ * ComplexFishHint is a hint from the ComplexFisherman.
+ * <p>
+ * ComplexFishHint is used directly for "normal" (non-Kraken) hints, and<br>
+ * ComplexFishHint is "wrapped" as the "cause" of a KrakenFishHint.
  *
  * @author Keith Corlett 2020 Sept/Oct
  */
@@ -206,7 +207,7 @@ public class ComplexFishHint extends AHint implements IActualHint {
 	@Override
 	protected String toStringImpl() {
 		// is this bastard invalid
-		final String s; if(isInvalid) s="#"; else s="";  
+		final String s; if(isInvalid) s="#"; else s="";
 		// sashimi fins replace a corner
 		final String fins;
 		if ( isSashimi )

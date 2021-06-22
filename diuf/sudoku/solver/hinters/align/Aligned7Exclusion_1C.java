@@ -360,7 +360,7 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 									}
 
 									// read common excluder cells from grid at idx06
-									if ( (numCmnExcls = idx06.cellsN(grid.cells, cmnExcls)) == 1 ) {
+									if ( (numCmnExcls = idx06.cellsN(grid, cmnExcls)) == 1 ) {
 										cmnExclBits[0] = cmnExcls[0].maybes.bits;
 										numCmnExclBits = 1;
 									} else {

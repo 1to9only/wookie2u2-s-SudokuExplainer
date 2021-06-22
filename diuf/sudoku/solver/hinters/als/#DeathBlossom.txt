@@ -5,15 +5,15 @@ http://www.sudokusnake.com/deathblossom.php
 6....9...38..7....1....8.745...2..1946..9..3.9..8......9....1.57.5.8.6.2.1..4.7.3
 ,2457,247,12345,135,,2358,258,18,,,249,12456,,12456,259,2569,16,,25,29,2356,356,,2359,,,,37,378,3467,,3467,48,,,,,1278,157,,157,258,,78,,237,1237,,1356,134567,245,2456,67,28,,23468,2367,36,2367,,48,,,34,,139,,13,,49,,28,,268,2569,,256,,89,
 
-To understand what a death blossom is, you have to know what an Almost Locked
+To understand what a Death Blossom is, you have to know what an Almost Locked
 Set (ALS) is. An ALS is a set of cells with one more candidate than cells, ie
 one shy of being a Locked Set. In a death blossom there is one cell, called the
 stem cell, that has only two (usually) candidates. One candidate is shared with
 one ALS, and the other candidate is shared with the other ALS. So if both ALS's
 have a common "non-stem" candidate then it's eliminated, because all possible
 values of the stem cell eliminate it. The same logic applies to a stem cell
-with three or more possible values. Three's are rare. I have never seen a four,
-but I cannot say that they cannot exist.
+with three or more possible values. Three's are rare. I've never seen four, but
+I can't say they don't exist.
 
 The logic is: the ALS's share a "non-stem" value (the candidate to eliminate),
 and each ALS is associated with a stem-cell candidate, and an ALS can loose

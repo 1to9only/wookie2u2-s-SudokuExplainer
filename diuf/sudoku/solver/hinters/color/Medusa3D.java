@@ -693,7 +693,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		} catch ( Pots.IToldHimWeveAlreadyGotOneException ex ) {
 			return null; // attempted to set 1 cell to 2 values.
 		}
-		AHint hint = new XColoringHintMulti(this, value, subtype, null
+		AHint hint = new XColoringHintBig(this, value, subtype, null
 			, cause, goodColor, steps.toString(), setPots, squish(GREEN)
 			, squish(BLUE), links, null, region);
 		cause = null;

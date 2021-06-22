@@ -279,7 +279,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 
 					// read common excluder cells from grid at idx01
 					// Aligned Pair Exclusion only possible with >= 2 cmnExcls.
-					if ( (numCmnExcls = idx01.cellsN(grid.cells, cmnExcls)) < 2 ) {
+					if ( (numCmnExcls = idx01.cellsN(grid, cmnExcls)) < 2 ) {
 						assert false : "you can't get here!";
 						continue; // should never happen. Never say never.
 					}

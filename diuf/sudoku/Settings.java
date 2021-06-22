@@ -549,6 +549,9 @@ public final class Settings implements Cloneable {
 	// 6.30.131 2021-05-19 08:07:11 Building for release because we're going
 	//			shopping today. I've been pissing-about with BasicFisherman1
 	//			to make it faster than BasicFisherman, and failing. sigh.
+	// 6.30.132 2021-05-25 09:24:12 Release coz we're shopping today. I've been
+	//			updating comments, hint explanations, and documentation. Still
+	//			no comprende why BigWing swaps x and z. It's nonsensical.
 	//
 	// To Build:
 	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
@@ -584,8 +587,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.131";
-	public static final String BUILT = "2021-05-19 08:07:11";
+	public static final String VERSION = "6.30.132";
+	public static final String BUILT = "2021-05-25 09:24:12";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 

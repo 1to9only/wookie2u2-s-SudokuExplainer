@@ -904,19 +904,18 @@ public abstract class AChainingHint extends AHint
 	protected String getPlusHtml() {
 		if ( ((AChainer)hinter).degree == 0 )
 			return "";
-		return "<p>Plus means that the standard Sudoku solving techniques:"+NL
-		     + " (Point &amp; Claim, Naked Pairs, Hidden Pairs, and Swampfish)"+NL
-		     + " are applied (only when no other chain-step is found).</p>";
+		return "<p>Plus means the four quick foxes: Locking, NakedPairs," + NL
+		     + "HiddenPairs, and Swampfish are applied only when no basic" + NL
+		     + "chain-step is available.</p>";
 	}
 
 	protected String getNestedHtml() {
 		if ( !((AChainer)hinter).tech.isNested )
-			return "";
-		return "<p>Nested means that the hinter which produced this hint"+NL
-		     + " parses its assumptions using a hinter which itself makes"+NL
-		     + " (less complex) assumptions; so we're making assumptions on"+NL
-		     + " our assumptions. Tequila AND hand-guns!"+NL
-			 + "</p><p> Don't try this at home kids.</p>";
+			return ""; // empty for "normal" hints
+		return "<p>Nested means this chainer parses its assumptions with a" + NL
+			 + "chainer that itself makes less complex assumptions, so we're" + NL
+			 + "making assumptions on our assumptions. Tequila and hand-guns." + NL
+			 + "Don't try this at home kids!</p>";
 	}
 
 }

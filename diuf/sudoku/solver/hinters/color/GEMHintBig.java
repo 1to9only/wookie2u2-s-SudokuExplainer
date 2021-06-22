@@ -180,7 +180,7 @@ public class GEMHintBig extends AHint {
 	}
 
 	private String htmlHintTypeName() {
-		return getHintTypeName().replaceFirst("GEM", "GEM (Graded Equivalence Marks)");
+		return getHintTypeName().replaceFirst("GEM", "sudopedia.org GEM (Graded Equivalence Marks)");
 	}
 
 	@Override
@@ -199,10 +199,9 @@ public class GEMHintBig extends AHint {
 		String results = setPots.toString().replaceAll("-", "+");
 		sb.append("<p>").append(NL)
 		  .append("Therefore <g>we can set <b>").append(results).append("</b></g>").append(NL);
+	    // append the pre-made html-snippet in GEMHintExplanation.html
 		sb.append("<p>").append(NL)
-		  .append("<pre>").append(NL)
-		  .append(Html.load(this, "GEMHintExplanation.txt")).append(NL)
-		  .append("</pre>").append(NL);
+		  .append(Html.load(this, "GEMHintExplanation.html"));
 		sb.append("</body></html>").append(NL);
 		return Html.colorIn(sb.toString());
 	}

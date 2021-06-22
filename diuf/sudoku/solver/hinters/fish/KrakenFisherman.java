@@ -590,17 +590,23 @@ public class KrakenFisherman extends AHinter
 					if ( (base=createBaseHint()) == null )
 						continue; // should never happen
 					// builds eliminations (reds) and chains
-					Values valsToRemove = new Values();
+//					Values valsToRemove = new Values();
 					Pots reds = new Pots();
 					List<Ass> chains = new LinkedList<>();
 					fins.forEach((fin) -> {
 						Ass a = kt1Asses[fin];
-						valsToRemove.add(a.value);
+//						valsToRemove.add(a.value);
 						reds.put(a.cell, new Values(a.value));
 						chains.add(a);
 					});
-					kraken = new KrakenFishHint(this, reds, base, valsToRemove
-							, KrakenFishHint.Type.ONE, chains, new Idx(fins));
+					kraken = new KrakenFishHint(this
+							, reds
+							, base
+//							, valsToRemove
+							, KrakenFishHint.Type.ONE
+							, chains
+//							, new Idx(fins)
+					);
 					if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
 						if ( !HintValidator.isValid(grid, kraken.redPots) ) {
 							kraken.isInvalid = true;
@@ -665,10 +671,10 @@ public class KrakenFisherman extends AHinter
 									kraken = new KrakenFishHint(this
 											, reds
 											, base
-											, new Values(v2)
+//											, new Values(v2)
 											, KrakenFishHint.Type.TWO
 											, chains
-											, new Idx(kfM0,kfM1,kfM2)
+//											, new Idx(kfM0,kfM1,kfM2)
 									);
 
 									ok = true;

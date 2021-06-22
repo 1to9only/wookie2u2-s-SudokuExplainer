@@ -266,7 +266,7 @@ public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
 								continue;
 
 							// read common excluder cells from grid at idx04
-							numCmnExcls = idx04.cellsN(grid.cells, cmnExcls);
+							numCmnExcls = idx04.cellsN(grid, cmnExcls);
 							// performance enhancement: examine smaller maybes sooner.
 							//MyTimSort.small(cmnExcls, numCmnExcls, Grid.BY_MAYBES_SIZE);
 							bubbleSort(cmnExcls, numCmnExcls);

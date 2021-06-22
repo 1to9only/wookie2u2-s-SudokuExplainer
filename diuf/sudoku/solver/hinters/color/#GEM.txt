@@ -1,7 +1,21 @@
-GEM: Graded Equivalence Marks is the ultimate in coloring technique.
+from: https://www.sudopedia.org/wiki
+
+The picture files are in the ~/docs directory.
+
+This is best read online, but if like me you don't have an internet connection
+then this text version supplies the information, in text format. It's also a
+point-in-time mark, insurance against the wiki disappearing, and has my notes.
+
+-------------------------------------------------------------------------------
+
+GEM (Graded Equivalence Marks) is the ultimate coloring technique.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 KRC's notes appear between two lines of tildes, like this.
+
+Note that the author ascribes offs to the other color, which scrambles my brain,
+so I ascribe offs to this color, but he specifies a couple of elimination tests
+that are just jibberish, I think because my brain refuses to mis-ascribe offs.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Subset Exclusion
@@ -105,13 +119,12 @@ one of the "sisters" is v, such that if A then B, and conversely if B then A.
 This explanation ONLY makes sense if you already understand it and therefore
 don't need the explanation. A common complaint. Sudokuists suffer from a lack
 of a common language; so that everything has to be defined in unambigious
-terms, typically with example/s. I don't know what the "one of which must have
-the opposite parity" constraint is about, which leads me to believe that I'm
-misunderstanding or only partially understanding what he's on about.
+terms, typically with example/s. I'm unsure what the "one of which must have
+the <u>opposite parity</u>" constraint is about, so I doubt that I'm following.
 
 Conclusion: I think I'm missing MANY tricks here: I suspect there's a more
-general rule that can be applied instead of my "paintMonoBoxs" method, I'm just
-too stupid to understand precisely what it is.
+general rule that can be applied instead of my "paintMonoBoxs" method, I'm
+just too stupid to understand precisely what it is.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It is critical that the links used are truly strong; for example assume 5 has
@@ -122,7 +135,7 @@ the other candidates in cell 2 has the opposite parity mark 2"578, or if that
 cell sees a cell holding 5", then it's settled: we can mark 5 in cell 2.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SE: This definately lines-up with the exclusion rules in Medusa3dColoring.
+SE: This lines-up with the exclusion rules in #Medusa3D.txt.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Exclusion Rules
@@ -195,8 +208,8 @@ used in GEM.
 
 Since GEM is basically a dual implication network, it is bifurcative in nature,
 which acts as a repellant to many Sudoku players. Yet, when a player simply
-carries out the instructions, it is no more bifurcative than any other coloring
-technique, which also starts with a single conjugate pair.
+carries out the instructions, it is no more bifurcative than any other technique
+that starts from a conjugate pair.
 
 Contents
 
@@ -218,8 +231,8 @@ Sub		.			:			false when pars are true
 ' Par marker for parity 1
 " Par marker for parity 2
     The par markers are the same as used in Equivalence Marks. They represent
-    the opposite parities in the initial cluster. The parities are mutually
-    exclusive. One must be true and the other must be false.
+    the two parities in the initial cluster. The parities are mutually
+    exclusive: One must be true and the other must be false.
 
 - Super marker for parity 1
 = Super marker for parity 2
@@ -235,41 +248,44 @@ Sub		.			:			false when pars are true
 Use GREEN and BLUE as the two parities:
 a) a green/blue "+" for super (to right of existing grey value)
 b) a green/blue/red=both "-" for off (his subs are on the OTHER color. sigh.)
-which fits with the rest of my mark-up.
+to fit-in with the rest of my mark-up.
 
-Par markers represent bidirectional, "strong", "and conversely", relationships.
-Super and Sub markers represent unidirectional relationhips, ergo Weak links.
+Par markers are "strong" links, bidirectional "and conversely" relationships.
+Super and Sub markers are "weak" links, or unidirectional relationships.
 a) Super: If A (par or super) then B (super) DOES NOT imply if B then A.
 b) Off: If A (par) then NOT-B (off) DOES NOT imply if NOT-B then A.
-
 Do NOT mark -'s from +'s! It's invalid, so the logic breaks-down.
+
+I'm calling supers "ons", and subs "offs", for brevity.
 
 A table of the two parities/colors as per my implementation in SE
          GREEN       BLUE        Explanation
 colors                           bidirectional links
 ons      +           +           true when color is true (but not conversely)
 offs     -           -           eliminated when color is true (not conversely)
-In the GUI just paint the + of - the appropriate color.
+In the GUI, +'s and -'s are painted the appropriate color to show there parity.
 
 NOTES:
-1. The Par mark is just the value in GREEN/BLUE, as per existing coloring.
-2. A Super mark is a grey value, then a "+" in GREEN/BLUE
-   I don't think it's possible to "+" both colors. If that happens then one of
-   the colors is invalid, but which? So without further info I'd have to throw.
-3. An off mark is a grey value, then a "-" in GREEN/BLUE/RED=both
-   My offs are on THIS parity, where-as his subs are on the OTHER parity.
-4. So GREEN or BLUE: + is on, - is off. Simples!
+1. A color (par) is just the value in GREEN/BLUE, as per existing coloring.
+2. An on (super) is a grey value, then a "+" in GREEN/BLUE. If "+" both colors
+   then one of the colors is invalid, but which? So I throw OverpaintException.
+3. An off (sub) is a grey value, then a "-" in GREEN/BLUE/RED=both
+   My offs are on THIS color, where his subs are on the OTHER parity (WTF).
+4. So GREEN or BLUE value for parity.
+   '+' is on (super).
+   '-' is off (sub). Simples!
+This is best way I can think of to make the manual GEM markers fit-in with my
+pre-existing rendering of coloring. I don't want to change Coloring, XColoring
+and Medusa3D rendering just to suit GEM, and they really should look "similar".
 
-This is best way I can think of to translate the manual GEM markers into
-computereese that fits in with my existing coloring techniques.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Initial Markup
 
-The usual choice of seed candidates is a bivalue cell or a bilocal digit, where
-the two exclusively possible candidates given opposite par marks. Less
-frequently other seeding options are available, for example which of two
-box/line intersections will hold a digit, where only sub markers may be
+The usual choice of seed candidates is a bivalue cell or a bilocal digit,
+with the two exclusively possible candidates given opposite par marks.
+Less frequently other seeding options are available, for example which of
+two box/line intersections will hold a digit, where only sub markers may be
 possible, but always the basis of a mark-up must be two mutually exclusive
 conditions.
 
@@ -288,20 +304,20 @@ mate candidates can be given complementary marks of the opposite parity for the
 type of link involved:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SE Medusa3dColoring paint marks pars of conjugates and bivalue cells, but does
-not (yet) know anything about super-marks. A super mark is produced (may not be
-the only case) when sourceCellValue (srcCV) leaves one-only value in an
-effected region: so we apply the "10 paces" rule (shoot back) and
+SE Medusa3D paint marks pars of conjugates and bivalue cells, but doesn't know
+anything about supers or subs. A super mark is produced (may not be only case)
+when sourceCellValue (srcCV) leaves one-only value in an effected region: so we
+apply the "10 paces" rule (shoot back) and
     if that leaves srcCV.box with one-only v then
-        create a Par ("strong") link as per existing 3D Medusa
+        create a strong link (as per Medusa3D)
     else
-        mark effectedCellValue as a Super of the same color as srcCV.
-
-Note that Super marks can't be built-upon, unlike the actual colors, because
-they lack the "and conversely" component, so if you rely upon them as a
-foundation for further logic that logic produces inconsistent results.
-Supers only apply WHEN THERE PREDICATE IS TRUE, and the predicate is NOT tested
-when a consequent assumption is placed on top of it, so it goes tits-up!
+        mark effectedCellValue as an on (super) of the same color as srcCV.
+Note that Supers can't be built-upon, unlike the actual colors, because they
+don't uphold the "and conversely" rule, so they cannot be relied upon as the
+basis for further logic. Supers only apply WHEN THERE PREDICATE IS TRUE, and
+the predicate is NOT enforced when a consequent assumption hangs off it, so
+everything goes tits-up! They can however be used to prove that a parity
+contains contradictions, so they ARE used in contradictions.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Complementary Marks:
@@ -314,14 +330,28 @@ Sub Grade Groups: When all but one of a set of candidates carry the same sub
 parity, the final one may be marked with the complementary super mark.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-* when all but one v in a cell is eliminated then the last v goes super.
-* when all but one v in a region is eliminated then the last place goes super.
+* when all but one v in a cell is eliminated then the last v is super.
+* when all but one v in a region is eliminated then the last place is super.
 I think my concept of sub differs from the authors! To me a sub is an elim
-caused by a par or super. I think he puts subs under the OTHER parity, which
-makes ____all sense to me. No wonder Chineese microwaves are NUTS!
+caused by a par. I think he puts subs under the OTHER parity, which makes
+absolutely no sense to me. Also I think he's saying that each Super offs all
+other potential values of the cell, and all other places for this value in
+each of the cells box, row, and col, which makes no sense to me, but I tried
+it anyway, and straight away ran into insanity. It's NUTS!
+
+WRONG: Super Grade:  All links:    Super ->  Sub   ( - + :  &  = + . )
+is NOT implemented in my GEM implementation because it's nonsensical!
+I tried Off'ing each On, as per colors.
+	foreach On:
+		Off each other potential value of this cell
+		Off each other place in each of this cells box, row, and col
+But it doesn't work! It breaks "and conversely": creating a consequence (which
+do NOT support predicates) as if there was no predicate is just plain wrong!
+To be clear, I think the spec is WRONG! I think the author expands this summary
+in the following rules, but doesn't point that out. This summary line is WRONG!
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For example, a cell marked "1:5:79:" becomes "1:5:7-9:" Note that such
+For example, a cell marked "1:5:79:" becomes "1:5:7-9:". Note that such
 inferences are a cause of contention with bifurcation purists, as the grouped
 marks often stem from different forks. If this is a concern, use this condition
 as an indicator that a recognised pattern, such as an ALS, may exist which will
@@ -358,29 +388,30 @@ for that parity are excluded, not the super grade candidates.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Promotions
-1. When all but one cell mates or siblings of a par candidate are excluded, the
-   survivor is promoted to a par mark.
-   1a. If all bar one v is eliminated from a cell (all one color)
-       then paint cell-value that color.
-   1b. If all bar one v is eliminated from a region (all one color)
-       then paint cell-value that color.
-2. A super candidate seeing a par marked sibling or cell mate is promoted to a
-   par mark.
-   2a. If a super sees (same v, same color) a par then paint it.
-   2b. If a super has a par cell-mate (any v, OPPOSITE color) then paint it.
+1. If all but one cell mates or siblings of a color are off'd
+   then paint the survivor.
+   1a. If all bar one value is off'd from a cell (all one color),
+       then paint the last value (same cell) this color.
+   1b. If all bar one place in a region is off'd (all one color),
+       then paint the last place (same value) this color.
+2. If an On has an OPPOSITE colored sibling/cellMate then paint it this color.
+   2a. If an On has OPPOSITE color (same cell, any value) then paint it.
+   2b. If an On sees OPPOSITE color (any place, same value) then paint it.
 Eliminations
-3. An off seeing a sibling or cell mate colored/on of other color is elim'd.
-   3a. If an off has OPPOSITE color/on (any value) then eliminate it.
-   3b. If an off sees OPPOSITE color/on (same value) then eliminate it.
-   3c. All v's with an off of both colors (same value) are eliminated.
-4. If a cell has values in both colors then eliminate all other values.
-Confirmations/Contradictions
-5. When all surviving potential values of a cell have the same color, then
-   that color is true.
-6. In a region, if all siblings of a value have offs of the same color, then
-   that color is true.
+3. An Off seeing a sibling or cellMate colored/on of other color is history.
+   3a. If an Off has OPPOSITE color/on (any value) then eliminate it.
+   3b. If an Off sees OPPOSITE color/on (same value) then eliminate it.
+   3c. All cell-values Off'd by both colors are eliminated.
+   NB: I tried off'ing each otherValue and sibling of each On, but he no work!
+4. If a cell has values of both colors then eliminate all other values.
+Confirmations
+5. When all surviving potential values of a cell are the same color,
+   then that color must be true.
+6. In a region, if all siblings of a value have offs of the same color,
+   then that color must be true.
+Contradictions
 7. If two siblings or cell mates carry any combination of colors and ons of the
-   same color, then the other color is true.
+   same color, then the OPPOSITE color is true.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Marking Tips

@@ -1,0 +1,142 @@
+COMPLEX FISH
+############
+
+BASIC DEFINITIONS
+=================
+
+degree		The degree is a field of the Tech passed into the constructor, which is set as a final field in my superclass:
+			The degree in my Fish context is the number of base and cover regions in each fish:
+				2 Swampfish, 3 Swordfish, 4 Jellyfish
+			The same code searches Fish of size 2, 3, 4, or more but these are all degenerate, meaning that every hint found
+			is a combination of multiple hints from simpler solving techniques; so Sudoku Explainer never finds degenerate hints
+			because hinters are executed in (approximate) increasing order of complexity (nothing is perfect), to find a (not
+			the) simplest possible next hint, and therefore a (not the) simplest possible solution to each puzzle.
+			Note that THE simplest possible solution to a Sudoku implies the shortest possible path through the simplest hints
+			available at each step, and I utterly refuse to apply British Museum to Sudoku's because the edges take too long to
+			calculate, so the whole shebang would run like a three legged dog on Scooby Snacks delivered next Thursday in lime.
+v			is my shorthand for the Fish candidate value 1..9
+base		a row/col that we search in. In a basic fish $degree bases have $degree places combined for v.
+cover		the cross-region that we eliminate from.
+fishTypes:	In Basic and Finned Fish:
+				* rows are bases and cols are covers, or vice-versa
+				* cols are bases and rows are covers.
+			Frankens and Mutants throw in boxs, just for some frusterpating fun:
+				* Franken fish have box/s as either bases XOR covers
+				* Mutant  fish have box/s as both   bases AND covers
+			Krakens use Chaining to find even more fish
+
+You cannot understand complex fish until you've nailed basic fish. Nail a basic fish today. Chicken costs extra. Ditch the duck!
+
+BASIC FISH
+==========
+
+The Fish premise is based on the core Sudoku rule that each region must contain exactly one instance of each value 1..9.
+If $degree base regions share only $degree places for value then one of those "intersections/corners" MUST contain the value,
+ergo the value is "locked into" these base regions. Hence other positions in the cross regions (called covers) can be removed.
+
+In Sudoku Explainer Basic fish are implemented by the BasicFisherman class, separate from ComplexFisherman because it's a simpler
+problem that's implemented more efficiently for just ignoring the whole "fin" problem, and all of it's associated complexity.
+
+COMPLEX FISH
+============
+
+1. FINNED FISH
+--------------
+
+The problem with Fish is that most sets of $degree base regions do NOT share only $degree possible places for v, so it'd be nice
+if we could have extra places for the Fish candidate value in the bases; and indeed we can, at the cost of reduced eliminations.
+We call the extra possible locations for the Fish candidate value in the base regions "fins", following the fish theme. The rather
+large downside is each elimination must see (be in the same box, row, or col as) all of the fins, reducing eliminations per fish;
+and also limiting where we can have fins (all fins must have common buddies). More fish, with less eliminations. Clear?
+
+I reckon a "fin" should be called a "chook", so you can have plain fish, or fish and chicken which costs extra and tastes like
+weird science. I'm just pissed-off with the whole "fin" thing because I'm too stupid to implement FinnedJellyfish fast-enough!
+
+Note that 'v' is my shorthand for the Fish candidate value.
+
+The logic is that v must be in one of the base v's or one of the fins:
+	* if v is in a base then the basic fish rule applies: v is eliminated from covers except bases.
+	* else (one of the fins is value) and the elimination/s see all of the fins then the elimination/s still cannot be v.
+So we can eliminate those "basic eliminations" which see all of the fins.
+
+Please run-up the GUI to visually confirm for yourself the premise that: v is either in the fish or one of the fins, because there
+is no-where else to put the bastard, and it MUST be there somewhere. Recall the core Sudoku rule: Nine cells hold nine values.
+
+2. FRANKEN FISH
+---------------
+
+Franken fish go a little further in the hunt for even more fish hints. We throw boxs into the mix. "Boxs" is what I call the 3*3
+boxes, which are more commonly called blocks. And yes I can spell, and no I don't want to, so that my names: boxs, rows, and cols
+are all the same length. It's a programmers thing, to make the code look pretty. sigh.
+
+So we throw boxs into the mix as either bases OR covers, but NOT both (that's a Mutant).
+
+All the other rules remain unchanged from a Finned Fish, so almost all Franken fish are also Finned fish.
+
+3. MUTANT FISH
+--------------
+
+Mutant fish go further still, throwing in boxes as both bases AND covers, and also using both the "normal" base and cover types as
+both bases and covers, so Mutants are an orgy with all 27 regions. BYO butter. Careful with that axe big nose.
+
+All the other rules remain unchanged from a Finned Fish, so almost all Mutant fish are also Finned/Franken fish.
+
+Note that Sudoku Explainer implements Finned, Franken, and Mutant Fish all together in the ComplexFisherman class, because if you
+ignore the mix of region-types involved, all three are just finned fish.
+
+4. KRAKEN FISH
+--------------
+
+Sudoku Explainer implements Kraken Fish in the KrakenFisherman class, which must be kept away from children. It contains quite
+a lot of utterly confused code, especially the caches and kraken tables. KrakenFisherman could be simplified and improved, but
+I find myself with zero enthusiasm for Krakens. Krakens are s__t, in my humble opinion.
+
+4.1 KRAKEN TYPE 1
+
+If a Finned/Franken/Mutant Fish has deletes and we can find a chain from each delete (deletes=((covers & ~bases) | endos) & buds)
+to each fin then we can eliminate the fin.
+
+Note that Kraken Fish Type 1's do exist, apparently, but none are found in my test-data set. So SE's KF1 implementation is most
+probably defective, despite many efforts. I think this is more likely than there being zero KF1's in my test-data-set of 1465
+puzzles, but it is possible. I have never seen a published Kraken Type 1. I'm not even sure my definition is correct.
+
+4.2 KRAKEN TYPE 2
+
+Kraken-type-2's go off the charts in the search for more Fish. The finned-rules apply even when there's no deletes (nothing to
+eliminate from the "normal" fish): the value is either in the Fish or one of the fins, so we take a fish with no deletes and
+search for an XY-forcing-chain to the same eliminations from:
+	(a) each v in the finned base/s; and
+	(b) each fin.
+If all possible configuration produce the same elimination/s then we proceed to eliminate the bastard/s.
+
+4.3 KRAKEN RANT
+
+I am NOT a fan of Krakens. They pretend that fish + chaining is simpler than chaining, which is an oxymoron, so just chain it:
+it's simpler and therefore faster! In practice Kraken Jellyfish took an average of 11.266 seconds per elimination, verses the
+Multiple Chainer at 0.007 seconds. So Kraken Jellyfish is 1,609 times slower and I like speed.
+
+Krakens were invented, I think, by manual Sudoku solvers back in days of yore, trying to get better value from time chaining,
+because Krakens seem to have a higher hit-rate than "random" chains, and they also seem to produce more elims per hint, so I
+guess they yield better time-value, but for a computer the increased complexity defeats the purpose, so my KrakenFisherman takes
+MUCH MUCH longer (ergo far too long) to find equivalent chaining hints. Ditch the ____ing duck, dopey!
+
+SHORTCOMINGS
+============
+
+1. Finding finned fish is a LOT more work than finding basic fish; and for greatly reduced benefits. In practice finned fish take
+   about as long to find as Chains, although Finned Swampfish are "fast enough". Franken and Mutant Swordfish are a bit slower than
+   chains, but still not too bad, but Franken Jellyfish are "too slow", and Mutant Jellyfish are "far too slow", and need shooting.
+
+2. For reasons I do not fully comprehend there are no Franken or Mutant Swampfish in top1465.d5.mt (that's my 1465 test puzzles).
+   That doesn't mean that they can't exist, it merely means that I don't find any with my current test-data-set and implementation.
+   So, the following possibilities exist (ie either and/or both):
+   a. my test-data-set really contains zero KF1's (not likely I feel, there being 1465 of them); or
+   b. my implementation is wrong (more likely, but not at all likely, as it finds larger fish of the same type using the same code)
+   therefore I reckon Franken and Mutant Swampfish must be degenerate, but cannot completely discount them because I have no
+   theoretical basis for doing so, merely a perceived reality, and my perception might be wrong. As a practician I find trusting
+   observed reality over theory usually works (in fact I will back observed reality OVER theory, but I want a theory to support
+   that, and there is none, just the KISS principle), so I just unwant Franken Swampfish and Mutant Swampfish, but leave them there
+   to help another practicianer prove me wrong. Intelligence is knowing you're not always right, and dealing with it effectively.
+
+3. I've already stated that my KF1 implementation is probably wrong, and I would fix it except they're Krakens, and I'm a lazy
+   bastard who really really doesn't like Krakens, and wasn't really a fan of "fins" to start with.

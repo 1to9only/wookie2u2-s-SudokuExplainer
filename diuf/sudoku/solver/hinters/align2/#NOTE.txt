@@ -1,18 +1,20 @@
-!!!! align2 IS PARTIALLY USED !!!!
+align2 is only partially used.
 
 The align2 package was written to replace the align package debacle. It's an
-attempt to do AlignedExclusion far more succinctly. align is boiler-plate crazy,
-and align2 is simpler and works but it's slower; so align is preferred.
+attempt to do AlignedExclusion far more succinctly. align is boiler-plate mad.
+align2 is simpler (but therefore more complex, sigh) and works OK but it's
+slower (big sigh), so I still use the old align package.
 
 To use align2 instead change LogicalSolver.configureHinters.
 
 Note: the two packages operate independently of each other: each package has all
 it's own "supporting" classes. Classes with the same names have the same origin,
-but may now differ in content. Diff them to find out.
+but may now differ in content. Diff them to find out. The point is that align2
+was written to replace the whole align package, which was to be deleted.
 
 2021-04-27: align2 now used for A234E, where it's a bit faster than it's boiler
 plate counterparts, but it's still MUCH slower for A5E+ where the original align
-package, if anything, is used. For the most part I simply don't use A*E any
-longer, because it's too slow, and the majority of it's hints are detected
-further up the hint-stack. I won't use A*E until I find a way of implementing it
-that's atleast an order of magnitude faster; no small order.
+package, if anything, is used. I don't use A*E any longer, coz it's too slow,
+and most of it's former hints are found further up the hint-stack. I won't use
+A*E until I dream-up an implementation that's an order of magnitude faster; no
+small order. So for the moment it's a dead-duck. sigh.

@@ -44,7 +44,7 @@ public class SueDeCoq extends AHinter {
 		Idx idx = new Idx();
 		/** A bitset of the candidates in the current selection */
 		int cands = 0;
-// @check commented out: for debugging only
+//		// @check commented out: for debugging only
 //		@Override
 //		public String toString() {
 //			return ""+index+", "+indices+", "+Values.toString(candidates);
@@ -52,37 +52,35 @@ public class SueDeCoq extends AHinter {
 	}
 
 	/** All indices in the current row/col (only cells that are not set yet) */
-	private final Idx lineSet = new Idx();
+	private final Idx lineIdx = new Idx();
 	/** All indices in the current box (only cells that are not set yet) */
-	private final Idx boxSet = new Idx();
+	private final Idx boxIdx = new Idx();
 	/** All final indices in the current intersection (only cells that are not set yet) */
-	private final Idx interSet = new Idx();
+	private final Idx interIdx = new Idx();
 	// the atmost 3 empty cells in the intersection between line and box
 	private final Cell[] interCells = Cells.array(3);
 	/** All indices in row/col that can hold additional cells (row/col - set cells - intersection) */
-	private final Idx lineSrcSet = new Idx();
+	private final Idx lineSrcIdx = new Idx();
 	/** All indices in box that can hold additional cells (box - set cells - intersection) */
-	private final Idx boxSrcSet = new Idx();
+	private final Idx boxSrcIdx = new Idx();
 	/** Stack for searching rows/cols */
 	private final StackEntry[] stack1 = new StackEntry[9];
 	/** Stack for searching boxs */
 	private final StackEntry[] stack2 = new StackEntry[9];
 	/** Cells of the current subset of the intersection */
-	private final Idx interActSet = new Idx();
-	/** Candidates of all cells in {@link #interActSet}. */
+	private final Idx interActIdx = new Idx();
+	/** Candidates of all cells in {@link #interActIdx}. */
 	private int interActCands = 0;
 	/** Indices of the current additional cells in the row/col */
-	private Idx lineActSet = new Idx();
-	/** Candidates of all cells in {@link #lineActSet}. */
-	private int lineActCands = 0;
-	/** Valid candidates for box */
-	private int boxOkCands = 0;
+	private Idx lineActIdx;
+	/** Candidates of all cells in {@link #lineActIdx}. */
+	private int lineActCands;
 	/** Indices of the current additional cells in the box */
-	private Idx boxActSet = new Idx();
-	/** Candidates of all cells in {@link #boxActSet}. */
-	private int boxActCands = 0;
+	private Idx boxActIdx;
+	/** Candidates of all cells in {@link #boxActIdx}. */
+	private int boxActCands;
 	/** For temporary calculations */
-	private final Idx tmpSet = new Idx();
+	private final Idx tmpIdx = new Idx();
 	/** The removable (red) Cell=>Values. */
 	private final Pots theReds = new Pots();
 
@@ -142,16 +140,17 @@ public class SueDeCoq extends AHinter {
 	private boolean search(ARegion[] lines) {
 		// examine each intersection between lines and boxs
 		final Idx empties = grid.getEmpties();
+		// presume that no hints will be found
 		boolean result = false;
 		// foreach row/col
 		for ( ARegion line : lines ) {
 			this.line = line;
-			lineSet.setAnd(line.idx, empties);
+			lineIdx.setAnd(line.idx, empties);
 			// foreach intersecting box
 			for ( Box box : line.intersectingBoxs ) {
 				this.box = box;
 				// get the intersection
-				if ( interSet.setAndMany(lineSet, boxSet.setAnd(box.idx, empties))
+				if ( interIdx.setAndMany(lineIdx, boxIdx.setAnd(box.idx, empties))
 				  // search this intersection
 				  && searchIntersection() ) {
 					result = true;
@@ -175,66 +174,63 @@ public class SueDeCoq extends AHinter {
 	private boolean searchIntersection() {
 		Cell c1, c2, c3;
 		int nPlus, cands1, cands2, cands3;
-		// read the interSet into the interCells array
-		final int n = interSet.cellsN(grid.cells, interCells);
-		final int m = n - 1;
+		// read the interIdx into the interCells array
+		final int n = interIdx.cellsN(grid, interCells);
+		// presume that no hints will be found
 		boolean result = false;
 		// indices of the 3 cells in the intersection of line and box
-		interActSet.clear();
-		for ( int i1=0; i1<m; ++i1 ) {
-			// all candidates of the first cell
+		interActIdx.clear();
+		for ( int i1=0,m=n-1; i1<m; ++i1 ) {
+			// set the bitset of the first candidate value
 			cands1 = (c1=interCells[i1]).maybes.bits;
-			interActSet.add(c1.i);
+			// add this cell to the intersection actual set
+			interActIdx.add(c1.i);
 			// now try the second cell
 			for ( int i2=i1+1; i2<n; ++i2 ) {
+				// build-up the bitset of two candidate values
 				cands2 = cands1 | (c2=interCells[i2]).maybes.bits;
-				interActSet.add(c2.i);
+				// add this cell to the intersection actual set
+				interActIdx.add(c2.i);
 				// we have two cells in the intersection
 				if ( (nPlus=VSIZE[cands2] - 2) > 1 ) {
 					// possible SDC -> check
-					if ( checkHouses(nPlus, cands2) ) {
+					// store the candidates of the current intersection
+					interActCands = cands2;
+					// check line cells except intersection cells
+					if ( lineSrcIdx.setAndNot(lineIdx, interActIdx).any()
+					  // now check all possible combos of cells in row/col
+					  && checkLine(nPlus, lineSrcIdx, Values.ALL, true) ) {
 						result = true;
 						if ( onlyOne )
 							return result;
 					}
 				}
-				// and the third cell
+				// and now the third cell, if any
 				for ( int i3=i2+1; i3<n; ++i3 ) {
 					cands3 = cands2 | (c3=interCells[i3]).maybes.bits;
 					// now we have three cells in the intersection
 					if ( (nPlus=VSIZE[cands3] - 3) > 1 ) {
 						// possible SDC -> check
-						interActSet.add(c3.i);
-						if ( checkHouses(nPlus, cands3) ) {
+						// store the candidates of the current intersection
+						interActCands = cands3;
+						// add this cell to the intersection actual set
+						interActIdx.add(c3.i);
+						// check line cells except intersection cells
+						if ( lineSrcIdx.setAndNot(lineIdx, interActIdx).any()
+						  // now check all possible combos of cells in row/col
+						  && checkLine(nPlus, lineSrcIdx, Values.ALL, true) ) {
 							result = true;
 							if ( onlyOne )
 								return result;
 						}
-						interActSet.remove(c3.i);
+						interActIdx.remove(c3.i);
 					}
 				}
-				interActSet.remove(c2.i);
+				interActIdx.remove(c2.i);
 			}
-			interActSet.remove(c1.i);
+			interActIdx.remove(c1.i);
 		}
 		return result;
-	}
-
-	/**
-	 * Builds a set with all cells in the row/col that are not part of the
-	 * intersection and delegates the check to
-	 * {@link #checkHouses(int, sudoku.Idx, int, int, boolean, boolean) }.
-	 * @param nPlus How many more candidates than cells
-	 * @param cands Candidates in the intersection
-	 * @return
-	 */
-	private boolean checkHouses(int nPlus, int cands) {
-		// store the candidates of the current intersection
-		interActCands = cands;
-		// check line cells except intersection cells
-		lineSrcSet.setAndNot(lineSet, interActSet);
-		// now check all possible combinations of cells in row/col
-		return checkLine(nPlus, lineSrcSet, Values.ALL_BITS, true);
 	}
 
 	/**
@@ -258,8 +254,6 @@ public class SueDeCoq extends AHinter {
 	 * @return
 	 */
 	private boolean checkLine(int nPlus, Idx src, int okCands, boolean pass1) {
-		if ( src.none() )
-			return false; // nothing to do!
 		StackEntry p, c; // previous and current StackEntry
 		int indice, cands, bothCands, anzExtra;
 		final StackEntry[] stack;
@@ -284,7 +278,7 @@ public class SueDeCoq extends AHinter {
 		p.index = -1; // before first
 		p.cands = 0;
 		p.idx.clear();
-		// get the first cell from sourceSet (there must be at least 1!)
+		// get the first cell from src (there must be at least 1!)
 		c = stack[1]; // current StackEntry
 		c.index = -1; // before first
 		// check all possible combinations of cells
@@ -324,17 +318,18 @@ public class SueDeCoq extends AHinter {
 						// uncovered candidates left in the intersection ->
 						// switch over to the box
 						// memorize current selection for second run
-						lineActSet = c.idx;
+						lineActIdx = c.idx;
 						lineActCands = c.cands;
-						// exclude all cells that are already used in row/col
-						boxSrcSet.setAndNot(boxSet, interActSet, lineActSet);
-						// candidates from row/col set are not allowed anymore
-						// nb: Values.ALL_BITS drops extranious high-bits
-						// nb: cands is c.cands not in the intersection
-						boxOkCands = Values.ALL_BITS & ~(lineActCands & ~cands);
-						// and now pass2 (ONE recursive call)
-						if ( checkLine(nPlus - (lineActSet.size() - anzExtra)
-								, boxSrcSet, boxOkCands, false) ) {
+						// exclude all cells that are already used in the line
+						if ( boxSrcIdx.setAndNot(boxIdx, interActIdx, lineActIdx).any()
+						  // candidates from line are not allowed anymore
+						  // nb: Values.ALL drops extranious high-bits
+						  // nb: cands is c.cands not in the intersection
+						  // and now pass2 (ONE recursive call)
+						  && checkLine(nPlus-(lineActIdx.size()-anzExtra)
+									, boxSrcIdx
+									, Values.ALL & ~(lineActCands & ~cands)
+									, false) ) {
 							result = true;
 							if ( onlyOne )
 								return result;
@@ -344,34 +339,34 @@ public class SueDeCoq extends AHinter {
 				} else if ( c.idx.size()-anzExtra == nPlus ) {
 					// It's a Sue de Coq, but are the any eliminations?
 					// get current data for box
-					boxActSet = c.idx;
+					boxActIdx = c.idx;
 					boxActCands = c.cands;
 					// get the extra candidates that are in both line and box
 					bothCands = boxActCands & lineActCands;
 					// all cells in the box that dont belong to the SDC
-					tmpSet.setAndNot(boxSet, boxActSet, interActSet);
+					tmpIdx.setAndNot(boxIdx, boxActIdx, interActIdx);
 					// all candidates that can be eliminated in the box
 					// (including extra candidates contained in both sets)
 					cands = ((interActCands | boxActCands) & ~lineActCands) | bothCands;
-					eliminate(tmpSet, cands, theReds);
+					eliminate(tmpIdx, cands, theReds);
 					// now the row/col
-					tmpSet.setAndNot(lineSet, lineActSet, interActSet);
+					tmpIdx.setAndNot(lineIdx, lineActIdx, interActIdx);
 					// all candidates that can be eliminated in the row/col
 					// (including extra candidates contained in both sets)
 					cands = ((interActCands | lineActCands) & ~boxActCands) | bothCands;
-					eliminate(tmpSet, cands, theReds);
+					eliminate(tmpIdx, cands, theReds);
 					if ( theReds.size() > 0 ) {
 						// FOUND a Sue De Coq!
 						Pots reds = new Pots(theReds);
 						theReds.clear();
 						// intersection is written into indices and values
-						Pots greens = new Pots(grid, interActSet, interActCands);
+						Pots greens = new Pots(grid, interActIdx, interActCands);
 						// all candidates that occur in the intersection
 						// and in the row/col become fins (for display)
-						Pots blues = potify(lineActSet, interActSet, lineActCands, new Pots());
+						Pots blues = potify(lineActIdx, interActIdx, lineActCands, new Pots());
 						// all candidates that occur in the intersection
 						// and in the box become endo fins (for display)
-						Pots purples = potify(boxActSet, interActSet, boxActCands, new Pots());
+						Pots purples = potify(boxActIdx, interActIdx, boxActCands, new Pots());
 						// create the hint and add it to the IAccumulator
 						AHint hint = new SueDeCoqHint(this, reds, greens, blues
 								, purples, line, box);
@@ -419,7 +414,7 @@ public class SueDeCoq extends AHinter {
 	 * @param dest
 	 */
 	private Pots potify(Idx a, Idx b, int cands, Pots pots) {
-		tmpSet.setOr(a, b).forEach(grid.cells, (c) -> {
+		tmpIdx.setOr(a, b).forEach(grid.cells, (c) -> {
 			int elims = c.maybes.bits & cands;
 			if ( elims != 0 )
 				for ( int v : VALUESES[elims] )

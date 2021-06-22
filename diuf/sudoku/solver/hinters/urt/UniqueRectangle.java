@@ -18,7 +18,6 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
-import static diuf.sudoku.Values.ALL_BITS;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
@@ -35,6 +34,7 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyArrays;
+import static diuf.sudoku.Values.ALL;
 
 /**
  * UniqueRectangle implements the Unique Rectangles and Unique Loops Sudoku
@@ -690,7 +690,7 @@ public final class UniqueRectangle extends AHinter
 		// constants
 		final int shftIdxOfC2 = ISHFT[idxOfC2];
 		// get the removable values array := {1..9} - extraVals - v1 - v2
-		final int[] rmvVals = VALUESES[ALL_BITS & ~extraVals.bits
+		final int[] rmvVals = VALUESES[ALL & ~extraVals.bits
 				& ~VSHFT[v1] & ~VSHFT[v2]];
 		// the values of the hidden set
 		final int[] hdnSetVals = IAS2[N];

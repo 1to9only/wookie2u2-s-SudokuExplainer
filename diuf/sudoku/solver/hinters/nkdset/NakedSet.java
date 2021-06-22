@@ -14,7 +14,6 @@ import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
-import static diuf.sudoku.Values.ALL_BITS;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
@@ -25,6 +24,7 @@ import diuf.sudoku.utils.Permutations;
 import diuf.sudoku.utils.MyArrays;
 import java.util.Arrays;
 import java.util.List;
+import static diuf.sudoku.Values.ALL;
 
 
 /**
@@ -163,7 +163,7 @@ public final class NakedSet
 		Pots reds = null;
 		Cell sib;
 		// foreach cell (sib) in the region except the-naked-set-cells
-		for ( int i : INDEXES[ALL_BITS & ~nkdSetIdxBits] )
+		for ( int i : INDEXES[ALL & ~nkdSetIdxBits] )
 			if ( ((sib=region.cells[i]).maybes.bits & nkdSetValsBits) != 0 ) {
 				// sib maybe any nkdSetValue
 				if(reds==null) reds = new Pots();
@@ -174,7 +174,7 @@ public final class NakedSet
 		// find additional pointing/claiming eliminations.
 		final List<Cell> nkdSetCellList = region.atNewArrayList(nkdSetIdxBits);
 		ARegion[] regions = new ARegion[]{region};
-		if ( region instanceof Grid.Box)
+		if ( region instanceof Grid.Box )
 			regions = claimFromOtherCommonRegion(region, nkdSetCellList
 					, nkdSetValsBits, reds, regions);
 		// build highlighted (orange) potentials
@@ -241,7 +241,7 @@ public final class NakedSet
 		assert tech.isDirect;
 		Cell sib;  int redBits;
 		// foreach cell in the region EXCEPT the cells in this naked set
-		for ( int i : INDEXES[ALL_BITS & ~nkdSetIdxBits] )
+		for ( int i : INDEXES[ALL & ~nkdSetIdxBits] )
 			// skip if sib doesn't have $degreePlus1 maybes
 			if ( (sib=region.cells[i]).maybes.size == degreePlus1
 			  // if sib has the nkdSetValues plus ONE other
@@ -266,7 +266,7 @@ public final class NakedSet
 		Pots reds = new Pots(9-degree, 1F);
 		// foreach cell in the region EXCEPT the naked set cells
 		Cell sib;  int redBits; // bitset of values to remove from sib
-		for ( int i : INDEXES[ALL_BITS & ~nkdSetIdxBits] )
+		for ( int i : INDEXES[ALL & ~nkdSetIdxBits] )
 			// if sib maybe any of the naked set values
 			if ( (redBits=(sib=region.cells[i]).maybes.bits & nkdSetValsBits) != 0 )
 				reds.put(sib, new Values(redBits, false));

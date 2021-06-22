@@ -404,7 +404,7 @@ public final class XColoring extends AHinter {
 								//     then exclude v from this cell.
 								// get cells = all uncolored v's in grid.
 								n = xSet.setAndNot(candidates[v], bothColors)
-										.cellsN(grid.cells, cells);
+										.cellsN(grid, cells);
 								// foreach uncolored v in grid
 								for ( i=0; i<n; ++i ) {
 									cell = cells[i];
@@ -425,7 +425,7 @@ public final class XColoring extends AHinter {
 							boolean ok = true;
 							// Type 2 or Type 3: Set multiple cells (rare).
 							if ( subtype==2 || subtype==3 ) {
-								hint = new XColoringHintMulti(this, v
+								hint = new XColoringHintBig(this, v
 									, subtype
 									// deep-copy-off the Idx[] array, for reuse
 									, new Idx[]{new Idx(colorSets[0]), new Idx(colorSets[1])}
@@ -448,7 +448,7 @@ public final class XColoring extends AHinter {
 									if ( !HintValidator.isValidSetPots(grid, setPots) ) {
 										hint.isInvalid = true;
 										HintValidator.reportSetPots(tech.name()+"Multi", grid, HintValidator.invalidity, hint.toFullString());
-										hint.invalidity = HintValidator.lastMessage;
+										hint.invalidity = HintValidator.prevMessage;
 										if ( Run.type != Run.Type.GUI )
 											ok = false;
 									}
@@ -470,7 +470,7 @@ public final class XColoring extends AHinter {
 									if ( !HintValidator.isValid(grid, redPots) ) {
 										hint.isInvalid = true;
 										HintValidator.report(tech.name(), grid, hint.toFullString());
-										hint.invalidity = HintValidator.lastMessage;
+										hint.invalidity = HintValidator.prevMessage;
 										// Show in GUI, hide in batch/testcases
 										if ( Run.type != Run.Type.GUI )
 											ok = false;

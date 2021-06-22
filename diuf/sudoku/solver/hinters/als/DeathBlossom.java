@@ -23,6 +23,11 @@ import java.util.List;
 /**
  * DeathBlossom implements the Death Blossom Sudoku solving technique.
  * <p>
+ * I extend AAlsHinter which implements IHinter.findHints to find the ALSs,
+ * but in DeathBlossom only doesn't bother determining the RCCs (connections).
+ * He calls my "custom" findHints method passing along the ALSs. To be clear:
+ * I determine my own RCC's!
+ * <p>
  * Explanation from https://www.sudopedia.org/wiki/Solving_Technique
  * <p>
  * A Death Blossom consists of a stem cell and an Almost Locked Set (or ALS)
@@ -122,8 +127,21 @@ public class DeathBlossom extends AAlsHinter
 	// fast shorthand for accu.isSingle(), ergo is onlyOne hint wanted?
 	private boolean onlyOne;
 
+	/**
+	 * Constructor.
+	 * <pre>Super constructor parameters:
+	 * * tech = Tech.DeathBlossom
+	 * * allowLockedSets = false in getAlss, no Almost Locked Set may contain
+	 *   a cell in any Locked Set in the region; else invalid ALS-Chain hints,
+	 *   so KRC supressed them.
+	 * * findRCCs = false DeathBlossom is the only ALS-hinter that finds RCCs
+	 *   itself, hence the subsequent params are not used here.
+	 * * allowOverlaps = UNUSED.
+	 * * forwardOnly = UNUSED.
+	 * * useStartAndEnd = UNUSED.
+	 * </pre>
+	 */
 	public DeathBlossom() {
-		// tech, allowLockedSets, findRCCs, allowOverlaps, forwardOnly, useStartAndEnd
 		super(Tech.DeathBlossom, false, false, UNUSED, UNUSED, UNUSED);
 		// populate array
 		for ( int v=1; v<10; ++v )
@@ -200,7 +218,7 @@ public class DeathBlossom extends AAlsHinter
 				// each ALSs cells are added to db.idx
 				db.idx.clear();
 				// ALS's must share a common value other than stem.maybes
-				db.cmnCands = Values.ALL_BITS & ~stem.maybes.bits;
+				db.cmnCands = Values.ALL & ~stem.maybes.bits;
 				// seek an ALS for each stem.maybe (each freeCand)
 				// if the DeathBlossom has any eliminations then hint
 				if ( (result|=recurse(stem)) && onlyOne )

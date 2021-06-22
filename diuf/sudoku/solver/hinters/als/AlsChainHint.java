@@ -22,13 +22,13 @@ import java.util.List;
  *
  * @author Keith Corlett 2020 Apr 21
  */
-public class AlsXyChainHint extends AHint implements IActualHint {
+public class AlsChainHint extends AHint implements IActualHint {
 
 	// would be private except for the test-case
 	final List<Als> alss;
 	final String debugMessage;
 
-	public AlsXyChainHint(AHinter hinter, Pots redPots, List<Als> alss
+	public AlsChainHint(AHinter hinter, Pots redPots, List<Als> alss
 			, String debugMessage) {
 		// nb: what are normally greens and oranges here
 		super(hinter, redPots);
@@ -89,7 +89,7 @@ public class AlsXyChainHint extends AHint implements IActualHint {
 	public String toHtmlImpl() {
 		// there's only one z-value, it's the same for every cell.
 		final int z = redPots.values().iterator().next().first();
-		return Html.produce(this, "AlsXyChainHint.html"
+		return Html.produce(this, "AlsChainHint.html"
 			, getAlssString()				//{0}
 			, Integer.toString(z)			// 1
 			, Frmt.and(redPots.keySet())	// 2

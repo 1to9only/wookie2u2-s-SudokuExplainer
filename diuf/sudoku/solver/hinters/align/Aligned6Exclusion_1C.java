@@ -340,7 +340,7 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 								}
 
 								// read common excluder cells from grid at idx05
-								if ( (numCmnExcls = idx05.cellsN(grid.cells, cmnExcls)) == 1 ) {
+								if ( (numCmnExcls = idx05.cellsN(grid, cmnExcls)) == 1 ) {
 									cmnExclBits[0] = cmnExcls[0].maybes.bits;
 									numCmnExclBits = 1;
 								} else {

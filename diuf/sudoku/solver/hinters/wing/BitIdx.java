@@ -12,23 +12,26 @@ import java.util.Set;
 
 
 /**
- * A {@link Set<Cell>} backed by a {@link BitSet}. This class wraps a BitSet
- * into a Set of Cells by adding/removing the indice each cell which is
- * present/absent to the BitIdx, then when you iterate the set we turn those
- * indices back into Cells from the given Grid. The BitSet is public so that
- * you can use ALL of it's methods yourself. Each Set method is translated
- * into BitSet speak. My grid attribute is required for iteration and any
- * other method which produces Cell/s. It's public so that you can set it
- * yourself externally. I persist it in my copy constructor.
+ * A {@link Set<Cell>} backed by a {@link BitSet}. BitIdx presents the Set of
+ * Cells interface by wrapping a BitSet containing the indice each cell that
+ * is present in the set. To iterate the set we turn those indices back into
+ * Cells in the given Grid.
  * <p>
- * BitIdx was Sukaku CellSet. I don't know where Nicholas got CellSet from, but
- * I do not that he's not Mladen Dobrichev, who I guess wrote SudokuMonster.
+ * My bits attribute (the BitSet) is public for external mutation, then I
+ * iterate what-ever is there.
+ * <p>
+ * My grid attribute is required for iteration. It's public so that it can be
+ * set externally. I persist it in my copy constructor.
+ * <p>
+ * BitIdx started as Sukaku's CellSet class. I don't know where Nicholas got
+ * CellSet from, but I know that he's not Mladen Dobrichev, who I think wrote
+ * SudokuMonster.
  * <p>
  * WARNING: Clean-up any BitIdx fields, they hold the whole Grid in memory!
  * <p>
  * I made a few changes to Sukaku's CellSet:<ul>
  * <li>
- * Firstly, my grid is stateful, where CellSet's was stateless; so BitIdx has a
+ * Firstly, my grid is stateful, where Sukaku's was stateless; so BitIdx has a
  * public grid attribute and new constructors. The Grid methods that create
  * BitIdxs set the grid. The copy-con copies src.grid, so it's persistent; and
  * its a publicly settable attribute. That should cover all bases. The downside
@@ -45,16 +48,16 @@ import java.util.Set;
  * using the CellIterator, because iterators are slow.
  * </ul>
  * <p>
- * In Sudoku Explainer, the only user of BitIdx is {@link BigWing}, but the
- * BitIdx has it's feeler in everything, especially the Grid; so eradicating
- * BitIdx from BigWing (use the "normal" Idx instead) would eradicate lots of
- * code; which would be A Real Good Thing, except that I've tried and failed to
- * do this a couple of times. In the end I gave-up and stuck with BitIdx, and
- * put-up with its spread throughout my codebase, like mould.
- * <p>
+ * In SE, BitIdx is only used in {@link BigWing}, but it has its fingers in
+ * everything, especially the Grid; so replacing BitIdx with the "normal" Idx
+ * in BigWing would eradicate lots of code; which would be A Real Good Thing,
+ * except that I've repeatedly failed at it. In the end I've stuck with BitIdx,
+ * putting-up with its spread through my code, like mould over a well polished
+ * turd. sigh.
+ * <pre>
  * KRC 2021-01-03 BitIdx used only in diuf.sudoku.solver.hinters.wing2 package
  * and the producing Grid methods, but it may be useful elsewhere.
- * <p>
+ *
  * KRC 2021-01-03 RANT: I've stated previously that I'm not a fan of ANY BitSet
  * class: it's an oxymoron. One uses a bitset for performance, but pushing the
  * complexity of using bitsets into a class slows everything down; so a BitSet
@@ -62,16 +65,16 @@ import java.util.Set;
  * requisite complexity, or you don't. Hiding the complexity destroys most of
  * it's benefit, so just face-up to the complexity. BitSet is an oxymoron.
  * Just my 2c's worth.
- * <p>
+ *
  * KRC 2021-01-04 RANT: Same, same but different. There is no clone! I tried it
  * but for reasons I do not fully understand it didn't work; It kept NPE'ing
  * from iterate DESPITE setting the grid in clone(); so just copy-con instead!
- * <p>
+ *
  * I saw some SERIOUSLY weird s__t. The orig was modified instead of the clone,
  * which AFAIK can only be explained by a Netbeans compiler bug! I am hereby
  * accusing the compiler of doing some weird caching-s__t to speed-up BitSet's,
  * which are, and will always be, too bloody slow (see above)!
- * <p>
+ *
  * I suspect compiled-code-cache wasn't updated when I swapped over to clone(),
  * so my called-method was still glommed-onto the old original BitSet instance.
  * Ergo the callee was NOT updated because it was not changed, but it needed to
@@ -80,11 +83,10 @@ import java.util.Set;
  * you must do compiled-code-caching then "clean and build" MUST atleast do a
  * complete bloody clean followed by a complete bloody build, from scratch;
  * rebuilding EVERYthing, as if on a virgin box. We know how to wait.
- * <p>
+ *
  * For those who do not know, when Netbeans starts doing weird s__t, including
  * refusing to run code which compiles, or ClassNotFoundException, or won't run
  * your test-cases, or just because Netbeans is a piece of s__t:
- * <pre>
  * 1. Close Netbeans.
  * 2. In Explorer: goto C:\Users\User\AppData\Roaming\NetBeans\8.2
  * 3. Select All files and Shift-Delete to completely-delete all files.
@@ -94,6 +96,11 @@ import java.util.Set;
  *    * open all your favourite projects, to re-cache them in CURRENT state.
  * WARNING: ALL of your code history is gone! ALL preferences, settings, tools,
  * etc, etc, etc have been deleted! You're back on a "virgin" install. Enjoy.
+ *
+ * 2021-05-20 I just tried to replace BitIdx with Idx by moving Idx into Grid
+ * as an inner-class, to "lock onto" Grid.this, but that breaks Grid's static
+ * Idxs, which are "needed" for speed, so I gave up again. This is s__t. It's
+ * just the best I know how, for now, but watch this space.
  * </pre>
  *
  * @author Mladen Dobrichev, 2019

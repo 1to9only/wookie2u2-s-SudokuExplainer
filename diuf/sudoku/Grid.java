@@ -3053,6 +3053,22 @@ public final class Grid {
 			return result;
 		}
 
+		/**
+		 * Returns the first cell in this region which maybe v.
+		 * <p>
+		 * There must be atleast one cell in this region which maybe v.
+		 * If there are none then I return the first cell in this region, which
+		 * is a bit s__t, but it's fast this way.
+		 * <p>
+		 * It's faster to do this in-line, but the method is only one
+		 * invocation slower, so exists for brevity and documentation.
+		 *
+		 * @param v the candidate value
+		 * @return the first cell which maybe v */
+		public Cell first(int v) {
+			return cells[FIRST_INDEX[indexesOf[v].bits]];
+		}
+
 		public Cell firstEmptyCell() {
 			for ( Cell c : cells )
 				if ( c.value == 0 )

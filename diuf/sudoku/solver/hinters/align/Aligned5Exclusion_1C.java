@@ -450,7 +450,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 							// then the probilities are it'll even produce a bloody hint!
 
 							// read common excluder cells from grid at idx04
-							if ( (numCmnExcls = idx04.cellsN(grid.cells, cmnExcls)) == 1 ) {
+							if ( (numCmnExcls = idx04.cellsN(grid, cmnExcls)) == 1 ) {
 								cmnExclBits[0] = cmnExcls[0].maybes.bits;
 								numCmnExclBits = 1;
 							} else {

@@ -101,9 +101,9 @@ public enum Tech {
 // Nightmare
 	// heavies
 	, BUG				(4.30, 0, "BUG",       "DROP (Bivalue Universal Grave) subset of Coloring. SLOW!", true, false)
-	, Coloring			(4.31, 2, "Coloring",  "KEEP BUG++ and FASTER. The ONLY Multi-Coloring!", false, true)
+	, Coloring			(4.31, 2, "Coloring",  "KEEP BUG++ and faster. The only Multi-Coloring.", false, true)
 	, XColoring			(4.32, 2, "XColoring", "KEEP (Extended Coloring) Simple-Coloring++", false, true)
-	, Medusa3D			(4.33, 2, "Medusa 3D", "DROP (3D Medusa Coloring) XColoring++", false, true)
+	, Medusa3D			(4.33, 2, "Medusa 3D", "DROP (3D Medusa Coloring) colors cell-values (not just cells)", false, true)
 	, GEM				(4.34, 2, "GEM",       "KEEP (Graded Equivalence Marks) Medusa++", false, true)
 	, NakedQuad			(4.40, 4, "Naked Quad")
 	, HiddenQuad		(4.41, 4, "Hidden Quad")
@@ -111,8 +111,8 @@ public enum Tech {
 	, HiddenPent			(4.51, 5, "Hidden Pent", "Degenerate")
 	, WXYZ_Wing			(4.61, 3, "WXYZ-Wing") // fast limited ALS-XZ
 	, VWXYZ_Wing		(4.62, 4, "VWXYZ-Wing") // fast limited ALS-XZ
-	, UVWXYZ_Wing		(4.63, 5, "UVWXYZ-Wing") // fast limited ALS-XZ
-	, TUVWXYZ_Wing		(4.64, 6, "TUVWXYZ-Wing") // SLOW limited ALS-XZ
+	, UVWXYZ_Wing		(4.63, 5, "UVWXYZ-Wing") // faster limited ALS-XZ
+	, TUVWXYZ_Wing		(4.64, 6, "TUVWXYZ-Wing") // slower limited ALS-XZ
 	, STUVWXYZ_Wing		(4.65, 7, "STUVWXYZ-Wing") // SLOW limited ALS-XZ
 	, URT				(4.70, 0, "Unique Rectangle", "Unique Rectangles and loops", false, true)
 	, FinnedSwampfish	(4.80, 2, "Finned Swampfish")	// with Sashimi

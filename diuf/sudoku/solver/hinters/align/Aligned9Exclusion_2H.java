@@ -278,7 +278,7 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 												continue;
 
 											// read common excluder cells from grid at idx08
-											numCmnExcls = idx08.cellsN(grid.cells, cmnExcls);
+											numCmnExcls = idx08.cellsN(grid, cmnExcls);
 											assert numCmnExcls >= 2;
 											// performance enhancement: examine smaller maybes sooner.
 											// KRC#2020-06-30 10:20:00

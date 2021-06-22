@@ -11,7 +11,6 @@ import static diuf.sudoku.Grid.CELL_IDS;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.CellFilter;
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -64,22 +63,33 @@ import java.util.regex.Pattern;
  * Later I picked-up HoDoKu, which makes extensive use of Idx's (its SudokuSet)
  * so Idx's are now used in Aligned*Exclusion, Almost Locked Sets (als), the
  * various Fisherman, and pretty much everywhere because they are very useful.
- * Just pushing the cheese around on my cracker. Ye rolls yo dice and ye moves
- * yo mice. I apologise for any confusion.
+ * Just pushing the cheese around on my cracker. Ye rolls yon dice and ye moves
+ * yon mice. I apologise for any confusion.
  * <p>
  * <pre>
- * See: diuf.sudoku.solver.hinters.xyz.XYWing                  // uses Idx's
- * See: diuf.sudoku.solver.hinters.align.Aligned5Exclusion_1C  // uses int[]
+ * See: diuf.sudoku.solver.hinters.xyz.XYWing // uses Idx's
+ * See: diuf.sudoku.solver.hinters.align.Aligned5Exclusion_1C // uses int[]
  * See: diuf.sudoku.solver.hinters.align.LinkedMatrixCellSet.idx()
  * See: diuf.sudoku.Grid.cellsAt(int[] idx)
  * </pre>
- * <p>
+ * <pre>
  * KRC 2020-10-21 Idx.cells replaces Grid.at, localising all the tricky s__t.
  * I never liked Idx gizzards in my Grid, I was just too lazy to act. Simpler!
- * <p>
+ *
  * KRC 2020-10-22 IdxL extends Idx to provide a locking mechanism, but
  * <b>PLEASE NOTE</b> that IdxL <b>MUST</b> override <b>EVERY</b> mutator, or
  * it's basically useless!
+ *
+ * KRC 2021-05-20 I really want to eradicate the BitIdx class, so I just tried
+ * moving Idx into Grid as an inner-class, to get rid of the need to pass the
+ * grid into forEach et al, but then you need a grid instance to create an Idx,
+ * and the Grids static Idxs are "needed" for speed, so I gave up; leaving Idx
+ * as an independant class, and just wear passing the Grid around, and the need
+ * for a BitIdx to iterate Idx'd cells. It's messy, but the only other way I
+ * can think of is a new Gridx class which overrides Idx's forEach et al to
+ * pass in Grid.this, but then none of premade Idx's would have this feature,
+ * rendering it more-or-less useless. sigh.
+ * </pre>
  *
  * @author Keith Corlett 2019 DEC
  */
@@ -1371,8 +1381,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Get the cells from the given Grid at indices in this Idx.
 	 * Use this one with the right sized array, which is returned.
-	 * @param grid the grid to read cells from
-	 * @param cells the array to populate with cells in this Idx.
+	 * @param grid the Grid to read
+	 * @param cells the array to populate
 	 * @return the given cells array, so create new if you must.
 	 */
 	public Cell[] cells(Grid grid, Cell[] cells) {
@@ -1395,12 +1405,12 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * Get the cells from the given Grid at indices in this Idx. Use this one
 	 * with a fixed-sized array, and I return the size.
-	 * @param source the grid.cells to read from
+	 * @param grid the Grid to read
 	 * @param destination the array to populate with cells in this Idx.
 	 * @return the number of indices visited, ie the size of this Idx
 	 */
-	public int cellsN(Cell[] source, Cell[] destination) {
-		CELLS_N_VISITOR.source = source;
+	public int cellsN(Grid grid, Cell[] destination) {
+		CELLS_N_VISITOR.source = grid.cells;
 		CELLS_N_VISITOR.destination = destination;
 		return forEach(CELLS_N_VISITOR);
 	}

@@ -45,12 +45,24 @@ import java.util.TreeMap;
 
 
 /**
- * Implements the ALS-XY-Chain (aka ALS-Chain) Sudoku solving technique.
- * I extend abstract AAlsHinter implements getHints to call my findHints.
+ * AlsChain implements the Almost Locked Set XY-Chain Sudoku solving technique.
+ * <p>
+ * I extend AAlsHinter which implements IHinter.findHints to find the ALSs,
+ * determine there RCCs (connections), and call my "custom" findHints method
+ * passing everything into my implementation of a specific search technique.
+ * <p>
+ * An ALS-Chain is 4-or-more ALSs that are chained-together by RCCs (Restricted
+ * Common Candidates). The "restriction" is that all candidates in both ALSs
+ * must see each other, and in ALS-Chains only cannot appear in the physical
+ * overlap, if any, of the two ALSs. Each RCC must be in one ALS or the other,
+ * pushing the other common candidate into the next ALS, and these ALSs form a
+ * loop, so the non-restricted candidates common to the first and last ALS can
+ * be removed from external cells seeing all occurrences of that value in both
+ * of those ALSs.
  *
  * @author Keith Corlett 2020 May 24
  */
-public final class AlsXyChain extends AAlsHinter
+public final class AlsChain extends AAlsHinter
 //implements diuf.sudoku.solver.IReporter
 {
 
@@ -85,32 +97,26 @@ public final class AlsXyChain extends AAlsHinter
 	private boolean oneOnly;
 
 	/**
-	 * Constructs a new HdkAlsXyChain hinter.
-	 * <p>
-	 * nb: I use my supers valid method, which sets the solutionValues array
-	 * using the (brute-force) solve method of the given logicalSolver.
+	 * Constructor.
+	 * <pre>Super constructor parameters:
+	 * * tech = Tech.ALS_Chain
+	 * * allowLockedSets = in getAlss, no Almost Locked Set may contain a cell
+	 *   in any Locked Set in the region; else invalid ALS-Chain hints, so KRC
+	 *   supressed them.
+	 * * findRCCs = true run getRccs to find values connecting ALSs
+	 * * allowOverlaps = false ALSs which physically overlap are not allowed to
+	 *   form an RCC; else invalid ALS-Chain hints, so KRC supressed them.
+	 * * forwardOnly = false makes getRccs do a full search of all possible
+	 *   combinations of ALSs, instead of the faster forwardOnly search for XZs
+	 *   and XyWings. NOTE that true is faster, but finds less hints, and I do
+	 *   not understand why. forwardOnly searches ALL possible combinations,
+	 *   and so find the same hints, but it does not. sigh.
+	 * * useStartAndEnd = true so getRccs populate startIndices and endIndices
+	 *   arrays. AlsChain uses them as a map.
+	 * </pre>
 	 */
-	public AlsXyChain() {
-		// Tech, allowLockedSets, findRCCs, allowOverlaps, forwardOnly, useStartAndEnd
-		super(Tech.ALS_Chain
-			, false // allowLockedSets: in getAlss, no Almost Locked Set may
-					// contain a cell in any Locked Set in the region; else
-					// invalid ALS-Chain hints, so KRC supressed them.
-			, true  // findRCCs: true does getRccs, as per "normal" ALS use.
-					// FYI: false in DeathBlossom only, to just getAlss.
-			, false // allowOverlaps: ALSs which physically overlap are not
-					// allowed to form an RCC; else invalid ALS-Chain hints,
-					// so KRC supressed them.
-			, false // forwardOnly: false makes getRccs do a full search of
-					// all possible combinations of ALSs, instead of the
-					// faster forwardOnly search for XZ's and XyWing's.
-					// NOTE that true is faster, but finds less hints, and I
-					// don't understand why. forwardOnly should search ALL
-					// possible combinations, and so find the same hints, but
-					// it does not. sigh.
-			, true	// useStartAndEnd: true makes getRccs populate startIndices
-				    // and endIndices arrays. Chaining uses them as a map.
-		);
+	public AlsChain() {
+		super(Tech.ALS_Chain, false, true, false, false, true);
 	}
 
 	@Override
@@ -313,7 +319,7 @@ public final class AlsXyChain extends AAlsHinter
 //							String debugMessage = invalidity.isEmpty() ? "" : "<br><h2>"+invalidity+"</h2>";
 							final String debugMessage = "";
 							// build the hint
-							final AHint hint = new AlsXyChainHint(
+							final AHint hint = new AlsChainHint(
 								  this
 								, new Pots(reds) // copy-off the field!
 								, alssList

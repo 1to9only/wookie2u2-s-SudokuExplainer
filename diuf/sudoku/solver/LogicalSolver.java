@@ -55,33 +55,59 @@ import java.util.Set;
  * to run fast, not to be maintainable. Oops, I've just done a mental hammie.
  * <p>
  * If you're impatient then in the GUI (Options ~ Solving Techniques):<ul>
- * <li>use Locking (fast) instead of Locking Generalised (succinct)
- * <li>untick Direct* (they're found anyway);
- * <li>use Coloring (BUG++) over BUG (Coloring--)
- * <li>Death Blossom and Sue De Coq are border-line, but I keep them.
- * <li>Franken Jellyfish are border-line, but I keep them.
- * <li>untick Mutants (slow); especially JellyFish (too slow)
- * <li>untick Naked Pent and Hidden Pent (degenerate);
- * <li>untick Krakens (slow); especially JellyFish (too slow)
- * <li>untick Aligned*Exclusion (slow); A7+E are far too slow and need shootin
- * <li>for <u>really</u> hard puzzles you'll need Nested Unary, but the rest
- *  of Nested* is never used in anger. Nested Plus is a slow catch-all but is
- *  <u>never</u> executed in anger (exists ONLY for Shft-F5).
- * <li>My definition of "slow" is 100 milliseconds per elimination.
- * <li>My definition of "too slow" is a second per elimination.
+ * <li>keep means ticked, and drop means unticked. If it's not listed then you
+ *  had better err on the side of caution and keep it. All current hinters are
+ *  listed, so it will only be new hinters that could be missing.
+ * <li>keep (tick) Locking (fast) instead of Locking Generalised (succinct)
+ * <li>drop (untick) Direct* for speed, because they're found anyway by there
+ *  non-direct equivalents. Direct just sets the cell directly, that's all.
+ * <li>keep Naked/Hidden Pair/Triple, Swampfish, Two String Kite, XY-Wing,
+ *  XYZ-Wing, W-Wing, Swordfish, Skyscraper, and Empty Rectangle
+ * <li>drop Jellyfish finds none if you follow this spec to the letter.
+ *  In fact all *Jellyfish are pretty slow, so drop them all for speed.
+ * <li>drop BUG (replaced by Coloring) and Medusa3D (replaced by GEM)
+ * <li>keep Coloring (only Multi), XColoring (GEM misses), and GEM (ultimate)
+ * <li>keep Naked/Hidden Quad
+ * <li>drop Naked/Hidden Pent they're degenerate, which means all patterns they
+ *  found are found earlier by simpler techniques, so they find nothing
+ * <li>keep WXYZ-Wing, VWXYZ-Wing, UVWXYZ-Wing, TUVWXYZ-Wing
+ * <li>drop STUVWXYZ-Wing because it's a bit slow (border-line)
+ * <li>keep URT (Unique Rectangles and Loops)
+ * <li>keep FinnedSwampfish and FinnedSwordfish
+ * <li>drop FinnedJellyfish for speed because it's a bit slow (border-line)
+ * <li>keep ALS-XZ, Als-Wing, and Als-Chain they're all fast enough now
+ * <li>keep DeathBlossom barely faster than slow
+ * <li>drop SueDeCoq is a tad slow (border-line)
+ * <li>drop Franken* for speed. FrankenSwampfish finds none when FinnedSwampfish
+ *  is wanted, and Finned is faster; FrankenSwordfish is a bit slow; and
+ *  FrankenJellyfish is slow
+ * <li>drop Krakens* (slow) especially KrakenJellyFish (too slow)
+ * <li>drop Mutants* (slow) especially MutantJellyFish (far too slow)
+ * <li>drop Aligned*Exclusion (slow); A7+E are far too slow and need shooting!
+ * <li>keep UnaryChain, NishioChain, and MultipleChain are all needed. If you
+ *  keep Kraken* you can drop UnaryChain because they seek the same pattern
+ *  via different routes, but UnaryChain is faster. Kraken=nuts IMHO.
+ * <li>keep DynamicPlus as a catch-all for normal people, and/or NestedUnary
+ *  as the catch-all for the <u>hardest</u> possible Sudoku puzzles
+ * <li>drop the rest of Nested* are never called in anger, so it won't matter
+ *  until you press Shft-F5 to find MORE hints. They take distant monarch ages
+ * <li>My definition of "slow" is 100 milliseconds per elimination
+ * <li>My definition of "too slow" is a second per elimination
+ * <li>My definition of "far too slow" is a minute per elimination
  * <li>All of these hinters are as fast as I know how to make them, which is
- * "pretty fast", but I certainly cannot preclude the possibility of someone
- * else doing it faster.
+ *  pretty fast. I can't preclude the possibility that it can be done faster,
+ *  so have a go if you're smart and have some time to invest, but I warn you
+ *  that gambling is addictive.
  * </ul>
  * <p>
  * <b>LogicalSolver is used to:</b><ul>
  *  <li>Check the validity of a Sudoku puzzle (ie a grid).
  *  <li>Get the simplest available hint (a Sudoku solving step) from a grid.
  *  <li>Get all available hints, including chainers and wanted nested-chainers
- *  from a grid. Note that the GUI allows the user to manage the wantedHinters
- *  list, which I (the LogicalSolver) just get from the registry via Settings.
+ *   from a grid. Note that the GUI allows the user to manage the wantedHinters
+ *   list, which I (the LogicalSolver) just get from the registry via Settings.
  *  <li>Solve a Sudoku puzzle logically to calculate its difficulty rating,
- *  and get a summary list of the hint-types (usages) that are required.
+ *   and get a summary list of the hint-types (usages) that are required.
  * </ul>
  * <p>
  * <b>On packaging:</b><ul>
@@ -150,9 +176,9 @@ import java.util.Set;
 public final class LogicalSolver {
 
 	/**
-	 * true uses new "align2", which is slower than original "align" package.
+	 * true uses original "align" package, which is faster than new "align2".
 	 */
-	private static final boolean USE_ALIGN2 = false; //@check false
+	private static final boolean USE_OLD_ALIGN = true; //@check true
 
 	/**
 	 * true uses original BasicFisherman, which is faster than BasicFisherman1.
@@ -274,10 +300,17 @@ public final class LogicalSolver {
 	public Grid singlesSolution;
 
 	/**
-	 * Constructs a new LogicalSolver in the given Mode using the given
-	 * IInterruptMonitor. Note that this constructor is package visible, so the
-	 * only way for the application to create a new LogicalSolver is via the
-	 * {@link LogicalSolverFactory}. This is intentional.
+	 * The ONLY Constructor used <u>ONLY</u> by {@link LogicalSolverFactory}
+	 * to construct a new LogicalSolver with the given Mode, which is final.
+	 * <p>
+	 * Note that this constructor is package visible, so the only way for the
+	 * rest of the codebase to create a new LogicalSolver is via the
+	 * {@link LogicalSolverFactory}. This is intentional, to protect against
+	 * accidental miss-use: the solve method uses statefull static variables,
+	 * so only ONE solve may run at a time, and the cheapest way to achieve
+	 * this in all circumstances is using external synchronisation. sigh.
+	 * <p>
+	 * See the class documentation for more discussion.
 	 *
 	 * @param mode Mode see {@link configureHinters(Mode mode)} comments.
 	 * @param monitor the parent Generator. Only non-null when created
@@ -350,13 +383,16 @@ public final class LogicalSolver {
 	}
 
 	/**
-	 * Called by constructor/s and setMode to populate the lists of Hinters,
-	 * especially the wantedHinters list, which is the one solve (et al) uses.
-	 * The sub-lists except validators can go. Nobody cares about categories.
+	 * Called by the constructor to populate the wantedHinters List which is
+	 * used by solve (et al).
 	 * <p>
-	 * field mode {@code Mode.ACCURACY} includes the slow Techniques so that
-	 * this LogicalSolver produces the simplest possible solution to the given
-	 * puzzle; whereas {@code Mode.SPEED} cheats like a dirty mother trucker.
+	 * Note that the sub-lists (except validators) can now be removed, because
+	 * nobody gives a s__t about which "category" each hinter goes in; in fact
+	 * I've had trouble working-out if a hinter should be indirect or heavy.
+	 * <p>
+	 * The {@code Mode.ACCURACY} includes the slow Techniques so this
+	 * LogicalSolver produces a simplest possible solution to each Sudoku;
+	 * whereas {@code Mode.SPEED} cheats like a mother____er.
 	 */
 	private void configureHinters() { // Why so serious?
 
@@ -418,10 +454,12 @@ public final class LogicalSolver {
 		// the start of this method.
 
 		// Regarding execution order:
-		// The solve/etc methods just loop-through the wantedHinters list,
-		// invoking each in the order that it's added by this method. The order
-		// they appear in the log file (num calls) may not match the run-order,
-		// especially if multiple successive hinters have not yet hinted.
+		// The solve/etc methods loop-through the wantedHinters list,
+		// invoking hinters in the order they're added here.
+		// Note that the order in the log file (numCalls) deviates from
+		// execution-order when successive hinters have not yet hinted.
+		// I looked at passing wantedHinters into the UsageMap printer,
+		// but it's messy. sigh.
 
 		// directs are hinters which set cell values directly
 		directs = new ArrayList<>(isAccurate ? 7 : 2); // Tree point five?
@@ -438,11 +476,10 @@ public final class LogicalSolver {
 
 		// indirects just remove maybes, setting cell values only indirectly
 		indirects = new ArrayList<>(14); // one too many!
-		// Locking or LockingGeneralised (you can't have neither, nor both.
-		// Locking is a fundamental tech, like naked and hidden singles)
+		// Locking XOR LockingGeneralised (not neither, not both).
 		want(indirects, locking = new Locking()); // Pointing and Claiming
 		if ( !wantedTechs.contains(Tech.Locking) )
-			indirects.add(new LockingGeneralised());
+			indirects.add(new LockingGeneralised()); // no differentiation
 		else
 			unwanted.add(Tech.LockingGeneralised);
 		want(indirects, new NakedSet(Tech.NakedPair));
@@ -472,25 +509,25 @@ public final class LogicalSolver {
 		}
 
 		// heavies are slower indirect hinters. The heavy-weigth division.
-		heavies = new ArrayList<>(isAccurate ? 42 : 0); //Ready please Mr Adams
+		heavies = new ArrayList<>(isAccurate ? 42 : 0); // Ready please Mr Adams
 		if ( isAccurate ) {
-			// Choosing Coloring: BUG, Coloring, XColoring, Mesuda, and/or GEM.
-			// * DROP BUG: It's old and slow. Finds minimal hints.
-			// * KEEP Coloring: A superset of BUG. The only multi-coloring:
-			//   searches more than two coloring-sets.
-			// * KEEP XColoring: A superset of Colorings simple-coloring:
-			//   searches two coloring-sets. Hints where both Medusa and GEM
-			//   miss, which is fine so long as we use XColoring.
+			// Choosing: BUG, Coloring, XColoring, Mesuda, and/or GEM.
+			// * DROP BUG: It's old and slow (decrepit). Finds minimal hints.
+			// * KEEP Coloring: the ONLY multi-coloring (3+ coloring-sets)
+			//   and basic simple-coloring (2 coloring-sets).
+			//   Faster than BUG and finds many more hints.
+			// * KEEP XColoring: A superset of Colorings simple-coloring.
+			//   Hints where both Medusa and GEM miss (by design).
 			// * DROP Medusa3D: It's counter-productive when used with GEM.
 			//   Medusa and GEM both paint cell-values, not just cells.
 			// * KEEP GEM: the "ultimate" coloring is a superset of Medusa3D.
 			//   Note that my impl doesn't completely impl the specification!
-			// * They're all so fast it makes ____-all difference.
-			want(heavies, new BUG());       // slow basic  DROP
-			want(heavies, new Coloring());  // BUG++       KEEP multicolor
-			want(heavies, new XColoring()); // Coloring++  KEEP GEM misses some
-			want(heavies, new Medusa3D());  // XColoring++ DROP
-			want(heavies, new GEM());       // Medusa3D++  KEEP "ultimate"
+			// * They're all fast enough for it to make ____all difference.
+			want(heavies, new BUG());
+			want(heavies, new Coloring());
+			want(heavies, new XColoring());
+			want(heavies, new Medusa3D());
+			want(heavies, new GEM());
 			want(heavies, new NakedSet(Tech.NakedQuad));
 			want(heavies, new HiddenSet(Tech.HiddenQuad)); // NONE in top1465
 			if ( USE_OLD_FISH )
@@ -499,21 +536,21 @@ public final class LogicalSolver {
 				want(heavies, new BasicFisherman1(Tech.Jellyfish));
 			want(heavies, new NakedSet(Tech.NakedPent));	   // DEGENERATE
 			want(heavies, new HiddenSet(Tech.HiddenPent)); // DEGENERATE
-			want(heavies, new BigWing(Tech.WXYZ_Wing));
-			want(heavies, new BigWing(Tech.VWXYZ_Wing));
-			want(heavies, new BigWing(Tech.UVWXYZ_Wing));
-			want(heavies, new BigWing(Tech.TUVWXYZ_Wing));
-			want(heavies, new BigWing(Tech.STUVWXYZ_Wing));
+			want(heavies, new BigWing(Tech.WXYZ_Wing)); // 3 cell ALS + bivalue
+			want(heavies, new BigWing(Tech.VWXYZ_Wing)); // 4 cell ALS + biv
+			want(heavies, new BigWing(Tech.UVWXYZ_Wing)); // 5 cell ALS + biv
+			want(heavies, new BigWing(Tech.TUVWXYZ_Wing)); // 6 cell ALS + biv
+			want(heavies, new BigWing(Tech.STUVWXYZ_Wing)); // 7 cell ALS + biv
 			want(heavies, new UniqueRectangle());
 			// ComplexFisherman now detects Sashimi's in a Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedSwordfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedJellyfish));
-			want(heavies, new AlsXz()); // ALS + bivalue cell
-			want(heavies, new AlsXyWing()); // 2 ALSs + bivalue cell
-			want(heavies, new AlsXyChain()); // 3+ ALSs + bivalue cell
-			want(heavies, new DeathBlossom()); // 2 ALSs + bivalue; 3 ALSs + trivalue; or even 4 ALSs + quadvalue
-			want(heavies, new SueDeCoq()); // AALS's
+			want(heavies, new AlsXz()); // 2 Almost Locked Sets + bivalue cell
+			want(heavies, new AlsWing()); // 3 Almost Locked Sets + bivalue
+			want(heavies, new AlsChain()); // 4+ Almost Locked Sets + bivalue
+			want(heavies, new DeathBlossom()); // N ALSs + Nvalue; N in 2, 3
+			want(heavies, new SueDeCoq()); // Almost Almost Locked Sets
 			want(heavies, new ComplexFisherman(Tech.FrankenSwampfish));	// NONE
 			want(heavies, new ComplexFisherman(Tech.FrankenSwordfish));	// OK
 			want(heavies, new ComplexFisherman(Tech.FrankenJellyfish));	// OK
@@ -523,7 +560,7 @@ public final class LogicalSolver {
 			want(heavies, new KrakenFisherman(Tech.KrakenSwordfish));	// SLOW
 			want(heavies, new ComplexFisherman(Tech.MutantSwordfish));	// SLOW
 			want(heavies, new KrakenFisherman(Tech.KrakenJellyfish));	// SLOW
-			want(heavies, new ComplexFisherman(Tech.MutantJellyfish));	// TOO SLOW
+			want(heavies, new ComplexFisherman(Tech.MutantJellyfish));//TOO SLOW
 
 			// align2 (new) is faster than align (old) for A234E;
 			if ( false ) { // always use align2 (old retained for prosterity)
@@ -538,7 +575,7 @@ public final class LogicalSolver {
 			// align2 takes 3*A5E, 4*A6E, 5*A7E; presume so on for 8, 9, 10.
 			// The user chooses if A5+E is correct (slow) or hacked (fast).
 			// Hacked finds about a third of hints in about a tenth of time.
-			if ( !USE_ALIGN2 ) {
+			if ( USE_OLD_ALIGN ) {
 				// wantAE reads the "isa${degree}ehacked" Setting to choose
 				// which Aligned*Exclusion (_1C or _2H) class to construct.
 				wantAE(heavies,  5, im, T); // isabeet slow! User choice.
@@ -549,6 +586,8 @@ public final class LogicalSolver {
 				wantAE(heavies, 10, im, T); // conservative! User choice.
 			} else {
 				// AE constructor reads the "isa${degree}ehacked" Setting.
+				// There is no more _1C/_2H version of the same class, and no
+				// more class per size, reducing "boiler-plate" significantly.
 				want(heavies, new AlignedExclusion(Tech.AlignedPent, T));
 				want(heavies, new AlignedExclusion(Tech.AlignedHex, T));
 				want(heavies, new AlignedExclusion(Tech.AlignedSept, T));
@@ -558,7 +597,8 @@ public final class LogicalSolver {
 			}
 		}
 
-		// Chainers are actually faster than the slow Heavies ()
+		// The Chainers are reliable hinters, and are now much faster than the
+		// worste of the heavies, especially my A*E debacle.
 		chainers = new ArrayList<>(isAccurate ? 5 : 1);
 		if (isAccurate) {
 			// single value forcing chains and bidirectional cycles.
@@ -581,14 +621,14 @@ public final class LogicalSolver {
 		// The only way to ever see a nested hint is with Shift-F5 in the GUI.
 		nesters = new ArrayList<>(4);
 		// advanced					 // approx time per call on an i7 @ 2.9GHz
-		// NestedUnary covers THE Hardest Sudoku according to conceptis.com.
-		// The actual safety-net, always hints!
+		// NestedUnary covers the hardest Sudoku according to conceptis.com so
+		// it's a safety-net: it always hints!
 		want(nesters, new MultipleChainer(Tech.NestedUnary, a));	//  4 secs
 		want(nesters, new MultipleChainer(Tech.NestedMultiple, a));	// 10 secs
 		// experimental
 		want(nesters, new MultipleChainer(Tech.NestedDynamic, a));	// 15 secs
 		// NestedPlus is Dynamic + Dynamic + Four Quick Foxes => confusing!
-		// @bug 2020 AUG: NestedPlus produced invalid hints, so now uses the	// PRODUCED INVALID HINTS!
+		// @bug 2020 AUG: NestedPlus PRODUCED INVALID HINTS! so now uses the
 		// HintValidator to log and ignore them. NOT adequate! Needs fixing!
 		// I'm just ignoring this bug for now coz IT'S NEVER USED in anger.
 		want(nesters, new MultipleChainer(Tech.NestedPlus, a));		// 70 secs

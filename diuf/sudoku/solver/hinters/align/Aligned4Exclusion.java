@@ -267,7 +267,7 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 						if(hitMe && c3!=hitCells[3]) continue;
 
 						// read common excluder cells from grid at idx03
-						if ( (numCmnExcls = idx03.cellsN(grid.cells, cmnExcls)) == 1 ) {
+						if ( (numCmnExcls = idx03.cellsN(grid, cmnExcls)) == 1 ) {
 							cmnExclBits[0] = cmnExcls[0].maybes.bits;
 							numCmnExclBits = 1;
 						} else {

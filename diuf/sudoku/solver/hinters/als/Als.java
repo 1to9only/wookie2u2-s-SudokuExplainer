@@ -185,7 +185,7 @@ public class Als {
 	public String format() {
 		// region should never be null. Never say never.
 		final String s; if(region==null) s=""; else s=region.id+": ";
-		return s+Frmt.and(cells)+" {"+Values.andS(maybes)+"}";
+		return s+Frmt.csv(cells)+" {"+Values.toString(maybes)+"}";
 	}
 
 	/**

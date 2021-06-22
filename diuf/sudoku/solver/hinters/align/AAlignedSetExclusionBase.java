@@ -13,7 +13,6 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import static diuf.sudoku.Values.ALL_BITS;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.io.StdErr;
@@ -35,6 +34,7 @@ import java.util.List;
 import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.utils.IntIntHashMap;
+import static diuf.sudoku.Values.ALL;
 
 
 /**
@@ -796,7 +796,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		assert numCmnExclBits>0 && allMaybesBits!=0;
 		// if allBits is all potential values then we're done, because no
 		// reduction of common excluders will be possible.
-		if ( allMaybesBits == ALL_BITS )
+		if ( allMaybesBits == ALL )
 			return numCmnExclBits; // never occurs. Never say never.
 		// subtract allBits from each common excluders maybes, and if there
 		// are any left-overs then we remove that excluder.

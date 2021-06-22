@@ -302,7 +302,7 @@ public final class Aligned7Exclusion_2H extends Aligned7ExclusionBase
 										continue;
 
 									// read common excluder cell from grid at idx06
-									numCmnExcls = idx06.cellsN(grid.cells, cmnExcls);
+									numCmnExcls = idx06.cellsN(grid, cmnExcls);
 									assert numCmnExcls >= 2;
 									// performance enhancement: examine smaller maybes sooner.
 //KRC#2020-06-30 10:20:00

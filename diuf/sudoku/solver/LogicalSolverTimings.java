@@ -7426,6 +7426,65 @@ package diuf.sudoku.solver;
  *    as DiufSudoku_V6_30.131.2021-05-19.7z
  * 3. Next I really don't know, bit I'll think of something.
  * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.132 2021-05-25 09:24:12 Release coz we're shopping today. I've been
+ * updating comments, hint explanations, and documentation. Still no comprende
+ * why BigWing swaps x and z. It's nonsensical.
+ * <pre>
+ *       time (ns)  calls   time/call  elims      time/elim hinter
+ *      18,828,900 102068         184 554470             33 Naked Single
+ *      17,486,400  46621         375 157780            110 Hidden Single
+ *      85,163,200  30843       2,761   5892         14,454 Direct Naked Pair
+ *      76,446,400  30430       2,512  12303          6,213 Direct Hidden Pair
+ *     184,995,500  29493       6,272    841        219,970 Direct Naked Triple
+ *     171,361,500  29441       5,820   1814         94,466 Direct Hidden Triple
+ *      95,830,900  29303       3,270  18193          5,267 Locking
+ *      46,525,900  20398       2,280   4299         10,822 Naked Pair
+ *      45,353,800  19357       2,343   8344          5,435 Hidden Pair
+ *      94,524,000  17839       5,298   1246         75,861 Naked Triple
+ *      84,473,200  17520       4,821    988         85,499 Hidden Triple
+ *      37,788,800  17341       2,179    619         61,048 Swampfish
+ *      54,292,700  17098       3,175   1104         49,178 Two String Kite
+ *      70,127,300  15994       4,384    568        123,463 XY-Wing
+ *      57,830,400  15603       3,706    301        192,127 XYZ-Wing
+ *      83,890,000  15324       5,474    401        209,201 W-Wing
+ *      46,178,600  15045       3,069    335        137,846 Skyscraper
+ *      52,848,700  14871       3,553    457        115,642 Empty Rectangle
+ *      80,966,200  14414       5,617    212        381,916 Swordfish
+ *     409,988,000  14358      28,554    307      1,335,465 Coloring
+ *   1,366,934,200  14117      96,828    710      1,925,259 XColoring
+ *   1,982,025,400  13873     142,869 130980         15,132 GEM
+ *     145,234,200  12457      11,658     88      1,650,388 Naked Quad
+ *     113,419,500  12442       9,115     11     10,310,863 Hidden Quad
+ *     415,299,900  12441      33,381    875        474,628 WXYZ-Wing
+ *     562,353,200  11887      47,308    856        656,954 VWXYZ-Wing
+ *     693,474,800  11447      60,581    385      1,801,233 UVWXYZ-Wing
+ *     568,793,000  11251      50,554     78      7,292,217 TUVWXYZ-Wing
+ *   1,783,294,100  11206     159,137    894      1,994,736 Unique Rectangle
+ *   1,158,449,900  10597     109,318    220      5,265,681 Finned Swampfish
+ *   2,583,552,200  10419     247,965    265      9,749,253 Finned Swordfish
+ *  15,546,156,200  10218   1,521,448   3907      3,979,052 ALS-XZ
+ *  22,172,228,900   7494   2,958,664   3331      6,656,328 ALS-Wing
+ *   9,517,424,600   4744   2,006,202    607     15,679,447 ALS-Chain
+ *   4,158,205,300   4246     979,322    168     24,751,222 Death Blossom
+ *  28,088,612,800   4096   6,857,571   3111      9,028,805 Kraken Swampfish
+ *  82,878,788,400   1676  49,450,351    196    422,850,961 Kraken Swordfish
+ * 473,152,644,400   1511 313,138,745     42 11,265,539,152 Kraken Jellyfish
+ *   3,336,874,700   1473   2,265,359      0              0 Unary Chain
+ *   2,196,823,600   1473   1,491,394      4    549,205,900 Nishio Chain
+ *   3,298,564,800   1469   2,245,449    479      6,886,356 Multiple Chain
+ *   8,809,970,300   1206   7,305,116   6495      1,356,423 Dynamic Chain
+ *      79,200,600      3  26,400,200     30      2,640,020 Dynamic Plus
+ * 666,423,225,400
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465   725,414,460,200 (12:05)       495,163,454
+ * NOTES:
+ * 1. Last top1465 run took 12:05 with all Krakens, so no speed comparison.
+ * 2. Release 6.30.132 2021-05-25 09:24:12
+ *    as DiufSudoku_V6_30.132.2021-05-25.7z
+ * 3. Next I don't know. I'll poke around to find something to improve.
+ * </pre>
  */
 final class LogicalSolverTimings {
 

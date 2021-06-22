@@ -226,8 +226,8 @@ public class GEM extends AHinter implements IPreparer
 		public String toString() {
 			return ""+value+": "+score;
 		}
+		/** just reset the score to 0 (value is final). */
 		private void clear() {
-			// value remains (it's final)
 			score = 0;
 		}
 	}
@@ -477,8 +477,10 @@ public class GEM extends AHinter implements IPreparer
 			hashes.clear(); // supress repeat searches (colors)
 			// Step 1: foreach value in 2-or-more conjugate relationships,
 			//         order by num conjugates + num bivalues DESCENDING.
-			// WARNING: startingValues filters to score >= 4 coz that's the
-			// lowest score that hints in top1465. THIS MAY BE WRONG!
+			// WARNING: startingValues filters to score >= 4 because that's
+			// the lowest score that hints in top1465. THIS MAY BE WRONG!
+			// The higher this value the faster GEM is per elimination;
+			// upto ~7, where it starts missing too many eliminations.
 			for ( int i=0,n=startingValues(); i<n; ++i ) { // repopulate scores
 				final int v = scores[i].value;
 				for ( ARegion r : grid.regions ) {
@@ -487,8 +489,7 @@ public class GEM extends AHinter implements IPreparer
 					// if v has 2 possible positions in this region
 					if ( r.indexesOf[v].size == 2
 					  // and we haven't already painted this cell-value.
-					  // nb: this cell is the first in r which maybe v
-					  && !done[v].contains((cell=r.cells[FIRST_INDEX[r.indexesOf[v].bits]]).i)
+					  && !done[v].contains((cell=r.first(v)).i)
 					  // and the search finds something
 					  && ( result |= search(cell, v) )
 					  // and we want onlyOne hint
@@ -516,39 +517,49 @@ public class GEM extends AHinter implements IPreparer
 
 	/**
 	 * To select the best starting value, pick a value that has 2 or more
-	 * conjugate pairs, and as many candidates as possible in bivalue cells.
-	 * These bivalue cells allow us to expand the coloring clusters beyond
-	 * the single digit boundary.
+	 * conjugate pairs, and is present in the most bivalue cells. These bivalue
+	 * cells expand the coloring clusters beyond the single digit boundary.
+	 * <p>
+	 * From the spec: "Seed candidates should be chosen which are hoped will
+	 * give the maximum return, and time spent considering the best choice is
+	 * worthwhile, as a complete mark-up is time consuming."
+	 * <p>
+	 * The spec implies this can be done in simple coloring, but I'm ignoring
+	 * it to keep my hinters independent of each other. This is "fast enough".
+	 *
 	 * @return the number of value with a score of 4 or more.
 	 */
 	private int startingValues() {
-		// reset scores
-		Arrays.sort(scores, VALUE_ASCENDING); // put them back in values order
-		for ( int v=1; v<10; ++v )
+		int[] values; // cell maybes with 2+ conjugate pairs
+		int v, cands, i, n;
+		// reset scores: ordered by value ascending
+		Arrays.sort(scores, VALUE_ASCENDING);
+		for ( v=1; v<10; ++v )
 			scores[v].clear();
 		// count conjugate pairs for each value
-		// build-up a bitset of those values that're in 2+ conjugate pairs
-		int cands = 0;
-		for ( int v=1; v<10; ++v )
+		// also build-up a bitset of the values in 2+ conjugate pairs
+		cands = 0;
+		for ( v=1; v<10; ++v )
 			for ( ARegion r : grid.regions )
 				if ( r.indexesOf[v].size == 2
 				  && ++scores[v].score > 1 )
 					cands |= VSHFT[v];
 		// foreach bivalue cell
-		// increment score of each value with 2+ conjugate pairs
+		// increment the score of each value with 2+ conjugate pairs
 		for ( Cell c : grid.cells )
-			if ( c.maybes.size == 2 )
-				for ( int v : VALUESES[c.maybes.bits & cands] )
-					++scores[v].score;
+			if ( c.maybes.size == 2 ) {
+				values = VALUESES[c.maybes.bits & cands];
+				for ( i=0,n=values.length; i<n; ++i )
+					++scores[values[i]].score;
+			}
 		// order by score descending
 		Arrays.sort(scores, SCORE_DESCENDING);
 		// count the number of scores with a score of atleast 4. The minimum
 		// possible minimum score is 3, but I use 4 coz it's top1465's minimum
 		// that hints. There's no theoretical basis for 4, it's just what works
 		// for me. I presume it'll work for all Sudoku puzzles but it may not!
-		int n;
 		for ( n=0; n<10; ++n )
-			if ( scores[n].score < 4 // minScore=4 // see above comment
+			if ( scores[n].score < 4 // see above comment
 			  || scores[n].value == 0 ) // stop at value 0 (null terminator)
 				break;
 		return n;
@@ -626,6 +637,7 @@ public class GEM extends AHinter implements IPreparer
 
 			// we search each distinct both-color-sets ONCE.
 			// nb: these hashes are 64 bits, to reduce collisions.
+			// nb: there's no distinction between green and blue in this hash
 			hash = hash(GREEN) | hash(BLUE);
 			if ( hashes.get(hash) != null )
 				return false;
@@ -766,18 +778,26 @@ public class GEM extends AHinter implements IPreparer
 	 * @param biCheck if true then I also paint the otherValue of each bivalue
 	 *  cell (cell.maybes.size==2) the opposite color, recursively. If false
 	 *  then skip step 3, because we already know it's a waste of time.
-	 * @param why a one-liner on why this cell-value is painted this color.
-	 * @return any
+	 * @param why a one-liner defining why this cell-value is painted this
+	 *  color.
+	 * @return any cells painted (always true, else throws)
 	 * @throws OverpaintException when a cell-value is painted in both colors.
 	 */
 	private boolean paint(Cell cell, int v, int c, boolean biCheck, String why)
 			throws OverpaintException {
-		int otherValue; // the other value
-		Cell otherCell; // the other cell
-		final int o = OPPOSITE[c]; // the other color
-		// these are for convenience (and speed, sort of)
-		final int i = cell.i; // indice // ONE dereference
-		final Idx[] otherColor = colors[o]; // ONE array lookup
+		Cell otherCell; // the only other cell in this region which maybe v
+		int otherValue; // the only other value of this bivalue cell
+		// constants for understandability and speed (sort of).
+		final int i = cell.i; // dereference the cell indice ONCE
+		final int o = OPPOSITE[c]; // lookup the other color index ONCE
+		final Idx[] otherColor = colors[o]; // lookup the other color ONCE
+		
+		// If cell-value is already painted this color then you've broken the
+		// pre-test requirement, which is intended to reduce the time wasted
+		// building why-strings that are never used. Note that asserts effect
+		// developers only, who run with java -ea (enable assertions), so this
+		// situation never makes it through to test, let alone prod.
+		assert !colors[c][v].contains(i);
 
 		// If cell-value is already painted the opposite color then throw.
 		// Intersecting colors-sets renders both invalid, so neither is usable.
@@ -799,28 +819,28 @@ public class GEM extends AHinter implements IPreparer
 		// 1. Paint the given cell-value this color
 		colors[c][v].add(i);
 		paintedValues |= colorValues[c] |= VSHFT[v];
-		// full-colors suplants the "on" (where exists)
+		// painting full-colors replaces the "on", if any
 		ons[c][v].remove(i);
-		// remember the steps in this coloring-chain (steps is a StringBuilder)
+		// remember the steps in these two coloring-set (a StringBuilder)
 		if ( why != null ) {
 			steps.append(why);
 			why = null;
 		}
 
 		// 2. Paint the other cell in each conjugate pair the opposite color
-		for ( ARegion r2 : cell.regions ) {
-			if ( r2.indexesOf[v].size == 2
-			  // pre-check faster than needlessly building why string
-			  && !otherColor[v].contains((otherCell=r2.otherThan(cell, v)).i) ) {
+		for ( ARegion r : cell.regions ) { // cell's box, row, col
+			if ( r.indexesOf[v].size == 2
+			  // pre-check faster than building why string pointlessly
+			  && !otherColor[v].contains((otherCell=r.otherThan(cell, v)).i) ) {
 				if ( wantWhy )
 					why = CON[c]+cell.id+"-"+v+COFF[c]
-						+" conjugate in "+r2.id
+						+" conjugate in "+r.id
 						+" is "+CON[o]+otherCell.id+"-"+v+COFF[o]+NL;
 				// paint otherCell-v the opposite color, recursively.
 				paint(otherCell, v, o, true, why);
 			}
-			// off the other places for v in r2.
-			offs[c][v].or(otherPlaces.setAndNot(r2.idxs[v], CELL_IDXS[i]));
+			// off all other places for v in r
+			offs[c][v].or(otherPlaces.setAndNot(r.idxs[v], CELL_IDXS[i]));
 		}
 
 		// 3. Paint the other value of this bivalue cell the opposite color
@@ -828,16 +848,16 @@ public class GEM extends AHinter implements IPreparer
 		if ( biCheck
 		  // if this cell has just two potential values
 		  && cell.maybes.size == 2
-		  // pre-check is faster than needlessly building why string
+		  // pre-check faster than building why string pointlessly
 		  && !otherColor[otherValue=FIRST_VALUE[cell.maybes.bits & ~VSHFT[v]]].contains(i) ) {
 			if ( wantWhy )
 				why = CON[c]+cell.id+"-"+v+COFF[c]
 					+" only other value is "
 					+CON[o]+cell.id+"-"+otherValue+COFF[o]+NL;
-			// paint cell-otherValue the opposite color (skip biCheck)
+			// paint cell-otherValue the opposite color, skipping biCheck
 			paint(cell, otherValue, o, false, why);
 		}
-		// off all other values of this cell.
+		// off all other values of this cell
 		for ( int ov : VALUESES[cell.maybes.bits & ~VSHFT[v]] )
 			offs[c][ov].add(i);
 

@@ -13,8 +13,6 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
-import diuf.sudoku.Values;
-import diuf.sudoku.gui.Print;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
@@ -23,15 +21,15 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * XColoringHintMulti is the DTO for Type 2 and Type 3 Extended Coloring hints.
- * The "multi" alludes to the fact that it sets multiple cells. This is the
- * only hint-type in the whole of Sudoku Explainer which does so. Note that
- * links are always empty for Type 2 hints, but there's really no need for two
- * hint types, so long as we accept that links are always empty for Type 2.
+ * XColoringHintBig is the DTO for Type 2 and Type 3 Extended Coloring hints.
+ * The "big" alludes to the fact that it sets multiple cells. This is the only
+ * hint-type in the whole of Sudoku Explainer which does so. Note that links
+ * are always empty for Type 2 hints, but there's really no need for two hint
+ * types, so long as we accept that links are always empty for Type 2.
  *
  * @author Keith Corlett 2021-03-03
  */
-public class XColoringHintMulti extends AHint {
+public class XColoringHintBig extends AHint {
 
 	private final int v;
 	private final int subtype;
@@ -43,8 +41,8 @@ public class XColoringHintMulti extends AHint {
 	private final String steps;
 	private final Collection<Link> links;
 	private final ARegion region;
-	
-	public XColoringHintMulti(AHinter hinter, int v, int subtype
+
+	public XColoringHintBig(AHinter hinter, int v, int subtype
 			, Idx[] colorSet, Set<Cell> cause, int resultColor, String steps
 			, Pots setPots, Pots greens, Pots blues, Collection<Link> links
 			, Pots oranges, ARegion region) {
@@ -82,7 +80,7 @@ public class XColoringHintMulti extends AHint {
 	public Set<Cell> getPinkCells(int viewNum) {
 		return cause;
 	}
-	
+
 	@Override
 	public List<ARegion> getPinkRegions() {
 		return Regions.list(region);
@@ -159,7 +157,7 @@ public class XColoringHintMulti extends AHint {
 			s += " on <b>"+v+"</b>";
 		return s;
 	}
-	
+
 	private String explanation() {
 		switch ( subtype ) {
 			case 1: return "Eliminations: Some cell values were eliminated by smartypantsness.";
@@ -169,11 +167,16 @@ public class XColoringHintMulti extends AHint {
 		}
 	}
 
+	private String htmlHintTypeName() {
+		// handles both XColoring and Medusa3D hint-types
+		return "sudopedia.org "+getHintTypeName();
+	}
+
 	@Override
 	protected String toHtmlImpl() {
 		StringBuilder sb = new StringBuilder(1024);
 		sb.append("<html><body>").append(NL)
-		  .append("<h2>").append(getHintTypeName()).append("</h2>").append(NL);
+		  .append("<h2>").append(htmlHintTypeName()).append("</h2>").append(NL);
 		if ( subtype != 1 ) // not wanted for "normal" elimination hints
 			sb.append(explanation()).append(NL).append("<p>").append(NL);
 		sb.append("There are two extended coloring sets:<pre>").append(NL)
