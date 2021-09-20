@@ -615,24 +615,25 @@ public final class Frmt {
 //		return sb;
 //	}
 
-	public static String csv(Collection<Cell> cells) { return Frmt.frmt(cells, comma, comma); }
-	public static String ssv(Collection<Cell> cells) { return Frmt.frmt(cells, space, space); }
-	public static String and(Collection<Cell> cells) { return Frmt.frmt(cells, comma, and); }
-	public static String or(Collection<Cell> cells) { return Frmt.frmt(cells, comma, or); }
-	public static String frmt(Collection<Cell> cells, final String sep, final String lastSep) {
+	public static String csv(final Collection<Cell> cells) { return frmt(cells, comma, comma); }
+	public static String ssv(final Collection<Cell> cells) { return frmt(cells, space, space); }
+	public static String and(final Collection<Cell> cells) { return frmt(cells, comma, and); }
+	public static String or(final Collection<Cell> cells) { return frmt(cells, comma, or); }
+	public static String frmt(final Collection<Cell> cells, final String sep, final String lastSep) {
 		MY_SB.setLength(0);
 		return append(MY_SB, cells, sep, lastSep).toString();
 	}
-	public static StringBuilder append(StringBuilder sb, Collection<Cell> cells, final String sep, final String lastSep) {
-		if(cells==null) return sb;
-		int n = cells.size();
+	public static StringBuilder append(final StringBuilder sb, final Collection<Cell> cells, final String sep, final String lastSep) {
+		if ( cells == null )
+			return sb;
+		final int n = cells.size();
 		int i = 0;
 		for ( Cell c : cells ) {
 			if ( c==null)
 				break; // null terminated list!
 			if ( ++i > 1 )
-				// nb: i<n only works coz i is 1-based and n is 0-based;
-				//     but, if it works then don't ____ with it.
+				// note: i<n only works coz i is 1-based and n is 0-based;
+				// but it works so don't ____ with it.
 				sb.append(i<n ? sep : lastSep);
 			sb.append(c.id);
 		}

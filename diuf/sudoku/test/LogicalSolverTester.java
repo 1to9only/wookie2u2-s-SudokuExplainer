@@ -184,7 +184,7 @@ public final class LogicalSolverTester {
 			// paste the whole damn line rather than piss-about with it.
 			// WARN: NOT TESTED with any other args!
 			// WARN: Settings changes are PERMANENT!
-			Settings.THE.justSetWantedTechniques(parseWantedHinters(args));
+			Settings.THE.justSetWantedTechs(parseWantedHinters(args));
 			pids = null;
 		} else
 			pids = Frmt.toIntArray(args); // may be null
@@ -246,7 +246,12 @@ public final class LogicalSolverTester {
 					// run solve manually (process buggers-up count)
 					Grid g = new Grid(readALine(inputFile, 1).contents);
 					solver.prepare(g);
-					solver.solve(g, new UsageMap(), true, true, false);
+					boolean validate = true;
+					boolean isNoisy = false;
+					boolean logHints = false;
+					System.out.println("<priming-solve>");
+					solver.solve(g, new UsageMap(), validate, isNoisy, logHints);
+					System.out.println("</priming-solve>");
 				}
 
 				// now the actual run

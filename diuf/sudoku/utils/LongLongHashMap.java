@@ -72,7 +72,8 @@ public class LongLongHashMap {
 	 * are faster overall, coz I guess I must be running out of RAM. Too many
 	 * fat-bastards like this: buying CPU-time with profligate RAM usage.
 	 *
-	 * @param capacity is always a power of 2
+	 * @param capacity is always a power of 2 so 16, 32, 64, 128, 256, 512,
+	 *  1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288
 	 */
 	public LongLongHashMap(int capacity) {
 		table = new Entry[capacity];
@@ -82,7 +83,7 @@ public class LongLongHashMap {
 
 	// convert a long key into an int, for the table index
 	protected static int hash(long key) {
-		return (int)(key ^ (key >>> 32));
+		return (int)(key ^ (key >> 32));
 	}
 
 	public long get(long key) {

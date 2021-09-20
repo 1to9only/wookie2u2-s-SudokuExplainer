@@ -162,7 +162,7 @@ public final class Html {
 	 * @param hint
 	 * @param fileName
 	 * @param args
-	 * @return 
+	 * @return
 	 */
 	public static String produce(Object hint, String fileName, Object... args) {
 		return format(load(hint, fileName), args);
@@ -188,7 +188,8 @@ public final class Html {
 	,"<b2>","<font color=\"#009000\">" ,"</b2>","</font>"  // 24 green (region)
 	,"<b3>","<font color=\"#009090\">" ,"</b3>","</font>"  // 28 dark aqua (ALS)
 	,"<b4>","<font color=\"#CCCC00\">" ,"</b4>","</font>"  // 32 yellow (ALS)
-	,"<b5>","<font color=\"#964B00\">" ,"</b5>","</font>"  // 32 brown (ALS)
+	,"<b5>","<font color=\"#964B00\">" ,"</b5>","</font>"  // 36 brown (ALS)
+	,"<b6>","<font color=\"#DC05DC\">" ,"</b6>","</font>"  // 40 purple (SueDeCoq)
 	};
 
 	private static String color(String html, int i) {

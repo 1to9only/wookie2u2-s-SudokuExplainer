@@ -439,9 +439,10 @@ public final class Grid {
 	}
 
 	/**
-	 * Get the Grid.cells indice from y (row) and x (col) coordinates.
+	 * Get the Grid.cells indice from y (row) and x (col) coordinates,
+	 * ie {@code y * 9 + x}.
 	 * <p>
-	 * <b>NOTE</b>: coordinates are given y, x; as per the matrix (not the
+	 * NOTE: parameters are given as (y, x) as per the matrix (not the more
 	 * usual x, y).
 	 *
 	 * @param y the row number 0..8 (vertical coordinate)
@@ -500,14 +501,15 @@ public final class Grid {
 	 * read by AAHdkAlsHinter.valid(Grid grid, Pots redPots) et al. */
 	public int[] solutionValues;
 
-	/** the puzzleID field is an identifier for the puzzle that's loaded into
-	 * this grid. It's just a random long that's set whenever we create a new
-	 * grid or load a puzzle into a grid, so that IHinter.getHints can tell if
-	 * the grid contains a different puzzle than it did the last time I ran.
+	/** pid is short for puzzleID. This field is an identifier for the puzzle
+	 * that's loaded into this grid. The value is just a random long that is
+	 * set whenever we create a new grid, or load a puzzle into a grid, so that
+	 * IHinter.getHints can tell if the grid contains a different puzzle than
+	 * it did the last time this-method ran.
 	 * As far as I can see (not far) Random.nextLong() guarantees that two
 	 * successive calls won't return the same value. If it does then
 	 * AAHdkAlsHinter.valid will report false-positives (invalid hints). */
-	public long puzzleID;
+	public long pid;
 
 	/** isInvalidated()'s message explaining why this grid is invalid. */
 	public String invalidity;
@@ -523,8 +525,8 @@ public final class Grid {
 	 * Construct a new empty 9x9 Sudoku grid.
 	 */
 	public Grid() {
-		for(int y=0; y<9; ++y) for(int x=0; x<9; ++x)
-			cells[y*9+x] = new Cell(x, y, Values.all());
+		for ( int i=0; i<81; ++i )
+			cells[i] = new Cell(i, Values.all());
 		initialise();
 		initialised = true;
 	}
@@ -677,7 +679,7 @@ public final class Grid {
 //			RIDX[r.index] = r.idx.addAll(r.cells).lock();
 			r.idx.addAll(r.cells).lock();
 		// grid.puzzleID tells hinters "we've changed puzzles".
-		this.puzzleID = RANDOM.nextLong();
+		this.pid = RANDOM.nextLong();
 	}
 
 	// -------------------------- demi-constructors ---------------------------
@@ -763,7 +765,7 @@ public final class Grid {
 	 */
 	public boolean load(String[] lines) {
 		// update the puzzleID to say the puzzle has changed
-		this.puzzleID = RANDOM.nextLong();
+		this.pid = RANDOM.nextLong();
 		// give up immediately if there's no chance of a sucessful load
 		if ( lines==null || lines.length==0 )
 			return false; // meaning load failed
@@ -1257,14 +1259,38 @@ public final class Grid {
 	}
 
 	// ------------------------------ BitIdxville -----------------------------
-	// Get BitIdx's for the diuf.sudoku.solver.hinters.wing2 package.
+	/** BitIdx is used in {@link diuf.sudoku.solver.hinters.wing.BigWing}. */
 
-	public interface CellFilter {
-		boolean accept(Cell c);
-	}
+	/**
+	 * Get a new BitIdx on this Grid containing indices of cells that are
+	 * accepted by the given CellFilter.
+	 *
+	 * @param f an implementation of the CellFilter interface, usually a lambda
+	 *  expression, for succinctness
+	 * @return a new BitIdx of accepted cells
+	 */
 	public BitIdx getBitIdx(CellFilter f) {
 		return getBitIdx(new BitIdx(this), f);
 	}
+	public interface CellFilter {
+		public boolean accept(Cell c);
+	}
+	/**
+	 * Add the indices of cells in this Grid that are accepted by the given
+	 * CellFilter to the given result BitIdx. Note that any existing indices
+	 * remain unchanged, so you can use this method to add multiple filters to
+	 * a result, simulating a logical OR. To simulate a logical AND use a
+	 * lambda expression to join existing CellFilter's, or build both BitIdxs
+	 * then AND there two bits fields, or whatever. To XOR pull your genitals
+	 * over your forehead and shout "Which one of you bitches wants to dance?"
+	 * loudly right down a skin'eads ear'ole. To wit the expected response is
+	 * "Gopher Cleetus?", obviously.
+	 *
+	 * @param result the BitIdx to add to
+	 * @param f an implementation of the CellFilter interface, usually a lambda
+	 *  expression, for succinctness
+	 * @return the result BitIdx which now also contains accepted cells
+	 */
 	public BitIdx getBitIdx(BitIdx result, CellFilter f) {
 		for ( Cell c : cells )
 			if ( f.accept(c) )
@@ -1273,93 +1299,87 @@ public final class Grid {
 	}
 
 	// ------ empty cells ------
+	/**
+	 * The "empties" BitIdx is cached. It's re-read when a hint is applied to
+	 * this grid, or the Grid has changed; ie ONCE on each pass through the
+	 * wantedHinters.
+	 *
+	 * @return a cached BitIdx of the empty (value == 0) cells in this grid.
+	 */
+	public BitIdx getBitIdxEmpties() {
+		if ( emptiesBi == null ) {
+			emptiesBi = getBitIdx(EMPTY_FILTER);
+		} else if ( emptiesBiHN!=AHint.number || emptiesBiPid!=pid ) {
+			emptiesBi.clear();
+			getBitIdx(emptiesBi, EMPTY_FILTER);
+		}
+		emptiesBiHN = AHint.number;
+		emptiesBiPid = pid;
+		return emptiesBi;
+	}
+	private BitIdx emptiesBi; // empties BitIdx
+	private int emptiesBiHN;
+	private long emptiesBiPid;
 	public static final CellFilter EMPTY_FILTER = new CellFilter() {
 		@Override
 		public boolean accept(Cell c) {
 			return c.value == 0;
 		}
 	};
-	/**
-	 * The "empties" BitIdx is re-read whenever a cell value is set.
-	 * @return a cached BitIdx of the empty (value == 0) cells in this grid.
-	 */
-	public BitIdx getBitIdxEmpties() {
-		if ( empties == null ) {
-			empties = getBitIdx(EMPTY_FILTER);
-		} else if ( emptiesHintNumber!=AHint.hintNumber || emptiesPuzzleID!=puzzleID ) {
-			empties.clear();
-			getBitIdx(empties, EMPTY_FILTER);
-		}
-		emptiesHintNumber = AHint.hintNumber;
-		emptiesPuzzleID = puzzleID;
-		return empties;
-	}
-	private BitIdx empties; // the empty (value == 0) cells in this grid
-	private int emptiesHintNumber;
-	private long emptiesPuzzleID;
 
 	// ------ bivalue cells ------
+	/**
+	 * Get the cells in the grid with two potential values.
+	 * @return cached BitIdx of cells with maybes.size == 2.
+	 */
+	public BitIdx getBitIdxBivalue() {
+		if ( bivsBi == null ) {
+			bivsBi = getBitIdx(BIVALUE_FILTER);
+			bivsBiHN = AHint.number;
+			bivsBiPid = pid;
+		} else if ( bivsBiHN!=AHint.number || bivsBiPid!=pid ) {
+			bivsBi.clear();
+			getBitIdx(bivsBi, BIVALUE_FILTER);
+			bivsBiHN = AHint.number;
+			bivsBiPid = pid;
+		}
+		return bivsBi; // pre-cached
+	}
+	private BitIdx bivsBi; // indices of bivalue Cells in a BitIdx on this grid
+	private int bivsBiHN;
+	private long bivsBiPid;
 	public static final CellFilter BIVALUE_FILTER = new CellFilter() {
 		@Override
 		public boolean accept(Cell c) {
 			return c.maybes.size == 2;
 		}
 	};
-	/**
-	 * Get the cells in the grid with two potential values.
-	 * @return cached BitIdx of cells with maybes.size == 2.
-	 */
-	public BitIdx getBitIdxBivalue() {
-		if ( bivs == null ) {
-			bivs = getBitIdx(BIVALUE_FILTER);
-			bivsHintNumber = AHint.hintNumber;
-			bivsPuzzleID = puzzleID;
-		} else if ( bivsHintNumber!=AHint.hintNumber || bivsPuzzleID!=puzzleID ) {
-			bivs.clear();
-			getBitIdx(bivs, BIVALUE_FILTER);
-			bivsHintNumber = AHint.hintNumber;
-			bivsPuzzleID = puzzleID;
-		}
-		return bivs; // pre-cached
-	}
-	private BitIdx bivs; // bivalueCells
-	private int bivsHintNumber;
-	private long bivsPuzzleID;
 
 	// ------- candidates ------
-	/**
-	 * Actually get an array of BitIdxs containing the cells which maybe each
-	 * potential value 1..9 in this Grid.
-	 * @return the CACHED bitIdxs array. Don't modify it's contents!
-	 */
-	public BitIdx[] getBitIdxsImpl() {
-		if ( bitIdxs[1] == null )
-			for ( int v=1; v<10; ++v )
-				bitIdxs[v] = new BitIdx(this);
-		else
-			for ( int v=1; v<10; ++v )
-				bitIdxs[v].clear();
-		for ( Cell c : cells )
-			for ( int v : VALUESES[c.maybes.bits] )
-				bitIdxs[v].bits.set(c.i);
-		bitIdxsHintNumber = AHint.hintNumber;
-		bitIdxsPuzzleID = puzzleID;
-		return bitIdxs;
-	}
-	private BitIdx[] bitIdxs = new BitIdx[10];
-	private int bitIdxsHintNumber;
-	private long bitIdxsPuzzleID;
 	/**
 	 * Get an array of BitIdxs containing the cells which maybe each potential
 	 * value 1..9 in this Grid.
 	 * @return the CACHED bitIdxs array. Don't modify it's contents!
 	 */
 	public BitIdx[] getBitIdxs() {
-		if ( bitIdxsHintNumber!=AHint.hintNumber || bitIdxsPuzzleID!=puzzleID )
-			getBitIdxsImpl(); // refresh
+		if ( bitIdxsHN!=AHint.number || bitIdxsPid!=pid ){
+			if ( bitIdxs[1] == null )
+				for ( int v=1; v<10; ++v )
+					bitIdxs[v] = new BitIdx(this);
+			else
+				for ( int v=1; v<10; ++v )
+					bitIdxs[v].clear();
+			for ( Cell c : cells )
+				for ( int v : VALUESES[c.maybes.bits] )
+					bitIdxs[v].bits.set(c.i);
+			bitIdxsHN = AHint.number;
+			bitIdxsPid = pid;
+		}
 		return bitIdxs; // pre-cached
 	}
-
+	private BitIdx[] bitIdxs = new BitIdx[10];
+	private int bitIdxsHN;
+	private long bitIdxsPid;
 
 	// ---------------- toString and friends ----------------
 
@@ -1507,8 +1527,8 @@ public final class Grid {
 		for ( int v=1; v<10; ++v )
 			idxs[v].lock(); // make it throw RTE when you try to change it
 		// set the caching-control fields for the getIdxs method
-		idxsPuzzleID = puzzleID;
-		idxsHintNumber = AHint.hintNumber;
+		idxsPuzzleID = pid;
+		idxsHintNumber = AHint.number;
 		// return the cached array
 		return idxs;
 	}
@@ -1526,7 +1546,7 @@ public final class Grid {
 	 * @return the indices for the current grid
 	 */
 	public Idx[] getIdxs() {
-		if ( idxsHintNumber==AHint.hintNumber && idxsPuzzleID==puzzleID )
+		if ( idxsHintNumber==AHint.number && idxsPuzzleID==pid )
 			return idxs;
 		return getIdxsActual();
 	}
@@ -1558,24 +1578,24 @@ public final class Grid {
 	 */
 	public Idx getEmpties() {
 		boolean doGet;
-		if ( doGet=(emptyCells == null) )
-			emptyCells = new IdxL();
-		else if ( doGet = ( emptyCellsHintNumber != AHint.hintNumber
-				         || emptyCellsPuzzleID != puzzleID ) )
-			emptyCells.unlock().clear();
+		if ( doGet=(emptiesIdx == null) )
+			emptiesIdx = new IdxL();
+		else if ( doGet = ( emptiesHN != AHint.number
+				         || emptiesPID != pid ) )
+			emptiesIdx.unlock().clear();
 		if ( doGet ) {
 			for ( Cell c : cells )
 				if ( c.value == 0 )
-					emptyCells.add(c.i);
-			emptyCellsHintNumber = AHint.hintNumber;
-			emptyCellsPuzzleID = puzzleID;
-			emptyCells.lock();
+					emptiesIdx.add(c.i);
+			emptiesHN = AHint.number;
+			emptiesPID = pid;
+			emptiesIdx.lock();
 		}
-		return emptyCells;
+		return emptiesIdx;
 	}
-	private IdxL emptyCells; // emptyCells
-	private int emptyCellsHintNumber;
-	private long emptyCellsPuzzleID;
+	private IdxL emptiesIdx;
+	private int emptiesHN;
+	private long emptiesPID;
 
 	/**
 	 * Returns a new Idx of empty cells that are accepted by the CellFilter,
@@ -1608,12 +1628,12 @@ public final class Grid {
 	public Idx getBivalueCells() {
 		if ( bivis == null ) {
 			bivis = ((IdxL)getIdx(new IdxL(), BIVALUE_FILTER)).lock();
-			bivisHintNumber = AHint.hintNumber;
-			bivisPuzzleID = puzzleID;
-		} else if ( bivisHintNumber!=AHint.hintNumber || bivisPuzzleID!=puzzleID ) {
+			bivisHintNumber = AHint.number;
+			bivisPuzzleID = pid;
+		} else if ( bivisHintNumber!=AHint.number || bivisPuzzleID!=pid ) {
 			((IdxL)getIdx(bivis.unlock().clear(), BIVALUE_FILTER)).lock();
-			bivisHintNumber = AHint.hintNumber;
-			bivisPuzzleID = puzzleID;
+			bivisHintNumber = AHint.number;
+			bivisPuzzleID = pid;
 		}
 		return bivis; // pre-cached
 	}
@@ -1913,22 +1933,25 @@ public final class Grid {
 	public final class Cell implements Comparable<Cell> {
 
 		/**
-		 * i is my indice in the Grid.cells array.<br>
-		 * So: {@code i = y*9 + x}<br>
-		 * Note: the term "indice" always means a cells index in Grid.cells, to
-		 * differentiate it from all other indexes in the application, because
-		 * indices are heavily used, so are a bit special
+		 * i is my indice in the grid.cells array, which is a "normal" (single
+		 * index) array that is used to represent at matrix of cells. <br>
+		 * So: {@code i = y * 9 + x}<br>
+		 * and: {@code y = i / 9} where y is my vertical (row) index<br>
+		 * and: {@code x = i % 9} and x is my horizontal (col) index<br>
+		 * NOTE: In Sudoku Explainer the term "indice" always means a cells
+		 * index in Grid.cells, to differentiate it from all other indexes in
+		 * the codebase, because indices are used heavily, so they're special.
 		 */
 		public final int i;
 
-		/** id is my {@code $columnChar$rowNumber} A1..I9 */
+		/** id is a String of my {@code $columnChar$rowNumber}, ie A1..I9 */
 		public final String id;
 
-		/** The "value" of this cell 1..9, 0 means this cell is "empty" */
+		/** The "value" of this cell 1..9; 0 means this cell is "empty" */
 		public int value;
 
 		/** The potential values of this cell. Named for "A1 may be 2" because
-		 * potentialValues is too bloody long to type a thousand times. */
+		 * potentialValues is too bloody long to type a million times. */
 		public final Values maybes;
 
 		/** boxId and b: I am {@code grid.boxs[boxId].cells[b]}. <br>
@@ -1943,40 +1966,52 @@ public final class Grid {
 		 * so: {@code b = (y%3*3) + (x%3)} */
 		public final int b;
 
-		/** x is my horizontal (second) index in the Grid.matrix. <br>
-		 * also my index in my row.cells array. <br>
-		 * x,y verses row,col where x=col and row=y: There's only 2 possible
-		 * orders, and we habitually use both of them, ergo just shoot me!
-		 * The only solution is to rehabituate ourselves to col,row. */
-		public final int x;
-
-		/** y is my vertical (first) index in the Grid.matrix. <br>
+		/**
+		 * y is my vertical (first) index in the cells matrix. <br>
 		 * also my index in my col.cells array. <br>
 		 * x,y verses row,col where x=col and row=y: There's only 2 possible
 		 * orders, and we habitually use both of them, ergo just shoot me!
-		 * The only solution is to rehabituate ourselves to col,row. */
+		 * The only solution is to rehabituate ourselves to col,row; that or go
+		 * back in time and shoot the bastard who ____ed-up chess notation.
+		 */
 		public final int y;
+
+		/**
+		 * x is my horizontal (second) index in the cells matrix. <br>
+		 * also my index in my row.cells array. <br>
+		 * x,y verses row,col where x=col and row=y: There's only 2 possible
+		 * orders, and we habitually use both of them, ergo just shoot me!
+		 * The only solution is to rehabituate ourselves to col,row; that or go
+		 * back in time and shoot the bastard who ____ed-up chess notation.
+		 */
+		public final int x;
 
 		/** indexInRegion is my index in my regions cells array (not to be
 		 * confused with my indice in my regions idx, which I've just done). */
 		public final int[] indexIn = new int[3];
 
-		/** idxdex is the index of my element in the idx array.<pre>
+		/**
+		 * My idxdex is the index of my element in the idx array.<pre>
 		 * so: {@code idxdex = i/27}
 		 * </pre>
 		 * see: shft field for more info.
 		 */
 		public final int idxdex; // 0..2
 
-		/** The shft to add this cell to a idx. The left-shifted bitset-value
-		 * of i (my Grid.cells array index) within my idx array element.<pre>
-		 * so: {@code idxshft = 1<<(i%27);}
-		 * was: {@code idx[cell.i/27] |= 1<<(cell.i%27); // add cell to idx}
-		 * now: {@code idx[cell.idxdex] |= cell.idxshft; // add cell faster}
+		/**
+		 * My idxshft is the left-shifted bitset-value of my index within my
+		 * idx array element. <pre>
+		 * so:{@code idxshft = 1<<(i%27);}
+		 * so: Cell c is present in Idx idx{@code if ( (idx[c.idxdex] & c.idxshft) != 0 )}
+		 * these two example lines of "user code" contrast before and after:
+		 * was:{@code idx[c.i/27] |= 1<<(c.i%27); // add cell to idx}
+		 * now:{@code idx[c.idxdex] |= c.idxshft; // add cell faster}
+		 * idxdex and idxshft are used only by LinkedMatrixCellSet.idx() that's
+		 * hammered by Aligned*Exclusion, saving 28 secs in A234E per top1465.
+		 * To be clear, idxdex and idxshft exist only for speed, because it is
+		 * faster to calculate these values ONCE and store them, than it is to
+		 * recalculate these values trillions of times.
 		 * </pre>
-		 * <p>
-		 * idxdex and idxshift used only by LinkedMatrixCellSet.idx() that's
-		 * hammered by aligned exclusion. Saved 28 secs in A1234E per top1465.
 		 */
 		public final int idxshft;
 
@@ -2035,9 +2070,10 @@ public final class Grid {
 		 * Also please document your properties right here! */
 		public Map<String,Object> properties = null;
 
-		// These are used privately to save deindexing the regions array
-		// ?trillions? of times.
-		public Box box;  public Row row;  public Col col;
+		// These private fields save deindexing the regions array many times
+		public Box box;
+		public Row row;
+		public Col col;
 
 		/**
 		 * Construct a new Cell in this grid.
@@ -2046,25 +2082,34 @@ public final class Grid {
 		 * grid, whether you like it or not, so a reference to a Cell holds the
 		 * whole Grid, so clean-up after yourself, or you'll OOME-out. Sigh.
 		 *
-		 * @param x is my horizontal coordinate (0=left, 8=right),
-		 *  ie my 0-based col index in the Grid.matrix
-		 * @param y is my vertical coordinate (0=top, 8=bottom),
-		 *  ie my 0-based row index in the Grid.matrix
+		 * @param i the indice of this cell the grid.cells array;<br>
+		 *  so my y coordinate (row) is i/9,<br>
+		 *  and my x coordinate (col) is i%9,<br>
+		 *  so I am grid.cells[y * 9 + x],<br>
+		 *  or just plain grid.cells[c.i]
 		 * @param maybes the potential values of this cell. The default is
-		 *  Values.all(), ie "123456789". If you pass null it will throw a
+		 *  Values.all(), ie "123456789". If you pass null you'll hit a
 		 *  NullPointerException eventually, so pass me Values.all() or
-		 *  Values.none(), never null. Pretty obviously a distinct instance of
-		 *  Values is required for each cell; they must operate independently
-		 *  of each other.
+		 *  Values.none(), never null. Pretty obviously, each cell needs it's
+		 *  own instance of Values, so that maybes can be mutated independently
+		 *  of each other, but the reference (ie my maybes instance) is final.
 		 */
-		public Cell(int x, int y, Values maybes) {
-			this.id = CELL_IDS[this.i = y*9 + x]; // set id first for toString
+		public Cell(int i, Values maybes) {
+			// set my id as the very first step, for the toString method
+			this.id = CELL_IDS[this.i = i];
 			//value is 0 by default, and may be set by my calling constructor
 			assert maybes != null;
-			this.boxId = (y / 3 * 3) + (x / 3);
+			// y is my vertical coordinate (0=top, 8=bottom),
+			// ie my 0-based row index in the matrix
+			this.indexIn[Grid.COL] = this.y = i / 9;
+			// x is my horizontal coordinate (0=left, 8=right),
+			// ie my 0-based col index in the matrix
+			this.indexIn[Grid.ROW] = this.x = i % 9;
+			// b is this cells index in my box.regions array
 			this.indexIn[Grid.BOX] = this.b = (y % 3 * 3) + (x % 3);
-			this.indexIn[Grid.ROW] = this.x = x; // index in, not of, ya putz!
-			this.indexIn[Grid.COL] = this.y = y;
+			// boxId is my boxs index in the Grid.boxs array
+			// NOTE: boxId should be called boxIndex, but boxId is short.
+			this.boxId = (y / 3 * 3) + (x / 3);
 
 			// super-charge LinkedMatrixCellSet.idx() with:
 			//     a[n.cell.idxdex] |= n.cell.shft; // add n.cell.i to idx
@@ -2078,21 +2123,10 @@ public final class Grid {
 			this.maybes = maybes;
 		}
 
-		/**
-		 * Construct a new Cell having this value.
-		 *
-		 * @param i the indice of this cell in Grid.cells
-		 * @param value the value of this cell. 0 for empty. 1..9 for filled.
-		 */
-		public Cell(int i, int value) {
-			this(i/9, i%9, value==0 ? Values.all() : Values.none());
-			this.value = value;
-		}
-
 		/** Copy Constructor: Constructs a new Cell that is a "clone" of src.
 		 * @param src */
 		public Cell(Cell src) {
-			this(src.x, src.y, new Values(src.maybes));
+			this(src.i, new Values(src.maybes));
 			this.value = src.value;
 		}
 

@@ -178,7 +178,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 		// does it anyway, when the value is not mutated in early invocations,
 		// which is enough to drive you mad. Shoot the bastards!
 		final int degree = this.degree;
-		final int hintNum = AHint.hintNumber;
+		final int hintNum = AHint.number;
 		final boolean useHits = this.useHits;
 
 		// Cheat like big fat hairy mother....... Oh wait!

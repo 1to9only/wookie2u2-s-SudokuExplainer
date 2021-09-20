@@ -11,7 +11,6 @@ import diuf.sudoku.Settings;
 import diuf.sudoku.utils.Frmt;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
@@ -79,127 +78,118 @@ class TechSelectDialog extends JDialog {
 	 * Populate the TechSelectDialog form with a CheckBox for each Tech.
 	 */
 	private void fillTechniques() {
-		wantedTechs = Settings.THE.getWantedTechniques();
+		wantedTechs = Settings.THE.getWantedTechs();
 		int count = 0;
 		for ( final Tech tech : Settings.ALL_TECHS ) {
-			if(tech.difficulty == 0.0D) continue; // filter out Solution, etc
+			// filter out Solution, etc
+			if ( tech.difficulty != 0.0D ) {
 
-			boolean enable = true;
-			final JCheckBox chk = new JCheckBox();
-			chk.setText(Frmt.dbl(tech.difficulty)+" "+Frmt.enspace(tech.name()));
-			chk.setToolTipText(tech.tip);
+				boolean enable = true;
+				final JCheckBox chk = new JCheckBox();
+				chk.setText(Frmt.dbl(tech.difficulty)+" "+Frmt.enspace(tech.name()));
+				chk.setToolTipText(tech.tip);
 
-			// "core" techs are always wanted, so the user can't unwant them.
-			switch (tech) {
-			case NakedSingle:
-			case HiddenSingle:
-				chk.setSelected(true);
-				chk.setEnabled(false);
-				enable = false;
-				break;
-			}
-
-			// These techs go on a new-line (left-hand column) to organise the
-			// techs logically on the screen. The logic only sort-of has sense
-			// when you understand the techs. It's insanity to the uninitiated.
-			// It isn't. Wait till you don't want to fix it (much) before you
-			// fix it (much). Then you won't much want to (much) fix it (much),
-			// so you probably (not much) won't (much) fix it (much).
-			// Don't just leap straight for the clitoris. Dems da rulz Macca!
-			if ( count%NUM_COLS != 0 ) { // if I'm not already on a new line
+				// "core" techs are always wanted, so the user can't unwant them.
 				switch (tech) {
-				// ~~ the first tech in each "block".
-				case DirectNakedPair:
-				case DirectNakedTriple:
-				case NakedPair:
-				case NakedTriple:
-				case TwoStringKite:
-				case Skyscraper:
-				case XY_Wing:
-				case Swampfish:
-				case Swordfish:
-				case Jellyfish:
-				case WXYZ_Wing:
-				case FinnedSwampfish:
-				case FrankenSwampfish:
-				case KrakenSwampfish:
-				case KrakenSwordfish:
-				case KrakenJellyfish:
-				case BUG: // want {BUG, Coloring, Extended Coloring} on a line
-				case ALS_XZ:
-				case NakedQuad:
-				case NakedPent:
-				case URT:
-				case UnaryChain:
-				case NestedUnary:
-				case AlignedPair:		// ~~ hacked checkbox to my right
+				case NakedSingle:
+				case HiddenSingle:
+					chk.setSelected(true);
+					chk.setEnabled(false);
+					enable = false;
+					break;
+				}
+
+				// These techs appear on a new-line to organise techs logically
+				// on the screen. The logic is insanity to the uninitiated, but
+				// it isn't. Wait until you don't want to fix it (much) before
+				// you fix it (much); then you won't much want to (much) fix it
+				// (much), so you probably (not too much) won't (much) fix it
+				// (much). It's all a much of a muchness. Just don't go leaping
+				// straight for the clitoris, OK! Dems da rulez Macca!
+				// if we're not already on a new line
+				if ( count%NUM_COLS != 0 ) {
+					switch (tech) {
+					// the first tech in each "block" of techs.
+					case DirectNakedPair:
+					case DirectNakedTriple:
+					case NakedPair:
+					case NakedTriple:
+					case TwoStringKite:
+					case Skyscraper:
+					case XY_Wing:
+					case Swampfish:
+					case Swordfish:
+					case Jellyfish:
+					case BigWings:
+					case FinnedSwampfish:
+					case FrankenSwampfish:
+					case KrakenSwampfish:
+					case KrakenSwordfish:
+					case KrakenJellyfish:
+					case BUG:
+					case ALS_XZ:
+					case NakedQuad:
+					case NakedPent:
+					case URT:
+					case UnaryChain:
+					case NestedUnary:
+					// hacked checkbox appears to my right
+					case AlignedPair:
+					case AlignedPent:
+					case AlignedHex:
+					case AlignedSept:
+					case AlignedOct:
+					case AlignedNona:
+					case AlignedDec:
+						// add empty JLabels until we're on the next line
+						while ( count%NUM_COLS != 0 ) {
+							centerPanel.add(new JLabel());
+							++count;
+						}
+						break;
+					}
+				}
+
+				if ( enable ) {
+					// select and add an action listener to the checkbox
+					chk.setSelected(wantedTechs.contains(tech));
+					chk.addActionListener(new ActionListener() {
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							if ( chk.isSelected() ) {
+								// carp if toolTip is set and warning is true
+								if ( tech.tip!=null && tech.warning ) {
+									JOptionPane.showMessageDialog(
+									  TechSelectDialog.this
+									, tech.nom+" "+tech.tip
+									, "WARNING"
+									, JOptionPane.WARNING_MESSAGE
+									);
+								}
+								wantedTechs.add(tech);
+							} else
+								wantedTechs.remove(tech);
+
+						}
+					});
+				}
+				centerPanel.add(chk);
+				++count;
+
+				// hacked checkbox goes on the right of its associated tech
+				switch (tech) {
 				case AlignedPent:
 				case AlignedHex:
 				case AlignedSept:
 				case AlignedOct:
 				case AlignedNona:
 				case AlignedDec:
-					// add empty JLabels until I'm on the next line
-					while ( count%NUM_COLS != 0 ) {
-						centerPanel.add(new JLabel());
-						++count;
-					}
+					centerPanel.add(newHackBox("isa"+tech.degree+"ehacked"));
+					++count;
 					break;
 				}
-			}
-
-			if ( enable ) {
-				// select and add an action listener to the checkbox
-				chk.setSelected(wantedTechs.contains(tech));
-				chk.addActionListener(new ActionListener() {
-					@Override
-					public void actionPerformed(ActionEvent e) {
-						if ( chk.isSelected() ) {
-							// carp if toolTip is set and warning is true
-							if ( tech.tip!=null && tech.warning ) {
-								JOptionPane.showMessageDialog(
-								  TechSelectDialog.this
-								, tech.nom+" "+tech.tip
-								, "WARNING"
-								, JOptionPane.WARNING_MESSAGE
-								);
-							}
-							wantedTechs.add(tech);
-						} else
-							wantedTechs.remove(tech);
-
-					}
-				});
-			}
-			centerPanel.add(chk);
-			++count;
-
-			// hacked checkbox goes on the right of its associated tech
-			switch (tech) {
-			case AlignedPent:
-			case AlignedHex:
-			case AlignedSept:
-			case AlignedOct:
-			case AlignedNona:
-			case AlignedDec:
-				centerPanel.add(newHackBox("isa"+tech.degree+"ehacked"));
-				++count;
-				break;
-			}
+			} // filter
 		} // next tech
-	}
-
-	// uncheck the JCheckBox of the given Tech and remove it from wantedHinters
-	private void unselect(Tech tech) {
-		wantedTechs.remove(tech);
-		for ( Component c : centerPanel.getComponents() )
-			if ( c instanceof JCheckBox ) {
-				JCheckBox chk = (JCheckBox)c;
-				if ( tech.nom.equals(chk.getText()) ) {
-					chk.setSelected(false);
-					break;
-				}
-			}
 	}
 
 	private JCheckBox newHackBox(final String settingName) {
@@ -305,7 +295,7 @@ class TechSelectDialog extends JDialog {
 		// I should probably remove BUG altogether, for simplicity.
 		if ( wantedTechs.contains(Tech.Coloring) )
 			wantedTechs.remove(Tech.BUG);
-		Settings.THE.justSetWantedTechniques(wantedTechs);
+		Settings.THE.justSetWantedTechs(wantedTechs);
 		Settings.THE.save();
 		setVisible(false);
 		engine.clearHints();
@@ -321,8 +311,8 @@ class TechSelectDialog extends JDialog {
 				return true;
 		return false;
 	}
-	
-	private static final String NO_SAFETY_NET_QUESTION = 
+
+	private static final String NO_SAFETY_NET_QUESTION =
 "Select \"Dynamic Plus\" as a safety-net for \"normal\" Sudoku puzzles;"+System.lineSeparator()
 +"and/or \"Nested Unary\" as a safety-net for ALL Sudoku puzzles,"+System.lineSeparator()
 +"or alternately Nested Multiple/Dynamic/Plus. If you don't select"+System.lineSeparator()

@@ -32,7 +32,7 @@ public class SueDeCoqHint extends AHint implements IActualHint {
 
 	@Override
 	public Pots getPurples() {
-		return purples; // endo-fins
+		return purples; // endo-fins, <b6>
 	}
 
 	@Override
@@ -43,10 +43,10 @@ public class SueDeCoqHint extends AHint implements IActualHint {
 	@Override
 	protected String toHtmlImpl() {
 		return Html.produce(this, "SueDeCoqHint.html"
-				, redPots.toString()
-				, greens.toString()
-				, blues.toString()
-				, purples.toString()
+				, greens.toString()		// intersection <g>
+				, blues.toString()		// inter & line <b1>
+				, purples.toString()	// inter & box  <b6>
+				, redPots.toString()	// eliminations <r>
 		);
 	}
 	

@@ -552,6 +552,13 @@ public final class Settings implements Cloneable {
 	// 6.30.132 2021-05-25 09:24:12 Release coz we're shopping today. I've been
 	//			updating comments, hint explanations, and documentation. Still
 	//			no comprende why BigWing swaps x and z. It's nonsensical.
+	// 6.30.133 2021-05-30 14:26:13 Build to clean-up logs and create backup.
+	//			I've just been pissin-about making SDP/ALS hinters faster.
+	// 6.30.134 2021-06-01 17:56:14 Made all ALS hinters cache ALSs and RCCs,
+	//			saving 20 seconds on top1465.
+	// 6.30.135 2021-06-04 16:04:15 Speed-up AAlsHinter by introducing new
+	//			AlsFinder and RccFinder classes.
+	// 6.30.136 2021-06-05 11:19:16 Split RccFinder on forwardOnly.
 	//
 	// To Build:
 	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
@@ -587,8 +594,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.132";
-	public static final String BUILT = "2021-05-25 09:24:12";
+	public static final String VERSION = "6.30.136";
+	public static final String BUILT = "2021-06-05 11:19:16";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 
@@ -750,18 +757,18 @@ public final class Settings implements Cloneable {
 		return pre;
 	}
 
-	public int getNumWantedTechniques() {
+	public int getNumWantedTechs() {
 		return wantedTechs.size();
 	}
-	public EnumSet<Tech> getWantedTechniques() {
+	public EnumSet<Tech> getWantedTechs() {
 		return EnumSet.copyOf(wantedTechs);
 	}
-	public EnumSet<Tech> setWantedTechniques(EnumSet<Tech> techs) {
+	public EnumSet<Tech> setWantedTechs(EnumSet<Tech> techs) {
 		EnumSet<Tech> pre = EnumSet.copyOf(wantedTechs);
 		wantedTechs = techs;
 		return pre;
 	}
-	public void justSetWantedTechniques(EnumSet<Tech> techs) {
+	public void justSetWantedTechs(EnumSet<Tech> techs) {
 		wantedTechs = techs;
 	}
 

@@ -170,10 +170,10 @@ public final class Values implements Iterable<Integer> {
 
 	/** The minimum value storable in this 1-based Values Set is 1. */
 	private static final int MIN = 1;
-	/** The maximum value storable in this Values Set plus 1 making 10. */
+	/** The maximum value storable in this Values Set plus 1 is 10. */
 	private static final int MAX = 10;
 
-	/** The number of all values == 9 */
+	/** The number of all values: 9 */
 	public static final int ALL_SIZE = MAX-1;
 
 	// Note that ALL_BITS also works for Indexes. It's just 9 (1) bits,
@@ -438,6 +438,15 @@ public final class Values implements Iterable<Integer> {
 			}
 		}
 		return this;
+	}
+
+	/** Add these 'bits' to this Values Set.
+	 * @param bits a Values.bits of the values to be added
+	 * @return was any value actually added.
+	 */
+	boolean addBits(int bits) {
+		int pre = size;
+		return (size=VSIZE[this.bits |= bits]) > pre;
 	}
 
 	/** Set this Values Set to the digits in the given String.

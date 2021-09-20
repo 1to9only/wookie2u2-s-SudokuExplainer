@@ -89,20 +89,22 @@ public final class MyStrings {
 	private static StringBuilder sb = null;
 
 	/**
-	 * Replace all occurrences of the String 'target' with 'replacement' in 's'.
+	 * Replace all occurrences of 'target' with 'replacement' in 's'.
+	 * <p>
 	 * I'm just a less-fat bastard, so re-implement me if you're really keen.
 	 * This method exists because String.replaceAll uses patterns and I need
-	 * plain-text. String.replaceAll creates a garbage Pattern and Matcher for
+	 * plain-text. String.replaceAll creates a garbage Pattern and Matcher upon
 	 * each invocation, whereas I don't create anything, even re-using a single
 	 * StringBuilder field, which costs less overall. String.substring is still
-	 * expensive because he creates a garbage String. If you're an efficiency nut
-	 * (like me) you'd s.toCharArray() and do it manually with System.arrayCopy;
-	 * but I'm a sane nutter so I judge that it's just not worth the hassle. The
-	 * GC is fast-enough at cleaning-up first-gen Strings, which is no accident.
-	 * Ignore me, I just bloody hate Java protecting me from myself by hiding
-	 * the char array which underlies a String; and the alternative is to roll
-	 * my own whole JAPI and be all non-standard... not bloody likely! This is
-	 * quite non-standard enough. If it's too slow then I'll go the whole-hog.
+	 * expensive coz he creates a garbage String. A real efficiency nutter
+	 * would s.toCharArray() and do it manually with System.arrayCopy; but I'm
+	 * a sane nutter, so I judge that it's just not worth the hassle. The GC is
+	 * fast-enough at cleaning-up first-gen Strings, which is no accident.
+	 * So ignore me, I just hate Java protecting me from myself by hiding the
+	 * char array which underlies a String; and the alternative is roll-my-own
+	 * JAPI (not likely) and be all non-standard. This is non-standard enough.
+	 * If it's still too slow then go the whole-hog.
+	 *
 	 * @param s the "master" string to modify
 	 * @param target the substring of s to be replaced
 	 * @param replacement the string to replace target with
@@ -129,7 +131,7 @@ public final class MyStrings {
 				++count; // Used for debugging. It's this or a null statement.
 // there are valid cases where 4-args are passed to HTML which doesn't contain
 // a {4}, because we pass the same args-list to several different HTML's.
-// FYI: I thought about a Log.FYI mode, but quickly gave it up as a bad lot.
+// FYI: I thought about a Log.FYI mode, but quickly gave-it-up as a bad lot.
 //		// log a warning when count==0
 //		if ( count == 0 )
 //			Log.println("FYI: MyStrings.replace: target not found: "+target);
@@ -195,7 +197,7 @@ public final class MyStrings {
 	 * @param s
 	 * @param target
 	 * @param replacement
-	 * @return 
+	 * @return
 	 */
 	public static String replaceSecond(String s, String target, String replacement) {
 		int i;

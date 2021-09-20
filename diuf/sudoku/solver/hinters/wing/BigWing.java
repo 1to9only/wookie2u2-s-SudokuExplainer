@@ -15,7 +15,6 @@ import static diuf.sudoku.Grid.BITIDX_BUDDIES;
 import static diuf.sudoku.Grid.BITIDX_FOLLOWING;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.utils.Debug;
 
 
 /**
@@ -238,13 +237,8 @@ public class BigWing extends AHinter {
 		victims.grid = grid;
 		for ( int i=1; i<degree; ++i )
 			sets[i].grid = grid;
-		// WEIRD: gemSolve doesn't increment AHint.hintNumber so cache under
-		// getBitIdxBivalue gets dirty, so use the uncached version instead.
-		// NOW: gemSolve dropped BigWing, so we cache.
 		bivalueCells = grid.getBitIdxBivalue(); // cached
-//		bivalueCells = grid.getBitIdx(BIVALUE_FILTER); // not cached
 		candidates = grid.getBitIdxs(); // cached
-//		candidates = grid.getBitIdxsImpl(); // not cached
 		onlyOne = accu.isSingle();
 		// presume that no hint will be found
 		boolean result = false;
@@ -254,8 +248,7 @@ public class BigWing extends AHinter {
 			sets[0] = grid.getBitIdxEmpties().where((c) -> {
 				return c.maybes.size < degreePlus2;
 			}); // empties cache goes dirty in gemSolve
-//			sets[0] = grid.getBitIdx(candidateFilter); // not cached
-			// recurse to build-up $degree ALS cells; hints to accu, return any
+			// foreach ALS: find BigWing
 			result = recurse(0);
 		} finally {
 			// forget all grid and cell references (for GC)
@@ -286,11 +279,11 @@ public class BigWing extends AHinter {
 	 * All my helper methods are statics, so everything is passed into them,
 	 * and there are no leakages.
 	 *
-	 * @param i
-	 * @return
+	 * @param i I am always invoked with 0
+	 * @return any hint/s found?
 	 */
 	private boolean recurse(int i) {
-		assert i>=0 && i<degree; // i is an index
+		assert i>=0 && i<degree; // i is my index in sets and als arrays
 		boolean result = false;
 		for ( Cell c : sets[i] ) {
 			als[i] = c;
@@ -322,51 +315,51 @@ public class BigWing extends AHinter {
 				// the ALS now always contains degree cells
 				// Minus1 because i is 0-based and degree is 1-based
 				assert i == degreeMinus1;
-				// degree+1 maybes in degree cells is an Almost Locked Set
+				// degree cells with degree+1 maybes is an Almost Locked Set
 				if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] == degreePlus1 ) {
-					// get buddies of any ALS cell, except the ALS cells
+					// yzs := buds of the ALS cells, except the ALS cells
 					yzs.set(BITIDX_BUDDIES[als[0].i]);
 					for ( int j=1; j<degree; ++j )
 						yzs.addAll(BITIDX_BUDDIES[als[j].i]);
 					yzs.removeAll(als);
-					// foreach possible yz that is bivalue
+					// yzs := yzs having maybes.size==2
 					if ( yzs.retainAllAny(bivalueCells) ) {
+						// foreach bivalue yz cell
 						for ( Cell yz : yzs ) {
 							// if both yz.maybes are shared with the ALS
 							if ( VSIZE[cands[i] & yz.maybes.bits] == 2
-							  // and get x and z values from the yz cell.
+							  // set x and z values to yz.maybes.
 							  // My XZ is mutable so that we can swap values,
 							  // to make x the primary link (always exists),
-							  // and z the secondary link (an optional extra)
+							  // and z the secondary link (optional extra)
 							  && xz.set(yz)
-							  // and x and/or z forms a wing
+							  // and x and/or z forms a wing pattern
 							  && ( (xWing=isWing(VSHFT[xz.x], yz, als))
 							     | (zWing=isWing(VSHFT[xz.z], yz, als)) )
 							) {
-								// found a wing, but does it eliminate anything?
+								// found a wing pattern, so any eliminations?
 								// if only z forms a wing
-								if ( !xWing )
-									xz.swap(); // make z the only link (ie x)
+								if ( !xWing ) // ie zWing only
+									xz.swap(); // make x the primary link
 								// double linked
 								xz.both = xWing & zWing;
 								// find any eliminations
 								if ( eliminate(candidates, victims, cands[i]
 										, yz, xz, als, theReds) ) {
-//if ( xz.both )
-//	Debug.breakpoint();
 									// FOUND a BigWing on x and possibly z
+									// build highlighted (orange) pots
 									final Pots oranges = new Pots();
 									oranges.put(yz, new Values(xz.x));
 									for ( Cell cc : als )
-									  if ( cc.maybe(xz.x) )
-										oranges.put(cc, new Values(xz.x));
-									// we found one
-									result = true;
-									// create the hint and add it to accu
+										if ( cc.maybe(xz.x) )
+											oranges.put(cc, new Values(xz.x));
+									// create the hint
 									final AHint hint = new BigWingHint(this
 											, theReds.copyAndClear(), yz
 											, xz.x, xz.z, xz.both, cands[i]
 											, als, oranges);
+									// add it to accu
+									result = true;
 									if ( accu.add(hint) )
 										return result; // exit-early
 								}
@@ -421,7 +414,6 @@ public class BigWing extends AHinter {
 		public String toString() {
 			return "x="+x+", z="+z+", both="+both;
 		}
-		
 	}
 
 }

@@ -282,8 +282,12 @@ public final class HiddenSet extends AHinter {
 		// do the eliminations cause a hidden single?
 		int bits;
 		// foreach value EXCEPT the hidden set values
-		// nb: Logically it should be foreach value that has been removed, but
-		// there's no fast way to calculate that, AFAIK, so this is faster.
+		// NOTE: Logically it should be foreach value that has been removed,
+		// but there's no fast way to calculate that, AFAIK, so this'll do;
+		// so I'm leaving the "has been removed" part to the if-statement,
+		// which will erroneously find ALL HiddenSingles in this region, but
+		// HiddenSingle runs BEFORE HiddenSet, so it's all good, except in
+		// Shft-F5 with filterHints off, where this produces false positives.
 		for ( int v : VALUESES[ALL & ~values] )
 			if ( VSIZE[bits=r.indexesOf[v].bits & ~indexes] == 1 )
 				// this aligned set causes a Hidden Single

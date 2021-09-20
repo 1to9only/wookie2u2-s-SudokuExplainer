@@ -2074,4 +2074,60 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //check c=1 34 38
 //*/
 
+//	// Q: the bits var is intended to speed things up, but does it?
+//	// A: looks like bits var is actually SLOWER!
+// 	public static void main(String[] args) {
+// 		try {
+//			long start, sum;
+//			int i,n, t;
+//			final Random random = new Random();
+//			final int HOW_MANY = 1000000; // how many times to call toArrayA
+//			final int NUM_TIMES = 100; // how many times to repeat tests
+//			final PrintStream out = System.out;
+//
+//			// create an Idx of 10..20 "random" indices
+//			final Idx idx = new Idx();
+//			for ( i=0,n=10+random.nextInt(11); i<n; ++i )
+//				idx.add(random.nextInt(64));
+//
+//			start = System.nanoTime();
+//			for ( t=0; t<NUM_TIMES; ++t ) {
+//				// test the original version
+//				sum = 0L;
+//				for ( i=0; i<HOW_MANY; ++i )
+//					for ( int indice : Idx.toArrayA(idx.a0, idx.a1, idx.a2) )
+//						sum += indice;
+//				System.out.format("original sum=%,d\n", sum);
+//			}
+//			out.format("original average took=%,d\n\n", (System.nanoTime()-start)/NUM_TIMES);
+//
+//			start = System.nanoTime();
+//			for ( t=0; t<NUM_TIMES; ++t ) {
+//				// test the modified version
+//				sum = 0L;
+//				for ( i=0; i<HOW_MANY; ++i )
+//// Idx.toArrayA_MODIFIED is now the current Idx.toArrayA, ie change accepted
+//					for ( int indice : Idx.toArrayA_MODIFIED(idx.a0, idx.a1, idx.a2) )
+//						sum += indice;
+//				System.out.format("modified sum=%,d\n", sum);
+//			}
+//			out.format("modified average took=%,d\n\n", (System.nanoTime()-start)/NUM_TIMES);
+//
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+//
+//static final int RABBITS = 0;
+///*
+//RUN 1
+//modified average took=29,278,165
+//original average took=30,006,282
+//
+//RUN 2
+//original average took=33,661,588
+//modified average took=31,683,276
+//*/
+
+
 }

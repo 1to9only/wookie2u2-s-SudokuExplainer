@@ -127,12 +127,12 @@ public class Als {
 	 * <b>WARN:</b> You must call {@link #computeFields} before use!
 	 *
 	 * @param indices
-	 * @param candidates
+	 * @param maybes
 	 * @param region
 	 */
-	public Als(Idx indices, int candidates, ARegion region) {
+	public Als(Idx indices, int maybes, ARegion region) {
 		this.idx = new Idx(indices);
-		this.maybes = candidates;
+		this.maybes = maybes;
 		this.region = region;
 		this.initialised = true;
 	}
@@ -149,7 +149,7 @@ public class Als {
 		for ( int v : VALUESES[maybes] ) {
 			vs[v] = Idx.newAnd(idx, candidates[v]);
 			vBuds[v] = vs[v].commonBuddies(new Idx()).andNot(idx).and(candidates[v]);
-			vAll[v] = Idx.newOr(vBuds[v], vs[v]);
+			vAll[v] = Idx.newOr(vs[v], vBuds[v]);
 			buddies.or(vBuds[v]);
 		}
 	}
@@ -161,9 +161,9 @@ public class Als {
 	 */
 	@Override
 	public boolean equals(Object o) {
-		if ( o==null || !(o instanceof Als) )
-			return false;
-		return idx.equals(((Als)o).idx);
+		return o!=null
+			&& (o instanceof Als)
+			&& idx.equals(((Als)o).idx);
 	}
 
 	/**

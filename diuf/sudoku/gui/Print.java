@@ -53,7 +53,7 @@ public class Print {
 		final long now = System.nanoTime();
 		if ( source==null || source.isEmpty() )
 			source = "IGNOTO";
-		out.format("\n%d/%s\n", AHint.hintNumber, source);
+		out.format("\n%d/%s\n", AHint.number, source);
 		if ( before != null )
 			out.format("%s\n", before);
 		out.format("%,15d\t%s\n", now-GrabBag.time, hint.toFullString());

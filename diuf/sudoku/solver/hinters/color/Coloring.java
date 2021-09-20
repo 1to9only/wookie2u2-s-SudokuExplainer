@@ -50,11 +50,11 @@ import diuf.sudoku.solver.hinters.color.ColoringHint.Subtype;
 import java.util.Arrays;
 
 /**
- * The Coloring class implements both the Simple and Multi Coloring Sudoku
+ * The Coloring class implements both Simple-Coloring and Multi-Coloring Sudoku
  * solving techniques.
  * <p>
- * Simple Coloring involves chains of bi-position candidates. Regions with just
- * two positions for candidate v are chained together into a forcing loop; so
+ * Simple-Coloring involves just two sets of of bi-position candidates: regions
+ * with just two positions for v are chained together into a forcing loop; so
  * that either set1 (color-1) contains v or set2 (color-2) contains v, leading
  * to the two simple coloring rules:<ul>
  * <li>color trap (common): cells which can see both colors may not be v; and
@@ -62,8 +62,8 @@ import java.util.Arrays;
  *  all v's of that color can be removed.
  * </ul>
  * <p>
- * Multi Coloring is much more complex and I don't pretend to understand it.
- * It involves multiple (more-than-two) sets of cells (colors).
+ * Multi-Coloring involves multiple (more-than-two) coloring-sets that are
+ * organised into parities to produce reduced eliminations.
  * <p>
  * KRC 2021-05-22 I just looked at splitting Tech.Coloring into ColoringSimple
  * and ColoringMulti, because XColoring finds more elims for a simple coloring.
@@ -206,7 +206,7 @@ public final class Coloring extends AHinter {
 				} else {
 					// color trap (more common): any candidate that sees two
 					// cells of opposite colors can be removed.
-					if ( checkCandidateToDelete(c1, c2, v, redPots) ) {
+					if ( eliminate(c1, c2, v, redPots) ) {
 						// nb: creating the hint clears the existing redPots!
 						hint = new ColoringHint(this, Subtype.SimpleColorTrap
 								, potsArray(v, c1, c2), v, redPots);
@@ -244,14 +244,13 @@ public final class Coloring extends AHinter {
 	}
 
 	/**
-	 * checkCandidateToDelete: if any idx[v] sees a cell in set1 and
-	 * a cell in set2, then they can be eliminated.
+	 * eliminate checks a candidate to be deleted: if any idx[v] sees
+	 * a cell in set1, and a cell in set2, then it can be eliminated.
 	 * <p>
 	 * 20090414: Duplicate eliminations causes wrong sorting; so first
 	 * collect all eliminations in a set.
 	 * <p>
-	 * Note that checkCandidateToDelete is used in both simple and
-	 * multi-color searches.
+	 * Note that eliminate is used in both simple and multi-color searches.
 	 *
 	 * @param a The first set to check
 	 * @param b The second set to check
@@ -259,7 +258,7 @@ public final class Coloring extends AHinter {
 	 * @param redPots a non-null Pots to which I add eliminations, if any.
 	 * @return true if any eliminated were found, else false
 	 */
-	private boolean checkCandidateToDelete(Idx a, Idx b, int v, Pots redPots) {
+	private boolean eliminate(Idx a, Idx b, int v, Pots redPots) {
 		final Idx cmnBuds = this.cmnBuds.clear();
 		final Idx[] buds = Grid.BUDDIES;
 		final Idx vs = idxs[v];
@@ -293,28 +292,27 @@ public final class Coloring extends AHinter {
 	 * returns the previously calculated number of color pairs, it does not
 	 * repeat the calculations, for efficiency.
 	 *
-	 * @param cand the given candidate value 1..9
+	 * @param v the candidate value in 1..9
 	 * @return the number of color pairs for the given cand
 	 */
-	private int doColoring(final int cand) {
+	private int doColoring(final int v) {
 		// check the cache
-		if ( hintNumbers[cand] == AHint.hintNumber )
+		if ( hintNumbers[v] == AHint.number )
 			// sudoku has not changed since last calculation
-			return numColorPairs[cand];
+			return numColorPairs[v];
 		// reset everything
-		numColorPairs[cand] = 0;
-		hintNumbers[cand] = AHint.hintNumber;
+		numColorPairs[v] = 0;
 		// candidateSet is an Idx of grid.cells which maybe cand
 		// nb: candidateSet is used again down in conjugate.
-		candidateSet = idxs[cand];
+		candidateSet = idxs[v];
 		// first: add all cells that may be part of a conjugate pair
 		startSet.clear(); // we start from an empty set, then
 		// add indice of each cell in a region with 2 places for cand
 		candidateSet.forEach((i) -> {
 			for ( ARegion r : grid.cells[i].regions )
-				if ( r.indexesOf[cand].size == 2 ) {
+				if ( r.indexesOf[v].size == 2 ) {
 					startSet.add(i);
-					break;
+					break; // first region only
 				}
 		});
 		// now do the coloring.
@@ -323,15 +321,15 @@ public final class Coloring extends AHinter {
 			// get the first (ie the next) indice
 			indice = startSet.peek();
 			// pre-set the colors-fields for the new color
-			candidate = cand;
-			colorSets = colors[cand][numColorPairs[cand]];
+			candidate = v;
+			colorSets = colors[v][numColorPairs[v]];
 			colorSets[C1].clear();
 			colorSets[C2].clear();
 			// recursively search indice/candidate for coloring pairs,
 			// adding each candidate to it's appropriate colorSet.
-			// NOTE that recurse removes each indice from startSet,
-			// NOTE that recurse removes each indice from startSet,
-			// NOTE that recurse removes each indice from startSet,
+			// NOTE that recurse removes each indice from startSet.
+			// NOTE that recurse removes each indice from startSet.
+			// NOTE that recurse removes each indice from startSet.
 			// (if you say s__t three times c__ts actually listen)
 			// so this loop does stop, despite having no VISIBLE stopper.
 			recurse(indice, true); // start with C1, then C2, C1, C2...
@@ -341,9 +339,10 @@ public final class Coloring extends AHinter {
 				colorSets[C1].clear();
 				colorSets[C2].clear();
 			} else
-				++numColorPairs[cand];
+				++numColorPairs[v];
 		}
-		return numColorPairs[cand];
+		hintNumbers[v] = AHint.number;
+		return numColorPairs[v];
 	}
 	private Idx candidateSet;
 
@@ -381,7 +380,7 @@ public final class Coloring extends AHinter {
 			colorSets[C2].add(indice);
 		// remove this index from the start set
 		startSet.remove(indice);
-		// recursion (a depth first search (DFS))
+		// recursion: a depth first search (DFS)
 		recurse(conjugate(indice, grid.cells[indice].row), !on);
 		recurse(conjugate(indice, grid.cells[indice].col), !on);
 		recurse(conjugate(indice, grid.cells[indice].box), !on);
@@ -424,7 +423,7 @@ public final class Coloring extends AHinter {
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ MULTI COLORS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	/**
-	 * Finds all Multi-Color 1/2 hints in the grid and adds them to accu.
+	 * Finds all Multi-Coloring hints in the grid and adds them to accu.
 	 *
 	 * @return true if hint/s were found, else false
 	 */
@@ -439,12 +438,10 @@ public final class Coloring extends AHinter {
 		// presume the no hints will be found
 		boolean result = false;
 		// foreach value: foreach color
+		// NOTE: a->b != b->a, so check ALL combos, not just forward-only.
 		for ( v=1; v<10; ++v ) {
 			numColors = doColoring(v);
 			vSets = colors[v];
-			// first see if cells of one color can see opposite cells of
-			// another color pair. if so, eliminate all cells with that color.
-			// NOTE: a->b != b->a, so ALL combinations must be checked.
 			A_LOOP: for ( i=0; i<numColors; ++i )
 				if ( (a1=vSets[i][C1]).any()
 				  && (a2=vSets[i][C2]).any() )
@@ -454,6 +451,8 @@ public final class Coloring extends AHinter {
 						  && (b2=vSets[j][C2]).any()
 						) {
 							any = false; // nb: redPots is cleared by hint-creation
+							// first see if cells of one-color see cells of the
+							// other color, eliminating all v's of that color.
 							if ( isMultiColor1(a1, b1, b2) )
 								any = reds.addAll(a1.cells(grid), new Values(v));
 							if ( isMultiColor1(a2, b1, b2) )
@@ -465,17 +464,17 @@ public final class Coloring extends AHinter {
 								if ( accu.add(hint) )
 									return result;
 							} else {
-								// now see if a two cells of different color pairs see
-								// each other. If so, then all candidates that can see
-								// cells of the two other colors can be eliminated.
+								// now see if two cells of different color-sets
+								// see each other. If so, then all v's seeing
+								// cells of opposite colors are eliminated
 								if ( isMultiColor2(a1, b1) )
-									any = checkCandidateToDelete(a2, b2, v, reds);
+									any = eliminate(a2, b2, v, reds);
 								if ( isMultiColor2(a1, b2) )
-									any |= checkCandidateToDelete(a2, b1, v, reds);
+									any |= eliminate(a2, b1, v, reds);
 								if ( isMultiColor2(a2, b1) )
-									any |= checkCandidateToDelete(a1, b2, v, reds);
+									any |= eliminate(a1, b2, v, reds);
 								if ( isMultiColor2(a2, b2) )
-									any |= checkCandidateToDelete(a1, b1, v, reds);
+									any |= eliminate(a1, b1, v, reds);
 								if ( any ) {
 									hint = new ColoringHint(this, Subtype.MultiColor2
 										   , potsArray(v, a1, a2, b1, b2), v, reds);
@@ -490,8 +489,8 @@ public final class Coloring extends AHinter {
 	}
 
 	/**
-	 * Checks if cells in set see cells in both a and b. If so, then all
-	 * candidates in set can be eliminated.
+	 * Can cells in set see cells in both a and b?
+	 * If so, then the whole set can be eliminated.
 	 *
 	 * @param set Set to be checked
 	 * @param a First color of other color pair
@@ -499,17 +498,17 @@ public final class Coloring extends AHinter {
 	 * @return
 	 */
 	private boolean isMultiColor1(Idx set, Idx a, Idx b) {
-		// NOTE: none of the sets can be empty or you can't get here
+		// NOTE: none of the sets are empty here
 		assert !set.none() && !a.none() && !b.none();
+		Idx x; // buds doesn't fit on a line
 		// see if sets-buds intersect both a and b
-		final int a0=a.a0, a1=a.a1, a2=a.a2;
-		final int b0=b.a0, b1=b.a1, b2=b.a2;
-		Idx bs; // buds doesn't fit on a line
+		final int a0=a.a0, a1=a.a1, a2=a.a2
+				, b0=b.a0, b1=b.a1, b2=b.a2;
 		boolean seeA=false, seeB=false;
 		for ( int i : set.toArrayA() ) {
-			bs = Grid.BUDDIES[i];
-			seeA |= (bs.a0 & a0)!=0 || (bs.a1 & a1)!=0 || (bs.a2 & a2)!=0;
-			seeB |= (bs.a0 & b0)!=0 || (bs.a1 & b1)!=0 || (bs.a2 & b2)!=0;
+			x = Grid.BUDDIES[i];
+			seeA |= (x.a0 & a0)!=0 || (x.a1 & a1)!=0 || (x.a2 & a2)!=0;
+			seeB |= (x.a0 & b0)!=0 || (x.a1 & b1)!=0 || (x.a2 & b2)!=0;
 			if ( seeA && seeB )
 				return true;
 		}
@@ -517,7 +516,8 @@ public final class Coloring extends AHinter {
 	}
 
 	/**
-	 * Checks if a cell in Set 'a' can see any cell in Set 'b'.
+	 * Can a cell in Set 'a' see any cell in Set 'b'?
+	 * If so, then 'a' can be eliminated.
 	 *
 	 * @param a First set
 	 * @param b Second set

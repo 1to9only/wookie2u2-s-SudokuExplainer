@@ -52,7 +52,7 @@ import java.util.Set;
  * and the author (Keith Corlett) feels he must humbly apologise for producing
  * rather a lot of code which is pretty hard to maintain because it does NOT,
  * by choice, follow the edicts of any modern Java coding ethos. It's written
- * to run fast, not to be maintainable. Oops, I've just done a mental hammie.
+ * to run fast, not to be maintainable. Oops, I've done a hammie.
  * <p>
  * If you're impatient then in the GUI (Options ~ Solving Techniques):<ul>
  * <li>keep means ticked, and drop means unticked. If it's not listed then you
@@ -78,9 +78,10 @@ import java.util.Set;
  * <li>keep ALS-XZ, Als-Wing, and Als-Chain they're all fast enough now
  * <li>keep DeathBlossom barely faster than slow
  * <li>drop SueDeCoq is a tad slow (border-line)
- * <li>drop Franken* for speed. FrankenSwampfish finds none when FinnedSwampfish
- *  is wanted, and Finned is faster; FrankenSwordfish is a bit slow; and
- *  FrankenJellyfish is slow
+ * <li>drop Franken* for speed: Finned* is faster than Franken*, and<br>
+ *  FrankenSwampfish is degenerate to FinnedSwampfish.<br>
+ *  FrankenSwordfish is a bit slow.<br>
+ *  FrankenJellyfish is slow.
  * <li>drop Krakens* (slow) especially KrakenJellyFish (too slow)
  * <li>drop Mutants* (slow) especially MutantJellyFish (far too slow)
  * <li>drop Aligned*Exclusion (slow); A7+E are far too slow and need shooting!
@@ -259,15 +260,19 @@ public final class LogicalSolver {
 	 * heavies, and chainers (but NOT the nesters). */
 	public List<IHinter> wantedHinters;
 
-	/** If a Tech is wanted by the user (in the Options ~ Solving Techniques
-	 * Dialog) then it'll be used to solve puzzles, else it won't.
-	 * <p>see: {@code HKEY_CURRENT_USER\Software\JavaSoft\Prefs\diuf\sudoku} */
-	private EnumSet<Tech> wantedTechs = Settings.THE.getWantedTechniques();
+	/**
+	 * If the user wants each Tech then its used to solve puzzles, else it's
+	 * not used; but it's hinter may be created anyway then lost. sigh.
+	 * <p>
+	 * see: {@code HKEY_CURRENT_USER\Software\JavaSoft\Prefs\diuf\sudoku}
+	 */
+	private EnumSet<Tech> wantedTechs = Settings.THE.getWantedTechs();
 
-	/** If a Tech is wanted by the user (in the Options ~ Solving Techniques
-	 * Dialog) then it'll be used to solve puzzles, else it won't.
-	 * <p>see: {@code HKEY_CURRENT_USER\Software\JavaSoft\Prefs\diuf\sudoku} */
-	private EnumSet<Tech> unwanted = EnumSet.noneOf(Tech.class);
+	/**
+	 * Each unwanted Tech is added to this set, which is printed in the
+	 * LogicalSolverTester log-file, as a record of what's NOT wanted.
+	 */
+	private final EnumSet<Tech> unwanted = EnumSet.noneOf(Tech.class);
 
 	/**
 	 * LogicalSolver solve/apply detect DEAD_CAT, a hint which does not set a
@@ -378,8 +383,8 @@ public final class LogicalSolver {
 	/** return has the monitor (parent Generator) been interrupted by user.
 	 * isInterrupted would be a better name, but it's too long. */
 	private boolean interrupt() {
-		final IInterruptMonitor m = this.interruptMonitor;
-		return m!=null && m.isInterrupted();
+		return interruptMonitor != null
+			&& interruptMonitor.isInterrupted();
 	}
 
 	/**
@@ -414,7 +419,7 @@ public final class LogicalSolver {
 
 		// refetch the wantedTechs field, in case they've changed; then my want
 		// method reads this field, rather than re-fetching it every time.
-		this.wantedTechs = Settings.THE.getWantedTechniques();
+		this.wantedTechs = Settings.THE.getWantedTechs();
 
 		// empty the unwanted-techs set, for the want method to populate.
 		this.unwanted.clear();
@@ -509,7 +514,7 @@ public final class LogicalSolver {
 		}
 
 		// heavies are slower indirect hinters. The heavy-weigth division.
-		heavies = new ArrayList<>(isAccurate ? 42 : 0); // Ready please Mr Adams
+		heavies = new ArrayList<>(isAccurate ? 42 : 0); //Ready please Mr Adams
 		if ( isAccurate ) {
 			// Choosing: BUG, Coloring, XColoring, Mesuda, and/or GEM.
 			// * DROP BUG: It's old and slow (decrepit). Finds minimal hints.
@@ -521,7 +526,7 @@ public final class LogicalSolver {
 			// * DROP Medusa3D: It's counter-productive when used with GEM.
 			//   Medusa and GEM both paint cell-values, not just cells.
 			// * KEEP GEM: the "ultimate" coloring is a superset of Medusa3D.
-			//   Note that my impl doesn't completely impl the specification!
+			//   This impl doesn't completely impl the specification #GEM.txt!
 			// * They're all fast enough for it to make ____all difference.
 			want(heavies, new BUG());
 			want(heavies, new Coloring());
@@ -536,13 +541,14 @@ public final class LogicalSolver {
 				want(heavies, new BasicFisherman1(Tech.Jellyfish));
 			want(heavies, new NakedSet(Tech.NakedPent));	   // DEGENERATE
 			want(heavies, new HiddenSet(Tech.HiddenPent)); // DEGENERATE
+			want(heavies, new BigWings()); // All below BigWing, BUT SLOWER!
 			want(heavies, new BigWing(Tech.WXYZ_Wing)); // 3 cell ALS + bivalue
 			want(heavies, new BigWing(Tech.VWXYZ_Wing)); // 4 cell ALS + biv
 			want(heavies, new BigWing(Tech.UVWXYZ_Wing)); // 5 cell ALS + biv
 			want(heavies, new BigWing(Tech.TUVWXYZ_Wing)); // 6 cell ALS + biv
 			want(heavies, new BigWing(Tech.STUVWXYZ_Wing)); // 7 cell ALS + biv
 			want(heavies, new UniqueRectangle());
-			// ComplexFisherman now detects Sashimi's in a Finned search.
+			// ComplexFisherman now detects Sashimi's in the Finned search.
 			want(heavies, new ComplexFisherman(Tech.FinnedSwampfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedSwordfish));
 			want(heavies, new ComplexFisherman(Tech.FinnedJellyfish));
@@ -572,7 +578,7 @@ public final class LogicalSolver {
 				want(heavies, new AlignedExclusion(Tech.AlignedTriple, T));
 				want(heavies, new AlignedExclusion(Tech.AlignedQuad, F));
 			}
-			// align2 takes 3*A5E, 4*A6E, 5*A7E; presume so on for 8, 9, 10.
+			// align2 takes 3*A5E, 4*A6E, 5*A7E, and so on presumed 8, 9, 10.
 			// The user chooses if A5+E is correct (slow) or hacked (fast).
 			// Hacked finds about a third of hints in about a tenth of time.
 			if ( USE_OLD_ALIGN ) {
@@ -644,7 +650,7 @@ public final class LogicalSolver {
 	/** Populate the wantedHinters. Method suppresses unchecked warnings. */
 	@SuppressWarnings("unchecked")
 	private void populateWantedHinters() {
-		wantedHinters = new ArrayList<>(Settings.THE.getNumWantedTechniques());
+		wantedHinters = new ArrayList<>(Settings.THE.getNumWantedTechs());
 		//NB: unwanted hinters are already filtered-out of the source lists.
 		wantedHinters.addAll(directs);
 		wantedHinters.addAll(indirects);
@@ -906,7 +912,7 @@ public final class LogicalSolver {
 					, "The Sudoku has been solved", "SudokuSolved.html"));
 			return true;
 		}
-		++AHint.hintNumber;
+		++AHint.number;
 		grid.rebuildAllRegionsS__t();
 		if ( getFirst(validators, grid, accu, false)
 		  || getFirstCat(grid, prev, curr, accu, "Directs", directs)
@@ -986,11 +992,11 @@ public final class LogicalSolver {
 	 */
 	public List<AHint> getAllHints(Grid grid, boolean wantMore, boolean isNoisy) {
 		final boolean isFilteringHints = Settings.THE.getBoolean(Settings.isFilteringHints, false);
-		++AHint.hintNumber;
+		++AHint.number;
 		if (Log.MODE>=Log.VERBOSE_2_MODE) {
 			Log.println();
 			final String more; if(wantMore) more=" MORE"; else more="";
-			Log.teef(">getAllHints%s %d/%s%s", more, AHint.hintNumber, grid.source, NL);
+			Log.teef(">getAllHints%s %d/%s%s", more, AHint.number, grid.source, NL);
 			Log.println(grid);
 		}
 		final LinkedList<AHint> hints = new LinkedList<>();
@@ -1122,7 +1128,7 @@ public final class LogicalSolver {
 	public double analyseDifficulty(Grid grid, double maxDif) {
 		double d, pd=0.0D; // difficulty, puzzleDifficulty
 		IAccumulator accu = new SingleHintsAccumulator();
-		AHint.hintNumber = 1; // reset the hint number
+		AHint.number = 1; // reset the hint number
 		// we're now attempting to deal with deceased felines
 		DEAD_CATS.clear();
 		// re-enable all hinters just in case we hit a DEAD_CAT last time
@@ -1317,7 +1323,7 @@ public final class LogicalSolver {
 		// Get an array of the wanted hinters
 		IHinter[] hinters = wantedHinters.toArray(new IHinter[wantedHinters.size()]);
 		// and they're off and hinting ...
-		int hintNum = AHint.hintNumber = 1; // at the first hint
+		int hintNum = AHint.number = 1; // at the first hint
 		AHint problem, hint;
 		long now;
 		while ( !grid.isFull() ) {
@@ -1336,7 +1342,7 @@ public final class LogicalSolver {
 			// apply may throw UnsolvableException from Cell.set
 			apply(hint, hintNum, now-start, grid, usage, isNoisy, logHints);
 			start = now;
-			AHint.hintNumber = ++hintNum;
+			AHint.number = ++hintNum;
 		} // wend
 		if ( isNoisy )
 			System.out.println("<solve "+Settings.took()+"\n"+grid+"\n");
@@ -1448,7 +1454,7 @@ public final class LogicalSolver {
 		if ( HintValidator.ANY_USES ) { // is anyone using the HintValidator?
 			if ( grid.solutionValues == null ) // expect null
 				solveQuicklyAndQuietly(grid); // sets grid.solutionValues
-			HintValidator.setSolutionValues(grid.solutionValues, grid.puzzleID);
+			HintValidator.setSolutionValues(grid.solutionValues, grid.pid);
 		}
 		for ( IPreparer prepper : getPreppers(wantedHinters) )
 			prepper.prepare(grid, this);

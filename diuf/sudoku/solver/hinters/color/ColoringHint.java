@@ -6,13 +6,11 @@
  */
 package diuf.sudoku.solver.hinters.color;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.HashSet;
 import java.util.Set;
@@ -50,8 +48,6 @@ public class ColoringHint extends AHint implements IActualHint {
 		, SimpleColorTrap("Simple Color Trap")
 		, MultiColor1("Multi Color 1")
 		, MultiColor2("Multi Color 2")
-		, XColorWrap("Extended Color Wrap")
-		, XColorTrap("Extended Color Trap")
 		;
 		public final String name; // the hint-type name for this subtype
 		private Subtype(String name) {
@@ -78,7 +74,7 @@ public class ColoringHint extends AHint implements IActualHint {
 			, int valueToRemove, Pots redPots) {
 		// nb: Coloring uses ONE instance of Pots, so when we create a hint we
 		// clone them, and then clear the ONE instance. Simples!
-		super(hinter, redPots.cloneAndClear(), pots[0], null, pots[1], null, null);
+		super(hinter, redPots.copyAndClear(), pots[0], null, pots[1], null, null);
 		this.subtype = subtype;
 		this.pots = clean(pots, this.redPots); // must pass the field!
 		this.valueToRemove = valueToRemove;

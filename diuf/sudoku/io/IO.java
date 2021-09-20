@@ -336,7 +336,7 @@ public final class IO {
 	 * a file which we cat the stderr when appropriate. To save some RAM.
 	 * <p>cat is a *nix command. The DOS/Windows poxivalent is type.<br>
 	 * NB: Poxivalence is best defined as "of or relating to Bill."
-	 * 
+	 *
 	 * @param file File to read.
 	 * @param out PrintStream to print to.
 	 * @return true means it worked; false upon error (and carp to stderr)

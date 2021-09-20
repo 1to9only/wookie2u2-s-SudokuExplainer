@@ -403,9 +403,9 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 //	protected final Counter sumCnt = new Counter("sumCnt");
 //	protected final Counter prangCnt = new Counter("prangRate");
 
-	public AAlignedSetExclusionBase(Tech tech, IInterruptMonitor monitor) {
+	public AAlignedSetExclusionBase(Tech tech, IInterruptMonitor im) {
 		super(tech);
-		this.interruptMonitor = monitor;
+		this.interruptMonitor = im;
 		assert tech.isAligned;
 		// 2 and 3 were original
 		// 4 was incquisitiveness

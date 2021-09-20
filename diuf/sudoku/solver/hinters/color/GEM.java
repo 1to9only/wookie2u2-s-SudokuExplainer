@@ -203,7 +203,7 @@ public class GEM extends AHinter implements IPreparer
 	 * NOTE that GEM is disabled (for this puzzle only) whenever this exception
 	 * is thrown.
 	 */
-	private class UncleanException extends RuntimeException {
+	private static class UncleanException extends RuntimeException {
 		private static final long serialVersionUID = 64099692026011L;
 		public UncleanException(String msg) {
 			super(msg);
@@ -309,6 +309,17 @@ public class GEM extends AHinter implements IPreparer
 		return CON[c] + s + COFF[c];
 	}
 
+	/**
+	 * Clear the given arrayOfArrays by nullifying each array, so that the GC
+	 * can clean-up any arrays there-in that were created on-the-fly.
+	 *
+	 * @param arrayOfArrays
+	 */
+	private static void clear(int[][] arrayOfArrays) {
+		for ( int i=0,n=arrayOfArrays.length; i<n; ++i )
+			arrayOfArrays[i] = null;
+	}
+
 	// ============================ instance stuff ============================
 
 	// almost everything is a field, to save creating instances once per call,
@@ -322,7 +333,7 @@ public class GEM extends AHinter implements IPreparer
 	// accu.isSingle()
 	private boolean onlyOne;
 	// indices of cells in grid which maybe each value 1..9
-	private Idx[] candidates;
+	private Idx[] vs;
 
 	// do we steps+=why (an explanation) to go in the hint?
 	private final boolean wantWhy;
@@ -469,7 +480,7 @@ public class GEM extends AHinter implements IPreparer
 		this.grid = grid;
 		this.accu = accu;
 		this.onlyOne = accu.isSingle();
-		this.candidates = grid.getIdxs();
+		this.vs = grid.getIdxs();
 		// presume that no hint will be found
 		boolean result = false;
 		try {
@@ -508,7 +519,7 @@ public class GEM extends AHinter implements IPreparer
 		} finally {
 			this.grid = null;
 			this.accu = null;
-			this.candidates = null;
+			this.vs = null;
 			this.cause = null;
 			this.region = null;
 		}
@@ -791,7 +802,7 @@ public class GEM extends AHinter implements IPreparer
 		final int i = cell.i; // dereference the cell indice ONCE
 		final int o = OPPOSITE[c]; // lookup the other color index ONCE
 		final Idx[] otherColor = colors[o]; // lookup the other color ONCE
-		
+
 		// If cell-value is already painted this color then you've broken the
 		// pre-test requirement, which is intended to reduce the time wasted
 		// building why-strings that are never used. Note that asserts effect
@@ -911,10 +922,9 @@ public class GEM extends AHinter implements IPreparer
 	private boolean paintMonoBoxs() {
 		Cell c1; // the source cell
 		Cell c2; // the cell to paint, if any
-		ARegion b1; // the box containing the source cell
-		ARegion b2; // the box containing the cell to paint
+		ARegion sb; // sourceBox: the box that contains the source cell
 		String why = null; // the reason we paint this cell-value this color
-		boolean any = false; // where any painted
+		boolean any = false; // any painted
 		boolean first = true; // is this the first painted or onned
 		// foreach color
 		for ( int c=0; c<2; ++c ) { // GREEN, BLUE
@@ -928,23 +938,23 @@ public class GEM extends AHinter implements IPreparer
 					// ri is the index in grid.regions of the effected box.
 					for ( int ri : INDEXES[EFFECTED_BOXS[BOX_OF[ci]]] ) {
 						// if there's only one v remaining in the effected box,
-						// excluding this colors cells + there buddies.
-						// Call plusBuds() repeatedly because paint modifies
-						// thisColor[v]; now plusBuds() caches, for speed.
-						b2 = grid.regions[ri]; // the effected box
-						if ( tmp1.setAndNot(b2.idxs[v], thisColor[v].plusBuds()).any()
+						// excluding this colors cells and there buddies.
+						// Call plusBuds repeatedly coz paint adds thisColor[v]
+						// underneath us; plusBuds caches for speed.
+						if ( tmp1.setAndNotAny(grid.regions[ri].idxs[v], thisColor[v].plusBuds())
 						  && tmp1.size() == 1
 						) {
 							c2 = grid.cells[tmp1.peek()]; // the cell to paint
 							c1 = grid.cells[ci]; // the source cell
-							b1 = c1.box; // the box containing the source cell
+							sb = c1.box; // the box containing the source cell
 						    // the cell to paint needs a buddy in the box that
 						    // contains the source cell, else forget it (c2 is
-							// a Hidden Single from buddies of colors, with no
-							// help from the cell to paint. NOT what we want).
-							if ( tmp2.setAndAny(b1.idxs[v], c2.buds)
+							// a Hidden Single from buddies of colors, ergo the
+							// cell to paint is nondeterministic, which is NOT
+							// what we want).
+							if ( sb.idxs[v].andAny(c2.buds)
 							  // and the "10 paces" rule (shoot back).
-							  && tmp2.setAndNot(b1.idxs[v], c2.buds).size() == 1
+							  && tmp2.setAndNot(sb.idxs[v], c2.buds).size() == 1
 							) {
 								// a "strong" bidirectional link.
 								if ( wantWhy ) {
@@ -954,11 +964,11 @@ public class GEM extends AHinter implements IPreparer
 									} else
 										why = "";
 									why += CON[c]+c1.id+"-"+v+COFF[c]
-									+" leaves "+c2.id+" only "+v+" in "+b2.id
-									+", which leaves "+c1.id
-									+" only "+v+" in "+c1.box.id
-									+", so "+CON[c]+c2.id+"-"+v+COFF[c]+NL;
+									+" leaves "+c2.id+" only "+v+" in "+Grid.REGION_IDS[ri]
+									+", which leaves "+c1.id+" only "+v+" in "+sb.id
+									+" => "+CON[c]+c2.id+"-"+v+COFF[c]+NL;
 								}
+								// note that paint removes any pre-existing On
 								any |= paint(c2, v, c, false, why);
 							} else if ( !ons[c][v].contains(c2.i) ) {
 								// a "weak" mono-directional link.
@@ -968,10 +978,8 @@ public class GEM extends AHinter implements IPreparer
 										steps.append(NL).append("<u>Mono Boxs</u>").append(NL);
 									}
 									steps.append(CON[c]).append(c1.id).append("-").append(v).append(COFF[c])
-									  .append(" leaves ").append(c2.id)
-									  .append(" only ").append(v)
-									  .append(" in ").append(b2.id)
-									  .append(", so $").append(CON[c]).append(c2.id).append("+").append(v).append(COFF[c])
+									  .append(" leaves ").append(c2.id).append(" only ").append(v).append(" in ").append(Grid.REGION_IDS[ri])
+									  .append(" => $").append(CON[c]).append(c2.id).append("+").append(v).append(COFF[c])
 									  .append(NL);
 								}
 								ons[c][v].add(c2.i);
@@ -1048,15 +1056,18 @@ public class GEM extends AHinter implements IPreparer
 			for ( i=0; i<81; ++i )
 				if ( cells[i].maybes.size == VSIZE[OFF_VALS[i]] + 1 ) {
 					v = FIRST_VALUE[cells[i].maybes.bits & ~OFF_VALS[i]];
-					if ( !colors[c][v].contains(i) && !ons[c][v].contains(i) ) {
+					// pre-check it's not already painted for speed
+					if ( !colors[c][v].contains(i)
+					  // and it's not already an On
+					  && !ons[c][v].contains(i) ) {
 						if ( wantWhy ) {
 							if ( first ) {
 								first = false;
 								steps.append(NL).append("<u>Promotions</u>").append(NL);
 							}
-							steps.append("last value $").append(CON[c])
-							  .append(CELL_IDS[i]).append("+").append(v)
-							  .append(COFF[c]).append(NL);
+							steps.append("last potential value => $")
+							  .append(CON[c]).append(CELL_IDS[i]).append("+")
+							  .append(v).append(COFF[c]).append(NL);
 						}
 						ons[c][v].add(i);
 						onsValues[c] |= VSHFT[v];
@@ -1071,6 +1082,7 @@ public class GEM extends AHinter implements IPreparer
 					if ( tmp1.setAndAny(offs[c][v1], r.idx)
 					  && tmp2.setAndNot(r.idxs[v1], tmp1).size() == 1
 					  && !colors[c][v1].contains(i=tmp2.peek())
+					  // pre-check it's not already painted for speed
 					  && !ons[c][v1].contains(i)
 					) {
 						cell = cells[i];
@@ -1080,7 +1092,7 @@ public class GEM extends AHinter implements IPreparer
 								steps.append(NL).append("<u>Promotions</u>").append(NL);
 							}
 							steps.append("last place in ").append(r.id)
-							  .append(" $").append(CON[c]).append(cell.id)
+							  .append(" => $").append(CON[c]).append(cell.id)
 							  .append("+").append(v1).append(COFF[c])
 							  .append(NL);
 						}
@@ -1094,6 +1106,7 @@ public class GEM extends AHinter implements IPreparer
 			for ( int v1 : VALUESES[onsValues[c]] )
 				for ( int ii : ons[c][v1].toArrayA() )
 					if ( tmp1.setAndAny(BUDDIES[ii], colors[o][v1])
+					  // pre-check it's not already painted for speed
 					  && !colors[c][v1].contains(ii) ) {
 						cell = cells[ii];
 						if ( wantWhy ) {
@@ -1101,7 +1114,7 @@ public class GEM extends AHinter implements IPreparer
 								first = false;
 								steps.append(NL).append("<u>Promotions</u>").append(NL);
 							}
-							why = "sees a "+CCOLORS[o]+" "
+							why = "sees a "+CCOLORS[o]+" => "
 								+CON[c]+cell.id+"-"+v1+COFF[c]+NL;
 						}
 						any |= paint(cell, v1, c, T, why);
@@ -1121,7 +1134,7 @@ public class GEM extends AHinter implements IPreparer
 						// if cell-in-other-color (already done above)
 						// and not other-color-this-value.contains(cell)
 						if ( !colors[o][v1].contains(ii)
-						  // and pre-check that it's not already painted
+						  // pre-check it's not already painted for speed
 						  && !colors[c][v1].contains(ii) ) {
 							cell = cells[ii];
 							if ( wantWhy ) {
@@ -1129,7 +1142,7 @@ public class GEM extends AHinter implements IPreparer
 									first = false;
 									steps.append(NL).append("<u>Promotions</u>").append(NL);
 								}
-								why = "has a "+CCOLORS[o]+" "
+								why = "has a "+CCOLORS[o]+" => "
 									+ CON[c]+cell.id+"-"+v1+COFF[c]+NL;
 							}
 							any |= paint(cell, v1, c, T, why);
@@ -1137,34 +1150,51 @@ public class GEM extends AHinter implements IPreparer
 		}
 
 		// if on.buds leave ONE v in any box that's this color den paint da on.
-		// WTF: Finds less than paintMonoBoxs, but even more when we use both.
+		// WTF: paintMonoBoxs finds Ons that this doesn't! Why? So use both.
 		// WEIRD: Start from the suspect On, and just shoot back.
-		if ( PROMOTIONS_SHOOTS_BACK ) {
-			Idx[] thisColor;
-			Cell source;
-			for ( c=0; c<2; ++c ) {
-				thisColor = colors[c];
+		if ( PROMOTIONS_SHOOTS_BACK )
+			// foreach color: GREEN, BLUE
+			for ( c=0; c<2; ++c )
+				// foreach value which has an On of this color
 				for ( int v1 : VALUESES[onsValues[c]] )
 					// foreach indice of the "suspect" On (to be painted)
 					for ( int ii : ons[c][v1].toArrayA() )
 						// foreach index of the possible source box
 						for ( int ri : INDEXES[EFFECTED_BOXS[BOX_OF[ii]]] )
 							// if ons buddies leave ONE v in the source box
-							if ( tmp1.setAndNot(grid.regions[ri].idxs[v1], BUDDIES[ii]).any()
+							if ( tmp1.setAndNotAny(grid.regions[ri].idxs[v1], BUDDIES[ii])
 							  && tmp1.size() == 1
-							  // and that cell-value is this color
-							  && tmp1.andAny(thisColor[v1])
+							  // and that source box v is this color
+							  && tmp1.andAny(colors[c][v1])
+							  // pre-check it's not already painted for speed
+							  // We need to check in here (not pre-check) incase
+							  // it's painted in this loop, otherwise we hit the
+							  // assert in paint in 63#top1465.d5.mt. sigh.
+							  && !colors[c][v1].contains(ii)
 							) {
-								source = grid.cells[tmp1.poll()];
-								cell = cells[ii]; // the suspect cell
-								if ( wantWhy )
-									why = "shot back "+source.id+" "
+								cell = cells[ii];
+								if ( wantWhy ) //      the source Cell id
+									why = "shoot back at "+Grid.CELL_IDS[tmp1.poll()]+" => "
 										+ CON[c]+cell.id+"-"+v1+COFF[c]+NL;
 								any |= paint(cell, v1, c, T, why);
 								break; // first box only
 							}
+
+		// clean-up any hangover on's that've been painted (should be a no-op)
+		for ( c=0; c<2; ++c )
+			for ( int v1 : VALUESES[onsValues[c]] ) {
+				// If you're seeing this you need to work-out how the ____ did:
+				// (a) an On get created when it's already colored; or
+				// (b) a cell get painted without removing the existing On?
+				// This is no biggy in prod (it's handled) but it's unclean!
+				// To be clear:
+				// (a) if color exists for cell-value DO NOT create an On; and
+				// (b) the paint method removes any existing On
+				// so that colors and ons remain disjunct sets, for simplicity.
+				assert Idx.disjunct(ons[c][v1], colors[c][v1])
+						: "unclean: "+Idx.newAnd(ons[c][v1], colors[c][v1]);
+				ons[c][v1].andNot(colors[c][v1]);
 			}
-		}
 
 		return any;
 	}
@@ -1287,7 +1317,7 @@ public class GEM extends AHinter implements IPreparer
 			// If all v's in a region see a green v then blue is true.
 			// RARE: 3 in top1465
 			for ( int v : VALUESES[colorValues[c]] ) {
-				buds = thisColor[v].buds();
+				buds = thisColor[v].buds(true);
 				for ( ARegion r : grid.regions ) {
 					if ( r.indexesOf[v].size > 1
 					  && tmp1.setAnd(buds, r.idx).equals(r.idxs[v])
@@ -1517,14 +1547,14 @@ public class GEM extends AHinter implements IPreparer
 	 * </pre>
 	 */
 	private int eliminations() {
-		Cell cc;	// currentCell: the cell to eliminate from
-		int g		// green value/s bitset
-		  , b		// blue value/s bitset
-		  , pinkos	// bitset of "all other values" to eliminate
-		  , c		// color: the current color: GREEN or BLUE
-		  , o;		// opposite: the other color: BLUE or GREEN
+		Cell cc; // currentCell: the cell to eliminate from
+		int g // green value/s bitset
+		  , b // blue value/s bitset
+		  , pinks // bitset of "all other values" to eliminate
+		  , c // color: the current color: GREEN or BLUE
+		  , o; // opposite: the other color: BLUE or GREEN
 		// per value 1..9: indices of v's that aren't painted either color
-		final int[][] uncoloredCandidates = new int[10][];
+		final int[][] unco = this.uncoloredCandidates;
 		int subtype = 0; // presume none
 		boolean first = true; // is this the first elimination
 
@@ -1540,9 +1570,9 @@ public class GEM extends AHinter implements IPreparer
 			  // ensure that g and b are not equal (should NEVER be equal)
 			  && g != b
 			  // pinkos is a bitset of "all other values" to be eliminated.
-			  && (pinkos=(cc=grid.cells[i]).maybes.bits & ~g & ~b) != 0
+			  && (pinks=(cc=grid.cells[i]).maybes.bits & ~g & ~b) != 0
 			  // ignore already-justified eliminations (shouldn't happen here)
-			  && redPots.upsert(cc, new Values(pinkos, false))
+			  && redPots.upsert(cc, new Values(pinks, false))
 			) {
 				if ( wantWhy ) {
 					if ( first ) {
@@ -1560,10 +1590,11 @@ public class GEM extends AHinter implements IPreparer
 		}
 
 		// (b) An uncolored v sees both colored v's.
-		tmp2.toArraySmartReset();
+		tmp2.toArraySmartClear(); // pre-clean for safety
 		for ( int v : VALUESES[paintedValues] ) {
-			for ( int ii : (uncoloredCandidates[v]=tmp2.setAndNot(candidates[v]
-					, tmp1.setOr(colors[GREEN][v], colors[BLUE][v])).toArraySmart()) ) {
+			tmp1.setOr(colors[GREEN][v], colors[BLUE][v]);
+			// weird: remember the uncoloredCandidates for re-use below
+			for ( int ii : (unco[v]=tmp2.setAndNot(vs[v], tmp1).toArraySmart()) ) {
 				if ( tmp3.setAndAny(BUDDIES[ii], colors[GREEN][v])
 				  && tmp4.setAndAny(BUDDIES[ii], colors[BLUE][v])
 				  // ignore already-justified eliminations
@@ -1590,7 +1621,8 @@ public class GEM extends AHinter implements IPreparer
 
 		// (c) v sees green, and has some other blue value.
 		for ( int v : VALUESES[paintedValues] ) {
-			for ( int ii : uncoloredCandidates[v] ) {
+			// weird: uncoloredCandidates are set above in the previous loop
+			for ( int ii : unco[v] ) {
 				for ( c=0; c<2; ++c ) {
 					// if cells[ii] sees a this-color v
 					if ( tmp3.setAndAny(BUDDIES[ii], colors[c][v])
@@ -1619,6 +1651,8 @@ public class GEM extends AHinter implements IPreparer
 				}
 			}
 		}
+		clear(unco); // drop the references to any arrays created in above loop
+		tmp2.toArraySmartClear(); // drop index to arrays created in above loop
 
 		// (d) off'ed by both colors.
 		for ( int v=1; v<10; ++v ) {
@@ -1645,6 +1679,13 @@ public class GEM extends AHinter implements IPreparer
 
 		return subtype;
 	}
+	// A field to create array once per instance, rather than in eliminations.
+	// They're only ints (not Cells) so cleanup not required, and any hangovers
+	// from the previous invocation don't effect the logic (they're skipped).
+	// Note that the actual arrays referenced by this array-of-arrays always
+	// actually belong to the Idx's IAS (Integer ArrayS) cache, so you can't
+	// use toArray et al in anything that uses uncoloredCandidates.
+	private final int[][] uncoloredCandidates = new int[10][];
 
 	/**
 	 * Get a bitset of the values that are painted color-c at indice-i.

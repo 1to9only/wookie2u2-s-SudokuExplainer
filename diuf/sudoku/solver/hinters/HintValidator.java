@@ -213,14 +213,14 @@ public class HintValidator {
 	 * @param grid
 	 */
 	public static void checkSolutionValues(Grid grid) {
-		if ( grid.puzzleID == 0L ) // WTF: How did that happen?
-			grid.puzzleID = Grid.RANDOM.nextLong();
+		if ( grid.pid == 0L ) // WTF: How did that happen?
+			grid.pid = Grid.RANDOM.nextLong();
 		// If solutionValues is unset || this is a different puzzle
-		if ( solutionValues==null || grid.puzzleID!=solutionValuesPuzzleId ) {
+		if ( solutionValues==null || grid.pid!=solutionValuesPuzzleId ) {
 			if ( logicalSolver == null ) // WTF: How did that happen?
 				logicalSolver = LogicalSolverFactory.get();
 			logicalSolver.solveQuicklyAndQuietly(grid); // sets grid.solutionValues
-			setSolutionValues(grid.solutionValues, grid.puzzleID);
+			setSolutionValues(grid.solutionValues, grid.pid);
 		}
 	}
 	// the ID of the puzzle which provided my solutionValues.

@@ -15,11 +15,13 @@ public final class Point {
 
 	public final int x;
 	public final int y;
+	public final int i;
 	public final String string;
 
 	public Point(int x, int y) {
 		this.x = x;
 		this.y = y;
+		this.i = y * 9 + x;
 		// The String constructor which doesn't take a copy of the given chars
 		// array is package private, which I find really bloody annoying. The
 		// JDK developers must trust app-developers in order to empower them.

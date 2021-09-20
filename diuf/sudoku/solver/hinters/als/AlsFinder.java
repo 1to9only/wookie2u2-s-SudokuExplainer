@@ -1,0 +1,180 @@
+/*
+ * Project: Sudoku Explainer
+ * Copyright (C) 2006-2007 Nicolas Juillerat
+ * Copyright (C) 2013-2021 Keith Corlett
+ * Available under the terms of the Lesser General Public License (LGPL)
+ */
+package diuf.sudoku.solver.hinters.als;
+
+import diuf.sudoku.Cells;
+import diuf.sudoku.Grid;
+import diuf.sudoku.Grid.ARegion;
+import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
+import static diuf.sudoku.Values.VSIZE;
+import static diuf.sudoku.solver.hinters.als.AAlsHinter.MAX_ALSS;
+import diuf.sudoku.utils.Permutations;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+/**
+ * AlsFinder finds Almost Locked Sets. This code was split-out of AAlsHinter
+ * because it just kept getting more-and-more complex.
+ *
+ * @author Keith Corlett 2021-06-04
+ */
+final class AlsFinder {
+
+	// find all distinct Almost Locked Sets in this grid
+	int getAlss(final Grid grid, final Idx[] candidates, final Als[] alss
+			, final boolean allowNakedSets) {
+		// find Alss
+		if ( !allowNakedSets )
+			if ( findNakedSetIdxs(grid) )
+				findAlssNoNakedSets(grid);
+			else
+				findAlss(grid);
+		else
+			findAlss(grid);
+		// copy and computeFields
+		int cnt = 0;
+		for ( Als als : ALS_SET ) {
+			als.computeFields(grid, candidates);
+			alss[cnt++] = als;
+		}
+		// clear the Set, for next-time
+		ALS_SET.clear();
+		return cnt;
+	}
+	static final AlsSet ALS_SET = new AlsSet();
+
+	// populate nakedSetIdxs: an array Idxs, one per region. Each Idx contains
+	// indices of cells in any Naked Set in this region. This is necessary coz
+	// any Naked Sets in ALSs break AlsChains.
+	boolean findNakedSetIdxs(Grid grid) {
+		Idx nakedSetIdx;
+		Cell[] empties;
+		int[] maybeses;
+		int n, ceiling, size, vs, i;
+		boolean result = false; // are there any Naked Sets whatsoever
+		for ( ARegion r : grid.regions ) {
+			nakedSetIdx = nakedSetIdxs[r.index].clear();
+			if ( (n=r.emptyCellCount) > 2 ) {
+				empties = r.emptyCells(Cells.array(n));
+				maybeses = Cells.maybesBits(empties, Idx.IAS_A[n]);
+				// do Naked Pairs seperately for speed
+				for ( int[] perm : new Permutations(n, Idx.IAS_B[2]) )
+					if ( VSIZE[maybeses[perm[0]] | maybeses[perm[1]]] == 2 ) {
+						nakedSetIdx.add(empties[perm[0]].i);
+						nakedSetIdx.add(empties[perm[1]].i);
+						result = true;
+					}
+				if(n<5) ceiling=n; else ceiling=5;
+				for ( size=3; size<ceiling; ++size )
+					for ( int[] perm : new Permutations(n, Idx.IAS_B[size]) )
+						if ( VSIZE[vs=maybeses[perm[0]] | maybeses[perm[1]]] <= size ) {
+							for ( i=2; i<size; ++i )
+								vs |= maybeses[perm[i]];
+							if ( VSIZE[vs] == size ) {
+								for ( i=0; i<size; ++i )
+									nakedSetIdx.add(empties[perm[i]].i);
+								result = true;
+							}
+						}
+			}
+		}
+		return result;
+	}
+
+	final Idx[] nakedSetIdxs = new Idx[81];
+	{
+		for ( int i=0; i<81; ++i )
+			nakedSetIdxs[i] = new Idx();
+	}
+
+	// find Almost Locked Sets ignoring cells in Naked Sets
+	private void findAlssNoNakedSets(Grid grid) {
+		Cell[] myCells;
+		int[] maybeses;
+		int n, len, vs, i;
+		final Idx empties = grid.getEmpties();
+		final Cell[] gcells = grid.cells;
+		for ( ARegion r : grid.regions ) { // 27
+			if ( tmp1.setAndMany(r.idx, empties)
+			  && tmp2.setAndNotAny(tmp1, nakedSetIdxs[r.index])
+			  && tmp2.size() > 2 // we need 3 or more cells to form an ALS
+			) {
+				for ( n=2; n<9; ++n ) { // number of cells
+					final int nPlus1 = n + 1; // number of cands
+					myCells = tmp2.where(gcells, (c) -> {
+						return c.maybes.size <= nPlus1;
+					}).cells(grid);
+					// 3 candidate cells are needed make an ALS of 2 cells
+					if ( (len=myCells.length) > n ) {
+						maybeses = Cells.maybesBits(myCells, Idx.IAS_A[len]);
+						for ( int[] perm : new Permutations(len, Idx.IAS_B[n]) ) {
+							if ( VSIZE[vs=maybeses[perm[0]]|maybeses[perm[1]]] <= nPlus1 ) {
+								for ( i=2; i<n; ++i )
+									vs |= maybeses[perm[i]];
+								if ( VSIZE[vs] == nPlus1 )
+									ALS_SET.add(new Als(tmp3.set(myCells, perm), vs, r));
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	private final Idx tmp1 = new Idx();
+	private final Idx tmp2 = new Idx();
+	private final Idx tmp3 = new Idx();
+
+	// find Almost Locked Sets
+	private void findAlss(Grid grid) {
+		Cell[] myCells;
+		int[] maybeses;
+		int n, len, vs, i;
+		final Idx empties = grid.getEmpties();
+		final Cell[] gcells = grid.cells;
+		for ( ARegion r : grid.regions ) { // 27
+			if ( tmp1.setAndMany(r.idx, empties) ) {
+				for ( n=2; n<9; ++n ) { // number of cells
+					final int nPlus1 = n + 1; // number of cands
+					myCells = tmp1.where(gcells, (c) -> {
+						return c.maybes.size <= nPlus1;
+					}).cells(grid);
+					// 3 candidate cells are needed make an ALS of 2 cells
+					if ( (len=myCells.length) > n ) {
+						maybeses = Cells.maybesBits(myCells, Idx.IAS_A[len]);
+						for ( int[] perm : new Permutations(len, Idx.IAS_B[n]) ) {
+							if ( VSIZE[vs=maybeses[perm[0]]|maybeses[perm[1]]] <= nPlus1 ) {
+								for ( i=2; i<n; ++i )
+									vs |= maybeses[perm[i]];
+								if ( VSIZE[vs] == nPlus1 )
+									ALS_SET.add(new Als(tmp3.set(myCells, perm), vs, r));
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// LinkedHashSet iterator uses a linked-list that respects "natural order",
+	// ie it comes back in the order it was added. It's still an iterator which
+	// are all slow because processing each element requires not one but two
+	// method invocations, but at least it's faster than a bloody HashSet.
+	static final class AlsSet extends LinkedHashSet<Als> implements Set<Als> {
+		private static final long serialVersionUID = 159335969601498L;
+		// private constructor coz I'm only instantiated locally
+		private AlsSet() {
+			super(MAX_ALSS, 1F);
+		}
+		@Override
+		public boolean add(Als als) {
+			return !contains(als)
+				&& super.add(als);
+		}
+	}
+
+}

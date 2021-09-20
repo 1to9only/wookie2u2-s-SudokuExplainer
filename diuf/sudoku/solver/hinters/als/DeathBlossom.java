@@ -131,18 +131,18 @@ public class DeathBlossom extends AAlsHinter
 	 * Constructor.
 	 * <pre>Super constructor parameters:
 	 * * tech = Tech.DeathBlossom
-	 * * allowLockedSets = false in getAlss, no Almost Locked Set may contain
+	 * * allowNakedSets = false in getAlss, no Almost Locked Set may contain
 	 *   a cell in any Locked Set in the region; else invalid ALS-Chain hints,
 	 *   so KRC supressed them.
-	 * * findRCCs = false DeathBlossom is the only ALS-hinter that finds RCCs
-	 *   itself, hence the subsequent params are not used here.
+	 * * findRCCs = false DeathBlossom is the only ALS-hinter that finds it's
+	 *   own RCCs, hence the subsequent params are not used in this call only.
 	 * * allowOverlaps = UNUSED.
 	 * * forwardOnly = UNUSED.
 	 * * useStartAndEnd = UNUSED.
 	 * </pre>
 	 */
 	public DeathBlossom() {
-		super(Tech.DeathBlossom, false, false, UNUSED, UNUSED, UNUSED);
+		super(Tech.DeathBlossom, false);
 		// populate array
 		for ( int v=1; v<10; ++v )
 			alssByValue[v] = new AlsList();
@@ -174,19 +174,15 @@ public class DeathBlossom extends AAlsHinter
 	 * @return any hint/s found?
 	 */
 	@Override
-	public boolean findHints(Grid grid, Idx[] candidates, Rcc[] rccs
-			, Als[] alss, IAccumulator accu) {
-
+	protected boolean findHints(Grid grid, Idx[] candidates, Als[] alss
+			, int numAlss, Rcc[] rccs, int numRccs, IAccumulator accu) {
 		// BUG: LogicalSolver calls me after I'm disabled!
 		if ( !isEnabled )
 			return false;
-
-		assert rccs == null; // I roll my own, thanks.
 		this.grid = grid;
 		this.candidates = candidates;
 		this.accu = accu;
 		this.onlyOne = accu.isSingle();
-
 		// A DeathBlossom is a stem and an ALS for each of it's maybes.
 		// * The ALS for each stem.maybe has that value, and
 		//   each ALS.cell which maybe value sees the stem.
@@ -195,8 +191,9 @@ public class DeathBlossom extends AAlsHinter
 		boolean result = false;
 		try {
 			// build an index of all the ALS's by there values
-			for ( Als als : alss )
-				for ( int v : VALUESES[als.maybes] )
+			Als als;
+			for ( int i=0; i<numAlss; ++i )
+				for ( int v : VALUESES[(als=alss[i]).maybes] )
 					// if there are any cells in the grid which see all v's in
 					// this ALS, then file this ALS under v.
 					if ( als.vBuds[v].any() )

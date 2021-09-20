@@ -85,9 +85,9 @@ public abstract class AHint implements Comparable<AHint> {
 	public static final int AVG_CHARS_PER = 80; // per toString (approximate)
 
 	/** The start hint number is 0, before the first hint. */
-	public static int hintNumber = 0;
+	public static int number = 0;
 	public static void resetHintNumber() {
-		hintNumber = 0; // before the first hint
+		number = 0; // before the first hint
 	}
 
 	public final AHinter hinter; // The hinter that produced this hint

@@ -6,7 +6,7 @@
  *
  * The algorithm for the TwoStringKite solving technique was boosted from the
  * current release (AFAIK) of hobiwan's HoDoKu by Keith Corlett in March 2020.
- * Kudos to hobiwan. The mistakes are mine.
+ * Kudos hobiwans. Mistakes mine.
  *
  * Here's hobiwans standard licence statement:
  *
@@ -47,20 +47,32 @@ import java.util.List;
 /**
  * TwoStringKite implements the TwoStringKite Sudoku solving technique.
  * <p>
- * A Two String Kite is a box (the kite) having a row and a col (two strings)
- * both with two places for v, such that no matter where we put v in the box,
- * cells seeing both "far ends" of the strings cannot be v.
+ * A Two String Kite is a box (the kite) having both a row and a col with two
+ * places for v (the two strings), such that no matter where we put v in the
+ * box, any v's seeing both "other ends" of our two strings are history.
  * <p>
  * A TwoStringKite is a simplified faster Unary (single digit) Chain; so the
- * UnaryChainer finds all TwoStringKite hints (et al), but it does so slower,
- * and the hint explanations are (IMHO) harder to follow.
+ * UnaryChainer finds all TwoStringKite hints (et al), but it's slower, and
+ * the hint explanations are (IMHO) harder to follow.
  * <p>
- * The package name SDP stands for SingleDigitPattern which is the HoDoKu class
- * which fathered all the hinters in this directory.
+ * The package name 'sdp' stands for SingleDigitPattern, which is the HoDoKu
+ * class that fathered these hinters.
  *
  * @author Keith Corlett Mar 25
  */
 public class TwoStringKite extends AHinter {
+
+	/**
+	 * Swap positions of pair[0] and pair[1] and return true.
+	 * @param pair two cells to swap positions of.
+	 * @return true
+	 */
+	private static boolean swap(Cell[] pair) {
+		Cell tmp = pair[0];
+		pair[0] = pair[1];
+		pair[1] = tmp;
+		return true;
+	}
 
 	private final Cell[][] rowPairs = new Cell[9][2];
 	private final Cell[][] colPairs = new Cell[9][2];
@@ -71,64 +83,60 @@ public class TwoStringKite extends AHinter {
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		// variables
-		Cell[] rowPair, colPair;
-		Cell victim;
-		AHint hint;
-		int sv; // shiftedValue
-		int nRows, nCols, r, c;
-		boolean go;
-		// localise fields for speed
+		Cell[] rowPair, colPair; // a pair of cells in the row, and col
+		Cell victim; // the cell from which we eliminate v
+		AHint hint; // the hint, if we ever find one
+		int sv // shiftedValue: the bitset representation of v: 1<<(v-1)
+		  , r, nRowPairs // rowPair index, number of rowPairs
+		  , c, nColPairs; // colPair index, number of colPairs
+		// localise fields for speed. I don't deeply understand this, but it
+		// looks like each heap-reference is slower than each stack-reference,
+		// so just putting heap-stuff on the stack saves time, especially in an
+		// "all in one" method like this where all the heap-stuff is referenced
+		// multiple times.
+		// The cut-off seems to be 3, that is creating a stack-reference takes
+		// about as long as 2.5 heap-references, so the stack is ahead as long
+		// as it's referenced 3+ times. It's hard to write really fast code!
 		final Cell[][] rowPairs = this.rowPairs;
 		final Cell[][] colPairs = this.colPairs;
+		final Cell[] cells = grid.cells;
 		// presume that no hint will be found
 		boolean result = false;
-		// search for rows and cols with exactly two values
-		// foreach possible value
+		// foreach possible value in 1..9
 		for ( int v=1; v<10; ++v ) {
-			sv = VSHFT[v];
-			// get all rows and cols with only two values and the cells
-			if ( (nRows=getPairs(grid.rows, v, rowPairs)) != 0
-			  && (nCols=getPairs(grid.cols, v, colPairs)) != 0 ) {
-				// ok: now try all combinations of those regions
-				for ( r=0; r<nRows; ++r ) {
+			sv = VSHFT[v]; // lookup once to save some time, I hope
+			// get cell-pairs from rows and cols with two places for v
+			if ( (nRowPairs=pairs(grid.rows, v, rowPairs)) != 0
+			  && (nColPairs=pairs(grid.cols, v, colPairs)) != 0 ) {
+				// examine each combination of rowPairs and colPairs
+				for ( r=0; r<nRowPairs; ++r ) {
 					rowPair = rowPairs[r];
-					for ( c=0; c<nCols; ++c ) {
+					for ( c=0; c<nColPairs; ++c ) {
 						colPair = colPairs[c];
-						// one end has to be in the same row/col, but: all 4
-						// combinations are possible.
-						// put cells in the same box in ...Pairs[0],
-						// and the "free ends" in ...Pairs[1]
-						if (      rowPair[0].box == colPair[0].box )
-							go = true; // nothing to swap
-						else if ( rowPair[0].box == colPair[1].box )
-							go = swap(colPair);
-						else if ( rowPair[1].box == colPair[0].box )
-							go = swap(rowPair);
-						else if ( rowPair[1].box == colPair[1].box )
-							go = swap(rowPair) | swap(colPair);
-						else
-							go = false; // nothing found so onto next col
-						// No double-ups in a TwoStringKite
-						if ( go
+						// we seek two pairs with an end in the same box, but
+						// that's 4 possible end-combinations, so first we must
+						// put cells in the same box in ...Pair[0],
+						// so the "free" end ends-up in ...Pair[1]
+						if ( (  rowPair[0].box==colPair[0].box // no swaps
+							|| (rowPair[0].box==colPair[1].box && swap(colPair))
+							|| (rowPair[1].box==colPair[0].box && swap(rowPair))
+							|| (rowPair[1].box==colPair[1].box && (swap(rowPair) | swap(colPair))) )
+						  // and we require zero double-ups
 						  && rowPair[0] != colPair[0]
 						  && rowPair[0] != colPair[1]
 						  && rowPair[1] != colPair[0]
 						  && rowPair[1] != colPair[1]
+						  // found two strong links from a box, so any elims?
+						  // get the y=row of the colPair
+						  // and the x=col of the rowPair
+						  // and examine the cell at there intersection
+						  && ((victim=cells[colPair[1].y*9 + rowPair[1].x]).maybes.bits & sv) != 0
 						) {
-							// two strong links connected by a box,
-							// but does it eliminate any maybes?
-							// take the row of the colPair
-							//  and the col of the rowPair
-							//   to get there intersection
-							victim = grid.cells[colPair[1].y*9 + rowPair[1].x];
-							if ( (victim.maybes.bits & sv) != 0 ) {
-								// FOUND TwoStringKite!
-								hint = createHint(rowPair, colPair, victim, v);
-								result |= hint!=null;
-								if ( accu.add(hint) )
-									return result;
-							}
+							// FOUND TwoStringKite!
+							hint = createHint(rowPair, colPair, victim, v);
+							result |= hint!=null;
+							if ( accu.add(hint) )
+								return result;
 						}
 					}
 				}
@@ -138,32 +146,20 @@ public class TwoStringKite extends AHinter {
 	}
 
 	/**
-	 * Add each region with two places for value to the pairs array, and return
-	 * how many.
+	 * Add each region with two places for v to the pairs array,
+	 * and return how many.
 	 *
-	 * @param regions to find pairs in
+	 * @param regions to find pairs in: grid.rows or grid.cols
 	 * @param v the candidate value
 	 * @param pairs array to add pairs to
 	 * @return the number of pairs added
 	 */
-	private int getPairs(ARegion[] regions, int v, Cell[][] pairs) {
-		int p = 0; // pair index
-		for ( ARegion row : regions )
-			if ( row.indexesOf[v].size == 2 )
-				row.at(row.indexesOf[v].bits, pairs[p++]);
-		return p;
-	}
-
-	/**
-	 * Swap positions of pair[0] and pair[1] and return true.
-	 * @param pair two cells to swap positions of.
-	 * @return true
-	 */
-	private boolean swap(Cell[] pair) {
-		Cell tmp = pair[0];
-		pair[0] = pair[1];
-		pair[1] = tmp;
-		return true;
+	private int pairs(ARegion[] regions, int v, Cell[][] pairs) {
+		int i = 0;
+		for ( ARegion r : regions )
+			if ( r.indexesOf[v].size == 2 )
+				r.at(r.indexesOf[v].bits, pairs[i++]);
+		return i;
 	}
 
 	/**
@@ -184,7 +180,7 @@ public class TwoStringKite extends AHinter {
 		// build the "fins" (blue) Cell->Values
 		Pots blues = new Pots(v, rowPair[0], colPair[0]);
 		// build the removeable (red) Cell->Values
-		Pots reds = new Pots(v, victim);
+		Pots reds = new Pots(victim, v);
 		// build and return the hint
 		return new TwoStringKiteHint(this, v, bases, covers, oranges, blues
 				, reds, rowPair.clone(), colPair.clone());

@@ -134,7 +134,7 @@ public final class Generator implements IInterruptMonitor {
 			final double minD;
 			if ( isExact )
 				minD = wantDifficulty.min;
-			else 
+			else
 				minD = 0.0D;
 			final double maxD = wantDifficulty.max;
 			assert maxD>minD;
@@ -208,8 +208,8 @@ public final class Generator implements IInterruptMonitor {
 		final Grid solution = new Grid(grid);
 		// randomly shuffle indexes: an array of ints 0..80
 		final int[] indexes = shuffledIndexes(rnd, 81);
-		final Cell[] gCells = grid.cells;
-		final Cell[] sCells = solution.cells;
+		final Cell[] gridCells = grid.cells;
+		final Cell[] solutionCells = solution.cells;
 		// the rubbish bin: indices of cells which when cleared don't remove
 		// anything, so it's a bit faster if we never try that trick again.
 		final boolean[] rubbish = new boolean[81];
@@ -240,8 +240,8 @@ public final class Generator implements IInterruptMonitor {
 				// remove the cell at each point, remembering isAnyRemoved.
 				any = false;
 				for ( Point p : points )
-					if ( (cell=gCells[p.y*9+p.x]).value != 0 ) {
-						cell.value = 0; // nb: leaved grid "dirty", so we call grid.rebuildMaybesAndS__t() below to clean-up maybes, indexes, counts, etc.
+					if ( (cell=gridCells[p.i]).value != 0 ) {
+						cell.value = 0; // nb: leave grid "dirty", then I call grid.rebuildMaybesAndS__t() to clean-up maybes, indexes, counts, etc.
 						any = true;
 					}
 				if ( !any ) {
@@ -263,7 +263,7 @@ public final class Generator implements IInterruptMonitor {
 							break;
 						case 2: // Failed: so revert and try the next point.
 							for ( Point p : points )
-								gCells[p.y*9+p.x].value = sCells[p.y*9+p.x].value;
+								gridCells[p.i].value = solutionCells[p.i].value;
 							// it broke, so remember that this index is rubbish
 							rubbish[i] = true;
 							// increment the index, skipping existing rubbish.

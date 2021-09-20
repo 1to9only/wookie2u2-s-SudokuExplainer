@@ -149,6 +149,21 @@ public class Cells {
 		return result;
 	}
 
+	/**
+	 * Extract maybes.bits from 'cells' into 'maybes'. Done for speed, rather
+	 * than repeatedly dereferencing the bloody cell repeatedly.
+	 *
+	 * @param cells to read maybe.bits from
+	 * @param maybes array to set
+	 * @return maybes so that you can pass me a CAS or a new array, just so
+	 *  it's still all in one line.
+	 */
+	public static int[] maybesBits(final Cell[] cells, final int[] maybes) {
+		for ( int i=0,n=cells.length; i<n; ++i )
+			maybes[i] = cells[i].maybes.bits;
+		return maybes;
+	}
+
 	private Cells() { } // Never used
 
 }

@@ -39,9 +39,9 @@ import static diuf.sudoku.Grid.BOX_OF;
 
 /**
  * Medusa3D implements the 3D Medusa Coloring Sudoku solving technique as
- * described in the https://www.sudopedia.org/wiki/3D_Medusa article.
+ * described in the https://www.sudopedia.org/wiki/3D_Medusa specification.
  * <p>
- * See field notes in ./#Coloring.txt
+ * See ./#Medusa3D.txt for annoted specification.
  * <p>
  * This implementation also includes one extension of the above specification.
  * It finds a naked single in an effected box, which leaves a naked single in
@@ -159,7 +159,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * The constructor.
 	 */
 	public Medusa3D() {
-		super(Tech.Medusa3D);
+		super(Tech.Medusa3d);
 		// create the colors array.
 		for ( int c=0; c<2; ++c )
 			for ( int v=1; v<10; ++v )
@@ -751,34 +751,36 @@ public class Medusa3D extends AHinter implements IPreparer
 		boolean first = true; // is this the first elimination
 
 		// (a) Both colors in a cell eliminate all other values.
-		for ( int i : tmp1.setAnd(all[GREEN], all[BLUE]).toArrayA() ) {
-			if ( grid.cells[i].maybes.size > 2
-			  // get a bitset of all values of cells[i] that're green and blue.
-		      // There may be none, never multiple (contradictions pre-tested)
-			  // We need 1 green value and 1 blue value, to strip from pinks.
-			  // NOTE: VSIZE[0] == 0.
-			  && VSIZE[g=values(GREEN, i)] == 1
-			  && VSIZE[b=values(BLUE, i)] == 1
-			  // ensure that g and b are not equal (should NEVER be equal)
-			  && g != b
-			  // pinks is a bitset of "all other values" to be eliminated
-			  && (pinks=(cc=grid.cells[i]).maybes.bits & ~g & ~b) != 0
-			  // ignore already-justified eliminations (shouldn't happen here)
-			  && redPots.upsert(cc, new Values(pinks, false))
-			) {
-				// we want explanation in GUI and testcases
-				if ( wantWhy ) {
-					if ( first ) {
-						first = false;
-						steps.append(NL).append("<u>Eliminations</u>").append(NL);
+		if ( tmp1.setAndAny(all[GREEN], all[BLUE]) ) {
+			for ( int i : tmp1.toArrayA() ) {
+				if ( grid.cells[i].maybes.size > 2
+				  // get a bitset of all values of cells[i] that're green and blue.
+				  // There may be none, never multiple (contradictions pre-tested)
+				  // We need 1 green value and 1 blue value, to strip from pinks.
+				  // NOTE: VSIZE[0] == 0.
+				  && VSIZE[g=values(GREEN, i)] == 1
+				  && VSIZE[b=values(BLUE, i)] == 1
+				  // ensure that g and b are not equal (should NEVER be equal)
+				  && g != b
+				  // pinks is a bitset of "all other values" to be eliminated
+				  && (pinks=(cc=grid.cells[i]).maybes.bits & ~g & ~b) != 0
+				  // ignore already-justified eliminations (shouldn't happen here)
+				  && redPots.upsert(cc, new Values(pinks, false))
+				) {
+					// we want explanation in GUI and testcases
+					if ( wantWhy ) {
+						if ( first ) {
+							first = false;
+							steps.append(NL).append("<u>Eliminations</u>").append(NL);
+						}
+						steps.append(cc.id).append(" has both <g>")
+						  .append(Values.toString(g)).append("</g> and <b1>")
+						  .append(Values.toString(b))
+						  .append("</b1>, eliminating <r>all other values</r>.")
+						  .append(NL);
 					}
-					steps.append(cc.id).append(" has both <g>")
-					  .append(Values.toString(g)).append("</g> and <b1>")
-					  .append(Values.toString(b))
-					  .append("</b1>, eliminating <r>all other values</r>.")
-					  .append(NL);
+					subtype |= 1;
 				}
-				subtype |= 1;
 			}
 		}
 

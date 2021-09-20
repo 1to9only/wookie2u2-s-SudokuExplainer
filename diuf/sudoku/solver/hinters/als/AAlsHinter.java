@@ -6,46 +6,76 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
-import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import static diuf.sudoku.Values.VALUESES;
-import static diuf.sudoku.Values.VSIZE;
+import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.MyLinkedHashSet;
-import diuf.sudoku.utils.Permutations;
 import java.util.Arrays;
-import java.util.LinkedList;
-
 
 /**
- * The HoDoKu Abstract AlmostLockedSet Hinter class holds implementation code
- * common to the HdkAlsXz, HdkAlsXyWing and HdkAlsXyChain classes.
- * <p>
- * Actually, I implement getHints to get: candidates, lockedSets, ALSs, and
- * RCCs; and then I pass it all along to my subtypes findHints method.
+ * The abstract ALS Hinter implements the fetching of ALSs and RCCs, which is
+ * common to BigWings, AlsXz, AlsWing, AlsChain, and DeathBlossom. Actually, I
+ * implement getHints to get: candidates, NakedSets, ALSs, and RCCs; which I
+ * pass along to my subtypes "custom" findHints method, returning his result.
+ *
+ * <pre>
+ * KRC 2021-06-01 cache to speed-up ALSWing, ALSChain, and DeathBlossom.
+ * Note that all caching is static, ie one copy of the cache and all associated
+ * variables are shared by ALL instances of AAlsHinter, so caches are shared
+ * among AlsXz, AlsWing, AlsChain, and DeathBlossom. This works well because
+ * 1. AlsXz and AlsWing use SAME AAlsHinter constructor params, especially both
+ *    allowNakedSets; so that
+ * 2. AlsWing doesn't need to fetch it's own ALSs or RCCs; then
+ * 3. AlsChain just filters-out cached ALSs containing a cell in a NakedSet.
+ *    It doesn't need to fetch it's own ALSs, just filter the existing alsCache
+ *    which it replaces with the fitlered version.
+ *    It does fetch RCCs because allowOverlaps and forwardOnly have changed;
+ * 4. DeathBlossom re-uses the ALSs, and so fetches nothing.
+ * Hence caching ALSs and RCCs works-out 16 seconds faster!
+ *
+ * BEFORE (without caching 2021-05-30.14-11-32)
+ * 16,381,530,900  9978 1,641,764  3949   4,148,273 ALS-XZ
+ * 22,568,789,600  7231 3,121,115  3330   6,777,414 ALS-Wing
+ *  9,835,713,400  4482 2,194,492   602  16,338,394 ALS-Chain
+ *  4,141,170,600  3995 1,036,588   163  25,405,954 Death Blossom
+ * AFTER (with caching of both ALSs and RCCs 2021-06-01.10-41-26)
+ * 15,915,234,859  9940 1,601,130  3961   4,017,984 ALS-XZ
+ *  9,077,950,421  7179 1,264,514  3429   2,647,404 ALS-Wing
+ *  8,678,898,336  4408 1,968,897   577  15,041,418 ALS-Chain
+ *  2,933,325,664  3943   743,932   163  17,995,862 Death Blossom
+ * so that's 16.321 seconds faster over top1465, a major improvement!
+ * 2021-06-04.14-45-21 latest version with AlsFinder and RccFinder.
+ * 13,792,733,500  9867 1,397,864  3962   3,481,255 ALS-XZ
+ *  9,188,664,200  7175 1,280,650  3406   2,697,787 ALS-Wing
+ *  8,692,515,500  4435 1,959,980   567  15,330,715 ALS-Chain
+ *  2,937,086,600  3975   738,889   166  17,693,292 Death Blossom
+ * 2021-06-05.10-15-19 with RccFinder split on forwardOnly
+ *  3,712,255,500 12254   302,942  2210   1,679,753 Big-Wings     gets ALSs
+ * 11,663,152,600  9867 1,182,036  3962   2,943,753 ALS-XZ        gets RCCs
+ *  9,528,221,800  7175 1,327,975  3406   2,797,481 ALS-Wing      reuse both
+ *  7,189,604,700  4435 1,621,105   567  12,680,078 ALS-Chain     gets both
+ *  2,883,650,800  3975   725,446   166  17,371,390 Death Blossom reuse both
+ * </pre>
  *
  * @author Keith Corlett 2020 May 24
  */
 abstract class AAlsHinter extends AHinter
 		implements diuf.sudoku.solver.IPreparer
 {
-	// the default alss List capacity.
-	// anything from 64..4096 is doable.
-	// note that ArrayLists growth is length*1.5, not double like a Hash.
-	protected static final int NUM_ALSS = 256; // Observed 283
+	/** the size of the fixed-size alss array: 512 */
+	protected static final int MAX_ALSS = 512; // Observed 283
+
+	/** the size of the fixed-size rccs array: 8192 */
+	protected static final int MAX_RCCS = 8192; // 833#top1465.d5.mt=6764
 
 	// include single bivalue Cells in the ALSs list?
 	// nb: 1 cell with 2 potential values is by definition an ALS. I don't know
 	// what problems it causes if you set this to true. You have been warned!
-	protected static final boolean INCL_SINGLE_CELLS = false;
+	protected static final boolean SINGLE_CELL_ALSS = false;
 
 	// the default rccs List capacity
 	protected static final int NUM_RCCS = 2000;
@@ -55,8 +85,8 @@ abstract class AAlsHinter extends AHinter
 
 	/** include ALSs which overlap in my findHints method? */
 	protected final boolean allowOverlaps;
-	/** include ALSs which include cells that are part of a Locked Set? */
-	protected final boolean allowLockedSets;
+	/** include ALSs which include cells that are part of a Naked Set? */
+	protected final boolean allowNakedSets;
 	/** should I run getRccs; false means I pass you rccs=null in findHints */
 	protected final boolean findRCCs;
 	/** should getRccs do a fast forwardOnly search, or a full search? */
@@ -64,62 +94,75 @@ abstract class AAlsHinter extends AHinter
 	/** should getRccs populate startIndices and endIndices */
 	protected final boolean useStartAndEnd;
 
-	// inLockedSet[region][cell.i]: findLockedSets => recurseAlss when
-	// !allowLockedSets (in HdkAlsXyChains only): element set to true if this
-	// cell is involved in any Locked Set in this region.
-	protected final boolean[][] inLockedSet;
+	// in findHints: if !allowNakedSets we call findNakedSets to set
+	// inNakedSet[region.index][cell.i]=true for each cell in a
+	// NakedPair/Triple/etc in each region;
+	// then recurseAlssNoNs ignores cell if inNakedSet[region.index][cell.i].
+	// NOTE: stripNakedSets now also calls findNakedSets to remove ALSs
+	// containing a cell in a NakedSet from the existing alsCache, for speed.
+	protected final boolean[][] inNakedSets;
 
 	/**
-	 * Construct a new abstract ALS hinter.
-	 * <p>
-	 * HdkAlsXz does not use the valid method<br>
-	 * HdkAlsXyWing and HdkAlsXyChain both use the valid method
-	 * <p>
-	 * ASAT 2020-06-28 10:30 the valid method is no longer used, so the
-	 * logicalSolver parameter is now superfluous, but it's been retained
-	 * rather than start an in-out in-out change chain. Please note that a
-	 * hinter should not be aware of the existence of a LogicalSolver, let
-	 * alone it's internal workings, like the valid method is. So now I'm
-	 * persisting in breaking my own rules for no good reason. Sigh.
-	 *
-	 * @param tech the Tech(nique) which we're implementing, in my case Als*
-	 * @param allowLockedSets if false the getAlss method ignores any cell
-	 * which is part of an actual Locked Set (NakedPair/Triple/etc) in this
-	 * region (ie treats the cell as if it were a set cell).
-	 * <br>HdkAlsXz and HdkAlsXyWing both use true
-	 * <br>HdkAlsXyChain uses false because locked sets bugger it up
-	 * @param findRCCs true for "normal" ALS-use, false for DeathBlossom.<br>
-	 * When false AAlsHinter does NOT run getRccs, so findHints rccs=null, and
-	 * the following parameters (effecting getRccs) have no effect, so there's
-	 * an UNUSED constant defined for self-documentation.
+	 * Construct a new abstract Almost Locked Set (ALS) hinter, whose findHints
+	 * implementation finds the ALSs and optionally there RCCs, and passes the
+	 * whole mess down to my subclass's "custom" findHints method.
+	 * <pre>
+	 * Uses in order of execution           , nkd  , RCCs, olap , frwd , s&amp;e
+	 * BigWings    : super(Tech.BigWings    , true);
+	 * AlsXz       : super(Tech.ALS_XZ      , true , true, true , true , false);
+	 * AlsWing     : super(Tech.ALS_Wing    , true , true, true , true , false);
+	 * AlsChain    : super(Tech.ALS_Chain   , false, true, false, false, true);
+	 * DeathBlossom: super(Tech.DeathBlossom, false);
+	 * </pre>
+	 * @param tech the Tech(nique) that we're implementing: Als*, DeathBlossom
+	 *  is passed up to my super-class, a "normal" AHinter.
+	 * @param allowNakedSets if false the getAlss method ignores cells that are
+	 *  part of an actual NakedPair/Triple/etc in this region.<br>
+	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
+	 *  HdkAlsXyChain = false because naked sets stuff it all up, and I don't
+	 *  understand why!
+	 * @param findRCCs true for "normal" ALS-use, false to just fetch ALSs.<br>
+	 *  When false AAlsHinter does NOT run getRccs, so findHints rccs=null, and
+	 *  the following parameters (effecting getRccs) have no effect, so there's
+	 *  an UNUSED constant for use as a self-documenting parameter-value.
 	 * @param allowOverlaps if false the getRccs method ignores two ALSs which
-	 * physically overlap (ie have any cell in common).
-	 * <br>HdkAlsXz and HdkAlsXyWing both use true
-	 * <br>HdkAlsXyChain uses false because overlaps bugger it up
-	 * @param forwardOnly if true then getRccs does a faster forward-only
-	 * search of the ALS-list, but if false it does a full search of all the
-	 * possible combinations of ALSs.
-	 * <br>HdkAlsXz and HdkAlsXyWing both use true
-	 * <br>HdkAlsXyChain uses false to find more chains. It's slow anyway!
+	 *  physically overlap (ie have any cell in common).<br>
+	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
+	 *  HdkAlsXyChain = false because overlaps break the one-or-the-other rule
+	 * @param forwardOnly if true then getRccs does a faster "forward only"
+	 *  search that examines each distinct combination of ALSs once;<br>
+	 *  else examine all possible combinations, including duplicates.<br>
+	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
+	 *  HdkAlsXyChain = false to find more chains. It's slow anyway!
 	 * @param useStartAndEnd if true then getRccs populates the startIndices
-	 * and endIndices arrays.
-	 * <br>HdkAlsXz and HdkAlsXyWing both use false
-	 * <br>HdkAlsXyChain uses true because it's awkward
+	 *  and endIndices arrays; else there are left-unchanged<br>
+	 *  HdkAlsXz and HdkAlsXyWing both use false<br>
+	 *  HdkAlsXyChain = true to use startInds and endInds as a "map" from each
+	 *  ALS to it's RCCs, ie from an ALSs-index to start and end RCC-indexes.
+	 *  Note that endInds is EXCLUSIVE so we {@code <b>&lt;</b> endInds[i]}.
 	 */
-	public AAlsHinter(Tech tech, boolean allowLockedSets, boolean findRCCs
+	public AAlsHinter(Tech tech, boolean allowNakedSets, boolean findRCCs
 			, boolean allowOverlaps, boolean forwardOnly
 			, boolean useStartAndEnd) {
 		super(tech);
-		this.allowLockedSets = allowLockedSets;
-		// unused if allowLockedSets, else an array for each of the 27 regions
-		if ( allowLockedSets )
-			this.inLockedSet = null;
+		this.allowNakedSets = allowNakedSets;
+		// unused if allowNakedSets, else an array for each of the 27 regions
+		if ( allowNakedSets )
+			this.inNakedSets = null;
 		else
-			this.inLockedSet = new boolean[27][];
+			this.inNakedSets = new boolean[27][];
 		this.findRCCs = findRCCs;
 		this.allowOverlaps = allowOverlaps;
 		this.forwardOnly = forwardOnly;
 		this.useStartAndEnd = useStartAndEnd;
+	}
+
+	/**
+	 * A simplified constructor for hinters that fetch ALSs only (no RCCs),
+	 * currently BigWings and DeathBlossom.
+	 */
+	public AAlsHinter(Tech tech, boolean allowNakedSets) {
+		this(tech, allowNakedSets, false, UNUSED, UNUSED, UNUSED);
 	}
 
 	/**
@@ -149,13 +192,16 @@ abstract class AAlsHinter extends AHinter
 	 * @param grid The Grid that we're solving
 	 * @param candidates an array of the indices of Grid cells which maybe
 	 *  each potential value 1..9
-	 * @param rccs The Restricted Common Candidates
-	 * @param alss The Almost Locked Sets
+	 * @param alss a fixed-array of the Almost Locked Sets
+	 * @param numAlss the number of ALSs in the alss array
+	 * @param rccs a fixed-array of the Restricted Common Candidates
+	 * @param numRccs the number of RCCs in the rccs array
 	 * @param accu The IAccumulator to which we add any hints
 	 * @return true if a hint was found, else false
 	 */
 	protected abstract boolean findHints(Grid grid, Idx[] candidates
-			, Rcc[] rccs, Als[] alss, IAccumulator accu);
+			, Als[] alss, int numAlss, Rcc[] rccs, int numRccs
+			, IAccumulator accu);
 
 	/**
 	 * Find Almost Locked Set hints in Grid and add them to IAccumulator.
@@ -170,20 +216,25 @@ abstract class AAlsHinter extends AHinter
 		// LogicalSolver.solve doesn't disable hinters on da fly, only at start
 		if ( !isEnabled )
 			return false;
-		// get an array 1..9 of indices of grid cells which maybe each value.
-		Idx[] candidates = grid.getIdxs();
+		// get indices of cells which maybe each value 1..9.
+		final Idx[] candidates = grid.getIdxs();
 		// get the Almost Locked Sets (N cells with N+1 values between them)
-		final Als[] myAlss = getAlss(grid, candidates);
+//		long start = System.nanoTime();
+		getAlss(grid, candidates); // repopulates alss, sets numAlss
+//		tookAlss += System.nanoTime() - start;
+
 		// if findRCCs then get the Restricted Common Candidates of those ALSs
-		final Rcc[] rccs;
-		if ( findRCCs )
-			rccs = getRccs(myAlss); // for AlsXz, AlsWing, AlsChain
-		else
-			rccs = null; // for DeathBlossom only
+		if ( findRCCs ) {
+//			start = System.nanoTime();
+			getRccs(); // repopulates rccs, sets numRccs
+//			tookRccs += System.nanoTime() - start;
+		} else
+			numRccs = 0;
 		// call my subclasses "custom" findHints method to search the grid for
 		// instances of this specific pattern; raise a hint and add it to accu.
-		return findHints(grid, candidates, rccs, myAlss, accu);
+		return findHints(grid, candidates, ALSS, numAlss, RCCS, numRccs, accu);
 	}
+//	protected long tookAlss=0L, tookRccs=0L; // reported in AlsChain
 
 	/**
 	 * getAlss starts the recursive ALS search at each cell in each region,
@@ -191,104 +242,66 @@ abstract class AAlsHinter extends AHinter
 	 * ALSs) and return them.
 	 * <p>
 	 * I'm only called locally, but I'm package visible for my test-case.
+	 * <p>
+	 * NOTE: This caching technique relies on the fact that both hinters that
+	 * allowNakedSets (AlsXz and AlsWing) are executed BEFORE all hinters that
+	 * suppress Naked Sets (AlsChain and DeathBlossom). I do not know what
+	 * happens with a static cache in the test-cases: I presume the cache is
+	 * always null. Caching exists to speed-up LogicalSolverTester, which is
+	 * the only place it's tested.
 	 *
 	 * @param grid
 	 * @param candidates
+	 * @param alss
+	 * @param nulAlss
 	 * @return the ALSs in the given grid
 	 */
-	Als[] getAlss(Grid grid, Idx[] candidates) {
-		// if Locked Sets aren't allowed then we'd better find them now ONCE,
-		// so that we can check the array later in recurseAlss to ignore them.
-		if ( !allowLockedSets )
-			findLockedSets(grid);
-		// the List of ALSs to populate and return.
-		// nb: add ignores an ALS with duplicate indices.
-		alss = new AlsSet(); // add ignores duplicates
-		// start recursion once for each cell in each region
-		for ( ARegion r : grid.regions ) {
-			region = r; // set a field rather than pass it down on the stack
-			for ( int i=0; i<9; ++i ) {
-				indices.clear();
-				maybes[0] = 0;
-				recurseAlss(1, i);
-			}
+	void getAlss(Grid grid, Idx[] candidates) {
+//		final long start = System.nanoTime();
+		if ( ALSS==null || AHint.number!=alssHn || grid.pid!=alssPid ) {
+			numAlss = ALS_FINDER.getAlss(grid, candidates, ALSS, allowNakedSets);
+			alssNs = allowNakedSets;
+			alssHn = AHint.number;
+			alssPid = grid.pid;
+			rccsDirty = true; // make getRccs refetch
+		} else if ( alssNs != allowNakedSets ) {
+			if ( allowNakedSets )
+				numAlss = ALS_FINDER.getAlss(grid, candidates, ALSS, allowNakedSets);
+			else // remove each ALS with a cell in a NakedSet from alsCache
+				stripNakedSets(grid);
+			alssNs = allowNakedSets;
+			rccsDirty = true; // make getRccs refetch
 		}
-		// compute fields: done seperately to not run on any double-ups, which
-		// are annoyingly unavoidable (AFAIK) in recurseAlss.
-		for ( Als als : alss )
-			als.computeFields(grid, candidates);
-		return alss.toArray();
+//		getAlssTime += System.nanoTime() - start;
 	}
-	// the list of ALS's to populate
-	private AlsSet alss;
-	// the current region, a field rather than pass it down on the stack
-	private ARegion region;
-	// the indices in the Set that we're currently recursing (below)
-	private final Idx indices = new Idx();
-	// an element for each cell in the set which we're recursing (below);
-	// each element contains the aglomeration of all maybes upto this point.
-	private final int[] maybes = new int[9];
+//	protected long getAlssTime; // DEBUG
+	// this cache is shared accross all instances of AAlsHinter!
+	private static final Als[] ALSS = new Als[MAX_ALSS];
+	private static int numAlss;
+	// these control both the alsCache and the rccCache!
+	private static int alssHn; // als-cache hintNumber
+	private static long alssPid; // als-cache puzzleID
+	private static boolean alssNs; // does alss-cache include Naked Sets
+	// this field is protected so that BigWings can report counts
+	protected static final AlsFinder ALS_FINDER = new AlsFinder();
 
-	/**
-	 * Does a recursive ALS search in region starting at first.
-	 * <p>
-	 * The region field is pre-set to the region we're currently searching.
-	 * <p>
-	 * The alss field is pre-set to the ALS-Set to populate.
-	 *
-	 * @param N Number of cells in the current set, starts at 1
-	 * @param first first index in the region to be examined, starts at i
-	 */
-	private void recurseAlss(int N, int first) {
-		Cell cell;
-		// foreach cell in this 'region', starting at 'first'
-		for ( int i=first; i<9; ++i )
-			// skip set cells
-			if ( (cell=region.cells[i]).value == 0
-			  // skip cells that are part of a Locked Set (if suppressed)
-			  && (allowLockedSets || !inLockedSet[region.index][cell.i]) ) {
-				indices.add(cell.i);
-				maybes[N] = maybes[N-1] | cell.maybes.bits;
-				// it's an ALS if these N cells have N+1 maybes between them.
-				if ( VSIZE[maybes[N]]==N+1 && (INCL_SINGLE_CELLS || N>1) )
-					// nb: add ignores duplicate ALS's (same indices)
-					alss.add(new Als(indices, maybes[N], region));
-				// continue recursion unless this is the last cell
-				if ( N < 8 )
-					recurseAlss(N+1, i+1);
-				// remove current cell
-				indices.remove(cell.i);
+	// remove each ALS with a cell in a NakedSet from alsCache
+	private void stripNakedSets(Grid grid) {
+		// set-up inNakedSets (27 * 81 = 2187 booleans)
+		// no NakedSets means there is no need to filter them out
+		if ( ALS_FINDER.findNakedSetIdxs(grid) ) {
+			int cnt = 0;
+			// temp array to hold ALSs with no cell in any NakedSet
+			final Als[] temp = new Als[numAlss];
+			for ( int i=0; i<numAlss; ++i ) {
+				final Als als = ALSS[i];
+				if ( !als.idx.andAny(ALS_FINDER.nakedSetIdxs[als.region.index]) )
+					temp[cnt++] = als;
 			}
-	}
-
-	// Find the Locked Sets (Naked Pair/Triple/etc) in each region in the grid,
-	// and stash them in the lockedSets array, and the anyLockedSets array.
-	private void findLockedSets(Grid grid) {
-		for ( ARegion r : grid.regions ) {
-			final int n = r.emptyCellCount; // the size of the master set
-			Cell[] rEmptyCells = r.emptyCells(Cells.array(n));
-			// for speed: unpack maybes.bits of empty cells into an array
-			final int[] maybeses = diuf.sudoku.Idx.IAS_A[n];
-			for ( int i=0; i<n; ++i )
-				maybeses[i] = rEmptyCells[i].maybes.bits;
-			// an array of indices of cells in any lockedSet to be cached
-			boolean[] array = new boolean[81]; // cooincident with Grid.cells
-			int maybes;
-			// foreach setSize 2..emptyCellCount-1
-			for ( int ss=2; ss<n; ++ss ) // the current setSize
-				// foreach possible combo of ss cells in our n empty cells
-				for ( int[] perm : new Permutations(n, diuf.sudoku.Idx.IAS_B[ss]) ) {
-					maybes = 0;
-					for ( int i=0; i<ss; ++i )
-						maybes |= maybeses[perm[i]];
-					if ( VSIZE[maybes] == ss )
-						// ss positions for ss values is a locked set.
-						for ( int i=0; i<ss; ++i )
-							// cooincident with Grid.cells
-							array[rEmptyCells[perm[i]].i] = true;
-				}
-			// cache the lockedSet
-			this.inLockedSet[r.index] = array;
+			// release memory back to system
+			Arrays.fill(this.inNakedSets, null);
+			// copy into the fixed-size array
+			System.arraycopy(temp, 0, ALSS, 0, numAlss=cnt);
 		}
 	}
 
@@ -307,123 +320,23 @@ abstract class AAlsHinter extends AHinter
 	 * @param alss
 	 * @return
 	 */
-	Rcc[] getRccs(final Als[] alss) {
-		Als a, b; // two ALSs intersect on a Restricted Common value/s (RCC)
-		Rcc rcc;
-		int j, cmnMaybes;
-		// do we examine only alss to my right? or all of them?
-		final boolean forwardOnly = this.forwardOnly;
-		// the list of RCCs to populate and return the array of
-		final LinkedList<Rcc> rccs = new LinkedList<>();
-		// the number of ALSs to process
-		final int n = alss.length;
-		// get and clear the Idx fields rather than wear cost of creatining.
-		// did I mention that I'm tighter than a fishes asshole?
-		final Idx overlap = this.overlap.clear();
-		final Idx bothVs = this.bothVs.clear();
-		final Idx bothVBuds = this.bothVBuds.clear();
-		// recompute start and end indices if required
-		if ( useStartAndEnd && (startIndices==null || startIndices.length<n) ) {
-			int newCapacity = (int)(n * 1.5);
-			startIndices = new int[newCapacity];
-			endIndices = new int[newCapacity];
+	void getRccs() {
+		// if allowOverlaps or forwardOnly has changed then refetch
+		rccsDirty |= rccsAO!=allowOverlaps || rccsFO!=forwardOnly;
+		if ( RCCS==null || rccsDirty ) {
+			numRccs = RCC_FINDER.getRccs(ALSS, numAlss, RCCS, forwardOnly
+					, allowOverlaps, useStartAndEnd);
+			rccsDirty = false;
+			rccsAO = allowOverlaps;
+			rccsFO = forwardOnly;
 		}
-		// foreach distinct pair of ALSs (a forward only search)
-		for ( int i=0; i<n; ++i ) {
-			a = alss[i]; // nb: alss is an ArrayList with O(1) get
-			if ( useStartAndEnd )
-				startIndices[i] = rccs.size();
-			if(forwardOnly) j = i + 1; else j = 0; // terniaries are slow!
-			while ( j < n ) {
-				b = alss[j];
-				// get maybes common to als1 and als2, skip if none
-				if ( (cmnMaybes=(a.maybes & b.maybes)) != 0
-				  && b != a ) { // reference equals OK
-					// see if the ALSs overlap (we need overlap later anyway)
-					overlap.setAnd(a.idx, b.idx);
-					if ( allowOverlaps || overlap.none() ) {
-						// to tell between 1st and 2nd RC value of each RCC
-						rcc = null;
-
-	// <OUTDENT comment="no wrapping">
-	// foreach maybe common to a and b
-	for ( int v : VALUESES[cmnMaybes] ) {
-		// get indices of v in both ALSs
-		// none of these may be in the overlap
-		if ( bothVs.setOr(a.vs[v], b.vs[v]).andNone(overlap)
-		  // if all v's in both ALSs see each other then v is an RC
-		  && bothVs.andEqualsThis(bothVBuds.setAnd(a.vAll[v], b.vAll[v])) )
-			if ( rcc == null )
-				rccs.add(rcc=new Rcc(i, j, v));
-			else // a rare second RC value in the one RCC
-				rcc.cand2 = v;
 	}
-	// </OUTDENT>
-
-					}
-				}
-				++j;
-			}
-			if ( useStartAndEnd )
-				endIndices[i] = rccs.size();
-		}
-		return rccs.toArray(new Rcc[rccs.size()]);
-	}
-	private final Idx overlap = new Idx();
-	private final Idx bothVs = new Idx();
-	private final Idx bothVBuds = new Idx();
-    /** The indices of the first RC in {@code rccs} for each ALS in
-	 * {@code alss}. This field is set by getRccs and used by HdkAlsXyChain. */
-    protected int[] startIndices = null;
-    /** The indices of the last RC in {@code rccs} for each ALS in
-	 * {@code alss}. This field is set by getRccs and used by HdkAlsXyChain. */
-    protected int[] endIndices = null;
-
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~ helper methods ~~~~~~~~~~~~~~~~~~~~~~~~~
-
-	protected static Pots oranges(Grid grid, Iterable<Idx> sets) {
-		Pots pots = new Pots();
-		for ( Idx set : sets )
-			for ( Cell cell : set.cells(grid) )
-				pots.upsert(cell, cell.maybes);
-		return pots;
-	}
-	// wrapper to convert args-array into a List, which is Iterable
-	protected static Pots orangePots(Grid grid, Idx... sets) {
-		return oranges(grid, Arrays.asList(sets));
-	}
-
-	/**
-	 * Extend {@code MyLinkedHashSet<Als>} to make the add method check that
-	 * the given ALS does not already exist in this Set.
-	 * <p>
-	 * Note that add uses the contains method, which is much faster in a Set
-	 * than in a List, especially a LinkedList, as this was previously.
-	 * <p>
-	 * I extend MyLinkedHashSet instead of java.util.HashSet for the poll
-	 * method, which is used in toArray.
-	 */
-	private static class AlsSet extends MyLinkedHashSet<Als> {
-		private static final long serialVersionUID = 3356942459562L;
-		@Override
-		public boolean add(Als e) {
-			if ( contains(e) )
-				return false;
-			return super.add(e);
-		}
-		/**
-		 * WARNING: This toArray method clears this Set!
-		 */
-		@Override
-		public Als[] toArray() {
-			Als e;
-			final Als[] array = new Als[super.size()];
-			int cnt = 0;
-			while ( (e=super.poll()) != null )
-				array[cnt++] = e;
-			return array;
-		}
-	};
-
+	// Note that caching is static to share among all my subclasses, especially
+	// between AlsXz and AlsWing, which use exactly the same constructor params
+	// package visible for acces by testcases only!
+	static final Rcc[] RCCS = new Rcc[MAX_RCCS];
+	static int numRccs;
+	private static boolean rccsDirty, rccsAO, rccsFO;
+	static final RccFinder RCC_FINDER = new RccFinder();
 
 }

@@ -463,7 +463,7 @@ class SudokuGridPanel extends JPanel {
 
 	// returns the Cell which is at the given x,y.
 	private Cell getCellAt(int x, int y) {
-		int cx = (x - H_GAP) / COS; // also a lettuce, and a reserved word in maths. I can't imagine why. ____ the Romans!
+		int cx = (x - H_GAP) / COS;
 		if(cx<0||cx>8) return null;
 		int cy = (y - V_GAP) / COS;
 		if(cy<0||cy>8) return null;
@@ -511,7 +511,7 @@ class SudokuGridPanel extends JPanel {
 	void setPinkBGCells(Set<Cell> cells) {
 		this.pinkBGCells = cells;
 	}
-	
+
 	/** Set the regions to be outlined in pink. */
 	void setPinkRegions(Collection<ARegion> pinkRegions) {
 		this.pinkRegions = pinkRegions;
@@ -654,7 +654,7 @@ class SudokuGridPanel extends JPanel {
 		if ( cell != null )
 			repaint(cell.x*COS+H_GAP, cell.y*COS+V_GAP, COS, COS);
 	}
-	
+
 	public void setFocusedCellS(String id) {
 		if ( id == null )
 			setFocusedCell(null);
@@ -737,7 +737,7 @@ class SudokuGridPanel extends JPanel {
 			// paint the background of ALS cells only
 			paintAlss(g, alss);
 		} else {
-			// paint regions for non-ALS's 
+			// paint regions for non-ALS's
 			paintRegions(g, covers, COLOR_COVER_BORDER, COLOR_COVER_BG);
 			paintRegions(g, bases, COLOR_BASE_BORDER, COLOR_BASE_BG);
 			paintRegions(g, pinkRegions, COLOR_PINK, null);
@@ -871,7 +871,7 @@ class SudokuGridPanel extends JPanel {
 			// nb: having the region know it's bounds is a bit hacky coz I've
 			// injected a presentation concern into the model. If it s__ts you
 			// then rip the bound attribute out of region and create a
-			// {@code private static final Bounds[] BOUNDS} array here and 
+			// {@code private static final Bounds[] BOUNDS} array here and
 			// populate with the Bounds constructor currently imbedded in the
 			// Box, Row, and Col constructors. I won't coz it works. Bounds
 			// is STILL an attribite of the region, even if only presentation.
@@ -893,7 +893,7 @@ class SudokuGridPanel extends JPanel {
 	 * null, in which case I am never called, but it should never be empty.
 	 *
 	 * @param g
-	 * @param alss 
+	 * @param alss
 	 */
 	private void paintAlss(final Graphics g, Collection<Als> alss) {
 		// If you're seeing this then add another ALS_COLORS and ALS_BG_COLORS.
@@ -1035,16 +1035,16 @@ class SudokuGridPanel extends JPanel {
 				paintMarkers(g, v, tmp, "-", 8);
 	}
 	private final Idx tmp = new Idx();
-	
+
 	// draw String s centered on v in each cell in idx
 	private void paintMarkers(Graphics g, int v, Idx idx, String s, int offset) {
 		final int u = v - 1;
 		for ( int i : idx.toArrayB() )
 			// x,y are the centre point to paint at (I expected top left)
-			drawStringCentered(g, s, 
+			drawStringCentered(g, s,
 					  i%9*COS + CELL_PAD + (u%3)*CISo3 + CISo6 + offset // horizontal
 					, i/9*COS + CELL_PAD + (u/3)*CISo3 + CISo6 // vertical
-			); 
+			);
 	}
 
 	private Color resultColor() {

@@ -38,6 +38,8 @@ import static diuf.sudoku.Grid.CELL_IDS;
 import static diuf.sudoku.Grid.CELLS_REGIONS;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
+import diuf.sudoku.Indexes;
+import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
@@ -109,26 +111,20 @@ public final class XColoring extends AHinter {
 	/** The first and second colors. */
 	private static final int C1 = 0, C2 = 1;
 
-	// the iceQueue size and mask
+	// the iceQ size and mask
 	private static final int Q_SIZE = 32;			// must be a power of 2
 	private static final int Q_MASK = Q_SIZE - 1;	// for this trick to work
 
 	// the opposite color
 	private static final int[] OPPOSITE = {1, 0};
 
-	// ============================ debugger stuff ============================
+	// ============================== debug stuff =============================
 
 	// DEBUG=true prints the "coloring journey" to stdout.
 	private static final boolean DEBUG = false;
 	private static void debug(String s) {
 		if(DEBUG)System.out.println(s);
 	}
-	private void step(String s) {
-		debug(s);
-		steps.append(s);
-		steps.append(NL);
-	}
-	private StringBuilder steps = new StringBuilder(1024);
 
 	// ============================ instance stuff ============================
 
@@ -144,9 +140,7 @@ public final class XColoring extends AHinter {
 	// Indice Color Element Queue:
 	// first index is the queue element index: 0..Q_SIZE-1
 	// second index is 0=indice(0..80), 1=color(0..1)
-	private final int[][] iceQueue = new int[Q_SIZE][];
-	// the two indices of a conjugate pair in a region
-	private final int[] conjugates = new int[2];
+	private final int[][] iceQ = new int[Q_SIZE][];
 	// we reuse this ONE array to read the cells in an Idx
 //	private final Cell[] cells = new Cell[81];
 	private final Cell[] cells = Cells.array(81);
@@ -159,6 +153,10 @@ public final class XColoring extends AHinter {
 	// we reuse this List rather than create one every time when we miss 99%.
 	private final Collection<Link> links = new LinkedList<>();
 
+	// The steps StringBuilder contains an explanation of why this hint exists.
+	// It's part of the hint-HTML.
+	private final StringBuilder steps = new StringBuilder(1024);
+	
 	public XColoring() {
 		super(Tech.XColoring);
 	}
@@ -185,6 +183,16 @@ public final class XColoring extends AHinter {
 		return result;
 	}
 
+	/**
+	 * Append 's' to the steps StringBuilder, followed by a newline.
+	 * 
+	 * @param s to append
+	 */
+	private void step(String s) {
+		debug(s);
+		steps.append(s).append(NL);
+	}
+
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ SIMPLE COLORS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	/**
@@ -196,13 +204,16 @@ public final class XColoring extends AHinter {
 		Cell cell; // If you need this explaining you're in the wrong codebase.
 		AHint hint; // Similarly.
 		ARegion dr; // a dirty region, to be re-processed.
-		int subtype; // the hint type, if any
+		Indexes riv; // region.indexesOf[v]
+		int[] ice; // indice color element: 0=indice, 1=color
+		int[] rivs; // VALUESES[region.indexesOf[v].bits]
+		int r, w; // iceQ read/write index
 		int i; // the uniquitious general purpose index
 		int n; // the number of whatevers added to the array
+		int a, b; // the indices of the cells in this conjugate pair
 		int conjugate; // the indice of the conjugate cell
-		int read, write; // iceQueue read/write index
-		int[] ice; // indice color element: 0=indice, 1=color
 		int indice, color; // grid.cells indice is colored C0 or C1
+		int subtype; // the hint type, if any
 		int c; // the indice into colorSet
 		int o; // the OPPOSITE_COLOR to c
 		int oppositeColor; // the other color
@@ -220,19 +231,21 @@ public final class XColoring extends AHinter {
 			debug("");
 			debug("XColoring Value="+v);
 			debug("=================");
-			// foreach region
+			// foreach region in the grid
 			for ( ARegion region : grid.regions ) {
-				// with 2 places for v
-				if ( region.indexesOf[v].size == 2 ) {
+				// with 2 places for v (ie a conjugate pair in region on v)
+				if ( (riv=region.indexesOf[v]).size == 2 ) {
 					// --------------------------------------------------------
 					// Step 1: Select a conjugate pair (the only two places for
 					// v in a region). Color the first C1, and second C2.
 					bothColors.set(region.idxs[v]);
-					n = region.idxs[v].toArrayN(conjugates);
-					assert n == 2 : "Oops: n = "+n;
-					colorSets[C1].clear().add(conjugates[0]);
-					colorSets[C2].clear().add(conjugates[1]);
+					// region.indexesOf[v] contains 2 cells: 'a' and 'b'
+					// which we set in the 2 colorSets: green and blue
+					rivs = INDEXES[riv.bits];
+					colorSets[C1].clear().add(a = region.cells[rivs[0]].i);
+					colorSets[C2].clear().add(b = region.cells[rivs[1]].i);
 					debug("");
+					debug("a="+a+", b="+b);
 					steps.setLength(0); // clear the steps string
 					step("Step 1: Color conjugate pair:"
 						+" green="+colorSets[C1].ids()
@@ -244,34 +257,35 @@ public final class XColoring extends AHinter {
 					// Find an uncolored conjugate of a colored cell
 					// and color it the OPPOSITE color.
 					any = false;
-					iceQueue[0] = new int[]{conjugates[0], C1};
-					iceQueue[1] = new int[]{conjugates[1], C2};
-					write = 2;
-					read = 0;
-					// nb: this is just iceQueue.poll(), without a method call,
+					// initialise the Indice Color Element Queue
+					iceQ[0] = new int[]{a, C1};
+					iceQ[1] = new int[]{b, C2};
+					w = 2;
+					r = 0;
+					// nb: this is just iceQ.poll(), without a method call,
 					// which is the main reason why this mess is faster.
-					for ( ice=iceQueue[read], iceQueue[read]=null, read=(read+1)&Q_MASK;
+					for ( ice=iceQ[r], iceQ[r]=null, r=(r+1)&Q_MASK;
 						  ice!=null;
-						  ice=iceQueue[read], iceQueue[read]=null, read=(read+1)&Q_MASK
+						  ice=iceQ[r], iceQ[r]=null, r=(r+1)&Q_MASK
 					) {
-						for ( ARegion r : grid.cells[ice[0]].regions ) {
-							if ( r.indexesOf[v].size == 2
+						for ( ARegion rgn : grid.cells[ice[0]].regions ) {
+							if ( rgn.indexesOf[v].size == 2
 							  // and my conjugate is not colored
-							  && !bothColors.contains(conjugate=r.idxs[v].otherThan(ice[0]))
+							  && !bothColors.contains(conjugate=rgn.idxs[v].otherThan(ice[0]))
 							) {
 								indice = ice[0];
 								color = ice[1];
 								step("    Step 2: "+CELL_IDS[indice]+" ("+(color==0?"green":"blue")+")"
 									+" =conjugate=> "+CELL_IDS[conjugate]+" ("+(color==0?"blue":"green")+")"
-									+" in "+r.id);
+									+" in "+rgn.id);
 								// color it the OPPOSITE color
 								oppositeColor = OPPOSITE[color];
 								colorSets[oppositeColor].add(conjugate);
 								bothColors.add(conjugate);
 								// add this newly colored cell to the queue
-								iceQueue[write]=new int[]{conjugate, oppositeColor};
-								write = (write+1) & Q_MASK;
-								assert write != read; // queue undersized
+								iceQ[w]=new int[]{conjugate, oppositeColor};
+								w = (w+1) & Q_MASK;
+								assert w != r; // queue undersized
 								any = true;
 							}
 						}
@@ -298,10 +312,10 @@ public final class XColoring extends AHinter {
 							colorSet.forEach((j)->bothBuds.or(BUDDIES[j]));
 							dirtyRegions = 0;
 							// foreach region in the grid
-							for ( ARegion r : grid.regions ) {
-								if ( xSet.setAndNot(r.idxs[v], bothBuds).size() == 1 ) {
+							for ( ARegion rgn : grid.regions ) {
+								if ( xSet.setAndNot(rgn.idxs[v], bothBuds).size() == 1 ) {
 									step("    Step 3: "+CELL_IDS[xSet.peek()]
-										+" is the only place for "+v+" in "+r.id
+										+" is the only place for "+v+" in "+rgn.id
 										+", so it's "+(c==0?"green":"blue"));
 									colorSet.or(xSet);
 									bothColors.or(xSet);
@@ -311,7 +325,7 @@ public final class XColoring extends AHinter {
 									dirtyRegions |= CELLS_REGIONS[indice];
 								}
 								// No need to reprocess this region
-								dirtyRegions &= ~Idx.SHFT[r.index];
+								dirtyRegions &= ~Idx.SHFT[rgn.index];
 							}
 							// now reprocess the dirty regions, adding any new
 							// ones to the queue, until the queue is empty.
@@ -347,11 +361,11 @@ public final class XColoring extends AHinter {
 							o = OPPOSITE[c];
 							colorSet = colorSets[c];
 							otherSet = colorSets[o];
-							for ( ARegion r : grid.regions )
+							for ( ARegion rgn : grid.regions )
 								// nb: I'm hijacking xSet
-								if ( xSet.setAndMany(colorSet, r.idx) ) {
+								if ( xSet.setAndMany(colorSet, rgn.idx) ) {
 									step("    Step 4.2: Multiple cells {"+xSet.ids()+"}"
-										+" in "+r.id+" are "+(c==0?"green":"blue")
+										+" in "+rgn.id+" are "+(c==0?"green":"blue")
 										+", which is invalid, so the "+(c==0?"blue":"green")
 										+" set {"+otherSet.ids()+"}"
 										+" must be true, ie "+v);
@@ -374,12 +388,12 @@ public final class XColoring extends AHinter {
 								// buddies of THIS color
 								colorBuds.clear();
 								colorSet.forEach((j)->colorBuds.or(BUDDIES[j]));
-								for ( ARegion r : grid.regions )
+								for ( ARegion rgn : grid.regions )
 									// hijack xSet
-									if ( xSet.setAnd(colorBuds, r.idxs[v]).any()
-									  && xSet.size() == r.indexesOf[v].size ) {
-										step("    Step 4.3: ALL cells in "+r.id
-											+" which maybe "+v+" {"+r.idxs[v].ids()+"}"
+									if ( xSet.setAnd(colorBuds, rgn.idxs[v]).any()
+									  && xSet.size() == rgn.indexesOf[v].size ) {
+										step("    Step 4.3: ALL cells in "+rgn.id
+											+" which maybe "+v+" {"+rgn.idxs[v].ids()+"}"
 											+" see a "+(c==0?"green":"blue")+" "+v
 											+", which is invalid"
 											+", so the "+(c==0?"blue":"green")

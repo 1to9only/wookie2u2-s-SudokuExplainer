@@ -498,18 +498,18 @@ final class SudokuExplainer implements Closeable {
 		// This is defensive programming against an upstream bug I'm not sure
 		// exists but I think this should solve the problem. I'm not positive
 		// this is necessary or even desirable, it just "feels right".
-		if ( grid.puzzleID == 0L )
-			grid.puzzleID = Grid.RANDOM.nextLong();
+		if ( grid.pid == 0L )
+			grid.pid = Grid.RANDOM.nextLong();
 		// if solutionValues is unset || it's a different puzzle
-		if ( solutionValues==null || grid.puzzleID!=solutionValuesGridId ) {
+		if ( solutionValues==null || grid.pid!=solutionValuesGridId ) {
 			if ( grid.solutionValues == null )
 				solver.solveQuicklyAndQuietly(grid); // sets grid.solutionValues
 			solutionValues = grid.solutionValues;
-			solutionValuesGridId = grid.puzzleID;
+			solutionValuesGridId = grid.pid;
 			// not real sure I need to do this HERE... might be better to leave
 			// it to solve/getFirstHint/getAllHints, but I'm doing it anyway.
 			if ( HintValidator.ANY_USES )
-				HintValidator.setSolutionValues(grid.solutionValues, grid.puzzleID);
+				HintValidator.setSolutionValues(grid.solutionValues, grid.pid);
 		}
 		// ignore all wrongens!
 		if ( value != solutionValues[cell.i] )

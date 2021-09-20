@@ -164,7 +164,7 @@ public class KrakenFisherman extends AHinter
 	private final CoverStackEntry[] coverStack = new CoverStackEntry[9];
 
 	/** the Fish candidate value, colloquially known as 'v'. */
-	private int candidate;
+	private int v;
 	/** buds: used a result of grid.cmnBuds. */
 	private final Idx buds = new Idx();
 	/** deletes (potential eliminations) in the current covers search;
@@ -263,13 +263,13 @@ public class KrakenFisherman extends AHinter
 			if ( tables.initialise(grid, false) ) // @check false
 				KT2_CACHE.clear();
 			if ( oneOnly ) { // short-circuit
-				for ( candidate=1; candidate<10; ++candidate ) {
+				for ( v=1; v<10; ++v ) {
 					// find fish in rows, else find fish in cols
 					if ( searchBases(ROW) || searchBases(COL) )
 						break;
 				}
 			} else { // no short-circuit
-				for ( candidate=1; candidate<10; ++candidate ) {
+				for ( v=1; v<10; ++v ) {
 					// always find fish in rows and cols
 					if ( searchBases(ROW) | searchBases(COL) )
 						break;
@@ -572,7 +572,7 @@ public class KrakenFisherman extends AHinter
 				final boolean anySharks = kSharks.setAny(sharksM0,sharksM1,sharksM2);
 				sharks.clear();
 				final boolean anyFins = fins.any();
-				KT1_VISITOR.candidate = candidate;
+				KT1_VISITOR.candidate = v;
 				for ( int dk : Idx.toArrayA(deletesM0,deletesM1,deletesM2) ) {
 					// It's a KF1 if each fin chains to cells[kd]-v.
 					if ( anyFins && !isKrakenTypeOne(dk, kt1Asses) )
@@ -916,7 +916,7 @@ public class KrakenFisherman extends AHinter
 			// retain only those kFins that share OFF/s with all previous kd's
 			// kt2Search: populates kt2sets[kd] with consequences of kd+v
 			//        and sets kt2elims to eliminations caused by kd+v
-			kt2Search(tables.ons[kd][candidate], kd);
+			kt2Search(tables.ons[kd][v], kd);
 			// kFins &= the eliminations of targetValue caused by kd+candidate
 			kfM0 &= kt2elims[targetValue].a0;
 			kfM1 &= kt2elims[targetValue].a1;
@@ -940,7 +940,7 @@ public class KrakenFisherman extends AHinter
 			for ( i=0,n=kdArray.length; i<n; ++i ) {
 				kd = kdArray[i];
 				// DO IT ALL AGAIN to populate kFins, kt2elims and kt2sets
-				kt2Produce(new Ass(grid.cells[kd], candidate, ON)
+				kt2Produce(new Ass(grid.cells[kd], v, ON)
 						, kt2sets[kd], kt2elims);
 			}
 		}
@@ -984,8 +984,8 @@ public class KrakenFisherman extends AHinter
 			// set the field
 			kt2sets[kd] = entry.mySet;
 			// copy data, don't just set the array. sigh.
-			for ( v=1; v<10; ++v )
-				kt2elims[v].setNullSafe(entry.myElims[v]);
+			for ( v1=1; v1<10; ++v1 )
+				kt2elims[v1].setNullSafe(entry.myElims[v1]);
 			return;
 		}
 		// not cached, so do the actual search
@@ -994,12 +994,11 @@ public class KrakenFisherman extends AHinter
 		KT2_CACHE.put(initialOn, new Kt2CacheEntry(kt2sets[kd], kt2elims));
 	}
 	private Kt2CacheEntry entry;
-	private int v;
+	private int v1;
 
 	/**
 	 * kt2SearchActual is the kt2Search you have without the cache that is now
-	 * in the actual kt2Search. Confused yet? Well strap-it-on people. This can
-	 * only get harder... and faster... We are GO for 12 Inch Nails!
+	 * in the method called kt2Search.
 	 *
 	 * @param iOn the initial ON Eff, from the kraken tables.
 	 * @param kt2Set
@@ -1018,7 +1017,7 @@ public class KrakenFisherman extends AHinter
 			return;
 		kt2Set.add(iOn);
 		for ( Eff p=iOn; p!=null; p=Q[r],Q[r]=null,r=(r+1)&QMASK ) { // parent
-			if ( p.isOn ) { // p is an ON, its kids are OFFs
+			if ( p.isOn ) { // p is an ON, so its kids are OFFs
 				for ( kids=p.kids,ii=0,nn=p.numKids; ii<nn; ++ii ) // child
 					if ( kt2Set.add(k=kids[ii]) ) {
 						elims[k.value].add(k.i);
@@ -1029,7 +1028,7 @@ public class KrakenFisherman extends AHinter
 							w = (w+1) & QMASK;
 						}
 					}
-			} else // p is an OFF, its kids are ONs, which almost all have kids
+			} else // p is an OFF, so its kids are ONs, which I presume exist
 				for ( kids=p.kids,ii=0,nn=p.numKids; ii<nn; ++ii ) // child
 					if ( kt2Set.add(k=kids[ii]) ) {
 						Q[w] = k;
@@ -1189,9 +1188,9 @@ public class KrakenFisherman extends AHinter
 		// add the deletes (if any) and sharks (if any) to reds
 		final Pots reds = new Pots();
 		if ( deletes.any() )
-			deletes.forEach(grid.cells, (cell)->reds.put(cell, new Values(candidate)));
+			deletes.forEach(grid.cells, (cell)->reds.put(cell, new Values(v)));
 		if ( sharks.any() )
-			sharks.forEach(grid.cells, (cell)->reds.put(cell, new Values(candidate)));
+			sharks.forEach(grid.cells, (cell)->reds.put(cell, new Values(v)));
 
 		baseMask = Regions.types(basesUsed);
 		coverMask = Regions.types(coversUsed);
@@ -1234,7 +1233,7 @@ public class KrakenFisherman extends AHinter
 									 , fins.a2 & ~cB.efM2);
 
 		// the Fish candidate as a Values
-		final Values cv = new Values(candidate);
+		final Values cv = new Values(v);
 		// corners = green
 		final Pots green = new Pots(cornerIdx.cells(grid), cv);
 		// exoFins = blue
@@ -1259,7 +1258,7 @@ public class KrakenFisherman extends AHinter
 
 		String debugMessage = "";
 
-		ComplexFishHint hint = new ComplexFishHint(this, type, false, candidate
+		ComplexFishHint hint = new ComplexFishHint(this, type, false, v
 				, usedBases, usedCovers, reds, green, blue, purple, yellow
 				, debugMessage);
 
@@ -1309,9 +1308,9 @@ public class KrakenFisherman extends AHinter
 	private void addBases(ARegion[] regions) {
 		Idx rvs; // region v's
 		for ( ARegion region : regions )
-			if ( !region.containsValue[candidate] ) {
+			if ( !region.containsValue[v] ) {
 				bases[numBases] = region.index;
-				rvs = region.idxs[candidate];
+				rvs = region.idxs[v];
 				baseVsM0[numBases] = rvs.a0;
 				baseVsM1[numBases] = rvs.a1;
 				baseVsM2[numBases++] = rvs.a2;
@@ -1321,9 +1320,9 @@ public class KrakenFisherman extends AHinter
 	private void addCovers(ARegion[] regions) {
 		Idx rvs; // region v's
 		for ( ARegion region : regions )
-			if ( !region.containsValue[candidate] ) {
+			if ( !region.containsValue[v] ) {
 				allCovers[numAllCovers] = region.index;
-				rvs = region.idxs[candidate];
+				rvs = region.idxs[v];
 				allCoverVsM0[numAllCovers] = rvs.a0;
 				allCoverVsM1[numAllCovers] = rvs.a1;
 				allCoverVsM2[numAllCovers++] = rvs.a2;
@@ -1483,7 +1482,7 @@ public class KrakenFisherman extends AHinter
 		boolean initialise(Grid grid, boolean forceRefresh) {
 			// the first initialise call foreach version of each grid init's,
 			// the rest just return. "I told him we've already got one."
-			if ( myHintNumber==AHint.hintNumber && myPuzzleID==grid.puzzleID
+			if ( myHintNumber==AHint.number && myPuzzleID==grid.pid
 			  && !forceRefresh )
 				return false;
 
@@ -1543,8 +1542,8 @@ public class KrakenFisherman extends AHinter
 							off.addKid(kid);
 				}
 			}
-			myHintNumber = AHint.hintNumber;
-			myPuzzleID = grid.puzzleID;
+			myHintNumber = AHint.number;
+			myPuzzleID = grid.pid;
 //			System.out.format("KT init %,d ns.\n", System.nanoTime()-start);
 			return true;
 		}

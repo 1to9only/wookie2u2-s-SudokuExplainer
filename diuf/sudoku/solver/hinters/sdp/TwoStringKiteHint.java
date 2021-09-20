@@ -20,8 +20,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
+ * TwoStringKiteHint is the DTO for TwoStringKite hints. It's presented via
+ * toString (fast) in LST and GUI, and via toHtml (slow verbose) only in GUI.
  *
- * @author User
+ * @author Bernhard Hobiger (HoDoKu) hacked into SE by Keith Corlett
  */
 public class TwoStringKiteHint extends AHint implements IActualHint {
 
@@ -54,11 +56,10 @@ public class TwoStringKiteHint extends AHint implements IActualHint {
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName())
+		return new StringBuilder(128).append(getHintTypeName())
 		  .append(": ").append(Frmt.csv(oranges.keySet()))
-		  .append(" on ").append(Integer.toString(redValue));
-		return sb.toString();
+		  .append(" on ").append(Integer.toString(redValue))
+		  .toString();
 	}
 
 	@Override

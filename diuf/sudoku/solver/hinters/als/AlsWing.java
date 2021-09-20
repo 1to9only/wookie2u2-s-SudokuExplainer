@@ -29,7 +29,6 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
@@ -37,29 +36,38 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.io.StdErr;
+import diuf.sudoku.utils.Frmt;
 import java.util.Arrays;
 
 
 /**
- * AlsWing implements the Almost Locked Set XY-Wing Sudoku solving technique.
+ * AlsWing implements the Almost Locked Set Wing Sudoku solving technique.
+ * An ALS-Wing is an ALS-Chain of three ALSs.
  * <p>
  * I extend AAlsHinter which implements IHinter.findHints to find the ALSs,
  * determine there RCCs (connections), and call my "custom" findHints method
  * passing everything into my implementation of a specific search technique.
  * <p>
- * The ALS-XY-Wing is formed by three Almost Locked Sets (ALSs). The values x
- * and y are common to a pair of ALSs. The x-values are Restricted Common
+ * An ALS-Wing is formed by three Almost Locked Sets (ALSs). The values x
+ * and z are common to a pair of ALSs. The x-values are Restricted Common
  * Candidates (RCCs). All occurrences of a restricted value in two ALSs see
- * each other. The y-values are just common (not restricted).
+ * each other. The z-values are just common (not restricted).
  * <p>
- * Each pair of ALSs share two common values, x and y (as above) such that a
- * value is "pushed" along the chain, eventually eliminating the z-value that
- * is common (non-restricted) to the first and last ALS (a and b in this
- * implementation; c is the middle ALS in the chain).
- * <p>
+ * Each pair of ALSs share two common values, x and z (as above) such that x
+ * is "pushed" along the chain, eventually eliminating z-value's common to the
+ * first and last ALS (a and b in this implementation; c is the "middle" ALS in
+ * the chain).
+ * <pre>
+ * KRC 2021-05-31 I've been trying to make XYWing faster, because it's the
+ * slowest hinter that I'm still using, but I've been having very little joy.
+ * The fastest implementation so far ran in about 18-20 seconds for top1465.
+ * This implementation runs in about 20-22 seconds, but is a bit more readable.
+ * I'm willing to forego performance for readability.
+ * </pre>
  *
  * @author Keith Corlett 2020 May 5
  */
@@ -67,157 +75,151 @@ public final class AlsWing extends AAlsHinter
 //implements diuf.sudoku.solver.IReporter
 {
 
+	// buds of all v's (including the ALSs).
+	private final Idx victims = new Idx();
+	// removable (red) potential values
+	private final Pots redPots = new Pots();
+
 	/**
 	 * Constructor.
 	 * <pre>Super constructor parameters:
 	 * * tech = Tech.ALS_Wing
-	 * * allowLockedSets = true my Almost Locked Sets include cells that are
+	 * * allowNakedSets = true my Almost Locked Sets include cells that are
 	 *   part of a Locked Set in the region.
-	 * * findRCCs = true run getRccs to find values connecting ALSs
+	 *   WARNING: If you set this false then you also need to uncomment code!
+	 * * findRCCs = true run getRccs to find the common values connecting ALSs
 	 * * allowOverlaps = true the ALSs are allowed to physically overlap
 	 * * forwardOnly = true do a forward only search for RCCs
 	 * * useStartAndEnd = false I don't need start and end indexes for each ALS
 	 * </pre>
 	 */
 	public AlsWing() {
+		// WARNING: you need to uncomment code if you change allowNakedSets!
 		super(Tech.ALS_Wing, true, true, true, true, false);
 	}
 
+//	@Override
+//	public void report() {
+//		diuf.sudoku.utils.Log.teef("%s: ttlRccs=%,d counts=%s\n", tech.name(), ttlRccs, Arrays.toString(counts));
+//	}
+//	private long ttlRccs;
+////ALS_XZ:    ttlRccs=    8,801,276
+////ALS_Wing:  ttlRccs=    6,085,665
+////ALS_Chain: ttlRccs=3,100,592,090
+//	private final long[] counts = new long[5];
+////ALS_Wing: ttlRccs=6,079,210 counts=[1987565350, 5891824, 0, 5959622, 5487569]
+////Note I've commented out the if-statement for counts[3]
+
 	// findHints was boosted mainly from HoDoKu AlsSolver.getAlsXYWingInt
+	// NOTE: I tried splitting-out searching of ALSs into a search method, but
+	// it's significantly slower with the extra stack-work, so reverted.
 	@Override
-	protected boolean findHints(Grid grid, Idx[] candidates, Rcc[] rccs
-			, Als[] alss, IAccumulator accu) {
-		Rcc rccA, rccB;
-		Als a, b, c;
-		int i, j, vA1,vA2, vB1,vB2, a1,a2, b1,b2, zs;
-		boolean any;
-//		final Idx tmp = this.tmp; // for various checks
-//		final Idx victims = this.victims; // all buds of v (including the ALSs).
-//		final Pots redPots = this.redPots;
-//		final Pots bluePots = this.bluePots;
-		final int n = rccs.length;
-		final int m = n - 1;
+	protected boolean findHints(Grid grid, Idx[] candidates, Als[] alss
+			, int numAlss, Rcc[] rccs, int numRccs, IAccumulator accu) {
+		int i,n,m, j, v1,v2,a1,a2, v3,v4,b1,b2, zs, count;
+		Rcc A, B;
+		Als c, a=null, b=null;
 		// presume that no hint will be found
 		boolean result = false;
-//		ttlRccs += n;
-		// foreach distinct pair of RCCs
-		for ( i=0; i<m; ++i ) {
-			rccA = rccs[i]; // rccs is an ArrayList whose get is O(1)
-			vA1 = rccA.cand1;
-			vA2 = rccA.cand2;
+//		ttlRccs += rccs.length;
+		// foreach distinct pair of RCCs (a forward-only search)
+		for ( i=0,n=numRccs,m=n-1; i<m; ++i ) {
+			v1 = (A=rccs[i]).v1;
+			v2 = A.v2;
+			a1 = A.als1;
+			a2 = A.als2;
+			// WARNING: this loop executes nearly 2.3 BILLION times
 			for ( j=i+1; j<n; ++j ) {
-				rccB = rccs[j];
-				vB1 = rccB.cand1;
-				vB2 = rccB.cand2;
-				// need at least two different common candidates in rcc1 & rcc2
+				v4 = (B=rccs[j]).v2;
+				// need at least two different common candidates in A & B
 				// which can't be true if they have same single value.
-				if ( vA1!=vB1 || vA2!=0 || vB2!=0 ) {
-					// get the indexes of my ALSs in the alss array
-					a1=rccA.als1; a2=rccA.als2;
-					b1=rccB.als1; b2=rccB.als2;
-					// the two RCCs have to connect 3 different ALSs; since
-					//     rcc1.als1!=rcc1.als2 && rcc2.als1!=rcc2.als2
-					// not too many possibilites remain, thankfully
-					if ( (a1==b1 && a2!=b2)
-					  || (a1==b2 && a2!=b1)
-					  || (a2==b1 && a1!=b2)
-					  || (a2==b2 && a1!=b1) ) {
-						// identify c so we can check for eliminations
-						a = b = c = null;
-						if ( a1 == b1 ) {
-							a = alss[a2];
-							b = alss[b2];
-							c = alss[a1];
-						}
-						if ( a1 == b2 ) {
-							a = alss[a2];
-							b = alss[b1];
-							c = alss[a1];
-						}
-						if ( a2 == b1 ) {
-							a = alss[a1];
-							b = alss[b2];
-							c = alss[a2];
-						}
-						if ( a2 == b2 ) {
-							a = alss[a1];
-							b = alss[b1];
-							c = alss[a2];
-						}
-						// supress IDE's possible null pointer warnings
-						assert a!=null && b!=null && c!=null;
-						// if any buds of both ALSs, to eliminate from
-//						if ( a.buddies.andAny(b.buddies) // inlined for speed
-						if ( ( ( (a.buddies.a0 & b.buddies.a0)
-							   | (a.buddies.a1 & b.buddies.a1)
-							   | (a.buddies.a2 & b.buddies.a2) ) != 0 )
-						  // and there's atleast one z-value: maybes common to
-						  // both ALSs, except the RC values.
-						  && (zs=a.maybes & b.maybes & ~VSHFT[vA1] & ~VSHFT[vA2]
-								& ~VSHFT[vB1] & ~VSHFT[vB2]) != 0
-						  // check overlaps: RCs already done, so just a and b
-						  // doing this inline was no faster so stop inlining
-						  && (allowOverlaps || a.idx.andNone(b.idx))
-						  // one cannot contain the other, even if allowOverlap
-						  && !Idx.orEqualsEither(a.idx, b.idx)
-						) {
-							// presume that no eliminations will be found
-							any = false;
-							// examine each z value
-							for ( int z : VALUESES[zs] ) {
-								// victims: cells seeing all z's in both ALSs,
-								// including the ALSs themselves.
-								if ( victims.setAnd(a.vBuds[z], b.vBuds[z]).any() ) {
-									// we found elimination/s
-									any = true;
-									// eliminate z from each victim
-									victims.forEach(grid.cells
-										, (cell) -> redPots.upsert(cell, z)
-									);
-									// ALS z's are fins (for display only)
-									tmp.setOr(a.vs[z], b.vs[z]).forEach(grid.cells
-										, (cell) -> bluePots.upsert(cell, z)
-									);
-								}
-							}
-							if ( any ) {
-								// validate
-								if ( HintValidator.ALS_USES ) {
-									if ( !HintValidator.isValid(grid, redPots) ) {
-										HintValidator.report(this.getClass().getSimpleName()
-												, grid, Arrays.asList(a, b, c));
-										if ( true ) {
-											// I'm sort-of on top of invalid hints
-											StdErr.exit(StdErr.me()+": invalid hint", new Throwable());
-										} else {
-											// just skip invalid elimination/s
-											redPots.clear();
-											bluePots.clear();
-											continue;
-										}
+				if ( v1!=(v3=B.v1) || v2!=0 || v4!=0 ) {
+					// the two RCCs contain 4 ALSs, from which we need to
+					// connect 3 distinct ALSs; and since
+					//     A.als1!=A.als2 && B.als1!=B.als2
+					// thankfully not too many possibilites remain,
+					// so compare them all to determine ALS c
+					b2=B.als2;
+					if ( a2==(b1=B.als1) && a1!=b2 ) { // out of sequence
+						a=alss[a1]; b=alss[b2]; c=alss[a2];
+//						++counts[3];
+					} else if ( a1==b1 && a2!=b2 ) {
+						a=alss[a2]; b=alss[b2]; c=alss[a1];
+//						++counts[1];
+					} else if ( a2==b2 && a1!=b1 ) {
+						a=alss[a1]; b=alss[b1]; c=alss[a2];
+//						++counts[4];
+////counts[2] is 0, so either there's no hits or there's a mistake I can't see!
+//					} else if ( a1==b2 && a2!=b1 ) { // out of sequence
+//						a=alss[a2]; b=alss[b1]; c=alss[a1];
+//						++counts[2];
+					} else {
+						c = null;
+//						++counts[0];
+					}
+					if ( c != null
+					  // if ALS a and ALS b have any common buds to eliminate
+					  // done inline for speed
+					  // ignore IDE: Dereferencing possible null pointer
+					  && ( ( (a.buddies.a0 & b.buddies.a0)
+						   | (a.buddies.a1 & b.buddies.a1)
+						   | (a.buddies.a2 & b.buddies.a2) ) != 0 )
+					  // and there's atleast one z-value: maybes common to
+					  // ALS a and ALS b, excluding the RCC values.
+					  && (zs=a.maybes & b.maybes & ~VSHFT[v1] & ~VSHFT[v2]
+							& ~VSHFT[v3] & ~VSHFT[v4]) != 0
+//allowOverlaps=true in AlsWing constructor so this does nothing except eat CPU
+//					  // check overlaps: RCs already done, so just a and b
+//					  // doing this inline was no faster so stop inlining
+//					  && (allowOverlaps || a.idx.andNone(b.idx))
+//I believe this is "correct", but doesn't do anything in top1465.
+//					  // one cannot contain the other, even if allowOverlap
+//					  && !Idx.orEqualsEither(a.idx, b.idx)
+					) {
+						// examine each z value (usually one)
+						count = 0; // number of cells eliminated from
+						for ( int z : VALUESES[zs] )
+							// victims: cells seeing all z's in both ALSs,
+							// including the ALSs themselves.
+							if ( victims.setAndAny(a.vBuds[z], b.vBuds[z]) )
+								// eliminate z from each victim
+								count += victims.forEach(grid.cells, (x) ->
+									redPots.upsert(x, z)
+								);
+						if ( count > 0 ) {
+							// FOUND an ALS-XY-Wing, with eliminations!
+							// validate
+							if ( HintValidator.ALS_USES ) {
+								if ( !HintValidator.isValid(grid, redPots) ) {
+									HintValidator.report(this.getClass().getSimpleName()
+											, grid, Arrays.asList(a, b, c));
+									if ( true ) {
+										// I'm sort-of on top of invalid hints
+										StdErr.exit(StdErr.me()+": invalid hint", new Throwable());
+									} else {
+										// just skip invalid elimination/s
+										redPots.clear();
+										return false;
 									}
 								}
-								// FOUND an ALS-XY-Wing!
-								// get z values as a bitset
-								final int zBits = redPots.valuesOf();
-								// build the hint
-								final AHint hint = new AlsWingHint(
-									  this
-									, new Pots(redPots)
-									, a, b, c
-									, vA1 // x value
-									, vB1 // y value
-									, Values.toString(zBits, ", ", " and ") // z value/s
-								);
-								// clear the pots for the next hint (if any)
-								redPots.clear();
-								bluePots.clear();
-								// we found a hint (for in the GUI)
-								result = true;
-								// add the hint to accu
-								if ( accu.add(hint) )
-									return result; // exit-early in batch
 							}
+							// get the zValues String BEFORE we clear redPots
+							final String zValues = Values.toString(
+								redPots.valuesOf(), Frmt.comma, Frmt.and);
+							// build the hint
+							final AHint hint = new AlsWingHint(
+								  this
+								, redPots.copyAndClear()
+								, a, b, c
+								, v1 // x value
+								, v3 // y value
+								, zValues
+							);
+							// we found a hint (in GUI)
+							result = true;
+							// add the hint to accu
+							if ( accu.add(hint) )
+								return result; // exit-early (in batch)
 						}
 					}
 				}
@@ -228,21 +230,5 @@ public final class AlsWing extends AAlsHinter
 			accu.sort();
 		return result;
 	}
-	// used for various checks
-	private final Idx tmp = new Idx();
-	// victims: all buds of v (including the ALSs).
-	private final Idx victims = new Idx();
-	// a couple of lazy Pot heads.
-	private final Pots redPots = new Pots();
-	private final Pots bluePots = new Pots();
-
-//	@Override
-//	public void report() {
-//		diuf.sudoku.utils.Log.teef("%s: ttlRccs=%,d\n", tech.name(), ttlRccs);
-//	}
-//	private long ttlRccs;
-//ALS_XZ:    ttlRccs=    8,801,276
-//ALS_Wing:  ttlRccs=    6,085,665
-//ALS_Chain: ttlRccs=3,100,592,090
 
 }

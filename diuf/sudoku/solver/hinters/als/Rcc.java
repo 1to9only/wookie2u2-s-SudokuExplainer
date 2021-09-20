@@ -30,9 +30,6 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import java.io.Serializable;
-
-
 /**
  * An RCC is a Restricted Common Candidate/s: one-or-two values that two ALS's
  * have in common, which all see each other (the nominative restriction);<br>
@@ -41,9 +38,9 @@ import java.io.Serializable;
  *
  * @author hobiwan, but this version has been hacked by KRC.
  */
-public class Rcc implements Comparable<Rcc>, Serializable//, Cloneable
+public class Rcc implements Comparable<Rcc>, java.io.Serializable
 {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 4153506457540778L;
 
     /** Index of first ALS in a {@code List<Als>} kept externally. */
     public final int als1;
@@ -52,26 +49,26 @@ public class Rcc implements Comparable<Rcc>, Serializable//, Cloneable
     public final int als2;
 
     /** First RC, must be != 0. */
-    public final int cand1;
+    public final int v1;
 
-    /** Second RC; if {@code cand2==0} als1 and als2 have only one RC value. */
-    public int cand2;
+    /** Second RC; if {@code v2==0} als1 and als2 have only one RC value. */
+    public int v2;
 
     /** Used in ALS-Chains: 0=none, 1=cand1, 2=cand2, 3=both. */
-    public int whichRC;
+    public int which;
 
     /**
      * Constructs a new {@code Rcc} for ALSs which are presumed to be singly
 	 * linked upon creation, but a second RC value may be added later.
      * @param als1
      * @param als2
-     * @param cand1
+     * @param v1
      */
-    public Rcc(int als1, int als2, int cand1) {
+    public Rcc(int als1, int als2, int v1) {
         this.als1 = als1;
         this.als2 = als2;
-        this.cand1 = cand1;
-        this.cand2 = 0;
+        this.v1 = v1;
+        this.v2 = 0;
     }
 
     /**
@@ -88,34 +85,34 @@ public class Rcc implements Comparable<Rcc>, Serializable//, Cloneable
 	 * searching both possible links in a chain.
      *
      * @param p the Rcc of the previous link in the current chain
-     * @param isFirst when <tt>prevRC==null</tt> (first link in a chain)<br>
+     * @param firstTry when <tt>prevRC==null</tt> (first link in a chain)<br>
 	 *  should we use <tt>cand1</tt> (the first attempt)<br>
 	 *  or <tt>cand2</tt> (the second attempt).
      * @return does any RC-value remain to be examined
      */
-    public boolean whichRC(Rcc p, boolean isFirst) {
+    public boolean whichRC(Rcc p, boolean firstTry) {
 		// NOTE: terniaries are slow!
-		if ( cand2 == 0 )
-			whichRC = 1; // cand1 only
+		if ( v2 == 0 )
+			which = 1; // cand1 only
 		else
-			whichRC = 3; // both
+			which = 3; // both
         if ( p == null ) {
 			// start of chain: pick the RC to examine
-            if ( cand2 != 0 )
-				if ( isFirst )
-					whichRC = 1; // examine cand1
+            if ( v2 != 0 )
+				if ( firstTry )
+					which = 1; // examine cand1
 				else
-					whichRC = 2; // examine cand2
+					which = 2; // examine cand2
         } else
 			// continueing chain: pick my RC based on prevRC.whichRC
-			switch ( p.whichRC ) {
+			switch ( p.which ) {
 				case 0: break; // whichRC is already set
-				case 1: whichRC = check(p.cand1, 0, cand1, cand2); break; // cand1 only
-				case 2: whichRC = check(p.cand2, 0, cand1, cand2); break; // cand2 only
-				case 3: whichRC = check(p.cand1, p.cand2, cand1, cand2); break; // both cand1 and cand2
+				case 1: which = check(p.v1, 0, v1, v2); break; // cand1 only
+				case 2: which = check(p.v2, 0, v1, v2); break; // cand2 only
+				case 3: which = check(p.v1, p.v2, v1, v2); break; // both cand1 and cand2
 				default: break;
 			}
-        return whichRC != 0;
+        return which != 0;
     }
 
     /**
@@ -138,9 +135,8 @@ public class Rcc implements Comparable<Rcc>, Serializable//, Cloneable
 	 * differently the impirical evidence keeps on telling me otherwise. I am
 	 * tempted to blame "hot box" for the losses, and try again tomorrow in the
 	 * cool of early morning. I have no air-conditioning, nor the money, nor da
-	 * inclination to contribute to the destruction of my bloody planet by
-	 * using one. If it's hot then my PC runs slower. Get Over It!
-	 * An evaporative-PC-cooler might work though. sigh.
+	 * inclination to contribute to planetaty destruction by using one. If it's
+	 * hot then PCs slow down. Get Over It!
 	 * </pre>
      *
      * @param p1 previous RCC first candidate
@@ -188,8 +184,8 @@ public class Rcc implements Comparable<Rcc>, Serializable//, Cloneable
     @Override
     public String toString() {
         return "alss=" + als1 + "/" + als2
-			 + " cands=" + cand1 + "/" + cand2
-			 + " arc=" + whichRC;
+			 + " cands=" + v1 + "/" + v2
+			 + " arc=" + which;
     }
 
     /**
@@ -204,8 +200,8 @@ public class Rcc implements Comparable<Rcc>, Serializable//, Cloneable
         int result;
         if ( (result=als1 - r.als1) == 0
 		  && (result=als2 - r.als2) == 0
-		  && (result=cand1 - r.cand1) == 0 )
-			result = cand2 - r.cand2;
+		  && (result=v1 - r.v1) == 0 )
+			result = v2 - r.v2;
         return result;
     }
 

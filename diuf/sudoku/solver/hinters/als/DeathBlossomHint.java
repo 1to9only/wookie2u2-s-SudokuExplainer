@@ -79,18 +79,20 @@ public class DeathBlossomHint extends AHint implements IActualHint {
 		return sb.toString();
 	}
 
-	// produce a line per ALS in this Death Blossom, colored to match the grid.
-	private String alssString() {
-		StringBuilder sb = new StringBuilder(64*stem.maybes.size);
+	// produce a line per ALS in this DB, that's colored to match the grid.
+	private String coloredAlss() {
+		int v;
+		final int n = stem.maybes.size;
+		final StringBuilder sb = new StringBuilder(64*n);
 		// get each als by it's value
-		int[] values = VALUESES[stem.maybes.bits];
-		for ( int i=0; i<values.length; ++i ) {
-			int v = values[i];
+		final int[] values = VALUESES[stem.maybes.bits];
+		for ( int i=0; i<n; ++i ) {
+			v = values[i];
 			if ( i > 0 )
 				sb.append(NL).append("       "); // 7 spaces
-			sb.append('<').append(COLORS[i % COLORS.length]).append('>');
-			sb.append(v).append(" in ").append(alssByValue[v]);
-			sb.append("</").append(COLORS[i % COLORS.length]).append('>');
+			sb.append('<').append(COLORS[i % COLORS.length]).append('>')
+			  .append(v).append(" in ").append(alssByValue[v])
+			  .append("</").append(COLORS[i % COLORS.length]).append('>');
 		}
 		return Html.colorIn(sb.toString());
 	}
@@ -104,9 +106,10 @@ public class DeathBlossomHint extends AHint implements IActualHint {
 		final String invalid; if(isInvalid) invalid="INVALID "; else invalid="";
 		return Html.produce(this, "DeathBlossomHint.html"
 			, stem.toFullString()	//{0}
-			, redPots.toString()	// 1
-			, alssString()			// 2
-			, invalid				// 3
+			, coloredAlss()			// 1
+			, stem.id				// 2
+			, redPots.toString()	// 3
+			, invalid				// 4
 		);
 	}
 

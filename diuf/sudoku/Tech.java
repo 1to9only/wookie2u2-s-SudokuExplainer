@@ -103,12 +103,13 @@ public enum Tech {
 	, BUG				(4.30, 0, "BUG",       "DROP (Bivalue Universal Grave) subset of Coloring. SLOW!", true, false)
 	, Coloring			(4.31, 2, "Coloring",  "KEEP BUG++ and faster. The only Multi-Coloring.", false, true)
 	, XColoring			(4.32, 2, "XColoring", "KEEP (Extended Coloring) Simple-Coloring++", false, true)
-	, Medusa3D			(4.33, 2, "Medusa 3D", "DROP (3D Medusa Coloring) colors cell-values (not just cells)", false, true)
+	, Medusa3d			(4.33, 2, "Medusa 3d", "DROP (3D Medusa Coloring) colors cell-values (not just cells)", false, true)
 	, GEM				(4.34, 2, "GEM",       "KEEP (Graded Equivalence Marks) Medusa++", false, true)
 	, NakedQuad			(4.40, 4, "Naked Quad")
 	, HiddenQuad		(4.41, 4, "Hidden Quad")
-	, NakedPent			(4.50, 5, "Naked Pent", "Degenerate")
-	, HiddenPent			(4.51, 5, "Hidden Pent", "Degenerate")
+	, NakedPent			(4.50, 5, "Naked Pent", "Degenerate", true, false)
+	, HiddenPent			(4.51, 5, "Hidden Pent", "Degenerate", true, false)
+	, BigWings			(4.61, 0, "Big-Wings", false) // all below BigWing, BUT SLOWER!
 	, WXYZ_Wing			(4.61, 3, "WXYZ-Wing") // fast limited ALS-XZ
 	, VWXYZ_Wing		(4.62, 4, "VWXYZ-Wing") // fast limited ALS-XZ
 	, UVWXYZ_Wing		(4.63, 5, "UVWXYZ-Wing") // faster limited ALS-XZ
@@ -117,7 +118,7 @@ public enum Tech {
 	, URT				(4.70, 0, "Unique Rectangle", "Unique Rectangles and loops", false, true)
 	, FinnedSwampfish	(4.80, 2, "Finned Swampfish")	// with Sashimi
 	, FinnedSwordfish	(4.81, 3, "Finned Swordfish")
-	, FinnedJellyfish	(4.82, 4, "Finned Jellyfish")
+	, FinnedJellyfish	(4.82, 4, "Finned Jellyfish", false)
 	, ALS_XZ			(4.90, 0, "ALS-XZ")				// ALSs
 	, ALS_Wing			(4.91, 0, "ALS-Wing")
 	, ALS_Chain			(4.92, 0, "ALS-Chain")
@@ -125,40 +126,40 @@ public enum Tech {
 	, SueDeCoq			(4.94, 0, "Sue De Coq")			// Almost ALSs
 
 // Diabolical
-	, FrankenSwampfish	(5.00, 2, "Franken Swampfish")
-	, FrankenSwordfish	(5.01, 3, "Franken Swordfish")
-	, FrankenJellyfish	(5.02, 4, "Franken Jellyfish")
+	, FrankenSwampfish	(5.00, 2, "Franken Swampfish", false)
+	, FrankenSwordfish	(5.01, 3, "Franken Swordfish", false)
+	, FrankenJellyfish	(5.02, 4, "Franken Jellyfish", false)
 	// Mutants are too slow to be allowed: 1,764 seconds for just 20 hints.
-	, KrakenSwampfish	(5.10, 2, "Kraken Swampfish")				// OK
-	, MutantSwampfish	(5.11, 2, "Mutant Swampfish", "Degenerate")	// NONE
-	, KrakenSwordfish	(5.20, 3, "Kraken Swordfish", "30 seconds")	// OK
-	, MutantSwordfish	(5.21, 3, "Mutant Swordfish", "2 minutes")	// SLOW
-	, KrakenJellyfish	(5.30, 4, "Kraken Jellyfish", "9 minutes")	// TOO SLOW
-	, MutantJellyfish	(5.31, 4, "Mutant Jellyfish", "20 minutes")	// TOO SLOW
-	, AlignedPair	(6.1, 2, "Aligned Pair")
-	, AlignedTriple	(6.2, 3, "Aligned Triple")
-	, AlignedQuad	(6.3, 4, "Aligned Quad")
-	, AlignedPent	(6.4, 5, "Aligned Pent", "1 minute correct")  // SLOW
-	, AlignedHex	(6.5, 6, "Aligned Hex",  "3 minutes correct") // SLOW
-	, AlignedSept	(6.6, 7, "Aligned Sept", "6 minutes correct") // VERY SLOW
-	, AlignedOct		(6.7, 8, "Aligned Oct",  "19 minutes correct")// TOO SLOW
-	, AlignedNona	(6.8, 9, "Aligned Nona", "3 hours correct")	  // SEA ANCHOR
-	, AlignedDec		(6.9,10, "Aligned Dec",  "6 hours correct")	  // DROPPED ANCHOR
+	, KrakenSwampfish	(5.10, 2, "Kraken Swampfish", false)					  // OK
+	, MutantSwampfish	(5.11, 2, "Mutant Swampfish", "Degenerate", true, false)  // NONE
+	, KrakenSwordfish	(5.20, 3, "Kraken Swordfish", "30 seconds", false, false) // OK
+	, MutantSwordfish	(5.21, 3, "Mutant Swordfish", "2 minutes", false, false)  // SLOW
+	, KrakenJellyfish	(5.30, 4, "Kraken Jellyfish", "9 minutes", true, false)	  // TOO SLOW
+	, MutantJellyfish	(5.31, 4, "Mutant Jellyfish", "20 minutes", true, false)  // TOO SLOW
+	, AlignedPair	(6.1, 2, "Aligned Pair", false)
+	, AlignedTriple	(6.2, 3, "Aligned Triple", false)
+	, AlignedQuad	(6.3, 4, "Aligned Quad", false)
+	, AlignedPent	(6.4, 5, "Aligned Pent", "1 minute correct", false, false)	// SLOW
+	, AlignedHex	(6.5, 6, "Aligned Hex",  "3 minutes correct", false, false) // SLOW
+	, AlignedSept	(6.6, 7, "Aligned Sept", "6 minutes correct", true, false)	// VERY SLOW
+	, AlignedOct		(6.7, 8, "Aligned Oct",  "19 minutes correct", true, false)	// TOO SLOW
+	, AlignedNona	(6.8, 9, "Aligned Nona", "3 hours correct", true, false)	// SEA ANCHOR
+	, AlignedDec		(6.9,10, "Aligned Dec",  "6 hours correct", true, false)	// DROPPED ANCHOR
 	// chains       level                      Multi,Dynam,Nishi
-	, UnaryChain	(7.0, 0, "Unary Chain",    false,false,false)
-	, NishioChain	(7.5, 0, "Nishio Chain",   false,true ,true )
-	, MultipleChain	(8.0, 0, "Multiple Chain", true ,false,false)
-	, DynamicChain	(8.5, 0, "Dynamic Chain",  true ,true ,false)
+	, UnaryChain	(7.0, 0, "Unary Chain",    false,false,false)	// OK
+	, NishioChain	(7.5, 0, "Nishio Chain",   false,true ,true )	// TAD SLOW
+	, MultipleChain	(8.0, 0, "Multiple Chain", true ,false,false)	// OK
+	, DynamicChain	(8.5, 0, "Dynamic Chain",  true ,true ,false)	// OK
 
 // IDKFA
-	, DynamicPlus	(9.0, 1, "Dynamic Plus",   true ,true ,false)
+	, DynamicPlus	(9.0, 1, "Dynamic Plus",   true ,true ,false)	// SLOW
 
 	// nested
 	// NB: constructor does name().startsWith("Nested")
-	, NestedUnary	( 9.5, 2, "Nested Unary",    true ,true ,false)
-	, NestedMultiple	(10.0, 3, "Nested Multiple", true ,true ,false)
-	, NestedDynamic	(10.5, 4, "Nested Dynamic",  true ,true ,false)
-	, NestedPlus		(11.0, 5, "Nested Plus",     true ,true ,false)
+	, NestedUnary	( 9.5, 2, "Nested Unary",    true ,true ,false) // SLOW
+	, NestedMultiple	(10.0, 3, "Nested Multiple", true ,true ,false) // SLOW
+	, NestedDynamic	(10.5, 4, "Nested Dynamic",  true ,true ,false) // SLOW
+	, NestedPlus		(11.0, 5, "Nested Plus",     true ,true ,false) // TOO SLOW
 	;
 
 	public static EnumSet<Tech> forNames(Set<String> namesSet) {
@@ -257,7 +258,11 @@ public enum Tech {
 	}
 
 	private Tech(double difficulty, int degree, String nom) {
-		this(difficulty, degree, nom, null, false, true); // tool tip = none
+		this(difficulty, degree, nom, null, false, true); // tip = none
+	}
+
+	private Tech(double difficulty, int degree, String nom, boolean defaultWanted) {
+		this(difficulty, degree, nom, null, false, defaultWanted);
 	}
 
 	private Tech(boolean defaultWanted, double difficulty, int degree

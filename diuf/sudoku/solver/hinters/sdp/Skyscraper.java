@@ -34,9 +34,6 @@ package diuf.sudoku.solver.hinters.sdp;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
-import static diuf.sudoku.Grid.COL;
-import static diuf.sudoku.Grid.ROW;
-import diuf.sudoku.Grid.Row;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
@@ -72,18 +69,32 @@ import java.util.List;
  * Two members of that family have been recognised as Sudoku masters: seriously
  * ____ing smart bastards; so yeah, most folks tap-out somewhere around here.
  * <p>
- * The package-name SDP is an acronym of SingleDigitPattern, the HoDoKu class
- * from which all hinters in this directory originate.
+ * The package name 'sdp' stands for SingleDigitPattern, which is the HoDoKu
+ * class that fathered these hinters.
  *
  * @author Keith Corlett 2020-03-25
  */
 public class Skyscraper extends AHinter {
+	
+	// the "other" type of region for row and col, box exists but is never used
+	private static final int[] OTHER_TYPE = {0, 2, 1};
 
 	/**
-	 * pairs is an array of arrays-of-two-cells. 18 is large enough by
-	 * experimentation. It's a field rather than re-create the array in each
-	 * findHints. Note that all cell references are cleared upon exit, because
-	 * each cell reference holds the whole Grid in memory (a memory leak).
+	 * clear: set each cell-reference in the pairs array to null.
+	 *
+	 * @param pairs array to clear
+	 */
+	private static void clear(Cell[][] pairs) {
+		for ( Cell[] pair : pairs )
+			pair[0] = pair[1] = null;
+	}
+
+	/**
+	 * pairs is an array of arrays-of-two-cells. 18 is enough by experiment.
+	 * It's a field rather than re-create the array in each findHints.
+	 * <p>
+	 * NOTE that each cell-reference is cleared upon exit, because each
+	 * cell-reference holds the whole Grid in memory, ie a memory leak.
 	 */
 	private final Cell[][] pairs = new Cell[18][2];
 
@@ -130,59 +141,51 @@ public class Skyscraper extends AHinter {
 	}
 
 	/**
-	 * Search the grid for skyscraper hints by rows or cols.
+	 * Search for Skyscrapers in rows or cols.
 	 *
-	 * @param regions grid.rows/cols
+	 * @param rowsOrCols grid.rows/cols
 	 * @return were any hints found?
 	 */
-	private boolean search(final ARegion[] regions) {
+	private boolean search(final ARegion[] rowsOrCols) {
 		// a pair is the 2 cells in a row/col which both maybe v
 		Cell[] pairA, pairB;
-		int p // the number of pairs collected
+		int n // the number of pairs collected
 		  , o // the otherIndex
 		  , a,A // pairA index
 		  , b; // pairB index
-		// work-out the regionType and otherType from regions
-		final int rType, oType;
-		if ( regions[0] instanceof Row ) {
-			rType = ROW;
-			oType = COL;
-		} else {
-			rType = COL;
-			oType = ROW;
-		}
-		// localise field for speed (clear is for debugging only)
-		final Cell[][] pairs = this.pairs; // clear(this.pairs); // this.pairs;
-		// indices of removable v's, if any
-		final Idx victims = this.victims;
+		// localise field for speed
+		final Cell[][] pairs = this.pairs; // an array of a-pair-of-cells
 		// indices of cells in Grid which maybe value 1..9 (cached)
 		final Idx[] candidates = grid.getIdxs();
+		// indices of removable v's, if any
+		final Idx victims = this.victims;
+		// work-out the regionType and otherType from the given rowsOrCols
+		final int rType = rowsOrCols[0].typeIndex
+				, oType = OTHER_TYPE[rType];
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach potential value
 		for ( int v=1; v<10; ++v ) {
             // get rows/cols with two places for v
-			p = 0; // p is the number of pairs-of-v's found
-			for ( ARegion r : regions )
+			n = 0; // the number of pairs collected
+			for ( ARegion r : rowsOrCols ) // grid.rows or grid.cols
 				if ( r.indexesOf[v].size == 2 )
-					r.at(r.indexesOf[v].bits, pairs[p++]);
-			// if there's atleast two pairs-of-v's
-			if ( p > 1 ) {
-				// examine each distinct pair (A and B) of pairs-of-v's,
-				// using a forwards-only search.
-				for ( a=0,A=p-1; a<A; ++a ) {
-					pairA = pairs[a]; // the first pair of v's
-					for ( b=a+1; b<p; ++b ) {
-						pairB = pairs[b]; // the second pair of v's
-						// if "this" end is aligned: in same col/row
+					r.at(r.indexesOf[v].bits, pairs[n++]);
+			// if we collected atleast two pairs
+			if ( n > 1 ) {
+				// examine each combination of a and b pairs (forwards-only)
+				for ( a=0,A=n-1; a<A; ++a ) {
+					pairA = pairs[a]; // the first pair
+					for ( b=a+1; b<n; ++b ) {
+						pairB = pairs[b]; // the second pair
+						// if "this" end is in the same col/row
 						if ( ( (pairA[0].regions[oType]==pairB[0].regions[oType] && (o=1)==1) // "other" end is 1
 							|| (pairA[1].regions[oType]==pairB[1].regions[oType] && (o=0)==0) ) // "other" end is 0
-						  // and "other" end is misaligned: NOT in same col/row
-						  // otherwise it's an X-Wing, which is not my problem
+						  // and "other" end is NOT in same col/row, otherwise
+						  // it's an X-Wing, which is not my problem
 						  && pairA[o].regions[oType] != pairB[o].regions[oType]
-						  // and it eliminates any maybes
-						  && victims.setAnd(pairA[o].buds, pairB[o].buds)
-								    .and(candidates[v]).any()
+						  // and it eliminates some maybes
+						  && victims.setAndAny(pairA[o].buds, pairB[o].buds, candidates[v])
 						) {
 							// FOUND a Skyscraper!
 							// build the removable (red) potentials
@@ -227,16 +230,6 @@ public class Skyscraper extends AHinter {
 		final Pots oranges = new Pots(v, pairA, pairB);
 		// build and return the hint
 		return new SkyscraperHint(this, v, bases, covers, reds, oranges);
-	}
-
-	/**
-	 * clear: set every entry in the pairs array of arrays to null.
-	 *
-	 * @param pairs array to clear
-	 */
-	private void clear(Cell[][] pairs) {
-		for ( Cell[] pair : pairs )
-			pair[0] = pair[1] = null;
 	}
 
 }

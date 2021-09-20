@@ -47,8 +47,8 @@ import diuf.sudoku.solver.hinters.AHinter;
 /**
  * WWing Implements the W-Wing Sudoku solving technique.
  * <p>
- * Search all combinations of bivalue cells having the same candidates.
- * Each pair could eliminate something, so find a connecting strong link.
+ * A W-Wing is a pair of cells (not in a single region) with the same two
+ * maybes having a strong link between them.
  */
 public final class WWing extends AHinter
 //		implements diuf.sudoku.solver.IReporter
@@ -72,13 +72,13 @@ public final class WWing extends AHinter
 		int[] vA;
 		// the cellA.maybes.bits, cell index b, generic index.
 		int bitsA;
-		// the indices of cells which maybe each value 1..9
+		// the indices of cells which maybe each value 1..9 (cached)
 		final Idx[] candidates = grid.getIdxs();
 		// pre-prepaired Idxs of buddies of cellA which maybe 0=v0, 1=v1
-		final Idx bud0 = this.bud0.clear();
-		final Idx bud1 = this.bud1.clear();
+		final Idx bud0 = this.bud0;//.clear(); // to debug
+		final Idx bud1 = this.bud1;//.clear(); // to debug
 		// an index of the potentially removable (red) cells
-		final Idx reds = new Idx();
+		final Idx victims = this.victims;//.clear(); // to debug
 		// presume failure, ie that no hint will be found
 		boolean result = false;
 		// foreach cell in the grid
@@ -94,26 +94,23 @@ public final class WWing extends AHinter
 				  && bud1.setAndAny(cA.buds, candidates[vA[1]]) ) {
 					// find a "pair" cell (with same 2 maybes)
 					for ( Cell cB : grid.cells )
-						if ( cB.maybes.bits == bitsA
-						  && cB!=cA ) {
-//if ( "C6".equals(cellA.id) && "H9".equals(cellB.id) )
-//	Debug.breakpoint();
+						if ( cB.maybes.bits==bitsA && cB!=cA ) {
 							// ok, we have a pair; can anything be eliminated?
 							// find removable cells: siblings of both A and B
 							// which maybe v0 or v1
-							if ( reds.setAndAny(bud0, cB.buds)
+							if ( victims.setAndAny(bud0, cB.buds)
 							  // search reds for a strong link
-							  && (hint=checkLink(grid, vA, cA, cB, reds)) != null ) {
+							  && (hint=checkLink(grid, vA, cA, cB, victims)) != null ) {
 								result = true;
 								if ( accu.add(hint) )
-									return true;
+									return result;
 							}
-							if ( reds.setAndAny(bud1, cB.buds)
+							if ( victims.setAndAny(bud1, cB.buds)
 							  // search reds for a strong link
-							  && (hint=checkLink(grid, vA, cA, cB, reds)) != null ) {
+							  && (hint=checkLink(grid, vA, cA, cB, victims)) != null ) {
 								result = true;
 								if ( accu.add(hint) )
-									return true;
+									return result;
 							}
 						}
 				}
@@ -123,10 +120,11 @@ public final class WWing extends AHinter
 	// buddies of cellA which maybe 0=v0, 1=v1
 	private final Idx bud0 = new Idx();
 	private final Idx bud1 = new Idx();
+	private final Idx victims = new Idx();
 
 	// check for W-Wing in cells[a]'s regions on values
 	private AHint checkLink(Grid grid, final int[] values, final Cell cA
-			, final Cell cB, final Idx reds) {
+			, final Cell cB, final Idx victims) {
 		// BFIIK: why seek the second value first, and not first value first?
 		final int v1 = values[1];
 		final int sv1 = VSHFT[v1];
@@ -145,12 +143,12 @@ public final class WWing extends AHinter
 							wA = c;
 							if ( wB != null ) // W-Wing found!
 								return createHint(values, cA, cB, wA, wB
-										, reds.cells(grid));
+										, victims.cells(grid));
 						} else if ( c.sees[cB.i] ) {
 							wB = c;
 							if ( wA != null ) // W-Wing found!
 								return createHint(values, cA, cB, wA, wB
-										, reds.cells(grid));
+										, victims.cells(grid));
 						}
 					}
 				}
@@ -160,28 +158,21 @@ public final class WWing extends AHinter
 	}
 
 	private AHint createHint(int[] values, Cell cA, Cell cB, Cell wA, Cell wB
-			, Cell[] redCells) {
+			, final Cell[] victimCells) {
 		final int v0=values[0], v1=values[1];
-
-		// We check that each redCell maybe v0 by calculating it all and only
-		// then skipping where it's untrue; which is illogical, but works.
+		// Check each victimCell maybe v0 by calculating everything and only
+		// then skipping when untrue; which works, but
 		// There MUST be a faster way!
-		// KRC 2020-04-30 FYI This happens in 7#top1465.d5.mt (below):
-/*
-.....9.4.9.28.4..1.7..5..9..83.97....4..68...69.1..8..32....18.85.9...6.....8...3
-15,136,1568,2367,127,,2367,,2678,,36,,,37,,3567,357,,14,,1468,236,,1236,236,,268,125,,,245,,,456,125,456,1257,,157,235,,,3579,12357,579,,,57,,234,235,,237,457,,,4679,4567,47,56,,,4579,,,47,,13,13,247,,247,147,16,14679,24567,,256,4579,57,
-*/
 		final int sv0 = VSHFT[v0];
-		for ( Cell redCell : redCells )
-			if ( (redCell.maybes.bits & sv0) == 0 )
+		for ( Cell c : victimCells )
+			if ( (c.maybes.bits & sv0) == 0 )
 				return null;
-
 		// build the highlighted (green) potential values
-		Pots greenPots = new Pots(v1, cA,cB,wA,wB);
+		final Pots greenPots = new Pots(v1, cA,cB,wA,wB);
 		// build the fins (blue) potential values
-		Pots bluePots = new Pots(v0, cA,cB);
+		final Pots bluePots = new Pots(v0, cA,cB);
 		// build the removeable (red) potential values
-		Pots redPots = new Pots(v0, redCells);
+		final Pots redPots = new Pots(v0, victimCells);
 		// build and return the hint
 		return new WWingHint(this, v0, v1, cA, cB, wA, wB
 				, greenPots, bluePots, redPots);

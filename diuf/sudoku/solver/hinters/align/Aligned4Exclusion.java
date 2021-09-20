@@ -84,8 +84,8 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 	private final Idx idx02 = new Idx(); // = idx01 & idx2
 	private final Idx idx03 = new Idx(); // = idx02 & idx3
 
-	public Aligned4Exclusion(IInterruptMonitor monitor) {
-		super(Tech.AlignedQuad, monitor);
+	public Aligned4Exclusion(IInterruptMonitor im) {
+		super(Tech.AlignedQuad, im);
 		assert tech.isAligned;
 		assert degree == 4;
 	}
@@ -124,7 +124,7 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 
 		// localise fields for speed (if it's referenced more than three times)
 		final int degree = this.degree;
-		final int hintNum = AHint.hintNumber;
+		final int hintNum = AHint.number;
 		final boolean useHits = this.useHits;
 
 		// get an array of the Cells at which we hinted last time;

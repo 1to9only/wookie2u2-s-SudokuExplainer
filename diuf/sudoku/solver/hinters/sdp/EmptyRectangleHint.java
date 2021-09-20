@@ -9,16 +9,13 @@ package diuf.sudoku.solver.hinters.sdp;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
-import java.util.Collection;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -81,9 +78,9 @@ public class EmptyRectangleHint extends AHint implements IActualHint {
 				, bases.get(0).id			 // 1 erBox
 				, redCell.id				 // 2
 				, covers.get(0).id			 // 3 erRow
-				, covers.get(0).typeName	 // 4 
+				, covers.get(0).typeName	 // 4
 				, covers.get(1).id			 // 5 assisting 1
-				, covers.get(2).typeName	 // 6 
+				, covers.get(2).typeName	 // 6
 				, covers.get(2).id			 // 7 assisting 2
 				, id1						 // 8 assisting cell1
 				, id2						 // 9 assisting cell2

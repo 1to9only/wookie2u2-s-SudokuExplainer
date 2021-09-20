@@ -93,7 +93,7 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 
 		// localise fields for speed (if it's referenced more than three times)
 		final int degree = this.degree;
-		final int hintNum = AHint.hintNumber;
+		final int hintNum = AHint.number;
 		final boolean useHits = this.useHits;
 
 		// get an array of the Cells at which we hinted last time;

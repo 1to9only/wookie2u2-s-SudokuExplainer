@@ -393,10 +393,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	// return does the warning panel need to be visible.
 	boolean refreshDisabledRulesWarning() {
 		// build the disabled-rules warning message
-		EnumSet<Tech> wanted = Settings.THE.getWantedTechniques();
-//		EnumSet<Tech> unwanted = Settings.ALL_TECHS.clone();
-//		unwanted.removeAll(wanted);
-//		System.out.println(unwanted);
+		EnumSet<Tech> wanted = Settings.THE.getWantedTechs();
 		// -2 for [The Solution, Single Solution]
 		final int numDisabled = Settings.ALL_TECHS.size() - 2 - wanted.size();
 		String msg = ""+numDisabled+" techniques disabled.";
@@ -409,7 +406,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		  || wanted.contains(Tech.AlignedOct)
 		  || wanted.contains(Tech.AlignedNona)
 		  || wanted.contains(Tech.AlignedDec) )
-			msg += " Careful with that axe Eugene!";
+			msg += " Align those balls!";
 		// set the warning JLabel's text
 		lblDisabledTechsWarning.setText(msg);
 		// make the warning panel in/visible
@@ -1503,7 +1500,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 					// default regex is whatever I'm working on currently.
 					// @stretch MRU combo-box (custom dialog).
 					if ( regex == null || regex.isEmpty() )
-						regex = "(Finned Mutant|Mutant).*";
+//						regex = "(Finned Mutant|Mutant).*";
+						regex = ".*WXYZ.*";
 					regex = Ask.forString("hint regex", regex);
 				}
 				if ( regex == null || regex.isEmpty() )

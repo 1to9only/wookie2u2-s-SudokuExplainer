@@ -95,6 +95,7 @@ import java.util.List;
  * <p>
  * Sashimi fish rely on a fin (else they're degenerate) to allow us to drop
  * a corner from the normal Fish pattern: replacing a corner with a fin.
+ * Sashimi's are now found in a "normal" Finned search.
  * <p>
  * Franken fish adds a box to the bases OR the covers.
  * <p>
@@ -266,8 +267,8 @@ public class ComplexFisherman extends AHinter
 	/** the recursion stack for the cover region search. */
 	private final CoverStackEntry[] coverStack = new CoverStackEntry[9];
 
-	/** the Fish candidate value, colloquially known as just 'v', for short. */
-	private int candidate;
+	/** the Fish candidate value, called 'v' for short. */
+	private int v;
 	/** indices of cells which maybe the Fish candidate value, v. */
 	private Idx vs;
 	/** Idx of the endo-fins, used as param to grid.cmnBuds. */
@@ -361,8 +362,8 @@ public class ComplexFisherman extends AHinter
 //					++skip;
 //					continue;
 //				}
-				candidate = v;
-				vs = idxs[v];
+				this.v = v;
+				this.vs = idxs[v];
 				// first search rows for fish
 				// Mutant searches both ROWs and COLs
 				if ( searchBases(ROW) && oneOnly )
@@ -620,8 +621,8 @@ public class ComplexFisherman extends AHinter
 				if ( (fM0|fM1|fM2) != 0
 				  // but not too many of them
 				  && Integer.bitCount(fM0)+Integer.bitCount(fM1)+Integer.bitCount(fM2) <= MAX_FINS
-				  // with common buddy/s that maybe v: the ONLY method call and
-				  // myCommonBuddies is stackframeless, ie fast!
+				  // with common buddy/s that maybe v
+				  // the ONLY method call and stackframeless, ie fast!
 				  && myCommonBuddies() ) {
 					// ******************* COMPLEX FISCH ******************
 					// Candidate is deletable if in covers but not bases,
@@ -774,12 +775,11 @@ public class ComplexFisherman extends AHinter
 	 */
 	private AHint createHint() {
 
-		// MIA_REDS: problem with non-existent reds, so log issues,
-		// and throw IllegalStateException if reds come-out empty.
 		final Pots reds = new Pots(); // set-of-Cell=>Values to be eliminated
 		if ( MIA_REDS ) {
-			// shiftedCand: the Fish candidate value as a left-shifted bitset
-			final int sc = VSHFT[candidate];
+			// problem with non-existent reds, so log issues,
+			// throw IllegalStateException if reds come-out empty.
+			final int sv = VSHFT[v]; // bitset of the Fish candidate value
 			// skip if there's no deletes and no sharks.
 			if ( deletes.none() && sharks.none() ) {
 				carp("no deletes and no sharks");
@@ -788,10 +788,10 @@ public class ComplexFisherman extends AHinter
 			// check that each delete exists
 			if ( deletes.any() ) { // there may occasionally only be sharks
 				deletes.forEach(grid.cells, (cell) -> {
-					if ( (cell.maybes.bits & sc) != 0 ) {
-						reds.put(cell, new Values(candidate));
+					if ( (cell.maybes.bits & sv) != 0 ) {
+						reds.put(cell, new Values(v));
 					} else { // the "missing" delete was NOT added
-						carp("MIA delete: "+cell.toFullString()+"-"+candidate);
+						carp("MIA delete: "+cell.toFullString()+"-"+v);
 					}
 				});
 			}
@@ -799,10 +799,10 @@ public class ComplexFisherman extends AHinter
 			if ( sharks.any() ) { // there's usually only deletes
 				// foreach shark (cannibalistic) cell in grid.cells
 				sharks.forEach(grid.cells, (cell) -> {
-					if ( (cell.maybes.bits & sc) != 0 ) {
-						reds.put(cell, new Values(candidate));
+					if ( (cell.maybes.bits & sv) != 0 ) {
+						reds.put(cell, new Values(v));
 					} else { // the "missing" shark was NOT added
-						carp("MIA shark: "+cell.toFullString()+"-"+candidate);
+						carp("MIA shark: "+cell.toFullString()+"-"+v);
 					}
 				});
 			}
@@ -815,11 +815,11 @@ public class ComplexFisherman extends AHinter
 			// and then return null (no hint) if reds come-out null or empty.
 			if ( deletes.any() )
 				deletes.forEach(grid.cells
-					, (cell) -> reds.put(cell, new Values(candidate))
+					, (cell) -> reds.put(cell, new Values(v))
 				);
 			if ( sharks.any() )
 				sharks.forEach(grid.cells
-					, (cell) -> reds.put(cell, new Values(candidate))
+					, (cell) -> reds.put(cell, new Values(v))
 				);
 			if ( reds.isEmpty() )
 				return null; // should never happen. Never say never.
@@ -832,21 +832,8 @@ public class ComplexFisherman extends AHinter
 		final boolean basicFish = (baseMask==ROW_MASK && coverMask==COL_MASK)
 							   || (baseMask==COL_MASK && coverMask==ROW_MASK);
 
-		// look for Sashiminess (used to determine the type)
-		boolean isSashimi = false;
-		if ( basicFish && seekFinned ) {
-			// isSashimi = any base except fins has only one candidate
-			for ( int i=0; i<numBases; ++i ) {
-				if ( basesUsed[bases[i]]
-				  // there never seems to be none, so don't test for it
-				  && Idx.sizeLTE(baseVsM0[i] & ~fins.a0
-							   , baseVsM1[i] & ~fins.a1
-						       , baseVsM2[i] & ~fins.a2, 1) ) {
-					isSashimi = true;
-					break;
-				}
-			}
-		}
+		// a sashimi fish has a base with just one non-fin v
+		final boolean isSashimi = basicFish && seekFinned && isSashimi();
 
 		// determine the type
 		final ComplexFishHint.Type type;
@@ -859,11 +846,12 @@ public class ComplexFisherman extends AHinter
 				 || (baseMask&ROW_COL_MASK) == ROW_COL_MASK
 				 || (coverMask&ROW_COL_MASK) == ROW_COL_MASK ) {
 			// Mutant: boxes in bases AND covers
-			//      or rows AND cols in bases or covers
+			//      or rows AND cols in bases
+			//      or rows AND cols in covers
 			type = !seekBasic ? ComplexFishHint.Type.FINNED_MUTANT[degree - 2]
 				 : ComplexFishHint.Type.MUTANT[degree - 2];
 		} else {
-			// Franken: boxes in bases OR covers
+			// Franken: boxes in bases XOR covers
 			type = !seekBasic ? ComplexFishHint.Type.FINNED_FRANKEN[degree - 2]
 				 : ComplexFishHint.Type.FRANKEN[degree - 2];
 		}
@@ -876,13 +864,15 @@ public class ComplexFisherman extends AHinter
 		final Idx cornerIdx = new Idx(vsM0 & ~fins.a0
 									, vsM1 & ~fins.a1
 									, vsM2 & ~fins.a2);
+		// the endo-fins are v's that are in more than one base, so its a fin
 		final Idx endoFinsIdx = new Idx(efM0, efM1, efM2);
+		// the exo-fins are extra v's in bases (normally called just "fins")
 		final Idx exoFinsIdx = new Idx(fins.a0 & ~efM0
 									 , fins.a1 & ~efM1
 									 , fins.a2 & ~efM2);
 
 		// the Fish candidate as a Values
-		final Values cv = new Values(candidate);
+		final Values cv = new Values(v);
 		// corners = green
 		final Pots green = new Pots(cornerIdx.cells(grid), cv);
 		// exoFins = blue
@@ -891,13 +881,14 @@ public class ComplexFisherman extends AHinter
 		final Pots purple = new Pots(endoFinsIdx.cells(grid), cv);
 		// sharks = yellow
 		final Pots yellow;
-		if ( sharks.any() ) {
+		if ( sharks.none() )
+			yellow = null;
+		else {
 			yellow = new Pots(sharks.cells(grid), cv);
 			// paint all sharks yellow (except eliminations which stay red)!
 			if ( !yellow.isEmpty() )
 				yellow.removeFromAll(green, blue, purple);
-		} else
-			yellow = null;
+		}
 
 		// paint all eliminations red (including sharks)!
 		reds.removeFromAll(green, blue, purple, yellow);
@@ -905,9 +896,9 @@ public class ComplexFisherman extends AHinter
 		// paint endo-fins purple, not corners (green) or exo-fins (blue).
 		purple.removeFromAll(green, blue);
 
-		String debugMsg = "";
+		final String debugMsg = "";
 
-		AHint myHint = new ComplexFishHint(this, type, isSashimi, candidate
+		final AHint myHint = new ComplexFishHint(this, type, isSashimi, v
 			, basesL, coversL, reds, green, blue, purple, yellow, debugMsg);
 
 		if ( HintValidator.COMPLEX_FISHERMAN_USES ) {
@@ -924,13 +915,28 @@ public class ComplexFisherman extends AHinter
 		return myHint;
 	}
 
+	/**
+	 * Returns is this a Sashimi fish?
+	 *
+	 * @return does any used base contain only 1 non-fin v
+	 */
+	private boolean isSashimi() {
+		for ( int j=0; j<numBases; ++j )
+			if ( basesUsed[bases[j]]
+			  && Idx.sizeLTE(baseVsM0[j] & ~fins.a0
+						   , baseVsM1[j] & ~fins.a1
+						   , baseVsM2[j] & ~fins.a2, 1) )
+				return true;
+		return false;
+	}
+
 	private static void carp(String msg) {
 		Log.teeln("ComplexFisherman: "+msg);
 	}
 
 	/**
 	 * Select the bases and allCovers in a Fish of my type and {@link #degree}.
-	 * Repopulates the bases array with numBases base regions; and also 
+	 * Repopulates the bases array with numBases base regions; and also
 	 * repopulates the allCovers array with numAllCovers potential cover
 	 * regions. The actual covers array is calculated later in searchCovers
 	 * because the covers are dependant on the current bases.
@@ -954,16 +960,16 @@ public class ComplexFisherman extends AHinter
 		for ( ARegion region : regions )
 			// ignore regions which already have the Fish candidate set.
 			// nb: containsValue is rebuilt by LogicalSolver and TestHelp.
-			if ( !region.containsValue[candidate] )
+			if ( !region.containsValue[v] )
 				addRegion(region, isBase, andConverse);
 	}
 
 	private void addRegion(ARegion region, boolean isBase, boolean andConverse) {
 		// indices of cells which maybe the fish candidate value in this region
-		final Idx rvs = region.idxs[candidate];
+		final Idx rvs = region.idxs[v];
 		if ( isBase ) { // region is a base
 //			// basic fish bases have upto degree candidates, but not more.
-//			if ( !seekBasic || region.indexesOf[candidate].size<=degree ) {
+//			if ( !seekBasic || region.indexesOf[v].size<=degree ) {
 				bases[numBases] = region.index;
 				baseVsM0[numBases] = rvs.a0;
 				baseVsM1[numBases] = rvs.a1;

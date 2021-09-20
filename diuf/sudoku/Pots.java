@@ -145,10 +145,13 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * Constructs a new Pots containing the given 'cells' => 'value'.
+	 * <p>
+	 * This method takes a {@code Cell[]} to avoid varargs overheads.
+	 *
+	 * @param cells {@code Cell[]} to put.
 	 * @param value int to add to a new Values, which is put.
-	 * @param cells {@code Cell...} to put.
 	 */
-	public Pots(int value, Cell... cells) {
+	public Pots(Cell[] cells, int value) {
 		super(Math.max(MIN_CAPACITY,cells.length), 1F);
 		int sv = VSHFT[value];
 		for ( Cell cell : cells )
@@ -158,7 +161,52 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * Constructs a new Pots containing the given 'cells' => 'value'.
-	 * <p>NB: A <b>new</b> instance of Values is put'ed.
+	 * <p>
+	 * This method takes {@code Cell a, Cell b} to avoid varargs overheads.
+	 *
+	 * @param value int to add to a new Values, which is put.
+	 * @param a the first cell to put.
+	 * @param b the second cell to put.
+	 */
+	public Pots(int value, Cell a, Cell b) {
+		super(MIN_CAPACITY, 1F);
+		int sv = VSHFT[value];
+		if ( (a.maybes.bits & sv) != 0 )
+			put(a, new Values(value));
+		if ( (b.maybes.bits & sv) != 0 )
+			put(b, new Values(value));
+	}
+
+	/**
+	 * Constructs a new Pots containing the given 'cells' => 'value'.
+	 * <p>
+	 * This method takes {@code Cell a, Cell b, Cell c, Cell d} to avoid
+	 * varargs overheads.
+	 *
+	 * @param value int to add to a new Values, which is put.
+	 * @param a the first cell to put.
+	 * @param b the second cell to put.
+	 * @param c the third cell to put.
+	 * @param d the fourth cell to put.
+	 */
+	public Pots(int value, Cell a, Cell b, Cell c, Cell d) {
+		super(MIN_CAPACITY, 1F);
+		int sv = VSHFT[value];
+		if ( (a.maybes.bits & sv) != 0 )
+			put(a, new Values(value));
+		if ( (b.maybes.bits & sv) != 0 )
+			put(b, new Values(value));
+		if ( (c.maybes.bits & sv) != 0 )
+			put(c, new Values(value));
+		if ( (d.maybes.bits & sv) != 0 )
+			put(d, new Values(value));
+	}
+
+	/**
+	 * Constructs a new Pots containing the given 'cells' => 'value'.
+	 * <p>
+	 * NB: A <b>new</b> instance of Values is put'ed.
+	 *
 	 * @param value int to add to a new Values, which is put.
 	 * @param cellss Cell[]... (an arguements array of cell arrays) to put.
 	 */
@@ -171,6 +219,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	/**
 	 * Constructs a new Pots containing an entry for each Cell in 'cells' =>
 	 * a <b>new instance</b> of Values which contains the given 'values'.
+	 *
 	 * @param cells Cell's to put.
 	 * @param values Values to copy into new Values objects which are put.
 	 */
@@ -185,6 +234,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	/**
 	 * Constructs a new Pots containing an entry for each Cell in 'cells' =>
 	 * a <b>new instance</b> of Values which contains the given 'values'.
+	 *
 	 * @param cells Cell's to put.
 	 * @param v the value.
 	 */
@@ -197,6 +247,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	/**
 	 * Constructor: Constructs a new Pots containing all of the given cells
 	 * to a new Values containing the given value.
+	 *
 	 * @param cells
 	 * @param value
 	 */
@@ -209,6 +260,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	/**
 	 * Constructor: Constructs a new Pots from a re-usable cells array, all
 	 * to the given value (used for LockingGeneralised greenPots only).
+	 *
 	 * @param value
 	 * @param numCells
 	 * @param cells
@@ -225,29 +277,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
-	 * Create a clone (a shallow copy) of these Pots; and clear these pots;
-	 * then return the clone.
-	 * <p>
-	 * This weird little method facilitates the Coloring hinter having just ONE
-	 * instance of Pots, which is copied and stored each time we create a hint,
-	 * and then the ONE redPots instance is cleared for reuse. There's probably
-	 * a cleaner way to handle all this, but this is what I've come-up with.
-	 * I hope folks don't find it too confusing.
-	 * <p>
-	 * Note that it's only a shallow copy, so the existing Values instances are
-	 * referenced by the returned clone, the Values objects are NOT "deep
-	 * copied"... if you get values weirdness then try a deep copy!
-	 *
-	 * @return a new SHALLOW copy of these Pots, which are then cleared.
-	 */
-	public Pots cloneAndClear() {
-		Pots clone = new Pots(this);
-		this.clear();
-		return clone;
-	}
-
-	/**
 	 * Add all these others to this Pots.
+	 *
 	 * @param others
 	 */
 	public Pots addAll(Pots others) {
@@ -269,6 +300,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * Add the given values to all the given cells. The values added are the
 	 * intersection of each cells maybes any the given Values. If there are
 	 * none then cell is skipped; and then we return "were any added".
+	 *
 	 * @param cells
 	 * @param values
 	 * @return were any added
@@ -313,7 +345,9 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * putAll (COPYING Values) from the given 'map', and return this Pots.
-	 * <p>IMHO this is how putAll should be, for safety.
+	 * <p>
+	 * IMHO this is how putAll should be, for safety.
+	 *
 	 * @param map A Pots to putAll into this Pots.
 	 * @return this Pots.
 	 */
@@ -327,6 +361,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * This method exists to override supers putAll to force developers (who
 	 * always run with -ea) to call putAll2 instead, else (in production) I
 	 * just delegate to putAll2.
+	 *
 	 * @param map
 	 */
 	@Override
@@ -339,6 +374,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * retainAll removes any not-keepers (which is a bitset) from the values of
 	 * each cell in this Pots, and if that leaves that Values empty then we
 	 * also remove the Cell.
+	 *
 	 * @param keepers
 	 * @return
 	 */
@@ -351,6 +387,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * Put the given Cell and Values if the Values is NOT null-or-empty.
+	 *
 	 * @param cell Cell to put.
 	 * @param values Values to put if they are not empty.
 	 */
@@ -403,7 +440,33 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
+	 * Update-or-insert these 'bits' (a bitset of candidate values).
+	 * If 'cell' is already in this Pots then add bits to it's existing Values;
+	 * else (the cell is not in this Pots) then create a new instance of Values
+	 * containing the given 'bits'.
+	 *
+	 * @param cell the Cell to upsert to
+	 * @param bits the Values.bits to be upserted
+	 * @param dummy just a marker parameter which differentiates this methods
+	 *  signature from all other method signatures in the Pots class.
+	 * @return true if this Pots was modified, so if the cell is added I always
+	 *  return true, but if another value is added to an existing cell then I
+	 *  return was the value actually added; ie I return false if the value was
+	 *  already in cells values. This allows you to keep count of the values
+	 *  actually added to a Pots using the upsert method; or you could just
+	 *  count the bastards afterwards. sigh.
+	 */
+	public boolean upsert(Cell cell, int bits, boolean dummy) {
+		final Values existing;
+		if ( (existing=get(cell)) != null )
+			return existing.addBits(bits);
+		put(cell, new Values(bits, dummy));
+		return true;
+	}
+
+	/**
 	 * upsert all the other Pots.
+	 *
 	 * @param others Pots to be upserted.
 	 * @return this Pots.
 	 */
@@ -438,15 +501,15 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @param grid the grid itself
 	 * @param v the value to add for each cell, presuming that cell.maybe(v),
 	 *  else this cell is skipped.
-	 * @return this Pots.
+	 * @return any changes.
 	 */
-	public Pots upsertAll(Idx idx, Grid grid, int v) {
+	public boolean upsertAll(Idx idx, Grid grid, int v) {
 		final int sv = VSHFT[v];
-		idx.forEach(grid.cells, (cell) -> {
-			if ( (cell.maybes.bits & sv) != 0 )
-				upsert(cell, v);
-		});
-		return this;
+		boolean result = false;
+		for ( int i : idx.toArrayA() )
+			if ( (grid.cells[i].maybes.bits & sv) != 0 )
+				result |= upsert(grid.cells[i], v);
+		return result;
 	}
 
 	/**
@@ -489,8 +552,11 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 				put(cells[i], new Values(v));
 	}
 
-	/** remove all these cells from these Pots.
-	 * @param cells to remove. */
+	/**
+	 * Remove all these cells from these Pots.
+	 *
+	 * @param cells to remove.
+	 */
 	public void removeAll(Iterable<Cell> cells) {
 		if ( cells != null )
 			for ( Cell cell : cells )
@@ -501,6 +567,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * Remove each value in each cell in others from this Pots and if that
 	 * leaves a cell (key) with no values (data) then cell is also removed.
 	 * Note that this may result in an empty set!
+	 *
 	 * @param others
 	 * @return
 	 */
@@ -518,6 +585,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * Remove these pots from all of the given potss.
+	 *
 	 * @param potss
 	 */
 	public void removeFromAll(Pots... potss) {
@@ -563,6 +631,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * valuesOf aggregates all values of all cells in this Pots into a bitset.
+	 *
 	 * @return a bitset of all the values in this pots.
 	 */
 	public int valuesOf() {
@@ -575,6 +644,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	/**
 	 * Is this Pots a subset of these other Pots?<br>
 	 * ie Does other contain all eliminations in this Pots?
+	 *
 	 * @param other
 	 * @return
 	 */
@@ -590,7 +660,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	/**
 	 * Returns true if any of my eliminations (I'm a redPots) still exist, else
 	 * false (meaning it's a "dead" hint).
-	 * @return
+	 *
+	 * @return are any of my value/s still in the cell?
 	 */
 	public boolean anyCurrent() {
 		final int[] SHFT = VSHFT;
@@ -635,6 +706,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * Returns CSV of "$cell.id-$values"
+	 *
 	 * @return
 	 */
 	@Override
@@ -721,6 +793,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 
 	/**
 	 * Only called on redPots to remove eliminations that are not in the grid.
+	 *
 	 * @return !isEmpty() ie any remaining
 	 */
 	public boolean clean() {
