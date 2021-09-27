@@ -13,21 +13,18 @@ import diuf.sudoku.solver.hinters.AHinter;
 
 
 /**
- * The DummySolutionHinter provides a stand-in IHinter for warning hints.
+ * The DummyHinter is a stand-in IHinter for solution hints.
  * <p>
  * Do <b>NOT</b> call me from LogicalSolver.solve (et al), I'm not real!
  * 
  * @author Keith Corlett 2019 DEC
  */
-public class DummySolutionHinter extends AHinter {
-	public DummySolutionHinter() {
+public class DummyHinter extends AHinter {
+	public DummyHinter() {
 		super(Tech.Solution);
-	}
-	public DummySolutionHinter(String nom) {
-		super(Tech.Solution(nom));
 	}
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		throw new UnsupportedOperationException("DummySolutionHinter is not a real hinter!");
+		throw new UnsupportedOperationException("DummyHinter is not a real hinter!");
 	}
 }

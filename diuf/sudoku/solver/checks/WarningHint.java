@@ -7,13 +7,14 @@
 package diuf.sudoku.solver.checks;
 
 import diuf.sudoku.solver.AWarningHint;
+import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
 
 /**
  * A WarningHint is an arbitrary warning or information message.
  */
-public class WarningHint extends AWarningHint {
+public class WarningHint extends AWarningHint implements IPretendHint {
 
 	private final String message;
 	private final String htmlFilename;

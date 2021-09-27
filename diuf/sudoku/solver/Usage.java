@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver;
 
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Pair;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -23,13 +24,38 @@ import java.util.Map;
  */
 public final class Usage {
 
-	public static final Comparator<Usage> BY_NUM_CALLS_DESC
-			= new Comparator<Usage>() {
+//	public static final Comparator<Usage> BY_NUM_CALLS_DESC
+//			= new Comparator<Usage>() {
+//		@Override
+//		public int compare(Usage a, Usage b) {
+//			return b.numCalls - a.numCalls; // DESCENDING
+//		}
+//	};
+
+	public static Comparator<? super Usage> newRunOrderComparator(IHinter[] hinters) {
+		return new HinterOrderComparator(hinters);
+	}
+
+	public static class HinterOrderComparator implements Comparator<Usage>  {
+		private static Map<String, Integer> map(IHinter[] hinters) {
+			Map<String, Integer> map = new HashMap<>(hinters.length, 1F);
+			int cnt = 0;
+			for ( IHinter hinter : hinters )
+				map.put(hinter.toString(), cnt++);
+			return map;
+		}
+		private final Map<String, Integer> map;
+		HinterOrderComparator(IHinter[] hinters) {
+			this.map = map(hinters);
+		}
 		@Override
 		public int compare(Usage a, Usage b) {
-			return b.numCalls - a.numCalls; // DESCENDING
+			int ret;
+			if ( (ret=b.numCalls - a.numCalls) != 0 )
+				return ret;
+			return map.get(a.hinterName) - map.get(b.hinterName);
 		}
-	};
+	}
 
 	public static final Comparator<Usage> BY_NS_PER_ELIM_ASC
 			= new Comparator<Usage>() {
@@ -37,7 +63,7 @@ public final class Usage {
 		public int compare(Usage a, Usage b) {
 			// WARNING: terniaries are slow!
 			final long aa;
-			if ( a.numElims == 0 ) 
+			if ( a.numElims == 0 )
 				aa = Long.MAX_VALUE;
 			else
 				aa = a.time / a.numElims;
@@ -58,7 +84,15 @@ public final class Usage {
 	public final Map<String,Pair<Integer,Double>> subHintsMap;
 	public int numCalls, numHints, numElims;
 	public long time;
+	// the difficulty for maximum calculations
 	public double maxDifficulty = 0D;
+	// the difficulty for total calculations
+	// This differs for GEM because it sets lots of cells in one hint it adds
+	// numSetPots*NakedSingle.difficulty to bring it back into line with the
+	// equivalent NakedSingles, that would be applied if GEM were unwanted.
+	// Note that any future hint-type that sets multiple cells will need to
+	// override getDifficultyTotal to take number of cells set into account.
+	public double ttlDifficulty = 0D;
 
 	public String hinterName;
 

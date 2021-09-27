@@ -212,6 +212,12 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
+	boolean visit(int i) {
+		checkLock();
+		return super.visit(i);
+	}
+
+	@Override
 	public String toString() {
 		if ( true ) // @check true
 			return super.toString();

@@ -126,12 +126,33 @@ public class Als {
 	 * <p>
 	 * <b>WARN:</b> You must call {@link #computeFields} before use!
 	 *
-	 * @param indices
+	 * @param idx
 	 * @param maybes
 	 * @param region
 	 */
-	public Als(Idx indices, int maybes, ARegion region) {
-		this.idx = new Idx(indices);
+	public Als(Idx idx, int maybes, ARegion region) {
+		this.idx = new Idx(idx);
+		this.maybes = maybes;
+		this.region = region;
+		this.initialised = true;
+	}
+
+	/**
+	 * Constructs a new ALS.
+	 * <p>
+	 * <b>WARN:</b> You must call {@link #computeFields} before use!
+	 *
+	 * @param cells
+	 * @param maybes
+	 * @param region
+	 */
+	public Als(Cell[] cells, int maybes, ARegion region) {
+		this(cells.clone(), maybes, region, false);
+	}
+	// the package contructor does not copy the given cells array
+	Als(Cell[] cells, int maybes, ARegion region, boolean dummy) {
+		this.cells = cells;
+		this.idx = Idx.of(cells);
 		this.maybes = maybes;
 		this.region = region;
 		this.initialised = true;
@@ -144,7 +165,8 @@ public class Als {
 	 * @param candidates indices of Grid cells which maybe value 1..9
 	 */
 	public void computeFields(Grid grid, Idx[] candidates) {
-		this.cells = idx.cells(grid).clone();
+		if ( this.cells == null )
+			this.cells = idx.cells(grid).clone();
 		this.buddies = new Idx();
 		for ( int v : VALUESES[maybes] ) {
 			vs[v] = Idx.newAnd(idx, candidates[v]);

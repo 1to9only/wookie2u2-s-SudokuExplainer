@@ -44,7 +44,7 @@ public final class HashA {
 	 * WARNING: You MUST pass me a new array, because I store the bastard,
 	 * with it's hashCode, that is calculated ONCE, so you must not mutate
 	 * the contents of the array after you've created a HashA from it. So
-	 * just create a new array each time, OK?
+	 * just create a new array each time, and pass it to me, OK?
 	 *
 	 * @param array
 	 */

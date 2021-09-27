@@ -159,7 +159,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * The constructor.
 	 */
 	public Medusa3D() {
-		super(Tech.Medusa3d);
+		super(Tech.Medusa3D);
 		// create the colors array.
 		for ( int c=0; c<2; ++c )
 			for ( int v=1; v<10; ++v )
@@ -371,6 +371,7 @@ public class Medusa3D extends AHinter implements IPreparer
 //							minContradiction = n;
 						if ( accu.add(hint) )
 							return result;
+						hint = null;
 						// Same Type 2 from many conjugate-pairs
 						// simplest way to handle this is throw an exception
 						if ( subtype == 2 )
@@ -398,6 +399,7 @@ public class Medusa3D extends AHinter implements IPreparer
 //						minElimination = n;
 					if ( accu.add(hint) )
 						return result;
+					hint = null;
 				}
 			}
 		}

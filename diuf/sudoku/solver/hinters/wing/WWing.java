@@ -66,55 +66,50 @@ public final class WWing extends AHinter
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		// The hint, if we ever find one
-		AHint hint;
-		// the easy way to read values from a Values bitset is into an array
-		int[] vA;
-		// the cellA.maybes.bits, cell index b, generic index.
-		int bitsA;
-		// the indices of cells which maybe each value 1..9 (cached)
-		final Idx[] candidates = grid.getIdxs();
-		// pre-prepaired Idxs of buddies of cellA which maybe 0=v0, 1=v1
-		final Idx bud0 = this.bud0;//.clear(); // to debug
-		final Idx bud1 = this.bud1;//.clear(); // to debug
-		// an index of the potentially removable (red) cells
-		final Idx victims = this.victims;//.clear(); // to debug
-		// presume failure, ie that no hint will be found
+		AHint hint; // The hint, if we ever find one
+		int[] vA; // an array to read values from a Values bitset
+		int bitsA; // the cellA.maybes.bits
+		// indices of cells which maybe each value 1..9
+		final Idx[] candidates = grid.getIdxs(); // CACHED!
+		final Idx bud0 = this.bud0; // indices of buds of cA which maybe v0
+		final Idx bud1 = this.bud1; // indices of buds of cA which maybe v1
+		final Idx victims = this.victims; // indices of removable (red) cells
+		// presume that no hint will be found
 		boolean result = false;
 		// foreach cell in the grid
-		// NOTE: caching bivalue cells bombs gemSolve.
 		for ( Cell cA : grid.cells )
-			if ( cA.maybes.size == 2 ) {
-				// bivalue cell found, so prepare for the "pair" examination by
-				// getting both potential values of cellA into the vA array
-				vA = VALUESES[bitsA=cA.maybes.bits];
-				// buddies of cellA which maybe value0/1
-				// if either is empty then there's no W-Wing here.
-				if ( bud0.setAndAny(cA.buds, candidates[vA[0]])
-				  && bud1.setAndAny(cA.buds, candidates[vA[1]]) ) {
-					// find a "pair" cell (with same 2 maybes)
-					for ( Cell cB : grid.cells )
-						if ( cB.maybes.bits==bitsA && cB!=cA ) {
-							// ok, we have a pair; can anything be eliminated?
-							// find removable cells: siblings of both A and B
-							// which maybe v0 or v1
-							if ( victims.setAndAny(bud0, cB.buds)
-							  // search reds for a strong link
-							  && (hint=checkLink(grid, vA, cA, cB, victims)) != null ) {
-								result = true;
-								if ( accu.add(hint) )
-									return result;
-							}
-							if ( victims.setAndAny(bud1, cB.buds)
-							  // search reds for a strong link
-							  && (hint=checkLink(grid, vA, cA, cB, victims)) != null ) {
-								result = true;
-								if ( accu.add(hint) )
-									return result;
-							}
+			// if cellA is bivalue
+			if ( cA.maybes.size == 2
+			  // get both potential values of cellA into the vA array
+			  // it'll never be null, only tested to have in the if statement
+			  && (vA=VALUESES[bitsA=cA.maybes.bits]) != null
+			  // and buddies of cellA which maybe v0/v1
+			  //     if either is empty then there's no W-Wing here.
+			  && bud0.setAndAny(cA.buds, candidates[vA[0]])
+			  && bud1.setAndAny(cA.buds, candidates[vA[1]]) )
+				// find a "pair" cell (with same 2 maybes)
+				for ( Cell cB : grid.cells )
+					if ( cB.maybes.bits==bitsA && cB!=cA ) {
+						// ok, we have a pair; can anything be eliminated?
+						// find removable cells: siblings of both A and B
+						// which maybe v0 or v1
+						if ( victims.setAndAny(bud0, cB.buds)
+						  // search reds for a strong link
+						  && (hint=checkLink(grid, vA, cA, cB, victims)) != null ) {
+							result = true;
+							if ( accu.add(hint) )
+								return result;
+							hint = null;
 						}
-				}
-			}
+						if ( victims.setAndAny(bud1, cB.buds)
+						  // search reds for a strong link
+						  && (hint=checkLink(grid, vA, cA, cB, victims)) != null ) {
+							result = true;
+							if ( accu.add(hint) )
+								return result;
+							hint = null;
+						}
+					}
 		return result;
 	}
 	// buddies of cellA which maybe 0=v0, 1=v1

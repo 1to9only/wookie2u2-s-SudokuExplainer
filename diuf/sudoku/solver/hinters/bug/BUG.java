@@ -13,6 +13,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
@@ -279,7 +280,7 @@ public final class BUG extends AHinter
 		ARegion cmnRgn;
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
 			// Look for a region of this type that is shared by all BUG cells
-			if ( (cmnRgn=Grid.commonRegion(bcPots.keySet(), rti)) == null )
+			if ( (cmnRgn=Regions.common(bcPots.keySet(), rti)) == null )
 				continue;
 			// A common region of type rti has been found.
 			// Gather other cells of this region from the grid.
@@ -372,26 +373,30 @@ public final class BUG extends AHinter
 			c2 = it.next();
 		}
 		// get the potential values common to both cells, minus the BUG values.
-		Values commonValues=c1.maybes.intersect(c2.maybes).remove(allBugValues);
-		if (commonValues.size != 1) // Uncle Fester just pissed on my gannet!
+		Values cmnVals=c1.maybes.intersect(c2.maybes).remove(allBugValues);
+		if (cmnVals.size != 1) // Uncle Fester just pissed on my gannet!
 			return false; // No BUG type 4
-		int value = commonValues.first();
+		int value = cmnVals.first();
 		// for regionType in {box, row, col}
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex
 			// Look for the region of this type shared by all bug cells
-			ARegion region = Grid.commonRegion(bcPots.keySet(), rti);
-			if(region == null) continue;
-			// Yeah! this is a BUG type 4, but does it kill any maybes?
-			Pots redPots = new Pots();
-			redPots.putIfNotEmpty(c1, c1.maybes.minus(bcPots.get(c1), value));
-			redPots.putIfNotEmpty(c2, c2.maybes.minus(bcPots.get(c2), value));
-			if ( redPots.isEmpty() )
-				return false; // any other common region would be empty too
+			final ARegion cmnRgn = Regions.common(bcPots.keySet(), rti);
+			if ( cmnRgn != null ) {
+				// Yeah! this is a BUG type 4, but does it kill any maybes?
+				final Pots reds = new Pots();
+				reds.putIfNotEmpty(c1, c1.maybes.minus(bcPots.get(c1), value));
+				reds.putIfNotEmpty(c2, c2.maybes.minus(bcPots.get(c2), value));
+				if ( !reds.isEmpty() ) {
 //++bug4HintCount;
-			result = true;
-			if ( accu.add(new Bug4Hint(this, redPots, c1, c2, new Pots(bcPots)
-					, new Values(allBugValues), value, region)) )
-				return true;
+					result = true;
+					if ( accu.add(new Bug4Hint(this, reds, c1, c2
+							, new Pots(bcPots)
+							, new Values(allBugValues)
+							, value
+							, cmnRgn)) )
+						return true;
+				}
+			}
 		}
 		return result;
 	}

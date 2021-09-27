@@ -136,7 +136,7 @@ public final class Coloring extends AHinter {
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		this.grid = grid;
-		this.idxs = grid.getIdxs(); // get indices which maybe each value
+		this.idxs = grid.getIdxs(); // cached indices which maybe each value
 		this.accu = accu;
 
 		// clear the cache each time I'm called coz I'm either on a new grid,
@@ -297,7 +297,7 @@ public final class Coloring extends AHinter {
 	 */
 	private int doColoring(final int v) {
 		// check the cache
-		if ( hintNumbers[v] == AHint.number )
+		if ( hintNumbers[v] == grid.hintNumber )
 			// sudoku has not changed since last calculation
 			return numColorPairs[v];
 		// reset everything
@@ -341,7 +341,7 @@ public final class Coloring extends AHinter {
 			} else
 				++numColorPairs[v];
 		}
-		hintNumbers[v] = AHint.number;
+		hintNumbers[v] = grid.hintNumber;
 		return numColorPairs[v];
 	}
 	private Idx candidateSet;

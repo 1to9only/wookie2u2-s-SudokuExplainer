@@ -10,7 +10,6 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -25,7 +24,7 @@ import java.util.List;
  *
  * @author Keith Corlett 2020 Sept/Oct
  */
-public class ComplexFishHint extends AHint implements IActualHint {
+public class ComplexFishHint extends AHint  {
 
 	enum Type {
 		  SWAMPFISH("Swampfish", 2, true, false, false, false, false)

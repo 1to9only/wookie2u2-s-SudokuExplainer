@@ -13,7 +13,6 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
@@ -36,7 +35,7 @@ import java.util.Set;
  * <p>This is the only (at time of writing) place where two rules produce the
  *  same type of hint. It's all a bit odd, so shoot me.
  */
-public final class LockingHint extends AHint implements IActualHint, IChildHint {
+public final class LockingHint extends AHint implements IChildHint {
 
 	final int valueToRemove;
 	final Set<Cell> cellSet;

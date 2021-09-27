@@ -35,9 +35,4 @@ public final class NoHomelessValues extends AWarningHinter {
 		return false;
 	}
 
-	@Override
-	public String toString() {
-		return "No Homeless Values";
-	}
-
 }

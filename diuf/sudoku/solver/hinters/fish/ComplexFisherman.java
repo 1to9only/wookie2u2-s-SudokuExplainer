@@ -206,11 +206,10 @@ public class ComplexFisherman extends AHinter
 		/** endo-fins: indices of cells that are in more than one base region,
 		 * and therefore must be treated as fins. */
 		int efM0, efM1, efM2;
-////@check comment out (debug only)
-//		@Override
-//		public String toString() {
-//			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
-//		}
+		@Override
+		public String toString() {
+			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
+		}
 	}
 
 	/** array of all possible base units (indices in grid.regions). */
@@ -240,11 +239,10 @@ public class ComplexFisherman extends AHinter
 		/** sharks (cannibalistic): an Idx of cells in more than one cover set,
 		 * so become potential eliminations. */
 		int skM0, skM1, skM2;
-////@check comment out (debug only)
-//		@Override
-//		public String toString() {
-//			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
-//		}
+		@Override
+		public String toString() {
+			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
+		}
 	}
 
 	/** array of all eligible cover regions (indices in Grid.regions). */
@@ -320,9 +318,9 @@ public class ComplexFisherman extends AHinter
 		// This thing can do bigger fish, but they're all degenerate, and slow!
 		assert degree>=2 && degree<=4; // 2=Swampfish, 3=Swordfish, 4=Jellyfish
 		// these are ALL the complex fish types we seek (not Kraken)
-		seekFinned = tech.nom.startsWith("Finned");
-		seekFranken = tech.nom.startsWith("Franken");
-		seekMutant = tech.nom.startsWith("Mutant");
+		seekFinned = tech.name().startsWith("Finned");
+		seekFranken = tech.name().startsWith("Franken");
+		seekMutant = tech.name().startsWith("Mutant");
 		// it's basic unless it's one of the complex fish types.
 		// NB: ComplexFisherman NOT used for basic fish, because BasicFisherman
 		// is faster; but it CAN find basic fish, just uncomment-out the code.
@@ -613,6 +611,7 @@ public class ComplexFisherman extends AHinter
 //								searchCoversResult = true;
 //								if ( accu.add(hint) ) // if accu says so
 //									return searchCoversResult; // exit-early
+//								hint = null;
 //							}
 //						}
 //					}
@@ -643,7 +642,8 @@ public class ComplexFisherman extends AHinter
 						sharks.set(skM0, skM1, skM2);
 						fins.set(fM0, fM1, fM2);
 						// nb: fins are already set in the above if statement
-						if ( (hint=createHint()) != null ) {
+						final AHint hint = createHint();
+						if ( hint != null ) {
 							searchCoversResult = true;
 							if ( accu.add(hint) ) // if accu says so
 								return searchCoversResult; // exit-early
@@ -657,7 +657,6 @@ public class ComplexFisherman extends AHinter
 	// word is 9 bits of these 27 bits.
 	private Idx aa;
 	// these fields are (logically) searchCovers variables
-	private AHint hint; // the hint created, if any
 	private CoverStackEntry pC, cC; // the previous and current CoverStackEntry
 	private boolean searchCoversResult;
 	private int ii; // index for use in searchCovers
@@ -738,7 +737,7 @@ public class ComplexFisherman extends AHinter
 //		if ( seekMutant ) {
 //			double total = dones + skips;
 //			Log.teef(
-//				  tech.nom+": done=%,d (%4.2f\\%), skip=%,d (%4.2f\\%)\n"
+//				  tech.name()+": done=%,d (%4.2f\\%), skip=%,d (%4.2f\\%)\n"
 //				, dones, ((double)dones)/(total)*100D
 //				, skips, ((double)skips)/(total)*100D
 //			);

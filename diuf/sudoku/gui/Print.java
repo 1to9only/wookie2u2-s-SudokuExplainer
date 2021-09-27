@@ -7,8 +7,8 @@
 package diuf.sudoku.gui;
 
 import diuf.sudoku.Grid;
+import diuf.sudoku.Run;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.GrabBag;
 import diuf.sudoku.utils.MyStrings;
 import java.io.PrintStream;
 
@@ -48,16 +48,17 @@ public class Print {
 	 * @param hint the hint to print
 	 * @param source a String of the source grids "lineNumber#filepath"
 	 * @param before a String of the grid BEFORE this hint is applied to it
+	 * @param hintNumber grid.hintNumber
 	 */
-	public static void hint(AHint hint, String source, String before) {
+	public static void hint(AHint hint, String source, String before, int hintNumber) {
 		final long now = System.nanoTime();
 		if ( source==null || source.isEmpty() )
 			source = "IGNOTO";
-		out.format("\n%d/%s\n", AHint.number, source);
+		out.format("\n%d/%s\n", hintNumber, source);
 		if ( before != null )
 			out.format("%s\n", before);
-		out.format("%,15d\t%s\n", now-GrabBag.time, hint.toFullString());
-		GrabBag.time = now;
+		out.format("%,15d\t%s\n", now-Run.time, hint.toFullString());
+		Run.time = now;
 	}
 
 	/**
@@ -68,7 +69,10 @@ public class Print {
 	 * @param before 
 	 */
 	public static void hint(AHint hint, Grid grid, String before) {
-		hint(hint, source(grid), before);
+		if ( grid == null )
+			hint(hint, "IGNOTO", before, 0);
+		else
+			hint(hint, source(grid), before, grid.hintNumber);
 	}
 
 	/**
@@ -83,12 +87,12 @@ public class Print {
 			} catch (Exception ex) {
 				// do nothing
 			}
-		return null;
+		return "IGNOTO";
 	}
 
-	public static void hint(PrintStream out, int hintCount, long took
-			, Grid grid, int numElims, AHint hint, boolean wantBlankLine) {
-		out.format("%-5d", hintCount); // left justified to differentiate from puzzleNumber in the logFile.
+	public static void hint(PrintStream out, long took, Grid grid, int numElims
+			, AHint hint, boolean wantBlankLine) {
+		out.format("%-5d", grid.hintNumber); // left justified to differentiate from puzzleNumber in the logFile.
 		out.format("\t%,15d", took); // time between hints includes activate time and rebuilding empty cell counts
 		out.format("\t%2d", grid.countFilledCells());
 		out.format("\t%4d", grid.countMaybes());

@@ -101,7 +101,7 @@ public final class Aligned8Exclusion_2H extends Aligned8ExclusionBase
 
 		// localise fields for speed (if it's referenced more than three times)
 		final int degree = this.degree;
-		final int hintNum = AHint.number;
+		final int hintNum = grid.hintNumber;
 		final boolean useHits = this.useHits;
 
 		// get an array of the Cells at which we hinted last time;

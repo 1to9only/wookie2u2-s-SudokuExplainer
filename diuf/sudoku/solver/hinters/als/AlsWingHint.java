@@ -9,7 +9,6 @@ package diuf.sudoku.solver.hinters.als;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -22,7 +21,7 @@ import java.util.Collection;
  *
  * @author Keith Corlett 2020 Apr 21
  */
-public class AlsWingHint extends AHint implements IActualHint {
+public class AlsWingHint extends AHint  {
 
 	private final Als a;
 	private final Als b;

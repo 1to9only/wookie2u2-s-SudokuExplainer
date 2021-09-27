@@ -9,6 +9,7 @@ package diuf.sudoku;
 import diuf.sudoku.Grid.Cell;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 
 /**
  * The Cells class contains static helper methods for collections of Grid.Cell.
@@ -118,11 +119,25 @@ public class Cells {
 	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
 	 */
 	public static Cell[] array(int size) {
+		// @stretch lease each array, using Closable and try blocks.
 		Cell[] cells = CAS[size];
 		// late populate CellsArrayS 21..80
 		if ( cells == null )
 			cells = CAS[size] = new Cell[size];
 		return cells;
+	}
+
+	/**
+	 * Return a new Cell[n] containing a copy of the first n elements of src.
+	 *
+	 * @param src
+	 * @param n
+	 * @return 
+	 */
+	public static Cell[] copy(Cell[] src, int n) {
+		Cell[] dest = new Cell[n];
+		System.arraycopy(src, 0, dest, 0, n);
+		return dest;
 	}
 
 	/**
@@ -156,12 +171,34 @@ public class Cells {
 	 * @param cells to read maybe.bits from
 	 * @param maybes array to set
 	 * @return maybes so that you can pass me a CAS or a new array, just so
-	 *  it's still all in one line.
+	 *  it's still all in one line. Note that maybes.length is how many to read
+	 *  so maybes must be exactly the right size, so that cells can be a fixed
+	 *  size array.
 	 */
 	public static int[] maybesBits(final Cell[] cells, final int[] maybes) {
-		for ( int i=0,n=cells.length; i<n; ++i )
+		for ( int i=0,n=maybes.length; i<n; ++i )
 			maybes[i] = cells[i].maybes.bits;
 		return maybes;
+	}
+
+	/**
+	 * commonBuddiesNew: a new Idx of buds common to all given cells.
+	 * <p>
+	 * Performance: I'm a tad slow because I use an iterator, which is the cost
+	 * of taking an Iterable over a List, so it'll work for a Set also, but not
+	 * an Cell[] array, which annoys me. Arrays should be Iterable.
+	 *
+	 * @param cells to get the common buds of
+	 * @return a new Idx of the common buds
+	 */
+	public static Idx cmnBudsNew(Iterable<Cell> cells) {
+		Iterator<Cell> it = cells.iterator();
+		// it throws an NPE if cells is empty... let it!
+		final Idx result = new Idx(it.next().buds);
+		while (it.hasNext()) {
+			result.and(it.next().buds);
+		}
+		return result;
 	}
 
 	private Cells() { } // Never used

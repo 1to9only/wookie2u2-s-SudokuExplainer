@@ -15,21 +15,12 @@ import diuf.sudoku.Grid.*;
 import diuf.sudoku.solver.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.hinters.*;
-import diuf.sudoku.solver.hinters.chain.*;
-import diuf.sudoku.solver.hinters.fish.*;
-import diuf.sudoku.solver.hinters.hdnset.*;
-import diuf.sudoku.solver.hinters.lock.*;
-import diuf.sudoku.solver.hinters.nkdset.*;
-import diuf.sudoku.solver.hinters.sdp.*;
-import diuf.sudoku.solver.hinters.single.*;
-import diuf.sudoku.solver.hinters.wing.*;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 /**
@@ -105,6 +96,8 @@ import java.util.Set;
  * KRC 2021-03-31 11:40 I built Mark 5 last night, and have spent this morning
  * testing it, and tweaking a few things. I'll release it as Mark 6 tomorrow
  * and that's it for GEM from me; I know not how to improve it any further.
+ *
+ * KRC 2021-06-07 Got the s__ts with gemSolve so ripped-out consequentSingles.
  * </pre>
  *
  * @author Keith Corlett 2021-03-17
@@ -117,18 +110,7 @@ public class GEM extends AHinter implements IPreparer
 
 	// Should confirmations look for Hidden Singles?
 	// RARE as rocking horse s__t: 0 in top1465
-	private static final boolean CONFIRM_HIDDEN_SINGLES = false;
-
-// KRC 2021-04-19 I've disabled consequent singles because it's utter madness,
-// brought-on by my hatred of seeing "a few" singles left out, which I'm now
-// (mostly) over. It is actually slower, and yields a misleading elim-count.
-	// Should big hints include consequent naked/hidden singles?
-	// public for use in test cases
-	public static final boolean CONSEQUENT_SINGLES = false;
-
-	// Should little hints include consequent naked/hidden singles?
-	// public for use in test cases
-	public static final boolean CONSEQUENT_SINGLES_TOO = false;
+	private static final boolean CONFIRMATIONS_HIDDEN_SINGLES = false;
 
 	// Should hints be validated internally. Set me true when you ____ with the
 	// promotions method, to check for invalid hints. I'm more forgiving than
@@ -179,6 +161,7 @@ public class GEM extends AHinter implements IPreparer
 	}
 	/** thrown ONLY when a Type 2 hint has been found and added to accu. */
 	private static final StopException STOP_EXCEPTION = new StopException();
+
 	/** A distinctive subtype of RuntimeException. */
 	private static final class OverpaintException extends IllegalStateException {
 		private static final long serialVersionUID = 720396129058L;
@@ -236,7 +219,7 @@ public class GEM extends AHinter implements IPreparer
 	 * Create the array of arrays which is a colors, or supers, subs.
 	 * @param array
 	 */
-	private static void createArray(Idx[][] array) {
+	private static void buildArray(Idx[][] array) {
 		for ( int c=0; c<2; ++c )
 			for ( int v=1; v<10; ++v )
 				array[c][v] = new Idx();
@@ -380,7 +363,7 @@ public class GEM extends AHinter implements IPreparer
 	private int paintedValues;
 	// a bitset of the GREEN and BLUE values; array to swap between colors.
 	private final int[] colorValues = new int[2];
-	// the Cell=>Values to eliminate. A field to not create for 99% failure.
+	// the Cell=>Values to eliminate. A field to not build for 99% failure.
 	private final Pots redPots = new Pots();
 	// kickOffs is an Idx of the "starting cells" tried for each value, so that
 	// when a cell-value that's conjugate in multiple regions is the initial
@@ -413,11 +396,11 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	public GEM() {
 		super(Tech.GEM);
-		// create the colors, supers, and subs array-of-arrays of indices.
-		createArray(colors);
-		createArray(ons);
-		createArray(colorsOns);
-		createArray(offs);
+		// build the colors, supers, and subs array-of-arrays of indices.
+		buildArray(colors);
+		buildArray(ons);
+		buildArray(colorsOns);
+		buildArray(offs);
 		// We want explanation in GUI and testcases, just not in the batch.
 		// nb: building all the "why" strings slows batch down by a MINUTE!
 		this.wantWhy = Run.type != Run.Type.Batch;
@@ -509,7 +492,7 @@ public class GEM extends AHinter implements IPreparer
 				}
 			}
 		} catch ( UncleanException ex ) {
-			// USE_PROMOTIONS -> create[Big]Hint: bad elim or cell-value.
+			// USE_PROMOTIONS -> create(Big)?Hint: bad elim or cell-value.
 			Log.teeln("WARN: GEM: "+ex.getMessage());
 			// disable me for this puzzle (re-enabled by prepare)
 			setIsEnabled(false); // use the setter!
@@ -598,9 +581,9 @@ public class GEM extends AHinter implements IPreparer
 	private boolean search(Cell cell, int v) {
 		AHint hint;
 		Long hash;
-		int subtype;
+		int subtype // sub-type of this hint
+		  , mst; // multi-hint subtype
 		final int n;
-		int mst; // multi-hint subtype
 		// presume that no hint will be found
 		boolean result = false;
 		// clear the paint artifacts so each search is independant of previous.
@@ -676,6 +659,7 @@ public class GEM extends AHinter implements IPreparer
 //				if ( n < minContradiction )
 //					minContradiction = n;
 				accu.add(hint);
+				hint = null;
 				// contradiction is always the last hint I produce.
 				throw STOP_EXCEPTION;
 			}
@@ -699,6 +683,7 @@ public class GEM extends AHinter implements IPreparer
 //						if ( n < minConfirmation )
 //							minConfirmation = n;
 						accu.add(hint);
+						hint = null;
 						// confirmation is always the last hint I produce.
 						throw STOP_EXCEPTION;
 					} else {
@@ -1415,7 +1400,7 @@ public class GEM extends AHinter implements IPreparer
 		//    then ALL of this color is true
 		// RARE: 0 in top1465, so either my code is wrong or I really have none
 		// of these; So, can you see a mistake in this code?
-		if ( CONFIRM_HIDDEN_SINGLES ) {
+		if ( CONFIRMATIONS_HIDDEN_SINGLES ) {
 			redPots.toIdxs(REDS);
 			for ( int c=0; c<2; ++c ) {
 				for ( int v : VALUESES[colorValues[c]] ) {
@@ -1459,11 +1444,10 @@ public class GEM extends AHinter implements IPreparer
 		try {
 			final Pots setPots = squishSetPots(goodColor); //cell-values to set
 			addOns(setPots);
-			if ( CONSEQUENT_SINGLES )
-				addConsequentSingles(setPots);
-			if ( CHECK_HINTS ) // deal with any dodgy hints minimally
+			if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
 				if ( !cleanSetPots(setPots) )
 					return null; // none remain once invalid removed
+			}
 			final AHint hint = new GEMHintBig(this, value, new Pots(redPots)
 					, subtype, cause, goodColor, steps.toString(), setPots
 					, pots(GREEN), pots(BLUE) , region, copy(ons), copy(offs));
@@ -1590,10 +1574,11 @@ public class GEM extends AHinter implements IPreparer
 		}
 
 		// (b) An uncolored v sees both colored v's.
-		tmp2.toArraySmartClear(); // pre-clean for safety
+		//<TO_ARRAY_SMART comment="weird">
+		tmp2.toArraySmartReset(); // weird: prepare to use toArraySmart
 		for ( int v : VALUESES[paintedValues] ) {
 			tmp1.setOr(colors[GREEN][v], colors[BLUE][v]);
-			// weird: remember the uncoloredCandidates for re-use below
+			// weird: remember uncoloredCandidates for re-use in next loop
 			for ( int ii : (unco[v]=tmp2.setAndNot(vs[v], tmp1).toArraySmart()) ) {
 				if ( tmp3.setAndAny(BUDDIES[ii], colors[GREEN][v])
 				  && tmp4.setAndAny(BUDDIES[ii], colors[BLUE][v])
@@ -1621,7 +1606,7 @@ public class GEM extends AHinter implements IPreparer
 
 		// (c) v sees green, and has some other blue value.
 		for ( int v : VALUESES[paintedValues] ) {
-			// weird: uncoloredCandidates are set above in the previous loop
+			// weird: uncoloredCandidates are set in the above loop
 			for ( int ii : unco[v] ) {
 				for ( c=0; c<2; ++c ) {
 					// if cells[ii] sees a this-color v
@@ -1651,8 +1636,10 @@ public class GEM extends AHinter implements IPreparer
 				}
 			}
 		}
-		clear(unco); // drop the references to any arrays created in above loop
-		tmp2.toArraySmartClear(); // drop index to arrays created in above loop
+		// weird: release memory in any unco arrays created on the fly
+		if ( tmp2.usedNew )
+			clear(unco);
+		//</TO_ARRAY_SMART>
 
 		// (d) off'ed by both colors.
 		for ( int v=1; v<10; ++v ) {
@@ -1679,12 +1666,13 @@ public class GEM extends AHinter implements IPreparer
 
 		return subtype;
 	}
-	// A field to create array once per instance, rather than in eliminations.
+	// A field to build the array once per instance, not during eliminations.
 	// They're only ints (not Cells) so cleanup not required, and any hangovers
 	// from the previous invocation don't effect the logic (they're skipped).
-	// Note that the actual arrays referenced by this array-of-arrays always
-	// actually belong to the Idx's IAS (Integer ArrayS) cache, so you can't
-	// use toArray et al in anything that uses uncoloredCandidates.
+	// Note that the actual arrays referenced by this array-of-arrays actually
+	// belong to the Idx's IAS (Integer ArrayS) cache, so toArray (et el) will
+	// interfere arbitrarily with uncoloredCandidates, so do not call them
+	// while uncoloredCandidates is in use.
 	private final int[][] uncoloredCandidates = new int[10][];
 
 	/**
@@ -1775,37 +1763,9 @@ public class GEM extends AHinter implements IPreparer
 //		int s = getScore(value);
 //		if ( s < minScore )
 //			minScore = s;
-		if ( CHECK_HINTS ) // deal with any dodgy hints minimally
+		if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
 			if ( !cleanRedPots() )
 				return null;
-		if ( CONSEQUENT_SINGLES_TOO ) {
-			// eliminate redPots and if that leaves any naked/hidden singles
-			// then return them as setPots, and also set the goodColor field.
-			final Pots setPots = eliminateToSingle();
-			if ( setPots!=null && !setPots.isEmpty() ) {
-// Still finds wrong color occassionally, which I think is worse than BLACK.
-//				// determine goodColor if not already set
-//				if ( goodColor == -1 )
-//					goodColor = determineGoodColor(setPots);
-				// NOTE: do NOT add the Ons, they're definately NOT safe!
-				addConsequentSingles(setPots);
-				if ( CHECK_HINTS ) // deal with any dodgy hints minimally
-					if ( !cleanSetPots(setPots) )
-						return null; // none remain once invalid removed
-// Still finds wrong color occassionally, which I think is worse than BLACK.
-//				// determine goodColor if not already set; sometimes consequent
-//				// singles find it, but other-times it remains -1 (BLACK).
-//				if ( goodColor == -1 )
-//					goodColor = determineGoodColor(setPots);
-				// NOTE: weird hints: both setPots and redPots are applied.
-				final AHint hint = new GEMHintBig(this, value
-						, new Pots(redPots), subtype, cause, goodColor
-						, steps.toString(), setPots, pots(GREEN), pots(BLUE)
-						, region, copy(ons), copy(offs));
-				cause = null;
-				region = null;
-				return hint;
-			}
 		}
 		final Idx[] colorSet = null;
 		final AHint hint = new GEMHint(this, value, new Pots(redPots)
@@ -1886,14 +1846,14 @@ public class GEM extends AHinter implements IPreparer
 
 	// HACK: clean non-solution values out of setPots
 	private boolean cleanSetPots(Pots setPots) {
-		final int[] solution = HintValidator.getSolutionValues(grid);
 		Cell cell;
 		Values values;
+		final int[] svs = grid.getSolutionValues();
 //		boolean first = true;
 		for ( Iterator<Cell> it=setPots.keySet().iterator(); it.hasNext(); ) {
-			if ( (values=setPots.get(cell=it.next())).first() != solution[cell.i] ) {
+			if ( (values=setPots.get(cell=it.next())).first() != svs[cell.i] ) {
 // unforgiving
-				throw new UncleanException("Invalid SetPot: "+cell.id+"+"+values.first()+"!="+solution[cell.i]);
+				throw new UncleanException("Invalid SetPot: "+cell.id+"+"+values.first()+"!="+svs[cell.i]);
 // forgiving
 //				if ( CHECK_NOISE )
 //					Log.println("WARN: GEM: Promo: Invalid SetPot: "+cell.id+"+"+values.first()+"!="+solution[cell.i]);
@@ -1913,16 +1873,16 @@ public class GEM extends AHinter implements IPreparer
 
 	// HACK: clean solution values out of redPots
 	private boolean cleanRedPots() {
-		final int[] solution = HintValidator.getSolutionValues(grid);
 		Cell cell;
 		Values values;
+		final int[] svs = grid.getSolutionValues();
 //		// is this the first invalid elimination?
 //		boolean first = true;
 		// use an iterator to delete from it
 		for ( Iterator<Cell> it=redPots.keySet().iterator(); it.hasNext(); ) {
 			values = redPots.get(cell = it.next());
 			for ( int v : VALUESES[values.bits] )
-				if ( solution[cell.i] == v ) {
+				if ( svs[cell.i] == v ) {
 // unforgiving
 					throw new UncleanException("Invalid Elimination: "+cell.id+"-"+v+" is this cells value!");
 // forgiving
@@ -1943,259 +1903,5 @@ public class GEM extends AHinter implements IPreparer
 		}
 		return !redPots.isEmpty(); // return any eliminations remaining
 	}
-
-	// ========================== CONSEQUENT_SINGLES ==========================
-
-	/**
-	 * Create and return a new setPots if eliminating the redPots leaves a
-	 * naked/hidden single, and also set the goodColor field. This method runs
-	 * when CONSEQUENT_SINGLES_TOO is true.
-	 *
-	 * @return the setPots, if any (nullable, but never empty).
-	 */
-	private Pots eliminateToSingle() {
-		if ( redPots==null || redPots.isEmpty() )
-			return null; // nothing to eliminate
-		// solve a copy of the grid
-		final Grid copy = new Grid(grid);
-		// apply the redPots to the copy
-		int count = 0;
-		for ( Entry<Cell,Values> e : redPots.entrySet() )
-			count += copy.cells[e.getKey().i].canNotBeBits(e.getValue().bits, null);
-		if ( count == 0 )
-			return null; // nothing eliminated
-		// set any naked and hidden singles left in the copy
-		if ( nakedSingles(copy.cells) + hiddenSingles(copy.regions) == 0 )
-			return null; // nothing set
-		// add each cell that's set in the copy but not the grid to setPots.
-		final Pots setPots = new Pots();
-		addNewSingles(setPots, copy);
-		return setPots;
-	}
-
-	/**
-	 * Set any Naked Singles in the given cells array.
-	 * @param cells
-	 * @return the number of cells set
-	 */
-	private int nakedSingles(final Cell[] cells) {
-		int count = 0;
-		for ( Cell cell : cells )
-			if ( cell.maybes.size == 1 )
-				count += cell.set(FIRST_VALUE[cell.maybes.bits], 0, T, null);
-		return count;
-	}
-
-	/**
-	 * Set any Hidden singles in the given regions array.
-	 * @param regions
-	 * @return the number of cells set
-	 */
-	private int hiddenSingles(final ARegion[] regions) {
-		int v, count = 0;
-		for ( ARegion r : regions )
-			for ( v=1; v<10; ++v )
-				if ( r.indexesOf[v].size == 1 )
-					count += r.cells[FIRST_INDEX[r.indexesOf[v].bits]].set(v, 0, T, null);
-		return count;
-	}
-
-	/**
-	 * Add naked/hidden singles consequent from setPots to setPots.
-	 * <p>
-	 * Concisely, this whole method is greedy superfluousness! It's SLOWER than
-	 * the naked/hidden single handlers. It exists because I just hate it when
-	 * two or three cells are left-out in the cold after a GEM. If you disagree
-	 * set CONSEQUENT_SINGLES and CONSEQUENT_SINGLES_TOO = false and I'm gone.
-	 *
-	 * @param setPots
-	 */
-	private void addConsequentSingles(Pots setPots) {
-		if ( setPots==null || setPots.isEmpty() || setPots.size()+grid.countFilledCells()==81 )
-			return; // all empty cells are already to be set.
-		// we solve a copy of the grid (not the grid itself)
-		final Grid copy = new Grid(grid);
-		// set each setPot (autosolve chases consequent naked/hidden singles)
-		int count = 0;
-		for ( Entry<Cell,Values> e : setPots.entrySet() )
-			count += copy.cells[e.getKey().i].set(FIRST_VALUE[e.getValue().bits], 0, T, null);
-		if ( count > 0 ) {
-			// solve the copy, if possible
-			gemSolve(copy);
-			// add each cell that's set in copy but not grid to setPots.
-			addNewSingles(setPots, copy);
-		}
-	}
-
-	// BasicApplicumulator: I don't want the complications in the standard one.
-	private static final IAccumulator APCU = new AAccumulator() {
-		@Override
-		public boolean add(AHint hint) {
-			if ( hint == null )
-				return false;
-			hint.apply(T, F); // autosolve
-			return false; // keep searching
-		}
-	};
-
-	/**
-	 * gemSolve uses HINTERS to solve the grid after we apply the setPots.
-	 * <p>
-	 * Each hinter herein needs to be "pretty fast", say under 20ms/elim.
-	 * Try other hinters but they don't all work. If LogicalSolverTester fails
-	 * then just drop it. There's too many issues to warrant chasing them for
-	 * such small returns. Be greedy, just not too greedy.
-	 * <p>
-	 * Minimum hinter speed: I say 20ms/elim because that's 50 eliminations per
-	 * second, but you can be greedier or even more pernicious. Your choice.
-	 * My advise is convert ms/elim to elim/sec and see how it feels to you.
-	 * A max of 10ms/elim is much better, in my humble opinion. The chainers
-	 * solve every puzzle anyway, and there's no explanation, so speed is the
-	 * only concern, so this should be a minimum rule set, not a maximum one;
-	 * except that relies heavily on the chainers, which are fast per elim, but
-	 * are slower to find hints that CAN be found more simply. So medium then.
-	 * Ergo: I don't think there is a right answer, so I piss about with it.
-	 */
-	private static final IHinter[] HINTERS = {
-		  new NakedSingle()
-		, new HiddenSingle()
-		, new Locking()
-		, new NakedSet(Tech.NakedPair)
-		, new HiddenSet(Tech.HiddenPair)
-		, new TwoStringKite()
-		, new NakedSet(Tech.NakedTriple)
-		, new HiddenSet(Tech.HiddenTriple)
-		, new BasicFisherman(Tech.Swampfish)
-		, new XYWing(Tech.XY_Wing)
-		, new XYWing(Tech.XYZ_Wing)
-		, new WWing()
-		, new Skyscraper()
-		, new EmptyRectangle()
-		, new BasicFisherman(Tech.Swordfish)
-// bomb LogicalSolverTester. I don't know why.
-//		, new Coloring()
-//		, new XColoring()
-// DEAD_CAT so gemSolve stops before the puzzle is solved
-//		, new MedusaColoring()
-//		, new UniqueRectangle()
-		, new NakedSet(Tech.NakedQuad)
-		, new HiddenSet(Tech.HiddenQuad)
-		, new BasicFisherman(Tech.Jellyfish)
-// DEAD_CAT that I can't fix (fails even without cache, which is reinstated)
-//		, new BigWing(Tech.WXYZ_Wing)
-//		, new BigWing(Tech.VWXYZ_Wing)
-//		, new BigWing(Tech.UVWXYZ_Wing)
-//		, new BigWing(Tech.TUVWXYZ_Wing)
-		, new ComplexFisherman(Tech.FinnedSwampfish)
-		, new ComplexFisherman(Tech.FinnedSwordfish) // 9ms/elim
-//		, new ComplexFisherman(Tech.FinnedJellyfish) // 382ms/elim = too slow
-//		, new AlsXz()
-//		, new AlsXyWing()
-//		, new AlsXyChain() // 15ms/elim = too slow
-		, new UnaryChainer(F)
-// too few hints
-//		, new MultipleChainer(Tech.NishioChain, F)
-		, new MultipleChainer(Tech.MultipleChain, F)
-		, new MultipleChainer(Tech.DynamicChain, F)
-	};
-
-	/**
-	 * Solve the given grid using the HINTERS.
-	 * <p>
-	 * Note that this method mutates the passed grid (ie the copy).
-	 * <p>
-	 * gemSolve needs a distinctive name coz AHint.apply suppresses exception
-	 * logging by it's callers method name alone.
-	 *
-	 * @param grid
-	 * @return
-	 */
-	private static boolean gemSolve(final Grid grid) {
-		try {
-			boolean any;
-			int prevMaybes, currMaybes, i,n;
-			IHinter hinter = null;
-			grid.rebuildAllRegionsS__t();
-			for ( prevMaybes=grid.countMaybes(); ; prevMaybes=currMaybes ) {
-				if ( prevMaybes == 0 )
-					return true; // puzzle solved
-				any = false;
-				for ( i=0,n=HINTERS.length; i<n; ++i )
-					if ( any |= (hinter=HINTERS[i]).findHints(grid, APCU) )
-						break;
-				if ( !any || (currMaybes=grid.countMaybes()) == prevMaybes ) {
-					Log.teeln();
-					Log.teeln(grid.toString());
-					Log.teeln("WARN: gemSolve: DEAD_CAT: "+hinter);
-					break; // stop on DEAD_CAT to avert an endless loop
-				}
-			}
-		} catch ( Exception eaten ) {
-			// do nothing, just return false. Hinters occassionally manifest
-			// odd issues here, which I don't fully understand.
-//			eaten.printStackTrace(System.out);
-//			Debug.breakpoint();
-		}
-		return false; // puzzle unsolved
-	}
-
-	/**
-	 * Add to setPots each cell that's set in the copy and is not set in grid;
-	 * and also set the goodColor if not already determined.
-	 */
-	private void addNewSingles(final Pots setPots, final Grid copy) {
-		boolean first = true;
-		for ( Cell cc : copy.cells ) { // copy cell
-			// if the copy.cell has a value, and the grid.cell does not
-			// nb: grid and copy have the same value, or grid has 0.
-			if ( cc.value != grid.cells[cc.i].value
-			  // and there's no existing setPots for this cell
-			  && !setPots.containsKey(grid.cells[cc.i]) ) {
-				// then build the description
-				if ( wantWhy ) {
-					if ( first ) {
-						first = false;
-						steps.append(NL).append("<u>Consequent Singles</u>").append(NL);
-					}
-					// nb: color method caters for goodColor == -1 (not found)
-					steps.append("Set ").append(color(goodColor, cc.id+"+"+cc.value)).append(NL);
-				}
-				setPots.put(grid.cells[cc.i], new Values(cc.value));
-			}
-		}
-	}
-
-// Still finds wrong color occassionally, which I think is worse than BLACK.
-//	/**
-//	 * Return the goodColor: the first (colors or ons) which contains a setPot
-//	 * that is not in the other color; ie the first setPot that's uniquely
-//	 * colored either GREEN or BLUE; colors first, then ons.
-//	 * <p>
-//	 * I'm called twice, before, and if that doesn't work then after, adding
-//	 * consequent singles, which gives me more setPots to work with. So I get
-//	 * it right eventually about 75% (I guess) of the time, and the rest are
-//	 * just "not wrong", ie left black. It's the best I can come-up with.
-//	 *
-//	 * @param setPots the cell values to be set
-//	 */
-//	private int determineGoodColor(Pots setPots) {
-//		final int gc = goodColor(setPots, colors);
-//		if ( gc != -1 )
-//			return gc;
-//		return goodColor(setPots, ons);
-//	}
-//	private int goodColor(Pots setPots, Idx[][] idxs) {
-//		for ( Entry<Cell,Values> e : setPots.entrySet() ) {
-//			final int v = FIRST_VALUE[e.getValue().bits];
-//			final int i = e.getKey().i;
-//			final boolean g = idxs[GREEN][v].contains(i);
-//			final boolean b = idxs[BLUE][v].contains(i);
-//			if ( g & !b )
-//				return GREEN;
-//			else if ( !g & b )
-//				return BLUE;
-//		}
-//		return -1;
-//	}
 
 }

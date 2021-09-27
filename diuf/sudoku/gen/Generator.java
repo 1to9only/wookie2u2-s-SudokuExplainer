@@ -111,7 +111,7 @@ public final class Generator implements IInterruptMonitor {
 			return cache.generate(syms, diff, isExact);
 		} finally {
 			// tell the logicalSolver that I won't be interrupting him now.
-			solver.setInterruptMonitor(null);
+			solver.clearInterruptMonitor();
 		}
 	}
 
@@ -123,8 +123,8 @@ public final class Generator implements IInterruptMonitor {
 			, boolean isExact) {
 		Run.Type prevRunType = Run.setRunType(Run.Type.Generator);
 		try {
-			// the puzzle, stripped of every clue that can be stripped without
-			// sending the puzzle invalid
+			// the puzzle is the solution stripped of every clue that can be
+			// stripped without sending the puzzle invalid
 			Grid puzzle;
 			Symmetry symm; // the current Symmetry
 			double d; // the difficulty rating of this puzzle
@@ -137,7 +137,7 @@ public final class Generator implements IInterruptMonitor {
 			else
 				minD = 0.0D;
 			final double maxD = wantDifficulty.max;
-			assert maxD>minD;
+			assert minD < maxD;
 			// a Symmetry is required
 			final int n = syms.length;
 			assert n>0; // 1 is OK
@@ -152,8 +152,7 @@ public final class Generator implements IInterruptMonitor {
 				if ( --max < 1 ) // shot cat: stop this endless loop
 					throw new RuntimeException("Generator.generate: tapped out at 81*81 tries!");
 				// Use only Symmetry.None for IDKFA else it takes too long!
-				// There is something SERIOUSLY weird going on with symmetry,
-				// I blame the JIT compiler, so I KISS it. A little too ironic?
+				// Something is SERIOUSLY weird with symmetry, so KISS it.
 				if ( isIDKFA )
 					symm = Symmetry.None;
 				else
@@ -326,4 +325,5 @@ public final class Generator implements IInterruptMonitor {
 	public void interrupt() {
 		this.isInterrupted = true;
 	}
+
 }

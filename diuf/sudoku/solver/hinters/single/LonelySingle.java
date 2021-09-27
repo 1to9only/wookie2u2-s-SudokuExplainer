@@ -18,16 +18,16 @@ import diuf.sudoku.solver.hinters.AHinter;
 
 
 /**
- * Implementation of the Naked Hidden Single Sudoku solving technique,
+ * LonelySingle implements the Naked Hidden Single Sudoku solving technique,
  * ie naked singles that are the only unset Cell in a Box.
  * <p>
- * NOTE: I tried seeking LonelySingles in all regions (box, row, and col) but
- * found the results pretty bloody confusing, so restricted LonelySingles to
- * searching Boxes only, so it jumps around less, ie is more predictable.
+ * NOTE: I tried seeking LonelySingle's in all regions (box, row, and col) but
+ * found the results pretty bloody confusing, so restricted it to Boxes only,
+ * so it jumps around less, so it's more predictable.
  */
-public final class LonelySingles extends AHinter {
+public final class LonelySingle extends AHinter {
 
-	public LonelySingles() {
+	public LonelySingle() {
 		super(Tech.LonelySingle);
 	}
 
@@ -45,7 +45,9 @@ public final class LonelySingles extends AHinter {
 		if ( !(accu instanceof HintsAccumulator) )
 			return false;
 
-		Cell cell;  int value;
+		ARegion box;
+		Cell cell;
+		int value;
 		// presume that no hints will be found.
 		boolean result = false;
 		// Note that loneliness is only considered in Boxs, not rows/cols; and
@@ -57,16 +59,14 @@ public final class LonelySingles extends AHinter {
 		// other users; or more likely most of them will just never think about
 		// it, ie accept that it is how it is, despite it being confusing, and
 		// so never complain. I complain, therefore I fix it. Sigh.
-		for ( int i=0; i<8; ++i  ) {
-			ARegion r = grid.boxs[i];
+		for ( int i=0; i<8; ++i  )
 			// hint if there is 1 empty cell remaining in this region
-			if ( r.emptyCellCount == 1 ) {
+			if ( (box=grid.boxs[i]).emptyCellCount == 1 ) {
 				// the cell is the first (and only) empty cell in this region
-				cell = r.firstEmptyCell();
 				// the value is it's first (and only) potential value
-				value = cell.maybes.first();
-				
-				// late-validate the code (like Cell.set) that updates maybes 
+				value = (cell=box.firstEmptyCell()).maybes.first();
+
+				// late-validate the code (like Cell.set) that updates maybes
 				// when the Grid changes. Better late than never. It's REALLY
 				// hard to find the line that buggers-up the maybes! If that
 				// happens try putting validation code into a method to call
@@ -78,22 +78,21 @@ public final class LonelySingles extends AHinter {
 				// check that my maybes ARE that value
 				assert cell.maybes.bits == VSHFT[value];
 				// check region has one position for value (ie I'm hidden).
-				assert r.indexesOf[value].size == 1;
+				assert box.indexesOf[value].size == 1;
 				// check I am the regions position for value.
-				assert r.indexesOf[value].bits == ISHFT[cell.indexIn[r.typeIndex]];
+				assert box.indexesOf[value].bits == ISHFT[cell.indexIn[box.typeIndex]];
 				// </I am back to being me> Sigh.
-				
-				// nb: [Default]HintsAccumulator.add never returns true, and 
-				// LonelySingles is used only in the GUI, so don't bother with
+
+				// nb: [Default]HintsAccumulator.add never returns true, and
+				// LonelySingle is used only in the GUI, so don't bother with
 				// the usual exit-early upon first hint.
-				// nb: The hints-type-name is hinter.tech.nom (where the hinter
-				// is NakedSingle or LonelySingle), so only one hint-type is
+				// nb: The hints-type-name is hinter.tech.name() where hinter
+				// is NakedSingle or LonelySingle, so only one hint-type is
 				// required (NakedSingleHint). It just reports itself as two
 				// different types, that's all. Confused yet? Read it again.
-				accu.add(new NakedSingleHint(this, cell, value));
+				accu.add(new LonelySingleHint(this, cell, value));
 				result = true; // We found at least one hint
 			}
-		}
 		return result;
 	}
 

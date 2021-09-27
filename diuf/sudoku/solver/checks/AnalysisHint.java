@@ -7,7 +7,6 @@
 package diuf.sudoku.solver.checks;
 
 import diuf.sudoku.solver.AWarningHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.UsageMap;
 import diuf.sudoku.solver.Usage;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -20,12 +19,12 @@ import java.util.Map;
 
 /**
  * A warning hint from {@link diuf.sudoku.solver.LogicalAnalyser} contains
- * an approximate rating of the sudoku, and the list of hints that have
- * been used to solve it. The actual solution is not shown, and the grid is
- * not modified by applying this hint.
+ * a difficulty rating of the Sudoku, and the hints used to solve it. The
+ * solution is not shown, and the grid is not modified by applying this hint.
+ *
  * @see diuf.sudoku.solver.checks.Analyser
  */
-public final class AnalysisHint extends AWarningHint implements IActualHint {
+public final class AnalysisHint extends AWarningHint  {
 
 	public final UsageMap usageMap;
 

@@ -163,7 +163,7 @@ public final class HitSet {
 	// 1 2 3 4  5  6  7   8   9  10   11   12   13   14    15    16
 	// the max hintNumber looks like it's about 140, but that's with each
 	// trailing nakedSingle counted as one hint, so 256 will do for hintNum.
-	// My GSL's stretch to 1465, but last A*E is in like 1140 or something.
+	// My GSL's run upto 1465, but last A*E is in like 1140 or something.
 	private static int hash(int gsl, int hintNum) {
 		return (gsl<<9) ^ hintNum;
 	}

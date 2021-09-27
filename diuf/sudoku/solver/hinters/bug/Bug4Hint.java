@@ -11,7 +11,6 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -33,7 +32,7 @@ import java.util.Set;
  * 
  * @author Nicolas Juillerat
  */
-public final class Bug4Hint extends ABugHint implements IActualHint {
+public final class Bug4Hint extends ABugHint  {
 
 	private final Cell bugCell1;
 	private final Cell bugCell2;

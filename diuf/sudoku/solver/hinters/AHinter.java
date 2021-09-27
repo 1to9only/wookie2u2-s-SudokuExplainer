@@ -176,23 +176,22 @@ public abstract class AHinter implements IHinter {
 	}
 
 	/**
-	 * This implementation just returns tech.nom (it's French for name, which
-	 * is reserved by the EnumSet) of the Tech passed into my constructor; to
-	 * tell you which Sudoku Solving Technique I implement.
+	 * This implementation just returns the name() of the Tech passed into my
+	 * constructor; to tell you which Sudoku Solving Technique I implement.
 	 * <p>
 	 * <b>WARNING:</b> Performance! most implementations use this toString(),
-	 * which just returns tech.nom, which is a compile time constant, and is
-	 * almost always sufficient. A few override me, which is fine, but bewarned
-	 * <b>NEVER</b> build a String in an override of my toString, it should
-	 * return a compile-time constant String; or the bloody comparator bogs
-	 * like a dead dogs bone. I've seen this crash a JVM, repeatably.
+	 * which just returns tech.name() which is a compile time constant, and is
+	 * almost always sufficient. Some may override me, which is fine, but be
+	 * warned <b>NEVER</b> build a String in an override of my toString, it
+	 * should return a compile-time constant String; or the bloody comparator
+	 * bogs like a dead dogs bone. It may even crash the JVM.
 	 *
 	 * @return a compile-time constant String that says which Sudoku Solving
 	 * Technique this AHinter implements.
 	 */
 	@Override
 	public String toString() {
-		return tech.nom;
+		return tech.name();
 	}
 
 	@Override

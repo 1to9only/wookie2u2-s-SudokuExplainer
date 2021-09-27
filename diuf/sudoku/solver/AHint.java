@@ -13,9 +13,10 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
+import diuf.sudoku.Grid.Single;
+import diuf.sudoku.Values;
 import diuf.sudoku.gui.Print;
 import diuf.sudoku.io.StdErr;
-import diuf.sudoku.solver.accu.AggregatedHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.als.Als;
 import diuf.sudoku.utils.Debug;
@@ -25,6 +26,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -83,12 +85,6 @@ public abstract class AHint implements Comparable<AHint> {
 	};
 
 	public static final int AVG_CHARS_PER = 80; // per toString (approximate)
-
-	/** The start hint number is 0, before the first hint. */
-	public static int number = 0;
-	public static void resetHintNumber() {
-		number = 0; // before the first hint
-	}
 
 	public final AHinter hinter; // The hinter that produced this hint
 	public final int degree;	 // The degree of my hinter
@@ -203,17 +199,25 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @throws UnsolvableException on the odd occasion
 	 */
 	public final int apply(boolean isAutosolving, boolean isNoisy) {
+		final Grid grid = getGrid();
+		if ( isNoisy )
+			return apply(isAutosolving, isNoisy, grid);
+		return applyImpl(isAutosolving, grid);
+
+	}
+	public final int apply(boolean isAutosolving, boolean isNoisy, Grid grid) {
 		// I handle isNoisy, and applyImpl actually applies this hint.
-		final Grid grid;
-		if ( (grid=getGrid()) == null )
+		if ( grid == null )
 			isNoisy = false;
-		final String before = isNoisy ? grid.toString() : null;
-		if ( this instanceof AggregatedHint )
-			((AggregatedHint)this).applyIsNoisy = isNoisy;
-		final int numSet = applyImpl(isAutosolving);
+		final String before;
+		if ( isNoisy )
+			before = grid.toString();
+		else
+			before = null;
+		final int result = applyImpl(isAutosolving, grid);
 		if ( isNoisy )
 			Print.hint(this, grid, before);
-		return numSet;
+		return result;
 	}
 
 	/**
@@ -229,10 +233,11 @@ public abstract class AHint implements Comparable<AHint> {
 	 * me, except through the above public apply method. Clear?
 	 *
 	 * @param isAutosolving set subsequent Naked/Hidden Singles.
+	 * @param grid the grid to apply this hint to
 	 * @return the score: numCellsSet*10 + numMaybesRemoved
 	 * @throws UnsolvableException on the odd occasion
 	 */
-	protected int applyImpl(boolean isAutosolving) {
+	protected int applyImpl(boolean isAutosolving, Grid grid) {
 		if ( isInvalid )
 			return 0; // invalid hints are dead cats!
 		int myNumElims = 0;
@@ -243,47 +248,51 @@ public abstract class AHint implements Comparable<AHint> {
 				myNumElims += 10 * cell.set(value, 0, isAutosolving, SB);
 			}
 			if ( redPots!=null && !redPots.isEmpty() ) {
-				int pink; // a bitset of removable values
-				final Deque<Cell> nakedSingles;
-				if ( isAutosolving )
-					nakedSingles = SINGLES_QUEUE;
-				else
-					nakedSingles = null;
-				for ( Cell pc : redPots.keySet() ) // pinkCell
-					// if pinkCell still has any of these red values?
-					if ( (pink=pc.maybes.bits & redPots.get(pc).bits) != 0 )
-						// nb: occassionally throws UnsolvableException
-						// nb: populates GrabBag.NAKED_SINGLES if isAutosolving
-						myNumElims += pc.canNotBeBits(pink, nakedSingles);
-				if ( isAutosolving )
-					// set any nakedSingles found by canNotBeBits
+				if ( isAutosolving ) {
+					int pink; // a bitset of removable values
+					Deque<Single> singles = null;
+					boolean reuse = false;
 					try {
-						assert nakedSingles != null;
-						Cell ns; // nakedSingle
-						while ( (ns=nakedSingles.poll()) != null )
-							// ignore any already set cells
-							if ( ns.maybes.size == 1 )
-								// may add to GrabBag.NAKED_SINGLES
-								// may throw UnsolvableException
-								myNumElims += 10 * ns.set(ns.maybes.first(), 0
-										, isAutosolving, SB);
-					} catch (Exception ex) { // especially UnsolvableException
-						SINGLES_QUEUE.clear(); // even if unused
+						if ( grid != null ) {
+							singles = grid.getSinglesQueue();
+							reuse = true;
+						} else
+							singles = new LinkedList<>(); // slower
+						for ( Map.Entry<Cell,Values> e : redPots.entrySet() ) {
+							final Cell c = e.getKey();
+							final Values v = e.getValue();
+							if ( (pink=c.maybes.bits & v.bits) != 0 )
+								myNumElims += c.canNotBeBits(pink, singles);
+						}
+						for ( Single s; (s=singles.poll()) != null; )
+							if ( s.cell.value == 0 ) // skip already set
+								myNumElims += 10 * s.cell.set(s.value, 0, true, SB);
+					} catch ( Exception ex ) {
+						if ( reuse ) // clean-up for next time
+							singles.clear();
 						throw ex;
 					}
+				} else {
+					int pink;
+					for ( Map.Entry<Cell,Values> e : redPots.entrySet() ) {
+						final Cell c = e.getKey();
+						final Values v = e.getValue();
+						if ( (pink=c.maybes.bits & v.bits) != 0 )
+							myNumElims += c.canNotBeBits(pink);
+					}
+				}
 			}
 		} catch (UnsolvableException ex) { // from cell.set or rc.canNotBeBits
-			// Whinges unwanted in recursiveSolve, generate and gemSolve.
-			// We guess cell values so break puzzle, but they are important 
+			// Whinges unwanted in recursiveSolve and generate.
+			// We guess cell values so break puzzle, but they are important
 			// elsewhere. Don't like slow reflection filter, but what else?
 			// NB: should whinge if depth==0 (top level) but how to?
-			if ( !Debug.isMethodNameInTheCallStack(10, "recursiveSolve", "generate", "gemSolve") )
+			if ( !Debug.isMethodNameInTheCallStack(10, "recursiveSolve", "generate") )
 				StdErr.whinge("Error applying: "+this.toFullString(), ex);
 			throw ex;
 		}
 		return myNumElims;
 	}
-	private static final Deque<Cell> SINGLES_QUEUE = new LinkedList<>();
 
 	/** Implementors override this one to return a subtype of AHinter.
 	 * @return the Hinter which discovered this hint. */
@@ -302,8 +311,9 @@ public abstract class AHint implements Comparable<AHint> {
 	 * EG: "Naked Single", "Hidden Single", "Naked Pair", "Swampfish",
 	 * "Ultra-Right-Wing Square Dance Dissociation (with twin aardvarks)". */
 	public final String getHintTypeName() {
-		return hintTypeName!=null ? hintTypeName
-				: (hintTypeName=getHintTypeNameImpl());
+		if ( hintTypeName == null )
+			hintTypeName = getHintTypeNameImpl();
+		return hintTypeName;
 	}
 	private String hintTypeName; // hint type name
 
@@ -388,6 +398,17 @@ public abstract class AHint implements Comparable<AHint> {
 	 */
 	public double getDifficulty() {
 		return hinter.tech.difficulty;
+	}
+
+	/**
+	 * GEM requires a separate difficulty-rating specifically for the total
+	 * difficulty of a puzzle, because it set's lots of cell-values, which
+	 * need to be taken into account.
+	 *
+	 * @return
+	 */
+	public double getDifficultyTotal() {
+		return getDifficulty();
 	}
 
 	public int getNumElims() {
@@ -658,16 +679,21 @@ public abstract class AHint implements Comparable<AHint> {
 			return false; // sigh.
 		if ( o == this )
 			return true;
-		if ( this instanceof IActualHint ) {
-			if ( hinter != o.hinter )
-				return false;
-			if ( redPots == null )
-				return cell==o.cell && value==o.value;
-			else
-				return redPots.equals(o.redPots); // indirect hint
-		} else // messages, warnings, and analysis
+		if ( this instanceof IPretendHint ) {
+			// messages, warnings, and analysis
 			// slow, but it's all I can think of. Random numbers are OUT!
 			return toString().equals(o.toString());
+		} else {
+			// an "actual" hint
+			if ( hinter != o.hinter )
+				return false;
+			if ( cell != null )
+				return cell==o.cell && value==o.value;
+			else if ( redPots != null )
+				return redPots.equals(o.redPots); // indirect hint
+			else
+				return false; // end of tether
+		}
 	}
 
 	/**

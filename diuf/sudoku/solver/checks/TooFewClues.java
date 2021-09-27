@@ -10,13 +10,10 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.accu.IAccumulator;
 
-
 /**
- * Valid Sudokus have at least 17 clues, otherwise produce a warning.
+ * Produce a WarningHint if the Sudoku doesn't have at least 17 clues.
  */
 public final class TooFewClues extends AWarningHinter {
-
-	private String toString =  Tech.TooFewClues.nom;
 
 	public TooFewClues() {
 		super(Tech.TooFewClues);
@@ -25,24 +22,14 @@ public final class TooFewClues extends AWarningHinter {
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		final int count = grid.countFilledCells();
-		if ( count == 81 ) {
-			toString = "Solverated"; // change the hinterNode name in hintsTree
-			accu.add(new WarningHint(this, "Sudoku solverated"
-					, "SudokuSolved.html"));
-			return true;
-		} else if ( count < 17 ) {
-			toString = Tech.TooFewClues.nom;
+		assert count != 81; // don't validate when the grid.isFull() ya dummy
+		if ( count < 17 ) {
 			accu.add(new WarningHint(this
 					, "Number of clues "+count+" is less than 17"
 					, "TooFewClues.html", count));
 			return true;
 		}
 		return false;
-	}
-
-	@Override
-	public String toString() {
-		return toString;
 	}
 
 }

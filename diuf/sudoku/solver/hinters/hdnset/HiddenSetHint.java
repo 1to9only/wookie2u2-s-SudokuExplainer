@@ -18,7 +18,6 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.utils.Frmt;
@@ -36,7 +35,7 @@ import java.util.Set;
  * two values in this Row. The same logic works for 2, 3, 4, or 5 locations
  * and values.
  */
-public final class HiddenSetHint extends AHint implements IActualHint, IChildHint {
+public final class HiddenSetHint extends AHint implements IChildHint {
 
 	private final Cell[] cells;
 	private final int hdnSetRegionIdxBits;
@@ -115,7 +114,7 @@ public final class HiddenSetHint extends AHint implements IActualHint, IChildHin
 		if ( ts != null )
 			return ts;
 		StringBuilder sb = Frmt.getSB();
-		sb.append(Frmt.enspace(hinter.tech.name())) // Direct or not.
+		sb.append(getHintTypeName())
 		  .append(": ").append(Frmt.csv(cells))
 		  .append(": ").append(Frmt.csv(hdnSetValuesArray))
 		  .append(" in ").append(region.id);

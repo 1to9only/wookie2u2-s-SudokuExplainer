@@ -86,9 +86,9 @@ import java.util.regex.Pattern;
  * and the Grids static Idxs are "needed" for speed, so I gave up; leaving Idx
  * as an independant class, and just wear passing the Grid around, and the need
  * for a BitIdx to iterate Idx'd cells. It's messy, but the only other way I
- * can think of is a new Gridx class which overrides Idx's forEach et al to
- * pass in Grid.this, but then none of premade Idx's would have this feature,
- * rendering it more-or-less useless. sigh.
+ * can think of is a new IdxIt class which overrides Idx's forEach et al to
+ * pass in Grid.this to iterate, but then the cut-lunch Idx's would lack this
+ * feature, rendering it more-or-less useless, I think. sigh.
  * </pre>
  *
  * @author Keith Corlett 2019 DEC
@@ -196,6 +196,24 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		for ( Cell c : cells )
 			idx.add(c.i);
 		return idx;
+	}
+
+	/**
+	 * Returns a new Idx containing indices.
+	 *
+	 * @param indices
+	 * @return 
+	 */
+	public static Idx of(int[] indices) {
+		int a0=0, a1=0, a2=0;
+		for ( int i : indices )
+			if ( i < BITS_PER_ELEMENT )
+				a0 |= SHFT[i];
+			else if ( i < BITS_TWO_ELEMENTS )
+				a1 |= SHFT[i%BITS_PER_ELEMENT];
+			else
+				a2 |= SHFT[i%BITS_PER_ELEMENT];
+		return new Idx(a0, a1, a2);
 	}
 
 	/**
@@ -397,6 +415,15 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 					v.visit(BITS_TWO_ELEMENTS+j+k);
 	}
 
+	public static final String toString(final int a0, final int a1, final int a2) {
+		if ( true ) // @check true
+			// cell-ids toString for normal use
+			return toStringCellIds(a0, a1, a2);
+		else
+			// debug only: the raw indices
+			return toStringIndices(a0, a1, a2);
+	}
+
 	// ============================ instance stuff ============================
 
 	/** The 3 ints, each of 27 used bits, for the 81 cells in a Grid. These
@@ -417,6 +444,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * The Copy Constructor: Returns a new Idx containing a copy of src.
+	 *
 	 * @param src to copy
 	 */
 	public Idx(Idx src) {
@@ -426,11 +454,12 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Constructs a new Idx with the given 'values' as it's internal array.
+	 * Constructs a new Idx with the given bitset 'values' as a0, a1, a2.
 	 * <p>
 	 * This method is currently only used by IO.loadIdxs, where it's exactly
 	 * what is required.
-	 * @param values to retain as my internal array.
+	 *
+	 * @param values bitsets for my a0, a1, a2.
 	 */
 	public Idx(int[] values) {
 		a0 = values[0];
@@ -813,6 +842,11 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			remove(c.i);
 	}
 
+	public void removeAll(Cell[] cells) {
+		for ( Cell c : cells )
+			remove(c.i);
+	}
+
 	/**
 	 * Mutate this &= other.
 	 *
@@ -908,6 +942,28 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			return 54 + Integer.numberOfTrailingZeros(x);
 		}
 		return -1; // this set is empty
+	}
+
+	/**
+	 * returns contains, then add i; so you can visit each 'i' ONCE.
+	 * @param i
+	 * @return did this Idx already contain this 'i', coz it does now!
+	 */
+	boolean visit(final int i) {
+		if ( i < BITS_PER_ELEMENT ) {
+			if ( (a0 & SHFT[i]) != 0 )
+				return false;
+			a0 |= SHFT[i];
+		} else if ( i < BITS_TWO_ELEMENTS ) {
+			if ( (a1 & SHFT[i%BITS_PER_ELEMENT]) != 0 )
+				return false;
+			a1 |= SHFT[i%BITS_PER_ELEMENT];
+		} else {
+			if ( (a2 & SHFT[i%BITS_PER_ELEMENT]) != 0 )
+				return false;
+			a2 |= SHFT[i%BITS_PER_ELEMENT];
+		}
+		return true;
 	}
 
 	// -------------------------------- queries -------------------------------
@@ -1190,7 +1246,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * to them are lost, so it's good practice to clean-up AFTER a toArraySmart
 	 * loop, and we also do so beforehand just for safety (just be paranoid!).
 	 */
-	public void toArraySmartClear() {
+	public void toArraySmartReset() {
 		if ( usedA == null ) {
 			usedA = new Idx();
 			usedB = new Idx();
@@ -1198,28 +1254,48 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			usedA.clear();
 			usedB.clear();
 		}
+		if ( usedNew ) {
+			usedNew = false;
+		}
 	}
 
 	/**
+	 * toArraySmart leases-out IAS_A[n], IAS_B[n], or a new int[n], such that
+	 * there's one use of each array at any one time. Don't forget to Reset!
+	 * <p>
+	 * This cluster____ works-around Java taking ages to create a new int[].
 	 * You call me in a loop: I return arrayA, else arrayB, else a new array;
-	 * minimising garbage while still guaranteeing unique arrays, just don't
-	 * use toArrayA or toArrayB elsewhere in loop, including invoked methods.
+	 * minimising garbage while still guaranteeing unique arrays, just do NOT
+	 * use toArrayA or toArrayB (or anything else that uses AIS_A or IAS_B)
+	 * while you're using my results, including any methods that you call.
+	 * <p>
+	 * You absolutely need to call {@link #toArraySmartReset} BEFORE your loop;
+	 * and you can call it again afterwards to clean-up old indexes, but it's
+	 * not required because my indexes are just Idx's, holding no references.
+	 * <p>
+	 * My public boolean {@code usedNew} is set to true if any new arrays are
+	 * created during your "toArraySmart loop", which tells you that you need
+	 * to forget all of my result-arrays (presuming they are held in a field)
+	 * to prevent a memory leak.
 	 *
 	 * @return a unique int array, populated with the indices in this Idx.
 	 */
 	public int[] toArraySmart() {
-		if ( (a0|a1|a2) == 0 )
-			return IAS_A[0];
-		final int n = Integer.bitCount(a0)+Integer.bitCount(a1)+Integer.bitCount(a2);
+		if ( (a0|a1|a2) == 0 ) // empty index
+			return IAS_A[0]; // always returns an empty array
+		final int n = size();
 		if ( usedA.addOnly(n) )
 			return toArrayA();
 		if ( usedB.addOnly(n) )
 			return toArrayB();
+		usedNew = true;
 		return toArrayNew();
 	}
 	// idx's of the size of arrayA's and arrayB's used.
 	// each physical array may be used only once.
 	private Idx usedA, usedB;
+	// was a new array/s created in the previous toArraySmart session?
+	public boolean usedNew;
 
 	public String ids() {
 		final StringBuilder sb = new StringBuilder(128);
@@ -1250,8 +1326,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * we've visited so far. The indice is the cells indice in Grid.cells.
 	 * <p>
 	 * I like lambda expressions, but only simple ones. They're very clever!
-	 * I would like to nominate the dude/s who invented closures for the Nobel
-	 * prize for information technology.
+	 * I would nominate the dude/s who invented closures for a Nobel laurate,
+	 * except I like pork.
 	 */
 	public interface Visitor2 {
 		/**
@@ -1596,14 +1672,12 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Each bitset uses 27 least significant (rightmost) bits, for 81 cells.
 	 *
 	 * @param sb to append to
-	 * @param n use size(a0, a1, a2) or just guess, it's up to you.
 	 * @param a0 the first bitset of the Idx
 	 * @param a1 the second bitset of the Idx
 	 * @param a2 the third bitset of the Idx
 	 * @return the given StringBuilder for method chaining.
 	 */
-	public static StringBuilder append(StringBuilder sb, int n, int a0, int a1, int a2) {
-		sb.ensureCapacity(sb.length()+n);
+	public static StringBuilder append(StringBuilder sb, int a0, int a1, int a2) {
 		// nb: we're using a lambda expression to implement Visitor2 here
 		forEach(a0, a1, a2, (cnt, g) -> {
 			if(cnt>0) sb.append(' ');
@@ -1623,9 +1697,8 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param a2 the third mask
 	 * @return the cell-id's of indices in this Idx.
 	 */
-	public static String toCellIdString(int a0, int a1, int a2) {
-		int n = size(a0,a1,a2) * 3;
-		return append(getSB(n), n, a0, a1, a2).toString();
+	public static String toStringCellIds(int a0, int a1, int a2) {
+		return append(getSB(size(a0,a1,a2)*3), a0, a1, a2).toString();
 	}
 
 	/**
@@ -1636,7 +1709,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param a2
 	 * @return
 	 */
-	public static String toIndiceString(int a0, int a1, int a2) {
+	public static String toStringIndices(int a0, int a1, int a2) {
 		StringBuilder sb = getSB(size(a0,a1,a2) * 3);
 		forEach(a0, a1, a2, (cnt, i) -> {
 			if(cnt>0) sb.append(' ');
@@ -1645,7 +1718,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return sb.toString();
 	}
 	public String toIndiceString() {
-		return toIndiceString(a0, a1, a2);
+		return toStringIndices(a0, a1, a2);
 	}
 
 	/**
@@ -1657,10 +1730,10 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	public String toString() {
 		if ( true ) // @check true
 			// cell-ids toString for normal use
-			return toCellIdString(a0, a1, a2);
+			return toStringCellIds(a0, a1, a2);
 		else
 			// debug only: the raw indices
-			return toIndiceString(a0, a1, a2);
+			return toStringIndices(a0, a1, a2);
 	}
 
 	// get my StringBuilder... I keep ONE that grows.
@@ -1695,13 +1768,6 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return 0;
 	}
 
-	/**
-	 * Returns a new Idx of all cells in this Idx which match the CellFilter.
-	 *
-	 * @param cells
-	 * @param f any CellFilter to accept (or reject) each cell.
-	 * @return a new Idx of matching indices/cells in this Idx.
-	 */
 	public Idx where(final Cell[] cells, final CellFilter f) {
 		int bits, j, r0=0,r1=0,r2=0; // the result
 		if ( (bits=a0) != 0 )
@@ -1720,6 +1786,27 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 					if ( f.accept(cells[BITS_TWO_ELEMENTS+j+k]) )
 						r2 |= SHFT[j+k];
 		return new Idx(r0,r1,r2);
+	}
+
+	public int cellsWhere(final Cell[] src, final Cell[] dest, final CellFilter f) {
+		int bits, j, cnt=0;
+		Cell c;
+		if ( (bits=a0) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					if ( f.accept(c=src[j+k]) )
+						dest[cnt++] = c;
+		if ( (bits=a1) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					if ( f.accept(c=src[BITS_PER_ELEMENT+j+k]) )
+						dest[cnt++] = c;
+		if ( (bits=a2) != 0 )
+			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
+				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
+					if ( f.accept(c=src[BITS_TWO_ELEMENTS+j+k]) )
+						dest[cnt++] = c;
+		return cnt;
 	}
 
 	// ------------------------------- plumbing -------------------------------

@@ -10,7 +10,6 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
 
@@ -19,7 +18,7 @@ import diuf.sudoku.utils.Html;
  *
  * @author Keith Corlett 2020-02-05
  */
-public class SueDeCoqHint extends AHint implements IActualHint {
+public class SueDeCoqHint extends AHint  {
 
 	private final Pots purples;
 

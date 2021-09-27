@@ -16,7 +16,6 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.Ass.Cause;
@@ -43,8 +42,7 @@ import java.util.HashMap;
 /**
  * Chaining hint. A chaining hint is any hint resulting from a chain of implications.
  */
-public abstract class AChainingHint extends AHint
-		implements IActualHint, IChildHint {
+public abstract class AChainingHint extends AHint implements IChildHint {
 
 //public static int maxAncestorsSize = 0;
 
@@ -718,10 +716,10 @@ public abstract class AChainingHint extends AHint
 		switch (degree) {
 			case 0 : return " Chain";
 			case 1 : return " Plus";
-			case 2 : return " Nested (+ "+Tech.UnaryChain.nom+")";
-			case 3 : return " Nested (+ "+Tech.MultipleChain.nom+")";
-			case 4 : return " Nested (+ "+Tech.DynamicChain.nom+")";
-			case 5 : return " Nested (+ "+Tech.DynamicPlus.nom+")";
+			case 2 : return " Nested (+ "+Tech.UnaryChain.name()+")";
+			case 3 : return " Nested (+ "+Tech.MultipleChain.name()+")";
+			case 4 : return " Nested (+ "+Tech.DynamicChain.name()+")";
+			case 5 : return " Nested (+ "+Tech.DynamicPlus.name()+")";
 		}
 		throw new IllegalStateException("Bad degree="+degree);
 	}

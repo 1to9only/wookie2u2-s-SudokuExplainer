@@ -169,14 +169,14 @@ public final class Settings implements Cloneable {
 	//			1465 in 1,491,209,814,826 (24:51) @ 1,017,890,658 with A10E.
 	//			which is about six and half minutes faster than the previous.
 	//			1465 in   120,330,712,914 (02:00) @    82,137,005 REDO
-	// 6.30.035 2019-12-10 14:28:35 Reverted to 6.30.034 2019-11-29 12:57:34 and
+	// 6.30.035 2019-12-10 14:28:35 Reverted to 6.30.034 2019-11-29 12:57:34 so
 	//			now there's 2 of each A456E: correct and hacked: and CheckBox's
 	//			in TechSelectDialog to choose between them. Turns out correct
 	//			A5E + A4E takes 48 minutes, which still looks OK in the GUI.
 	//			Also changes to Settings, and to hintDetailsHtml handling.
 	//			The reversion broke debug + run in the IDE. I hate Netbeans.
-	// 6.30.036 2019-12-12 14:04:36 Updated tests for A456E. There's still a bug
-	//			that I don't understand in setting boolean preferences (just
+	// 6.30.036 2019-12-12 14:04:36 Updated tests for A456E. There's still bug
+	//			that I don't understand with setting boolean preferences (just
 	//			change the bastard using regedit). I'm releasing anyway because
 	//			I've just got all the tests working again, so it's easy.
 	// 6.30.037 2019-12-24 18:52:37 I'm releasing because it's been too long
@@ -198,8 +198,8 @@ public final class Settings implements Cloneable {
 	//			by various stats. It's down to 4 hours with HACKs specific to
 	//			top1465.d5.mt.
 	// 6.30.041 2020-01-19 07:32:41 A*E now all have at least "starter level"
-	//			filters using the Counter class on mbs maybes size, col collisions,
-	//			and ces common excluders size.
+	//			filters using the Counter class on mbs maybes size,
+	//			col collisions, and ces common excluders size.
 	// 6.30.042 2020-01-28 21:11:42 A7E_1C now has "top shelf" filters.
 	//			It sorts the cells in the aligned set by:
 	//				numMaybesCollisions*4 + cmnExclHits*2 + maybes.size,
@@ -219,11 +219,11 @@ public final class Settings implements Cloneable {
 	//			I really really want to get under 100 minutes!
 	// 6.30.045 2020-02-04 15:03:35 promulgated collisionComparator and any*
 	//			technique to other A*E's. Also ANSI-C'ed all vars in hit files.
-	// 6.30.046 2020-02-06 00:40:46 fixed bugs in the filters of A8E + A10E, and
+	// 6.30.046 2020-02-06 00:40:46 fixed bugs in the filters of A8E+A10E, and
 	//			fixed bug in collisionComparator.score which ommits COLLISIONS!
 	//			Declare ALL variables at the start of the method, like ANSI-C!
 	//			top1465.d5.mt down to 95:52 with A234567E_1C + A8910E_2H
-	//			I broke 100! I broke 100! I broke 100! I broke 100! I broke 100!
+	//			I broke 100! I broke 100! I broke 100! I broke 100!
 	// 6.30.047 2020-02-10 20:07:47 isAnyAllowed* in:
 	//			* A7E_1C from 3,259 to 1,420 saving 30:39
 	//			* A7E_2H from 27:43 but I've nothing to compare it to.
@@ -267,7 +267,7 @@ public final class Settings implements Cloneable {
 	// 6.30.055 2020-03-06 21:59:55 Put a WindexSet in each A*E to only examine
 	//			only those aligned sets which produced a hint last time.
 	//			top1465 IS_HACKY in 39:16 with A2345678910E_1C. She'll do.
-	// 6.30.056 2020-03-09 19:05:56 The UBER HACK: replace HitSet, FilterSet and
+	// 6.30.056 2020-03-09 19:05:56 The UBER HACK replace HitSet, FilterSet and
 	//			WindexSet with a new HitSet class, so all A*E's skip if there
 	//          was no hint for this puzzle/hintNumber last run; and also jump
 	//			straight to the aligned set which hinted here last run.
@@ -277,7 +277,7 @@ public final class Settings implements Cloneable {
 	//			But without the hacks it's still too slow to be useful:
 	//			top1465 !IS_HACKY in     9:16 with A5678910E_2H is fast enough
 	//			top1465 !IS_HACKY in 26:56:19 with A2345678910E_1C is too slow
-	//          42#top1465 took 76 minutes, 74 minutes of which was Aligned Dec.
+	//          42#top1465 took 76 minutes, 74 mins of which was Aligned Dec.
 	// 6.30.057 2020-03-?? ??:??:?? A*E: Inlined covers method in default:'s.
 	//			Put IS_HACKY in registry. Wired the GUI upto the HitSet.
 	//			Ran A234567E with & without to compare number of aligned sets.
@@ -289,15 +289,15 @@ public final class Settings implements Cloneable {
 	// 6.30.058 2020-03-19 18:22:58 Still pissin about with A*E's. Pushed the
 	//			HitSet + prepare and report methods up into the abstract
 	//			AAlignedSetExclusionBase class. Stuck basic filtering in A10E
-	//			even when !isHacky coz vanilla took 34 hours (down to 22 hours).
+	//			even when !isHacky coz vanilla took 34 hours (down to 22 hrs).
 	// 6.30.059 2020-04-03 16:37:59 HoDoKu SingleDigitPattern first pass.
 	//			Downloaded HoDoKu code to boost from. Started with sdp which is
 	//			now complete: Skyscraper, TwoStringKite are algorithmically "as
-	//			is". EmptyRectangle is totaly my implementation, but still based
-	//			on the ideas I first saw in HoDoKu. WWing (in wing package with
-	//			XYWing and XYZWing, which it most resembles, is also basically
-	//			boosted "as is" from HoDoKu. Forgive me father it's been 3 busy
-	//			weeks since my last release!
+	//			is". EmptyRectangle is totaly my code, but still based on
+	//			hobiwans (HoDoKu) ideas. WWing (in wing package with XYWing and
+	//			XYZWing, which it most resembles, is also basically boosted "as
+	//			is" from HoDoKu. Forgive me father, it's been 3 weeks since my
+	//			last release!
 	// 6.30.060 Got lost in the fog, or something.
 	// 6.30.061 2020-04-10 15:38:01 HoDoKu FinnedFisherman second pass, finding
 	//			all Finned (non Sashimi) Fish, and test cases.
@@ -318,9 +318,9 @@ public final class Settings implements Cloneable {
 	//			ALS-XY-Wing working in DIUF. Still no testcase for it.
 	//			Last top1465: 12:39 with A5..10E hacked + ALS-XZ + ALS-XY-Wing
 	// 6.30.066 2020-05-23 17:23:06 HoDoKu ALS-XY-Wing third pass. Reverted to
-	//			6.30.065 multiple times trying to get mine to work properly; but
-	//			in the end I decided to stick with hobiwans code, so imported
-	//			all relevant code into diuf.sudoku.solver.hinters.alshdk
+	//			6.30.065 multiple times to get it to work properly; but in the
+	//			end I stuck-with hobiwans code, so imported all relevant code
+	//			into diuf.sudoku.solver.hinters.alshdk
 	//          [2020-09-23 renamed to diuf.sudoku.solver.hinters.als]
 	//			Last top1465: 12:09 with A5..10E hacked + ALS-XZ + ALS-XY-Wing
 	// 6.30.067 2020-05-25 10:12:07 HoDoKu ALS-XY-Chain first pass. Copy-pasted
@@ -405,7 +405,7 @@ public final class Settings implements Cloneable {
 	//			to find a puzzle which tripped over the bug; and you can switch
 	//			it on and off at will. It was on for this run, that's all. I'll
 	//			switch it off when I get bored with the whole siamese thing.
-	// 6.30.084 2020-08-21 20:37:24 Discovered a bug in NakedSet, it was falsely
+	// 6.30.084 2020-08-21 20:37:24 Discovered bug in NakedSet, it was falsely
 	//			returning false after finding hints. How embarassment!
 	//			Last top1465: 03:24 is 16 seconds faster.
 	// 6.30.085 2020-08-31 17:39:25 Simplified colors by adding a getOrange
@@ -559,10 +559,17 @@ public final class Settings implements Cloneable {
 	// 6.30.135 2021-06-04 16:04:15 Speed-up AAlsHinter by introducing new
 	//			AlsFinder and RccFinder classes.
 	// 6.30.136 2021-06-05 11:19:16 Split RccFinder on forwardOnly.
+	// 6.30.137 2021-06-09 15:28:17 Cleaning-up messy crap, and stuff I don't
+	//			use any longer.
+	// 6.30.138 2021-06-13 11:43:18 Still cleaning-up my own mess.
+	// 6.30.139 2021-06-15 21:35:19 AlsXz speed especially RccFinder. Split
+	//			getRccsForwardOnly into getRccsForwardOnlyAllowOverlaps and
+	//			getRccsForwardOnlyNoOverlaps, and optimised to save ~3secs/run.
+	// 6.30.140 2021-06-19 12:06:20 Removed Tech.nom.
 	//
 	// To Build:
 	// 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
-	//    If you can't deal with it then change it to a @strech.
+	//    If you can't or won't deal with it then change it to a @strech.
 	// 1. search for @check and fix any settings you've changed
 	//    * ensure you find usages of diuf.sudoku.utils.Debug.breakPoint
 	// 2. run the test cases (Alt F6)
@@ -594,8 +601,8 @@ public final class Settings implements Cloneable {
 	//    ./__how_to_publish_this_project.txt
 
 	public static final String TITLE = "DiufSudoku";
-	public static final String VERSION = "6.30.136";
-	public static final String BUILT = "2021-06-05 11:19:16";
+	public static final String VERSION = "6.30.140";
+	public static final String BUILT = "2021-06-19 12:06:20";
 	// APPLICATION_TITLE_AND_VERSION is just too long, so I went bush!
 	public static final String ATV = TITLE+" "+VERSION;
 
@@ -609,8 +616,8 @@ public final class Settings implements Cloneable {
 	 * so it'll switch in the GUI, but won't persist between sessions.
 	 */
 	public static final String isAntialiasing, isShowingMaybes
-		, isFilteringHints, isHacky, isGreenFlash
-		, isa4ehacked, isa5ehacked, isa6ehacked, isa7ehacked, isa8ehacked, isa9ehacked, isa10ehacked
+		, isFilteringHints, isHacky, isGreenFlash, isa4ehacked, isa5ehacked
+		, isa6ehacked, isa7ehacked, isa8ehacked, isa9ehacked, isa10ehacked
 		;
 
 	/**
@@ -673,9 +680,10 @@ public final class Settings implements Cloneable {
 	private final Map<String, Boolean> booleans = new HashMap<>(16, 0.75F);
 
 	private String lookAndFeelClassName = null;
-	private EnumSet<Tech> wantedTechs = EnumSet.noneOf(Tech.class); // an empty EnumSet of Tech's
+	// wantedTechs starts life as an empty EnumSet of Tech's
+	private EnumSet<Tech> wantedTechs = EnumSet.noneOf(Tech.class);
 
-	private int modificationCount; // defaults to 0 automagically
+	private int modCount; // defaults to 0 automagically
 	private static final String MODIFICATION_COUNT_KEY_NAME = "mod";
 
 	private Settings() {
@@ -724,11 +732,11 @@ public final class Settings implements Cloneable {
 		return pre;
 	}
 
-	public boolean getBoolean(String nom, boolean defualt) {
+	public boolean getBoolean(String name, boolean defualt) {
 		try {
-			return preferences.getBoolean(nom, defualt);
+			return preferences.getBoolean(name, defualt);
 		} catch (Exception ex) {
-			StdErr.carp("preferences.getBoolean("+nom+", "+defualt+") failed", ex);
+			StdErr.carp("preferences.getBoolean("+name+", "+defualt+") failed", ex);
 			return false; // you can't get here!
 		}
 	}
@@ -757,7 +765,7 @@ public final class Settings implements Cloneable {
 		return pre;
 	}
 
-	public int getNumWantedTechs() {
+	public int getWantedTechsSize() {
 		return wantedTechs.size();
 	}
 	public EnumSet<Tech> getWantedTechs() {
@@ -793,40 +801,62 @@ public final class Settings implements Cloneable {
 		return false;
 	}
 
-	public int getModificationCount() {
-		return modificationCount;
+	/**
+	 * Get the Modification Count: this number is incremented whenever the
+	 * Settings are saved to the underlying Preferences (Windows registry).
+	 * The Settings are saved when you press OK the TechSelectDialog, and when
+	 * the GUI closes.
+	 * <p>
+	 * Note that the main window location is also saved in registry, but it
+	 * doesn't count as a Setting, so modCount doesn't change upon save.
+	 * <p>
+	 * ModCount persists between runs. It starts at Integer.MIN_VALUE, which is
+	 * -2,147,483,648 and 0 (if anybody ever gets that far) is skipped, so that
+	 * modCount won't collide with the default value for ints.
+	 *
+	 * @return the modification count of these Settings.
+	 */
+	public int getModCount() {
+		return modCount;
 	}
 
 	private void load() {
-		if (preferences == null)
-			return; // What else can we do here?
+		if ( preferences == null )
+			throw new NullPointerException("preferences are null!");
 		try {
 			for ( String fieldName : BOOLEAN_FIELD_NAMES )
 				booleans.put(fieldName, preferences.getBoolean(fieldName, true));
 			lookAndFeelClassName = preferences.get("lookAndFeelClassName", lookAndFeelClassName);
 			wantedTechs.clear();
 			for ( Tech t : ALL_TECHS )
-				if ( preferences.getBoolean(t.nom, t.defaultWanted) )
+				if ( preferences.getBoolean(t.name(), t.defaultWanted) )
 					wantedTechs.add(t);
-			modificationCount = preferences.getInt(MODIFICATION_COUNT_KEY_NAME, Integer.MIN_VALUE);
-//			System.out.println("Settings.load: mod="+mod);
+			// get modCount skipping 0, the default value for ints.
+			modCount = skip0(preferences.getInt(MODIFICATION_COUNT_KEY_NAME, Integer.MIN_VALUE));
+//			System.out.println("Settings.load: modCount="+modCount);
 		} catch (SecurityException ex) {
 			// Maybe we are running from an applet. Do nothing
 		}
 	}
 
+	private static int skip0(int value) {
+		if ( value == 0 )
+			return 1;
+		return value;
+	}
+
 	public void save() {
-		if (preferences == null)
-			return; // What else can we do here?
+		if ( preferences == null )
+			throw new NullPointerException("preferences are null!");
 		try {
 			for ( String fieldName : BOOLEAN_FIELD_NAMES )
 				preferences.putBoolean(fieldName, get(fieldName)); // defaults to false!
 			if ( lookAndFeelClassName != null )
 				preferences.put("lookAndFeelClassName", lookAndFeelClassName);
 			for ( Tech t : ALL_TECHS )
-				preferences.putBoolean(t.nom, wantedTechs.contains(t));
+				preferences.putBoolean(t.name(), wantedTechs.contains(t));
 //			// increment and store the modification count
-			preferences.putInt(MODIFICATION_COUNT_KEY_NAME, ++modificationCount);
+			preferences.putInt(MODIFICATION_COUNT_KEY_NAME, ++modCount);
 			try {
 				preferences.flush();
 			} catch (BackingStoreException ex) {
@@ -837,6 +867,10 @@ public final class Settings implements Cloneable {
 		} catch (SecurityException ex) {
 			// Maybe we are running from an applet. Do nothing
 		}
+	}
+
+	public void close() {
+		save();
 	}
 
 	/**
@@ -900,11 +934,62 @@ public final class Settings implements Cloneable {
 	@Override
 	public Object clone() throws CloneNotSupportedException {
 		Settings copy = (Settings) super.clone();
-		copy.lookAndFeelClassName = this.lookAndFeelClassName;
-		copy.wantedTechs = EnumSet.copyOf(wantedTechs);
-		copy.xml = copy.toXml();
+//Debugger indicates that these are already copied (but how?)
+//		copy.lookAndFeelClassName = this.lookAndFeelClassName;
+//		copy.wantedTechs = EnumSet.copyOf(wantedTechs);
+//		copy.xml = copy.toXml();
 		return copy;
 	}
 	byte[] xml;
+	
+	// --------------------- FOR LogicalAnalyserTest ONLY ---------------------
+
+	/**
+	 * For LogicalAnalyserTest: set the given settings and create a savePoint
+	 * to revert to later. The given settings are set but are NOT persisted to
+	 * the Registry, to create a new LogicalSolver from non-registry Settings.
+	 * <p>
+	 * If you call savePoint then finally call revert!
+	 *
+	 * @param newHacked
+	 * @param newWantedTechs
+	 */
+	public void savePoint(final EnumSet<Tech> newWantedTechs, final boolean[] newHacked) {
+		preHacked = new boolean[] {
+			// set returns the previous value of this setting
+			  set(isa4ehacked, newHacked[0])
+			, set(isa5ehacked, newHacked[1])
+			, set(isa6ehacked, newHacked[2])
+			, set(isa7ehacked, newHacked[3])
+			, set(isa8ehacked, newHacked[4])
+			, set(isa9ehacked, newHacked[5])
+			, set(isa10ehacked, newHacked[6])
+		};
+		preWanted = wantedTechs.clone();
+		wantedTechs = newWantedTechs;
+		savePointed = true;
+	}
+	private boolean[] preHacked;
+	private EnumSet<Tech> preWanted;
+	private boolean savePointed;
+	/**
+	 * For LogicalAnalyserTest: Revert settings to the previous savePoint.
+	 */
+	public void revert() {
+		if ( !savePointed )
+			throw new IllegalStateException("No savePoint to revert to!");
+		set(isa4ehacked, preHacked[0]);
+		set(isa5ehacked, preHacked[1]);
+		set(isa6ehacked, preHacked[2]);
+		set(isa7ehacked, preHacked[3]);
+		set(isa8ehacked, preHacked[4]);
+		set(isa9ehacked, preHacked[5]);
+		set(isa10ehacked, preHacked[6]);
+		wantedTechs = preWanted;
+		// savePoint and revert are single use
+		preWanted = null;
+		preHacked = null;
+		savePointed = false;
+	}
 
 }

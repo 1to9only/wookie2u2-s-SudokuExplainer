@@ -14,13 +14,13 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.accu.AggregatedHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.solver.hinters.ICleanUp;
@@ -134,10 +134,10 @@ public abstract class AChainer extends AHinter
 	protected final boolean isDynamic;
 	/** Is this Chainer looking for Dynamic Contradictions. */
 	protected final boolean isNishio;
-	/** Is this Chainer going to add an aggregate of all hints to the Accu. */
-	protected final boolean isAggregate;
 	/** Is this Chainer imbedded (nested) inside another Chainer? */
 	protected final boolean isImbedded;
+	/** interruptMonitor.isInterrupted() means please stop-now. */
+	protected final IInterruptMonitor interruptMonitor;
 
 	private final HintsList hints = new HintsList();
 
@@ -145,24 +145,21 @@ public abstract class AChainer extends AHinter
 	 * Constructs an abstract Chainer: an engine for searching a Sudoku Grid
 	 * for forcing chains.
 	 * @param tech a Tech with isChainer==true,
-	 * @param isAggregate true if all chaining hints should be aggregated into
-	 *  one which is added to the SingleHintsAccumulator which was passed into
-	 *  the getHints method. This is set to true when Mode is SPEED.
 	 * @param isImbedded true only when this is an imbedded hinter, ie is nested
 	 * inside another hinter.
 	 */
-	protected AChainer(Tech tech, boolean isAggregate, boolean isImbedded) {
+	protected AChainer(Tech tech, boolean isImbedded, IInterruptMonitor im) {
 		super(tech);
 		assert tech.isChainer;
 		this.isMultiple	 = tech.isMultiple;
 		this.isDynamic	 = tech.isDynamic;
 		this.isNishio	 = tech.isNishio;
-		this.isAggregate = isAggregate;	 // true when Mode.SPEED
 		this.isImbedded  = isImbedded;
+		this.interruptMonitor = im;
 		assert degree>=0 && degree<=5;
 	}
-	protected AChainer(Tech tech, boolean isAggregate) {
-		this(tech, isAggregate, false); // not imbedded
+	protected AChainer(Tech tech) {
+		this(tech, false, null); // not imbedded
 	}
 
 	/**
@@ -179,13 +176,13 @@ public abstract class AChainer extends AHinter
 	/**
 	 * Find any chaining hints in the given grid and add them to hints list.
 	 * This method is implemented by my subtypes: UnaryChainer, MultipleChainer
-	 * to find the damn hints already already. It's done this way to allow my
-	 * single findHints method to find AND CACHE both unary and "other" hints.
+	 * to find the bloody hints already already. It's done this way to allow my
+	 * findHints method to cache hints.
 	 *
 	 * @param grid Grid to search
 	 * @param hints HintsList to add hints to.
 	 */
-	protected abstract void actuallyFindTheHints(Grid grid, HintsList hints);
+	protected abstract void findChainHints(Grid grid, HintsList hints);
 
 	/**
 	 * {@inheritDoc}
@@ -221,12 +218,11 @@ public abstract class AChainer extends AHinter
 				}
 		}
 
-		// find the hints in the grid (if any) is implemented by my subtypes to
-		// do the actual work.
-		actuallyFindTheHints(grid, hints);
+		// implemented by my subtypes to find the bloody hints.
+		findChainHints(grid, hints);
 
 		if ( HintValidator.CHAINER_USES ) {
-			// we only valid nested hints ~ they're only ones with a problem!
+			// valid nested hints, they've got problems!
 			if ( tech.isNested  )
 				validateTheHints(grid, hints);
 		}
@@ -247,16 +243,7 @@ public abstract class AChainer extends AHinter
 			// multiple hints. Oops! My bad!
 			return true; // coz we know n == 1
 		}
-		if ( isAggregate ) { // ie SPEED mode
-			assert accu.isSingle();
-			// aggregate hints rather than wasting time finding discarded hints
-			// (while still maintaining maxDifficulty and numElims).
-			// nb: copy the hints list here in order to clear the cache below.
-			accu.add(new AggregatedHint(this, new LinkedList<>(hints), "Aggregated Chains"));
-			hints.clear(); // Do NOT cache: all hints are applied as one.
-			// nb: ignore accu.add's retval coz we already stopped searching.
-			return true; // coz we know n != 0
-		} else if ( accu.isSingle() ) {
+		if ( accu.isSingle() ) {
 			// caller wants one hint, but we're not in SPEED mode, so
 			// find the most effective (highest scoring) hint to apply.
 			accu.add(hints.pollFirst());
@@ -488,6 +475,7 @@ public abstract class AChainer extends AHinter
 	}
 
 	private void validateTheHints(Grid grid, HintsList hints) {
+		final int[] svs = grid.getSolutionValues();
 		for ( Iterator<AHint> it = hints.iterator(); it.hasNext(); ) {
 			AHint hint = it.next();
 			if ( hint == null ) {
@@ -496,10 +484,9 @@ public abstract class AChainer extends AHinter
 				Log.println("null hint!");
 				it.remove(); // all I can do it skip it. Sigh.
 			} else if ( hint.value!=0 && hint.cell!=null ) {
-				HintValidator.checkSolutionValues(grid);
-				int solutionValue = HintValidator.solutionValues[hint.cell.i];
-				if ( hint.value != solutionValue ) {
-					String problem = "hint says "+hint.cell.id+"+"+hint.value+" when solution value is "+hint.cell.id+"+"+solutionValue;
+				int sv = svs[hint.cell.i];
+				if ( hint.value != sv ) {
+					String problem = "hint says "+hint.cell.id+"+"+hint.value+" when solution value is "+hint.cell.id+"+"+sv;
 					Log.println("AChainer.validateTheHints:");
 					Log.println("Invalid hint ("+problem+"): "+hint.toFullString());
 					Log.println("Invalid grid:\n"+grid);
@@ -599,6 +586,11 @@ public abstract class AChainer extends AHinter
 			}
 			sizes.clear();
 		}
+	}
+
+	protected final boolean interrupted() {
+		final IInterruptMonitor im = this.interruptMonitor;
+		return im!=null && im.isInterrupted();
 	}
 
 }

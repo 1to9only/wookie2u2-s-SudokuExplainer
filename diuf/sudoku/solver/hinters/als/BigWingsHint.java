@@ -8,7 +8,6 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -24,7 +23,16 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021 Jan IIRC
  */
-class BigWingsHint extends AHint implements IActualHint {
+class BigWingsHint extends AHint  {
+
+	private static final String[] HINT_TYPE_NAMES = {
+		  Tech.XYZ_Wing.name() // DODGY coz it's not Big, but they exist
+		, Tech.WXYZ_Wing.name()
+		, Tech.VWXYZ_Wing.name()
+		, Tech.UVWXYZ_Wing.name()
+		, Tech.TUVWXYZ_Wing.name()
+		, Tech.STUVWXYZ_Wing.name()
+	};
 
 	private final int[] wingValues; // als values - yz values
 	private final Cell[] alsCells; // the cells in the ALS (Almost Locked Set)
@@ -52,6 +60,7 @@ class BigWingsHint extends AHint implements IActualHint {
 		this.biv = biv;
 		this.wingValues = VALUESES[als.maybes ^ biv.maybes.bits];
 		this.degree = als.cells.length;
+		assert degree>1 && degree<8 : "WTF: degree "+degree+" not in 2..7";
 		this.alsCells = als.cells.clone(); // copy reused array
 		// all cells = als cells + the biv cell
 		final int n = alsCells.length;
@@ -107,17 +116,8 @@ class BigWingsHint extends AHint implements IActualHint {
 
 	@Override
 	protected String getHintTypeNameImpl() {
-		assert degree > 1 && degree < 8 : "WTF: "+degree; // 2..7
-		return HINT_TYPE_NAMES[degree-2];
+		return HINT_TYPE_NAMES[degree-2]; // note the - 2 allows XYZ-Wing
 	}
-	private static final String[] HINT_TYPE_NAMES = {
-		  Tech.XYZ_Wing.nom // DODGY!
-		, Tech.WXYZ_Wing.nom
-		, Tech.VWXYZ_Wing.nom
-		, Tech.UVWXYZ_Wing.nom
-		, Tech.TUVWXYZ_Wing.nom
-		, Tech.STUVWXYZ_Wing.nom
-	};
 
 	@Override
 	public double getDifficulty() {
@@ -177,7 +177,7 @@ class BigWingsHint extends AHint implements IActualHint {
 			, NUMBER_NAMES[degree-3]	// 9
 			, getHintTypeName()			// 10
 			// double-linked wings are called rings (used in BigWingHintDL)
-			, hinter.tech.nom.replaceFirst("-Wing", "-Ring") // 11
+			, hinter.tech.name().replaceFirst("Wing", "Ring") // 11
 		);
 	}
 

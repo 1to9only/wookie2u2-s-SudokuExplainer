@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AWarningHint;
+import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
 
@@ -19,7 +20,7 @@ import diuf.sudoku.utils.Html;
  * A hint that shows two different solutions of an invalid Sudoku.
  * @see diuf.sudoku.solver.checks.RecursiveAnalyser
  */
-public final class MultipleSolutionsHint extends AWarningHint {
+public final class MultipleSolutionsHint extends AWarningHint implements IPretendHint {
 
 	private final Grid grid;
 	private final Grid solution1;
@@ -35,7 +36,7 @@ public final class MultipleSolutionsHint extends AWarningHint {
 	}
 
 	@Override
-	public int applyImpl(boolean isAutosolvingUnused) {
+	public int applyImpl(boolean isAutosolving, Grid grid) {
 		if (lastViewNum == 0)
 			solution1.copyTo(grid);
 		else

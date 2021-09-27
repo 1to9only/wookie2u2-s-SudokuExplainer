@@ -38,7 +38,6 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.Col;
 import diuf.sudoku.Grid.Row;
-import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
@@ -269,7 +268,6 @@ public class EmptyRectangle extends AHinter {
 		Row row;
 		Col col;
 		Cell victim, c1, c2;
-		AHint hint;
 		Cell[] hisCells; // the cell array returned by row/col.at
 		int b, v, er, card, boxVs, erR, erC, i, n;
 		// these are for the first verse (read on McDuff).
@@ -353,8 +351,9 @@ public class EmptyRectangle extends AHinter {
 											// FOUND Empty Rectangle!
 											c2 = cells[c2y*9+c1.x];
 											// create the hint and add it to accu
-											hint = createHint(v, box, row, col
-												, c1, c2, boxVs, victim, false);
+											final AHint hint = createHint(v
+												, box, row, col, c1, c2, boxVs
+												, victim, false);
 											result = true;
 											if ( accu.add(hint) )
 												return result;
@@ -399,8 +398,9 @@ public class EmptyRectangle extends AHinter {
 											// FOUND Empty Rectangle!
 											c2 = cells[c1.y*9+c2x];
 											// create the hint and add it to the IAccumulator
-											hint = createHint(v, box, row, col
-												, c1, c2, boxVs, victim, true);
+											final AHint hint = createHint(v
+												, box, row, col, c1, c2, boxVs
+												, victim, true);
 											result = true;
 											if ( accu.add(hint) )
 												return result;
@@ -433,14 +433,14 @@ public class EmptyRectangle extends AHinter {
 		// for debugging to identify which method found this hint.
 //		final String tag = isCol ? "COL" : "ROW";
 		final String tag = "";
-		// build the hightlighted (orange) potential values map
-		final Pots oranges = new Pots(v, c1, c2);
+		// build the hightlighted (green) potential values map
+		final Pots greens = new Pots(v, c1, c2);
 		// build the "fins" (blue) potential values map Cell->Values
 		final Pots blues = new Pots(v, erBox.atNew(boxVBits));
 		// build the removable (red) potential values map Cell->Values
 		final Pots reds = new Pots(victim, v);
 		// build and return the hint
-		return new EmptyRectangleHint(this, v, bases, covers, oranges, blues
+		return new EmptyRectangleHint(this, v, bases, covers, greens, blues
 				, reds, tag);
 	}
 

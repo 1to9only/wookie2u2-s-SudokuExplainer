@@ -85,7 +85,6 @@ public class TwoStringKite extends AHinter {
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		Cell[] rowPair, colPair; // a pair of cells in the row, and col
 		Cell victim; // the cell from which we eliminate v
-		AHint hint; // the hint, if we ever find one
 		int sv // shiftedValue: the bitset representation of v: 1<<(v-1)
 		  , r, nRowPairs // rowPair index, number of rowPairs
 		  , c, nColPairs; // colPair index, number of colPairs
@@ -133,7 +132,7 @@ public class TwoStringKite extends AHinter {
 						  && ((victim=cells[colPair[1].y*9 + rowPair[1].x]).maybes.bits & sv) != 0
 						) {
 							// FOUND TwoStringKite!
-							hint = createHint(rowPair, colPair, victim, v);
+							final AHint hint = createHint(rowPair, colPair, victim, v);
 							result |= hint!=null;
 							if ( accu.add(hint) )
 								return result;
@@ -175,14 +174,14 @@ public class TwoStringKite extends AHinter {
 		// build a list of bases (the box), and a list of covers (row and col)
 		List<ARegion> bases = Regions.list(rowPair[0].box);
 		List<ARegion> covers = Regions.list(rowPair[1].row, colPair[0].col);
-		// build the hightlighted (orange) Cell->Values
-		Pots oranges = new Pots(v, rowPair[1], colPair[1]);
+		// build the hightlighted (green) Cell->Values
+		Pots greens = new Pots(v, rowPair[1], colPair[1]);
 		// build the "fins" (blue) Cell->Values
 		Pots blues = new Pots(v, rowPair[0], colPair[0]);
 		// build the removeable (red) Cell->Values
 		Pots reds = new Pots(victim, v);
 		// build and return the hint
-		return new TwoStringKiteHint(this, v, bases, covers, oranges, blues
+		return new TwoStringKiteHint(this, v, bases, covers, greens, blues
 				, reds, rowPair.clone(), colPair.clone());
 	}
 

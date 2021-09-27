@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver.accu;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 
@@ -46,7 +47,7 @@ public final class AppliedHintsSummaryHint extends AHint {
 	}
 
 	@Override
-	public int applyImpl(boolean isAutosolvingUnused) {
+	public int applyImpl(boolean isAutosolving, Grid grid) {
 		return numElims;
 	}
 

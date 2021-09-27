@@ -978,8 +978,10 @@ public class MyHashMap<K,V>
 	}
 
 	private Set<Map.Entry<K,V>> entrySet0() {
-		Set<Map.Entry<K,V>> es = entrySet;
-		return es != null ? es : (entrySet = new EntrySet());
+		final Set<Map.Entry<K,V>> es = entrySet;
+		if ( es != null )
+			return es;
+		return entrySet = new EntrySet();
 	}
 
 	private final class EntrySet extends AbstractSet<Map.Entry<K,V>> {

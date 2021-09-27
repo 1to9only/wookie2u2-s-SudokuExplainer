@@ -8,11 +8,10 @@ package diuf.sudoku.solver.hinters.bug;
 
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 
 
-public abstract class ABugHint extends AHint implements IActualHint {
+public abstract class ABugHint extends AHint  {
 
 	public ABugHint(AHinter hinter, Pots redPots) {
 		super(hinter, redPots);

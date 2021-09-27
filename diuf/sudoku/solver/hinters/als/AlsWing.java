@@ -90,12 +90,11 @@ public final class AlsWing extends AAlsHinter
 	 * * findRCCs = true run getRccs to find the common values connecting ALSs
 	 * * allowOverlaps = true the ALSs are allowed to physically overlap
 	 * * forwardOnly = true do a forward only search for RCCs
-	 * * useStartAndEnd = false I don't need start and end indexes for each ALS
 	 * </pre>
 	 */
 	public AlsWing() {
 		// WARNING: you need to uncomment code if you change allowNakedSets!
-		super(Tech.ALS_Wing, true, true, true, true, false);
+		super(Tech.ALS_Wing, true, true, true, true);
 	}
 
 //	@Override

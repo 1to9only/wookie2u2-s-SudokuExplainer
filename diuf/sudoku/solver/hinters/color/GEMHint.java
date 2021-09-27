@@ -22,7 +22,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021-03-03
  */
-public class GEMHint extends AHint {
+public class GEMHint extends AHint  {
 
 	private final int v;
 	private final String greenCells; // ids of the green cells
@@ -69,15 +69,21 @@ public class GEMHint extends AHint {
 	public Collection<Link> getLinks(int viewNum) {
 		return links;
 	}
-	
+
 	@Override
 	public Idx[][] getOns() {
 		return ons;
 	}
-	
+
 	@Override
 	public Idx[][] getOffs() {
 		return offs;
+	}
+
+	@Override
+	public double getDifficultyTotal() {
+		return getDifficulty()
+			 + redPots.totalSize() * 0.01; // elimination bonus
 	}
 
 	@Override
@@ -93,7 +99,7 @@ public class GEMHint extends AHint {
 			s += " on <b>"+v+"</b>";
 		return s;
 	}
-	
+
 	private String htmlHintTypeName() {
 		return getHintTypeName().replaceFirst("GEM", "sudopedia.org GEM (Graded Equivalence Marks)");
 	}

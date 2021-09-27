@@ -9,7 +9,6 @@ import diuf.sudoku.*;
 import diuf.sudoku.Grid.*;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.*;
-import diuf.sudoku.solver.LogicalSolver.Mode;
 import diuf.sudoku.solver.hinters.*;
 import diuf.sudoku.solver.hinters.align.AAlignedSetExclusionBase;
 import diuf.sudoku.solver.hinters.chain.*;
@@ -1579,7 +1578,7 @@ public final class MyTester {
 //	// A: Yes: But JESUS H CHRIST it's ugly!
 // 	public static void main(String[] args) {
 // 		try {
-//			LogicalSolver solver = new LogicalSolver(Mode.ACCURACY, false);
+//			LogicalSolver solver = new LogicalSolver();
 //			List<IHinter> wh = solver.wantedHinters;
 //			IHinter[] wantedHinters = wh.toArray(new IHinter[wh.size()]);
 //			IHintNumberActivatableHinter[] activatables
@@ -1612,7 +1611,7 @@ public final class MyTester {
 //					return e.getTech().name();
 //				}
 //			};
-//			LogicalSolver solver = new LogicalSolver(Mode.ACCURACY, false);
+//			LogicalSolver solver = new LogicalSolver();
 //			List<IHinter> wh = solver.wantedHinters;
 //			LinkedList<IHinter> activatables
 //					= MyArrays.filter(wh, ACTIVATABLES_FILTER);
@@ -1641,7 +1640,7 @@ public final class MyTester {
 //					return (h.getTech().name().toLowerCase().contains("quad") );
 //				}
 //			};
-//			LogicalSolver solver = new LogicalSolver(Mode.ACCURACY, false);
+//			LogicalSolver solver = new LogicalSolver();
 //			List<IHinter> wh = solver.wantedHinters;
 //			println("Activatable:",         MyArrays.filter(wh, ACTIVATABLE));
 //			println("Quad:",                MyArrays.filter(wh, QUAD));
@@ -1686,7 +1685,7 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //	// A: Yes
 // 	public static void main(String[] args) {
 // 		try {
-//			LogicalSolver solver = new LogicalSolver(Mode.ACCURACY, false);
+//			LogicalSolver solver = new LogicalSolver();
 //			List<IHinter> wh = solver.wantedHinters;
 //			IHinter[] array = wh.toArray(new IHinter[wh.size()]);
 //			IHinter target = find(wh, Tech.NakedQuad);
@@ -1709,7 +1708,7 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //	// A: Yes
 // 	public static void main(String[] args) {
 // 		try {
-//			LogicalSolver solver = new LogicalSolver(Mode.ACCURACY, false);
+//			LogicalSolver solver = new LogicalSolver();
 //			List<IHinter> wh = solver.wantedHinters;
 //			IHinter[] array = wh.toArray(new IHinter[wh.size()]);
 //			IHinter target = new NakedSet(Tech.NakedPent);
@@ -2129,5 +2128,14 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //modified average took=31,683,276
 //*/
 
+	// Q: What is Integer.MIN_VALUE
+	// A: Integer.MIN_VALUE=-2,147,483,648
+ 	public static void main(String[] args) {
+ 		try {
+			System.out.format("Integer.MIN_VALUE=%,d\n\n", Integer.MIN_VALUE);
+ 		} catch (Exception ex) {
+ 			ex.printStackTrace(System.out);
+ 		}
+ 	}
 
 }

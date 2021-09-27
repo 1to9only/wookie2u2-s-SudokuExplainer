@@ -300,7 +300,7 @@ public class DeathBlossom extends AAlsHinter
 			}
 			if ( !theReds.isEmpty()) {
 				// Found a DeathBlossom with eliminations.
-				AHint hint = createHint(stem);
+				final AHint hint = createHint(stem);
 				// validate it
 				if ( HintValidator.DEATH_BLOSSOM_USES ) {
 					if ( !HintValidator.isValid(grid, hint.redPots) ) {

@@ -65,8 +65,8 @@ public final class AlsXz extends AAlsHinter
 //	@Override
 //	public void report() {
 //		diuf.sudoku.utils.Log.teef("%s: ttlRccs=%,d\n", tech.name(), ttlRccs);
-//		diuf.sudoku.utils.Log.teef("%s: alss=%,d rccs=%,d self=%,d\n"
-//				, tech.name(), tookAlss, tookRccs, took);
+//		diuf.sudoku.utils.Log.teef("%s: alss=%,d rccs=%,d self=%,d\n", tech.name(), tookAlss, tookRccs, took);
+//		diuf.sudoku.utils.Log.teef("%s: RccFinder.COUNTS=%s\n", tech.name(), java.util.Arrays.toString(RccFinder.COUNTS));
 //	}
 //	private long ttlRccs;
 //	private long took;
@@ -75,6 +75,14 @@ public final class AlsXz extends AAlsHinter
 //ALS_Chain: ttlRccs=3,100,592,090
 //ALS_XZ: alss=902,700 rccs=13,988,600,100 self=303,228,500
 //    14,196,723,200	   9791	     1,449,976	   3955	     3,589,563	ALS-XZ
+
+	// weird: LogicalAnalyserTest needs to know if AAlsHinter.ALS_FINDER is
+	// AlsFinderRecursive (or AlsFinder) because it finds different hints, but
+	// AAlsFinder is a package-only class, and should remain so, so I put a
+	// public getter in AlsXz, which is a public class. Clear?
+	public static boolean isAlsFinderRecursive() {
+		return USE_ALS_FINDER_RECURSIVE;
+	}
 
 	/**
 	 * Constructor.
@@ -85,11 +93,10 @@ public final class AlsXz extends AAlsHinter
 	 * * findRCCs = true run getRccs to find the common values connecting ALSs
 	 * * allowOverlaps = true the ALSs are allowed to physically overlap
 	 * * forwardOnly = true do a forward only search for RCCs
-	 * * useStartAndEnd = false I don't need start and end indexes for each ALS
 	 * </pre>
 	 */
 	public AlsXz() {
-		super(Tech.ALS_XZ, true, true, true, true, false);
+		super(Tech.ALS_XZ, true, true, true, true);
 	}
 
 	/**
@@ -139,14 +146,13 @@ public final class AlsXz extends AAlsHinter
 		Rcc rcc; // the current Restricted Common Candidate
 		Als a, b; // the two ALSs to which each RCC-value is common
 		Idx ai, bi; // Idx's in ALS a and b
-		AHint hint; // the AlsXzHint (if any)
 		int v1, v2 // restricted candidate values
 		  , zs // bitset of values common to both ALSs except the RC-values
 		  , zsZapped // bitset of z-values (non-RCs) removed by single-link
 		  , bt0,bt1,bt2 // both.setOr(a.idx, b.idx)
 		  , vt0,vt1,vt2; // victims.setAnd(a.vBuds[z], b.vBuds[z]).andNot(both)
-		boolean sngLnkd // singleLinked: are there any z-values
-			  , dblLnkd; // doubleLinked: rcc.cand2!=0, then any double-elims
+		boolean singleLinked // are there any z-values
+			  , doubleLinked; // rcc.cand2!=0, then any double-elims
 //		final long start = System.nanoTime();
 //		final Idx both = this.both; // cells in both ALSs
 		final Idx victims = AlsXz.VICTIMS; // buds of all z's in both ALSs
@@ -157,17 +163,17 @@ public final class AlsXz extends AAlsHinter
 		for ( int i=0; i<numRccs; ++i )
 			// singleLinked ALS-XZs need z-values;
 			// doubleLinked ALS-XZs can still eliminate even without z-values.
-			if ( ( sngLnkd = (zs = alss[(rcc=rccs[i]).als1].maybes
-								 & alss[rcc.als2].maybes
-								 & ~VSHFT[rcc.v1]
-								 & ~VSHFT[rcc.v2]) != 0 )
-			   | ( dblLnkd = rcc.v2 != 0 ) ) {
+			if ( ( singleLinked = (zs = alss[(rcc=rccs[i]).als1].maybes
+									  & alss[rcc.als2].maybes
+									  & ~VSHFT[rcc.v1]
+									  & ~VSHFT[rcc.v2]) != 0 )
+			   | ( doubleLinked = rcc.v2 != 0 ) ) {
 				a = alss[rcc.als1];
 				b = alss[rcc.als2];
 				v1 = rcc.v1;
 				v2 = rcc.v2;
 				zsZapped = 0;
-				if ( sngLnkd ) {
+				if ( singleLinked ) {
 					// look to eliminate each z-value
 					// get indices of all cells in both ALSs
 // inline for speed: eliminate method calls
@@ -191,28 +197,29 @@ public final class AlsXz extends AAlsHinter
 						}
 					}
 				}
-				if ( dblLnkd ) {
-					dblLnkd = false;
+				if ( doubleLinked ) {
+					doubleLinked = false;
 					// 1. eliminate x's outside the ALS which see all x's in both ALSs
 					if ( VICTIMS.setAndAny(a.vBuds[v1], b.vBuds[v1]) )
-						dblLnkd = REDS.upsertAll(VICTIMS, grid, v1);
+						doubleLinked = REDS.upsertAll(VICTIMS, grid, v1);
 					if ( VICTIMS.setAndAny(a.vBuds[v2], b.vBuds[v2]) )
-						dblLnkd |= REDS.upsertAll(VICTIMS, grid, v2);
+						doubleLinked |= REDS.upsertAll(VICTIMS, grid, v2);
 					// 2. eliminate all z's outside the ALS that see all z's in the ALS
 					for ( int z : VALUESES[a.maybes & ~VSHFT[v1] & ~VSHFT[v2]] )
 						if ( a.vBuds[z].any() )
-							dblLnkd |= REDS.upsertAll(a.vBuds[z], grid, z);
+							doubleLinked |= REDS.upsertAll(a.vBuds[z], grid, z);
 					for ( int z : VALUESES[b.maybes & ~VSHFT[v1] & ~VSHFT[v2]] )
 						if ( b.vBuds[z].any() )
-							dblLnkd |= REDS.upsertAll(b.vBuds[z], grid, z);
+							doubleLinked |= REDS.upsertAll(b.vBuds[z], grid, z);
 				}
 				if ( !REDS.isEmpty() ) {
 					// FOUND ALS-XZ! create the hint and add it to accu
-					hint = createHint(grid, a, b, zsZapped, v1, v2, dblLnkd);
+					final AHint hint = createHint(grid, a, b, zsZapped
+							, v1, v2, doubleLinked);
 					result = true;
 					if ( accu.add(hint) )
 						break;
-					dblLnkd = false;
+					doubleLinked = false;
 				}
 			}
 		// GUI only (we don't get here if accu is a SingleHintAccumulator)

@@ -25,9 +25,14 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.event.InputEvent;
+import static java.awt.event.InputEvent.ALT_DOWN_MASK;
+import static java.awt.event.InputEvent.CTRL_DOWN_MASK;
+import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import static java.awt.event.MouseEvent.BUTTON1;
+import java.awt.event.MouseMotionAdapter;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
@@ -164,13 +169,13 @@ class SudokuGridPanel extends JPanel {
 
 	private final String FONT_NAME = "Verdana";
 
-	private int COS = 64; // CELL OUTER SIZE // was 45
-	private int CIS = 58; // CELL INNER SIZE // was 39
+	private int COS = 64; // CELL_OUTER_SIZE // was 45 // was a lettuce
+	private int CIS = 58; // CELL_INNER_SIZE // was 39
 	private int CISo2 = CIS / 2;
 	private int CISo3 = CIS / 3;
 	private int CISo6 = CIS / 6;
-	private int V_GAP = 2;
-	private int H_GAP = 42;
+	private int V_GAP = 2; // VERTICAL_GAP
+	private int H_GAP = 42; // HORIZONTAL_GAP
 	private int CELL_PAD = (COS - CIS) / 2; // (64-58)/2=3
 	private int GRID_SIZE = COS * 9;
 	private int FONT_SIZE_1 = 14; // 12
@@ -186,6 +191,7 @@ class SudokuGridPanel extends JPanel {
 	private double LINK_OFFSET = 4.0;  // 3.0
 	private Dimension PREFFERED_SIZE = new Dimension(GRID_SIZE+H_GAP+V_GAP
 			, GRID_SIZE+H_GAP+V_GAP);
+	private final int TOP_OF_COLUMN_LABELS = V_GAP + GRID_SIZE;
 
 	private Grid grid; // the current Sudoku grid to display.
 	private final SudokuExplainer engine; // I "borrow" my parents engine
@@ -264,16 +270,16 @@ class SudokuGridPanel extends JPanel {
 	}
 
 	private void initialise() {
-		this.addMouseListener(new java.awt.event.MouseAdapter() {
+		this.addMouseListener(new MouseAdapter() {
 
 			@Override
-			public void mouseExited(java.awt.event.MouseEvent e) {
+			public void mouseExited(MouseEvent e) {
 				setFocusedCell(null);
 				e.consume();
 			}
 
 			@Override
-			public void mouseClicked(java.awt.event.MouseEvent e) {
+			public void mouseClicked(MouseEvent e) {
 				// ignore mouse-down in row legends
 				if ( e.getX() >= H_GAP ) {
 					// get the cell at x and y, if any
@@ -285,17 +291,16 @@ class SudokuGridPanel extends JPanel {
 //if ((event.getModifiersEx() & (onmask | offmask)) == onmask) {
 //	// is shift-only-left-click (not Ctrl-shift-left-click or anything)
 //}
-						int modEx = e.getModifiersEx();
-						boolean altDown = (modEx & InputEvent.ALT_DOWN_MASK)
-								== InputEvent.ALT_DOWN_MASK;
-						int clicks = e.getClickCount();
+						int mod = e.getModifiersEx();
+						boolean alt = (mod & ALT_DOWN_MASK) == ALT_DOWN_MASK;
+						int cnt = e.getClickCount();
 						int btn = e.getButton();
-						if ( altDown ) { // Alt
-							if ( clicks == 2 ) {
+						if ( alt ) {
+							if ( cnt == 2 ) {
 								greenBGCells = new HashSet<>();
 								blueBGCells = new HashSet<>();
 								repaint();
-							} else if ( btn==MouseEvent.BUTTON1 ) // Alt-LeftButton
+							} else if ( btn==BUTTON1 ) // Alt-LeftButton
 								toggleGreen(cell);
 							else // Alt - (Right or Middle) Button
 								toggleBlue(cell);
@@ -310,7 +315,7 @@ class SudokuGridPanel extends JPanel {
 						} else {
 							int value = getMaybeAt(e.getX(), e.getY());
 							if ( value != 0 ) {
-								if ( btn==MouseEvent.BUTTON1 && modEx==0 ) { // plain left click
+								if ( btn==BUTTON1 && mod==0 ) { // plain left click
 									// cell.value := the value that was clicked-on
 									if ( cell.maybes.contains(value) )
 										engine.setTheCellsValue(cell, value);
@@ -318,7 +323,7 @@ class SudokuGridPanel extends JPanel {
 // Not annoying when you're trying to set a cells value and miss.
 // There's more navigating than there is setting-and-missing, so it's out!
 //									else
-//										java.awt.Toolkit.getDefaultToolkit().beep();
+//										engine.beep();
 								} else {
 									// just remove/restore the maybe value
 									engine.maybeTyped(cell, value);
@@ -336,19 +341,42 @@ class SudokuGridPanel extends JPanel {
 
 			@Override
 			public void mousePressed(MouseEvent e) {
-				// hold down the mouse button over the row legend to highlight
-				// all candidates of this number.
-				boolean handled = false;
-				if ( e.getX() < H_GAP ) {
-					int v = ((e.getY() - V_GAP) / COS) + 1; // CELL_OUTER_SIZE
+				if ( e.getY() > TOP_OF_COLUMN_LABELS ) { // below the grid
+					if ( e.getX() < H_GAP ) { // left of the 'A'
+						setRedBGCells(grid.getWrongens());
+						e.consume();
+						repaint();
+					} else if ( e.getButton() == BUTTON1 ) { // left
+						final char col = (char)('A' + ((e.getX()-H_GAP) / COS));
+						if ( col>='A' && col<='I' ) {
+							setGreenPots(engine.solver.cheat(grid, col));
+							e.consume();
+							repaint();
+						}
+					} else { // right/middle button
+						final char col = (char)('a' + ((e.getX()-H_GAP) / COS));
+						if ( col>='a' && col<='i' ) {
+							setGreenPots(engine.solver.cheat(grid, col));
+							e.consume();
+							repaint();
+						}
+					}
+				} else if ( e.getX() < H_GAP ) {
+					// hold down the left button over a row legend
+					//      to highlight all candidates of this number.
+					// hold down the right/middle button over a row legend
+					//      to highlight cells with this many potential values.
+					final int v = ((e.getY()-V_GAP) / COS) + 1;
 					if ( v>0 && v<10 ) {
-						setGreenPots(engine.getGrid().getCandidatePots(v));
-						handled = true;
+						if ( e.getButton() == BUTTON1 ) // left
+							setGreenPots(grid.getCandidatePots(v));
+						else // right or middle
+							setGreenPots(grid.getMaybesSizePots(v));
 						e.consume();
 						repaint();
 					}
 				}
-				if ( !handled )
+				if ( !e.isConsumed() )
 					super.mousePressed(e);
 			}
 
@@ -366,20 +394,19 @@ class SudokuGridPanel extends JPanel {
 
 		});
 
-		this.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+		this.addMouseMotionListener(new MouseMotionAdapter() {
 			@Override
-			public void mouseMoved(java.awt.event.MouseEvent e) {
+			public void mouseMoved(MouseEvent e) {
 				setFocusedCell(getCellAt(e.getX(), e.getY()));
 			}
 		});
 
-		this.addKeyListener(new java.awt.event.KeyAdapter() {
+		this.addKeyListener(new KeyAdapter() {
 			@Override
-			public void keyPressed(java.awt.event.KeyEvent e) {
+			public void keyPressed(KeyEvent e) {
 				int key = e.getKeyCode();
-				int modEx = e.getModifiersEx();
-				boolean ctrlDown = (modEx & KeyEvent.CTRL_DOWN_MASK)
-						== KeyEvent.CTRL_DOWN_MASK;
+				int mod = e.getModifiersEx();
+				boolean ctrl = (mod & CTRL_DOWN_MASK) == CTRL_DOWN_MASK;
 				if ( key==KeyEvent.VK_LEFT
 				  || key==KeyEvent.VK_UP
 				  || key==KeyEvent.VK_RIGHT
@@ -406,7 +433,7 @@ class SudokuGridPanel extends JPanel {
 						e.consume();
 					}
 				} else if ( key>=KeyEvent.VK_1 && key<=KeyEvent.VK_9 ) { // Ctrl-1..9
-					if ( selectedCell!=null && ctrlDown ) {
+					if ( selectedCell!=null && ctrl ) {
 						int value = key - KeyEvent.VK_0;
 						engine.maybeTyped(selectedCell, value);
 						repaintCell(selectedCell);
@@ -417,18 +444,18 @@ class SudokuGridPanel extends JPanel {
 					engine.clearHints();
 					repaint();
 					e.consume();
-				} else if ( key==KeyEvent.VK_Z && ctrlDown ) { // Ctrl-Z
+				} else if ( key==KeyEvent.VK_Z && ctrl ) { // Ctrl-Z
 					engine.undo();
 					repaint();
 					e.consume();
-				} else if ( key==KeyEvent.VK_Y && ctrlDown ) { // Ctrl-Y
+				} else if ( key==KeyEvent.VK_Y && ctrl ) { // Ctrl-Y
 					engine.redo();
 					repaint();
 					e.consume();
 				}
 			}
 			@Override
-			public void keyTyped(java.awt.event.KeyEvent e) {
+			public void keyTyped(KeyEvent e) {
 				boolean isProcessed = false;
 				if ( selectedCell != null ) {
 					char ch = e.getKeyChar();
@@ -461,6 +488,26 @@ class SudokuGridPanel extends JPanel {
 		});
 	} // end initialise() method.
 
+	private void toggleGreen(Cell cell) {
+		// if it's in green then it's not in blue
+		if(blueBGCells!=null)blueBGCells.remove(cell);
+		if ( greenBGCells==null ) {
+			greenBGCells = new HashSet<>(16, 0.75F);
+			greenBGCells.add(cell);
+		} else if ( !greenBGCells.remove(cell) )
+			greenBGCells.add(cell);
+	}
+
+	private void toggleBlue(Cell cell) {
+		// if it's in blue then it's not in green
+		if(greenBGCells!=null)greenBGCells.remove(cell);
+		if ( blueBGCells==null ) {
+			blueBGCells = new HashSet<>(16, 0.75F);
+			blueBGCells.add(cell);
+		} else if ( !blueBGCells.remove(cell) )
+			blueBGCells.add(cell);
+	}
+
 	// returns the Cell which is at the given x,y.
 	private Cell getCellAt(int x, int y) {
 		int cx = (x - H_GAP) / COS;
@@ -492,12 +539,12 @@ class SudokuGridPanel extends JPanel {
 	}
 
 	/** @return the grid. */
-	Grid getSudokuGrid() {
+	Grid getGrid() {
 		return grid;
 	}
 
 	/** Set the grid. */
-	void setSudokuGrid(Grid grid) {
+	void setGrid(Grid grid) {
 		this.grid = grid;
 		this.selectedCell = grid.cells[40]; // center cell 4*9+4 = 20
 	}
@@ -558,8 +605,9 @@ class SudokuGridPanel extends JPanel {
 
 	/** Set the green potentials.
 	 * NOTE that formerly green+red=orange. Now oranges are separate! */
-	void setGreenPots(Pots pots) {
+	boolean setGreenPots(Pots pots) {
 		COLOR_POTS[CI_GREEN] = pots;
+		return pots != null;
 	}
 
 	/** Set the red potentials.
@@ -624,30 +672,14 @@ class SudokuGridPanel extends JPanel {
 		this.subs = subs;
 	}
 
-	/** Clears the selected and the focused cell. */
+	/**
+	 * Clears the focused cell,
+	 * and if 'isSelection' then clears the selectedCell.
+	 */
 	void clearSelection(boolean isSelection) {
+		this.focusedCell = null;
 		if ( isSelection )
 			this.selectedCell = null;
-		this.focusedCell = null;
-	}
-
-	private void toggleGreen(Cell cell) {
-		// if it's in green then it's not in blue
-		if(blueBGCells!=null)blueBGCells.remove(cell);
-		if ( greenBGCells==null ) {
-			greenBGCells = new HashSet<>(16, 0.75F);
-			greenBGCells.add(cell);
-		} else if ( !greenBGCells.remove(cell) )
-			greenBGCells.add(cell);
-	}
-	private void toggleBlue(Cell cell) {
-		// if it's in blue then it's not in green
-		if(greenBGCells!=null)greenBGCells.remove(cell);
-		if ( blueBGCells==null ) {
-			blueBGCells = new HashSet<>(16, 0.75F);
-			blueBGCells.add(cell);
-		} else if ( !blueBGCells.remove(cell) )
-			blueBGCells.add(cell);
 	}
 
 	private void repaintCell(Cell cell) {
@@ -772,16 +804,16 @@ class SudokuGridPanel extends JPanel {
 	private void paintLegends(Graphics g) {
 		g.setFont(legendFont);
 		g.setColor(COLOR_LEGEND);
-		for (int i=0; i<9; ++i) {
-			// y-axis legend (vertical = rows)
+		for ( int i=0; i<9; ++i ) {
+			// y-axis legend (vertical = row labels: 1..9)
 			drawStringCentered(g, DIGITS[i+1]
 					, H_GAP/2					// x
-					, COS*i + V_GAP + COS/2		// y
+					, V_GAP + COS*i + COS/2		// y
 			);
-			// x-axis legend (horizontal = columns)
+			// x-axis legend (horizontal = column labels: A..I)
 			drawStringCentered(g, LETTERS[i]
 					, H_GAP + i*COS + COS/2		// x
-					, COS*9 + V_GAP + H_GAP/2	// y
+					, V_GAP + COS*9 + H_GAP/2	// y
 			);
 		}
 	}

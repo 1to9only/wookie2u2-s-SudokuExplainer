@@ -12,7 +12,6 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.Ass;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmt;
@@ -30,7 +29,7 @@ import diuf.sudoku.utils.MyLinkedList;
 /**
  * XW-Wing and XYZ-Wing hints
  */
-public final class XYWingHint extends AHint implements IActualHint, IChildHint {
+public final class XYWingHint extends AHint implements IChildHint {
 
 	private final boolean isXYZ;
 	private final Cell xy;

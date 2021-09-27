@@ -15,6 +15,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.HintsList;
@@ -71,16 +72,13 @@ public final class MultipleChainer extends AChainer
 	 * faster than passing it around, It's certainly cleaner. */
 	protected Grid grid;
 	/** The initial (unmodified) grid used to find parent (causal) Ass's. */
-	protected final Grid initGrid = new Grid(); // initialGrid
+	protected Grid initGrid; // the initial Grid
 
 	/**
 	 * The actual Constructor implementation is private. It's wrapped by the
 	 * below public constructor to provide the default isImbedded=false.
 	 *
 	 * @param tech a Tech with isChainer==true.
-	 * @param isAggregate true if all chaining hints should be aggregated into
-	 *  one which is added to the SingleHintsAccumulator which was passed into
-	 *  the getHints method. Only true in LogicalSolverTester -SPEED mode.
 	 * @param isImbedded true ONLY when this is an imbedded (nested) Chainer.
 	 *  true prevents the superclass AChainer from caching my hints. It all
 	 *  goes straight to hell in a hand-basket when nested hinters do not
@@ -91,8 +89,8 @@ public final class MultipleChainer extends AChainer
 	 *  bloody-well cache hints! If you do cache hints then bloody-well BEWARE!
 	 */
 	@SuppressWarnings("fallthrough")
-	private MultipleChainer(Tech tech, boolean isAggregate, boolean isImbedded) {
-		super(tech, isAggregate, isImbedded);
+	private MultipleChainer(Tech tech, boolean isImbedded, IInterruptMonitor im) {
+		super(tech, isImbedded, im);
 		// build the hinters array
 		assert degree>=0 && degree<=5;
 		if ( degree <= 0 ) { // Unary, Nishio, Multiple, or Dynamic
@@ -115,16 +113,16 @@ public final class MultipleChainer extends AChainer
 		case DynamicPlus: // has no imbedded chainers, just the Four Quick Foxes
 			break;
 		case NestedMultiple: // has imbedded UnaryChain + MultipleChain
-			hinters[5]=new MultipleChainer(Tech.MultipleChain, isAggregate, T);
+			hinters[5]=new MultipleChainer(Tech.MultipleChain, T, im);
  			//fallthrough
 		case NestedUnary: // has imbedded UnaryChain
-			hinters[4]=new UnaryChainer(isAggregate, T);
+			hinters[4]=new UnaryChainer(T, im);
 			break;
 		case NestedPlus: // has imbedded DynamicChain + DynamicPlus
-			hinters[5]=new MultipleChainer(Tech.DynamicPlus, isAggregate, T);
+			hinters[5]=new MultipleChainer(Tech.DynamicPlus, T, im);
 			//fallthrough
 		case NestedDynamic: // has imbedded DynamicChain
-			hinters[4]=new MultipleChainer(Tech.DynamicChain, isAggregate, T);
+			hinters[4]=new MultipleChainer(Tech.DynamicChain, T, im);
 			//fallout
 		}
 	}
@@ -132,12 +130,12 @@ public final class MultipleChainer extends AChainer
 	/**
 	 * MultipleChainer Constructor
 	 * @param tech a Tech with isChainer==true.
-	 * @param isAggregate true if all chaining hints should be aggregated into
-	 *  one which is added to the SingleHintsAccumulator which was passed into
-	 *  the getHints method. Only true in LogicalSolverTester -SPEED mode.
 	 */
-	public MultipleChainer(Tech tech, boolean isAggregate) {
-		this(tech, isAggregate, F);
+	public MultipleChainer(Tech tech) {
+		this(tech, F, null);
+	}
+	public MultipleChainer(Tech tech, IInterruptMonitor im) {
+		this(tech, F, im);
 	}
 
 	@Override
@@ -152,7 +150,8 @@ public final class MultipleChainer extends AChainer
 		grid = null;
 		// and I can't forget my initialGrid because it's final, but I can
 		// clear it, so I will, just for completeness
-		initGrid.clear();
+		if ( initGrid != null )
+			initGrid.clear();
 	}
 
 	/**
@@ -163,11 +162,20 @@ public final class MultipleChainer extends AChainer
 	 * @param hints
 	 */
 	@Override
-	protected void actuallyFindTheHints(Grid grid, HintsList hints) {
+	protected void findChainHints(Grid grid, HintsList hints) {
 		this.grid = grid;
 		assert isMultiple || isDynamic;
 		if (isNishio)
 			assert isDynamic;
+		// delay creating initGrid (Grid is large) until this chainer is used
+		// for the first time, otherwise LogicalSolver creates many grids, and
+		// we may never get down the hinter-stack as far as Nested*, or this
+		// hinter may not even be wanted, to we've allocated a large lump of
+		// memory to an instance that'll never be used, which ain't clever.
+		// The downsize is the initGrid cannot be final, which is fine so long
+		// as everyone (ie me) treats it as if it was bloody final.
+		if ( initGrid == null )
+			initGrid = new Grid();
 		if ( !isDynamic ) // (ie isMultiple) copy ONCE at top of stack
 			grid.copyTo(initGrid); // initGrid is used in doChains
 		// looks at cells/regions size > 2 and combines ramifications.
@@ -350,6 +358,8 @@ public final class MultipleChainer extends AChainer
 				MyArrays.clear(valuesOns);
 				MyArrays.clear(valuesOffs);
 			}
+			if ( interrupted() )
+				return;
 		} // next cell
 	}
 
@@ -815,8 +825,7 @@ public final class MultipleChainer extends AChainer
 	) {
 		// check that source.cell is this cell (when I'm a Nested*) to suppress
 		// funky hints when embedded DynamicChain+ finds a RAW grid hint.
-		if ( tech.isNested && !isAggregate // don't bother in SPEED mode
-		  && getSource(target) == null ) // target.parents.first.first...
+		if ( tech.isNested && getSource(target) == null ) // target.parents.first.first...
 			return null;  // this can't be a CellReductionHint
 		// Build removable potentials
 		final Pots redPots = createRedPots(target);

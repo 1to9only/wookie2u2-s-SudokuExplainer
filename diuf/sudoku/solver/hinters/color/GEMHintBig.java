@@ -12,6 +12,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
+import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -30,7 +31,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021-03-24
  */
-public class GEMHintBig extends AHint {
+public class GEMHintBig extends AHint  {
 
 	private final int v;
 	private final int subtype;
@@ -117,6 +118,13 @@ public class GEMHintBig extends AHint {
 		return offs;
 	}
 
+	@Override
+	public double getDifficultyTotal() {
+		return getDifficulty()
+			 + setPots.size() * Tech.NakedSingle.difficulty // cell-set bonus
+			 + redPots.totalSize() * 0.01; // elimination bonus
+	}
+
 	// The GUI sorts hints by Score then Indice, and this is the only hint in
 	// Sudoku Explainer which sets multiple cells, hence I override getScore
 	// to return 10 * the number of cells set, so any Multi hints are listed
@@ -137,27 +145,31 @@ public class GEMHintBig extends AHint {
 
 	// @return numElims = 10*numCellsSet + numMaybesEliminated.
 	@Override
-	public int applyImpl(boolean isAutosolving) {
+	public int applyImpl(boolean isAutosolving, Grid grid) {
 		if ( isInvalid )
 			return 0; // invalid hints are not applicable
+// WTF was I thinking? I can be really dumb sometimes.
+//		final Grid grid = getGrid();
+//		final String backup = grid.toString();
+//		try {
+//			// set the setPots, and then eliminate the redPots
+//			return setPots.setCells(isAutosolving) * 10
+//				 + super.applyImpl(isAutosolving);
+//		} catch ( UnsolvableException ex ) {
+//			Log.teeln("WARN: GEMHintMulti.applyImpl: "+ex);
+//			Log.teeln("reverted to");
+//			Log.teeln(backup);
+//			grid.load(backup);
+//			return 0;
+//		}
 		// set the setPots, and then eliminate the redPots
-		final Grid grid = getGrid();
-		final String backup = grid.toString();
-		try {
-			return setPots.setCells(isAutosolving) * 10
-				 + super.applyImpl(isAutosolving);
-		} catch ( UnsolvableException ex ) {
-			Log.teeln("WARN: GEMHintMulti.applyImpl: "+ex);
-			Log.teeln("reverted to");
-			Log.teeln(backup);
-			grid.load(backup);
-			return 0;
-		}
+		return setPots.setCells(isAutosolving) * 10
+			 + super.applyImpl(isAutosolving, grid);
 	}
 
 	@Override
 	protected String getHintTypeNameImpl() {
-		return hinter.tech.nom+" Type " + subtype;
+		return hinter.tech.name()+" Type " + subtype;
 	}
 
 	@Override
@@ -205,7 +217,7 @@ public class GEMHintBig extends AHint {
 		sb.append("</body></html>").append(NL);
 		return Html.colorIn(sb.toString());
 	}
-	
+
 	@Override
 	public int hashCode() {
 		if ( hc == 0 ) {

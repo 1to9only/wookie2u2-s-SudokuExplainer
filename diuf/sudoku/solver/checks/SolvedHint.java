@@ -6,7 +6,7 @@
  */
 package diuf.sudoku.solver.checks;
 
-import diuf.sudoku.gui.DummySolutionHinter;
+import diuf.sudoku.gui.DummyHinter;
 import diuf.sudoku.solver.AWarningHint;
 
 /**
@@ -19,7 +19,7 @@ import diuf.sudoku.solver.AWarningHint;
 public class SolvedHint extends AWarningHint {
 
 	public SolvedHint() {
-		super(new DummySolutionHinter());
+		super(new DummyHinter());
 	}
 
 	@Override

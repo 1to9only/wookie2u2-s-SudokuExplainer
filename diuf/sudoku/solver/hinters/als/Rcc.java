@@ -40,70 +40,70 @@ package diuf.sudoku.solver.hinters.als;
  */
 public class Rcc implements Comparable<Rcc>, java.io.Serializable
 {
-    private static final long serialVersionUID = 4153506457540778L;
+	private static final long serialVersionUID = 4153506457540778L;
 
-    /** Index of first ALS in a {@code List<Als>} kept externally. */
-    public final int als1;
+	/** Index of first ALS in a {@code List<Als>} kept externally. */
+	public final int als1;
 
-    /** Index of second ALS in a {@code List<Als>} kept externally. */
-    public final int als2;
+	/** Index of second ALS in a {@code List<Als>} kept externally. */
+	public final int als2;
 
-    /** First RC, must be != 0. */
-    public final int v1;
+	/** First RC, must be != 0. */
+	public final int v1;
 
-    /** Second RC; if {@code v2==0} als1 and als2 have only one RC value. */
-    public int v2;
+	/** Second RC; if {@code v2==0} als1 and als2 have only one RC value. */
+	public int v2;
 
-    /** Used in ALS-Chains: 0=none, 1=cand1, 2=cand2, 3=both. */
-    public int which;
+	/** Used in ALS-Chains: 0=none, 1=cand1, 2=cand2, 3=both. */
+	public int which;
 
-    /**
-     * Constructs a new {@code Rcc} for ALSs which are presumed to be singly
+	/**
+	 * Constructs a new {@code Rcc} for ALSs which are presumed to be singly
 	 * linked upon creation, but a second RC value may be added later.
-     * @param als1
-     * @param als2
-     * @param v1
-     */
-    public Rcc(int als1, int als2, int v1) {
-        this.als1 = als1;
-        this.als2 = als2;
-        this.v1 = v1;
-        this.v2 = 0;
-    }
+	 * @param als1
+	 * @param als2
+	 * @param v1
+	 */
+	public Rcc(int als1, int als2, int v1) {
+		this.als1 = als1;
+		this.als2 = als2;
+		this.v1 = v1;
+		this.v2 = 0;
+	}
 
-    /**
-     * New propagation rules for ALS-Chains: When finding a link in a chain
-	 * the actual RCs of {@code prevRc} are excluded from {@code this}, so I
-	 * adjust {@code this.whichRC} accordingly.
-     * <p>
-     * Returns: if resulting {@code this.whichRC > 0},<br>
-	 * then return true meaning the chain continues,<br>
-	 * else return false.
-     * <p>
-     * If a chain starts with a doubly-linked RC ({@code rc==null && cand2!=0})
-	 * then one of the two RCs is chosen depending on {@code firstTry),
-	 * searching both possible links in a chain.
-     *
-     * @param p the Rcc of the previous link in the current chain
-     * @param firstTry when <tt>prevRC==null</tt> (first link in a chain)<br>
-	 *  should we use <tt>cand1</tt> (the first attempt)<br>
-	 *  or <tt>cand2</tt> (the second attempt).
-     * @return does any RC-value remain to be examined
-     */
-    public boolean whichRC(Rcc p, boolean firstTry) {
+	/**
+	 * New propagation rules for AlsChain: When finding a link in a chain the
+	 * actual RCs of {@code p} are excluded from {@code this}, so
+	 * {@code this.which} is adjusted accordingly.
+	 * <p>
+	 * Returns: is the resulting {@code this.which} != 0,<br>
+	 * ie true meaning the chain continues,<br>
+	 * or false meaning end-of-chain.
+	 * <p>
+	 * If a chain starts with a doubly-linked RC ({@code rc==null && v2!=0})
+	 * then one of the two RCs is chosen depending on {@code first)
+	 * (TRUE=1, FALSE=0), searching both possible links in a chain.
+	 *
+	 * @param p the Rcc of the previous link in the current chain
+	 * @param firstTry when <tt>p==null</tt> (first link in a chain)<br>
+	 *  should we use <tt>v1</tt> (the first attempt)<br>
+	 *  or <tt>v2</tt> (the second attempt).
+	 * @return does any RC-value remain to be examined
+	 */
+	public boolean whichRC(Rcc p, boolean firstTry) {
 		// NOTE: terniaries are slow!
 		if ( v2 == 0 )
 			which = 1; // cand1 only
 		else
 			which = 3; // both
-        if ( p == null ) {
+		if ( p == null ) {
 			// start of chain: pick the RC to examine
-            if ( v2 != 0 )
+			if ( v2 != 0 )
 				if ( firstTry )
 					which = 1; // examine cand1
 				else
 					which = 2; // examine cand2
-        } else
+		} else
 			// continueing chain: pick my RC based on prevRC.whichRC
 			switch ( p.which ) {
 				case 0: break; // whichRC is already set
@@ -112,11 +112,11 @@ public class Rcc implements Comparable<Rcc>, java.io.Serializable
 				case 3: which = check(p.v1, p.v2, v1, v2); break; // both cand1 and cand2
 				default: break;
 			}
-        return which != 0;
-    }
+		return which != 0;
+	}
 
-    /**
-     * Suppress duplicate candidate values from the previous to the current RCC
+	/**
+	 * Suppress duplicate candidate values from the previous to the current RCC
 	 * in the chain by returning the value of the current whichRC:<br>
 	 * 0=none, 1=cand1, 2=cand2, 3=both.
 	 * <p>
@@ -138,36 +138,36 @@ public class Rcc implements Comparable<Rcc>, java.io.Serializable
 	 * inclination to contribute to planetaty destruction by using one. If it's
 	 * hot then PCs slow down. Get Over It!
 	 * </pre>
-     *
-     * @param p1 previous RCC first candidate
-     * @param p2 previous RCC second candidate (may be 0)
-     * @param c1 current RCC first candidate
-     * @param c2 current RCC Second candidate (may be 0)
-     * @return the value of this.whichRC.
-     */
-    private static int check(final int p1, final int p2, final int c1, final int c2) {
+	 *
+	 * @param p1 previous RCC first candidate
+	 * @param p2 previous RCC second candidate (may be 0)
+	 * @param c1 current RCC first candidate
+	 * @param c2 current RCC Second candidate (may be 0)
+	 * @return the value of this.whichRC.
+	 */
+	private static int check(final int p1, final int p2, final int c1, final int c2) {
 		// NOTE: terniaries are slow!
-        if ( p2 == 0 ) { // one previous RC
-            if ( c2 == 0 ) // one current RC
-                if ( p1 == c1 )
+		if ( p2 == 0 ) { // one previous RC
+			if ( c2 == 0 ) // one current RC
+				if ( p1 == c1 )
 					return 0;
 				else
 					return 1;
 			else // two current RCs
-                if ( p1 == c2 )
+				if ( p1 == c2 )
 					return 1;
 				else if ( p1 == c1 )
 					return 2;
 				else
 					return 3;
-		} else // two ARCs
-            if ( c2 == 0 ) // two ARCs one PRC
-                if ( p1==c1 || p2==c1 )
+		} else { // two previous RC's
+			if ( c2 == 0 ) // one current RC
+				if ( p1==c1 || p2==c1 )
 					return 0;
 				else
 					return 1;
-			else // two ARCs two PRCs
-                if ( (p1==c1 && p2==c2) || (p1==c2 && p2==c1) )
+			else // two current RC's
+				if ( (p1==c1 && p2==c2) || (p1==c2 && p2==c1) )
 					return 0;
 				else if ( p1==c2 || p2==c2 )
 					return 1;
@@ -175,34 +175,35 @@ public class Rcc implements Comparable<Rcc>, java.io.Serializable
 					return 2;
 				else
 					return 3;
-    }
+		}
+	}
 
-    /**
-     * Returns a string representation of {@code this}.
-     * @return
-     */
-    @Override
-    public String toString() {
-        return "alss=" + als1 + "/" + als2
+	/**
+	 * Returns a string representation of {@code this}.
+	 * @return
+	 */
+	@Override
+	public String toString() {
+		return "alss=" + als1 + "/" + als2
 			 + " cands=" + v1 + "/" + v2
-			 + " arc=" + which;
-    }
+			 + " which=" + which;
+	}
 
-    /**
-     * Compares this RCC with the given one.
-     * @param r
-     * @return less than 0 if this comes before that;<br>
+	/**
+	 * Compares this RCC with the given one.
+	 * @param r
+	 * @return less than 0 if this comes before that;<br>
 	 *  or greater than 0 if this comes after that;<br>
 	 *  or 0 if they're the same in this ordering.
-     */
-    @Override
-    public int compareTo(Rcc r) {
-        int result;
-        if ( (result=als1 - r.als1) == 0
+	 */
+	@Override
+	public int compareTo(Rcc r) {
+		int result;
+		if ( (result=als1 - r.als1) == 0
 		  && (result=als2 - r.als2) == 0
 		  && (result=v1 - r.v1) == 0 )
 			result = v2 - r.v2;
-        return result;
-    }
+		return result;
+	}
 
 }

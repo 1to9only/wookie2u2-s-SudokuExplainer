@@ -14,6 +14,7 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.utils.Debug;
 
 
 /**
@@ -304,10 +305,12 @@ public final class HiddenSingle extends AHinter {
 		Cell cell; // the only cell in region which maybe value
 		AHint hint; // the HiddenSingleHint, where applicable
 		boolean result = false; // presume failure, ie no hints found.
-		for ( ARegion region : grid.regions ) // 27 (9 Box, 9 Row, 9 Col)
+		for ( ARegion region : grid.regions ) { // 27 (9 Box, 9 Row, 9 Col)
+//if ( "box 9".equals(region.id) )
+//	Debug.breakpoint();
 			if ( region.emptyCellCount > 0 ) { // ignore filled regions
 				rio = region.indexesOf;
-				for ( v=1; v<10; ++v )
+				for ( v=1; v<10; ++v ) {
 					if ( rio[v].size == 1 ) { // there's 1 location for v in region
 						// create the hint
 						cell = region.cells[rio[v].first()];
@@ -317,7 +320,9 @@ public final class HiddenSingle extends AHinter {
 							return true;
 						result = true; // Yeah, we found (at least) one hint!
 					}
+				}
 			}
+		}
 		return result;
 	}
 }

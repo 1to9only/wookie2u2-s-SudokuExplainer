@@ -11,7 +11,6 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.checks.AWarningHinter;
 import diuf.sudoku.solver.checks.AnalysisHint;
-import diuf.sudoku.solver.checks.WarningHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 
 
@@ -28,7 +27,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * fields) so that: he comes, he's used, he goes; rather than make the GC deal
  * with a cut-off closed-loop of references.
  * @see diuf.sudoku.solver.checks.AnalysisHint
- * 
+ *
  * @author Keith Corlett
  */
 public final class LogicalAnalyser extends AWarningHinter
@@ -38,10 +37,10 @@ public final class LogicalAnalyser extends AWarningHinter
 	 * The LogicalSolver that created me (ie was passed to my constructor).
 	 */
 	private final LogicalSolver solver;
-	
+
 	/**
-	 * When true the {@link LogicalAnalyser#findHints} method prints out the
-	 * hints when each hint is applied to grid.
+	 * When isNoisy is true {@link LogicalAnalyser#findHints} prints each hint
+	 * as it is applied to the grid.
 	 * <p>
 	 * Normally isNoisy is false. I'm a public field because the findHints
 	 * method is defined by IHinter, and therefore cannot accept additional
@@ -63,14 +62,15 @@ public final class LogicalAnalyser extends AWarningHinter
 	 * Note that the only constructor is package visible, and is only called by
 	 * LogicalSolver (except in the JUnit test-case, which is a bit trixie).
 	 *
-	 * @param solver My master LogicalSolver.
+	 * @param solver My master LogicalSolver. Not null.
 	 */
 	LogicalAnalyser(LogicalSolver solver) {
-		// LogicalAnalysis isn't a real solving technique, it's an agglomerate
-		// of all (wanted) techniques, so we just use Tech.Solution, giving us
-		// degree 0, and difficulty 0.0, which is NOT representative. Sigh.
+		// Tech.Solution isn't a real solving technique, it's the sum of all
+		// wanted techniques. Tech.Solution.degree is 0, and it's difficulty
+		// is also 0.0, which is NOT representative. Sigh.
 		super(Tech.Solution);
 		this.solver = solver;
+		assert solver != null;
 	}
 
 	/**
@@ -90,42 +90,34 @@ public final class LogicalAnalyser extends AWarningHinter
 		try {
 			// run the puzzleValidators and the gridValidators seperately
 			// here because differentiating a WarningHint is complicated.
-			AHint warning = solver.validatePuzzleAndGrid(grid, false);
+			final AHint warning = solver.validatePuzzleAndGrid(grid, false);
 			if ( warning != null )
 				return accu.add(warning);
-			// NB: synchronized so that the generator thread waits for the
-			// analyse (ie solve) to complete before generating a puzzle to
-			// replenish its cache. We can't run two solves concurrently coz
-			// they use stateful static variables internally. Sigh.
-			// KRC 2019 OCT @strech I really should clean-up those statics now
-			// that I multithread, but I don't know what-else instead of static
-			// variables which reference the stateful objects.
-			// KRC 2020 JUN @strech I'm just looking at the code to clean-up
-			// unused s__t and see what else I should do. I should create a
-			// RunContext instance which knows if we're in the GUI or not, and
-			// holds all my stateful objects in non-static fields. I will try
-			// this recipe but not right now. I'll need a backup, too much has
-			// changed right now for me to do a high risk Ignoto change.
-			UsageMap usageMap = new UsageMap();
-			boolean isSolved;
-			synchronized ( GrabBag.ANALYSE_LOCK ) {
+			// nb: synchronized so that the generator thread waits for analyse
+			// (ie solve) to finish before generating a puzzle to replenish its
+			// cache. Cant run two solves concurrently coz of stateful statics.
+			// KRC 2019 OCT @strech I really should clean-up those statics with
+			// new RunContext holds all stateful objects in non-static fields.
+			final UsageMap usageMap = new UsageMap();
+			final boolean isSolved;
+			synchronized ( LogicalSolver.ANALYSE_LOCK ) {
 				// call-back the LogicalSolver that created me.
 				isSolved = solver.solve(grid, usageMap, false, isNoisy, false);
 			}
 			if ( isSolved )
 				accu.add(new AnalysisHint(this, usageMap));
 			else
-				accu.add(new WarningHint(this, "Unsolvable", "NoSolution.html"));
+				accu.add(solver.UNSOLVABLE_HINT);
 		} catch (Exception ex) {
 			StdErr.whinge(ex);
-			accu.add(new WarningHint(this, ex.toString(), "NoSolution.html"));
+			accu.add(solver.UNSOLVABLE_HINT);
 		}
 		return true;
 	}
 
 	@Override
 	public String toString() {
-		return "Logical Analyser";
+		return "LogicalAnalyser";
 	}
 
 	@Override

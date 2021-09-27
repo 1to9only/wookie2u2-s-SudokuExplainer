@@ -17,7 +17,7 @@ package diuf.sudoku.solver;
  * 27 minutes to solve 1465 puzzles; and now that's down to like 3 or 4 mins.
  * So all it takes is the investment of years and years of hard complex bloody
  * pernickety work, and you too can claim to be a total, complete and utter
- * time-wasting Putz! Nag! Putz!
+ * time-wasting Putz! Nag! Putz! Nag!
  * <p>
  * This comment was boosted from the LogicalSolver class comments because it's
  * too bloody long, so Nutbeans bogs down when it's in with the code, but here
@@ -55,7 +55,7 @@ package diuf.sudoku.solver;
  *     1,364,683,988       9      82 Dynamic Plus
  * </pre>
  * <hr><p>
- * <b>KRC 2018-02-14 running all nesters on raw 2#top1465.d2.mt</b>
+ * <b>KRC 2018-02-14 running all nesters on puzzle 2#top1465.d2.mt</b>
  * <pre>
  *     nanoseconds  hinter
  *       5,381,689  Too Few Clues
@@ -7693,7 +7693,6 @@ package diuf.sudoku.solver;
  * 10,193,482,100   1371  7,435,070   7515  1,356,418 Dynamic Chain
  *    131,522,000      3 43,840,666     30  4,384,066 Dynamic Plus
  * 78,780,011,100
- *
  * pzls       total (ns) (mm:ss)   each (ns)
  * 1465  121,883,741,000 (02:01)  83,197,092
  * NOTES:
@@ -7701,6 +7700,269 @@ package diuf.sudoku.solver;
  * 2. 6.30.136 2021-06-05 11:19:16 for release now.
  *    as DiufSudoku_V6_30.136.2021-06-05.7z
  * 3. Next I keep trying to speed s__t up.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.137 2021-06-09 15:28:17 Cleaning-up messy crap, and stuff I don't
+ * use any longer.
+ * <p>
+ * Here's the release README:
+ * <pre>
+ * 1. LogViewHintRegexDialog: the Log-view gets its hint-regex from a custom
+ *    dialog-box. The contents of combo-box's drop-down list is stored in the
+ *    plain-text file: $HOME/DiufSudoku_log_view_hint_regexs.txt.
+ *    A regex (regular expression) typed into combo-box will be saved at the
+ *    top of this list. It's just a text-file, so you can maintain it using
+ *    your text-file editor (Netbeans, vi, or whatever).
+ *
+ * 2. It's now BigWings OR S/T/U/V/WXYZWings in LogicalSolver.configureHinters.
+ *
+ * 3. LogicalSolverTester .log now has hinter usage ordered by numCalls then by
+ *    there order in the wantedHinters list, so that hinters should always be
+ *    listed in the order that they are executed.
+ *
+ * 4. gemSolve: The hintNumber is now a "normal" attribute in the Grid.
+ *    It was static in AHint, which caused problems in gemSolve because it
+ *    can't increment a "global" static, so all of grids caches were "dirty".
+ *    However, gemSolve can increment the grid.attribute, because it can just
+ *    throw-away it's own copy of the grid when it's finished with it. Simples.
+ *
+ * 5. Got da s__ts with gemSolve so kill consequentSingles (including gemSolve)
+ *    in GEM. It was buggier than a VeeBuggerYou bus full of bettles. sigh.
+ *    I'm keeping hintNumber in Grid though, because it's a better design.
+ *
+ * 6. Cleaned up LogicalSolver configureWantedHinters. The whList is private
+ *    for use in configureWantedHinters, and internally where List required.
+ *    Everything else uses the wantedHinters array, coz arrays are faster to
+ *    iterate. Internal "category" lists gone. Added className to Tech so that
+ *    configureWantedHinters doesn't need to create unwanted hinters.
+ *    Downside is that Settings references Tech and now Tech references all the
+ *    individual IHinter implementations, which reference Tech. Inbreeders!
+ *
+ * 7. Aligned Pair/Triple/Quad went galavanting up the pop-charts this week,
+ *    collecting more smack-heads than covid-jabs, so they ran home, because
+ *    I still can't use them, because they're still too bloody slow. sigh.
+ *
+ * 8. I noticed memory leaks: Multiple grids are held in memory, after GC, but
+ *    lacking the tools to trace the references that keep them in memory I know
+ *    not why so many (a dozen) are being retained. I've cleaned-up all hint
+ *    references, because the first one I tripped-over was a List of hints that
+ *    should have been cleared, each with cells, each holding there whole grid.
+ *    Actually solving this seems impossible. I need a tool that goes through
+ *    memory after GC and shows not just what's retained but da reference chain
+ *    that retains it, and such a tool doesn't exist, AFAIK.
+ *
+ * 9. Improved TechSelectDialog usability. Selecting a Tech which excludes
+ *    other tech/s now unticks those techs automatically. Mutually exclusive
+ *    tech's are also enforced in LogicalSolver.configureWantedHinters so that
+ *    you can't even hack-around it by changing the registry manually. I might
+ *    want to rip that out at some stage: it's nice to be able to hack around
+ *    problems by changing the registry manually.
+ *
+ * 10. RecursiveSolverTester updated. It now eats UnsolvableException except
+ *    at the top level (depth==1). solveLogically should NEVER have eaten
+ *    the UnsolvableException from AHint.apply, which at the top-level now
+ *    propagates back to RecursiveSolverTester.process, which spits-and-quits;
+ *    where-as recursiveSolve's loop eats UnsolvableException and just guesses
+ *    again. So top-level UnsolvableException thrown, and others eaten. Ok.
+ *
+ *    Sort-of-sorted the isNoisy fiasco by setting it false and declaring that
+ *    it can only be used for debugging. It's too verbose for "normal use".
+ *
+ * 11. Replaced the IActualHint marker interface with IPretendHint because I
+ *    kept forgetting to implements IActualHint in new hint-types; so now the
+ *    "pretend" hints (a small static set) are marked, so I need not remember
+ *    to implement IActualHint in every "actual" bloody hint-type. sigh.
+ *
+ * 12. Added a ttlDiff column to LogicalSolverTester standard-output, to give
+ *    a better feeling for the actual complexity of solving this puzzle. It's
+ *    inspired by hobiwans approach. I used max-difficulty, because that's what
+ *    made sense to me. Humans put more weigth on "how hard is it overall"
+ *    verses "how hard is it's hardest".
+ *    NOTE: This required a new getDifficultyTotal in AHint which defaults to
+ *    getDifficulty, but is overridden in GEMHint and GemHintBig to take the
+ *    number of maybes-eliminated and number of cells-set into account, so that
+ *    a GEMHintBig doesn't have a far lower difficulty than setting all it's
+ *    setPots as NakedSingles, which would happen if GEM was unwanted.
+ *
+ * 13. Ripped-out LogicalAnalyser.Mode because SPEED mode is never used, and
+ *    doing so simplifies everything.
+ *
+ *      time (ns)  calls  time/call  elims time/elim hinter
+ *     19,369,213 103316        187 566410        34 Naked Single
+ *     15,812,327  46675        338 159030        99 Hidden Single
+ *    100,423,521  30772      3,263  20697     4,852 Locking
+ *     53,648,568  20814      2,577   7051     7,608 Naked Pair
+ *     43,933,107  19335      2,272  13125     3,347 Hidden Pair
+ *    119,288,747  17296      6,896   1673    71,302 Naked Triple
+ *    102,824,292  16917      6,078   1189    86,479 Hidden Triple
+ *     34,464,324  16707      2,062    615    56,039 Swampfish
+ *     50,742,215  16466      3,081   1156    43,894 Two String Kite
+ *     65,282,666  15310      4,264    592   110,274 XY-Wing
+ *     55,076,448  14896      3,697    298   184,820 XYZ-Wing
+ *     95,751,918  14618      6,550    393   243,643 W-Wing
+ *     49,966,635  14346      3,482    348   143,582 Skyscraper
+ *     22,226,166  14166      1,568     54   411,595 Empty Rectangle
+ *     79,884,197  14112      5,660    235   339,932 Swordfish
+ *    411,713,920  14054     29,295    364 1,131,082 Coloring
+ *  1,453,036,574  13787    105,391    967 1,502,623 XColoring
+ *  1,936,137,615  13461    143,833 126714    15,279 GEM
+ *    139,986,721  12057     11,610    100 1,399,867 Naked Quad
+ *  3,656,985,877  12039    303,761   2210 1,654,744 Big-Wings
+ *  1,769,773,230  10815    163,640    889 1,990,746 Unique Rectangle
+ *  1,037,810,071  10202    101,726    364 2,851,126 Finned Swampfish
+ *  2,217,627,459   9888    224,274    304 7,294,827 Finned Swordfish
+ * 11,612,466,183   9655  1,202,741   3922 2,960,853 ALS-XZ
+ *  8,750,823,399   7019  1,246,733   3433 2,549,030 ALS-Wing
+ * 11,460,415,607   4254  2,694,032   1755 6,530,151 Unary Chain
+ *  8,264,740,796   3559  2,322,208   5589 1,478,751 Multiple Chain
+ * 11,069,891,288   1498  7,389,780   8191 1,351,470 Dynamic Chain
+ *    108,379,801      3 36,126,600     30 3,612,660 Dynamic Plus
+ * 64,798,482,885
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  107,095,277,899 (01:47)  73,102,578
+ * NOTES:
+ * 1. Last top1465 run took 01:47 which is 14 seconds faster, but don't get
+ *    excited, it's only faster for dropping slowish hinters.
+ * 2. 6.30.137 2021-06-09 15:28:17 for release soon, I promise.
+ *    as DiufSudoku_V6_30.137.2021-06-09.7z
+ * 3. Next I keep cleaning s__t up, and looking to speed s__t up. And ripping
+ *    old s__t out. Basically it's a s__tfest.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.138 2021-06-13 11:43:18 Still cleaning-up my own mess.
+ * <p>
+ * Here's the additions to README.txt:
+ * <pre>
+ * 14. Cheat: mouseDown on row and column headers highlight interesting values:
+ * Left button on row number 1..9 highlights instances of this value in grid.
+ * To keep the highlights drag the mouse into the grid before you release it.
+ * Right button on row number 1..9 highlights:
+ *    1..5: cells with that many potential values.
+ *    6..8: cells with 2..digit-3 (6=3, 7=4, 8=5) potential values.
+ *    9: solution values (the ultimate cheat)
+ * Left button on column label 'A'..'I':
+ *    'A': NakedSingle and HiddenSingle
+ *    'B': Locking (Pointing and Claiming)
+ *    'C': NakedPair
+ *    'D': HiddenPair
+ *    'E': NakedTriple
+ *    'F': HiddenTriple
+ *    'G': Swampfish
+ *    'H': TwoStringKite
+ *    'I': XYWing, XYZWing
+ * Right button on the column label 'a'..'i':
+ *    'a': W_Wing
+ *    'b': Swordfish
+ *    // skipped coloring: There is no sane "cheat" for a coloring hint
+ *    'c': Skyscraper
+ *    'd': EmptyRectangle
+ *    'e': Jellyfish
+ *    'f': NakedQuad
+ *    'g': HiddenQuad
+ *    'h': BigWings
+ *    'i': URT
+ *
+ * 15. AlsFinderRecursive.getAlss now uses new Cells.array to not create new
+ * Cell arrays on the fly, because Java's new array (and GC) is a bit slow.
+ * </pre>
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     20,734,800 103583        200 566560         36 Naked Single
+ *     15,952,500  46927        339 158800        100 Hidden Single
+ *    101,514,400  31047      3,269  20755      4,891 Locking
+ *     55,186,400  21027      2,624   7155      7,712 Naked Pair
+ *     44,969,500  19504      2,305  13094      3,434 Hidden Pair
+ *    119,018,500  17468      6,813   1659     71,741 Naked Triple
+ *    104,288,700  17093      6,101   1188     87,785 Hidden Triple
+ *     35,229,900  16872      2,088    648     54,367 Swampfish
+ *     51,948,100  16619      3,125   1117     46,506 Two String Kite
+ *     84,331,100  15502      5,440    597    141,258 XY-Wing
+ *     68,665,600  15091      4,550    280    245,234 XYZ-Wing
+ *     82,566,900  14830      5,567    387    213,351 W-Wing
+ *     51,834,700  14560      3,560    352    147,257 Skyscraper
+ *     22,925,500  14378      1,594     49    467,867 Empty Rectangle
+ *     82,202,700  14329      5,736    236    348,316 Swordfish
+ *    413,025,700  14269     28,945    354  1,166,739 Coloring
+ *  1,388,664,700  13998     99,204    915  1,517,666 XColoring
+ *  1,989,857,200  13690    145,351 128550     15,479 GEM
+ *    137,846,100  12258     11,245    109  1,264,643 Naked Quad
+ *    110,990,500  12238      9,069     11 10,090,045 Hidden Quad
+ *  3,944,940,100  12237    322,378   2233  1,766,654 Big-Wings
+ *  1,782,850,100  10979    162,387    922  1,933,676 Unique Rectangle
+ *  1,047,196,900  10343    101,246    356  2,941,564 Finned Swampfish
+ *  2,239,198,600  10034    223,161    304  7,365,784 Finned Swordfish
+ * 12,192,881,600   9802  1,243,917   3925  3,106,466 ALS-XZ
+ *  8,147,789,600   7143  1,140,667   3471  2,347,389 ALS-Wing
+ *  7,688,534,800   4410  1,743,431    571 13,465,034 ALS-Chain
+ *  2,788,824,700   3940    707,823    161 17,321,892 Death Blossom
+ * 10,016,240,800   3797  2,637,935   1166  8,590,257 Unary Chain
+ *  4,862,776,100   3300  1,473,568    255 19,069,710 Nishio Chain
+ *  7,111,815,900   3072  2,315,044   4496  1,581,809 Multiple Chain
+ * 10,006,792,300   1366  7,325,616   7483  1,337,270 Dynamic Chain
+ *    133,295,900      3 44,431,966     30  4,443,196 Dynamic Plus
+ * 76,944,890,900
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465   121,428,109,300 (02:01)        82,886,081
+ * NOTES:
+ * 1. Last top1465 run took 02:01 using "normal" hinters, which is OK.
+ * 2. 6.30.138 2021-06-13 11:43:18 for release asap, I promise.
+ *    as DiufSudoku_V6_30.138.2021-06-13.7z
+ * 3. Next I keep cleaning up my own mess. I need to make a concerted effort
+ *    to locate and remove all unused methods.
+ * </pre>
+ * <hr>
+ * <p>
+ * KRC 6.30.140 2021-06-19 12:06:20 Removed tech.nom.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     18,605,628 103675        179 566410         32 NakedSingle
+ *     17,692,755  47034        376 158930        111 HiddenSingle
+ *    106,653,502  31141      3,424  20739      5,142 Locking
+ *     84,124,326  21134      3,980   7095     11,856 NakedPair
+ *     71,084,130  19619      3,623  13079      5,434 HiddenPair
+ *    124,025,387  17588      7,051   1639     75,671 NakedTriple
+ *    108,589,785  17217      6,307   1182     91,869 HiddenTriple
+ *     56,212,274  17002      3,306    632     88,943 Swampfish
+ *     51,668,454  16755      3,083   1111     46,506 TwoStringKite
+ *     89,691,239  15644      5,733    596    150,488 XY_Wing
+ *     68,761,424  15234      4,513    286    240,424 XYZ_Wing
+ *    103,222,222  14967      6,896    373    276,735 W_Wing
+ *     43,137,924  14705      2,933    342    126,134 Skyscraper
+ *     22,047,826  14527      1,517     50    440,956 EmptyRectangle
+ *     83,986,103  14477      5,801    234    358,914 Swordfish
+ *    419,408,959  14416     29,093    357  1,174,815 Coloring
+ *  1,356,354,358  14139     95,930    919  1,475,902 XColoring
+ *  1,874,192,579  13825    135,565 129219     14,504 GEM
+ *    141,758,574  12378     11,452    107  1,324,846 NakedQuad
+ *    116,195,757  12359      9,401     11 10,563,250 HiddenQuad
+ *  3,839,089,808  12358    310,656   2255  1,702,478 BigWings
+ *  1,951,604,941  11080    176,137    912  2,139,917 URT
+ *  1,220,019,776  10450    116,748    359  3,398,383 FinnedSwampfish
+ *  2,640,073,412  10139    260,387    308  8,571,666 FinnedSwordfish
+ * 12,464,900,591   9905  1,258,445   3959  3,148,497 ALS_XZ
+ *  9,693,629,155   7224  1,341,864   3494  2,774,364 ALS_Wing
+ * 14,114,182,416   4480  3,150,487   1076 13,117,269 ALS_Chain
+ *  2,862,277,479   3624    789,811    134 21,360,279 DeathBlossom
+ *    698,899,134   3502    199,571     11 63,536,284 SueDeCoq
+ *  9,287,957,521   3500  2,653,702    866 10,725,124 UnaryChain
+ *  4,693,789,075   3111  1,508,771    231 20,319,433 NishioChain
+ *  7,031,908,363   2907  2,418,957   4153  1,693,211 MultipleChain
+ * 10,200,514,109   1328  7,681,110   7283  1,400,592 DynamicChain
+ *    103,495,701      3 34,498,567     30  3,449,856 DynamicPlus
+ * 85,759,754,687
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  104,132,271,200 (01:44)  71,080,048
+ * NOTES:
+ * 1. Last top1465 run took 1:44 is 16 seconds faster than previous, but keep
+ *    your pants on, that's only because Grid.AUTOSOLVE = true, so it's faster
+ *    but each hinters reported elims are mine and all subsequent singles.
+ * 2. Build 6.30.140 2021-06-19 12:06:20 for release tomorrow, I think.
+ *    as DiufSudoku_V6_30.140.2021-06-19.7z
+ * 3. Next I really don't know, but I'll think of something. This is ultimate
+ *    ninja-level fast, but Knuth is still 100 times faster, and even solves
+ *    invalid Sudokus. sigh.
  * </pre>
  */
 final class LogicalSolverTimings {

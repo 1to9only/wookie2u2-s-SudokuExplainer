@@ -102,11 +102,10 @@ public class KrakenFisherman extends AHinter
 		/** endo-fins: indices of cells that are in more than one base region,
 		 * and therefore must be treated as fins. */
 		int efM0, efM1, efM2;
-////@check comment out (debug only)
-//		@Override
-//		public String toString() {
-//			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
-//		}
+		@Override
+		public String toString() {
+			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
+		}
 	}
 
 	/** array of all possible base units (indices in grid.regions). */
@@ -136,11 +135,10 @@ public class KrakenFisherman extends AHinter
 		/** sharks (cannibalistic): an Idx of cells in more than one cover set,
 		 * so become potential eliminations. */
 		int skM0, skM1, skM2;
-////@check comment out (debug only)
-//		@Override
-//		public String toString() {
-//			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
-//		}
+		@Override
+		public String toString() {
+			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
+		}
 	}
 
 	/** array of all eligible cover regions (indices in Grid.regions). */
@@ -211,7 +209,7 @@ public class KrakenFisherman extends AHinter
 		super(tech);
 		KT1_VISITOR.tables = tables = krakenTables();
 		// Kraken only
-		assert tech.nom.startsWith("Kraken");
+		assert tech.name().startsWith("Kraken");
 		// 2=Swampfish, 3=Swordfish, 4=Jellyfish
 		assert degree>=2 && degree<=4;
 		// maximum number of endo-fins (candidates in more than one base).
@@ -232,8 +230,8 @@ public class KrakenFisherman extends AHinter
 		// I am just trying to ensure that it initialises the table for each
 		// puzzle; apparently there's a problem with Franken Swordfish and
 		// Franken Jellyfish not re-initialising the kt2Cache.
-		tables.myHintNumber = -1;
-		tables.myPuzzleID = -1L;
+		tables.myHN = -1;
+		tables.myPid = -1L;
 	}
 
 	/**
@@ -256,10 +254,6 @@ public class KrakenFisherman extends AHinter
 
 		try {
 			// initialise exits-early if it's already done for this grid.
-			// nb: change it to true to force initialise when debugging
-			// ALWAYS re-initialise and clear the cache for Kraken Swordfish(3)
-			// and Jellyfish(4) else we produce invalid hints, I know not why
-			// exactly (@stretch). This slower but works.
 			if ( tables.initialise(grid, false) ) // @check false
 				KT2_CACHE.clear();
 			if ( oneOnly ) { // short-circuit
@@ -552,8 +546,6 @@ public class KrakenFisherman extends AHinter
 	 *  you call me again, because I'm too bloody slow, even with caching!
 	 */
 	private boolean searchKrakens() {
-		ComplexFishHint base; // the causal or "base" hint
-		KrakenFishHint kraken; // Kraken "wraps" base hint, to add elims
 		int ci, v2; // coversIndex, value2
 		boolean ok;
 		// presume Phil will not find any McKrakens;
@@ -587,39 +579,42 @@ public class KrakenFisherman extends AHinter
 					} // else sharks just stays empty
 					// Kraken Found!!!! create hint and add to accu
 					deletes.clear().add(dk);
-					if ( (base=createBaseHint()) == null )
-						continue; // should never happen
-					// builds eliminations (reds) and chains
-//					Values valsToRemove = new Values();
-					Pots reds = new Pots();
-					List<Ass> chains = new LinkedList<>();
-					fins.forEach((fin) -> {
-						Ass a = kt1Asses[fin];
-//						valsToRemove.add(a.value);
-						reds.put(a.cell, new Values(a.value));
-						chains.add(a);
-					});
-					kraken = new KrakenFishHint(this
-							, reds
-							, base
-//							, valsToRemove
-							, KrakenFishHint.Type.ONE
-							, chains
-//							, new Idx(fins)
-					);
-					if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
-						if ( !HintValidator.isValid(grid, kraken.redPots) ) {
-							kraken.isInvalid = true;
-							HintValidator.report("KF1", grid, kraken.toFullString());
-							// see in GUI, skip in batch/testcase
-							if ( Run.type != Run.Type.GUI )
-								continue;
+					// the causal base hint
+					final ComplexFishHint cause = createBaseHint();
+					if ( cause != null ) {
+						// builds eliminations (reds) and chains
+	//					Values valsToRemove = new Values();
+						Pots reds = new Pots();
+						List<Ass> chains = new LinkedList<>();
+						fins.forEach((fin) -> {
+							Ass a = kt1Asses[fin];
+	//						valsToRemove.add(a.value);
+							reds.put(a.cell, new Values(a.value));
+							chains.add(a);
+						});
+						// the actual kraken hint "wraps" the causal base hint
+						final KrakenFishHint kHint = new KrakenFishHint(this
+								, reds
+								, cause
+	//							, valsToRemove
+								, KrakenFishHint.Type.ONE
+								, chains
+	//							, new Idx(fins)
+						);
+						if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+							if ( !HintValidator.isValid(grid, kHint.redPots) ) {
+								kHint.isInvalid = true;
+								HintValidator.report("KF1", grid, kHint.toFullString());
+								// see in GUI, skip in batch/testcase
+								if ( Run.type != Run.Type.GUI )
+									continue;
+							}
 						}
+						result = true;
+						if ( accu.add(kHint) ) // exit-early if accu says so
+							return true;
+						break; // one kraken per cause
 					}
-					result = true;
-					if ( accu.add(kraken) ) // exit-early if accu says so
-						return true;
-					break; // one kraken per cause
 				}
 			}
 
@@ -652,8 +647,8 @@ public class KrakenFisherman extends AHinter
 								// create the base hint
 								deletes.clear(); // with no eliminations
 								sharks.clear(); // and no sharks
-								// nb: null base never happen. Never say never.
-								if ( (base=createBaseHint()) != null ) {
+								final ComplexFishHint cause = createBaseHint();
+								if ( cause != null ) { // never say never
 									// kDeletes array to multiply iterate
 									int[] kda = Idx.toArrayA(kDelM0,kDelM1,kDelM2);
 									// get eliminations (reds) and chains
@@ -668,9 +663,9 @@ public class KrakenFisherman extends AHinter
 											chains.add(kt2sets[dk].getAss(cell, fv2));
 									});
 									// build the actual hint, which "wraps" the base hint.
-									kraken = new KrakenFishHint(this
+									final KrakenFishHint kraken = new KrakenFishHint(this
 											, reds
-											, base
+											, cause
 //											, new Values(v2)
 											, KrakenFishHint.Type.TWO
 											, chains
@@ -1418,9 +1413,9 @@ public class KrakenFisherman extends AHinter
 		private static final boolean OFF = false;
 
 		/** The AHint.hintNumber for which tables are initialised. */
-		private int myHintNumber;
+		private int myHN;
 		/** The grid.puzzleID for which tables are initialised. */
-		private long myPuzzleID;
+		private long myPid;
 
 		/**
 		 * The offTable is all the OFF Eff(ects).
@@ -1482,8 +1477,7 @@ public class KrakenFisherman extends AHinter
 		boolean initialise(Grid grid, boolean forceRefresh) {
 			// the first initialise call foreach version of each grid init's,
 			// the rest just return. "I told him we've already got one."
-			if ( myHintNumber==AHint.number && myPuzzleID==grid.pid
-			  && !forceRefresh )
+			if ( myHN==grid.hintNumber && myPid==grid.pid && !forceRefresh )
 				return false;
 
 //			final long start = System.nanoTime();
@@ -1542,8 +1536,8 @@ public class KrakenFisherman extends AHinter
 							off.addKid(kid);
 				}
 			}
-			myHintNumber = AHint.number;
-			myPuzzleID = grid.pid;
+			myHN = grid.hintNumber;
+			myPid = grid.pid;
 //			System.out.format("KT init %,d ns.\n", System.nanoTime()-start);
 			return true;
 		}

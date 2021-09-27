@@ -7,8 +7,6 @@
 package diuf.sudoku.solver;
 
 import diuf.sudoku.Settings;
-import diuf.sudoku.solver.LogicalSolver.Mode;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.StdErr;
 
 /**
@@ -31,55 +29,33 @@ public final class LogicalSolverFactory {
 	private static LogicalSolver solver;
 	private static Settings solversSettings;
 
-
 	/**
-	 * Shorthand for get(LogicalSolver.Mode.ACCURACY) which is the default mode.
-	 * 
-	 * @return 
-	 */
-	public static LogicalSolver get() {
-		return get(LogicalSolver.Mode.ACCURACY);
-	}
-	/**
-	 * Get the current LogicalSolver if it has the given Mode and
-	 * IInterruptMonitor, else construct a new LogicalSolver with those
-	 * settings, cache it, and return it. Get is an MRU-cache of size 1.
+	 * Get the current LogicalSolver if it has the given IInterruptMonitor,
+	 * else construct a new LogicalSolver with that IM, cache and return it.
+	 * Get is an MRU-cache of size 1.
 	 * <p>
-	 * The {@link LogicalSolver.Mode} is either ACCURACY (the default), or
-	 * SPEED for {@link diuf.sudoku.test.LogicalSolverTester} -SPEED switch.
-	 * I could probably do-away with the -SPEED switch and the Mode enum now,
-	 * because ACCURACY is fast-enough as it is, without throwing ALL my toys
-	 * out of my pram. I've only retained it because it's just nice to see how
-	 * quickly it CAN be done, to offset any feelings of self-worth gained by
-	 * writing the latest slow-assed bloody hinter. Everything that's slower
-	 * per-elim than the Chainers is too bloody slow, and that's most of it.
+	 * Generating a new Diabolical or IDKFA puzzle takes indeterminate time,
+	 * ie bloody ages. The longest I've seen was seven minutes, but that was
+	 * pretty unlucky. And I noticed that all IDKFA's use no mirroring to strip
+	 * the grid, so now only NONE is used with IDKFA, so if it ever takes seven
+	 * minutes again you've been unlucky. IDKFA generates take a few minutes.
+	 * Patience is a virtue.
 	 * <p>
-	 * Generating a new IDKFA puzzle takes an indeterminate period, ie ken ages.
-	 * The longest I've seen was seven minutes, but that was really unlucky.
-	 * And I noticed that all IDKFA's generated used no mirroring to strip the
-	 * grid, so now only NONE is used with IDKFA, so if it ever takes seven
-	 * minutes again you've been really really unlucky. Most IDKFA generates
-	 * take a couple of minutes. Patience is a virtue.
-	 * <p>
-	 * But I am unvirtuous, so I cache generated puzzles. My hope is that Mr
-	 * User will solve each puzzle generated, giving adequate time to generate
-	 * a replacement in the background. Mr Thick will sit there and press the
-	 * generate button repeatedly, killing and restarting the generate process.
-	 * Intelligence is a virtue too, in theory. It's only a problem in practice.
-	 * And this is a Sudoku puzzle solver, which isn't the least bit practical,
-	 * so I feel safe, despite my all too apparent lack of intelligence.
+	 * But I am completely unvirtuous, so I cache generated puzzles. My hope is
+	 * that Mr User will solve each puzzle generated, giving adequate time to
+	 * generate a replacement in the background. Mr Thick will sit there and
+	 * press the generate button repeatedly, killing and restarting generate.
+	 * Intelligence is a virtue too, in theory, bit it's just another problem
+	 * in practice. But this is a Sudoku puzzle solver, which isn't the least
+	 * bit practical, so I feel safe, despite my lack of intelligence. sigh.
 	 *
-	 * @param mode The LogicalSolver.Mode of this LogicalSolver.
 	 * @return the current cached LogicalSolver, which may be existing or a
 	 *  new one, depending on if the Earth fundamentally moved for you.
 	 *  Butt one simply loves tearing one a new one. Doesn't one? Sigh.
 	 */
-	public static LogicalSolver get(Mode mode) {
-		// mode is required, monitor is nullable
-		assert mode != null;
-		// create new LS if unset, or mode has changed.
-		if ( solver==null || mode!=solver.mode )
-			solver = newLogicalSolver(mode);
+	public static LogicalSolver get() {
+		if ( solver == null )
+			solver = newLogicalSolver();
 		return solver;
 	}
 
@@ -96,29 +72,24 @@ public final class LogicalSolverFactory {
 	 */
 	public static LogicalSolver recreate() {
 		// create a default LogicalSolver if unset (should never happen).
-		if ( solver == null )
-			solver = newLogicalSolver(Mode.ACCURACY);
 		// recreate the LogicalSolver if the underlying Settings have changed.
-		else if ( !Settings.THE.equals(solversSettings) )
-			solver = newLogicalSolver(solver.mode);
+		if ( solver==null || !Settings.THE.equals(solversSettings) )
+			solver = newLogicalSolver();
 		return solver;
 	}
 
 	// This method exists to ALWAYS update solversSettings after creating a new
 	// LogicalSolver, so that solversSettings is logically "pinned" to solver.
-	private static LogicalSolver newLogicalSolver(LogicalSolver.Mode mode) {
-		LogicalSolver solver = new LogicalSolver(mode);
-		updateSolversSettings();
-		return solver;
-	}
-
-	// update the solversSettings for equals(Settings.THE) by next recreate().
-	private static void updateSolversSettings() {
+	private static LogicalSolver newLogicalSolver() {
+		LogicalSolver result;
 		try {
+			result = new LogicalSolver();
 			solversSettings = (Settings)Settings.THE.clone();
 		} catch (Exception ex) {
-			StdErr.exit("failed to Settings.THE.clone()", ex);
+			StdErr.exit("newLogicalSolver failed", ex);
+			result = null; // you can't get here!
 		}
+		return result;
 	}
 
 	// never used

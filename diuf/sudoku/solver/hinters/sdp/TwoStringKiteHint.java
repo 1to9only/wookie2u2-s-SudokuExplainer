@@ -6,18 +6,15 @@
  */
 package diuf.sudoku.solver.hinters.sdp;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.List;
-import java.util.Set;
 
 /**
  * TwoStringKiteHint is the DTO for TwoStringKite hints. It's presented via
@@ -25,39 +22,32 @@ import java.util.Set;
  *
  * @author Bernhard Hobiger (HoDoKu) hacked into SE by Keith Corlett
  */
-public class TwoStringKiteHint extends AHint implements IActualHint {
+public class TwoStringKiteHint extends AHint  {
 
 	private final int redValue;
 	private final Cell[] rowPair;
 	private final Cell[] colPair;
 	public TwoStringKiteHint(AHinter hinter, int value, List<ARegion> bases
-			, List<ARegion> covers, Pots orangePots, Pots bluePots, Pots redPots
+			, List<ARegion> covers, Pots greens, Pots blues, Pots reds
 			, Cell[] rowPair, Cell[] colPair) {
-		// nb: what are normally greens are oranges here
-		super(hinter, redPots, null, orangePots, bluePots, bases, covers);
+		super(hinter, reds, greens, null, blues, bases, covers);
 		this.redValue = value;
 		this.rowPair = rowPair;
 		this.colPair = colPair;
 	}
 
 	@Override
-	public Set<Grid.Cell> getAquaCells(int unusedViewNum) {
-		// nb: what are normally greens are oranges here
-		return oranges.keySet();
-	}
-
-	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " on "+Frmt.and(new Values(oranges.values()));
+			s += " on "+Frmt.and(new Values(greens.values()));
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
 		return new StringBuilder(128).append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(oranges.keySet()))
+		  .append(": ").append(Frmt.csv(greens.keySet()))
 		  .append(" on ").append(Integer.toString(redValue))
 		  .toString();
 	}

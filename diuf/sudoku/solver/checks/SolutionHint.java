@@ -10,7 +10,9 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import diuf.sudoku.gui.DummyHinter;
 import diuf.sudoku.solver.AWarningHint;
+import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
 import java.util.LinkedHashSet;
@@ -18,21 +20,21 @@ import java.util.Set;
 
 
 /**
- * Hint that allows the user to directly view the solution of a sudoku.
+ * A hint from {@link diuf.sudoku.solver.checks.RecursiveAnalyser} to view
+ * (and optionally apply) the solution of a Sudoku.
  */
-public final class SolutionHint extends AWarningHint {
+public final class SolutionHint extends AWarningHint implements IPretendHint {
 
 	private final Grid grid;
 	private final Grid solution;
-	// F8 MENU~Tools~Solve: true displays solution as green potential values
-	private final boolean wantSolutionHint;
 
-	public SolutionHint(AHinter hinter, Grid grid, Grid solution
-			, boolean wantSolutionHint) {
+	public SolutionHint(AHinter hinter, Grid grid, Grid solution) {
 		super(hinter);
 		this.grid = grid;
 		this.solution = solution;
-		this.wantSolutionHint = wantSolutionHint;
+	}
+	public SolutionHint(Grid grid, Grid solution) {
+		this(new DummyHinter(), grid, solution);
 	}
 
 	@Override
@@ -59,14 +61,11 @@ public final class SolutionHint extends AWarningHint {
 
 	@Override
 	public String toHtmlImpl() {
-		final String filename = wantSolutionHint
-				? "SolutionHint.html" // (F8) describes green potential values
-				: "SudokuSolved.html"; // for "solution by natural causes"
-		return Html.load(this, filename);
+		return Html.load(this, "SolutionHint.html");
 	}
 
 	@Override
-	public int applyImpl(boolean isAutosolvingUnused) {
+	public int applyImpl(boolean isAutosolving, Grid grid) {
 		int result = (81 - grid.countFilledCells()) * 10;
 		solution.copyTo(grid);
 		return result;

@@ -10,7 +10,7 @@ import diuf.sudoku.Difficulty;
 import diuf.sudoku.Grid;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
-import diuf.sudoku.solver.GrabBag;
+import diuf.sudoku.solver.LogicalSolver;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,7 +66,8 @@ public final class PuzzleCache {
 
 	private static void savePuzzleCache() {
 		try {
-			StringBuilder sb = new StringBuilder();
+			// 83 is 81 + 2 for EOL for Winblows.
+			StringBuilder sb = new StringBuilder(83 * NUM_DIFFICULTIES);
 			for ( int i=0; i<NUM_DIFFICULTIES; ++i ) {
 				if ( PUZZLE_CACHE[i] == null )
 					return; // No save if there's an empty slot
@@ -100,7 +101,7 @@ public final class PuzzleCache {
 	Grid generate(Symmetry[] syms, Difficulty d, boolean isExact) {
 		Grid puzzle = PUZZLE_CACHE[d.index];
 		if ( puzzle != null ) {
-			// cache-hit: so generate a replacement Sudoku in the background.
+			// cache-hit: generate a replacement Sudoku in the background.
 			PUZZLE_CACHE[d.index] = null;
 			produce(syms, d);
 		} else {
@@ -159,7 +160,7 @@ public final class PuzzleCache {
 				// when the foreground analyse completes, so two LogicalSolvers
 				// don't run concurrently and trip over stateful static vars
 				// like GrabBag. GrabBag.ANALYSE_LOCK is aggregiously ironic.
-				synchronized ( GrabBag.ANALYSE_LOCK ) {
+				synchronized ( LogicalSolver.ANALYSE_LOCK ) {
 					try {
 						generate(syms, d, true);
 					} catch (Throwable eaten) {

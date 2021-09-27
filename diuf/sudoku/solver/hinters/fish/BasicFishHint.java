@@ -13,7 +13,6 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
@@ -38,9 +37,7 @@ import java.util.Set;
  * BasicFishHint implements IChildHint.getParents, enabling us to play "who's
  * your daddy" with our Assumptions.
  */
-public final class BasicFishHint extends AHint
-		implements IActualHint, IChildHint
-{
+public final class BasicFishHint extends AHint implements IChildHint {
 
 	final int valueToRemove;
 	final Set<Cell> cells;
@@ -168,7 +165,7 @@ public final class BasicFishHint extends AHint
 	private String toString;
 
 	// This method yields a special-case common name "Swampfish (nee X-Wing)"
-	// in the HTML tech name, as apposed to just the "ubiqitous" Tech.nom.
+	// in the HTML tech name, as apposed to just the "ubiqitous" Tech.name().
 	// NB: this effects only the HTML, not the Hints TreeView (et al).
 	private String getHtmlHintTypeName() {
 		return getHintTypeName().replaceFirst("Swampfish"

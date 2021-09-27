@@ -8,7 +8,6 @@ package diuf.sudoku.solver.hinters.bug;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -24,7 +23,7 @@ import java.util.Set;
  * 
  * @author Nicolas Juillerat
  */
-public final class Bug2Hint extends ABugHint implements IActualHint {
+public final class Bug2Hint extends ABugHint  {
 
 	private final Set<Cell> bugCells;
 	private final int bugValue;

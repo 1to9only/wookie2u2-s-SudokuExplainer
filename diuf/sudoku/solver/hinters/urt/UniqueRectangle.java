@@ -405,7 +405,7 @@ public final class UniqueRectangle extends AHinter
 			// get extraBuds := buds common to all extraCells, except the
 			// extraCells themselves, which maybe theExtraValue, and if there
 			// are none then there's no hint here. Move along!
-			final Idx extraBuds = Grid.cmnBudsNew(extraCells);
+			final Idx extraBuds = Cells.cmnBudsNew(extraCells);
 			extraBuds.removeAll(extraCells);
 			extraBuds.and(candidates[theExtraValue]);
 			if ( extraBuds.none() )
@@ -436,7 +436,7 @@ public final class UniqueRectangle extends AHinter
 				//         OR (the only places for 'b' (v2) in a common region
 				//             and if so we swap v1 and v2, to make v1 'a')
 				List<ARegion> bases = null;
-				int n = Grid.commonRegions(B, D, commonRegions);
+				int n = Regions.common(B, D, commonRegions);
 				for ( int i=0; i<n; ++i ) {
 					// we know that both B and D maybe v1 so all we need to do
 					// to verify that they are the ONLY locations for v1 in r
@@ -466,7 +466,7 @@ public final class UniqueRectangle extends AHinter
 					ok = false;
 					// Are C and D the only places for 'a' in a common region
 					List<ARegion> covers = null;
-					n = Grid.commonRegions(C, D, commonRegions);
+					n = Regions.common(C, D, commonRegions);
 					for ( int i=0; i<n; ++i ) {
 						// we know that both C and D maybe v1 (aka 'a') so all
 						// we need do is verify that they're the ONLY locations

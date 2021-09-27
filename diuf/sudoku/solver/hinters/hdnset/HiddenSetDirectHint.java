@@ -11,7 +11,6 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
@@ -24,7 +23,7 @@ import java.util.Set;
  * happens with a HiddenSet and is now even sometimes detected (but only
  * sometimes, not all the time... Sigh).
  */
-public final class HiddenSetDirectHint extends AHint implements IActualHint {
+public final class HiddenSetDirectHint extends AHint  {
 
 	private final Cell[] cells;
 	private final int[] hdnSetValuesArray;

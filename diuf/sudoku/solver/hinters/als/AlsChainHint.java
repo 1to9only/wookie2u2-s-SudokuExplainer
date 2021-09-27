@@ -8,7 +8,6 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -22,7 +21,7 @@ import java.util.List;
  *
  * @author Keith Corlett 2020 Apr 21
  */
-public class AlsChainHint extends AHint implements IActualHint {
+public class AlsChainHint extends AHint  {
 
 	// would be private except for the test-case
 	final List<Als> alss;

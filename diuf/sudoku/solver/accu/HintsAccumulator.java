@@ -106,4 +106,15 @@ public final class HintsAccumulator implements IAccumulator {
 			list.remove(h);
 	}
 
+	// ----------------------- LogicalSolver.getPotsFor -----------------------
+
+	public static interface HintVisitor {
+		void visit(AHint h);
+	}
+	public void forEachHint(HintVisitor v) {
+		AHint h;
+		while ( (h=getHint()) != null )
+			v.visit(h);
+	}
+
 }

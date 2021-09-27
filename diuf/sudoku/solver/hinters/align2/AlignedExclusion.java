@@ -366,7 +366,7 @@ public class AlignedExclusion extends AHinter
 	 */
 	public AlignedExclusion(Tech tech, boolean defaultIsHacked) {
 		super(tech);
-		assert tech.name().startsWith("Aligned");
+		assert tech.isAligned;
 		// my super.degree comes from the passed Tech.
 		degreeMinus1 = degree - 1;
 		candidates = new Cell[64]; // 64 = 81 - 17 minimum clues
@@ -829,21 +829,21 @@ public class AlignedExclusion extends AHinter
 						if ( anyExcludedValues ) {
 							// Yeah! We found an Aligned Exclusion, so create a hint.
 							// reds = cells potential values that are not in allowed
-							Pots reds = createRedPotentials();
+							final Pots reds = createRedPotentials();
 							if ( reds.isEmpty() )
 								continue; // Should never happen. Never say never.
 							// use a new cell array for each hint; which are few.
-							Cell[] cellsA = new Cell[degree];
+							final Cell[] cellsA = new Cell[degree];
 							for ( i=0; i<degree; ++i )
 								cellsA[i] = cStack[i].cell;
 							// use a new excluders-cells array too
-							Cell[] cmnExcluders = ce.excls.cells(grid
+							final Cell[] cmnExcluders = ce.excls.cells(grid
 									, new Cell[ce.excls.size()]);
 							// build the excluded combos map to go in the hint
-							ExcludedCombosMap map = buildExcludedCombosMap(
+							final ExcludedCombosMap map = newExcludedCombosMap(
 									cmnExcluders, cellsA, reds);
 							// create the hint
-							AHint hint = new AlignedExclusionHint(this, reds
+							final AHint hint = new AlignedExclusionHint(this, reds
 									, cellsA, Frmt.ssv(cmnExcluders), map);
 							if ( HintValidator.ALIGNED_EXCLUSION_USES ) {
 								if ( !HintValidator.isValid(grid, reds) ) {
@@ -976,7 +976,7 @@ public class AlignedExclusion extends AHinter
 	 * @param reds
 	 * @return a new ExcludedCombosMap.
 	 */
-	private ExcludedCombosMap buildExcludedCombosMap(Cell[] cmnExcluders
+	private ExcludedCombosMap newExcludedCombosMap(Cell[] cmnExcluders
 			, Cell[] cells, Pots reds) {
 		ValsStackEntry e; // the current values stack entry (ie stack[l])
 		int l, i; // l is stack level, i is a general purpose index
@@ -1021,26 +1021,29 @@ public class AlignedExclusion extends AHinter
 				}
 			}
 			// build-up the combo = the preceeding values + my presumedValue
-			if ( l == 0 )
+			if ( l == 0 ) {
 				e.combo = e.cand;
-			else
+				stack[++l].index = 0; // move right
+			} else {
 				e.combo = stack[l-1].combo | e.cand;
-			if ( l == degreeMinus1 ) { // it's a complete combo
-				// if this combo contains all of any excluders possible values
-				// then add this "excluded combo" to the map
-				for ( Cell x : cmnExcluders ) {
-					if ( (x.maybes.bits & ~e.combo) == 0 ) {
-						int[] a = new int[degree];
-						for ( i=0; i<degree; ++i )
-							a[i] = VALUESES[stack[i].cand][0];
-						map.put(new HashA(a), x);
-						break; // we want only the first excluder of each combo
+				if ( l < degreeMinus1 ) { // the combo is incomplete
+					// move right to the next values-level,
+					// and start at its first potential value
+					stack[++l].index = 0;
+				} else { // the combo is complete
+					// if this combo contains all of any excluder cells maybes
+					//    (the excluder cell MUST have A value)
+					// then map this "excluded combo" to its excluder cell
+					for ( Cell x : cmnExcluders ) {
+						if ( (x.maybes.bits & ~e.combo) == 0 ) {
+							int[] a = new int[degree];
+							for ( i=0; i<degree; ++i )
+								a[i] = VALUESES[stack[i].cand][0];
+							map.put(new HashA(a), x);
+							break; // we want only the first excluder of each combo
+						}
 					}
 				}
-			} else {
-				// move right to the next values-level,
-				// and start at its first potential value
-				stack[++l].index = 0;
 			}
 		}
 	}
@@ -1114,15 +1117,14 @@ public class AlignedExclusion extends AHinter
 	static final class CellStackEntry {
 		int index; // the index of the current in the candidates array
 		Cell cell; // the cell at this level 1..degree in the stack
-		Idx excls; // excludersIdx: excluders common to all cells in an aligned set
+		Idx excls; // excludersIdx: buds of all cells in the aligned set
 		int cands; // remember the complete cell.maybes.bits
-//		// @check: commented out: for debugging only
-//		@Override
-//		public String toString() {
-//			if ( cell == null )
-//				return "-";
-//			return ""+index+":"+cell.toFullString()+"->"+excls;
-//		}
+		@Override
+		public String toString() {
+			if ( cell == null )
+				return "-";
+			return ""+index+":"+cell.toFullString()+"->"+excls;
+		}
 	}
 
 	static final class ValsStackEntry {
@@ -1154,11 +1156,10 @@ public class AlignedExclusion extends AHinter
 			cands = cell.maybes.bits; // default to the full set of maybes
 			sees = cell.sees;
 		}
-//		// @check commented out: for debugging only
-//		@Override
-//		public String toString() {
-//			return diuf.sudoku.Values.toString(cand);
-//		}
+		@Override
+		public String toString() {
+			return diuf.sudoku.Values.toString(cand);
+		}
 	}
 
 	/**
@@ -1238,12 +1239,11 @@ public class AlignedExclusion extends AHinter
 		}
 
 		/**
-		 * Overridden to ignore irrelevant values (which aren't in the redBits
-		 * bitset that was passed to my constructor).
+		 * Overridden to ignore irrelevant values (which aren't in the reds
+		 * Pots that was passed to my constructor).
 		 *
-		 * <p><b>Enhancement:</b> now alternately uses the Cell[] and Pots from
-		 * the preferred constructor to call AlignedExclusionHint.isRelevant,
-		 * so that we can finally eradicate those annoying irrelevant hints.
+		 * <p><b>Enhancement:</b> now passes my Cell[] and Pots to
+		 * AlignedExclusionHint.isRelevant, to eradicate irrelevant hints.
 		 * <b>When</b> all usages of the deprecated constructor are eliminated
 		 * please remove the cells==null branch of this method, and the
 		 * deprecated constructor, and it's field/s.<br>
@@ -1269,8 +1269,8 @@ public class AlignedExclusion extends AHinter
 		}
 
 		public LinkedHashSet<Cell> getUsedCommonExcluders(Cell cmnExcls[], int numCmnExcls) {
-			LinkedHashSet<Cell> set = new LinkedHashSet<>(16, 0.75f);
-			Iterator<HashA> it = super.keySet().iterator();
+			final LinkedHashSet<Cell> set = new LinkedHashSet<>(16, 0.75f);
+			final Iterator<HashA> it = super.keySet().iterator();
 			Cell c;
 			while ( it.hasNext() )
 				if ( (c=get(it.next())) != null )

@@ -156,7 +156,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		int sv = VSHFT[value];
 		for ( Cell cell : cells )
 			if ( (cell.maybes.bits & sv) != 0 )
-				put(cell, new Values(value));
+				put(cell, new Values(sv, false));
 	}
 
 	/**
@@ -245,6 +245,22 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
+	 * Constructs a new Pots containing an entry for each Cell in 'cells' =>
+	 * a <b>new instance</b> of Values which contains the intersection of this
+	 * cell with the given 'bitset'.
+	 *
+	 * @param cells Cell's to pit
+	 * @param bitset a bitset of the values to add
+	 * @param dummy a dummy parameter which differentiates this bitset
+	 *  constructor from the "normal" value constructor.
+	 */
+	public Pots(List<Cell> cells, int bitset, boolean dummy) {
+		super(cells.size(), 1F);
+		for ( Cell cell : cells )
+			put(cell, cell.maybes.intersectBits(bitset));
+	}
+
+	/**
 	 * Constructor: Constructs a new Pots containing all of the given cells
 	 * to a new Values containing the given value.
 	 *
@@ -283,7 +299,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 */
 	public Pots addAll(Pots others) {
 		// head-off adding myself to myself
-		if ( others == this )
+		if ( others==null || others==this )
 			return this;
 		for ( Cell cell : others.keySet() ) {
 			Values otherValues = others.get(cell);

@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver.accu;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.solver.AHint;
 import java.util.Collection;
 import java.util.List;

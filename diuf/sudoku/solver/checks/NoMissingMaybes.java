@@ -34,9 +34,4 @@ public final class NoMissingMaybes extends AWarningHinter {
 		return false;
 	}
 
-	@Override
-	public String toString() {
-		return "No Missing Maybes";
-	}
-
 }

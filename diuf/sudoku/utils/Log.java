@@ -6,8 +6,6 @@
  */
 package diuf.sudoku.utils;
 
-import diuf.sudoku.io.IO;
-import diuf.sudoku.io.StdErr;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -71,8 +69,13 @@ public final class Log {
 
 	public static void flush() {
 		out.flush();
-		if ( System.out != out )
+		if ( out != System.out )
 			System.out.flush();
+	}
+
+	public static void close() {
+		if ( out != System.out )
+			out.close();
 	}
 
 	public static long div(long l, long i) {
@@ -189,9 +192,9 @@ public final class Log {
 		//nb: need the StringWriter coz PrintWriter.toString is Object.toString.
 		StringWriter sw = new StringWriter();
 		PrintWriter pw = new PrintWriter(sw);
-		pw.format("%5s\t%17s\t%17s\t%5s\t%5s\t%5s\t%4s\t%s"
+		pw.format("%5s\t%17s\t%17s\t%5s\t%5s\t%5s\t%4s\t%7s\t%s"
 				, "", "time (ns)", "average (ns)", "calls"
-				, "hints", "elims", "diff", "hinter");
+				, "hints", "elims", "maxD", "ttlDiff", "hinter");
 		Log.PUZZLE_SUMMARY_HEADERS = sw.toString();
 	}
 

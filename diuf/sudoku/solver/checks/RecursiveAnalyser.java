@@ -9,9 +9,9 @@ package diuf.sudoku.solver.checks;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
-import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
@@ -75,7 +75,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 
 	/** Constructs a new RecursiveAnalyser. */
 	public RecursiveAnalyser() {
-		super(Tech.SingleSolutions);
+		super(Tech.SingleSolution);
 	}
 
 	/**
@@ -88,8 +88,13 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 */
 	public Grid buildRandomPuzzle(Random rnd) {
 		Grid solution = new Grid();
-		boolean success = recursiveSolve(solution, 1, false, rnd, false);
-		assert success;
+		try {
+			apcu.grid = solution;
+			boolean success = recursiveSolve(solution, 1, false, rnd, false);
+			assert success;
+		} finally {
+			apcu.grid = null;
+		}
 		return solution;
 	}
 
@@ -134,34 +139,22 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	}
 
 	/**
-	 * solveQuicklyAndQuietly sets the given grids solutionValues field, and
-	 * returns the solution Grid, just in case you want it.
-	 * <p>
-	 * The solution is calculated using Donald Knuth's recursive algorithm
-	 * (guess the value of each unknown cell and prove it right/wrong)
-	 * with FOUR QUICK FOXES (fast basic Sudoku solving logic).
-	 * It really is frightfully fast.
-	 * <p>
-	 * None of the ideas here-in are mine/original, although I expect in time
-	 * my implementation thereof will prove "better than a poke in the eye with
-	 * a blunt stick".
-	 * <p>
-	 * CAVEAT EMPTOR: There may still be significant implementation gains to
-	 * be had, but "I'm pretty good at this", and I've tried my best.
-	 * ~KRC
+	 * solveASAP sets the given grids solutionValues field, and returns the
+	 * solution Grid, just in case you want it.
 	 *
 	 * @param grid to be solved
 	 * @return  solution Grid (a copy of grid that's been solved)
 	 */
-	public Grid solveQuicklyAndQuietly(Grid grid) {
-		// Trixie: setting GrabBag.logicalSolver=null suppresses AHint.logHint
-		// within the doRecursiveSolve method, where it's just NOISE.
-		// get a copy of the given Grid to solve
+	public Grid solveASAP(Grid grid) {
 		Grid solution = new Grid(grid);
 		if ( !doRecursiveSolve(solution, FORWARDS, false) )
 			throw new UnsolvableException("recursiveSolve failed. Puzzle is invalid (probable) or recursiveSolve is rooted again.");
 		// set the given grid's solution field to my solved copy
 		grid.solutionValues = solution.toValuesArray();
+		if ( wantSolutionHint ) {
+			solutionHint = new SolutionHint(this, grid, solution);
+			wantSolutionHint = false;
+		}
 		return solution;
 	}
 
@@ -197,54 +190,50 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * @return true if the grid is invalid (hint added to accu), else false.
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
+		// debug only: true logs each hint when it's applied (verbose)
+		final boolean isNoisy = false; // @check false
 		boolean result = false;
 		try {
-			Grid grid1 = new Grid(grid);
-
-if ( false ) { // @check false (definately DEBUG only, way slow!)
-	if ( !new Grid.Diff(grid, grid1).diff(System.out) )
-		System.out.println("...same...");
-}
-
-			if ( doRecursiveSolve(grid1, FORWARDS, false) ) {
-				Grid grid2 = new Grid(grid); // constructor rebuildsEverything
-				doRecursiveSolve(grid2, BACKWARDS, false);
-				if ( grid2.equals(grid1) ) {
+			final Grid f = new Grid(grid); // FORWARDS solution
+			if ( false ) { // @check false
+				// DEBUG verify Grid's copy-constructor: VERY SLOW!
+				if ( !new Grid.Diff(grid, f).diff(System.out) )
+					System.out.println("...same...");
+			}
+			if ( doRecursiveSolve(f, FORWARDS, isNoisy) ) {
+				final Grid b = new Grid(grid); // BACKWARDS solution
+				doRecursiveSolve(b, BACKWARDS, isNoisy);
+				if ( b.equals(f) ) {
 					// the Sudoku is valid
 					// store the solution to this puzzle in the grid itself
-					grid.solutionValues = grid1.toValuesArray();
+					grid.solutionValues = f.toValuesArray();
 					// cache hint in public field for later collection.
-					solutionHint = new SolutionHint(this, grid, grid1, wantSolutionHint);
-					// "Did you produce a hint?" true if you wantSolutionHint
-					// else it is false.
+					if ( wantSolutionHint )
+						solutionHint = new SolutionHint(this, grid, f);
+					// "Did you produce a hint?"
 					result = wantSolutionHint;
 				} else {
 					// the Sudoku is invalid: multiple solutions
-					accu.add(new MultipleSolutionsHint(this, grid, grid1, grid2));
+					accu.add(new MultipleSolutionsHint(this, grid, f, b));
 					// so "Did you produce a hint?" is true
 					result = true;
 				}
 			} else {
-				String message, filename;
 				// the Sudoku is unsolvable (ie invalid)
 				// but are we just missing some maybe/s?
-				grid.copyTo(grid1);
+				grid.copyTo(f);
 				// restore any missing maybes
-				grid1.rebuildMaybesAndS__t();
-				// if maybes were restored then solve it again Sam.
-				if ( !grid1.equals(grid) && doRecursiveSolve(grid1, BACKWARDS, false) ) {
-					// Just missing some maybe/s, ie a cells solution value has
-					// been eliminated from its potential values, rendering the
-					// puzzle unsolvable.
-					message = "Missing maybes";
-					filename = "NoMissingMaybes.html";
+				f.rebuildMaybesAndS__t();
+				// solve it again Sam. Or not. sigh.
+				if ( !f.equals(grid) && doRecursiveSolve(f, BACKWARDS, false) ) {
+					// Missing maybe/s: a cells solution value has been removed
+					// from its potential values, so the puzzle is unsolvable.
+					accu.add(new WarningHint(this, "Missing maybes", "NoMissingMaybes.html"));
 				} else {
 					// Congratulations, it's a piece of crap ANNDD Frighten It!
-					message = "No solution";
-					filename = "NoSolution.html";
+					accu.add(LogicalSolverFactory.get().UNSOLVABLE_HINT);
 				}
-				accu.add(new WarningHint(this, message, filename));
 				result = true;
 			}
 		} finally {
@@ -266,11 +255,14 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	private boolean doRecursiveSolve(Grid grid, boolean isReverse, boolean isNoisy) {
 		boolean result;
 		try {
+			apcu.grid = grid;
 			result = recursiveSolve(grid, 1, isReverse, null, isNoisy);
 		} catch (UnsolvableException unexpected) {
 			// from the top level of recursiveSolve, meaning that the puzzle
 			// is invalid somehow.
 			result = false;
+		} finally {
+			apcu.grid = null;
 		}
 		if ( IS_NOISY ) {
 			final String s; if(isReverse) s="back"; else s="for";
@@ -285,6 +277,10 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 	 * <p>
 	 * When a non-null Random is given this method uses it to generate a random
 	 * puzzle.
+	 * <p>
+	 * This is Donald Knuth's recursive algorithm (guess value of each unknown
+	 * cell and prove it right/wrong) with FOUR QUICK FOXES (fast basic Sudoku
+	 * solving logic). It's pretty fast.
 	 */
 	private boolean recursiveSolve(Grid grid, int depth, boolean isReverse
 			, Random rnd, boolean isNoisy) {
@@ -340,20 +336,6 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 
 	// ---------------------- the solveLogically section ----------------------
 
-	// HintsApplicumulator immediately applies each hint to the grid and we
-	// carry on searching, and later it'll return true, which is especially
-	// handy for singles which tend to cause singles; and Locking which
-	// tend to cause points/claims, and now Locking even searches
-	// exhuastively when it's accu is a HintsApplicumulator. It used to miss
-	// hints when maybes were removed from cells that'd already been searched.
-	// @param isStringy = true to enbuffenate hints toFullString. // for debug!
-	//        isStringy = false to not waste time enbuffenating. // normal use!
-	// @param isAutosolving = true, so it'll set any subsequent singles coz it
-	// can do it faster than THE_SINGLES, coz Cell.set has less area to search
-	// (20 siblings, verses 81 cells) for the next cell to set. This also means
-	// that a Cell.set can "spontaneously" completely fill the grid.
-	private final HintsApplicumulator apcu = new HintsApplicumulator(false, true);
-
 	// This is the "normal" hints accumulator, nb: we want only one hint.
 	private final IAccumulator accu = new SingleHintsAccumulator();
 
@@ -362,6 +344,20 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 		    new HiddenSingle() // NB: hidden first, coz it's quicker this way
 		  , new NakedSingle()  // when we run them both anyway.
 	};
+
+	// HintsApplicumulator is used by locking. It immediately applies each hint
+	// to the grid and we carry on searching, and later it'll return true,
+	// which is handy for singles that tend to cause singles; and Locking which
+	// tend to cause points/claims, and now Locking even searches exhuastively
+	// when its accu is a HintsApplicumulator, instead of missing hints when
+	// maybes were removed from cells that had already been searched.
+	// @param isStringy = true to enbuffenate hints toFullString. // for debug!
+	//        isStringy = false to not waste time enbuffenating. // normal use!
+	// @param isAutosolving = true, so it'll set any subsequent singles coz it
+	// can do it faster than THE_SINGLES, coz Cell.set has less area to search
+	// (20 siblings, verses 81 cells) for the next cell to set. This also means
+	// that a Cell.set can "spontaneously" completely fill the grid.
+	private final HintsApplicumulator apcu = new HintsApplicumulator(false, true);
 
 	// The "fast" hinters evaluated by ns/elim.
 	// Locking uses the HintsApplicumulator under the hood, and then adds
@@ -411,7 +407,7 @@ if ( false ) { // @check false (definately DEBUG only, way slow!)
 				  // get any apply the hint
 				  && (hint=myAccu.getHint()) != null
 				  && (any|=true)
-				  && hint.apply(true, isNoisy) > 0 // throws UnsolvableException
+				  && hint.apply(true, isNoisy, grid) > 0 // throws UnsolvableException
 				  // before seeing if the grid is full
 				  && grid.isFull() )
 					return true;

@@ -7,7 +7,6 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -23,7 +22,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021 Jan IIRC
  */
-class BigWingHint extends AHint implements IActualHint {
+class BigWingHint extends AHint  {
 
 	private final int[] wingValues; // als values - yz values
 	private final int x; // the primary link value to eliminate
@@ -148,9 +147,9 @@ class BigWingHint extends AHint implements IActualHint {
 			, NUMBER_NAMES[degree-1]	// 7
 			, NUMBER_NAMES[degree-2]	// 8
 			, NUMBER_NAMES[degree-3]	// 9
-			, hinter.tech.nom			// 10
+			, hinter.tech.name()		// 10
 			// double-linked wings are called rings (used in BigWingHintDL)
-			, hinter.tech.nom.replaceFirst("-Wing", "-Ring") // 11
+			, hinter.tech.name().replaceFirst("Wing", "Ring") // 11
 		);
 	}
 

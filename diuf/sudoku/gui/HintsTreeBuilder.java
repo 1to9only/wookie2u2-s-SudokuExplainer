@@ -86,7 +86,7 @@ public final class HintsTreeBuilder {
 				// we get away with it coz it's the only hint without a hinter
 				hinterName = hint.getClass().getSimpleName().replaceAll("Hint$", "");
 			else
-				hinterName = hint.hinter.toString(); // returns tech.nom, mostly (some are overridden)
+				hinterName = hint.hinter.toString(); // returns tech.name()
 			// get the existing hinterNode, or create a new one
 			HintNode hinterNode = myMap.get(hinterName);
 			if ( hinterNode == null ) {

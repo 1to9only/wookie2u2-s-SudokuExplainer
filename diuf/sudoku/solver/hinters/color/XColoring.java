@@ -46,6 +46,7 @@ import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
@@ -92,11 +93,11 @@ import java.util.LinkedList;
  * hints and either I'm misunderstanding the algorithm or it's WRONG! I think
  * it's just plain WRONG! Allthough one should never underestimate one's own
  * capacity for sheer unadulterated stupidity.
- * 
+ *
  * KRC 2021-05-11 At some time in the past I fixed the above invalid hint issue
  * but forgot to comment on it. XColoring is no longer password protected. The
  * problem with coloring is that if any of it is wrong then it's all wrong.
- * 
+ *
  * KRC 2021-05-17 Investigated XColoring-hints found after GEM has run (moved
  * GEM up in LogicalSolver.configureHinters). I can confirm that the XColoring
  * algorithm finds hints that GEM misses, because GEM requires "and conversely"
@@ -156,7 +157,7 @@ public final class XColoring extends AHinter {
 	// The steps StringBuilder contains an explanation of why this hint exists.
 	// It's part of the hint-HTML.
 	private final StringBuilder steps = new StringBuilder(1024);
-	
+
 	public XColoring() {
 		super(Tech.XColoring);
 	}
@@ -185,7 +186,7 @@ public final class XColoring extends AHinter {
 
 	/**
 	 * Append 's' to the steps StringBuilder, followed by a newline.
-	 * 
+	 *
 	 * @param s to append
 	 */
 	private void step(String s) {
@@ -205,23 +206,23 @@ public final class XColoring extends AHinter {
 		AHint hint; // Similarly.
 		ARegion dr; // a dirty region, to be re-processed.
 		Indexes riv; // region.indexesOf[v]
-		int[] ice; // indice color element: 0=indice, 1=color
-		int[] rivs; // VALUESES[region.indexesOf[v].bits]
-		int r, w; // iceQ read/write index
-		int i; // the uniquitious general purpose index
-		int n; // the number of whatevers added to the array
-		int a, b; // the indices of the cells in this conjugate pair
-		int conjugate; // the indice of the conjugate cell
-		int indice, color; // grid.cells indice is colored C0 or C1
-		int subtype; // the hint type, if any
-		int c; // the indice into colorSet
-		int o; // the OPPOSITE_COLOR to c
-		int oppositeColor; // the other color
-		int dri; // dirty region index
-		int resultColor; // the color to paint results in XColoringHintMulti
+		Idx colorSet // current color (C1 or C2)
+		  , otherSet; // OPPOSITE color (C2 or C1)
+		int[] ice // indice color element: 0=indice, 1=color
+		    , rivs; // VALUESES[region.indexesOf[v].bits]
+		int r, w // iceQ read/write index
+		  , i // the uniquitious general purpose index
+		  , n // the number of whatevers added to the array
+		  , a, b // the indices of the cells in this conjugate pair
+		  , conjugate // the indice of the conjugate cell
+		  , indice, color // grid.cells indice is colored C0 or C1
+		  , subtype // the hint type, if any
+		  , c // the indice into colorSet
+		  , o // the OPPOSITE_COLOR to c
+		  , oppositeColor // the other color
+		  , dri // dirty region index
+		  , resultColor; // the color to paint results in XColoringHintMulti
 		boolean any; // did we find any cells?
-		Idx colorSet; // current color (C1 or C2)
-		Idx otherSet; // OPPOSITE color (C2 or C1)
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach value
@@ -235,6 +236,13 @@ public final class XColoring extends AHinter {
 			for ( ARegion region : grid.regions ) {
 				// with 2 places for v (ie a conjugate pair in region on v)
 				if ( (riv=region.indexesOf[v]).size == 2 ) {
+					// generate doesn't rebuildAllRegionsS__t, and I guess this
+					// must be the first time I use an idx based on indexesOf.
+					if ( region.idxs[v].size() != 2 ) {
+						grid.rebuildAllRegionsS__t(); // try to recover
+						if ( region.idxs[v].size() != 2 ) // try again
+							throw new UnsolvableException(); // we're ____ed
+					}
 					// --------------------------------------------------------
 					// Step 1: Select a conjugate pair (the only two places for
 					// v in a region). Color the first C1, and second C2.
@@ -523,7 +531,7 @@ public final class XColoring extends AHinter {
 	// a temporary Idx: set, read, forget.
 	private final Idx tmp = new Idx();
 
-	// a bitset of indexes of regions that are "dirty", ergo a queue of regions 
+	// a bitset of indexes of regions that are "dirty", ergo a queue of regions
 	// to be reprocessed, used by findXColorHints (above) and poll (below).
 	// NOTE: we use just a 32 bit int because there's only 27 regions.
 	private int dirtyRegions;

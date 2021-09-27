@@ -250,14 +250,18 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 		return this;
 	}
 
-	/** Remove 'i' from this Indexes Set.
-	 * @param i int to clear. */
-	public void remove(int i) {
+	/**
+	 * Remove 'i' from this Indexes Set.
+	 * @param i int to clear.
+	 * @return the new size
+	 */
+	public int remove(int i) {
 		// if 'i' is set (1) in bits
 		if ( (bits & ISHFT[i]) != 0 ) {
 			bits &= ~ISHFT[i]; // unset the bit
 			--size; // knock-down the count
 		}
+		return size;
 	}
 
 	// ---------------- queries ----------------

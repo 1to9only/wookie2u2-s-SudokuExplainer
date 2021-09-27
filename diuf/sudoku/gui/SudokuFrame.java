@@ -16,17 +16,22 @@ import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.AWarningHint;
-import diuf.sudoku.solver.IActualHint;
+import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.checks.SolvedHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.IAsker;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import java.awt.*;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.*;
 import java.awt.event.*;
+import static java.awt.Event.CTRL_MASK;
+import static java.awt.Event.SHIFT_MASK;
+import static java.awt.event.MouseEvent.BUTTON1;
+import static java.awt.event.MouseEvent.BUTTON2;
+import static java.awt.event.MouseEvent.BUTTON3;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -75,21 +80,12 @@ import javax.swing.tree.*;
  * <li>Good luck with A*E, and may all of your camels be well watered.
  * </ul>
  */
+@SuppressWarnings("Convert2Lambda") // I prefer to treat all warnings as errors, and replacing inner classes with lambda expressions is more trouble than it's worth (in my humble opinion), so this warning message should ONLY apply to new projects, not existing code-bases, but Netbeans authors lack the intelligence to see that.
 final class SudokuFrame extends JFrame implements IAsker {
 
 	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	private static final long serialVersionUID = 8247189707924329043L;
-
-	// these are just shorthand because the longhand is annoying
-	private static final int B1 = MouseEvent.BUTTON1;
-	private static final int B2 = MouseEvent.BUTTON2;
-	private static final int B3 = MouseEvent.BUTTON3;
-
-	// these are just shorthand because the longhand is alloying
-	private static final int SHIFT = Event.SHIFT_MASK;
-	private static final int ALT = Event.ALT_MASK;
-	private static final int CTRL = Event.CTRL_MASK;
 
 	private static final Font DIALOG_BOLD_12 = new Font("Dialog", Font.BOLD, 12);
 
@@ -149,6 +145,9 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private AHint currHint; // the selected hint, nullable
 	private int viewCount, viewNum = -1; // a hint can have >1 "views" in grid
 
+	private File logViewFile = null;
+	private String regex;
+
 	/**
 	 * The directory which the open-file and save-file dialogs start in.
 	 */
@@ -201,7 +200,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 					gridPanel.repaint();
 					setTitle(ATV + "   (dropped in)");
 					hintDetailPane.setText("Sudoku dropped!");
-				} catch (Exception ex) {
+				} catch (UnsupportedFlavorException | IOException ex) {
 					displayError(ex);
 				}
 			}
@@ -307,7 +306,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			p.setGreenPots(h.getGreens(viewNum));
 			p.setRedPots(h.getReds(viewNum));
 			p.setOrangePots(h.getOranges(viewNum));
-			p.setBluePots(h.getBlues(p.getSudokuGrid(), viewNum));
+			p.setBluePots(h.getBlues(p.getGrid(), viewNum));
 			// The three extra colors are currently only in the ColoringHint,
 			// but other hint-types may use them in future, so don't go round.
 			p.setYellowPots(h.getYellows());
@@ -369,8 +368,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 			resetViewSelector();
 			// Set explanations
 			setHintDetailArea(hint.toHtml());
-			// NB: AnalysisHint implements IActualHint despite not being one.
-			if ( hint instanceof IActualHint ) {
+			// NB: AnalysisHint is "actual" despite not being an actual hint.
+			if ( !(hint instanceof IPretendHint) ) {
 				lblPuzzleRating.setText(RATING.format(hint.getDifficulty()));
 			}
 		}
@@ -400,13 +399,13 @@ final class SudokuFrame extends JFrame implements IAsker {
 		// these Tech's are far too slow for practical use.
 		if ( wanted.contains(Tech.KrakenJellyfish)
 		  || wanted.contains(Tech.MutantJellyfish) )
-			msg += " Jelly up!";
+			msg += " Jellylegs!";
 		// these Tech's are too slow for practical use.
 		if ( wanted.contains(Tech.AlignedSept)
 		  || wanted.contains(Tech.AlignedOct)
 		  || wanted.contains(Tech.AlignedNona)
 		  || wanted.contains(Tech.AlignedDec) )
-			msg += " Align those balls!";
+			msg += " Megaligned!";
 		// set the warning JLabel's text
 		lblDisabledTechsWarning.setText(msg);
 		// make the warning panel in/visible
@@ -455,7 +454,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 				Class<?> lafiClass = Class.forName(lafi.getClassName());
 				LookAndFeel instance = (LookAndFeel) lafiClass.newInstance();
 				menuItem.setToolTipText(instance.getDescription());
-			} catch (Exception ex) {
+			} catch (ClassNotFoundException | IllegalAccessException | InstantiationException ex) {
 				if (firstError) {
 					engine.whinge(ex); // full stack trace
 					firstError = false;
@@ -478,7 +477,9 @@ final class SudokuFrame extends JFrame implements IAsker {
 					try {
 						UIManager.setLookAndFeel(lafClassName);
 						Settings.THE.setLookAndFeelClassName(lafClassName);
-						Settings.THE.save();
+// KRC 2021-06-18 07:07 Settings are saved when SE closes, and if SE bombs-out
+// before it saves we may be better-off!
+//						Settings.THE.save();
 						SwingUtilities.updateComponentTreeUI(SudokuFrame.this);
 						// recreate the renderer to reload the correct icons
 						hintsTree.setCellRenderer(new HintsTreeCellRenderer());
@@ -489,7 +490,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 							gd.pack();
 							gd.repaint();
 						}
-					} catch (Exception ex) {
+					} catch (ClassNotFoundException | IllegalAccessException | InstantiationException | UnsupportedLookAndFeelException ex) {
 						displayError(ex);
 					}
 				}
@@ -598,11 +599,11 @@ final class SudokuFrame extends JFrame implements IAsker {
 				int btn = e.getButton();
 				int cnt = e.getClickCount();
 				int mod = e.getModifiersEx();
-				if ( btn==B1 && cnt==2 ) {
+				if ( btn==BUTTON1 && cnt==2 ) {
 					// double-left-click: as per VK_ENTER
 					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
 					e.consume();
-				} else if ( btn==B3 && cnt==1 ) {
+				} else if ( btn==BUTTON3 && cnt==1 ) {
 					// single-right-click
 					if ( (mod & InputEvent.CTRL_DOWN_MASK) != 0 ) {
 						// Ctrl-single-right-click
@@ -656,7 +657,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private void applySelectedHintsAndGetNextHint(boolean wantMore, boolean wantSolution) {
 		try {
 			if ( engine.getGrid().isFull() ) {
-				setCurrentHint(new SolvedHint(), false);
+				setCurrentHint(engine.solver.SOLVED_HINT, false);
 			} else {
 				engine.applySelectedHints(); // throws UnsolvableException
 				getAllHintsInBackground(wantMore, wantSolution);
@@ -765,7 +766,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 				final int btn = e.getButton();
 				final int clks = e.getClickCount();
 				// right-click: copy the html-text to the clipboard
-				if ( clks==1 && (btn==B2 || btn==B3) ) {
+				if ( clks==1 && (btn==BUTTON2 || btn==BUTTON3) ) {
 					if (hintDetailHtml != null)
 						engine.copyToClipboard(hintDetailHtml);
 					else
@@ -773,7 +774,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 					e.consume();
 				// double-left-click: if the selected text looks like a cell id
 				// then focus on (yellow background) that cell in the grid.
-				} else if ( clks==2 && btn==B1 ) {
+				} else if ( clks==2 && btn==BUTTON1 ) {
 					final String id = hintDetailPane.getSelectedText();
 					if ( id.length()==2 && CELL_ID_PATTERN.matcher(id).matches() )
 						gridPanel.setFocusedCellS(id);
@@ -953,8 +954,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					int mod = e.getModifiers();
-					boolean wantMore = (mod & SHIFT) != 0;
-					boolean wantSolution = (mod & CTRL) != 0;
+					boolean wantMore = (mod & SHIFT_MASK) != 0;
+					boolean wantSolution = (mod & CTRL_MASK) != 0;
 					getAllHintsInBackground(wantMore, wantSolution);
 				}
 			});
@@ -1474,46 +1475,46 @@ final class SudokuFrame extends JFrame implements IAsker {
 
 	// I reckon only techies will ever use LogicalSolverTester. This menu item
 	// allows you to view the hints-of-type in a LogicalSolverTester .log file.
-	// * The intended regex is a Tech.nom (or whatever) as per the hint-line in
-	//   the logFile. Only hint-text (char 65 on) is matched.
-	// * NOTE When called from the menu I start a new search.
-	//   Ctrl-l finds-next in existing search, or start if none.
+	// * The intended regex is a Tech.name() or whatever as per the hint-line
+	//   in the log-File. Only hint-text (char 65 on) is matched
+	// * Use the menu to start a new search (even if search exists)
+	// * Then press Ctrl-L to find-next (or start a new search, if none exists)
 	private JMenuItem getMitLogView() {
 		if ( mitLogView != null )
 			return mitLogView;
 		mitLogView = newJMenuItem("Log View", KeyEvent.VK_W,
-				 "View hints from a LogicalSolverTester log file");
+				 "View hints that match a regular expresion in an existing LogicalSolverTester .log file");
 		mitLogView.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-			    // if there's no logFile yet
+				// no log yet
 				if ( logViewFile==null || !logViewFile.exists()
-				  // or there's no regex yet
+				  // or no regex yet
 				  || regex==null || regex.isEmpty()
-				  // or I was fired from the menu
-				  || (e.getModifiers() & KeyEvent.CTRL_MASK) == 0
-				) {
-					// then re/start the search
+				  // or initiated by the menu
+				  || (e.getModifiers() & KeyEvent.CTRL_MASK) == 0 ) {
+					// get the .log File
 					logViewFile = chooseFile(new LogFileFilter());
 					if ( logViewFile == null || !logViewFile.exists() )
 						return;
-					// default regex is whatever I'm working on currently.
-					// @stretch MRU combo-box (custom dialog).
-					if ( regex == null || regex.isEmpty() )
-//						regex = "(Finned Mutant|Mutant).*";
-						regex = ".*WXYZ.*";
-					regex = Ask.forString("hint regex", regex);
+					// re/start the search
+					engine.startLine = 0;
+					// LogViewHintRegexDialog.btnOk calls-back logView (below)
+					new LogViewHintRegexDialog(SudokuFrame.this).setVisible(true);
+				} else {
+					// view the next occurrence of regex in logViewFile
+					logView(regex);
 				}
-				if ( regex == null || regex.isEmpty() )
-					return;
-				regex = engine.logView(logViewFile, regex);
-				setTitle(ATV + "   " + engine.getGrid().source);
 			}
 		});
 		return mitLogView;
 	}
-	private String regex = null;
-	private File logViewFile = null;
+
+	// LogViewHintRegexDialog.btnOk calls-back this method
+	void logView(String re) {
+		regex = engine.logView(logViewFile, re);
+		setTitle(ATV + "   " + engine.getGrid().source);
+	}
 
 	// for mitLogView
 	private final class LogFileFilter extends FileFilter {
@@ -1804,7 +1805,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			mitSolve.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					engine.solveRecursively();
+					engine.solveASAP();
 				}
 			});
 		}
@@ -2090,7 +2091,9 @@ final class SudokuFrame extends JFrame implements IAsker {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				Settings.THE.set(settingName, mit.isSelected());
-				Settings.THE.save();
+// KRC 2021-06-18 07:07 Settings are saved when SE closes, and if SE bombs-out
+// before it saves we may be better-off!
+//				Settings.THE.save();
 				repaint();
 			}
 		});
@@ -2112,14 +2115,11 @@ final class SudokuFrame extends JFrame implements IAsker {
 	public void dispose() {
 		Settings.THE.setBounds(SudokuFrame.this.getBounds());
 		SudokuFrame.this.setVisible(false);
-//		System.out.format("Chainer.createCellReductionHint nullRedPots=%d, nullChains=%d%s"
-//				, diuf.sudoku.solver.hinters.chain.Chainer.ccrhNullRedPots
-//				, diuf.sudoku.solver.hinters.chain.Chainer.ccrhNullChains, NL);
 		try {
-			if (engine != null) // nb: engine is final so I can't set it to null, but the stuff
-			// it closes are nullable, so calling engine.close() a second+
-			// time is a no-op.
-			{
+			if (engine != null) {
+				// nb: engine is final so I can't set it to null, but the stuff
+				// it closes are nullable, so calling engine.close() a second+
+				// time is a no-op.
 				engine.close();
 			}
 		} catch (IOException ex) {

@@ -14,7 +14,6 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -31,7 +30,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2020 June 18
  */
-public class SiameseLockingHint extends AHint implements IActualHint {
+public class SiameseLockingHint extends AHint  {
 
 	final boolean isPointing;
 	final int maybesToRemove;

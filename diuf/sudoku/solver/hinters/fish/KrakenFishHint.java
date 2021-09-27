@@ -15,7 +15,6 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
@@ -36,7 +35,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2020-10-07
  */
-public class KrakenFishHint extends AHint implements IActualHint {
+public class KrakenFishHint extends AHint  {
 
 	static enum Type {
 		  ONE("Kraken type 1")

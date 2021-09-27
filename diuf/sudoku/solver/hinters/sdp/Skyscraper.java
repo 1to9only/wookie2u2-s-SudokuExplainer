@@ -226,10 +226,10 @@ public class Skyscraper extends AHinter {
 											   , pairB[r].regions[rType]);
 		final List<ARegion> covers = Regions.list(pairA[o].regions[oType]
 												, pairB[o].regions[oType]);
-		// build the hightlighted (orange) potential values map Cells->Value
-		final Pots oranges = new Pots(v, pairA, pairB);
+		// build the hightlighted (green) potential values map Cells->Value
+		final Pots greens = new Pots(v, pairA, pairB);
 		// build and return the hint
-		return new SkyscraperHint(this, v, bases, covers, reds, oranges);
+		return new SkyscraperHint(this, v, bases, covers, reds, greens);
 	}
 
 }

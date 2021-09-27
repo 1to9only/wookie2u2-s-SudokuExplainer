@@ -11,11 +11,11 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import java.util.Arrays;
-import static diuf.sudoku.Grid.BITIDX_BUDDIES;
-import static diuf.sudoku.Grid.BITIDX_FOLLOWING;
+import static diuf.sudoku.Grid.BUDDIES;
+import diuf.sudoku.Idx;
 import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VSHFT;
-
+import static diuf.sudoku.Grid.LATER_BUDS;
 
 /**
  * Implementation of the "S/T/U/V/WXYZ-Wing" solving techniques.
@@ -34,142 +34,83 @@ import static diuf.sudoku.Values.VSHFT;
  * so replacing BitIdx with the "normal" Idx eradicates lots of code. KRC has
  * tried and failed to do this a couple of times. In the end I kept BitIdx,
  * letting it grow into every-bloody-thing. sigh.
+ *
+ * KRC 2021-06-10 Having failed to replace BigWing with the BigWings class,
+ * I decided to just replaced BitIdx with Idx in BigWing, to allow me to remove
+ * the BitIdx class, which I hate because you have to set and clear it's grid.
+ * Also deleted all BitIdx dependant code from Grid. All-up we're maybe 3000
+ * lines lighter now.
  * </pre>
+ *
+ * @author Keith Corlett 2010 May IIRC My code based on Juillerat's concept.
  */
 public class BigWing extends AHinter {
 
 	/**
 	 * Does value form a Wing in these cells? Ie do all occurrences of value
-	 * in the ALS see the YZ cell?
+	 * in the ALS (there must be atleast one) see the YZ cell?
 	 *
-	 * @param sv the left-shifted candidate value, VSHFT[x] or VSHFT[z]
-	 *  in ALS-XZ terms
+	 * @param cand the bitset representation of the candidate value,
+	 *  VSHFT[x] or VSHFT[z] in ALS-XZ terms. Usually called sv, and not
+	 *  usually passed around
 	 * @param yz cell contains values x and z, to complete the wing
 	 * @param als the cells in this Almost Locked Set
 	 * @return do all ALS cells which maybe value see the YZ cell?
 	 */
-	private static boolean isWing(final int sv, Cell yz, Cell[] als) {
-		for ( Cell c : als )
-			if ( (c.maybes.bits & sv)!=0 && yz.notSees[c.i] )
-				return false;
-		return true;
-	}
-
-	/**
-	 * Find any eliminations in these wing cells.
-	 * <p>
-	 * NB: the x and z values, and both are in an instance of the XZ class, to
-	 * enable me to set both and swap x and z, and have my caller see those
-	 * changes; ie it's a mutable DTO, which suits multithreading, even though
-	 * this code is not currently (ie yet) multithreaded. For efficiency, we
-	 * create a single instance of XZ at the start of each BigWing.findHints
-	 * and pass it around; so that each thread has it's own single instance.
-	 *
-	 * @param vs indices of cells in grid which maybe each value 1..9
-	 * @param victims I set the passed instance, overwriting contents
-	 * @param wingCands the candidates of all the wing cells combined
-	 * @param yz the bivalue which completes the Wing pattern
-	 * @param xz the single instance of XZ containing the x and z values, and
-	 *  the both (isDoubleLinked) flag, so that x and z can be swapped and
-	 *  those changes are visible to my caller.
-	 * @param als an array of the ALS cells
-	 * @param reds the Pots (a single instance) to add any eliminations too.
-	 *  This parameter exists only for speed. We reuse a single instance rather
-	 *  than create an empty Pots in 99+% of calls to eliminate.<br>
-	 *  If there are any eliminations theReds is copied and cleared after the
-	 *  hint is created. Upon return reds contains any eliminations.
-	 * @return are there any eliminations?
-	 */
-	private static boolean eliminate(final BitIdx[] vs, BitIdx victims
-			, int wingCands, Cell yz, XZ xz, Cell[] als, Pots reds) {
-		// find strong links on the zValue
-		final boolean strongZ = strong(victims.set(vs[xz.z]), xz.z, als, yz, reds);
-		// if both x and z conform to the Wing pattern
-		if ( xz.both ) {
-			// find strong links on the xValue
-			final boolean strongX = strong(victims.set(vs[xz.x]), xz.x, als, yz, reds);
-			// find weak links
-			boolean weak = false;
-			// weakCands are those only in the ALS (wingCands - yz.maybes)
-			for ( int w : VALUESES[wingCands ^ yz.maybes.bits] )
-				weak |= weak(victims.set(vs[w]), w, als, yz, reds);
-			// if this wing has no weak-links then
-			// it's double linked only if strongZ & strongX
-			if ( !weak ) {
-				if ( !strongZ ) {
-					xz.both = false;
-					xz.swap(); // make x the link, I think
-				} else if ( !strongX )
-					xz.both = false;
-			}
+	private static boolean isWing(final int cand, Cell yz, Cell[] als) {
+		if ( true ) { // @check true
+			for ( Cell c : als )
+				if ( (c.maybes.bits & cand)!=0 && yz.notSees[c.i] )
+					return false;
+			return true;
+		} else { // debug version: check yz shares both values with ALS
+			boolean any = false;
+			for ( Cell c : als )
+				if ( (c.maybes.bits & cand) != 0 ) {
+					any = true;
+					if ( yz.notSees[c.i] )
+						return false;
+				}
+			assert any : "any should allways be true because we pretest that: VSIZE[cands[i] & (b=yz.maybes.bits)] == 2";
+			return any;
 		}
-		return !reds.isEmpty();
 	}
 
 	/**
-	 * Strong eliminate 'value' from the 'wing' pattern, adding
-	 * eliminations to reds, and return were any found?
-	 * <p>
-	 * Note that weak and strong are separate methods for speed only.<br>
-	 * Strong elims are buddies of all cells which maybe v including YZ, and<br>
-	 * in weak elims are buddies of ALS cells which maybe v (excluding YZ).
+	 * Eliminate 'value' from the 'wing' pattern, adding eliminations to reds,
+	 * and return were any found?
 	 *
-	 * @param victims victims.set(grid.getIdxs[xz.z or xz.x])
-	 * @param value the value to eliminate; xz.z or xz.x
+	 * @param isStrong are these eliminations strong ones. A strong elimination
+	 *  sees all v's in the wing, including the yz-cell. A weak elimination
+	 *  only applies to ALS-only-values in a double-linked wing, and must see
+	 *  all v's in the ALS (not the yz-cell).
+	 * @param v the value to eliminate; xz.z or xz.x
 	 * @param als an array of the ALS cells
 	 * @param yz the bivalue cell which completes the Wing pattern
 	 * @param reds theReds: THE removable (red) potentials
 	 * @return where any eliminations found?
 	 */
-	private static boolean strong(BitIdx victims, int value, Cell[] als
-			, Cell yz, Pots reds) {
-		final int sv = VSHFT[value]; //shiftedValue
+	private static boolean elim(final boolean isStrong, final int v
+			, final Cell[] als, final Cell yz, final Pots reds
+			, final Grid grid) {
+		final int sv = VSHFT[v]; //shiftedValue
+		VICTIMS.set(candidates[v]);
 		for ( Cell c : als )
 			if ( (c.maybes.bits & sv) != 0 )
-				victims.retainAll(BITIDX_BUDDIES[c.i]);
-		// This is the difference between strong and weak. In a strong elim the
-		// victim is a buddy of ALL cells which maybe v, including the yz cell.
-		victims.retainAll(BITIDX_BUDDIES[yz.i]);
-		if ( victims.isEmpty() )
+				VICTIMS.and(BUDDIES[c.i]);
+		if ( isStrong ) // buddy of ALL cells which maybe v, including yz
+			VICTIMS.and(BUDDIES[yz.i]);
+		else // weak: just remove yz
+			VICTIMS.remove(yz.i);
+		if ( VICTIMS.none() )
 			return false;
 		boolean result = false;
-		for ( Cell victim : victims )
-			result |= reds.upsert(victim, value);
+		for ( Cell victim : VICTIMS.cells(grid, new Cell[VICTIMS.size()]) )
+			result |= reds.upsert(victim, v);
 		return result;
 	}
-
-	/**
-	 * Weak eliminate 'value' from the 'wing', add elims to reds, return any.
-	 * <pre>
-	 * Note that weak and strong are separate methods for speed only.
-	 * Strong elims are buds of all Wing cells which maybe v, including YZ;
-	 * whereas weaks are buds of all ALS cells which maybe v, excluding YZ.
-	 * </pre>
-	 *
-	 * @param victims victims.set(grid.getIdxs[xz.z or xz.x])
-	 * @param value the value to eliminate; xz.z or xz.x
-	 * @param als an array of the ALS cells
-	 * @param yz the bivalue cell which completes the Wing pattern
-	 * @param reds theReds: THE removable (red) potentials
-	 * @return any eliminations found?
-	 */
-	private static boolean weak(BitIdx victims, int value, Cell[] als
-			, Cell yz, Pots reds) {
-		final int sv = VSHFT[value]; //shiftedValue
-		for ( Cell c : als )
-			if ( (c.maybes.bits & sv) != 0 )
-				victims.retainAll(BITIDX_BUDDIES[c.i]);
-		// This is the difference between strong and weak. For a weak elim each
-		// victim does NOT need to be a buddy of the yz-cell, so we just remove
-		// yz from the victims. One is not one's own victim. Draculla insists.
-		victims.remove(yz);
-		if ( victims.isEmpty() )
-			return false;
-		boolean result = false;
-		for ( Cell victim : victims )
-			result |= reds.upsert(victim, value);
-		return result;
-	}
+	// the victims are the removable cells
+	private static final Idx VICTIMS = new Idx();
 
 	// ============================ instance stuff ============================
 
@@ -178,49 +119,36 @@ public class BigWing extends AHinter {
 	private final int degreePlus2 = degree + 2;
 	// degree is the number of cells in an ALS.
 	private final int degreeMinus1 = degree - 1;
-	// A BitIdx of the cells at each level 0..degreeMinus1
-	private final BitIdx[] sets = new BitIdx[degree];
+	// Idx of the cells at each level 0..degreeMinus1
+	private final Idx[] sets = new Idx[degree];
 	// the $degree cells in this ALS (Almost Locked Set)
 	private final Cell[] als = new Cell[degree];
 	// candidates of index+1 cells combined
 	private final int[] cands = new int[degree];
-	// this single instance of the XZ class holds the x and z values (in ALS-XZ
-	// terms), which are the two values of the yz cell (in Wing terms); as well
-	// as the both (isDoubleLinked) flag. Yes, it's a bit confusing.
-	private final XZ xz = new XZ();
 	// the removable (red) potentials
 	private final Pots theReds = new Pots();
-	// the victims are the removable cells
-	private final BitIdx victims = new BitIdx();
 	// the yzs cell set
-	private final BitIdx yzs = new BitIdx();
-
-// for uncached get for use in gemSolve (BigWing is no longer in gemSolve)
-//	private final Grid.CellFilter candidateFilter = new Grid.CellFilter() {
-//		@Override
-//		public boolean accept(Cell c) {
-//			return c.maybes.size>0 && c.maybes.size<degreePlus2;
-//		}
-//	};
+	private final Idx yzs = new Idx();
 
 	// ---- set and cleared by findHints ----
 	// accu.isSingle() ie is only one hint sought
 	private boolean onlyOne;
-	// the cells in the current grid with two potential values
-	private BitIdx bivalueCells;
+	// indices of cells in grid with maybes.size==2
+	private Idx bivalues;
+	// indices of cells in grid with value==0
+	private Idx empties;
 	// indices of grid cells which maybe each value 1..9
-	private BitIdx[] candidates;
+	private static Idx[] candidates;
+	// the grid to search
+	private Grid grid;
 	// the hints collector
 	private IAccumulator accu;
-
-	// ---- recurse variables ----
-	private boolean xWing, zWing;
 
 	public BigWing(Tech tech) {
 		super(tech);
 		// nb: sets[0] instance is set directly
-		for ( int i=1; i<degree; ++i )
-			sets[i] = new BitIdx();
+		for ( int i=0; i<degree; ++i )
+			sets[i] = new Idx();
 	}
 
 	/**
@@ -232,34 +160,46 @@ public class BigWing extends AHinter {
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		this.accu = accu;
-		yzs.grid = grid;
-		victims.grid = grid;
-		for ( int i=1; i<degree; ++i )
-			sets[i].grid = grid;
-		bivalueCells = grid.getBitIdxBivalue(); // cached
-		candidates = grid.getBitIdxs(); // cached
-		onlyOne = accu.isSingle();
 		// presume that no hint will be found
 		boolean result = false;
 		try {
-			// get the candidate cells, with size 2..4
-			// WEIRD: gemSolve (see above)
-			sets[0] = grid.getBitIdxEmpties().where((c) -> {
-				return c.maybes.size < degreePlus2;
-			}); // empties cache goes dirty in gemSolve
-			// foreach ALS: find BigWing
-			result = recurse(0);
+			this.grid = grid;
+			this.accu = accu;
+			if ( true ) { // @check true
+				// CACHED for speed
+				bivalues = grid.getBivalue();
+				candidates = grid.getIdxs();
+				empties = grid.getEmpties();
+			} else {
+				// UNCACHED for debugging (to reveal a caching issue)
+				bivalues = grid.idx(new Idx(), c->{return c.maybes.size==2;});
+				// WARNING: hard-resets the contents of cached idxs
+				candidates = grid.getIdxsImpl();
+				empties = grid.idx(new Idx(), c->{return c.value==0;});
+			}
+			onlyOne = accu.isSingle();
+			// indices of cells with size 2..4 for WXYZ.degree==3
+			sets[0] = empties.where(grid.cells, (c) -> {
+				return c.maybes.size>1 && c.maybes.size<degreePlus2;
+			});
+			// foreach first-cell-in-an-ALS
+			for ( Cell c : sets[0].cells(grid, new Cell[sets[0].size()]) ) {
+				als[0] = c; // the first cell in the almost locked set
+				cands[0] = c.maybes.bits; // the initial cands
+				// check for enough cells (we need degree cells for an ALS)
+				// sets[0] contains only cells with <= degree+1 maybes, so
+				// there's no need to recheck for it here.
+				if ( sets[1].setAndMin(sets[0], LATER_BUDS[c.i], degreeMinus1)
+				  // move right to find the next ALS cell, to find a BigWing
+				  && (result|=recurse(1)) && onlyOne )
+					break;
+			}
 		} finally {
 			// forget all grid and cell references (for GC)
-			yzs.grid = null;
-			victims.grid = null;
-			for ( int i=0; i<degree; ++i )
-				sets[i].grid = null;
-			bivalueCells = null;
+			this.grid = null;
 			this.accu = null;
-			candidates = null;
 			Arrays.fill(als, null);
+			theReds.clear();
 		}
 		return result;
 	}
@@ -272,148 +212,77 @@ public class BigWing extends AHinter {
 	 * ALS array (there's no fancy permutations search or anything); its just
 	 * the first way I thought of. There may be a faster iterative way. All
 	 * recurse variables (except result) are fields, to minimise stack usage.
-	 * The only exception to this rule is the hint, which happens so rarely it
-	 * makes no difference. Note that eliminate is called 30,000-odd times in
-	 * top1465, so performance matters all the way to the bottom of the jar.
+	 * eliminate is called 30,000 times in top1465 so performance matters.
 	 * <p>
 	 * All my helper methods are statics, so everything is passed into them,
 	 * and there are no leakages.
 	 *
-	 * @param i I am always invoked with 0
+	 * @param i I am always invoked with 1;<br>
+	 *  als[0], cands[0] and sets[0] are pre-initialised
 	 * @return any hint/s found?
 	 */
-	private boolean recurse(int i) {
-		assert i>=0 && i<degree; // i is my index in sets and als arrays
+	private boolean recurse(final int i) {
 		boolean result = false;
-		for ( Cell c : sets[i] ) {
+		for ( Cell c : sets[i].cells(grid, new Cell[sets[i].size()]) ) {
 			als[i] = c;
-			if ( i == 0 ) { // the first cell is handled differently
-				// sets[0] contains only cells with <= degree+1 maybes,
-				// so there's no need to recheck for it here.
-				cands[0] = c.maybes.bits;
-				// check for enough cells (we need degree cells for an ALS)
-				if ( sets[1].setAndMin(sets[0], BITIDX_FOLLOWING[c.i], degreeMinus1)
-				  // and move right to find the next ALS cell
-				  && recurse(1) ) {
-					result = true;
-					if ( onlyOne )
-						return result; // exit-early
-				}
-			} else if ( i < degreeMinus1 ) { // incomplete ALS
+			if ( i < degreeMinus1 ) { // incomplete ALS
 				// if existing + this cell together have <= degree+1 maybes
 				if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] < degreePlus2
-				  // and theres enough cells to my right; we need degree
-				  // cells to form an ALS, of which this is the (i+1)'th
-				  && sets[i+1].setAndMin(sets[i], BITIDX_FOLLOWING[c.i], degreeMinus1-i)
-				  // and move right to find the next ALS cell
-				  && recurse(i+1) ) {
-					result = true;
-					if ( onlyOne )
-						return result; // exit-early
-				}
-			} else { // complete ALS ($degree cells)
-				// the ALS now always contains degree cells
-				// Minus1 because i is 0-based and degree is 1-based
-				assert i == degreeMinus1;
-				// degree cells with degree+1 maybes is an Almost Locked Set
-				if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] == degreePlus1 ) {
-					// yzs := buds of the ALS cells, except the ALS cells
-					yzs.set(BITIDX_BUDDIES[als[0].i]);
-					for ( int j=1; j<degree; ++j )
-						yzs.addAll(BITIDX_BUDDIES[als[j].i]);
-					yzs.removeAll(als);
-					// yzs := yzs having maybes.size==2
-					if ( yzs.retainAllAny(bivalueCells) ) {
-						// foreach bivalue yz cell
-						for ( Cell yz : yzs ) {
-							// if both yz.maybes are shared with the ALS
-							if ( VSIZE[cands[i] & yz.maybes.bits] == 2
-							  // set x and z values to yz.maybes.
-							  // My XZ is mutable so that we can swap values,
-							  // to make x the primary link (always exists),
-							  // and z the secondary link (optional extra)
-							  && xz.set(yz)
-							  // and x and/or z forms a wing pattern
-							  && ( (xWing=isWing(VSHFT[xz.x], yz, als))
-							     | (zWing=isWing(VSHFT[xz.z], yz, als)) )
-							) {
-								// found a wing pattern, so any eliminations?
-								// if only z forms a wing
-								if ( !xWing ) // ie zWing only
-									xz.swap(); // make x the primary link
-								// double linked
-								xz.both = xWing & zWing;
-								// find any eliminations
-								if ( eliminate(candidates, victims, cands[i]
-										, yz, xz, als, theReds) ) {
-									// FOUND a BigWing on x and possibly z
-									// build highlighted (orange) pots
-									final Pots oranges = new Pots();
-									oranges.put(yz, new Values(xz.x));
-									for ( Cell cc : als )
-										if ( cc.maybe(xz.x) )
-											oranges.put(cc, new Values(xz.x));
-									// create the hint
-									final AHint hint = new BigWingHint(this
-											, theReds.copyAndClear(), yz
-											, xz.x, xz.z, xz.both, cands[i]
-											, als, oranges);
-									// add it to accu
-									result = true;
-									if ( accu.add(hint) )
-										return result; // exit-early
+				  // need degree cells to form an ALS, this is the (i+1)'th
+				  && sets[i+1].setAndMin(sets[i], LATER_BUDS[c.i], degreeMinus1-i)
+				  && (result|=recurse(i+1)) && onlyOne )
+					return result;
+			// degree cells with degree+1 maybes is an Almost Locked Set
+			} else if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] == degreePlus1 ) {
+				yzs.set(BUDDIES[als[0].i]);
+				for ( j=1; j<degree; ++j )
+					yzs.or(BUDDIES[als[j].i]);
+				yzs.removeAll(als);
+				if ( yzs.and(bivalues).any() )
+					for ( Cell yz : yzs.cells(grid, new Cell[yzs.size()]) )
+						if ( VSIZE[cands[i] & (b=yz.maybes.bits)] == 2
+						  && ( (xWing=isWing(VSHFT[x=FIRST_VALUE[b]], yz, als))
+							 | (zWing=isWing(VSHFT[z=FIRST_VALUE[b & ~VSHFT[x]]], yz, als)) )
+						) {
+							if ( !xWing ) {
+								j = x;
+								x = z;
+								z = j;
+							}
+							strongZ = elim(true, z, als, yz, theReds, grid);
+							if ( both = xWing & zWing ) {
+								final boolean strongX = elim(true, x, als, yz, theReds, grid);
+								boolean weak = false;
+								for ( int w : VALUESES[cands[i] ^ b] ) {
+									weak |= elim(false, w, als, yz, theReds, grid);
+								}
+								if ( !weak ) {
+									both = strongX & strongZ;
+									if ( !strongZ ) {
+										j = x;
+										x = z;
+										z = j;
+									}
 								}
 							}
+							if ( !theReds.isEmpty() ) {
+								// FOUND a BigWing on x and possibly z
+								final Pots oranges = new Pots(als, x);
+								oranges.put(yz, new Values(x));
+								final AHint hint = new BigWingHint(this
+										, theReds.copyAndClear(), yz, x, z
+										, both, cands[i], als, oranges);
+								result = true;
+								if ( accu.add(hint) )
+									return result;
+							}
 						}
-					}
-				}
 			}
 		}
 		return result;
 	}
-
-	/**
-	 * XZ allows is to swap x and z, permanently. There is only one instance of
-	 * the XZ class in existence at any one time.
-	 * <p>
-	 * I'm called XZ (in ALS-XZ terms) but set takes yz-cell (in Wing terms).
-	 * My variable names are ALS-XZ-based. It's all too bloody confusing, IMHO.
-	 * A better name would be BivalueCell, and "attach" the cell itself, to
-	 * pass it around as one reference (instead of yz and XZ, which is nuts).
-	 *
-	 * @author Keith Corlett 2021-01-12
-	 */
-	private class XZ {
-		int x; // the x value (may be swapped)
-		int z; // the z value (may be swapped)
-		boolean both; // do both x and z fit the Wing pattern?
-		/**
-		 * Set my x and z values from the given yz-cell, which must be bivalue.
-		 * @param yz the bivalue Cell whose values will be set. The lower value
-		 *  is x, and the higher is y. This is arbitrary. If z forms a BigWing
-		 *  and x does not then the x and z values are swapped, so that when we
-		 *  are all done the x value always forms a Wing (the z value may not).
-		 */
-		boolean set(Cell yz) {
-			// ensure yz is bivalue, else x/z values might go screwy
-			assert yz.maybes.size == 2;
-			x = FIRST_VALUE[yz.maybes.bits];
-			z = FIRST_VALUE[yz.maybes.bits & ~VSHFT[x]];
-			return true;
-		}
-		/**
-		 * Swap the x and z values.
-		 */
-		void swap() {
-			int tmp = x;
-			x = z;
-			z = tmp;
-		}
-		// for debugging only, but keep in prod (never called)
-		@Override
-		public String toString() {
-			return "x="+x+", z="+z+", both="+both;
-		}
-	}
+	// recurse variables are fields to save on stack-work.
+	private boolean xWing, zWing, both, strongZ;
+	private int j, x, z, b;
 
 }

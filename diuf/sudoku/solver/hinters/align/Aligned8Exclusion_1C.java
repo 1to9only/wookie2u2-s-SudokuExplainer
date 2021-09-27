@@ -146,7 +146,7 @@ public final class Aligned8Exclusion_1C extends Aligned8ExclusionBase
 
 		// localise fields for speed (if it's referenced more than three times)
 		final int degree = this.degree;
-		final int hintNum = AHint.number;
+		final int hintNum = grid.hintNumber;
 		final boolean useHits = this.useHits;
 
 		// get an array of the Cells at which we hinted last time;
@@ -1162,7 +1162,7 @@ public final class Aligned8Exclusion_1C extends Aligned8ExclusionBase
 						System.out.format("fBomb: %s: %d %d %s\n"
 							, classNameOnly
 							, grid.source==null ? 0 : grid.source.lineNumber
-							, AHint.number
+							, grid.hintNumber
 							, cell.toFullString());
 					candidates[n++] = cell;
 					excluders[cell.i] = set;

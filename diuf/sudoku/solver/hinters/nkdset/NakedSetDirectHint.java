@@ -12,7 +12,6 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -21,7 +20,7 @@ import java.util.List;
 import java.util.Set;
 
 
-public final class NakedSetDirectHint extends AHint implements IActualHint {
+public final class NakedSetDirectHint extends AHint  {
 
 	private final List<Cell> nkdSetCellsList;
 	private final Values nkdSetValues;

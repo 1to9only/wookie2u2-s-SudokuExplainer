@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver.accu;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Frmt;
 import java.util.Collection;
@@ -32,7 +33,9 @@ import java.util.List;
  * and applied (through me) in a run. I track the number of hints found, the
  * number of eliminations, and a StringBuilder of the line-separated
  * toFullString's of all the hints I apply, to pass on to the summary hint.
- *
+ * <p>
+ * Note that for speed, the public Grid grid should be set post-construction,
+ * rather than have every single bloody hint lookup it's own grid.
  * @author Keith Corlett 2016
  */
 public final class HintsApplicumulator implements IAccumulator {
@@ -43,7 +46,20 @@ public final class HintsApplicumulator implements IAccumulator {
 	public final StringBuilder SB;
 	// true to Autosolve, false to stop Cell.set finding subsequent singles.
 	public final boolean isAutosolving;
+	// set me to avoid getting the grid for every single bloody hint
+	public Grid grid;
 
+	 /**
+	  * Constructor.
+	  * <p>
+	  * <b>Note</b> for speed, the grid field should be set post-construction,
+	  * rather than have every single bloody hint lookup it's own grid.
+	  * Clear it in a finally block when you're finished with that grid or this
+	  * HintsApplicumulator. Most HintsApplicumulator are short-lived.
+	  *
+	  * @param isStringy
+	  * @param isAutosolving 
+	  */
 	public HintsApplicumulator(boolean isStringy, boolean isAutosolving) {
 		if ( isStringy )
 			this.SB = new StringBuilder(256); // 256 just a guess
@@ -86,7 +102,11 @@ public final class HintsApplicumulator implements IAccumulator {
 		// make Cell.set append subsequent singles (if sb!=null)
 		hint.SB = SB;
 		// nb: Do NOT eat apply exceptions, they're handled by my caller!
-		numElims += hint.apply(isAutosolving, false);
+		Grid myGrid = this.grid; // this.grid should be set and finally cleared
+		if ( myGrid != null ) // so pass it to apply, for speed
+			numElims += hint.apply(isAutosolving, false, myGrid);
+		else // else let the hint look-up it's own grid
+			numElims += hint.apply(isAutosolving, false);
 		// keep count
 		++numHints;
 		// always return false so that the hinter always keeps searching

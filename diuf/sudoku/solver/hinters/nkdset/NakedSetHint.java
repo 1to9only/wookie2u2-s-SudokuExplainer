@@ -15,7 +15,6 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.utils.Frmt;
@@ -33,7 +32,7 @@ import java.util.Set;
  * therefore no other cell in the box may be 8 or 9; so we strip 8,9 from the
  * maybes of the other 7 cells in the box.
  */
-public final class NakedSetHint extends AHint implements IActualHint, IChildHint {
+public final class NakedSetHint extends AHint implements IChildHint {
 
 	private final List<Cell> nkdSetCellList;
 	private final String regionIds;

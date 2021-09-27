@@ -31,6 +31,7 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
+import javax.swing.JComboBox;
 //import javax.activation.UnsupportedDataTypeException;
 
 
@@ -198,6 +199,9 @@ public final class IO {
 	public static final File A10E_1C_HASHCODES = new File(HOME+"DiufSudoku_A10E_1C_hash.txt");
 	/** A*E stores the vital statistics of each aligned set which hints. */
 	public static final File A10E_2H_HASHCODES = new File(HOME+"DiufSudoku_A10E_2H_hash.txt");
+
+	/** The list of hint-regexs for SE's log-view feature. */
+	public static final File LOG_VIEW_HINT_REGEXS = new File(HOME+"DiufSudoku_log_view_hint_regexs.txt");
 
 //	private static final String SUPPORTED_DATA_FLAVOR_NAME
 //			= "java.awt.datatransfer.DataFlavor[mimetype=text/plain;representationclass=java.lang.String]";
@@ -460,19 +464,6 @@ public final class IO {
 //		}
 //	}
 
-	public static boolean loadIdxs(Collection<Idx> c, File file) {
-		try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
-			String line;
-			while ( (line=reader.readLine()) != null )
-				// toIntArray parses a String[] into an int[]
-				c.add(new Idx(Frmt.toIntArray(line.split(" *, *"))));
-			return true;
-		} catch (IOException ex) {
-			StdErr.carp("failed to loadIdxs from : "+file, ex);
-			return false;
-		}
-	}
-
 	// =========================== writing ===============================
 
 	/**
@@ -512,6 +503,24 @@ public final class IO {
 		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
 			for ( Set<String> set : sets ) {
 				writer.write(Frmt.csvs(set));
+				writer.newLine();
+			}
+		}
+	}
+
+	public static void save(JComboBox<String> cbo, File file) throws IOException {
+		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
+			// newbies don't appear in the items
+			String newbie;
+			if ( cbo.getSelectedIndex() == -1 // not in the list
+			  && (newbie=(String)cbo.getSelectedItem()) != null
+			  && !newbie.isEmpty() ) {
+				writer.write(newbie);
+				writer.newLine();
+			}
+			// the existing items
+			for ( int i=0,n=cbo.getItemCount(); i<n; ++i ) {
+				writer.write(cbo.getItemAt(i));
 				writer.newLine();
 			}
 		}

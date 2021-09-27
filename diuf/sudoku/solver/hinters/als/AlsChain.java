@@ -65,6 +65,15 @@ import java.util.TreeMap;
 public final class AlsChain extends AAlsHinter
 //implements diuf.sudoku.solver.IReporter
 {
+// This method is out of place to keep it near it's implements line
+//	@Override
+//	public void report() {
+//		diuf.sudoku.utils.Log.teef("%s: ttlRccs=%,d\n", tech.name(), ttlRccs);
+//	}
+//	private long ttlRccs;
+//ALS_XZ:    ttlRccs=    8,801,276
+//ALS_Wing:  ttlRccs=    6,085,665
+//ALS_Chain: ttlRccs=3,100,592,090
 
 	/**
 	 * Is 'als' a superset or subset of any ALS in 'chain', stopping at 'n'
@@ -111,30 +120,21 @@ public final class AlsChain extends AAlsHinter
 	 *   and XyWings. NOTE that true is faster, but finds less hints, and I do
 	 *   not understand why. forwardOnly searches ALL possible combinations,
 	 *   and so should find the same hints, but it does not. sigh.
-	 * * useStartAndEnd = true so getRccs populates startIndices and endIndices
-	 *   arrays. AlsChain uses them as a map.
 	 * </pre>
 	 */
 	public AlsChain() {
-		super(Tech.ALS_Chain, false, true, false, false, true);
+		// KRC 2021-06-16 17:33 try allowNakedSets=true
+		// KRC 2021-06-16 17:34 try allowOverlaps=true
+		super(Tech.ALS_Chain, true, true, true, false);
 	}
-
-//	@Override
-//	public void report() {
-//		diuf.sudoku.utils.Log.teef("%s: ttlRccs=%,d\n", tech.name(), ttlRccs);
-//	}
-//	private long ttlRccs;
-//ALS_XZ:    ttlRccs=    8,801,276
-//ALS_Wing:  ttlRccs=    6,085,665
-//ALS_Chain: ttlRccs=3,100,592,090
 
 	@Override
 	protected boolean findHints(Grid grid, Idx[] candidates, Als[] alss
 			, int numAlss, Rcc[] rccs, int numRccs, IAccumulator accu) {
 		this.grid = grid;
 //		this.candidates = candidates;
-		this.rccs = rccs;
 		this.alss = alss;
+		this.rccs = rccs;
 		this.accu = accu;
 		this.oneOnly = accu.isSingle();
 		boolean result = false;
@@ -142,10 +142,10 @@ public final class AlsChain extends AAlsHinter
 			deletesMap.clear();
 			for ( int i=0; i<numAlss; ++i ) {
 				chainAlss[0] = startAls = alss[i];
-				if ( isAlsInChain==null || isAlsInChain.length<numAlss )
-					isAlsInChain = new boolean[numAlss];
+				if ( isAlsInChain == null )
+					isAlsInChain = new boolean[MAX_ALSS];
 				else
-					Arrays.fill(isAlsInChain, false);
+					Arrays.fill(isAlsInChain, 0, numAlss, false);
 				isAlsInChain[i] = true;
 				firstRCC = null;
 				result |= recurse(i, null, 0);
@@ -155,8 +155,8 @@ public final class AlsChain extends AAlsHinter
 		} finally {
 			this.grid = null;
 //			this.candidates = null;
-			this.rccs = null;
 			this.alss = null;
+			this.rccs = null;
 			this.accu = null;
 		}
 		// GUI mode, so sort hints by score descending
@@ -168,8 +168,6 @@ public final class AlsChain extends AAlsHinter
 	private final SortedMap<String, Integer> deletesMap = new TreeMap<>();
 	/** The first ALS in the chain (needed for elimination checks). */
 	private Als startAls;
-//	/** The index into {@link #chainRccs} for the current search. */
-//	private int chainIndex = -1;
 	/** Chain search: for every ALS already contained in the chain the
 	 * respective index is true. */
 	private boolean[] isAlsInChain;
@@ -198,9 +196,10 @@ public final class AlsChain extends AAlsHinter
 	 *  current RCC (INCLUSIVE) in the chain of RCCs that I'm building.
 	 */
 	private boolean recurse(final int index, final Rcc prevRC, int chainIndex) {
-		Rcc rcc; // the current Restricted Common Candidate
-				 // common to two ALSs: s=startAls (left) and a=currAls (right)
+		Rcc rcc; // current Restricted Common Candidate common to two ALSs:
+		         // s=startAls (left) and a=currAls (right)
 		Als a; // the current ALS
+		Idx[] avBuds, avs;
 		int rc1,rc2,rc3,rc4, i,I, als2, zMaybes;
 		boolean any;
 		final Idx tmp = this.set1; // used for various checks
@@ -208,6 +207,8 @@ public final class AlsChain extends AAlsHinter
 		final Pots reds = this.redPots;
 		final Pots blues = this.bluePots;
 		final Als s = this.startAls;
+		final Idx[] svBuds = s.vBuds;
+		final Idx[] svs = s.vs;
 		final Als[] chainAlss = this.chainAlss;
 		final int[] starts = RCC_FINDER.startInds;
 		final int[] ends = RCC_FINDER.endInds;
@@ -225,11 +226,11 @@ public final class AlsChain extends AAlsHinter
 		// nb: index is into start/endIndices arrays, not the index of an RCC.
 		for ( i=starts[index],I=ends[index]; i<I; ++i )
 			// select my RC (sets rcc.which for later)
-			if ( (rcc = rccs[i]).whichRC(prevRC, firstTry)
+			if ( (rcc=rccs[i]).whichRC(prevRC, firstTry)
 			  // check ALS not already in chain
 			  && !isAlsInChain[als2=rcc.als2]
 			  // get 'a' the current ALS, and check for common buds.
-			  && !Idx.disjunct(s.buddies, (a=alss[als2]).buddies)
+			  && s.buddies.andAny((a=alss[als2]).buddies)
 			  // 'a' can not be a super/subset of any in chainAlss<=chainIndex
 			  // even if allowOverlaps
 			  && !loops(a, chainAlss, chainIndex)
@@ -258,8 +259,8 @@ public final class AlsChain extends AAlsHinter
 					// get the four RC values from the two RCCs
 					if(firstRCC.which==2) rc1=0; else rc1=firstRCC.v1;
 					if(firstRCC.which==1) rc2=0; else rc2=firstRCC.v2;
-					//nb: if firstRCC.which==3 then both rc1 and rc2 are set
-					switch ( rcc.which ) { //0=none, 1=cand1, 2=cand2, 3=both
+					// nb: if firstRCC.which==3 then both rc1 and rc2 are set
+					switch ( rcc.which ) { // 0=none, 1=v1, 2=v2, 3=both
 					case 1: rc3 = rcc.v1; break;
 					case 2: rc3 = rcc.v2; break;
 					case 3: rc3 = rcc.v1; break;
@@ -274,66 +275,58 @@ public final class AlsChain extends AAlsHinter
 					if ( (zMaybes=s.maybes & a.maybes & ~VSHFT[rc1]
 							& ~VSHFT[rc2] & ~VSHFT[rc3] & ~VSHFT[rc4]) != 0
 					  // check overlaps: RCs already done, so just s and a
-					  && (allowOverlaps || Idx.disjunct(s.idx, a.idx))
+					  && (allowOverlaps || s.idx.andNone(a.idx))
 					) {
 						// examine each maybe common to both ALSs except RCs
 						any = false;
+						avs = a.vs;
+						avBuds = a.vBuds;
 						for ( int z : VALUESES[zMaybes] )
 							// get cells which see all z's in both ALSs
-							if ( zBuds.setAnd(s.vBuds[z], a.vBuds[z]).any() ) {
+							if ( svBuds[z].andAny(avBuds[z]) ) {
 								// zBuds are eliminated (red)
-								zBuds.forEach(grid.cells
+								zBuds.setAnd(svBuds[z], avBuds[z]).forEach(grid.cells
 									,  (c) -> reds.upsert(c, z)
 								);
 								// z's are fins (blues) (display only)
-								tmp.setOr(s.vs[z], a.vs[z]).forEach(grid.cells
+								tmp.setOr(svs[z], avs[z]).forEach(grid.cells
 									, (c) -> blues.upsert(c, z)
 								);
 								any = true;
 							}
 						if ( any ) {
+							// FOUND an ALS-XY-Chain!
 							if ( HintValidator.ALS_USES ) {
-								// check that each elimination isn't in the solution. Sigh.
+								// check elims are not in the solution. sigh.
 								if ( !HintValidator.isValid(grid, reds) ) {
 									HintValidator.report(
 										  this.getClass().getSimpleName()
 										, grid
 										, Als.linkedList(chainIndex, chainAlss)
 									);
-//									// I know I'm not on top of invalid hints so I report
-//									// and continue, to see all the invalid hints, so that
-//									// I can get on top of them.
-//									// back this ALS out of the chain
+//									// not on top of it -> report & continue
 //									--chainIndex;
-//									// clear the pots, else they all go bad from here on.
 //									redPots.clear(); bluePots.clear();
-//									// for now just skip hint with invalid elimination/s
-//									continue;
-									// I think I'm on top of invalid hints so I die-early
+									// on top of it -> die
 									StdErr.exit(StdErr.me()+": invalid hint", new Throwable());
 								}
 							}
-							//
-							// FOUND an ALS-XY-Chain! build hint and add to accu
-							//
-							// build a list of alss
-							// chainAlss[0] = startAls
-							// and 1..chainIndex INCLUSIVE = currAlss
+							// build a list of alss: chainAlss[0] = startAls
+							//        and 1..chainIndex INCLUSIVE = currAlss
 							final List<Als> alssList = Als.linkedList(chainIndex+1, chainAlss);
-							// nb: blue overwrites everything incl red; some reds are
-							// in other ALSs, so remove reds from blues so they're red!
+							// nb: blue overwrites all incl red; so rmv reds
 							blues.removeAll(reds);
-							// debugMessage is normally blank (so you don't see anything)
-//							String debugMessage = invalidity.isEmpty() ? "" : "<br><h2>"+invalidity+"</h2>";
-							final String debugMessage = "";
+							// tag normally blank (so you see nothing)
+//							String tag = invalidity.isEmpty() ? "" : "<br><h2>"+invalidity+"</h2>";
+							final String tag = "";
 							// build the hint
 							final AHint hint = new AlsChainHint(
 								  this
 								, new Pots(reds) // copy-off the field!
 								, alssList
-								, debugMessage
+								, tag
 							);
-							// clear the collection fields for the next iteration.
+							// clear the collection fields for next time.
 							// nb: if !any then they both remain empty
 							reds.clear();
 							blues.clear();
@@ -345,7 +338,7 @@ public final class AlsChain extends AAlsHinter
 				}
 				// and onto the next level ...
 				// else no space left so stop recursing, go onto next RCC
-				if ( chainIndex+1 < MAX_RCCS_PER_CHAIN ) // MAX_RC is currently 5
+				if ( chainIndex+1 < MAX_RCCS_PER_CHAIN ) // MAX_RC currently 5
 					result |= recurse(als2, rcc, chainIndex);
 				// go back a level (and-so-on all the way up recursive stack)
 				if ( result && oneOnly )
@@ -356,14 +349,14 @@ public final class AlsChain extends AAlsHinter
 					// this is the first RC in the chain
 					if ( rcc.v2!=0 && firstTry ) {
 						// and a second RC value is present, so try again
-						// using the second RC value of the current RCC
+						// using the second RC value
 						firstTry = false;
 						--i;
 					} else
 						firstTry = true;
 				}
 			}
-		// next RCC // next RCC
+		// next RCC
 		return result;
 	}
 	// Maximum number of RCCs in an ALS-Chain (forward-only search).

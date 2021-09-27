@@ -16,6 +16,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.utils.MyLinkedFifoQueue;
 import diuf.sudoku.utils.IMyPollSet;
@@ -65,17 +66,14 @@ public final class UnaryChainer extends AChainer {
 	 * fastest chaining technique. The slower (more complex) multiple and
 	 * dynamic chaining techniques are now implemented in the MultipleChainer
 	 * class.
-	 * @param isAggregate true if all chaining hints should be aggregated into
-	 *  one which is added to the SingleHintsAccumulator which was passed into
-	 *  the getHints method. This is set to true when Mode is SPEED.
 	 * @param isImbedded true ONLY if this is an imbedded (nested) Chainer.
 	 * true prevents the superclass AChainer from caching my hints.
 	 */
-	public UnaryChainer(boolean isAggregate, boolean isImbedded) {
-		super(Tech.UnaryChain, isAggregate, isImbedded);
+	UnaryChainer(boolean isImbedded, IInterruptMonitor im) {
+		super(Tech.UnaryChain, isImbedded, im);
 	}
-	public UnaryChainer(boolean isAggregate) {
-		super(Tech.UnaryChain, isAggregate, false); // not imbedded
+	public UnaryChainer() {
+		this(false, null); // not imbedded
 	}
 
 	@Override
@@ -84,10 +82,10 @@ public final class UnaryChainer extends AChainer {
 		ducacChains.clear();
 	}
 
-	// called by supers getHints method to find the hints in this grid and
-	// add them to the HintsList.
+	// called by supers getHints method to find the hints in this grid
+	// and add them to the HintsList.
 	@Override
-	protected void actuallyFindTheHints(Grid grid, HintsList hints) {
+	protected void findChainHints(Grid grid, HintsList hints) {
 		// double-check my Tech.UnaryChain setup:
 		// !isMultiple && !isDynamic (which implies !isNishio && degree==0)
 		assert !isMultiple;
@@ -97,8 +95,10 @@ public final class UnaryChainer extends AChainer {
 		//                       X, Y
 		// xLoops: Cycles with X-Links (Coloring / Fishy).
 		findUnaryChainsAndCycles(T, F, grid, hints);
+		if ( !interrupted() )
 		// yLoops: Cycles with Y-Links (rare as rocking horse s__t).
 		findUnaryChainsAndCycles(F, T, grid, hints);
+		if ( !interrupted() )
 		// xyLoops: Cycles with both X and Y Links.
 		findUnaryChainsAndCycles(T, T, grid, hints);
 	}
@@ -133,14 +133,14 @@ public final class UnaryChainer extends AChainer {
 			, Grid grid, HintsList hints) {
 		// NB: either isXChain or isYChain, or both, but not neither.
 		assert isXChain || isYChain;
-		final IFilter<Cell> filter = createUcacCellFilter(isXChain);
+		final IFilter<Cell> filter = ucacCellFilter(isXChain);
 		// FunkyAssSet has add() only method: doesn't update existing entries.
 		final IAssSet onToOn = new FunkyAssSet(128, 1F, true); // observed 94
-		final IAssSet onToOff = new FunkyAssSet(256, 1F, false); // observed 144
+		final IAssSet onToOff = new FunkyAssSet(256, 1F, false); //observed 144
 		// Set for uniqueness + Queue.poll() // observed max is 27
 //		final IMyPollSet<Ass> effects = new MyLinkedHashSet<>(32, 1F);
 		final IMyPollSet<Ass> effects = new LinkedMatrixAssSet();
-		for ( Cell cell : grid.cells )
+		for ( Cell cell : grid.cells ) {
 			// filter: X/XYChain max 64, YChain much < 64 (maybes.size==2)
 			// and also skip naked/hidden single not yet applied
 			if ( filter.accept(cell) && !cell.skip )
@@ -151,17 +151,23 @@ public final class UnaryChainer extends AChainer {
 						, isXChain, isYChain
 						, effects, hints
 					);
+			if ( interrupted() )
+				return;
+		}
 	}
 
-	/** Create unary chains and cycles cell filter: returns the appropriate
+	/**
+	 * Create unary chains and cycles cell filter: returns the appropriate
 	 * {@code Filter<Cell>} for the given isXChain. When isXChain is true we
 	 * examine cells which have 2-or-more maybes, and when false (ie we're
 	 * hunting Y-cycles only) we examine cells which have exactly 2 maybes.
 	 * NB: Y-cycles are as rare as rocking-horse-s__t (a dozen in top1465)
 	 * but we must still code for them, as efficiently as possible.
+	 * 
 	 * @param isXChain
-	 * @return the appropriate cell filter.	*/
-	private IFilter<Cell> createUcacCellFilter(boolean isXChain) {
+	 * @return the appropriate cell filter.
+	 */
+	private IFilter<Cell> ucacCellFilter(boolean isXChain) {
 		if ( isXChain )
 			// XY-chains start from cells with two or more maybes.
 			return new IFilter<Cell>() {

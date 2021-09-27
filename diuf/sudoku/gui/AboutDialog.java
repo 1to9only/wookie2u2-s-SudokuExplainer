@@ -25,11 +25,14 @@ public final class AboutDialog extends JDialog {
 	private static final long serialVersionUID = -5231673684723681106L;
 
 	private JPanel jContentPane = null;
+
 	private JPanel pnlTop = null;
 	private JLabel lblTitle = null;
 	private JLabel lblCopyright = null;
 	private JLabel lblCopyright2 = null;
+
 	private JPanel pnlCenter = null;
+
 	private JPanel pnlBottom = null;
 	private JButton btnOk = null;
 	private JLabel lblVersion = null;

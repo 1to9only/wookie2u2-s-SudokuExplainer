@@ -9,7 +9,6 @@ package diuf.sudoku.solver.hinters.color;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
 import java.util.HashSet;
@@ -21,7 +20,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2020 Sept 22
  */
-public class ColoringHint extends AHint implements IActualHint {
+public class ColoringHint extends AHint  {
 
 	// calculate a HashSet of the cells to highlight with an aqua background,
 	// ie all the cells with a highlighted candidate.

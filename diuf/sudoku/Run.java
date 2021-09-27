@@ -9,10 +9,16 @@ package diuf.sudoku;
 /**
  * I need a way to differentiate running in the GUI
  *                          from running in the LogicalSolverTester
- * and this is a bit s__t (TM) but it'll do.
+ * and this is a bit s__t (TM) but she'll do.
+ *
  * @author Keith Corlett 2020 Mar 22
  */
 public final class Run {
+
+	/**
+	 * System.nanoTime() between hints in GUI
+	 */
+	public static long time;
 
 	public static Type setRunType(Type type) {
 		Type prev = Run.type;

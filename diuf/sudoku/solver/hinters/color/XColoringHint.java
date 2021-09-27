@@ -22,7 +22,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021-03-03
  */
-public class XColoringHint extends AHint {
+public class XColoringHint extends AHint  {
 
 	private final int v;
 	private final String greenCells; // ids of the green cells

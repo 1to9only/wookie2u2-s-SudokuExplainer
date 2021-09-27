@@ -17,24 +17,24 @@ import java.util.Arrays;
  */
 public final class MyArrays {
 
-	public static int[] clear(int[] array) {
+	public static int[] clear(final int[] array) {
 		clear(array, array.length);
 		return array;
 	}
-	public static void clear(int[] array, final int n) {
+	public static void clear(final int[] array, final int n) {
 		for ( int i=0; i<n; ++i )
 			array[i] = 0;
 	}
 
-	public static void clear(Object[] array) {
+	public static void clear(final Object[] array) {
 		clear(array, array.length);
 	}
-	public static void clear(Object[] array, final int n) {
+	public static void clear(final Object[] array, final int n) {
 		for ( int i=0; i<n; ++i )
 			array[i] = null;
 	}
 
-	public static void clear(boolean[] array) {
+	public static void clear(final boolean[] array) {
 		for ( int i=0,n=array.length; i<n; ++i )
 			array[i] = false;
 	}

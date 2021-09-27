@@ -12,7 +12,6 @@ import diuf.sudoku.*;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.*;
-import diuf.sudoku.solver.LogicalSolver.*;
 import diuf.sudoku.solver.hinters.*;
 import diuf.sudoku.solver.hinters.chain.*;
 import diuf.sudoku.utils.*;
@@ -117,39 +116,6 @@ public final class LogicalSolverTester {
 		if ( args.length < 1 ) // requires inputFileName atleast
 			return printUsage();
 
-		// parse the switch arguements, if any
-		Mode solverMode = Mode.ACCURACY; // ie the "normal" default mode
-//		boolean stats=false;
-		boolean redo=false; // "enhanced" modes
-		Set<String>[] hintyHinters = null; // cheeky monkey.
-		ARGS_LOOP: while ( args[0].charAt(0) == '-' ) { // evaludate the switch
-			switch ( args[0] ) {
-			case "-SPEED":
-				solverMode = Mode.SPEED;
-				break;
-//			case "-STATS":
-//				stats = true;
-//				break;
-//			//<HACK> // currently top1465.d5.mt only
-//			case "-REDO":
-//				try {
-//					redo = true;
-//					hintyHinters = new Set[1465]; // unchecked
-//					if ( !parse(IO.KEEPER_LOG, hintyHinters) )
-//						return carp("Failed parse: " + IO.KEEPER_LOG);
-//				} catch (Exception ex) {
-//					return carp("-REDO Exception:", ex);
-//				}
-//				break;
-//			//</HACK>
-			default:
-				printUsage();
-				return carp("unrecognised switch: \""+args[0]+"\"");
-			}
-			// eat this arg
-			args = MyArrays.leftShift(args);
-		}
-
 		// get the inputFilename from the arguements
 		final File inputFile = new File(args[0]);
 		args = MyArrays.leftShift(args);
@@ -162,15 +128,10 @@ public final class LogicalSolverTester {
 			return carp("Expected *.mt as input: "+inputFilepath);
 
 		//<HACK>
-		// AHinter.hackTop1465 means we're processing top1465.d5.mt in HACK mode.
+		// AHinter.hackTop1465: we're processing top1465.d5.mt in HACK mode.
 		// Aligned*Exclusion uses AHinter.hackTop1465 to enable speed hacks.
 		// LogicalSolver uses AHinter.hackTop1465 to set the firstHintNumbers.
 		AHinter.hackTop1465 = IS_HACKY && MyFile.nameContains(inputFilepath, "top1465");
-//		if ( redo && !AHinter.hackTop1465 )
-//			if ( !IS_HACKY )
-//				return carp("-REDO only works when isHacky setting is true");
-//			else // must be !fileNameContains
-//				return carp("-REDO only works on top1565, not: "+inputFilepath);
 		//</HACK>
 
 		// remaining args are either -wantedHinters or pids (puzzle numbers)
@@ -192,15 +153,8 @@ public final class LogicalSolverTester {
 		// get the output logFilename from the inputFilename
 		// KRC 2019-10-03 put run date-time in logFilename.
 		final String now = Settings.now(); // resused in the log-file itself
-		String ext = redo // ie LogicalSolver.usesJustHintyHinters
-			? ".log" // it's not a keeper
-			// it could be a keeper, so stick $now in the filename so it won't
-			// be automatically overwritten if you just press play again next
-			// time without thinking: "I need to store that logFile first".
-			// It never happened to me, coz I'm intelligent. Sigh. But atleast
-			// I've invented a permanent solution (sort-of) to the problem, so
-			// maybe I'm not as dumb as I look. How dumb do you look Rodney?
-			: "."+now+".log";
+		// stick $now in the filename so it won't be overwritten.
+		final String ext = "."+now+".log";
 		// Do two search-and-replaces for MAD Windows users with .MT files.
 		final String logFilename = inputFilepath.replaceFirst("\\.mt$", ext)
 				.replaceFirst("\\.MT$", ext.toUpperCase());
@@ -208,12 +162,12 @@ public final class LogicalSolverTester {
 
 		// --------------------------- begin real work ------------------------
 
-		// Let's run this little fire trucker down the list...
+		// So let's run this little fire trucker down the list...
 		try ( PrintStream out = new PrintStream(new FileOutputStream(logFile), true) ) {
 			Log.initialise(out);
 
 			// nb: LogicalSolver's want method (et al) write to Log.out
-			LogicalSolver solver = LogicalSolverFactory.get(solverMode);
+			LogicalSolver solver = LogicalSolverFactory.get();
 			Log.tee("wantedHinters: ");
 			Log.teeln(solver.getWantedHinterNames());
 
@@ -234,14 +188,15 @@ public final class LogicalSolverTester {
 //					if ( redo )
 //						logicalSolver.reconfigureToUse(hintyHinters[pid-1]);
 					System.out.println("processing pid "+pid+" ...");
-					process(readALine(inputFile, pid), solver, totalUsageMap, redo, true, false, true);
+					process(readALine(inputFile, pid), solver, totalUsageMap, true, false, true);
 					// print running-total usages (for A*E monitoring)
-					printTotalUsageMap(totalUsageMap);
+					printTotalUsageMap(totalUsageMap, solver);
 				}
-				solver.report();
+				// report, close files, clean-up, etc.
+				try { solver.close(); } catch (IOException impossible) { }
 			} else { // WHOLE PUZZLE FILE
 
-				// PRIMING SOLVE: don't time the JIT compiler!
+				// PRIMING SOLVE: don't time the bloody JIT compiler!
 				if ( true ) {
 					// run solve manually (process buggers-up count)
 					Grid g = new Grid(readALine(inputFile, 1).contents);
@@ -255,27 +210,23 @@ public final class LogicalSolverTester {
 				}
 
 				// now the actual run
-				printHeaders(now, solverMode, redo, inputFile, logFile);
+				printHeaders(now, inputFile, logFile);
 				UsageMap totalUsageMap = new UsageMap();
 				try ( BufferedReader reader = new BufferedReader(new FileReader(inputFile)) ) {
 					int lineCount=0;  String contents;
 					while ( (contents=reader.readLine()) != null ) {
 						Line line = new Line(inputFile, ++lineCount, contents);
 //						if(lineCount<9) continue;
-						if ( redo ) // ie LogicalSolver.usesJustHintyHinters
-							solver.reconfigureToUse(hintyHinters[line.index]);
 						// totalUsageMap += process line with solver
-						if ( !process(line, solver, totalUsageMap, redo, true, false, true) )
+						if ( !process(line, solver, totalUsageMap, true, false, true) )
 							break;
 						// print running total usages (for A*E monitoring)
-						printTotalUsageMap(totalUsageMap);
+						printTotalUsageMap(totalUsageMap, solver);
 						if ( false ) {
 							// I'm sick of GC making solve timings inconsistent,
 							// but can't predict if it'll need to GC in the next
 							// puzzle, so we full-GC after solving each puzzle.
 							solver.cleanUp();
-							if ( redo ) // ie solver.usesJustHintyHinters
-								hintyHinters[line.index] = null;
 							contents = null;
 							line = null;
 							System.gc();
@@ -314,14 +265,11 @@ public final class LogicalSolverTester {
 				// place of FunkyAssSet.
 				OverallSizes.THE.dump();
 
-				// nb: A*E's are the only IReporter's to date.
-				solver.report();
-
 // Here we report static hinter variables.
 //				Log.teef("\nLinkedMatrixCellSet.bitCountCnt = %,d\n", bitCountCnt);
 
-				// save stats, close logs, etc.
-				try { solver.close(); } catch (Throwable eaten) { }
+				// report, close files, clean-up, etc.
+				try { solver.close(); } catch (IOException impossible) { }
 
 				System.out.flush(); // ____ing dildows
 				Log.out.flush(); // ____ing dildows
@@ -340,23 +288,18 @@ public final class LogicalSolverTester {
 	private static int procCount = 0;
 	private static long ttlTook = 0L;
 	private static boolean process(Line line, LogicalSolver solver
-			, UsageMap totalUsage, boolean redo, boolean isNoisy
-			, boolean showHints, boolean logHints
-	) {
+			, UsageMap totalUsage, boolean isNoisy, boolean showHints
+			, boolean logHints) {
 		if ( isNoisy ) {
 			++procCount;
 			// this is the puzzle-header-line for when we're logging a line per hint
 			if (Log.MODE >= Log.VERBOSE_2_MODE) {
 				Log.println();
 				Log.println(line.toString()); // $pid#$absolutePath\t$contents
-				// wantedEnabledHinters: belong directly below puzzle-header-line
-				if ( redo )
-					solver.dumpWantedEnabledHinters(Log.out);
 			}
 		}
 		Grid grid = new Grid(line.contents);
 		grid.source = new PuzzleID(line.file, line.number);
-		GrabBag.grid = grid;
 
 		long took = 0L;
 		long start = System.nanoTime();
@@ -376,8 +319,8 @@ public final class LogicalSolverTester {
 
 			if ( isNoisy ) {
 				// print the hinter detail lines in VERBOSE_MODE
-				String hinterName, hardestHinterName="Ignoto";
-				double difficulty, maxDifficulty=0.0D;
+				String hinterName, hardestHinter="Ignoto";
+				double d, maxDifficulty=0.0D, ttlDifficulty=0.0D;
 				int calls, ttlCalls=0;
 				int hints, ttlHints=0;
 				int elims, ttlElims=0;
@@ -392,24 +335,27 @@ public final class LogicalSolverTester {
 				}
 				for ( IHinter hinter : usageMap.keySet() ) {
 					hinterName = hinter.toString();
-					difficulty = hinter.getDifficulty();
 					u = usageMap.get(hinter);
 					ttlCalls += (calls = u.numCalls);
 					ttlHints += (hints = u.numHints);
 					ttlElims += (elims = u.numElims);
 					time = u.time;
-					if ( elims>0 && difficulty>maxDifficulty ) {
-						maxDifficulty = difficulty;
-						hardestHinterName = hinterName;
+					if ( elims > 0 ) {
+						d = u.maxDifficulty;
+						if ( d > maxDifficulty ) {
+							maxDifficulty = d;
+							hardestHinter = hinterName;
+						}
+						ttlDifficulty += u.ttlDifficulty;
 					}
 					if (Log.MODE >= Log.VERBOSE_2_MODE)
 						printHintDetailsLine(Log.out, time, calls, hints, elims
-							, difficulty, hinterName);
+							, maxDifficulty, ttlDifficulty, hinterName);
 				}
 				if (Log.MODE >= Log.NORMAL_MODE)
 					printPuzzleSummary(line, took, ttlTook/procCount
 							, ttlCalls, ttlHints, ttlElims
-							, maxDifficulty, hardestHinterName);
+							, maxDifficulty, ttlDifficulty, hardestHinter);
 				Log.flush();
 
 				if ( totalUsage != null )
@@ -441,15 +387,9 @@ public final class LogicalSolverTester {
 		}
 	}
 
-	private static void printHeaders(String now, Mode solverMode
-//			, boolean stats
-			, boolean redo, File inputFile, File logFile) {
+	private static void printHeaders(String now, File inputFile, File logFile) {
 		// create solver here coz logs unwanted hinters in NORMAL_MODE
 		Log.teef("%s built %s ran %s%s", Settings.ATV, Settings.BUILT, now, NL);
-		// log the mode(s)
-		Log.teef("mode    : %s", solverMode); // is -SPEED mode
-//		Log.teef(" %sSTATS", stats?"":"!"); // is -STATS run
-//		Log.teef(" %sREDO", redo?"":"!");   // is -REDO run
 		Log.teef(" %sHACKY", IS_HACKY?"":"!");
 		Log.teeln();
 		Log.teef("input   : %s%s", inputFile.getAbsolutePath(), NL);
@@ -482,7 +422,8 @@ public final class LogicalSolverTester {
 	}
 
 	private static void printHintDetailsLine(PrintStream out, long time, int calls
-			, int hints, int elims, double difficulty, String hinterName) {
+			, int hints, int elims, double maxDifficulty, double ttlDifficulty
+			, String hinterName) {
 		// hint-details-line
 		// + 1 line per Hint
 		out.format("%5s", ""); // hid (hintNumber)
@@ -491,7 +432,8 @@ public final class LogicalSolverTester {
 		out.format("\t%5d", calls);
 		out.format("\t%5d", hints);
 		out.format("\t%5d", elims);
-		out.format("\t%4.2f", difficulty);
+		out.format("\t%4.2f", maxDifficulty);
+		out.format("\t%7.2f", ttlDifficulty);
 		out.format("\t%s", hinterName);
 		out.println();
 	}
@@ -530,14 +472,14 @@ public final class LogicalSolverTester {
 		out.format("\t%s%s", u.hinterName, NL);
 	}
 
-	private static List<Usage> printTotalUsageMap(UsageMap totalUsageMap) {
+	private static List<Usage> printTotalUsageMap(UsageMap totalUsageMap, LogicalSolver solver) {
 		Log.println();
 		if (Log.MODE >= Log.VERBOSE_1_MODE)
 			printHinterSummaryHeader(Log.out);
 		// totalUsageMap: + 1 line per Hinter (summary) DETAIL
 		long ttlTime = 0L;
-		List<Usage> totalUsageList = totalUsageMap.toArrayList();
-		totalUsageList.sort(Usage.BY_NUM_CALLS_DESC);
+		final List<Usage> totalUsageList = totalUsageMap.toArrayList();
+		totalUsageList.sort(Usage.newRunOrderComparator(solver.wantedHinters));
 		for ( Usage u : totalUsageList ) {
 			if (Log.MODE >= Log.VERBOSE_1_MODE)
 				printHinterSummary(Log.out, u);
@@ -549,7 +491,7 @@ public final class LogicalSolverTester {
 
 	private static void printPuzzleSummary(Line line, long took, long average
 			, int ttlCalls, int ttlHints, int ttlElims, double maxDifficulty
-			, String hardestHinterName) {
+			, double ttlDifficulty, String hardestHinter) {
 		// 1 line per puzzle (basics) tee to stdout & log
 		Log.teef("%5d", line.number);
 		Log.teef("\t%,17d", took);
@@ -557,8 +499,9 @@ public final class LogicalSolverTester {
 		Log.teef("\t%5d", ttlCalls);
 		Log.teef("\t%5d", ttlHints);
 		Log.teef("\t%5d", ttlElims);
-		Log.teef("\t%4.2f", maxDifficulty);
-		Log.teef("\t%-21s", hardestHinterName); // longest "Direct Hidden Triple" is 20 chars
+		Log.teef("\t%4.2f", maxDifficulty); // upto 9.99, 10+ is disaligned!
+		Log.teef("\t%7.2f", ttlDifficulty); // 100 hints * 9.99 = 999.00
+		Log.teef("\t%-20s", hardestHinter); // longest "Direct Hidden Triple" is 20 chars
 		Log.teef("\t%s", line.contents);
 		Log.teeln();
 	}
@@ -646,13 +589,13 @@ public final class LogicalSolverTester {
 // this piece of s__t and HoDoKu I'm taking HoDoKu.
 //	/**
 //	 * To setup for a -REDO run we parse the log-file into an array (indexed by
-//	 * 0-based puzzleNumber) of a Set of hintyHinters nom's, which we then pass
+//	 * 0-based puzzleNumber) of a Set of hintyHinters name()s, which we pass
 //	 * to the LogicalSolver to reconfigure itself around.
 //	 * @param inputLogFile File to read
 //	 * @param hintyHinters output {@code Set<String>[]} an array of a set of
 //	 * strings, that is indexed by 0-based puzzleNumber, so that we have a set
-//	 * of strings (hinter nom's) per puzzle: each element of which startsWith
-//	 * the tech.nom, and is optionally followed by a space-separated list of
+//	 * of strings (hinter.name()s) per puzzle: each element of which startsWith
+//	 * the tech.name(), and is optionally followed by a space-separated list of
 //	 * hintNumbers at which this hinter is to be activated. If the hintNumbers
 //	 * list is missing-or-empty then we set the hinters hintNumbers to null, so
 //	 * that its activate method reverts to the firstHintNumber passed into it's
@@ -661,12 +604,12 @@ public final class LogicalSolverTester {
 //	 * @return success
 //	 */
 //	private static boolean parse(File inputLogFile, Set<String>[] hintyHinters) {
-//		final int NOM_BEGIN = 34; // nom is French for name, which is reserved by the Enum
-//		final int NOM_END = NOM_BEGIN + 30; // length is 30
-//		String line=null, puzzleNumberD5, nom;
+//		final int NAME_BEGIN = 34; // the start of the hinter name
+//		final int NAME_END = NAME_BEGIN + 30; // length is 30
+//		String line=null, puzzleNumberD5, name;
 //		boolean found;
 //		// A Map of each wanted IHintNumberActivatableHinter
-//		// hinter.tech.nom => Set<Integer> hintNumbers
+//		// hinter.tech.name() => Set<Integer> hintNumbers
 //		Map<String,Set<Integer>> hintNumbersMap = new LinkedHashMap<>(NUM_NOMS, 0.75F);
 //		// parse logFile into the hintyHinters array.
 //		try ( SkipReader reader = new SkipReader(inputLogFile) ) {
@@ -674,7 +617,7 @@ public final class LogicalSolverTester {
 //				puzzleNumberD5 = MyStrings.format("%5d", pid);
 //				// re/create empty hintNumbers Sets for each puzzle
 //				hintNumbersMap.clear();
-//				for ( String nhNom : getNumberedHinterNoms() )
+//				for ( String nhNom : getNumberedHinterNames() )
 //					hintNumbersMap.put(nhNom, new LinkedHashSet<>(32, 0.75F));
 //
 //				// skip down to the puzzle-header-line
@@ -698,9 +641,9 @@ public final class LogicalSolverTester {
 //						break;
 //					//a hint-details-line, starts with a space, unlike the puzzle-clues and puzzle-maybes lines
 //					//   35	         19,394	28	 161	  1	Point and Claim               	Pointing: A5, C5 on 5 in box 4 and row 5 (G5-5)
-//					} else if ( line.startsWith(" ") && line.length()>NOM_END ) {
-//						nom = line.substring(NOM_BEGIN, NOM_END).trim();
-//						Set<Integer> hintNumbersSet = hintNumbersMap.get(nom);
+//					} else if ( line.startsWith(" ") && line.length()>NAME_END ) {
+//						name = line.substring(NAME_BEGIN, NAME_END).trim();
+//						Set<Integer> hintNumbersSet = hintNumbersMap.get(name);
 //						if ( hintNumbersSet != null )
 //							hintNumbersSet.add(MyInteger.parse(line, 0, 5));
 //					}
@@ -720,11 +663,11 @@ public final class LogicalSolverTester {
 //						found = true;
 //						String[] fields = line.split(" *\\t *");
 //						if ( !"0".equals(fields[4]) ) { // numHints
-//							nom = fields[7];
-//							Set<Integer> hintNumbers = hintNumbersMap.get(nom);
+//							name = fields[7];
+//							Set<Integer> hintNumbers = hintNumbersMap.get(name);
 //							if ( hintNumbers!=null && !hintNumbers.isEmpty() )
-//								nom += asString(hintNumbers);
-//							hintyHintersSet.add(nom);
+//								name += asString(hintNumbers);
+//							hintyHintersSet.add(name);
 //						}
 //					} else if ( line.startsWith(puzzleNumberD5) ) {
 //						// the puzzle-summary-line (last line for this puzzle)
@@ -748,21 +691,20 @@ public final class LogicalSolverTester {
 //	private static final int NUM_NOMS = 64;
 //	public static long lineNumber = 0;
 //
-//	// Get the nom's of the wantedHinters which implement INumberedHinter,
+//	// Get the names of the wantedHinters which implement INumberedHinter,
 //	// which we only use to parse the previous logFile in -SPEED mode.
 //	// In "normal" ACCURACY mode this method is just never called.
-//	private static String[] getNumberedHinterNoms() {
-//		if ( numberedHinterNoms == null ) {
+//	private static String[] getNumberedHinterNames() {
+//		if ( numberedHinterNames == null ) {
 //		// nb: The LS must be in Mode.ACCURACY for this to work, else most
-//		//     hinters are not wanted, so we'd miss almost all there nom's.
-//			String[] noms = LogicalSolverFactory.get(LogicalSolver.Mode.ACCURACY, false, null)
-//						.getNumberedHinterNoms();
-//			numberedHinterNoms = noms;
+//		//     hinters are not wanted, so we'd miss almost all there names.
+//			String[] names = LogicalSolverFactory.get(LogicalSolver.Mode.ACCURACY, false, null)
+//						.getNumberedHinterNames();
+//			numberedHinterNames = names;
 //		}
-//		return numberedHinterNoms;
+//		return numberedHinterNames;
 //	}
-//	// nb: nom is French for name, which is already taken by Enum.
-//	private static String[] numberedHinterNoms;
+//	private static String[] numberedHinterNames;
 //
 //	private static String asString(Set<Integer> hintNumbers) {
 //		if ( hintNumbers.isEmpty() )

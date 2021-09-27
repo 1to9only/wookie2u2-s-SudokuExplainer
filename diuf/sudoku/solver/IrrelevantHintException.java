@@ -15,7 +15,6 @@ package diuf.sudoku.solver;
  * situation as best we can at this stage.
  * <p>2019-09-13 KRC We had the same situation in CellReductionHint, so I 
  * promoted this class out of AlignedExclusionHint into the solver package.
- * @stretch Why are these happening? Make Them Stop! Make Them Stop!
  * @author Keith Corlett 2019 SEPT
  */
 public class IrrelevantHintException extends RuntimeException {

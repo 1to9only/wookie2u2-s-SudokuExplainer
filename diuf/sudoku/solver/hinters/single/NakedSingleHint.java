@@ -46,4 +46,5 @@ public final class NakedSingleHint extends ADirectHint {
 				, cell.id					//  1
 		);
 	}
+
 }

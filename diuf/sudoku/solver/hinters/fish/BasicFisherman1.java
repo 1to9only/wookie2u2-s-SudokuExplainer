@@ -44,7 +44,7 @@ import java.util.List;
  * 2..degree v's.
  * <p>
  * ALL BAD! This implementation is actually SLOWER than the original.
- * OLD BasicFisherman ala Juillerat:
+ * OLD BasicFisherman using Juillerat's Permutations class (a bit slow):
  * 34,936,711  15857  2,203  421   82,985 Swampfish
  * 61,407,695  14112  4,351  231  265,834 Swordfish
  * 17,186,726  12145  1,415    0        0 Jellyfish
@@ -93,10 +93,7 @@ import java.util.List;
  *  55,080,200  17023  3,235  620   88,839 Swampfish
  *  71,863,700  14111  5,092  230  312,450 Swordfish
  * 104,190,200  12164  8,565    0        0 Jellyfish
- * Jesus this is frustrating. Just use the original!
- *  39,287,900  17023  2,307  620   63,367 Swampfish
- *  65,620,800  14111  4,650  230  285,307 Swordfish
- *  17,561,400  12164  1,443    0        0 Jellyfish
+ * Jesus this is frustrating. Just use the ____ing original!
  *
  * @author Keith Corlett 2021-05-01
  */

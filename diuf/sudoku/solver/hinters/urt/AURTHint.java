@@ -11,7 +11,6 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedHashSet;
@@ -26,7 +25,7 @@ import java.util.Set;
  * AURTHint (Abstract Unique Rectangle Hint) contains shared implementation of
  * the various types of Unique Rectangle and Loop Hints.
  */
-public abstract class AURTHint extends AHint implements IActualHint {
+public abstract class AURTHint extends AHint  {
 
 	// Sorts the hints by difficulty, type ascending
 	public static final Comparator<AURTHint> BY_DIFFICULTY_DESC_TYPE_INDEX_ASC

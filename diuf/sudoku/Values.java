@@ -798,6 +798,18 @@ public final class Values implements Iterable<Integer> {
 	}
 
 	/**
+	 * Returns a String representation of the given bits, for debugging.
+	 * @param bits Values.bits (commonly called maybes, bitset, or just bits).
+	 * @return 7 => 3:123
+	 */
+	public static String toFullString(int bits) {
+		SB.setLength(0);
+		SB.append(VSIZE[bits]).append(":");
+		Values.appendTo(SB, bits);
+		return SB.toString();
+	}
+
+	/**
 	 * Returns a String representation of these Values.
 	 * @return 7 => 1, 2, 3
 	 */

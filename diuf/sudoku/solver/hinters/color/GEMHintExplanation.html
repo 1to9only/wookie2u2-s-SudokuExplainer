@@ -108,23 +108,6 @@ Then (if there's any eliminations) we look for "confirmations":
 * "color is true" means all cell-values (including "ons") rendered in a larger
   this-color font will be set when this hint is applied.
 
-Then we set consequent naked/hidden singles (currently disabled).
-* for contradictions and confirmations we start from the given setPots. For an
-  eliminations hint we see if eliminations leave any naked or hidden singles,
-  and produce a setPots of them (else it's just a "normal" eliminations hint).
-* setPots are set in the grid, using autosolve so that any consequent naked or
-  hidden singles are also set, recursively.
-  - NakedSingle: If a cell has one potential value then set it to that value.
-  - HiddenSingle: If value has one place in a region then set it to the value.
-* Eliminations: we use all the reasonably fast hinters (upto 20ms/elim) to
-  eliminate maybes from the grid in the hunt for more singles.
-* Consequent singles make GEM more likely to solve the puzzle, because I just
-  hate it when a few cells are left-out in the cold, so GEM chases them down,
-  but it does so silently: no justification is provided for consequent singles.
-  If you demur then set CONSEQUENT_SINGLES and CONSEQUENT_SINGLES_TOO = false
-  in GEM.java. It's perfectly sane and reasonable to demur. I'm just greedy.
-  If you want a complete explanation of all hints then switch this crap off.
-
 And then we go for a little lie down.
 </pre>
 <hr>
@@ -147,7 +130,7 @@ And then we go for a little lie down.
 </pre>
 <hr>
 <pre>
-<u>Unfinished GEM</u>
+<u>GEM is Incomplete!</u>
 My GEM is an incomplete implementation of the specification in #GEM.txt because
 I'm too stupid to understand the spec, so I'm ignoring the ____ out of it, and
 implementing what makes sense to me. Of course it's possible that I have blindly

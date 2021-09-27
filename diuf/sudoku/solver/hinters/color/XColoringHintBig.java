@@ -29,7 +29,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021-03-03
  */
-public class XColoringHintBig extends AHint {
+public class XColoringHintBig extends AHint  {
 
 	private final int v;
 	private final int subtype;
@@ -130,13 +130,13 @@ public class XColoringHintBig extends AHint {
 	}
 
 	@Override
-	public int applyImpl(boolean isAutosolving) {
+	public int applyImpl(boolean isAutosolving, Grid grid) {
 		return setPots.setCells(isAutosolving) * 10;
 	}
 
 	@Override
 	protected String getHintTypeNameImpl() {
-		return hinter.tech.nom+" Type " + subtype;
+		return hinter.tech.name()+" Type " + subtype;
 	}
 
 	@Override

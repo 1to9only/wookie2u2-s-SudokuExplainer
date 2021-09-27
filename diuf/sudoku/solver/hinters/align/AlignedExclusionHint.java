@@ -9,7 +9,6 @@ package diuf.sudoku.solver.hinters.align;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -27,7 +26,7 @@ import java.util.Set;
  * AlignedTripleExclusion, and AlignedSetExclusion (4 or more).
  * @author Keith Corlett
  */
-public final class AlignedExclusionHint extends AHint implements IActualHint {
+public final class AlignedExclusionHint extends AHint  {
 
 	private final Cell[] cells;
 	private final String commonExcluders;

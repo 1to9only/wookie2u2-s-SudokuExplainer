@@ -18,9 +18,8 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.GrabBag;
+import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
@@ -29,9 +28,6 @@ import diuf.sudoku.solver.accu.SingleHintsAccumulator;
 import diuf.sudoku.solver.checks.SolutionHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.align.LinkedMatrixCellSet;
-import diuf.sudoku.solver.hinters.HintValidator;
-import diuf.sudoku.solver.accu.AggregatedHint;
-import diuf.sudoku.solver.checks.SolvedHint;
 import diuf.sudoku.utils.IAsker;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
@@ -50,7 +46,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -136,8 +131,8 @@ final class SudokuExplainer implements Closeable {
 
 	// Note that Log.out is set before we invoke the constructor.
 	private SudokuExplainer() {
-		grid = new Grid();
-		GrabBag.logicalSolver = solver = LogicalSolverFactory.get();
+//		grid = new Grid();
+		solver = LogicalSolverFactory.get();
 		asker = frame = new SudokuFrame(grid, this);
 		gridPanel = frame.gridPanel;
 
@@ -251,14 +246,6 @@ final class SudokuExplainer implements Closeable {
 			break;
 		case AHint.WARNING:
 			break; // no further action required
-		case AHint.AGGREGATE:
-			AggregatedHint agg = (AggregatedHint)hint;
-			for ( AHint h : agg.hints ) {
-				if ( h.cell != null )
-					filteredCells.add(h.cell);
-				filteredPots.upsertAll(h.redPots);
-			}
-			break;
 		case AHint.MULTI:
 			presetPots.upsertAll(hint.getResults());
 			break;
@@ -274,7 +261,9 @@ final class SudokuExplainer implements Closeable {
 	/** Set are we filtering-out subsequent hints with "repeat" outcomes. */
 	void setFiltered(boolean isFilteringHints) {
 		Settings.THE.set(Settings.isFilteringHints, isFilteringHints); // saves!
-		Settings.THE.save();
+// KRC 2021-06-18 07:07 Settings are saved when SE closes, and if SE bombs-out
+// before it saves we may be better-off!
+//		Settings.THE.save();
 		resetHintsFilter();
 		this.selectedHints.clear(); // to unselect dissapeared hint
 		filterAndSortHints();
@@ -317,7 +306,7 @@ final class SudokuExplainer implements Closeable {
 
 	/**
 	 * The logView method is intended for techies. It displays the hint of each
-	 * occurrence of a hinter name (Tech.nom) in a LogicalSolverTester logFile.
+	 * occurrence of a Tech name in a LogicalSolverTester logFile.
 	 * <p>
 	 * Press Ctrl-L again to find the next match for this hinter name in the
 	 * selected logFile.
@@ -331,21 +320,24 @@ final class SudokuExplainer implements Closeable {
 	 * Open the problematic puzzle normally and run-through solving it before
 	 * you panic.
 	 *
-	 * @param logFile
-	 * @param regex
-	 * @return the next techNom
+	 * @param logFile the LogicalSolverTester .log to display hints from
+	 * @param re the hint-regex (regular expression) String
+	 * @return the new/modified regex
 	 */
-	String logView(File logFile, String regex) {
+	String logView(File logFile, String re) {
 		try {
-			while ( regex.length() == 0 )
-				if ( (regex=Ask.forString("hint regex", regex)) == null )
+			while ( re==null || re.length()==0 )
+				// Note: can't use LogViewHintRegexDialog here coz he calls-back
+				// SudokuFrame.setRegex, which calls me. sigh.
+				if ( (re=Ask.forString("NONE: hint regex", re)) == null )
 					return null;
-			Pattern pattern = Pattern.compile(regex);
+			Pattern pattern = Pattern.compile(re);
 			// read the logFile first time || if logFile has changed
+			// if a puzzle is re/loaded during viewing then logLines=null (to
+			// free up RAM), in which case logLines will be reloaded (slow).
 			if ( logLines==null || !logFile.equals(loadedLogFile) ) {
 				logLines = IO.slurp(logFile);
 				loadedLogFile = logFile;
-				startLine = 0;
 			}
 			// get the number of lines in the current logFile
 			final int n = logLines.size();
@@ -358,108 +350,110 @@ final class SudokuExplainer implements Closeable {
 			int howMany;  char ch;
 			for ( int i=startLine; i<n; ++i ) {
 				line = logLines.get(i);
+				// WARN: Death Blossom invalidity I3-9 in @Death Blossom: G2-67 (I3-9)!
 				if ( line.startsWith("WARN: ")  ) {
-					// WARN: Death Blossom invalidity I3-9 in @Death Blossom: G2-67 (I3-9)!
 					try {
-						hint = line.substring(line.indexOf(" in ")+4);
-						Matcher matcher = pattern.matcher(hint);
-						if ( !matcher.matches() )
-							continue;
-						grid.load(logLines.get(i-2)+NL+logLines.get(i-1)+NL);
-						getAllHints(false, false);
-						if ( filteredHints.size() > 1 )
-							for ( AHint h : filteredHints )
-								if ( h.toString().equals(hint) ) {
-									selectedHints.clear();
-									selectedHints.add(h);
-								}
-						startLine = i + 1;
-						return regex;
+						if ( pattern.matcher(hint=line.substring(line.indexOf(" in ")+4)).matches() ) {
+							grid.load(logLines.get(i-2)+NL+logLines.get(i-1)+NL);
+							getAllHints(false, false);
+							if ( filteredHints.size() > 1 )
+								for ( AHint h : filteredHints )
+									if ( h.toString().equals(hint) ) {
+										selectedHints.clear();
+										selectedHints.add(h);
+									}
+							startLine = i + 1;
+							return re;
+						}
 					} catch ( Exception eaten ) {
 						beep();
 					}
-				} else if ( line.indexOf('#', 0) > -1 )
-					// remember this line in case we match, in a field
-					// to handle multiple-matches in a puzzle.
-					puzzleIdLine = line;
-				// the hint.toString starts-at char 65
-				else if ( line.length() > 64
-// use if techNom is NOT a regex (mine now is)
-//					   && line.contains(techNom)
-					   // first char is a digit 1..9 (line startsWith %-5d)
-					   && ((ch=line.charAt(0))>='1' && ch<='9')
+				// 1#C:\Users\User\Documents\NetBeansProjects\DiufSudoku\top1465.d5.mt	7.....4...2..7..8...3..8..9...5..3...6..2..9...1..7..6...3..9...3..4..6...9..1..5
+				} else if ( line.indexOf('#', 0) > -1 ) {
+					// remember in field for multiple hints in one puzzle.
+					pidLine = line; // PID is short for PuzzleID
+				// 1    	      3,248,200	25	 214	 10	Hidden Single                 	Hidden Single: H9=3 in box 9 (H9+3)
+				} else if ( line.length() > 64
+				  // hint line startsWith %-5d, to reduce pattern matching
+				  && line.charAt(5) == '\t'
+				  && ((ch=line.charAt(0))>='1' && ch<='9')
+				  && ((ch=line.charAt(4))==' ' || (ch>='0' && ch<='9'))
+				  // it looks like a hint line, so get hint text, and if the
+				  // given regex matches it then load puzzle and display hint
+				  && pattern.matcher(hint=line.substring(65, line.length())).matches()
+				  && pidLine != null // just in case
 				) {
-					hint = line.substring(65, line.length());
-					Matcher matcher = pattern.matcher(hint);
-					if ( !matcher.matches() )
-						continue;
-//if ( hint.startsWith("Aggregate of ")
-//  && MyStrings.word(hint, 13).length() > 1 )
-//	Debug.breakpoint();
 					// howMany: skip back past the Aggregated hint lines.
-					howMany = hint.startsWith("Aggregate of ")
-							? MyInteger.parse(MyStrings.word(hint, 13))
-							: 0;
-					// found, so load the puzzle in the previous 2 logLines
+					if ( hint.startsWith("Aggregate of ") )
+						howMany = MyInteger.parse(MyStrings.word(hint, 13));
+					else
+						howMany = 0;
+					// read the puzzle from these 2 logLines
+					final String puzzle = logLines.get(i-howMany-2) + NL
+						  + logLines.get(i-howMany-1) + NL
+						  // pid is pidLine upto first \t.
+						  + MyStrings.upto(pidLine, '\t');
+					// load the puzzle
+					boolean isLoaded;
 					try {
-						grid.load(
-							logLines.get(i-howMany-2) + NL
-						  + logLines.get(i-howMany-1) + NL
-						  // There's no point in doing this until there's a match.
-						  // We want the line upto \t, which is the puzzleId.
-						  // FYI after \t is the puzzle-as-a-string we don't want.
-						  // 34#C:\Users\User\Documents\NetBeansProjects\DiufSudoku\top1465.d5.mt	......94.....9...53....5.7..8.4..1..463...........7.8.8..7.....7......28.5.26....
-						  // -> 34#C:\Users\User\Documents\NetBeansProjects\DiufSudoku\top1465.d5.mt
-						  + MyStrings.upto(puzzleIdLine, '\t')
-						);
-					} catch ( Exception ex ) {
-						System.out.println("Grid.load: "+ex+" from:" + NL
-						  + logLines.get(i-howMany-2) + NL
-						  + logLines.get(i-howMany-1) + NL
-						  + MyStrings.upto(puzzleIdLine, '\t')
-						);
-						ex.printStackTrace(System.out);
+						isLoaded = grid.load(puzzle);
+					} catch (Exception ex) {
+						Log.teeln("BUGGER: "+Log.me()+": failed to grid.load line "+i+" of "+logFile+":"+NL+puzzle+NL);
+						Log.teeTrace(ex);
+						beep();
+						isLoaded = false;
 					}
-					// search the grid again and it SHOULD find the same hint.
-					// If not then either the software has changed since your
-					// logFile was produced, or s__t just happens sometimes.
-					// If you press F5 you can get the hint that was applied.
-					// nb: wantMore and wantSolution are both false
-					getAllHints(false, false);
-					// now if there's multiple hints returned then we'll select
-					// the hint with a description which matches the one we just
-					// read from the logFile, if it's there... other than that
-					// the user (a techie) is on there own.
-					if ( filteredHints.size() > 1
-					  && puzzleIdLine.length() >= 65 ) {
-						String hintText = puzzleIdLine.substring(65, puzzleIdLine.length());
-						for ( AHint h : filteredHints )
-							if ( h.toString().equals(hintText) ) {
-								selectedHints.clear();
-								selectedHints.add(h);
-							}
+					if ( isLoaded ) {
+						// search grid again which SHOULD find the same hint.
+						// If not then either a hinter has changed since your
+						// logFile was produced, or some s__t just happened.
+						getAllHints(false, false); // wantMore, wantSolution
+						// if multiple hints are returned then select the hint
+						// with a description that matches the one we just read
+						// from the logFile, if exist, else the user (a techie)
+						// is on there own.
+						if ( filteredHints.size()>1 ) {
+							assert line.length() > 64;
+							String target = line.substring(65, line.length());
+							assert target!=null && !target.isEmpty();
+							for ( AHint h : filteredHints )
+								if ( target.equals(h.toString()) ) {
+									selectedHints.clear();
+									selectedHints.add(h);
+								}
+						}
+						// start the next search at the next line
+						startLine = i + 1;
 					}
-					// start the next search at the next line
-					startLine = i + 1;
-					// we're outta here
-					return regex;
+					return re;
 				}
 			}
 			// not found
 			startLine = 0;
+			pidLine = null;
 			beep();
 			// give the user a chance to change the regex for the next call
-			return Ask.forString("hint regex", regex);
+			// Note: can't use LogViewHintRegexDialog here coz he calls-back
+			// SudokuFrame.setRegex, which calls me. sigh.
+			return Ask.forString("EOL: hint regex", re);
 		} catch (Throwable ex) {
 			StdErr.whinge("logView error", ex);
 			beep();
 			return null;
 		}
 	}
-	private int startLine = 0;
+	// these all persist between logView calls
+	int startLine = 0; // reset by SudokuFrame
 	private File loadedLogFile;
-	private String puzzleIdLine = "";
+	private String pidLine = null;
 	private ArrayList<String> logLines; // the lines in the logFile
+
+	// when you open a puzzle it resets the logLines, to free-up memory after
+	// you've viewed a log-file, without restarting SE. sigh.
+	void resetLogLines() {
+		loadedLogFile = null;
+		logLines = null;
+	}
 
 	void clearUndos() {
 		undos.clear();
@@ -494,22 +488,19 @@ final class SudokuExplainer implements Closeable {
 	/** Ignores all wrongens. */
 	private void doDegrelease(int value, Cell cell) throws DegreleaseException {
 		// ensure the given grid has a puzzleID, which is set when the Grid is
-		// created and then reset whenever a puzzle is loaded into the Grid.
-		// This is defensive programming against an upstream bug I'm not sure
-		// exists but I think this should solve the problem. I'm not positive
-		// this is necessary or even desirable, it just "feels right".
-		if ( grid.pid == 0L )
-			grid.pid = Grid.RANDOM.nextLong();
+		// created, and reset when a puzzle is loaded.
+		// * Invalidates all of grid's caches (but maybe not others, sigh).
+		// * Not certain this is necessary, it just "feels right".
+		if ( grid.pid == 0L ) {
+			grid.pidReset();
+			grid.hintNumberReset();
+		}
 		// if solutionValues is unset || it's a different puzzle
-		if ( solutionValues==null || grid.pid!=solutionValuesGridId ) {
+		if ( solutionValues==null || grid.pid!=solutionValuesPid ) {
 			if ( grid.solutionValues == null )
-				solver.solveQuicklyAndQuietly(grid); // sets grid.solutionValues
+				solver.solveASAP(grid); // sets grid.solutionValues
 			solutionValues = grid.solutionValues;
-			solutionValuesGridId = grid.pid;
-			// not real sure I need to do this HERE... might be better to leave
-			// it to solve/getFirstHint/getAllHints, but I'm doing it anyway.
-			if ( HintValidator.ANY_USES )
-				HintValidator.setSolutionValues(grid.solutionValues, grid.pid);
+			solutionValuesPid = grid.pid;
 		}
 		// ignore all wrongens!
 		if ( value != solutionValues[cell.i] )
@@ -517,7 +508,7 @@ final class SudokuExplainer implements Closeable {
 	}
 	// need the solutionValues to validate user input against in godMode
 	private int[] solutionValues = null;
-	private long solutionValuesGridId;
+	private long solutionValuesPid;
 
 	private final class UndoList extends LinkedList<String> {
 		private static final long serialVersionUID = 216354987L;
@@ -670,26 +661,25 @@ final class SudokuExplainer implements Closeable {
 
 	/** Clears the current grid - actually replaces him with a brand new one.*/
 	void clearGrid() {
-		gridPanel.setSudokuGrid(grid = new Grid());
+		gridPanel.setGrid(grid = new Grid());
 		clearHints();
 		clearUndos();
 		solutionValues = null;
-		solutionValuesGridId = 0L;
+		solutionValuesPid = 0L;
 		frame.setTitle(Settings.ATV+"    "+Settings.BUILT);
 	}
 
 	/** Make this Grid the current one. */
 	void setGrid(Grid grid) {
-		this.grid = grid;
+		gridPanel.setGrid(this.grid = grid);
 		grid.rebuildMaybesAndS__t();
-		gridPanel.setSudokuGrid(grid);
 		gridPanel.clearSelection(true);
 		clearHints();
 	}
 
 	/** @return the current Grid. */
 	Grid getGrid() {
-		return gridPanel.getSudokuGrid();
+		return gridPanel.getGrid();
 	}
 
 	/** clear the hints - both the selected hint(s) and the hints lists. */
@@ -723,6 +713,7 @@ final class SudokuExplainer implements Closeable {
 	private void displayError(Throwable ex) {
 		System.out.flush();
 		ex.printStackTrace(System.out);
+		System.out.flush();
 		try {
 			repaintAll();
 		} catch (Throwable t) {
@@ -754,10 +745,12 @@ final class SudokuExplainer implements Closeable {
 		clearHints();
 	}
 
-	/** Searches the grid for the next hint, which is displayed,
+	/**
+	 * Searches the grid for the next hint, which is displayed,
 	 * else an error-message is displayed.
-	 * Called by this.solveStep
-	 *       and SudokuFrames btnGetNextHint and mitGetNextHint.
+	 * <p>
+	 * Used by solveStep and SudokuFrames btnGetNextHint and mitGetNextHint.
+	 *
 	 * @param wantMore true when big (aggregate) hints are desired. */
 	void getNextHint(boolean wantMore, boolean wantSolution) {
 		try {
@@ -774,24 +767,21 @@ final class SudokuExplainer implements Closeable {
 
 	// Called by getNextHint (above) and getClue (below)
 	private AHint getNextHintImpl(boolean wantMore, boolean wantSolution) {
-		GrabBag.grid = grid;
 		if ( unfilteredHints == null ) {
 			unfilteredHints = new ArrayList<>();
 			filterAndSortHints();
 		}
 		// create temporary buffers for gathering a hint
-		ArrayList<AHint> currHints = new ArrayList<>();
 		SingleHintsAccumulator accu = new SingleHintsAccumulator();
 		solver.singlesSolution = null;
 		// find next hint
 		if ( solver.solveWithSingles(grid, accu) ) {
 			if ( wantSolution )
-				accu.add(new SolutionHint(new DummySolutionHinter(), grid
-						, solver.singlesSolution, false));
+				accu.add(new SolutionHint(grid, solver.singlesSolution));
 		} else if ( wantMore )
 			solver.getAllHints(grid, wantMore, true);
 		else
-			solver.getFirstHint(grid, unfilteredHints, currHints, accu);
+			solver.getFirstHint(grid, accu);
 		// move the hint from accu to unfilteredHints
 		AHint hint = accu.getHint();
 		if ( hint != null )
@@ -808,23 +798,23 @@ final class SudokuExplainer implements Closeable {
 	 * @param isBig Are big (more informative) clues desired? */
 	void getClue(boolean isBig) {
 		clearHints();
-		AHint hint = getNextHintImpl(isBig, false);
-		if ( hint == null )
-			return;
-		if ( hint instanceof IActualHint ) {
-			String filename = isBig ? "BigClue.html" : "SmallClue.html";
-			String html = Html.load(this, filename);
-			html = html.replace("{0}", hint.getClueHtml(isBig));
-			gridPanel.setBases(hint.getBases());
-			html = Html.colorIn(html);
-			frame.setHintDetailArea(html);
-			unfilteredHints = null;
-			resetHintsFilter();
-			filterAndSortHints();
-		} else {
-			addFilteredHint(hint);
-			selectedHints.add(hint);
-			repaintAll();
+		final AHint hint = getNextHintImpl(isBig, false);
+		if ( hint != null ) {
+			if ( hint instanceof IPretendHint ) {
+				addFilteredHint(hint);
+				selectedHints.add(hint);
+				repaintAll();
+			} else {
+				String filename = isBig ? "BigClue.html" : "SmallClue.html";
+				String html = Html.load(this, filename);
+				html = html.replace("{0}", hint.getClueHtml(isBig));
+				gridPanel.setBases(hint.getBases());
+				html = Html.colorIn(html);
+				frame.setHintDetailArea(html);
+				unfilteredHints = null;
+				resetHintsFilter();
+				filterAndSortHints();
+			}
 		}
 	}
 
@@ -841,12 +831,11 @@ final class SudokuExplainer implements Closeable {
 			IAccumulator accu = new SingleHintsAccumulator();
 			if ( grid.isFull() )
 				// it's already solved numbnuts!
-				unfilteredHints = AHint.list(new SolvedHint());
+				unfilteredHints = AHint.list(solver.SOLVED_HINT);
 			else if ( wantSolution && solver.solveWithSingles(grid, accu) )
 				// hold down the Shift key to get the solution NOW!
 				unfilteredHints = AHint.list(
-						new SolutionHint(new DummySolutionHinter(), grid
-								, solver.singlesSolution, true) );
+						new SolutionHint(grid, solver.singlesSolution) );
 			else
 				// find the next hint
 				unfilteredHints = solver.getAllHints(grid, wantMore, true);
@@ -879,10 +868,9 @@ final class SudokuExplainer implements Closeable {
 			try {
 				if ( grid.isFull() )
 					return;
-				GrabBag.grid = grid; // used to log grid + hint in VERBOSE mode
 				for ( AHint hint : selectedHints ) {
 					undos.addFirst(grid.toString());
-					hint.apply(Grid.NO_AUTOSOLVE, true);
+					hint.apply(Grid.NO_AUTOSOLVE, true, grid);
 					if ( grid.isFull() ) {
 						// print the solution
 						System.out.format("\nSOLUTION: %s\n", grid.toShortString());
@@ -997,7 +985,7 @@ final class SudokuExplainer implements Closeable {
 			grid.source = null;
 			GridFactory.pasteClipboardTo(grid);
 			AHinter.hackTop1465 = grid.hackTop1465();
-			AHint.resetHintNumber();
+			grid.hintNumberReset();
 			frame.setTitle(ATV+"    (clipboard)");
 		} catch (IOException ex) {
 			backup.copyTo(grid);
@@ -1033,7 +1021,9 @@ final class SudokuExplainer implements Closeable {
 
 	/** Load the given PuzzleID. */
 	final PuzzleID loadFile(PuzzleID id) {
-		return id==null ? null : loadFile(id.file, id.lineNumber);
+		if ( id == null )
+			return null;
+		return loadFile(id.file, id.lineNumber);
 	}
 
 	/**
@@ -1055,13 +1045,15 @@ final class SudokuExplainer implements Closeable {
 		// clear the current grid from the display
 		clearGrid();
 		frame.clearHintDetailArea();
+		// if a puzzle is re/loaded during logView then logLines=null (to free
+		// up lots of RAM), in which case logView then reloads logLines (slow).
+		resetLogLines();
 		// load da fooker!
 		if ( !IO.load(grid, file, lineNumber) )
 			backup.copyTo(grid);
 		else if ( !grid.isMaybesLoaded )
 			grid.rebuildMaybesAndS__t();
-		GrabBag.grid = grid;
-		AHint.resetHintNumber();
+		grid.hintNumberReset();
 		AHinter.hackTop1465 = grid.hackTop1465();
 		return recentFiles.add(grid.source);
 	}
@@ -1072,10 +1064,9 @@ final class SudokuExplainer implements Closeable {
 	 * @param stringData the puzzle to load.
 	 */
 	void loadStringIntoGrid(String stringData) {
-		AHint.resetHintNumber();
+		grid.hintNumberReset(); // do now incase load fails
 		grid.source = null; // default to null, may be set by grid.load from 3rd line in stringData
 		grid.load(stringData);
-		GrabBag.grid = grid;
 		AHinter.hackTop1465 = grid.hackTop1465();
 	}
 
@@ -1111,13 +1102,13 @@ final class SudokuExplainer implements Closeable {
 	}
 
 	/** Solve the current grid recursively (ie ASAP) to display the solution. */
-	void solveRecursively() {
+	void solveASAP() {
 		clearHints();
 		unfilteredHints = new ArrayList<>();
 		long t0 = System.nanoTime();
-		AHint solutionHint = solver.solveRecursively(grid);
+		AHint solutionHint = solver.getSolutionHint(grid);
 		if ( Log.MODE >= Log.VERBOSE_2_MODE )
-			System.out.format("<solveASAP: %,15d%s", System.nanoTime()-t0, NL);
+			System.out.format("<solveASAP: %,15d%s %s", System.nanoTime()-t0, solutionHint instanceof SolutionHint, NL);
 		if ( solutionHint != null ) {
 			unfilteredHints.add(solutionHint);
 			selectedHints.add(solutionHint);
@@ -1142,7 +1133,7 @@ final class SudokuExplainer implements Closeable {
 			// prepare the hinters to analyse this puzzle
 			solver.prepare(copy);
 			// analyse this puzzle
-			AHint hint = solver.analyse(copy);
+			AHint hint = solver.analysePuzzle(copy);
 			// hint should never be null. Never say never.
 			if ( hint != null ) {
 				unfilteredHints.add(hint);

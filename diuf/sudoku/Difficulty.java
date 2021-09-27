@@ -30,10 +30,9 @@ import java.util.List;
  * Formerly Difficulty was an inner-class of GenerateDialog.
  * <p>
  * <b>WARNING:</b> If you change any hints difficulty then also look at:<ul>
- *  <li>{@link diuf.sudoku.solver.LogicalSolver#configureHinters} to keep the
- *   order of wantedHinters same as (or near) the Tech difficulties; so that
- *   hinters are run in order of increasing difficulty, to produce the simplest
- *   possible solution to each Sudoku puzzle.
+ *  <li>{@link diuf.sudoku.solver.LogicalSolver#configureWantedHinters} to keep
+ *   the order of wantedHinters near to that of Tech difficulty; so hinters run
+ *   in increasing difficulty, to produce the simplest solution to each puzzle.
  *  <li>{@link diuf.sudoku.Tech} for the actual difficulties
  *  <li>{@link diuf.sudoku.Difficulty} double check the ranges
  * </ul>

@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
@@ -36,7 +37,7 @@ import java.util.Set;
  * so AHint is also the reference type. If that ever changes then create an
  * IHint interface and change all references from AHint to IHint. Sigh.
  */
-public abstract class ADirectHint extends AHint implements IActualHint {
+public abstract class ADirectHint extends AHint  {
 
 	private final ARegion region; // The concerned region, if any
 
@@ -101,7 +102,7 @@ public abstract class ADirectHint extends AHint implements IActualHint {
 	 * just 10 when isAutosolving is false, ie we're in "normal" mode.
 	 */
 	@Override
-	public int applyImpl(boolean isAutosolving) {
+	public int applyImpl(boolean isAutosolving, Grid grid) {
 		return cell.set(value, 0, isAutosolving, SB) * 10; // throws UnsolvableException
 	}
 

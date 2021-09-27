@@ -10,7 +10,6 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -28,7 +27,7 @@ import java.util.Set;
  * AlignedTripleExclusion, and AlignedSetExclusion (4 or more).
  * @author Keith Corlett
  */
-public final class AlignedExclusionHint extends AHint implements IActualHint {
+public final class AlignedExclusionHint extends AHint  {
 
 	private final Cell[] cells;
 	private final String cmnExcluders;
@@ -59,11 +58,11 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 	}
 
 	static boolean isRelevant(Cell[] cells, Pots reds, int[] combo) {
-		Values redVals;
+		Values vals;
 		for ( int i=0,n=cells.length; i<n; ++i )
-			if ( combo[i] != 0 // most combos are mostly 0's
-			  && (redVals=reds.get(cells[i])) != null
-			  && (redVals.bits & VSHFT[combo[i]]) != 0 )
+			if ( combo[i] != 0 // some combos are mostly 0's
+			  && (vals=reds.get(cells[i])) != null
+			  && (vals.bits & VSHFT[combo[i]]) != 0 )
 				return true;
 		return false;
 	}
@@ -88,20 +87,20 @@ public final class AlignedExclusionHint extends AHint implements IActualHint {
 		}
 		return greenPots;
 	}
-	private Pots greenPots;
+	private Pots greenPots; // WORM
 
 	@Override
 	public Pots getOranges(int viewNumUnused) {
 		if ( orangePots == null ) {
-			Pots pots = new Pots();
-			for ( Cell cell : cells )
-				pots.put(cell, new Values(cell.maybes));
+			final Pots pots = new Pots();
+			for ( Cell c : cells )
+				pots.put(c, new Values(c.maybes));
 			pots.removeAll(redPots); // remove any collisions with redPots!
 			orangePots = pots;
 		}
 		return orangePots;
 	}
-	private Pots orangePots;
+	private Pots orangePots; // WORM
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {

@@ -12,7 +12,6 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -25,7 +24,7 @@ import java.util.Set;
  * A WWingHint stores the hint data to pass to the GUI for display, and also
  * constructs the hints string representation, clue html, and hint html.
  */
-public final class WWingHint extends AHint implements IActualHint {
+public final class WWingHint extends AHint  {
 
 	private final Cell cellA, cellB, wCellA, wCellB;
 	private final int value0, value1;

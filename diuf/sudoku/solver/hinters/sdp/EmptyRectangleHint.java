@@ -11,7 +11,6 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IActualHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
@@ -24,7 +23,7 @@ import java.util.Set;
  * Rectangle hint.
  * @author Keith Corlett Mar 28
  */
-public class EmptyRectangleHint extends AHint implements IActualHint {
+public class EmptyRectangleHint extends AHint  {
 
 	// nb: package visible so that EmptyRectangle can compare hints.
 	final int redValue;
@@ -32,10 +31,9 @@ public class EmptyRectangleHint extends AHint implements IActualHint {
 	final String debugMessage;
 
 	public EmptyRectangleHint(AHinter hinter, int value, List<ARegion> bases
-			, List<ARegion> covers, Pots orangePots, Pots bluePots
+			, List<ARegion> covers, Pots greens, Pots blues
 			, Pots redPots, String debugMessage) {
-		// nb: what are normally greens are oranges here
-		super(hinter, redPots, null, orangePots, bluePots, bases, covers);
+		super(hinter, redPots, greens, null, blues, bases, covers);
 		this.redValue = value;
 		this.isDual = false;
 		this.debugMessage = debugMessage;
@@ -43,8 +41,7 @@ public class EmptyRectangleHint extends AHint implements IActualHint {
 
 	@Override
 	public Set<Grid.Cell> getAquaCells(int unusedViewNum) {
-		// nb: what are normally greens are oranges here
-		return oranges.keySet();
+		return greens.keySet();
 	}
 
 	@Override
@@ -59,7 +56,7 @@ public class EmptyRectangleHint extends AHint implements IActualHint {
 	public String toStringImpl() {
 		StringBuilder sb = Frmt.getSB();
 		sb.append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(oranges.keySet()))
+		  .append(": ").append(Frmt.csv(greens.keySet()))
 		  .append(" on ").append(redValue);
 		return sb.toString();
 	}
@@ -69,7 +66,7 @@ public class EmptyRectangleHint extends AHint implements IActualHint {
 		Cell redCell = redPots.firstKey();
 		final String id1, id2;
 		{ // this block just localises 'it'
-			Iterator<Cell> it = oranges.keySet().iterator();
+			Iterator<Cell> it = greens.keySet().iterator();
 			id1 = it.next().id;
 			id2 = it.next().id;
 		}

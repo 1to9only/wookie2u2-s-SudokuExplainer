@@ -10,7 +10,6 @@ import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Tech;
-import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -66,6 +65,7 @@ import java.util.Arrays;
 abstract class AAlsHinter extends AHinter
 		implements diuf.sudoku.solver.IPreparer
 {
+
 	/** the size of the fixed-size alss array: 512 */
 	protected static final int MAX_ALSS = 512; // Observed 283
 
@@ -91,8 +91,6 @@ abstract class AAlsHinter extends AHinter
 	protected final boolean findRCCs;
 	/** should getRccs do a fast forwardOnly search, or a full search? */
 	protected final boolean forwardOnly;
-	/** should getRccs populate startIndices and endIndices */
-	protected final boolean useStartAndEnd;
 
 	// in findHints: if !allowNakedSets we call findNakedSets to set
 	// inNakedSet[region.index][cell.i]=true for each cell in a
@@ -101,6 +99,20 @@ abstract class AAlsHinter extends AHinter
 	// NOTE: stripNakedSets now also calls findNakedSets to remove ALSs
 	// containing a cell in a NakedSet from the existing alsCache, for speed.
 	protected final boolean[][] inNakedSets;
+
+	/** for AlsXzTest: true uses AlsFinderRecursive, false uses AlsFinder. */
+	static final boolean USE_ALS_FINDER_RECURSIVE = true;
+	/** ALS_FINDER protected so that BigWings can report counts. */
+	protected static final AlsFinder ALS_FINDER;
+	static {
+		if ( USE_ALS_FINDER_RECURSIVE )
+			ALS_FINDER = new AlsFinderRecursive();
+		else
+			ALS_FINDER = new AlsFinder();
+	}
+
+	/** RCC_FINDER finds the Restricted Common Candidates between ALS's */
+	static final RccFinder RCC_FINDER = new RccFinder();
 
 	/**
 	 * Construct a new abstract Almost Locked Set (ALS) hinter, whose findHints
@@ -134,16 +146,9 @@ abstract class AAlsHinter extends AHinter
 	 *  else examine all possible combinations, including duplicates.<br>
 	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
 	 *  HdkAlsXyChain = false to find more chains. It's slow anyway!
-	 * @param useStartAndEnd if true then getRccs populates the startIndices
-	 *  and endIndices arrays; else there are left-unchanged<br>
-	 *  HdkAlsXz and HdkAlsXyWing both use false<br>
-	 *  HdkAlsXyChain = true to use startInds and endInds as a "map" from each
-	 *  ALS to it's RCCs, ie from an ALSs-index to start and end RCC-indexes.
-	 *  Note that endInds is EXCLUSIVE so we {@code <b>&lt;</b> endInds[i]}.
 	 */
 	public AAlsHinter(Tech tech, boolean allowNakedSets, boolean findRCCs
-			, boolean allowOverlaps, boolean forwardOnly
-			, boolean useStartAndEnd) {
+			, boolean allowOverlaps, boolean forwardOnly) {
 		super(tech);
 		this.allowNakedSets = allowNakedSets;
 		// unused if allowNakedSets, else an array for each of the 27 regions
@@ -154,7 +159,6 @@ abstract class AAlsHinter extends AHinter
 		this.findRCCs = findRCCs;
 		this.allowOverlaps = allowOverlaps;
 		this.forwardOnly = forwardOnly;
-		this.useStartAndEnd = useStartAndEnd;
 	}
 
 	/**
@@ -162,7 +166,7 @@ abstract class AAlsHinter extends AHinter
 	 * currently BigWings and DeathBlossom.
 	 */
 	public AAlsHinter(Tech tech, boolean allowNakedSets) {
-		this(tech, allowNakedSets, false, UNUSED, UNUSED, UNUSED);
+		this(tech, allowNakedSets, false, UNUSED, UNUSED);
 	}
 
 	/**
@@ -182,7 +186,7 @@ abstract class AAlsHinter extends AHinter
 		if ( HintValidator.ALS_USES || HintValidator.DEATH_BLOSSOM_USES ) {
 			// clear any existing invalidities before processing a new Grid.
 			// note that HintValidator.solutionValues is already set.
-			HintValidator.invalidities.clear();
+			HintValidator.INVALIDITIES.clear();
 		}
 	}
 
@@ -258,13 +262,13 @@ abstract class AAlsHinter extends AHinter
 	 */
 	void getAlss(Grid grid, Idx[] candidates) {
 //		final long start = System.nanoTime();
-		if ( ALSS==null || AHint.number!=alssHn || grid.pid!=alssPid ) {
+		if ( ALSS==null || grid.hintNumber!=alssHn || grid.pid!=alssPid ) {
 			numAlss = ALS_FINDER.getAlss(grid, candidates, ALSS, allowNakedSets);
 			alssNs = allowNakedSets;
-			alssHn = AHint.number;
+			alssHn = grid.hintNumber;
 			alssPid = grid.pid;
 			rccsDirty = true; // make getRccs refetch
-		} else if ( alssNs != allowNakedSets ) {
+		} else if ( allowNakedSets != alssNs ) {
 			if ( allowNakedSets )
 				numAlss = ALS_FINDER.getAlss(grid, candidates, ALSS, allowNakedSets);
 			else // remove each ALS with a cell in a NakedSet from alsCache
@@ -282,8 +286,6 @@ abstract class AAlsHinter extends AHinter
 	private static int alssHn; // als-cache hintNumber
 	private static long alssPid; // als-cache puzzleID
 	private static boolean alssNs; // does alss-cache include Naked Sets
-	// this field is protected so that BigWings can report counts
-	protected static final AlsFinder ALS_FINDER = new AlsFinder();
 
 	// remove each ALS with a cell in a NakedSet from alsCache
 	private void stripNakedSets(Grid grid) {
@@ -325,7 +327,7 @@ abstract class AAlsHinter extends AHinter
 		rccsDirty |= rccsAO!=allowOverlaps || rccsFO!=forwardOnly;
 		if ( RCCS==null || rccsDirty ) {
 			numRccs = RCC_FINDER.getRccs(ALSS, numAlss, RCCS, forwardOnly
-					, allowOverlaps, useStartAndEnd);
+					, allowOverlaps);
 			rccsDirty = false;
 			rccsAO = allowOverlaps;
 			rccsFO = forwardOnly;
@@ -337,6 +339,5 @@ abstract class AAlsHinter extends AHinter
 	static final Rcc[] RCCS = new Rcc[MAX_RCCS];
 	static int numRccs;
 	private static boolean rccsDirty, rccsAO, rccsFO;
-	static final RccFinder RCC_FINDER = new RccFinder();
 
 }

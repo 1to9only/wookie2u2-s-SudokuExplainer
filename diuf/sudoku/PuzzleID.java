@@ -9,8 +9,8 @@ package diuf.sudoku;
 import java.io.File;
 import java.util.Objects;
 
-/** 
- * File name and optionally a 1-based line number that identifies a 
+/**
+ * File name and optionally a 1-based line number that identifies a
  * a Sudoku Puzzle.
  * <p>
  * A PuzzleID is an immutable transfer object, meaning that it doesn't change
@@ -45,24 +45,42 @@ public final class PuzzleID {
 		this(src.file, src.lineNumber);
 	}
 
-	public PuzzleID(File file, int lineNumber) {
+	public PuzzleID(final File file, final int lineNumber) {
 		this.file = file;
-		if ( file != null)
+		if ( file != null) {
 			this.fileName = file.getName();
-		else
+			this.isTop1465 = fileName.toLowerCase().contains("top1465");
+		} else {
 			this.fileName = "";
-		this.isTop1465 = fileName.startsWith("top1465");
+			this.isTop1465 = false;
+		}
 		this.lineNumber = lineNumber;
 	}
 
+	public String toStringShort() {
+		if ( toStringS == null ) {
+			if ( lineNumber > 0 ) // lineNumber is 1 based!
+				toStringS = Integer.toString(lineNumber)+"#"+fileName;
+			else
+				toStringS = fileName;
+		}
+		return toStringS;
+	}
+	private String toStringS;
+
 	@Override
 	public String toString() {
-		if ( file == null )
-			return "";
-		if ( lineNumber > 0 ) // lineNumber is 1 based!
-			return Integer.toString(lineNumber)+"#"+file.getAbsolutePath();
-		return file.getAbsolutePath();
+		if ( toString == null ) {
+			if ( file == null )
+				toString = "";
+			else if ( lineNumber > 0 ) // lineNumber is 1 based!
+				toString = Integer.toString(lineNumber)+"#"+file.getAbsolutePath();
+			else
+				toString = file.getAbsolutePath();
+		}
+		return toString;
 	}
+	private String toString;
 
 	@Override
 	public boolean equals(Object o) {

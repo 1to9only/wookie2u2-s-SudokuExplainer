@@ -57,7 +57,45 @@ public final class Frmt {
 	public static String space = " ";
 	private static final StringBuilder MY_SB = new StringBuilder(64);
 
-	// ============================ IFormatter ==============================
+	// ======================== Object array IFormatter =======================
+	
+	// just cast it to Whatever in your Formatter and IFilter impl's.
+
+	public static String csv(Object[] a, IFormatter<Object> ts) {
+		return Frmt.frmt(a, ts, comma, comma);
+	}
+	public static String frmt(Object[] a, IFormatter<Object> ts, String sep, String lastSep) {
+		if(a==null) return "";
+		MY_SB.setLength(0);
+		return appendTo(MY_SB, a, ts, sep, lastSep).toString();
+	}
+	public static StringBuilder appendTo(StringBuilder sb, Object[] a, IFormatter<Object> ts, String sep, String lastSep) {
+		final int m = a.length - 1; // m is n-1; n is the population count.
+		int i = 0;
+		for ( Object e : a ) {
+			if ( ++i > 1 )
+				sb.append(i<m ? sep : lastSep);
+			sb.append(ts.format(e));
+		}
+		return sb;
+	}
+	public static void csv(PrintStream out, Object[] a, IFilter<Object> filter
+			, IFormatter<Object> formatter) {
+		Frmt.csv(out, a, filter, formatter, comma, comma);
+	}
+	public static void csv(PrintStream out, Object[] a, IFilter<Object> filter
+			, IFormatter<Object> formatter, String sep, String lastSep) {
+		final int m = a.length - 1; // m is n-1; n is the population count.
+		int i = 0;
+		for ( Object e : a )
+			if ( filter.accept(e) ) {
+				if ( ++i > 1 )
+					out.append(i<m ? sep : lastSep);
+				out.append(formatter.format(e));
+			}
+	}
+
+	// ======================== Collection IFormatter =========================
 
 	public static <E> String csv(Collection<? extends E> c, IFormatter<E> ts) {
 		return Frmt.frmt(c, ts, comma, comma);
@@ -89,7 +127,6 @@ public final class Frmt {
 		}
 		return sb;
 	}
-
 
 	/**
 	 * Appends to 'out'
@@ -903,22 +940,6 @@ public final class Frmt {
 	}
 	public static String spaces(int n) {
 		return SPACES.substring(0, n);
-	}
-
-	public static String enspace(String name) {
-		char[] src = name.toCharArray();
-		char[] dst = new char[src.length*2];
-		// copy subsequent characters, inserting a space before each capital.
-		int count = 0;
-		char prev = '_';
-		for ( char ch : src ) {
-			if ( prev!='_' && prev!='-' && !Character.isUpperCase(prev)
-			  && Character.isUpperCase(ch) )
-				dst[count++] = ' ';
-			dst[count++] = ch;
-			prev = ch;
-		}
-		return new String(dst, 0, count);
 	}
 
 	public static String plural(int n, String thing) {

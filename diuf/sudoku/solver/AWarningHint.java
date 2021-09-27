@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -23,7 +24,7 @@ public abstract class AWarningHint extends AHint {
 	}
 
 	@Override
-	public int applyImpl(boolean isAutosolving) {
+	public int applyImpl(boolean isAutosolving, Grid grid) {
 		return 0;
 	}
 

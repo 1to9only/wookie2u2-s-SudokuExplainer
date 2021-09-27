@@ -14,6 +14,8 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Regions;
+import diuf.sudoku.Run;
 import diuf.sudoku.Settings;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
@@ -67,7 +69,7 @@ import java.util.Set;
  * Locking may use a HintsApplicumulator to apply each Pointing and Claiming
  * hint as soon as it is found, so that "all" hints are applied in one pass
  * through the grid. Then I add a AppliedHintsSummaryHint to the "normal"
- * Single/Default/Chains IAccumulator to pass nElims back to {@code apply()} 
+ * Single/Default/Chains IAccumulator to pass nElims back to {@code apply()}
  * to keep track of "the score".
  * <p>
  * NB: If you implement Resetable you'll need to put a null apcu check in the
@@ -170,7 +172,7 @@ public final class Locking extends AHinter {
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 
-		// normal mode
+		// normal mode: GUI, test-cases, batch
 		if ( !useApcu ) { // if my HintsApplicumulator is null
 			if ( accu.isSingle() )
 				// user wants 1 hint so prefer pointing to claiming.
@@ -184,6 +186,7 @@ public final class Locking extends AHinter {
 			// GUI only: siamese: remove any hints whose eliminations are a
 			// subset of any other hints eliminations.
 			if ( result && accu instanceof HintsAccumulator && accu.size()>1
+			  && Run.type == Run.Type.GUI // this breaks the test-case
 			  // don't do this if isFilteringHints is off, so user sees all
 			  && Settings.THE.getBoolean(Settings.isFilteringHints, false) )
 				// remove each hint whose eliminations are a subset of anothers
@@ -191,7 +194,7 @@ public final class Locking extends AHinter {
 			return result;
 		}
 
-		// speed mode
+		// speed mode: RecursiveAnalyser
 		//
 		// CAUTION: Seriously Weird S__t!
 		//
@@ -310,7 +313,6 @@ public final class Locking extends AHinter {
 		ARegion cover; // the region we eliminate from, either a Row or a Col
 		// the hints in each box (only in the GUI, see doSiamese)
 		ArrayList<LockingHint> regionHints = null;
-		LockingHint hint; // the hint, if any
 		Cell[] cells; // the cells to go in the hint
 		// i = region Index
 		// v = value
@@ -335,36 +337,36 @@ public final class Locking extends AHinter {
 				// 2 or 3 cells in a box could all be in a row or column; but
 				// 4 or more can't be. 1 is a Hidden Single (not my problem),
 				// and 0 means that this value is already placed in this box.
-				if ( (card=bio[v].size)<2 || card>3 )
-					continue;
-				// fast bit twiddling test: skip unless all v's in this box are
-				// all in one row, or all in one column (ie r2).
-				b = bio[v].bits;						  // box's 2or3 possible positions of v are:
-				if ( ((b & ROW1)==b && ((offset=0)==0))	  // all in the first 3 cells, so offset is 0
-				  || ((b & ROW2)==b && ((offset=1)==1))	  // all in the second 3 cells, so offset is 1
-				  || ((b & ROW3)==b && ((offset=2)==2)) ) // all in the third 3 cells, so offset is 2
-					cover = grid.rows[box.top + offset];	  // therefore r2 is the row at box.top + offset
-				else if ( ((b & COL1)==b && ((offset=0)==0))
-					   || ((b & COL2)==b && ((offset=1)==1))
-					   || ((b & COL3)==b && ((offset=2)==2)) )
-					cover = grid.cols[box.left + offset];    // therefore r2 is the col at box.left + offset
-				else
-					continue; // try the next v
-				// all v's in the box are also in the cover region, so if the
-				// cover region also has other locations for v it's a Pointing
-				if ( cover.indexesOf[v].size > card ) {
-					// get the 2-or-3 cells in base which maybe v
-					// nb: when we get here we're ALWAYS gonna create a hint,
-					// so it's OK to create the cells array which we'll need.
-					cnt = box.maybe(VSHFT[v], cells=Cells.array(card));
-					assert cnt == card;
-					hint = createHint("Point", box, cover, cells, card, v, grid);
-					if ( hint != null ) {
-						result = true;
-						if ( doSiamese )
-							regionHints.add(hint);
-						else
-							accu.add(hint);
+				if ( (card=bio[v].size)>1 && card<4 ) {
+					// fast bit twiddling test: skip unless all v's in this box are
+					// all in one row, or all in one column (ie r2).
+					cover = null;
+					b = bio[v].bits;						  // box's 2or3 possible positions of v are:
+					if ( ((b & ROW1)==b && ((offset=0)==0))	  // all in the first 3 cells, so offset is 0
+					  || ((b & ROW2)==b && ((offset=1)==1))	  // all in the second 3 cells, so offset is 1
+					  || ((b & ROW3)==b && ((offset=2)==2)) ) // all in the third 3 cells, so offset is 2
+						cover = grid.rows[box.top + offset];	  // therefore r2 is the row at box.top + offset
+					else if ( ((b & COL1)==b && ((offset=0)==0))
+						   || ((b & COL2)==b && ((offset=1)==1))
+						   || ((b & COL3)==b && ((offset=2)==2)) )
+						cover = grid.cols[box.left + offset];    // therefore r2 is the col at box.left + offset
+					// all v's in the box are also in the cover region, so if the
+					// cover region also has other locations for v it's a Pointing
+					if ( cover!=null && cover.indexesOf[v].size > card ) {
+						// get the 2-or-3 cells in base which maybe v
+						// nb: when we get here we're ALWAYS gonna create a hint,
+						// so it's OK to create the cells array which we'll need.
+						cnt = box.maybe(VSHFT[v], cells=Cells.array(card));
+						assert cnt == card;
+						final LockingHint hint = createHint("Point", box, cover
+								, cells, card, v, grid);
+						if ( hint != null ) {
+							result = true;
+							if ( doSiamese )
+								regionHints.add(hint);
+							else
+								accu.add(hint);
+						}
 					}
 				}
 			} // next value
@@ -397,7 +399,6 @@ public final class Locking extends AHinter {
 		Box[] crossingBoxes; // the 3 boxes which intersect this base
 		// the hints in each box
 		ArrayList<LockingHint> regionHints = null;
-		LockingHint hint;
 		Cell[] cells;
 		// i = region Index
 		// v = value
@@ -421,18 +422,24 @@ public final class Locking extends AHinter {
 				else
 					regionHints.clear();
 			for ( v=1; v<10; ++v ) {
+//// Claiming: row 9 and box 7 on 4
+//if ( i==17 && v==4 )
+//	Debug.breakpoint();
 				// 2 or 3 cells in base might all be in a box; 4 or more won't.
 				// 1 is a hidden single, 0 means v is set, so not my problem.
-				if ( (card=rio[v].size)<2 || card>3 )
-					continue; // never used coz of rb test
-				// if all v's in base are in the same box.
-				// nb: ROW1/2/3 values work on cols too (despite there name)
-				// because they're applied to the regions cells array it makes
-				// no difference which direction the region points.
-				b = rio[v].bits; // bits of v's possible places in this region
-				if ( ( ((b & ROW1)==b && (offset=0)==0) // bases 2or3 possible positions of v are all in the first 3 cells, so the offset is 0
-				    || ((b & ROW2)==b && (offset=1)==1) // all in the second 3 cells => 1
-				    || ((b & ROW3)==b && (offset=2)==2) ) // all in the third 3 cells => 2
+				if ( (card=rio[v].size)>1 && card<4
+				  // if all v's in base are in the same box.
+				  // nb: b = bits of v's possible places in this region
+			      // nb: ROW1/2/3 values work on cols too (despite there name)
+			      // because theyre applied to the regions cells array it makes
+				  // no difference which direction the region points.
+				  // nb: offset is 0 if first crossingBox, 1 second, 2 third.
+				  // The offset expressions are tautologies, whichre only in da
+				  // if coz its cleaner to have it all in one expression verses
+				  // if card; get b, ROW1, ROW2, ROW3; if crossing
+				  && ( (((b=rio[v].bits) & ROW1)==b && (offset=0)==0) // bases 2or3 possible positions of v are all in the first 3 cells, so the offset is 0
+					|| ((b & ROW2)==b && (offset=1)==1) // all in the second 3 cells => 1
+					|| ((b & ROW3)==b && (offset=2)==2) ) // all in the third 3 cells => 2
 				  // and there are some extra v's in the box to be removed
 				  && crossingBoxes[offset].indexesOf[v].size > card ) {
 					// Claiming found!
@@ -444,8 +451,9 @@ public final class Locking extends AHinter {
 					cnt = base.maybe(VSHFT[v], cells);
 					assert cnt == card;
 					// create the hint and add it to the accumulator
-					hint = createHint("Claim", base, crossingBoxes[offset]
+					final LockingHint hint = createHint("Claim", base, crossingBoxes[offset]
 							, cells, card, v, grid);
+					assert hint.isPointing == false;
 					if ( hint != null ) {
 						result = true; // never say never!
 						if ( doSiamese )
@@ -456,17 +464,19 @@ public final class Locking extends AHinter {
 				}
 			} // next value
 			// merge siamese when row/col claims multiple values.
-			if ( doSiamese )
+			if ( doSiamese ) {
 				switch ( regionHints.size() ) {
 				case 0:
 					break;
 				case 1:
 					if ( accu.add(regionHints.get(0)) )
 						return true; // it's a SingleHintsAccumulator
+					regionHints.clear();
 					break;
 				default:
 					mergeSiameseHints(grid, base, regionHints, accu);
 				}
+			}
 		} // next region1
 		return result;
 	}
@@ -585,7 +595,7 @@ public final class Locking extends AHinter {
 							, newHints, theseHints, size, idx) ) {
 						removeAll(theseHints, regionHints);
 						break LOOP; // we're done here!
-					} else if ( redsAllShareARegion(grid, theseHints) ) {
+					} else if ( redsAllShareARegion(theseHints) ) {
 						// create a new "summary" hint from theseHints
 						newHints.add(new SiameseLockingHint(this
 								, theseHints, isPointing));
@@ -599,7 +609,7 @@ public final class Locking extends AHinter {
 							, newHints, theseHints, size, idx) ) {
 						removeAll(theseHints, regionHints);
 						break LOOP; // we're done here!
-					} else if ( redsAllShareARegion(grid, theseHints) ) {
+					} else if ( redsAllShareARegion(theseHints) ) {
 						// create a new "summary" hint from theseHints
 						newHints.add(new SiameseLockingHint(this
 								, theseHints, isPointing));
@@ -630,6 +640,7 @@ public final class Locking extends AHinter {
 			for ( AHint h : regionHints )
 				accu.add(h);
 		}
+		regionHints.clear();
 	}
 
 	// add my eliminations to hisHint; and claim redValues from common regions.
@@ -705,20 +716,19 @@ public final class Locking extends AHinter {
 	// Do the redPots (aka reds) of theseHints all share a common region?
 	// If not then this ain't Siamese, just disjunct hints from one region,
 	// which is rare but does happen (about a dozen times in top1465).
-	private boolean redsAllShareARegion(Grid grid, LockingHint[] theseHints){
+	private boolean redsAllShareARegion(LockingHint[] theseHints){
 		// working storage is for speed only.
 		// we need 2 of them because set.retainAll(set) is nonsensical.
 		// nb: if I wrote retainAll it would assert c!=this;
-		WS1.clear();  WS2.clear();
-		ArrayList<ARegion> crs = WS1; // commonRegions
-		ArrayList<ARegion> ws2 = WS2; // working storage
+		ArrayList<ARegion> crs = Regions.clear(WS1); // commonRegions
+		ArrayList<ARegion> ws2 = Regions.clear(WS2); // working storage
 		boolean first = true;
 		for ( LockingHint pfh : theseHints )
 			if ( first ) {
-				Grid.commonRegions(pfh.redPots.keySet(), crs);
+				Regions.common(pfh.redPots.keySet(), crs);
 				first = false;
 			} else
-				crs.retainAll(Grid.commonRegions(pfh.redPots.keySet(), ws2));
+				crs.retainAll(Regions.common(pfh.redPots.keySet(), ws2));
 		return !crs.isEmpty();
 	}
 	private final ArrayList<ARegion> WS1 = new ArrayList<>(3);
@@ -730,7 +740,6 @@ public final class Locking extends AHinter {
 
 	private boolean pointFrom(Grid grid, HintsApplicumulator apcu, Box box, int maybesBits) {
 		assert box instanceof Box;
-		AHint hint;
 		ARegion r2;
 		Cell[] cells;
 		int b, card, offset;
@@ -751,7 +760,7 @@ public final class Locking extends AHinter {
 				continue;
 			if ( r2.indexesOf[v].size > card ) {
 				box.maybe(VSHFT[v], cells=Cells.array(card));
-				hint = createHint("PointFrom", box, r2, cells, card, v, grid);
+				final AHint hint = createHint("PointFrom", box, r2, cells, card, v, grid);
 				if ( hint != null ) {
 					result |= true;
 					apcu.add(hint);
@@ -763,7 +772,6 @@ public final class Locking extends AHinter {
 
 	private boolean claimFrom(Grid grid, HintsApplicumulator apcu, ARegion line, int maybesBits) {
 		Cell[] cells;
-		AHint hint;
 		int card, b, offset;
 		boolean result = false;
 		for ( int v : VALUESES[maybesBits] ) {
@@ -778,7 +786,7 @@ public final class Locking extends AHinter {
 //// java.lang.AssertionError: BAD Claim: empty redPots at row 4 -> box 4 on 3 in [D1:2{15}, D2:2{45}]
 //if ( line==grid.rows[3] && line.crossingBoxs[offset]==grid.boxs[3] && v==3 )
 //	Debug.breakpoint();
-				hint = createHint("ClaimFrom", line, line.crossingBoxs[offset]
+				final AHint hint = createHint("ClaimFrom", line, line.crossingBoxs[offset]
 						, cells, card, v, grid);
 				if ( hint != null ) {
 					result |= true; // never say never!
