@@ -31,6 +31,7 @@ package diuf.sudoku.utils;
  * questions.
  */
 
+import static diuf.sudoku.utils.Frmt.EQUALS;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.AbstractCollection;
@@ -38,6 +39,7 @@ import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -45,7 +47,11 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * Hash table based implementation of the <tt>Map</tt> interface.
+ * KRC Hash table based implementation of the <tt>MyMap</tt> interface,
+ * which extends java.util.Map adding the "make" method which gets-else-puts
+ * an element (more) atomically. I also eradicated terniaries, because they are
+ * slower, so they should be avoided in ALL low-level code, such as the
+ * collections framework.
  *
  * <p>This implementation is not intended for "general use".
  *
@@ -144,7 +150,7 @@ import java.util.TreeMap;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class MyHashMap<K,V>
 	extends AMyMap<K,V>
-	implements Map<K,V>, Cloneable, Serializable
+	implements IMyMap<K,V>, Cloneable, Serializable
 {
 
 	/**
@@ -168,6 +174,7 @@ public class MyHashMap<K,V>
 	 * The table, resized as necessary. Length MUST Always be a power of two.
 	 */
 	transient Entry<K,V>[] table;
+	transient int mask; // table.length - 1;
 
 	/**
 	 * The number of key-value mappings contained in this map.
@@ -195,6 +202,12 @@ public class MyHashMap<K,V>
 	 * the HashMap fail-fast.  (See ConcurrentModificationException).
 	 */
 	transient int modCount;
+	
+	/**
+	 * The value stored against the null key. Remains null until a null key
+	 * is added to this map, when it's set.
+	 */
+	transient V nullKeyValue;
 
 	/**
 	 * Constructs an empty <tt>HashMap</tt> with the specified initial
@@ -221,6 +234,7 @@ public class MyHashMap<K,V>
 		this.loadFactor = loadFactor;
 		threshold = (int)(capacity * loadFactor);
 		table = new Entry[capacity];
+		mask = table.length - 1;
 		initialise();
 	}
 
@@ -243,6 +257,7 @@ public class MyHashMap<K,V>
 		this.loadFactor = DEFAULT_LOAD_FACTOR;
 		threshold = (int)(DEFAULT_INITIAL_CAPACITY * DEFAULT_LOAD_FACTOR);
 		table = new Entry[DEFAULT_INITIAL_CAPACITY];
+		mask = table.length - 1;
 		initialise();
 	}
 
@@ -342,10 +357,48 @@ public class MyHashMap<K,V>
 			return getForNullKey();
 		int hash = hash(key.hashCode());
 		K k;
-		for ( Entry<K,V> e=table[hash & (table.length-1)]; e!=null; e=e.next )
+		for ( Entry<K,V> e=table[hash & mask]; e!=null; e=e.next )
 			if ( e.hash==hash && ((k=e.key)==key || key.equals(k)) )
 				return e.value;
 		return null;
+	}
+
+	/**
+	 * Visit is get-else-put: It either finds the given key and returns false,
+	 * or (key doesn't already exist) it puts the given key and value and
+	 * returns true, which is useful in Set where value is irrelevant.
+	 * <p>
+	 * The visit method is a bit faster than if get()==null then put() because
+	 * it: calculates hash, finds table-entry, and searches the list ONCE. This
+	 * is also more atomic (an oxymoron), by which I mean that there's reduced
+	 * probability of another thread getting in-between get and put. If you're
+	 * using this Map across multiple threads then you had still better
+	 * synchronise operations externally. Anyway, this takes about half the
+	 * time as a get then a put.
+	 *
+	 * @param key
+	 * @param value
+	 * @return
+	 */
+	@Override
+	public boolean visit(K key, V value) {
+		// techies: only morons put null keys in HashMaps!
+		assert key != null : "MyHashMap.make: null key denied!";
+		// first deal with null key
+		if ( key == null )
+			return putForNullKey(value)==null; // null already existed
+		K k;
+		int h = key.hashCode();
+		h ^= (h >>> 20) ^ (h >>> 12);
+		final int hash = h ^ (h >>> 7) ^ (h >>> 4);
+		final int i = hash & mask;
+		for ( Entry<K,V> e=table[hash & mask]; e!=null; e=e.next )
+			if ( e.hash==hash && ((k=e.key)==key || key.equals(k)) )
+				return false; // it already existed
+		// not found, so put it
+		++modCount;
+		addEntry(hash, key, value, i);
+		return true; // it was added
 	}
 
 	/**
@@ -356,10 +409,10 @@ public class MyHashMap<K,V>
 	 * others.
 	 */
 	private V getForNullKey() {
-		for ( Entry<K,V> e=table[0]; e!=null; e=e.next )
-			if ( e.key == null )
-				return e.value;
-		return null;
+//		for ( Entry<K,V> e=table[0]; e!=null; e=e.next )
+//			if ( e.key == null )
+//				return e.value;
+		return nullKeyValue;
 	}
 
 	/**
@@ -389,7 +442,7 @@ public class MyHashMap<K,V>
 		}
 		final int hash = hash(key.hashCode());
 		K k;
-		for ( Entry<K,V> e=table[hash & (table.length-1)]; e!=null; e=e.next )
+		for ( Entry<K,V> e=table[hash & mask]; e!=null; e=e.next )
 			if ( e.hash==hash && ( (k=e.key)==key || key.equals(k) ) )
 				return e;
 		return null;
@@ -403,7 +456,7 @@ public class MyHashMap<K,V>
 			return null;
 		}
 		final int hash = hash(hashCode);
-		for ( Entry<K,V> e=table[hash & (table.length-1)]; e!=null; e=e.next )
+		for ( Entry<K,V> e=table[hash & mask]; e!=null; e=e.next )
 			if ( e.hash==hash && e.key.hashCode()==hashCode )
 				return e;
 		return null;
@@ -422,15 +475,20 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public V put(K key, V value) {
+		// A HashMap containing a null key or value is MUCH less useful,
+		// because we loose the ability to detect not-found simply.
 		assert key != null : "MyHashMap.put: key is null!";
+		// first handle null key
+		if ( key == null )
+			return putForNullKey(value);
 		K k;
 		V previousValue;
 		final int hash, i;
-		{ // this block localises h, to calculate hash and i
+		{ // this block just localises h
 			int h = key.hashCode();
 			h ^= (h >>> 20) ^ (h >>> 12);
 			hash = h ^ (h >>> 7) ^ (h >>> 4);
-			i = hash & (table.length - 1);
+			i = hash & mask;
 		}
 		for ( Entry<K,V> e=table[i]; e!=null; e=e.next )
 			if ( e.hash==hash && ( (k=e.key)==key || key.equals(k) ) ) {
@@ -438,8 +496,25 @@ public class MyHashMap<K,V>
 				e.value = value;
 				return previousValue;
 			}
-		modCount++;
+		++modCount;
 		addEntry(hash, key, value, i);
+		return null;
+	}
+	
+	/**
+	 * This method handles finding the existing entry with a null key, and
+	 * if one exists it's value is returned, else the proffered value is added
+	 * to the null key.
+	 *
+	 * @param value
+	 * @return 
+	 */
+	private V putForNullKey(V value) {
+		if ( nullKeyValue != null )
+			return nullKeyValue;
+		nullKeyValue = value;
+		++modCount;
+		++size;
 		return null;
 	}
 
@@ -450,7 +525,11 @@ public class MyHashMap<K,V>
 	 * addEntry.
 	 */
 	private void putForCreate(K key, V value) {
-		int hash = (key == null) ? 0 : hash(key.hashCode());
+		int hash;
+		if (key == null)
+			hash = 0;
+		else
+			hash = hash(key.hashCode());
 		int i = indexFor(hash, table.length);
 
 		/**
@@ -498,6 +577,7 @@ public class MyHashMap<K,V>
 			return;
 		}
 		table = transfer(new Entry[newCapacity]);
+		mask = table.length - 1;
 		threshold = (int)(newCapacity * loadFactor);
 	}
 
@@ -507,7 +587,7 @@ public class MyHashMap<K,V>
 	Entry[] transfer(Entry[] newTable) {
 		Entry[] src = table;
 		// recall length is a power of 2, so length-1 is 1111111, or whatever.
-		final int capacityMask = newTable.length - 1;
+		final int newMask = newTable.length - 1;
 		Entry<K,V> e, next;
 		int i;
 		for ( int j=0,n=src.length; j<n; ++j )
@@ -516,7 +596,7 @@ public class MyHashMap<K,V>
 				do {
 					next = e.next;
 //					i = indexFor(e.hash, newCapacity);
-					i = e.hash & capacityMask;
+					i = e.hash & newMask;
 					e.next = newTable[i];
 					newTable[i] = e;
 					e = next;
@@ -575,7 +655,9 @@ public class MyHashMap<K,V>
 	@Override
 	public V remove(Object key) {
 		Entry<K,V> e = removeEntryForKey((K)key);
-		return e==null ? null : e.value;
+		if ( e == null )
+			return null;
+		return e.value;
 	}
 
 	/**
@@ -584,7 +666,11 @@ public class MyHashMap<K,V>
 	 * for this key.
 	 */
 	final Entry<K,V> removeEntryForKey(K key) {
-		final int hash = key==null ? 0 : hash(key.hashCode());
+		int hash;
+		if (key == null)
+			hash = 0;
+		else
+			hash = hash(key.hashCode());
 		final int i = indexFor(hash, table.length);
 		Entry<K,V> prev = table[i];
 		Entry<K,V> e = prev;
@@ -611,7 +697,7 @@ public class MyHashMap<K,V>
 
 	final Entry<K, V> removeEntryForNotNullKey(K key) {
 		final int hash = hash(key.hashCode());
-		final int i = hash & (table.length-1);
+		final int i = hash & mask;
 		Entry<K,V> prev = table[i];
 		Entry<K,V> e = prev;
 		Entry<K,V> next;
@@ -642,15 +728,19 @@ public class MyHashMap<K,V>
 			return null;
 		Map.Entry<K,V> entry = (Map.Entry<K,V>) o;
 		Object key = entry.getKey();
-		int hash = (key == null) ? 0 : hash(key.hashCode());
+		int hash;
+		if (key == null)
+			hash = 0;
+		else
+			hash = hash(key.hashCode());
 		int i = indexFor(hash, table.length);
 		Entry<K,V> prev = table[i];
 		Entry<K,V> e = prev;
 		while (e != null) {
 			Entry<K,V> next = e.next;
 			if (e.hash == hash && e.equals(entry)) {
-				modCount++;
-				size--;
+				++modCount;
+				--size;
 				if (prev == e)
 					table[i] = next;
 				else
@@ -670,7 +760,7 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public void clear() {
-		modCount++;
+		++modCount;
 		Entry[] myTable = table;
 		for ( int i=0, n=myTable.length; i<n; ++i )
 			myTable[i] = null;
@@ -727,6 +817,7 @@ public class MyHashMap<K,V>
 		}
 		assert result != null;
 		result.table = new Entry[table.length];
+		result.mask = mask;
 		result.entrySet = null;
 		result.modCount = 0;
 		result.size = 0;
@@ -779,12 +870,20 @@ public class MyHashMap<K,V>
 		}
 		@Override
 		public final int hashCode() {
-			return (key==null   ? 0 : key.hashCode()) | // was ^
-				   (value==null ? 0 : value.hashCode());
+			if ( key == null )
+				if ( value == null )
+					return 0;
+				else
+					return value.hashCode();
+			else
+				if ( value == null )
+					return key.hashCode();
+				else
+					return key.hashCode() | value.hashCode();
 		}
 		@Override
 		public final String toString() {
-			return getKey() + "=" + getValue();
+			return getKey() + EQUALS + getValue();
 		}
 		/** This method is invoked whenever the entry is
 		 * removed from the table. */
@@ -802,7 +901,7 @@ public class MyHashMap<K,V>
 	void addEntry(int hash, K key, V value, int bucketIndex) {
 		Entry<K,V> e = table[bucketIndex];
 		table[bucketIndex] = new Entry<>(hash, key, value, e);
-		if (size++ >= threshold)
+		if (++size > threshold)
 			resize(2 * table.length);
 	}
 
@@ -817,7 +916,7 @@ public class MyHashMap<K,V>
 	void createEntry(int hash, K key, V value, int bucketIndex) {
 		Entry<K,V> e = table[bucketIndex];
 		table[bucketIndex] = new Entry<>(hash, key, value, e);
-		size++;
+		++size;
 	}
 
 	private abstract class HashIterator<E> implements Iterator<E> {
@@ -909,8 +1008,10 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public Set<K> keySet() {
-		Set<K> ks = keySet;
-		return ( ks!=null ? ks : (keySet=new KeySet()) );
+		final Set<K> ks = keySet;
+		if ( ks != null )
+			return ks;
+		return keySet = new KeySet();
 	}
 
 	private final class KeySet extends AbstractSet<K> {
@@ -941,8 +1042,10 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public Collection<V> values() {
-		Collection<V> vs = values;
-		return ( vs!=null ? vs : (values=new Values()) );
+		final Collection<V> vs = values;
+		if ( vs != null )
+			return vs;
+		return values=new Values();
 	}
 
 	private final class Values extends AbstractCollection<V> {
@@ -1025,8 +1128,11 @@ public class MyHashMap<K,V>
 	private void writeObject(java.io.ObjectOutputStream s)
 		throws IOException
 	{
-		Iterator<Map.Entry<K,V>> i =
-			(size > 0) ? entrySet0().iterator() : null;
+		final Iterator<Map.Entry<K,V>> it;
+		if ( size > 0 )
+			it = entrySet0().iterator();
+		else
+			it = null;
 
 		// Write out the threshold, loadfactor, and any hidden stuff
 		s.defaultWriteObject();
@@ -1038,9 +1144,9 @@ public class MyHashMap<K,V>
 		s.writeInt(size);
 
 		// Write out keys and values (alternating)
-		if (i != null) {
-			while (i.hasNext()) {
-				Map.Entry<K,V> e = i.next();
+		if (it != null) {
+			while (it.hasNext()) {
+				Map.Entry<K,V> e = it.next();
 				s.writeObject(e.getKey());
 				s.writeObject(e.getValue());
 			}
@@ -1054,22 +1160,17 @@ public class MyHashMap<K,V>
 	 * deserialize it).
 	 */
 	private void readObject(java.io.ObjectInputStream s)
-		 throws IOException, ClassNotFoundException
-	{
+		 throws IOException, ClassNotFoundException {
 		// Read in the threshold, loadfactor, and any hidden stuff
 		s.defaultReadObject();
-
 		// Read in number of buckets and allocate the bucket array;
 		int numBuckets = s.readInt();
 		table = new Entry[numBuckets];
-
 		initialise();  // Give subclass a chance to do its thing.
-
 		// Read in size (number of Mappings)
 		int size = s.readInt();
-
 		// Read the keys and values, and put the mappings in the HashMap
-		for (int i=0; i<size; i++) {
+		for ( int i=0; i<size; ++i ) {
 			K key = (K) s.readObject();
 			V value = (V) s.readObject();
 			putForCreate(key, value);

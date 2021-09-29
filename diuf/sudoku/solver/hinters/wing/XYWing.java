@@ -12,11 +12,11 @@ import static diuf.sudoku.Grid.BUDDIES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
-import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import static diuf.sudoku.Values.VFIRST;
 
 
 /**
@@ -160,7 +160,7 @@ public final class XYWing extends AHinter {
 												, grid.cells[xy]
 												, grid.cells[xz]
 												, grid.cells[yz]
-												, FIRST_VALUE[zCand]
+												, VFIRST[zCand]
 										);
 										result = true;
 										if ( accu.add(hint) )

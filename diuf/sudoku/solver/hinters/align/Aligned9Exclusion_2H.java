@@ -16,6 +16,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
 
@@ -30,8 +31,9 @@ import diuf.sudoku.solver.LogicalSolver;
  * for sets of 9 Cells.
  */
 public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
-//		implements diuf.sudoku.solver.IReporter
-//				 , java.io.Closeable
+implements 
+		//diuf.sudoku.solver.IReporter,
+		java.io.Closeable
 {
 	// the minimim number of candidates to permute (process).
 	private static final int MIN_CANDIDATES = 43; // <HACK/>
@@ -63,13 +65,13 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 	private final NonHinters64 nonHinters = new NonHinters64(16*1024, 4);
 
 	public Aligned9Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor);
+		super(monitor, IO.A9E_2H_HITS);
 	}
 
-//	@Override
-//	public void close() throws java.io.IOException {
-//		hits.save();
-//	}
+	@Override
+	public void close() throws java.io.IOException {
+		hits.save();
+	}
 
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {
@@ -85,8 +87,8 @@ public final class Aligned9Exclusion_2H extends Aligned9ExclusionBase
 		// hackTop1465 is isHacky && filePath.contains("top1465")
 		final boolean hackTop1465 = AHinter.hackTop1465;
 		// istop1465 is just the filePath.contains("top1465")
-		// I use it to filter when not isHacky, otherwise takes 34:16:04
-		// for top1465, and I'm not waiting that long again. It sux!
+		// I use it to filter when not hackTop1465, otherwise top1465 takes
+		// 34:16:04 (a day and 10 hrs), and I will not wait that long again!
 		final boolean isTop1465 = grid.source!=null && grid.source.isTop1465;
 		// grid.source.lineNumber ie which puzzle are we currently solving
 		final int gsl = grid.source!=null ? grid.source.lineNumber : 0;

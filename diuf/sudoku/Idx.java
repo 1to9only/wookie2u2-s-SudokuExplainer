@@ -133,18 +133,6 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * everything else should use iasA. */
 	public static final int[][] IAS_B = new int[IAS_LENGTH][];
 
-	// used by below static block only
-	private static int[] newArray(final int bits) {
-		final int n = Integer.bitCount(bits);
-		final int[] array = new int[n];
-		int cnt = 0;
-		for ( int i=0; cnt<n; ++i )
-			if ( (bits & (1<<i)) != 0 )
-				array[cnt++] = i;
-		assert cnt == n; // even if they're both 0
-		return array;
-	}
-
 	static {
 		for ( int i=0; i<BITS_PER_ELEMENT; ++i )
 			SHFT[i] = 1<<i;
@@ -153,9 +141,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			IAS_B[i] = new int[i];
 		}
 		for ( int i=0; i<WORDS.length; ++i ) {
-			// nb: no need to roll my own when I can Indexes.toValuesArray it.
-			// The downside is that Indexes.toValuesArray has to handle any i.
-			WORDS[i] = newArray(i);
+			WORDS[i] = Indexes.toValuesArrayNew(i);
 //			WSIZE[i] = WORDS[i].length;
 		}
 	}
@@ -202,7 +188,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Returns a new Idx containing indices.
 	 *
 	 * @param indices
-	 * @return 
+	 * @return
 	 */
 	public static Idx of(int[] indices) {
 		int a0=0, a1=0, a2=0;
@@ -1298,7 +1284,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	public boolean usedNew;
 
 	public String ids() {
-		final StringBuilder sb = new StringBuilder(128);
+		final StringBuilder sb = new StringBuilder(size()*3);
 		forEach((cnt, i) -> {
 			if ( cnt > 0 )
 				sb.append(' ');

@@ -9,7 +9,11 @@ package diuf.sudoku.solver.hinters.single;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.ADirectHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -36,7 +40,9 @@ public final class NakedSingleHint extends ADirectHint {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName() + ": " + super.toStringImpl();
+		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(super.toStringImpl())
+		  .toString();
 	}
 
 	@Override

@@ -6,6 +6,8 @@
  */
 package diuf.sudoku.solver.hinters.align;
 
+import static diuf.sudoku.utils.Frmt.COLON_ONLY;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.Arrays;
 import java.util.Comparator;
 
@@ -108,7 +110,7 @@ public final class HashA {
 	public String toString() {
 		if ( ts != null )
 			return ts;
-		return ts = ""+hashCode+":"+Arrays.toString(array);
+		return ts = EMPTY_STRING+hashCode+COLON_ONLY+Arrays.toString(array);
 	}
 	private String ts;
 

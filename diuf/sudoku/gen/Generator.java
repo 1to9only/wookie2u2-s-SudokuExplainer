@@ -14,6 +14,7 @@ import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.checks.RecursiveAnalyser;
+import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.Log;
 import java.util.Random;
 
@@ -51,8 +52,6 @@ import java.util.Random;
  */
 public final class Generator implements IInterruptMonitor {
 
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
-
 	// an arbitrary small number of UsolvableExceptions are acceptable, but too
 	// many indicate that an IHinter is broken. Four seems to work OK for me.
 	private static final int MAX_ANALYSE_FAILURES = 4;
@@ -69,11 +68,12 @@ public final class Generator implements IInterruptMonitor {
 
 	// my recursiveAnalyser because I'm awkward and difficult and demanding,
 	// both of myself and the poeple around me.
-	private final RecursiveAnalyser analyser = new RecursiveAnalyser(); // SolutionMode.WANTED
+	private final RecursiveAnalyser analyser;
 
 	public Generator() {
 		this.cache = new PuzzleCache(this);
 		this.solver = LogicalSolverFactory.get();
+		this.analyser = new RecursiveAnalyser(solver); // SolutionMode.WANTED
 	}
 
 	@Override
@@ -175,8 +175,9 @@ public final class Generator implements IInterruptMonitor {
 					try {
 						d = solver.analyseDifficulty(copy, maxD);
 						cache.set(getDifficulty(d), puzzle);
-						if ( Log.MODE >= Log.NORMAL_MODE )
+						if (Log.MODE >= Log.NORMAL_MODE) {
 							System.out.format("%4.1f\t%-20s\t%s%s", d, symm, puzzle.toShortString(), NL);
+						}
 						if ( d>=minD && d<=maxD )
 							return puzzle;
 						if(isInterrupted) return null;

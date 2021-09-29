@@ -6,102 +6,50 @@
  */
 package diuf.sudoku.solver;
 
-import diuf.sudoku.solver.hinters.IHinter;
+import static diuf.sudoku.utils.Frmt.EQUALS;
 import diuf.sudoku.utils.Pair;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Usage is internal to LogicalSolver UsageMap. It stores:<ul>
- *	<li>numCalls: the number of times a Hinter has been called
-	<li>timeNS: how long it has taken to execute
-	<li>numElims: how many maybes it has eliminated
-	<li>subHintsMap: hintTypeName =&gt; count: for Hinters which produce multiple
- *   hint-types.
+ *	<li>calls: the number of times a Hinter has been called
+ *	<li>hints: how many hints it produced
+ *	<li>elims: how many maybes it has eliminated
+ *	<li>time: how long it has taken to execute
+ *	<li>maxDifficulty: the maximum hint difficulty
+ *  <li>ttlDifficulty: the total of all hint difficulties. <br>
+ *   ttlDifficulty differs for GEM because it sets lots of cells in one hint it
+ *   adds numSetPots*NakedSingle.difficulty to bring it back into line with the
+ *   equivalent NakedSingles, that would be applied if GEM were unwanted. Note
+ *   that any future hint-type that sets multiple cells will need to override
+ *   getDifficultyTotal to take number of cells set into account.
+ *	<li>subHintsMap: hintTypeName =&gt; count: for Hinters which produce
+ *   multiple hint-types.
  * </ul>
  * @author Keith Corlett 2017 Dec
  */
 public final class Usage {
 
-//	public static final Comparator<Usage> BY_NUM_CALLS_DESC
-//			= new Comparator<Usage>() {
-//		@Override
-//		public int compare(Usage a, Usage b) {
-//			return b.numCalls - a.numCalls; // DESCENDING
-//		}
-//	};
-
-	public static Comparator<? super Usage> newRunOrderComparator(IHinter[] hinters) {
-		return new HinterOrderComparator(hinters);
-	}
-
-	public static class HinterOrderComparator implements Comparator<Usage>  {
-		private static Map<String, Integer> map(IHinter[] hinters) {
-			Map<String, Integer> map = new HashMap<>(hinters.length, 1F);
-			int cnt = 0;
-			for ( IHinter hinter : hinters )
-				map.put(hinter.toString(), cnt++);
-			return map;
-		}
-		private final Map<String, Integer> map;
-		HinterOrderComparator(IHinter[] hinters) {
-			this.map = map(hinters);
-		}
-		@Override
-		public int compare(Usage a, Usage b) {
-			int ret;
-			if ( (ret=b.numCalls - a.numCalls) != 0 )
-				return ret;
-			return map.get(a.hinterName) - map.get(b.hinterName);
-		}
-	}
-
-	public static final Comparator<Usage> BY_NS_PER_ELIM_ASC
-			= new Comparator<Usage>() {
-		@Override
-		public int compare(Usage a, Usage b) {
-			// WARNING: terniaries are slow!
-			final long aa;
-			if ( a.numElims == 0 )
-				aa = Long.MAX_VALUE;
-			else
-				aa = a.time / a.numElims;
-			final long bb;
-			if ( b.numElims == 0 )
-				bb = Long.MAX_VALUE;
-			else
-				bb = b.time / b.numElims;
-			if ( aa < bb )
-				return -1; // ASCENDING
-			if ( aa > bb )
-				return 1; // ASCENDING
-			return 0;
-		}
-	};
-
 	// hintTypeName => Pair<numHints, difficulty>
 	public final Map<String,Pair<Integer,Double>> subHintsMap;
-	public int numCalls, numHints, numElims;
+	public int calls, hints, elims;
 	public long time;
 	// the difficulty for maximum calculations
 	public double maxDifficulty = 0D;
 	// the difficulty for total calculations
-	// This differs for GEM because it sets lots of cells in one hint it adds
-	// numSetPots*NakedSingle.difficulty to bring it back into line with the
-	// equivalent NakedSingles, that would be applied if GEM were unwanted.
-	// Note that any future hint-type that sets multiple cells will need to
-	// override getDifficultyTotal to take number of cells set into account.
 	public double ttlDifficulty = 0D;
 
-	public String hinterName;
+	// the index of my hinter in the wantedHinters array
+	// Still used by LogicalSolverTester, even though it's Comparator is gone.
+	public int hinterIndex;
 
-	public Usage(int numCalls, int numHints, int numElims, long time) {
-		this.subHintsMap = new HashMap<>(4, 1F);
-		this.numCalls = numCalls;
-		this.numHints += numHints;
-		this.numElims = numElims;
+	public Usage(int calls, int hints, int elims, long time) {
+		this.calls = calls;
+		this.hints += hints;
+		this.elims = elims;
 		this.time = time;
+		this.subHintsMap = new HashMap<>(4, 1F);
 	}
 
 	public void addonateSubHints(AHint hint, int numHints) {
@@ -131,9 +79,17 @@ public final class Usage {
 		return (int) a / b;
 	}
 
+	// for debugging only, never used in anger
 	@Override
 	public String toString() {
-		return ""+time+"/"+numElims+"="+(div(time,numElims));
+		return ""+time+"/"+elims+EQUALS+(div(time,elims));
+	}
+
+	public void add(Usage u) {
+		calls += u.calls;
+		hints += u.hints;
+		elims += u.elims;
+		time += u.time;
 	}
 
 }

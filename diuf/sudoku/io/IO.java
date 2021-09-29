@@ -11,6 +11,8 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.gui.Ask;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.utils.Frmt.COMMA;
+import static diuf.sudoku.utils.Frmt.NL;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -32,8 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
 import javax.swing.JComboBox;
-//import javax.activation.UnsupportedDataTypeException;
-
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 /**
  * Static methods to read/write Sudokus to/from files or clipboard.
@@ -70,14 +71,19 @@ import javax.swing.JComboBox;
  */
 public final class IO {
 
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
-
 	// The DEFAULT path to this Projects directory (my home directory).
 	private static final String DEFAULT_USER_DIR =
 			System.getProperty("user.home", "C:\\Users\\User")
 			+ "\\Documents\\NetBeansProjects\\DiufSudoku";
 
-	/** My home directory. The path to this Projects directory. */
+	/**
+	 * My home directory. The full path to the Sudoku Explainer directory.
+	 * All of Sudoku Explainers files are contained in this directory.
+	 * <p>
+	 * I do not run (correctly) as a javascript Applet any longer, I need to be
+	 * "installed" on the users PC. I suspect most users are also programmers,
+	 * who can sort it out any problems for themselves.
+	 */
 	public static final String HOME = System.getProperty("user.dir", DEFAULT_USER_DIR) + "\\";
 
 	/** The LogicalSolverTester usage statement is stored in this file. */
@@ -267,7 +273,7 @@ public final class IO {
 
 	private static boolean setMaybes(Grid grid, String line, int y) {
 		y *= 9; // only used to calculate a cell indice
-		String[] fields = line.split(",", 9);
+		String[] fields = line.split(COMMA, 9);
 		if ( fields.length == 9 ) {
 			Grid.Cell cell;
 			for ( int x=0; x<9; ++x ) {
@@ -632,9 +638,9 @@ public final class IO {
 		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
 			for ( Idx idx : c ) {
 				writer.write(idx.a0);
-				writer.write(", ");
+				writer.write(COMMA_SP);
 				writer.write(idx.a1);
-				writer.write(", ");
+				writer.write(COMMA_SP);
 				writer.write(idx.a2);
 				writer.newLine();
 			}

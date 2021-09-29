@@ -14,6 +14,12 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
+import static diuf.sudoku.utils.Frmt.COLON_ONLY;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -30,8 +36,8 @@ public class AlsXzHint extends AHint  {
 	private final boolean anyDoubleLinked;
 	private final String debugMessage, rccsString;
 
-	public AlsXzHint(AHinter hinter, Als a, Als b, int zsZapped, Pots reds,
-			boolean anyDoubleLinked, String rccsString, String debugMessage) {
+	public AlsXzHint(AHinter hinter, Als a, Als b, int zsZapped, Pots reds
+			, boolean anyDoubleLinked, String rccsString, String debugMessage) {
 		// nb: what are normally greens are oranges here
 		super(hinter, reds, null, null, null, Regions.list(a.region)
 				, Regions.list(b.region));
@@ -52,18 +58,16 @@ public class AlsXzHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " in "+a.region.id+" and "+b.region.id
-			  +" on "+rccsString;
+			s += IN+a.region.id+AND+b.region.id+ON+rccsString;
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName()).append(":")
-		  .append(" in ").append(a.region.id).append(" and ").append(b.region.id)
-		  .append(" on ").append(rccsString);
-		return sb.toString();
+		return Frmt.getSB(64).append(getHintTypeName()).append(COLON_ONLY)
+		  .append(IN).append(a.region.id).append(AND).append(b.region.id)
+		  .append(ON).append(rccsString)
+		  .toString();
 	}
 
 	@Override
@@ -73,9 +77,8 @@ public class AlsXzHint extends AHint  {
 				: "AlsXzHint.html";
 		// Calculate ONCE at HTML-time: we need "" (not "-") if no z-values
 		// removed by single-link, else we see a stray - in the html.
-		final String zsString = zsZapped==0 ? ""
-				: Values.andS(zsZapped);
-		final String zBlurb = zsZapped==0 ? ""
+		final String zsString = zsZapped==0 ? EMPTY_STRING : Values.andS(zsZapped);
+		final String zBlurb = zsZapped==0 ? EMPTY_STRING
 				: "<br>and another (non-restricted) common candidate z = "
 				  +"<b>"+zsString+"</b>";
 		return Html.produce(this, filename

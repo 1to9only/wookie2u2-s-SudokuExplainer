@@ -9,10 +9,13 @@ package diuf.sudoku.solver.hinters.als;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
 import java.util.List;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.IN;
 
 
 /**
@@ -39,16 +42,15 @@ public class AlsChainHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " in "+Frmt.csv(Als.regionsList(alss));
+			s += IN+Frmu.csv(Als.regionsList(alss));
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = new StringBuilder(64);
-		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.csv(Als.regionsList(alss)));
-		return sb.toString();
+		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(Frmu.csv(Als.regionsList(alss)))
+		  .toString();
 	}
 
 	@Override
@@ -58,19 +60,19 @@ public class AlsChainHint extends AHint  {
 
 	private String getAlssString() {
 		// NOTE: My HTML appears inside a PRE-block.
-		StringBuilder sb = Frmt.getSB();
+		StringBuilder sb = Frmu.getSB();
 		int i = 0, c; String r;
 		for ( Als als : alss ) {
 			if ( als != null ) { // the last als in alss may be null
 				//Produces for example:
 				//     (a) <b1>row 1: A1 G1 I1</b1>\n
 				//     (b) <b2>col G: G1 G6</b2>\n
-				if(als.region==null) r=""; else r=als.region.id+": ";
+				if(als.region==null) r=EMPTY_STRING; else r=als.region.id+COLON_SP;
 				// there's only 5 colors, same as my largest ALS-Chain
 				c = (i%5) + 1;
-				sb.append("    (").append(alpha((char)i)).append(") ") // nb: In Java calculating a char is a complete, total, and utter pain in the ____ing ass. Thank you Buggus Duckus for your charming comments. Your views have been noted, and will be completely ignored in due time. Sigh.
+				sb.append("    (").append(alpha(i)).append(") ") // nb: In Java calculating a char is a complete, total, and utter pain in the ____ing ass. Thank you Buggus Duckus for your charming comments. Your views have been noted, and will be completely ignored in due time. Sigh.
 				  .append("<b").append(c).append('>')
-				  .append(r).append(Frmt.and(als.cells))
+				  .append(r).append(Frmu.and(als.cells))
 				  .append("</b").append(c).append('>').append(NL);
 				++i;
 			}
@@ -80,7 +82,7 @@ public class AlsChainHint extends AHint  {
 		// colorIn manually coz that's done in load and cached, not in format.
 		return Html.colorIn(sb.toString());
 	}
-	private char alpha(char i) {
+	private char alpha(int i) {
 		return (char)('a'+i);
 	}
 
@@ -91,7 +93,7 @@ public class AlsChainHint extends AHint  {
 		return Html.produce(this, "AlsChainHint.html"
 			, getAlssString()				//{0}
 			, Integer.toString(z)			// 1
-			, Frmt.and(redPots.keySet())	// 2
+			, Frmu.and(redPots.keySet())	// 2
 			, debugMessage					// 3
 			, redPots.toString()			// 4
 		);

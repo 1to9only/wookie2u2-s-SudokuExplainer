@@ -63,7 +63,7 @@ import java.util.Arrays;
  * @author Keith Corlett 2020 May 24
  */
 abstract class AAlsHinter extends AHinter
-		implements diuf.sudoku.solver.IPreparer
+		implements diuf.sudoku.solver.hinters.IPreparer
 {
 
 	/** the size of the fixed-size alss array: 512 */

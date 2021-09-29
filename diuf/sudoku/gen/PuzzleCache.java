@@ -11,6 +11,7 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.LogicalSolver;
+import static diuf.sudoku.utils.Frmt.NL;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,8 +29,6 @@ import java.util.List;
  * @author Keith Corlett Mar 2018
  */
 public final class PuzzleCache {
-
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	// ---------------- static stuff ----------------
 
@@ -160,7 +159,7 @@ public final class PuzzleCache {
 				// when the foreground analyse completes, so two LogicalSolvers
 				// don't run concurrently and trip over stateful static vars
 				// like GrabBag. GrabBag.ANALYSE_LOCK is aggregiously ironic.
-				synchronized ( LogicalSolver.ANALYSE_LOCK ) {
+				synchronized (LogicalSolver.ANALYSE_LOCK) {
 					try {
 						generate(syms, d, true);
 					} catch (Throwable eaten) {

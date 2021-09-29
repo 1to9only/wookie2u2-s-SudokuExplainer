@@ -13,11 +13,13 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.IN;
 
 
 public final class NakedSetDirectHint extends AHint  {
@@ -71,19 +73,18 @@ public final class NakedSetDirectHint extends AHint  {
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.csv(nkdSetCellsList)).append(": ")
-		  .append(Frmt.csv(nkdSetValues)).append(" in ").append(region.id);
-		return sb.toString();
+		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(Frmu.csv(nkdSetCellsList)).append(COLON_SP)
+		  .append(Frmu.csv(nkdSetValues)).append(IN).append(region.id)
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "NakedSetDirectHint.html"
 			, NUMBER_NAMES[degree-2]	// {0}
-			, Frmt.csv(nkdSetCellsList)	//  1
-			, Frmt.csv(nkdSetValues)	//  2
+			, Frmu.csv(nkdSetCellsList)	//  1
+			, Frmu.csv(nkdSetValues)	//  2
 			, region.id					//  3
 			, getHintTypeName()			//  4
 			, cell.id					//  5

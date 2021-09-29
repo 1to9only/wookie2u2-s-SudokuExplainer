@@ -14,12 +14,16 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
-import diuf.sudoku.utils.Log;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.PLUS;
 
 /**
  * GEMHintBig is GEM (Graded Equivalence Marks) Type 2+ (Multi) hints. It's
@@ -148,20 +152,6 @@ public class GEMHintBig extends AHint  {
 	public int applyImpl(boolean isAutosolving, Grid grid) {
 		if ( isInvalid )
 			return 0; // invalid hints are not applicable
-// WTF was I thinking? I can be really dumb sometimes.
-//		final Grid grid = getGrid();
-//		final String backup = grid.toString();
-//		try {
-//			// set the setPots, and then eliminate the redPots
-//			return setPots.setCells(isAutosolving) * 10
-//				 + super.applyImpl(isAutosolving);
-//		} catch ( UnsolvableException ex ) {
-//			Log.teeln("WARN: GEMHintMulti.applyImpl: "+ex);
-//			Log.teeln("reverted to");
-//			Log.teeln(backup);
-//			grid.load(backup);
-//			return 0;
-//		}
 		// set the setPots, and then eliminate the redPots
 		return setPots.setCells(isAutosolving) * 10
 			 + super.applyImpl(isAutosolving, grid);
@@ -174,13 +164,16 @@ public class GEMHintBig extends AHint  {
 
 	@Override
 	protected String toStringImpl() {
-		return getHintTypeName()+": "+greenCellIds+", "+blueCellIds
-			 + " on " + v;
+		return Frmt.getSB(64).append(getHintTypeName())
+		  .append(COLON_SP).append(greenCellIds)
+		  .append(COMMA_SP).append(blueCellIds)
+		  .append(ON).append(v)
+		  .toString();
 	}
 
 	@Override
 	public String toFullString() {
-		return toStringImpl()+" ("+setPots.toString().replaceAll("-", "+")+")";
+		return toStringImpl()+" ("+setPots.toString().replaceAll(MINUS, PLUS)+")";
 	}
 
 	@Override
@@ -208,7 +201,7 @@ public class GEMHintBig extends AHint  {
 		      .append(steps.trim()).append(NL)
 		      .append("</pre>").append(NL);
 		}
-		String results = setPots.toString().replaceAll("-", "+");
+		String results = setPots.toString().replaceAll(MINUS, PLUS);
 		sb.append("<p>").append(NL)
 		  .append("Therefore <g>we can set <b>").append(results).append("</b></g>").append(NL);
 	    // append the pre-made html-snippet in GEMHintExplanation.html

@@ -9,6 +9,8 @@ package diuf.sudoku;
 import diuf.sudoku.utils.Frmt;
 import java.util.LinkedList;
 import java.util.List;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.SPACE;
 
 
 /**
@@ -30,9 +32,9 @@ import java.util.List;
  * Formerly Difficulty was an inner-class of GenerateDialog.
  * <p>
  * <b>WARNING:</b> If you change any hints difficulty then also look at:<ul>
- *  <li>{@link diuf.sudoku.solver.LogicalSolver#configureWantedHinters} to keep
- *   the order of wantedHinters near to that of Tech difficulty; so hinters run
- *   in increasing difficulty, to produce the simplest solution to each puzzle.
+ *  <li>{@link diuf.sudoku.solver.LogicalSolver#LogicalSolver} to keep the
+ *   order of wantedHinters near to that of Tech difficulty; so hinters run in
+ *   increasing difficulty, to produce the simplest solution to each puzzle.
  *  <li>{@link diuf.sudoku.Tech} for the actual difficulties
  *  <li>{@link diuf.sudoku.Difficulty} double check the ranges
  * </ul>
@@ -45,8 +47,8 @@ public enum Difficulty {
 	, Medium	(1, 1.3,  2.7, "L Plates")
 	, Hard		(2, 2.7,  3.6, "P Plates")
 	, Fiendish	(3, 3.6,  4.3, "Open Licence")
-	, Nightmare	(4, 4.3,  5.0, "Truck Licence")
-	, Diabolical(5, 5.0,  9.0, "Bus licence")
+	, Nightmare	(4, 4.39, 5.0, "Truck Licence")
+	, Diabolical(5, 4.40, 9.0, "Bus licence")
 	, IDKFA		(6, 9.0,100.0, "FTL Licence")
 	;
 
@@ -71,10 +73,10 @@ public enum Difficulty {
 
 	// return a String listing the names of all the given Techs
 	public static String names(List<Tech> techs) {
-		final StringBuilder sb = new StringBuilder(512);
+		final StringBuilder sb = new StringBuilder(techs.size()*22);
 		for ( Tech tech : techs ) {
 			if ( sb.length() > 0 )
-				sb.append(", ");
+				sb.append(COMMA_SP);
 			sb.append(tech.name());
 		}
 		return sb.toString();
@@ -93,8 +95,8 @@ public enum Difficulty {
 	public String html(String description, String licence) {
 		final String NL = System.lineSeparator();
 		return "<html><body>"+NL
-			+"<b>"+index+" "+name()+"</b>: "+description+NL
-			+"<p><b>Rating</b>: "+Frmt.dbl(min)+" - "+Frmt.dbl(max)+" ["+licence+"]"+NL
+			+"<b>"+index+SPACE+name()+"</b>: "+description+NL
+			+"<p><b>Rating</b>: "+Frmt.frmtDbl(min)+" - "+Frmt.frmtDbl(max)+" ["+licence+"]"+NL
 			+"</body></html>"+NL;
 	}
 

@@ -49,6 +49,8 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.MINUS;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 import java.util.List;
@@ -206,6 +208,7 @@ public class ComplexFisherman extends AHinter
 		/** endo-fins: indices of cells that are in more than one base region,
 		 * and therefore must be treated as fins. */
 		int efM0, efM1, efM2;
+		// debug only, not used in actual code.
 		@Override
 		public String toString() {
 			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
@@ -239,6 +242,7 @@ public class ComplexFisherman extends AHinter
 		/** sharks (cannibalistic): an Idx of cells in more than one cover set,
 		 * so become potential eliminations. */
 		int skM0, skM1, skM2;
+		// debug only, not used in actual code.
 		@Override
 		public String toString() {
 			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
@@ -790,7 +794,7 @@ public class ComplexFisherman extends AHinter
 					if ( (cell.maybes.bits & sv) != 0 ) {
 						reds.put(cell, new Values(v));
 					} else { // the "missing" delete was NOT added
-						carp("MIA delete: "+cell.toFullString()+"-"+v);
+						carp("MIA delete: "+cell.toFullString()+MINUS+v);
 					}
 				});
 			}
@@ -801,7 +805,7 @@ public class ComplexFisherman extends AHinter
 					if ( (cell.maybes.bits & sv) != 0 ) {
 						reds.put(cell, new Values(v));
 					} else { // the "missing" shark was NOT added
-						carp("MIA shark: "+cell.toFullString()+"-"+v);
+						carp("MIA shark: "+cell.toFullString()+MINUS+v);
 					}
 				});
 			}
@@ -895,10 +899,10 @@ public class ComplexFisherman extends AHinter
 		// paint endo-fins purple, not corners (green) or exo-fins (blue).
 		purple.removeFromAll(green, blue);
 
-		final String debugMsg = "";
+		final String tag = EMPTY_STRING; // debug message
 
 		final AHint myHint = new ComplexFishHint(this, type, isSashimi, v
-			, basesL, coversL, reds, green, blue, purple, yellow, debugMsg);
+			, basesL, coversL, reds, green, blue, purple, yellow, tag);
 
 		if ( HintValidator.COMPLEX_FISHERMAN_USES ) {
 			// only needed for Franken and Mutant, but just check all

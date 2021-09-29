@@ -6,6 +6,8 @@
  */
 package diuf.sudoku.solver.hinters.chain;
 
+import static diuf.sudoku.utils.Frmt.NL;
+
 /**
  * OverallSizes is a little helper class that prints the max-size of all the
  * MyAssSet2's, to work-out how big they should have been in the first place.
@@ -18,8 +20,6 @@ package diuf.sudoku.solver.hinters.chain;
  */
 public final class OverallSizes extends java.util.LinkedHashMap<String, Integer> {
 	private static final long serialVersionUID = 345675231L;
-
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	public static final OverallSizes THE = new OverallSizes();
 

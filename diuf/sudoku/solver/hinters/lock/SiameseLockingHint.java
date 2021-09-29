@@ -20,6 +20,10 @@ import diuf.sudoku.utils.Html;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
 
 /**
  * A Siamese Locking Hint is the merger of two or three Pointing or Claiming
@@ -40,8 +44,6 @@ public class SiameseLockingHint extends AHint  {
 	final ARegion base;
 	final ARegion cover;
 	final String valuesToRemove;
-
-	private String toStr;
 
 	/**
 	 * Constructs a new SiameseLockingHint.
@@ -112,19 +114,10 @@ public class SiameseLockingHint extends AHint  {
 
 	@Override
 	public String toStringImpl() {
-		if ( toStr != null )
-			return toStr;
-		try {
-			StringBuilder sb = Frmt.getSB();
-			sb.append(getHintTypeName()).append(": ")
-			  .append(base).append(" and ").append(cover)
-			  .append(" on ").append(valuesToRemove);
-			toStr = sb.toString();
-		} catch (Exception ex) {
-			ex.printStackTrace(System.out);
-			// nb toStr is (probably) still null
-		}
-		return toStr;
+		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(base).append(AND).append(cover)
+		  .append(ON).append(valuesToRemove)
+		  .toString();
 	}
 
 	@Override

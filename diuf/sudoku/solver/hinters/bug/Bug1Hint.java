@@ -11,9 +11,13 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -57,17 +61,19 @@ public final class Bug1Hint extends ABugHint  {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+bugCell.id;
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(bugCell.id)
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		Values redVals = bugCell.maybes.minus(bugValues);
 		return Html.produce(this, "Bug1Hint.html"
-				, Frmt.and(bugValues)	// {0}
+				, Frmu.and(bugValues)	// {0}
 				, bugCell.id			//  1
-				, Frmt.or(bugValues)	//  2
-				, Frmt.values(redVals)	//  3
+				, Frmu.or(bugValues)	//  2
+				, Frmu.values(redVals)	//  3
 		);
 	}
 }

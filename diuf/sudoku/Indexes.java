@@ -58,14 +58,14 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	/** An array of Integer.numberOfTrailingZeros is faster than repeatedly
 	 * calling the sucker on these same values. We can do this because there
 	 * is only 512 values in question. */
-	public static final int[] FIRST_INDEX = new int[ARRAY_SIZE];
+	public static final int[] IFIRST = new int[ARRAY_SIZE];
 	static {
 		for ( int i=0; i<NUM_BITS; ++i )
 			ISHFT[i] = 1<<i;
 		for ( int i=0; i<ARRAY_SIZE; ++i) {
-			INDEXES[i] = toValuesArray(i);
+			INDEXES[i] = toValuesArrayNew(i);
 //			SHIFTED[i] = toShiftedArray(i);
-			FIRST_INDEX[i] = Integer.numberOfTrailingZeros(i);
+			IFIRST[i] = Integer.numberOfTrailingZeros(i);
 		}
 	}
 
@@ -98,15 +98,15 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 *
 	 * @param bits to be unpacked
 	 * @return given binary {@code 1101} we return {@code {0,2,3}}. */
-	private static int[] toValuesArray(int bits) {
+	static int[] toValuesArrayNew(int bits) {
 		final int n = Integer.bitCount(bits);
-		int[] result = new int[n];
+		final int[] array = new int[n];
 		int cnt = 0;
 		for ( int i=0; cnt<n; ++i )
 			if ( (bits & (1<<i)) != 0 )
-				result[cnt++] = i;
+				array[cnt++] = i;
 		assert cnt == n; // even if they're both 0
-		return result;
+		return array;
 	}
 
 	/** "Unpacks" the given bitset into an array of the outright value of each
@@ -312,7 +312,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	public int first() {
 		if ( bits == 0 )
 			return NONE;
-		return FIRST_INDEX[bits];
+		return IFIRST[bits];
 	}
 
 	/** @return index of the last (leftmost) set (1) bit, else NONE (-1). */
@@ -328,11 +328,11 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 		final int b = bits & (ONES<<i);
 		if ( b == 0 )
 			return NONE;
-		return FIRST_INDEX[b];
+		return IFIRST[b];
 	}
 
 	public int otherThan(int i) {
-		return FIRST_INDEX[bits & ~ISHFT[i]];
+		return IFIRST[bits & ~ISHFT[i]];
 	}
 
 	// ---------------- toArray ----------------
@@ -395,75 +395,19 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	}
 
 	// ---------------- toString ----------------
-	// toString reads but does NOT alter the state of this Indexes.
 
-	/** Appends the string representation of this Indexes Set, separating each
-	 * value with 'sep', except the last which is preceeded by 'lastSep'.
-	 * @param sb to append to.
-	 * @param bits the bitset of the index to be appended
-	 * @param n the number of set (1) bits in the index to append. If you don't
-	 * know then just pass me Indexes.ISIZE[bits].
-	 * @param sep values separator.
-	 * @param lastSep the last values separator.
-	 * @return the given 'sb' so that you can chain method calls. */
-	public static StringBuilder appendTo(StringBuilder sb, int bits, int n
-			, String sep, String lastSep) {
-		int count = 0;
-		for ( int i : INDEXES[bits] ) {
-			if ( ++count > 1 ) // 1 based count
-				if ( count < n ) // 1 based, so n (not m)
-					sb.append(sep);
-				else
-					sb.append(lastSep);
-			sb.append(i);
-		}
-		return sb;
-	}
-
-	/** Appends the string representation of this Indexes Set, separating each
-	 * value with 'sep', except the last which is preceeded by 'lastSep'.
-	 * @param sb to append to.
-	 * @param sep values separator.
-	 * @param lastSep the last values separator.
-	 * @return the given 'sb' so that you can chain method calls. */
-	public StringBuilder appendTo(StringBuilder sb, String sep, String lastSep){
-		return appendTo(sb, bits, size, sep, lastSep);
-	}
-
-	/** Appends the string representation of this Indexes Set to the given
-	 * StringBuilder.
-	 * @param sb to append to.
-	 * @return the given 'sb' so that you can chain method calls. */
-	public StringBuilder appendTo(StringBuilder sb) {
-		for ( int i : INDEXES[bits] )
-			sb.append(i);
-		return sb;
-	}
-
-//2020-10-23 not used, but keep for ummm, a while
-//	/** As if new Indexes(bits).toString(); without the garbage Indexes.
-//	 * @param bits to stringify.
-//	 * @return Indexes string representation of bits.
-//	 */
-//	public static String toString(int bits) {
-//		SB.setLength(0);
-//		appendTo(SB, bits, SIZE[bits], "", "");
-//		return SB.toString();
-//	}
-
+	//Indexes.toString() isn't used full stop, AFAICS, so only for debugging
 	@Override
 	public String toString() {
-		SB.setLength(0);
-		appendTo(SB);
-		return SB.toString();
+		return toString(bits);
 	}
-	private static final StringBuilder SB = new StringBuilder(NUM_BITS);
-	
+
+	//Indexes.toString(bits) isn't used proper, only in debug
 	public static String toString(int bits) {
-		SB.setLength(0);
+		StringBuilder sb = new StringBuilder(NUM_BITS);
 		for ( int i : INDEXES[bits] )
-			SB.append(i);
-		return SB.toString();
+			sb.append(i);
+		return sb.toString();
 	}
 
 	// ---------------- plumbing ----------------

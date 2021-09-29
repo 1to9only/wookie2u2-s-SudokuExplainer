@@ -23,6 +23,7 @@ import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.Collection;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.utils.Log;
 
 
 /**
@@ -71,11 +72,11 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 		if ( hint.redPots == null ) {
 			// except Summary of hint/s already applied by HintsApplicumulator
 			if ( !(hint instanceof AppliedHintsSummaryHint) )
-				StdErr.whingeLns(StdErr.me()+": null redPots in: "+hint, initGrid, currGrid);
+				StdErr.whingeLns(Log.me()+": null redPots in: "+hint, initGrid, currGrid);
 			return false;
 		}
 		if ( hint.redPots.isEmpty() )
-			return StdErr.whinge(StdErr.me()+": Empty redPots in "+hint);
+			return StdErr.whinge(Log.me()+": Empty redPots in "+hint);
 		final MyLinkedList<Ass> parents; // effect Ass's parent Ass's
 		try {
 			// all hints produced by Chains.hinters implement IChildHint,
@@ -95,9 +96,9 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 			nestedChain = (AChainingHint)hint;
 		else
 			nestedChain = null;
-		for ( Cell cell : redPots.keySet() )
-			for ( int v : VALUESES[redPots.get(cell).bits] )
-				result |= effects.add(new Ass(cell, v, false, parents
+		for ( java.util.Map.Entry<Cell,Values> e : redPots.entrySet() )
+			for ( int v : VALUESES[e.getValue().bits] )
+				result |= effects.add(new Ass(e.getKey(), v, false, parents
 						, Cause.Advanced, hint.toString() // explanation
 						, nestedChain));
 		return result;

@@ -15,10 +15,16 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.PLUS;
 
 /**
  * XColoringHintBig is the DTO for Type 2 and Type 3 Extended Coloring hints.
@@ -141,13 +147,16 @@ public class XColoringHintBig extends AHint  {
 
 	@Override
 	protected String toStringImpl() {
-		return getHintTypeName()+": "+greenCellIds+", "+blueCellIds
-			 + " on " + v;
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(greenCellIds)
+		  .append(COMMA_SP).append(blueCellIds)
+		  .append(ON).append(v)
+		  .toString();
 	}
 
 	@Override
 	public String toFullString() {
-		return toStringImpl()+" ("+setPots.toString().replaceAll("-", "+")+")";
+		return toStringImpl()+" ("+setPots.toString().replaceAll(MINUS, PLUS)+")";
 	}
 
 	@Override
@@ -191,7 +200,7 @@ public class XColoringHintBig extends AHint  {
 		      .append(steps.trim()).append(NL)
 		      .append("</pre>").append(NL);
 		}
-		String results = setPots.toString().replaceAll("-", "+");
+		String results = setPots.toString().replaceAll(MINUS, PLUS);
 		sb.append("<p>").append(NL)
 		  .append("Therefore <g>we can set <b>").append(results).append("</b></g>");
 		sb.append("</body></html>").append(NL);

@@ -53,7 +53,7 @@ public final class MyFunkyLinkedHashMap<K,V> extends MyLinkedHashMap<K,V> {
 	public V put(K key, V value) {
 		assert key != null;
 		final int hash = hash(key.hashCode());
-		final int i = hash & (table.length-1); // truncate to table length.
+		final int i = hash & mask; // truncate to table length.
 		K k; // I wonder why java.util.LinkedHashMap uses Object k? I guesse
 		     // because that's all that's actually REQUIRED. I think this is
 			 // faster though, especially if K has an equals(K), but not sure.
@@ -85,7 +85,7 @@ public final class MyFunkyLinkedHashMap<K,V> extends MyLinkedHashMap<K,V> {
 	V getAss(final int hashCode) {
 		// nb: hash in-line was slower. Why I know not.
 		final int hash = hash(hashCode);
-		final int i = hash & (table.length-1);
+		final int i = hash & mask;
 		for ( MyHashMap.Entry<K,V> e=table[i]; e!=null; e=e.next )
 			// note that Ass.equals method just equates hashCodes
 			if ( e.hash==hash && ((Ass)e.key).hashCode==hashCode )

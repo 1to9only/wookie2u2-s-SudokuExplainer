@@ -9,12 +9,17 @@ import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -96,22 +101,22 @@ class BigWingHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a "+getHintTypeName();
 		if ( isBig )
-			s += " on "+Frmt.csv(wingValues)+" and <b>"+z+"</b>";
+			s += ON+Frmt.csv(wingValues)+" and <b>"+z+"</b>";
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		String s = getHintTypeName()+": "+Frmt.ssv(als)+" and "+yz.id+" on ";
-		// It appears that somehow x and z have swapped roles so that:
-		// z is now the primarary (mandatory) link value, and
-		// x is now the secondary (optional) link value.
-		// So I'll BFFIIK! I find this s__t infinitety confusing!
+		final StringBuilder sb = Frmt.getSB();
+		sb.append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.ssv(als))
+		  .append(AND).append(yz.id)
+		  .append(ON);
 		if ( both )
-			s += x + " and " + z;
+			sb.append(x).append(AND).append(z);
 		else
-			s += z;
-		return s;
+			sb.append(z);
+		return sb.toString();
 	}
 
 	@Override
@@ -137,8 +142,8 @@ class BigWingHint extends AHint  {
 		// double-linked wings have there own explanation for more eliminations
 		String filename = both ? "BigWingHintDL.html" : "BigWingHint.html";
 		return Html.produce(hinter, filename
-			, Frmt.csv(als)				//{0}
-			, Frmt.and(als)				// 1
+			, Frmu.csv(als)			//{0}
+			, Frmu.and(als)			// 1
 			, yz.id						// 2
 			, z							// 3
 			, x							// 4

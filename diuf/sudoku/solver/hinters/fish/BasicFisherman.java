@@ -19,6 +19,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import diuf.sudoku.utils.Permutations;
 
 
@@ -147,7 +148,7 @@ public final class BasicFisherman extends AHinter {
 					// then there's no basic fish here.
 //System.out.print("complete: "+v+":");
 //for ( i=0; i<degree; ++i )
-//	System.out.print(" "+bases[candiBits[perm[i]]].id);
+//	System.out.print(SPACE+bases[candiBits[perm[i]]].id);
 //System.out.println(" = "+diuf.sudoku.Indexes.toString(coverBits));
 					if ( VSIZE[vs] == degree ) {
 						// ----------------------------------------------------
@@ -192,7 +193,7 @@ public final class BasicFisherman extends AHinter {
 		for ( int i : INDEXES[baseBits] )
 			greens.addAll(bases[i], coverBits, v);
 		// build and return the new hint
-		return new BasicFishHint(this, reds, v, greens, ""
+		return new BasicFishHint(this, reds, v, greens, EMPTY_STRING
 				, Regions.list(degree, bases, baseBits)
 				, Regions.list(degree, covers, coverBits));
 	}

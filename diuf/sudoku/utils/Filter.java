@@ -70,8 +70,8 @@
 //	public Filter(String name) {
 //		super(name);
 //		// getInt reads the raw Preferences
-//		fMin = Settings.THE.getInt(name+"Min", Integer.MIN_VALUE);
-//		fMax = Settings.THE.getInt(name+"Max", Integer.MAX_VALUE);
+//		fMin = THE_SETTINGS.getInt(name+"Min", Integer.MIN_VALUE);
+//		fMax = THE_SETTINGS.getInt(name+"Max", Integer.MAX_VALUE);
 //	}
 //
 //	/**

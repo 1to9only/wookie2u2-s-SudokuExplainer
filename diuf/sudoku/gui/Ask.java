@@ -6,20 +6,20 @@
  */
 package diuf.sudoku.gui;
 
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.NL;
 import java.awt.Toolkit;
 import javax.swing.JOptionPane;
 
 public final class Ask {
 
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
-
 	public static int forInt(String question, int min, int max) {
 		assert min <= max;
 		question = question.replaceAll("\\n", NL);
 		String response = JOptionPane.showInputDialog(question
-			, "Please enter an integer between "+min+" and "+max);
+			, "Please enter an integer between "+min+AND+max);
 		final String retryMessage =
-			"An integer between "+min+" and "+max+" is required."+NL+question;
+			"An integer between "+min+AND+max+" is required."+NL+question;
 		while ( true ) {
 			if ( response!=null && response.length()>0 ) {
 				int value;

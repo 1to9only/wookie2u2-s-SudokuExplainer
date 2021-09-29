@@ -6,14 +6,14 @@
  */
 package diuf.sudoku;
 
-import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
-import static diuf.sudoku.Indexes.FIRST_INDEX;
+import static diuf.sudoku.Indexes.IFIRST;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.ISIZE;
-import static diuf.sudoku.Values.FIRST_VALUE;
+import static diuf.sudoku.Settings.THE_SETTINGS;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSHIFTED;
 import static diuf.sudoku.Values.VSIZE;
@@ -23,6 +23,8 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.urt.UniqueRectangle.IUrtCellSet;
+import static diuf.sudoku.utils.Frmt.COMMA;
+import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.Hash;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedHashSet;
@@ -39,7 +41,9 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.EQUALS;
+import static diuf.sudoku.utils.Frmt.NULL_ST;
 
 /**
  * A Sudoku grid.
@@ -61,9 +65,6 @@ public final class Grid {
 
 	// do first else toString gets an exception in the debugger
 	private static final char[] DIGITS = ".123456789".toCharArray();
-
-	// the ubiquitious newline sequence (sigh)
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	/** A java.util.Random for public use. */
 	public static final Random RANDOM = new Random();
@@ -104,9 +105,9 @@ public final class Grid {
 
 	/** The region.id's by index in the grid.regions array. */
 	public static final String[] REGION_IDS = {
-		"box 1", "box 2", "box 3", "box 4", "box 5", "box 6", "box 7", "box 8", "box 9",
-		"row 1", "row 2", "row 3", "row 4", "row 5", "row 6", "row 7", "row 8", "row 9",
-		"col A", "col B", "col C", "col D", "col E", "col F", "col G", "col H", "col I"
+	  "box 1", "box 2", "box 3", "box 4", "box 5", "box 6", "box 7", "box 8", "box 9"
+	, "row 1", "row 2", "row 3", "row 4", "row 5", "row 6", "row 7", "row 8", "row 9"
+	, "col A", "col B", "col C", "col D", "col E", "col F", "col G", "col H", "col I"
 	};
 
 	/** An Idx containing the indice of each cell in the Grid. */
@@ -394,6 +395,11 @@ public final class Grid {
 
 	/** The PuzzleID (File and lineNumber for MagicTours Multi-puzzle format).*/
 	public PuzzleID source = null;
+	public String source() {
+		if ( source==null )
+			return "IGNOTO";
+		return source.toString();
+	}
 
 	/** Set to false at END of Constructor. Used by Cells resetMaybes(), which
 	 * is called by the rebuildMaybes() method, to avoid wasting time
@@ -430,8 +436,14 @@ public final class Grid {
 	/** isInvalidated()'s region which is invalid. Nullable. */
 	public ARegion invalidRegion;
 
+	/** TooFewClues remembers this grid is valid. */
+	public boolean enoughClues;
+
+	/** TooFewValues remembers this grid is valid. */
+	public boolean enoughValues;
+
 	/** prepare sets grid.isPrepared, to avert unnecessary repetitions. */
-	private boolean isPrepared = false;
+	private volatile boolean isPrepared = false;
 
 	/** The sequential number of the hint that we're up-to in solve (et al). */
 	public int hintNumber = 1; // anything but 0, the default int value.
@@ -710,43 +722,48 @@ public final class Grid {
 		if ( lines==null || lines.length==0 )
 			return false; // meaning load failed
 		try {
-			// values: first line contains 81 cell values:
-			// 8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4..
 			// presume that maybes won't be loaded
 			this.isMaybesLoaded = false;
-			// set the cells
-			setCellValues(lines[0]);
+			this.enoughClues = false;
+			this.enoughValues = false;
+			// values: first line contains 81 cell values:
+			// 8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4..
+			loadCellValues(lines[0]);
 			// ---------------------------------------------------------------
-			// from here down if it fails we keep going anyway, coz it's not
-			// considered a critical failure: just load as much as possible,
-			// and let the user work-out if the maybes need rebuilding.
+			// if maybes or source fails we keep going anyway.
 			// ---------------------------------------------------------------
-			// maybes: second line (if any) contains CSV of 81 maybe-values:
-			// ,1246,24569,2347,12357,1234,13569,4579,1345679,12459,124,,,12578,1248,1589,45789,14579,1456,,456,348,,1348,,458,13456,123469,,2469,2389,2368,,1689,2489,12469,12369,12368,269,2389,,,,289,1269,24679,2468,24679,,268,2689,5689,,24569,23457,234,,23479,237,2349,359,,,23467,2346,,,2367,23469,39,,2379,23567,,2567,2378,123678,12368,,257,2357
 			boolean wereMaybesLoaded = false; // presume failure
 			try {
+				// second line (if any) is CSV of 81 maybes
+				// ,1246,24569,2347,12357,1234,13569,4579,1345679,12459,124,,,12578,1248,1589,45789,14579,1456,,456,348,,1348,,458,13456,123469,,2469,2389,2368,,1689,2489,12469,12369,12368,269,2389,,,,289,1269,24679,2468,24679,,268,2689,5689,,24569,23457,234,,23479,237,2349,359,,,23467,2346,,,2367,23469,39,,2379,23567,,2567,2378,123678,12368,,257,2357
 				String line;
 				if ( lines.length>=2 && (line=lines[1])!=null
 				  // validate with a regex (slow but worth it).
 				  && line.matches("([1-9]*,){80}[1-9]*") ) {
-					setMaybes(line.split(",", 81));
+					loadMaybes(line.split(COMMA, 81));
 					wereMaybesLoaded = true;
 				}
-				// source: third line (if any) contains the source: a PuzzleID string.
+			} catch (Exception ex) {
+				StdErr.carp("Grid.loadMaybes not critical", ex);
+				wereMaybesLoaded = false; // re-assert failure
+			}
+			try {
+				// third line (if any) is a PuzzleID
+				// 1#C:/Users/User/Documents/SodukuPuzzles/Conceptis/TheWorldsHardestSudokuPuzzle.txt
+				String line;
 				if ( lines.length>=3 && (line=lines[2])!=null )
 					source = PuzzleID.parse(line);
 			} catch (Exception ex) {
-				StdErr.carp("Noncritical Grid.load", ex);
-				wereMaybesLoaded = false; // re-assert failure
+				StdErr.carp("Grid.loadSource not critical", ex);
 			}
-			// if the maybes were NOT loaded from file then reinitialise them
-			// nb: this can't fail. it only sets 2 existing ints in each never-
-			// null-cell.maybes, cells is not null, and no cell is null (here).
-			// so if it does fail it's critical. Do NOT eat any exceptions!
+			// if the maybes were NOT loaded then reinitialise each cell
+			// NOTE: this can't fail. it only sets 2 existing ints in each
+			// never-null-cell.maybes, cells is not null, and no cell is null,
+			// so if it does fail it's critical. Do NOT eat my exceptions!
 			if ( !wereMaybesLoaded )
 				for ( Cell cell : cells )
 					cell.reinitialiseMaybes(); // fill if empty, else clear
-			// if you don't eat you don't s__t, and if you don't s__t you die!
+			// rebuild all that s__t!
 			rebuildAllMyOtherS__t();
 			// remember isMaybesLoaded to avoid any future rebuilds.
 			isMaybesLoaded = wereMaybesLoaded;
@@ -755,7 +772,7 @@ public final class Grid {
 			hintNumberReset();
 			return true; // meaning load succeeded
 		} catch (Exception ex) {
-			StdErr.whinge("Critical Grid.load", ex);
+			StdErr.whinge("Grid.load critical", ex);
 			return false; // meaning load failed
 		}
 	}
@@ -774,29 +791,35 @@ public final class Grid {
 			throw new IllegalArgumentException("bad s=\""+s+"\"");
 		String ss = s.substring(81).trim();
 		if ( ss.isEmpty() ) { // a filled grid
-			setCellValues(s.substring(0, 81));
+			loadCellValues(s.substring(0, 81));
 			rebuildMaybesAndS__t(); // rebuilds maybes, and all effluvia
 		} else {
-			setCellValues(s.substring(0, 81));
-			setMaybes(ss.split(",", 81));
+			loadCellValues(s.substring(0, 81));
+			loadMaybes(ss.split(COMMA, 81));
 			rebuildAllMyOtherS__t(); // just rebuild the effluvia, not maybes
 		}
 	}
 
-	private boolean setCellValues(String line) {
-		char ch;
-		final int n = Math.min(line.length(),81);
-		for ( int i=0; i<n; ++i ) {
-			ch = line.charAt(i);
-			if ( ch>='1' && ch<='9' )
-				cells[i].value = ch-'0';
-			else
-				cells[i].value = 0;
-		}
-		return n == 81;
+	private boolean loadCellValues(String line) {
+		int i; // cell index, hijacked as line-length
+		final int n; // number of chars to read
+		char ch; // the current char
+		// clear all 81 cells, regardless of n
+		for ( i=0; i<81; ++i )
+			cells[i].clear();
+		// n is capped at 81 (hijacking i)
+		if ( (i=line.length()) > 81 )
+			n = 81;
+		else
+			n = i;
+		// load the given clues into n cells
+		for ( i=0; i<n; ++i )
+			if ( (ch=line.charAt(i))>='1' && ch<='9' )
+				cells[i].value = ch - '0';
+		return n == 81; // even if line was chopped down (optimistic)
 	}
 
-	private void setMaybes(String[] fields) {
+	private void loadMaybes(String[] fields) {
 		int i = 0;
 		for ( Cell cell : cells )
 			cell.maybes.set(fields[i++]);
@@ -919,7 +942,7 @@ public final class Grid {
 //	/** DEBUG: dump all the containsValue's. */
 //	public void dumpContainsValues() {
 //		for ( ARegion r : regions )
-//			System.out.println(r.id+" "+Frmt.indices(r.containsValue));
+//			System.out.println(r.id+SPACE+Frmt.indices(r.containsValue));
 //	}
 
 	/** Remove potential values rendered illegal by current cell values. */
@@ -1153,7 +1176,7 @@ public final class Grid {
 	 * @return isHacky && source.filename startsWith top1465
 	 */
 	public boolean hackTop1465() {
-		return Settings.THE.get(Settings.isHacky) && source!=null && source.isTop1465;
+		return THE_SETTINGS.get(Settings.isHacky) && source!=null && source.isTop1465;
 	}
 
 	// ---------------------------- testcase crap -----------------------------
@@ -1176,10 +1199,10 @@ public final class Grid {
 	/**
 	 * Get a {@code Deque<Single>} to stash singles.
 	 *
-	 * @return 
+	 * @return
 	 */
 	public Deque<Single> getSinglesQueue() {
-		if ( singlesQueue == null ) 
+		if ( singlesQueue == null )
 			singlesQueue = new MyLinkedList<>();
 		return singlesQueue;
 	}
@@ -1206,11 +1229,13 @@ public final class Grid {
 	 * 1...9..3...2..3.5.7..8.......3..7...9.........48...6...2..........14..79...7.68..
 	 * </pre> */
 	public String toShortString() {
-		StringBuilder sb = getSB();
+		return appendCellValues(new StringBuilder(81)).toString();
+	}
+	private StringBuilder appendCellValues(final StringBuilder sb) {
 		for ( Cell cell : cells )
 			if ( cell != null ) // just in case we're still initialising
 				sb.append(DIGITS[cell.value]);
-		return sb.toString();
+		return sb;
 	}
 
 	/**
@@ -1236,31 +1261,25 @@ public final class Grid {
 	 */
 	@Override
 	public String toString() {
-		String shortString = toShortString(); // appends to the sb field
 		if ( isFull() )
-			return shortString;
+			return toShortString();
 		// append the maybes to the same SB used by toShortString
-		SB.append(NL);
+		// max observed 447 (conceptis's hardest Sudoku puzzle);
+		final StringBuilder sb = new StringBuilder(512);
+		appendCellValues(sb).append(NL);
 		int i = 0;
 		for ( Cell cell : cells ) {
 			if ( cell == null )
 				return "...initialising...";
 			if ( ++i > 1 )
-				SB.append(',');
+				sb.append(',');
 			for ( int v : VALUESES[cell.maybes.bits] )
-				SB.append(DIGITS[v]);
+				sb.append(DIGITS[v]);
 		}
-		return SB.toString(); // NB: toString creates a new copy of the char-array
+//		if ( sb.length() > 512 )
+//			System.out.println("Grid.toString: sb.lnegth="+sb.length());
+		return sb.toString();
 	}
-
-	private static StringBuilder getSB() {
-		if ( SB == null )
-			SB = new StringBuilder(400); // observed 83+298 = 381
-		else
-			SB.setLength(0); // clear the buffer
-		return SB;
-	}
-	private static StringBuilder SB = null;
 
 	// ---------------- plumbing ----------------
 
@@ -1527,13 +1546,13 @@ public final class Grid {
 			// cells with maybes.size == $size
 			for ( Cell cell : cells )
 				if ( cell.maybes.size == size )
-					result.put(cell, new Values(cell.maybes)); // defensive
+					result.put(cell, cell.maybes); // defensive
 		} else if ( size < 9 ) {
 			// cells with maybes.size in 2..size-2 EXCLUSIVE
 			final int ceiling = size - 2; // 6=4, 7=5, 8=6
 			for ( Cell cell : cells )
 				if ( cell.maybes.size>1 && cell.maybes.size<ceiling )
-					result.put(cell, new Values(cell.maybes)); // defensive
+					result.put(cell, cell.maybes); // defensive
 		} else {
 			// size == 9: you're a cheating mofo!
 			getSolutionValues();
@@ -1840,7 +1859,7 @@ public final class Grid {
 		 *  of each other, but the reference (ie my maybes instance) is final.
 		 */
 		public Cell(int i, Values maybes) {
-			// set my id as the very first step, for the toString method
+			// id= is the first instruction, for the toString method
 			this.id = CELL_IDS[this.i = i];
 			//value is 0 by default, and may be set by my calling constructor
 			assert maybes != null;
@@ -1864,7 +1883,7 @@ public final class Grid {
 
 			this.hashCode = Hash.LSH4[y] ^ x; // see also Ass.hashCode()
 			this.buds = Grid.BUDDIES[i];
-			// always set maybes last for toString
+			// maybes= is the last instruction, for the toString method
 			this.maybes = maybes;
 		}
 
@@ -1887,13 +1906,15 @@ public final class Grid {
 			maybes.copyFrom(src.maybes);
 		}
 
-		/** In the Grid.load method, having set all values, we clean-up maybes.
+		/**
+		 * In the Grid.load method, having set all values, we clean-up maybes.
 		 * This is the first step in doing so: if the cell is empty we "fill"
 		 * his maybes, otherwise we "clear" them, which is much faster than
 		 * adding/removing individual values.
-		 * <p><b>NOTE</b>: filling empty cells is unnecessary for new grids;
-		 * but it is necessary after we've just loaded into a previously loved
-		 * grid, so don't "efficiency" it out again, ya putz! */
+		 * <p>
+		 * <b>NOTE</b>: filling empty cells is unnecessary for new grids, but
+		 * it is necessary after loading into a previously-used grid.
+		 */
 		private void reinitialiseMaybes() {
 			if ( value == 0 )
 				maybes.fill();
@@ -1953,27 +1974,27 @@ public final class Grid {
 					// look for any subsequent naked singles
 					for ( i=0; i<9; ++i ) {
 						if ( r.cells[i].maybes.size == 1 ) {
-							if ( (v=FIRST_VALUE[(sib=r.cells[i]).maybes.bits]) < 1 ) { // invalid
-								System.out.println("Nubile Sasquatch!");
+							if ( (v=VFIRST[(sib=r.cells[i]).maybes.bits]) < 1 ) { // invalid
+								System.out.println("Nargle S__t!");
 								sib.maybes.clear(); // I shot my sibling, but I didno shoot no diputy!
 								continue;			// I say, hay nan, nar nar, nung nung nung.
 							}
 							if ( sb != null )
-								sb.append(", ").append(sib.id).append("=").append(v);
+								sb.append(COMMA_SP).append(sib.id).append(EQUALS).append(v);
 							count += sib.set(v, 0, true, sb);
 						}
 					}
 					// look for any subsequent hidden singles
 					for ( v=1; v<10; ++v ) {
 						if ( r.indexesOf[v].size == 1 ) {
-							if ( (first=FIRST_INDEX[r.indexesOf[v].bits]) < 0 ) { // invalid
-								System.out.println("Hyena Squirt!");
+							if ( (first=IFIRST[r.indexesOf[v].bits]) < 0 ) { // invalid
+								System.out.println("Hyena S__t!");
 								r.indexesOf[v].clear(); // I shot my sibling, but I didno shoot no diputy!
 								continue;				// He say, hey man, nar nar, argh argh argh.
 							}
 							if ( (sib=r.cells[first]) != this ) { // oops!
 								if ( sb != null )
-									sb.append(", ").append(sib.id).append("=").append(v);
+									sb.append(COMMA_SP).append(sib.id).append(EQUALS).append(v);
 								count += sib.set(v, 0, true, sb);
 							}
 						}
@@ -1993,7 +2014,7 @@ public final class Grid {
 //				for ( int v=1; v<10; ++v ) {
 //					s = r.indexesOf[v].toString();
 //					s += "         ".substring(0, 10-s.length());
-//					sb.append("\t").append(v).append("=").append(s);
+//					sb.append(TAB).append(v).append(EQUALS).append(s);
 //				}
 //				System.out.println(sb);
 //			}
@@ -2049,7 +2070,7 @@ public final class Grid {
 				  && ( col.indexesOf[v].contains(y) && (i=2)==i )
 				) {
 					result = true;
-					if ( Log.MODE == Log.MODE_200 ) {
+					if (Log.MODE == Log.MODE_200) {
 						String s = id+" iAmInMyRegionsIndexesOf("+maybes+"):"
 								+ " %s idxsOf[%d]=%s contains %d"+NL;
 						switch(i) {
@@ -2074,7 +2095,7 @@ public final class Grid {
 					break;
 				case 1:
 					// this just means values.first(); but it's a tad faster
-					final int v = FIRST_VALUE[values.bits];
+					final int v = VFIRST[values.bits];
 					removeMeFromMyRegionsIndexesOfValue(v);
 					break;
 				default:
@@ -2111,11 +2132,11 @@ public final class Grid {
 		private void removeMeFromMyRegionsIndexesOfBits(final int valuesBits, final Deque<Single> singles) {
 			for ( int v : VALUESES[valuesBits] ) {
 				if ( box.indexesOf[v].remove(b) == 1 )
-					singles.add(new Single(box.cells[FIRST_INDEX[box.indexesOf[v].bits]], v));
+					singles.add(new Single(box.cells[IFIRST[box.indexesOf[v].bits]], v));
 				if ( row.indexesOf[v].remove(x) == 1 )
-					singles.add(new Single(row.cells[FIRST_INDEX[row.indexesOf[v].bits]], v));
+					singles.add(new Single(row.cells[IFIRST[row.indexesOf[v].bits]], v));
 				if ( col.indexesOf[v].remove(y) == 1 )
-					singles.add(new Single(col.cells[FIRST_INDEX[col.indexesOf[v].bits]], v));
+					singles.add(new Single(col.cells[IFIRST[col.indexesOf[v].bits]], v));
 			}
 		}
 
@@ -2247,7 +2268,7 @@ public final class Grid {
 				throw new UnsolvableException("No maybes: "+id+":"
 					+Values.toString(preBits)+" - "+Values.toString(pinkBits));
 			case 1: // I am a naked single, to be set by AHint.apply
-				singles.add(new Single(this, FIRST_VALUE[maybes.bits]));
+				singles.add(new Single(this, VFIRST[maybes.bits]));
 			}
 			return numRmvd;
 		}
@@ -2333,20 +2354,30 @@ public final class Grid {
 			return (maybes.bits & VSHFT[v]) != 0;
 		}
 
-		/** @return String representation of this cell: A1=5 or A2:3{368}.<br>
-		 * Used only for debugging: ie is NOT part of the GUI application.<br>
-		 * Note that toFullString explicitly gets the full string. Currently
-		 * toString returns the same, but don't rely on that not changing when
-		 * you really want the full string, so use toFullString explicitly.
-		 * <p>toString may be called BEFORE the Cell is done initialising. */
+		/**
+		 * Returns a String representation of this cell: A1=5 or A2:3{368}.
+		 * Used only for debugging: ie is NOT part of the GUI application or
+		 * used in LogicalSolverTester.
+		 * <p>
+		 * WARNING: Do NOT cache toString, it's never used in anger.
+		 * <p>
+		 * nb: toFullString gets the full string. Currently toString returns
+		 * toFulltString cached, so when you want the full string ask for it.
+		 * <p>
+		 * nb: toString may be called BEFORE the Cell is done initialising.
+		 * <p>
+		 * nb: toFullString is not cached! If toFullString ever differs from
+		 * toString then toString has a caching problem.
+		 *
+		 * @return a String of this cell
+		 */
 		@Override
 		public String toString() {
+			// if Cell is initialising: in the constructor id= is FIRST
+			// and maybes= is LAST, so that this works.
 			if ( maybes == null )
-				return id; // Cell is initialising
-			if ( value != 0 )
-				return id+"="+value;
-			else
-				return id+":"+maybes.size+"{"+maybes+"}";
+				return id;
+			return toFullString();
 		}
 
 		/** @return String representation of this cell: A1=5 or A2:3{368}.<br>
@@ -2355,9 +2386,9 @@ public final class Grid {
 		 * you really want the full string, so you call me explicitly. */
 		public String toFullString() {
 			if ( value != 0 )
-				return id+"="+value;
+				return id+EQUALS+value;
 			else
-				return id+":"+maybes.size+"{"+maybes+"}";
+				return id+":"+maybes.size+"{"+Values.toString(maybes.bits)+"}";
 		}
 
 		/** Does this Cell identity-equals the given Object?
@@ -2423,7 +2454,7 @@ public final class Grid {
 	 * @return  */
 	public ARegion region(String id) {
 		// region.id's are 5 characters
-		if ( "null".equals(id) || id.length()!=5 )
+		if ( NULL_ST.equals(id) || id.length()!=5 )
 			return null;
 		// index is the fifth character in a region.id.
 		// A digit or a letter, depending on the region type.
@@ -2463,9 +2494,6 @@ public final class Grid {
 
 		/** "box 1", "row 4", "col E". */
 		public final String id;
-
-		/** Cause.HiddenBox, Cause.HiddenRow, Cause.HiddenCol. */
-		public final Cause cause;
 
 		/** The boxs which cross this row or col. Empty in a box. */
 		public final Box[] crossingBoxs;
@@ -2525,19 +2553,16 @@ public final class Grid {
 		 *
 		 * @param index the index of this region in the Grid.regions array.
 		 * @param typeIndex Grid.BOX, Grid.ROW, Grid.COL
-		 * @param cause Cause.HiddenBox, Cause.HiddenRow, Cause.HiddenCol
 		 * @param numCrossings the number of crossingBoxes: 0 for each Box,
 		 *  3 for each Row and Col. Passing this in makes it possible for the
 		 *  crossingBoxes array to be final.
 		 * @param bounds the Bounds of this region.
 		 */
-		protected ARegion(int index, int typeIndex, Cause cause
-				, int numCrossings, Bounds bounds) {
+		protected ARegion(int index, int typeIndex, int numCrossings, Bounds bounds) {
 			this.bounds = bounds;
 			this.index = index;
 			this.typeName = Grid.REGION_TYPE_NAMES[this.typeIndex = typeIndex];
 			this.id = REGION_IDS[index];
-			this.cause = cause;
 			this.crossingBoxs = new Box[numCrossings];
 			// create the indexesOf and idxs arrays elements
 			for ( int v=1; v<10; ++v ) { // 0 is left null (in both)
@@ -2689,7 +2714,7 @@ public final class Grid {
 		 */
 		public Cell otherThan(Cell cell, int value) {
 			// lick that one Scoobie!
-			return cells[FIRST_INDEX[indexesOf[value].bits & ~ISHFT[indexOf(cell)]]];
+			return cells[IFIRST[indexesOf[value].bits & ~ISHFT[indexOf(cell)]]];
 		}
 
 		/**
@@ -2725,10 +2750,11 @@ public final class Grid {
 		}
 
 		/**
+		 * maybe is called maybe because cellsWhichMaybe is just too verbose.
 		 * Populate the given array with the cells in this region which maybe
 		 * bits and return how many. The given array is presumed to be large
 		 * enough (or the exact size), so I don't null-terminate or anything,
-		 * I just return the count for use with a "large" re-usable array.
+		 * I just return the count for use with a fixed-size re-usable array.
 		 * <p>
 		 * NOTE WELL: This method is a bit slow. It's currently used only by
 		 * Locking when creating a hint, ie not too often. If you have
@@ -2831,7 +2857,7 @@ public final class Grid {
 		 * @param v the candidate value
 		 * @return the first cell which maybe v */
 		public Cell first(int v) {
-			return cells[FIRST_INDEX[indexesOf[v].bits]];
+			return cells[IFIRST[indexesOf[v].bits]];
 		}
 
 		public Cell firstEmptyCell() {
@@ -2900,7 +2926,7 @@ public final class Grid {
 		 * @param index the index of this Box (0..8) in the Grid.regions array.
 		 */
 		public Box(int index) {
-			super(index, BOX, Cause.HiddenBox, 0, new Bounds(index%3*3, index/3*3, 3, 3));
+			super(index, BOX, 0, new Bounds(index%3*3, index/3*3, 3, 3));
 			this.hNum = index%3;  this.left = hNum*3;
 			this.vNum = index/3;  this.top = vNum*3;
 			this.boxId = top + hNum;
@@ -2934,7 +2960,7 @@ public final class Grid {
 		/** Constructs a new Row in this Grid.
 		 * @param y int 0..8 the row (vertical) index */
 		public Row(int y) {
-			super(9+y, ROW, Cause.HiddenRow, 3, new Bounds(0, y, 9, 1));
+			super(9+y, ROW, 3, new Bounds(0, y, 9, 1));
 			this.y = y;
 			this.vNum = y / 3;
 			for ( int i=0; i<9; ++i )
@@ -2970,7 +2996,7 @@ public final class Grid {
 		/** Constructs a new Col in this Grid.
 		 * @param x int 0..8 the col (horizontal) index */
 		public Col(int x) {
-			super(18+x, COL, Cause.HiddenCol, 3, new Bounds(x, 0, 1, 9));
+			super(18+x, COL, 3, new Bounds(x, 0, 1, 9));
 			this.x = x;
 			this.hNum = x / 3;
 			for ( int i=0; i<9; ++i )
@@ -3205,8 +3231,6 @@ public final class Grid {
 					differs(""+r+": typeName "+r0.typeName+" != "+r1.typeName);
 				if ( !r0.bounds.equals(r1.bounds) )
 					differs(""+r+": bounds "+r0.bounds+" != "+r1.bounds);
-				if ( !r0.cause.equals(r1.cause) )
-					differs(""+r+": cause "+r0.cause+" != "+r1.cause);
 				if ( !Arrays.equals(r0.cells, r1.cells) )
 					differs(""+r+": cells "+Arrays.toString(r0.cells)+" != "+Arrays.toString(r1.cells));
 				if ( !Arrays.equals(r0.containsValue, r1.containsValue) )

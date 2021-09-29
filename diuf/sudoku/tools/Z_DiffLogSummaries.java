@@ -8,6 +8,8 @@ package diuf.sudoku.tools;
 
 import diuf.sudoku.io.IO;
 import diuf.sudoku.tools.Z_SummariseLog.PuzzleSummary;
+import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.PLUS;
 import java.io.File;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -66,10 +68,10 @@ public class Z_DiffLogSummaries {
 			allList.sort(PuzzleSummary.BY_PUZZLE_NUMBER_ASC);
 			for ( PuzzleSummary p : allList ) {
 				if ( onlyLeftSet.contains(p) ) {
-					output("+", p);
+					output(PLUS, p);
 				} else {
 					assert onlyRightSet.contains(p);
-					output("-", p);
+					output(MINUS, p);
 				}
 			}
 		} catch (Exception ex) {

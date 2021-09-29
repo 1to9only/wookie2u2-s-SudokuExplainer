@@ -1,5 +1,6 @@
 package diuf.sudoku.tools;
 
+import static diuf.sudoku.utils.Frmt.SPACE;
 import java.io.File;
 
 /*
@@ -117,7 +118,7 @@ SET+"TEST_CLASSES="
 				if ( first )
 					first = false;
 				else // subsequent
-					System.out.print(" ");
+					System.out.print(SPACE);
 				System.out.print(s);
 			}
 		}

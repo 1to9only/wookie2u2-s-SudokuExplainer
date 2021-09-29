@@ -11,7 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -126,13 +126,13 @@ public final class URT3NakedSetHint extends AURTHint {
 			, getTypeName()				//{0}
 			, v1						// 1
 			, v2						// 2
-			, Frmt.csv(loop)			// 3
+			, Frmu.csv(loop)			// 3
 			, c1.id						// 4
 			, c2.id						// 5
-			, Frmt.or(extraVals)		// 6
+			, Frmu.or(extraVals)		// 6
 			, GROUP_NAMES[degree-2]		// 7
-			, Frmt.and(otherCellsSet)	// 8
-			, Frmt.and(nkdSetVals)		// 9
+			, Frmu.and(otherCellsSet)	// 8
+			, Frmu.and(nkdSetVals)	// 9
 			, region.id					//10
 			, redPots.toString()		//11
 		);

@@ -25,7 +25,10 @@ import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedList;
+import diuf.sudoku.utils.Frmu;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.IN;
 
 
 /**
@@ -111,21 +114,18 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 
 	@Override
 	public String toStringImpl() {
-		if ( ts != null )
-			return ts;
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(cells))
-		  .append(": ").append(Frmt.csv(hdnSetValuesArray))
-		  .append(" in ").append(region.id);
-		return ts = sb.toString();
+		return Frmt.getSB(64).append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(cells))
+		  .append(COLON_SP).append(Frmt.csv(hdnSetValuesArray))
+		  .append(IN).append(region.id)
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "HiddenSetHint.html"
 				, NUMBER_NAMES[degree-2]		// {0}
-				, Frmt.csv(cells)				//  1
+				, Frmu.csv(cells)				//  1
 				, Frmt.and(hdnSetValuesArray)	//  2
 				, region.id						//  3
 				, getHintTypeName()				//  4

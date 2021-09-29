@@ -11,9 +11,11 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.PERIOD;
+import static diuf.sudoku.utils.Frmt.TAB;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyClass;
-import diuf.sudoku.utils.MyStrings;
+import diuf.sudoku.utils.MyFile;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -30,25 +32,6 @@ import java.util.Set;
  */
 public final class HitSet {
 
-	/**
-	 * Returns the hits File identifier.
-	 * <p>Usage example: <pre>{@code
-	 * useHits = hits.load(HitSet.hitFile(grid.source.file, this));
-	 * where: grid.source.file = C:/Users/User/Documents/NetBeansProjects/DiufSudoku/top1465.d5.mt
-	 *   and: this = diuf.sudoku.solver.hinters.align.Aligned5Exclusion_1C
-	 * ==> C:/Users/User/Documents/NetBeansProjects/DiufSudoku/top1465.d5.Aligned5Exclusion_1C.hits.txt
-	 * }</pre>
-	 * @param puzzleFileName the grid.source.fileName that we're solving.
-	 * @param ane Your Aligned${n}Exclusion object (ie this)
-	 * @return the hits File. Eg: top1465.d5.Aligned2Exclusion.hits.txt
-	 */
-	public static File hitFile(String puzzleFileName, Object ane) {
-		String aneClassName = MyClass.nameOnly(ane);
-		String filename = MyStrings.minus(puzzleFileName,".mt")
-				+ "." + aneClassName + ".hits.txt";
-		return new File(IO.HOME+filename);
-	}
-
 	public static String[] cellIds(Cell[] cells) {
 		String[] results = new String[cells.length];
 		int cnt = 0;
@@ -57,6 +40,11 @@ public final class HitSet {
 		return results;
 	}
 
+	static File getHitFile(String mtFilename, AAlignedSetExclusionBase ae) {
+		return new File(IO.HOME+MyFile.minusExt(mtFilename)+PERIOD+MyClass.nameOnly(ae)+".hits.txt");
+	}
+
+	public final File defaultHitsFile;
 	private File file;
 	private int[] any;
 
@@ -74,15 +62,33 @@ public final class HitSet {
 	private final Set<Hit> set = new LinkedHashSet<>(1024, 0.75F);
 
 	/**
-	 * Creates a new empty HitSet
+	 * Creates a new empty HitSet, on the default hitFile. When an actual file
+	 * is loaded this changes. So the default hitFile is ONLY used to save if
+	 * there are hits and hitFile has NOT been loaded, like when hackTop1465
+	 * is switched-off in the GUI.
+	 * @param defaultHitsFile the default *_HITS.txt for this hinter, from
+	 *  the IO class.
 	 */
-	public HitSet() {
+	public HitSet(File defaultHitsFile) {
+		this.file = this.defaultHitsFile = defaultHitsFile;
 	}
 
 	/**
-	 * Loads the given hitFile into this HitSet.
+	 * If hits are off then remember the hitsFile anyway, so that hits can be
+	 * saved later, when we don't have the grid.source to get the filename.
+	 *
+	 * @param source
+	 * @param ae
+	 * @return true if set, else I use defaultHitsFile from constructor.
+	 */
+	void setHitFile(File hitsFile) {
+		this.file = hitsFile;
+	}
+
+	/**
+	 * Loads the current hitFile into this HitSet.
 	 * <pre>
-	 * Request For Change (RFC):
+	 * Request For Change:
 	 * if hackTop1465 in a file named top1465.d5.${classNameOnly}.hits.txt
 	 * we'll store each hints:
 	 * 1. gsl - grid.source.lineNumber: puzzles (1 based) lineNumber in file
@@ -91,26 +97,26 @@ public final class HitSet {
 	 * and use this in the next run, to ignore all others. UBER HACK!
 	 * </pre>
 	 *
-	 * @param hitFile the File to load and save to later.<br>
-	 * Pass me: {@code HitSet.hitFile(grid.source.file, this)}<br>
-	 * For example: top1465.d5.Aligned5Exclusion_1C.hits.txt
-	 * @return true if the file was loaded OK, else false and carps to stderr.
+	 * @return true if the hitFile was loaded OK, else false already carped.
 	 */
-	public boolean load(File hitFile) {
-		this.file = hitFile;
-		try ( BufferedReader rdr = new BufferedReader(new FileReader(file)) ) {
-			String line;
-			while ( (line=rdr.readLine()) != null )
-				set.add(parse(line));
-			final int n = set.size();
-			// the any array should save time on each getHints call
-			any = loadAnys(set, new int[n]);
-			return n > 0;
-		} catch (IOException ex) {
-			StdErr.carp("Failed to load: "+file, ex);
-			return false;
-		}
+	public boolean load() {
+		if ( file!=null && file.exists() )
+			try ( BufferedReader rdr = new BufferedReader(new FileReader(file)) ) {
+				String line;
+				while ( (line=rdr.readLine()) != null )
+					set.add(parse(line));
+				final int n = set.size();
+				// the any array should save time on each getHints call
+				any = loadAnys(set, new int[n]);
+				return n > 0;
+			} catch (IOException ex) {
+	// keep ya hair on: this is only a nicety!
+	//			throw new IllegalStateException("HitSet failed to load: "+file, ex);
+				Log.teeln("WARNING: HitSet.load: "+ex);
+			}
+		return false;
 	}
+
 	// load a hash of the grid.source.lineNumbers and hintNumbers in this.hits
 	// into the given int array and return it.
 	private static int[] loadAnys(Set<Hit> hits, int[] anys) {
@@ -127,10 +133,8 @@ public final class HitSet {
 	}
 
 	public boolean save() {
-		return save(this.file);
-	}
-	public boolean save(File file) {
-		this.file = file;
+		if ( file==null || set.isEmpty() ) // do not create empty files
+			return false; // and no I did NOT save
 		try ( PrintStream out = new PrintStream(file) ) {
 			// turn the fooker into an array & sort that array ascending using
 			// Hit's own comparator, in case multiple files have been loaded.
@@ -141,7 +145,7 @@ public final class HitSet {
 			for ( Hit hit : array )
 				hit.println(out);
 			return true;
-		} catch (IOException ex) {
+		} catch (Exception ex) {
 			StdErr.carp("Failed to save: "+file, ex);
 			return false;
 		}
@@ -152,7 +156,7 @@ public final class HitSet {
 	}
 
 	void report() {
-		Log.teef("HitSet.size = %d\n", size());
+		Log.teef("HitSet.size=%d\n", size());
 	}
 
 	// this method only exists to ensure that all hashes are calculated the same
@@ -202,9 +206,9 @@ public final class HitSet {
 	}
 
 	public static Hit parse(String line) {
-		int tab=line.indexOf("\t", 0);
+		int tab=line.indexOf(TAB, 0);
 		int gsl = Integer.parseInt(line.substring(0, tab));
-		int prev=tab; tab=line.indexOf("\t", prev+1);
+		int prev=tab; tab=line.indexOf(TAB, prev+1);
 		int hintNum = Integer.parseInt(line.substring(prev+1, tab));
 		prev=tab;
 		String[] cellIds = line.substring(prev+1).split(" *, *");
@@ -279,16 +283,16 @@ public final class HitSet {
 		 */
 		public void println(PrintStream out) {
 			out.print(gsl);
-			out.print("\t");
+			out.print(TAB);
 			out.print(hintNum);
-			out.print("\t");
+			out.print(TAB);
 			out.print(Frmt.csv((Object[])cellIds));
 			out.println();
 		}
 
 		@Override
 		public String toString() {
-			return ""+gsl+"\t"+hintNum+"\t"+Frmt.csv((Object[])cellIds);
+			return ""+gsl+TAB+hintNum+TAB+Frmt.csv((Object[])cellIds);
 		}
 
 		@Override

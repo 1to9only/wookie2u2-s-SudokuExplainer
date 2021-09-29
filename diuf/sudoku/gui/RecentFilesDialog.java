@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.gui;
 
+import diuf.sudoku.Build;
 import diuf.sudoku.PuzzleID;
 import diuf.sudoku.Settings;
 import java.awt.BorderLayout;
@@ -138,12 +139,12 @@ class RecentFilesDialog extends JDialog {
 		PuzzleID pid = selectedPuzzleID;
 		PuzzleID loaded = engine.loadFile(pid);
 		if ( loaded == null ) {
-			frame.setTitle(Settings.ATV+"    "+Settings.BUILT);
+			frame.setTitle(Build.ATV+"    "+Build.BUILT);
 			java.awt.Toolkit.getDefaultToolkit().beep();
 			return;
 		}
 		frame.defaultDirectory = pid.file.getParentFile();
-		frame.setTitle(Settings.ATV+"    "+loaded);
+		frame.setTitle(Build.ATV+"    "+loaded);
 		close();
 	}
 

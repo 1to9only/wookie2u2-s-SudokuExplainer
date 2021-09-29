@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.accu.IAccumulator;
+import java.util.Comparator;
 
 
 /**
@@ -25,12 +26,44 @@ import diuf.sudoku.solver.accu.IAccumulator;
  */
 public interface IHinter {
 
+	/**
+	 * Order by index in the wantedHinters array, ergo execution order.
+	 * Used by the UsageMap: a TreeMap.
+	 */
+	public static final Comparator<IHinter> BY_EXECUTION_ORDER = new Comparator<IHinter>() {
+		@Override
+		public int compare(IHinter a, IHinter b) {
+			return a.getIndex() - b.getIndex(); // ASCENDING
+		}
+	};
+
+//not_used
+//	/**
+//	 * order by difficulty, toString().
+//	 */
+//	public static final Comparator<IHinter> BY_DIFFICULTY = new Comparator<IHinter>() {
+//		@Override
+//		public int compare(IHinter a, IHinter b) {
+//			if ( Objects.equals(a, b) ) // Currently a==b. May be overridden in future
+//				return 0;
+//			double da = a.getDifficulty();
+//			double db = b.getDifficulty();
+//			if ( da < db )
+//				return -1;
+//			if ( da > db )
+//				return 1;
+//			// WARNING: toString can be "a bit slow Redge"
+//			// See: toString
+//			return a.toString().compareTo(b.toString());
+//		}
+//	};
+
 	/** just shorthand to make code fit on one line. */
 	public final boolean T=true, F=false;
 
 	/**
 	 * The getHints method searches the given Grid for hints which it adds to
-	 * the given IAccumulator. Each implementation of IHinter implements a 
+	 * the given IAccumulator. Each implementation of IHinter implements a
 	 * specific Sudoku solving technique (ie a Tech). They all currently extend
 	 * AHinter, but we're no longer bound to that. Any class which implements
 	 * IHinter isa LogicalSolver-ready hinter, regardless of what it extends.
@@ -55,4 +88,6 @@ public interface IHinter {
 
 	public int getDegree(); // the size of the fish, et al
 
+	public int getIndex(); // my index in the wantedHinters array
+	public void setIndex(int i);
 }

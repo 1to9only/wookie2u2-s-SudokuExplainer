@@ -13,8 +13,11 @@ import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
 
 /**
  * TwoStringKiteHint is the DTO for TwoStringKite hints. It's presented via
@@ -40,15 +43,15 @@ public class TwoStringKiteHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " on "+Frmt.and(new Values(greens.values()));
+			s += ON+Frmu.and(new Values(greens.values()));
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		return new StringBuilder(128).append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(greens.keySet()))
-		  .append(" on ").append(Integer.toString(redValue))
+		return Frmt.getSB(64).append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(greens.keySet()))
+		  .append(ON).append(Integer.toString(redValue))
 		  .toString();
 	}
 

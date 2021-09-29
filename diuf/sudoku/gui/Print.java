@@ -9,8 +9,11 @@ package diuf.sudoku.gui;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Run;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyStrings;
 import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 /**
  * Static helper methods to format and print AHints to System.out by default.
@@ -32,7 +35,26 @@ import java.io.PrintStream;
  */
 public class Print {
 
-	public static PrintStream out = System.out;
+	public static String PUZZLE_SUMMARY_HEADERS;
+
+	public static void initialise() {
+		//nb: use StringWriter coz PrintWriter.toString is Object.toString
+		final StringWriter sw = new StringWriter();
+		final PrintWriter pw = new PrintWriter(sw);
+		pw.format("\n%5s\t%17s\t%17s\t%5s\t%5s\t%5s\t%4s\t%7s\t%s\n"
+				, "", "time (ns)", "average (ns)", "calls"
+				, "hints", "elims", "maxD", "ttlDiff", "hinter");
+		PUZZLE_SUMMARY_HEADERS = sw.toString();
+	}
+
+	public static void grid(final PrintStream out, final Grid grid) {
+		if (Log.MODE < Log.VERBOSE_3_MODE)
+			return;
+		if ( out==null || grid==null )
+			return;
+		out.format("\n%d/%s\n", grid.hintNumber, grid.source());
+		out.println(grid.toString());
+	}
 
 	/**
 	 * Print the hint details; Usually print prev when the next hint is sought,
@@ -45,69 +67,57 @@ public class Print {
 	 * I'm now public static in my own helper class coz I'm also called by
 	 * {@link diuf.sudoku.solver.hinters.color.GEMHintMulti#applyImpl}.
 	 *
+	 * @param out
 	 * @param hint the hint to print
-	 * @param source a String of the source grids "lineNumber#filepath"
-	 * @param before a String of the grid BEFORE this hint is applied to it
-	 * @param hintNumber grid.hintNumber
 	 */
-	public static void hint(AHint hint, String source, String before, int hintNumber) {
+	public static void hint(final PrintStream out, final AHint hint) {
+		if (Log.MODE < Log.VERBOSE_2_MODE)
+			return;
+		if ( out==null || hint==null )
+			return;
 		final long now = System.nanoTime();
-		if ( source==null || source.isEmpty() )
-			source = "IGNOTO";
-		out.format("\n%d/%s\n", hintNumber, source);
-		if ( before != null )
-			out.format("%s\n", before);
 		out.format("%,15d\t%s\n", now-Run.time, hint.toFullString());
 		Run.time = now;
 	}
 
-	/**
-	 * Print the hint details, taking source from the grid.
-	 *
-	 * @param hint
-	 * @param grid
-	 * @param before 
-	 */
-	public static void hint(AHint hint, Grid grid, String before) {
-		if ( grid == null )
-			hint(hint, "IGNOTO", before, 0);
-		else
-			hint(hint, source(grid), before, grid.hintNumber);
-	}
-
-	/**
-	 * Get the grid.source.toString(); else null on any Exception.
-	 * @param grid
-	 * @return
-	 */
-	public static String source(Grid grid) {
-		if ( grid!=null && grid.source!=null )
-			try {
-				return grid.source.toString();
-			} catch (Exception ex) {
-				// do nothing
-			}
-		return "IGNOTO";
-	}
-
-	public static void hint(PrintStream out, long took, Grid grid, int numElims
-			, AHint hint, boolean wantBlankLine) {
-		out.format("%-5d", grid.hintNumber); // left justified to differentiate from puzzleNumber in the logFile.
-		out.format("\t%,15d", took); // time between hints includes activate time and rebuilding empty cell counts
+	public static void hintFull(final PrintStream out, final AHint hint
+			, final Grid grid, final int numElims, long took) {
+		if (Log.MODE < Log.VERBOSE_2_MODE)
+			return;
+		if ( out==null || hint==null || grid==null )
+			return;
+		// left justified to differentiate from puzzleNumber in the logFile
+		out.format("%-5d", grid.hintNumber);
+		// time between hints includes activate time et al
+		out.format("\t%,15d", took);
 		out.format("\t%2d", grid.countFilledCells());
 		out.format("\t%4d", grid.countMaybes());
 		out.format("\t%3d", numElims);
 		out.format("\t%-30s", hint.hinter);
-		// squeeze hobiwans multiline Kraken format back onto one line
-		if ( hint.hinter.tech.name().startsWith("Kraken") )
+		// Kraken: squeeze hobiwans multiline format back onto one line
+		if ( hint.isKraken() )
 			out.format("\t%s", MyStrings.squeeze(hint.toFullString()));
 		else
 			out.format("\t%s", hint.toFullString());
 		out.println();
-		if ( wantBlankLine )
-			out.println();
 	}
-	
+
+	public static void gridFull(final PrintStream s, final AHint hint
+			, final Grid grid, final int numElims, final long took) {
+		grid(s, grid);
+		hintFull(s, hint, grid, numElims, took);
+	}
+
+	public static void html(final PrintStream out, final AHint hint) {
+		hint(out, hint);
+		out.println(hint.toFullString());
+		out.println();
+		out.println(hint.toHtml());
+		out.println();
+		out.println("--------------------------------------------------------------------------------");
+		out.println();
+	}
+
 	private Print() { } // Never called
 
 }

@@ -15,8 +15,11 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
+import diuf.sudoku.utils.Frmu;
 import java.util.Collections;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.IN;
 
 /**
  * Direct Hidden Set hint. A "direct" hint sets a cells value, which sometimes
@@ -61,19 +64,18 @@ public final class HiddenSetDirectHint extends AHint  {
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName())
-			.append(": ").append(Frmt.csv(cells))
-			.append(": ").append(Frmt.csv(hdnSetValuesArray))
-			.append(" in ").append(region.id);
-		return sb.toString();
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(cells))
+		  .append(COLON_SP).append(Frmt.csv(hdnSetValuesArray))
+		  .append(IN).append(region.id)
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "HiddenSetDirectHint.html"
 				, NUMBER_NAMES[hdnSetValuesArray.length-2]	// {0}
-				, Frmt.csv(cells)				//  1
+				, Frmu.csv(cells)				//  1
 				, Frmt.and(hdnSetValuesArray)	//  2
 				, region.id						//  3
 				, getHintTypeName()				//  4

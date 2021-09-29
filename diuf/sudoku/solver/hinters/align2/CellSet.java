@@ -8,6 +8,7 @@ package diuf.sudoku.solver.hinters.align2;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.Collection;
 
 
@@ -71,7 +72,7 @@ public class CellSet extends LinkedMatrixCellSet {
 	String toFullString(String sep) {
 		Node n = head;
 		if ( n == null )
-			return "";
+			return EMPTY_STRING;
 		StringBuilder sb = new StringBuilder((sep.length()+2)*size);
 		sb.append(n.cell.id);
 		for ( n=n.next; n!=null; n=n.next )

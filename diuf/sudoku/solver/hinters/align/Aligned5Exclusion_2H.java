@@ -16,6 +16,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
 
@@ -42,9 +43,10 @@ import diuf.sudoku.solver.LogicalSolver;
  * <p>
  */
 public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
-//		implements diuf.sudoku.solver.IReporter
-//				 , java.io.Closeable
-		implements diuf.sudoku.solver.IPreparer
+implements
+		//diuf.sudoku.solver.IReporter,
+		diuf.sudoku.solver.hinters.IPreparer,
+		java.io.Closeable
 {
 	// the minimim number of candidates to permute (process).
 	private static final int MIN_CANDIDATES = 25; // <HACK/>
@@ -74,13 +76,13 @@ public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
 	private boolean firstPass = true;
 
 	public Aligned5Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor);
+		super(monitor, IO.A5E_2H_HITS);
 	}
 
-//	@Override
-//	public void close() throws java.io.IOException {
-//		hits.save();
-//	}
+	@Override
+	public void close() throws java.io.IOException {
+		hits.save();
+	}
 
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {

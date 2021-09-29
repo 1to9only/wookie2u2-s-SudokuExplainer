@@ -4,10 +4,14 @@
  * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
-package diuf.sudoku.utils;
+package diuf.sudoku.solver.hinters.chain;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Ass;
+import diuf.sudoku.utils.Hash;
+import diuf.sudoku.utils.IAssSet;
+import diuf.sudoku.utils.IMySet;
+import diuf.sudoku.utils.MyFunkyLinkedHashSet;
 import java.util.Collection;
 
 /**
@@ -23,14 +27,8 @@ import java.util.Collection;
  * {@code IMyPollSet<Ass>} to NOT expose the getAss method, thus averting
  * this potential problem; and also puts some humour in your lunch-box.
  * <p>
- * I'd highly recommend putting some humour in your kids lunch boxes,
- * especially irksome smarty-panty thinky-outie-sidie-squarey flavour.<br>
- * Monty Python will do perfectly: Learn to create, not memorise!<br>
- * Rodney Rude is good too: There's more than one way to do it!<br>
- * Jasper Carrot doesn't go well with pineapple, so sack Morrison.<br>
- * Billy down! Billy down! Now we've all got a place to park our bikes.<br>
- * I propose that a group of bicyclists should be known as a Billie. Bike
- * racks should be called Connollies. Jeez I will miss him.
+ * 2021-07-20 Moved from diuf.suduku.utils because utils should remain
+ * ignorant of application-types, so that it's portable between projects.
  */
 public class FunkyAssSet extends MyFunkyLinkedHashSet<Ass>
 		implements IAssSet {

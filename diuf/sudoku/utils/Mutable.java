@@ -43,7 +43,7 @@
 //	// not used in anger
 //	@Override
 //	public String toString() {
-//		return value==null ? "" : value.toString();
+//		return value==null ? EMPTY_STRING : value.toString();
 //	}
 //
 //}

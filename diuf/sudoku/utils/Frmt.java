@@ -6,23 +6,11 @@
  */
 package diuf.sudoku.utils;
 
-import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Indexes;
-import diuf.sudoku.Values;
-import static diuf.sudoku.Values.VALUESES;
-import diuf.sudoku.solver.hinters.align.CellSet;
 import java.text.DecimalFormat;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.io.PrintStream;
 import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
-
 
 /**
  * My convenient Formatter for collections of stuff
@@ -49,23 +37,55 @@ public final class Frmt {
 		}
 	}
 
-	public static String none = "";
-	public static String comma = ", ";
-	public static String and = " and ";
-	public static String or = " or ";
-	public static String commaOnly = ",";
-	public static String space = " ";
+	public static final String[] DIGITS = new String[] {
+		".", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+	};
+	public static final String[] LETTERS = new String[] {
+		"A", "B", "C", "D", "E", "F", "G", "H", "I"
+	};
+	public static final String[] LOWERCASE_LETTERS = new String[] {
+		"a", "b", "c", "d", "e", "f", "g", "h", "i"
+	};
+
+	public static final String COLON_SP = ": ";
+	public static final String COLON_ONLY = ":";
+	public static final String IN = " in ";
+	public static final String ON = " on ";
+	public static final String SO = " so ";
+	public static final String NULL_ST = "null";
+
+	public static final String EMPTY_STRING = "";
+	public static final String COMMA_SP = ", ";
+	public static final String COMMA = ",";
+	public static final String AND = " and ";
+	public static final String OR = " or ";
+	public static final String SPACE = " ";
+	public static final String TAB = "\t";
+	public static final String TWO_SPACES = "  ";
+	public static final String PLUS = "+";
+	public static final String MINUS = "-";
+	public static final String PERIOD = ".";
+	public static final String EQUALS = "=";
+	public static final String NOT_EQUALS = "!=";
+
 	private static final StringBuilder MY_SB = new StringBuilder(64);
 
+
 	// ======================== Object array IFormatter =======================
-	
+
 	// just cast it to Whatever in your Formatter and IFilter impl's.
 
+	public static String csv(String prefix, Object[] a, IFormatter<Object> ts) {
+		if(a==null) return EMPTY_STRING;
+		MY_SB.setLength(0);
+		MY_SB.append(prefix);
+		return appendTo(MY_SB, a, ts, COMMA_SP, COMMA_SP).toString();
+	}
 	public static String csv(Object[] a, IFormatter<Object> ts) {
-		return Frmt.frmt(a, ts, comma, comma);
+		return Frmt.frmt(a, ts, COMMA_SP, COMMA_SP);
 	}
 	public static String frmt(Object[] a, IFormatter<Object> ts, String sep, String lastSep) {
-		if(a==null) return "";
+		if(a==null) return EMPTY_STRING;
 		MY_SB.setLength(0);
 		return appendTo(MY_SB, a, ts, sep, lastSep).toString();
 	}
@@ -79,9 +99,10 @@ public final class Frmt {
 		}
 		return sb;
 	}
+
 	public static void csv(PrintStream out, Object[] a, IFilter<Object> filter
 			, IFormatter<Object> formatter) {
-		Frmt.csv(out, a, filter, formatter, comma, comma);
+		Frmt.csv(out, a, filter, formatter, COMMA_SP, COMMA_SP);
 	}
 	public static void csv(PrintStream out, Object[] a, IFilter<Object> filter
 			, IFormatter<Object> formatter, String sep, String lastSep) {
@@ -98,10 +119,10 @@ public final class Frmt {
 	// ======================== Collection IFormatter =========================
 
 	public static <E> String csv(Collection<? extends E> c, IFormatter<E> ts) {
-		return Frmt.frmt(c, ts, comma, comma);
+		return Frmt.frmt(c, ts, COMMA_SP, COMMA_SP);
 	}
 	public static <E> String frmt(Collection<? extends E> c, IFormatter<E> ts, String sep, String lastSep) {
-		if(c==null) return "";
+		if(c==null) return EMPTY_STRING;
 		MY_SB.setLength(0);
 		return appendTo(MY_SB, c, ts, sep, lastSep).toString();
 	}
@@ -143,7 +164,7 @@ public final class Frmt {
 	 */
 	public static <E> void csv(PrintStream out, Collection<? extends E> c
 			, IFilter<E> filter, IFormatter<E> formatter) {
-		Frmt.csv(out, c, filter, formatter, comma, comma);
+		Frmt.csv(out, c, filter, formatter, COMMA_SP, COMMA_SP);
 	}
 
 	/**
@@ -178,11 +199,11 @@ public final class Frmt {
 
 	// ============================ String ==============================
 
-	public static String csvs(Collection<String> ss) { return Frmt.frmts(ss, comma, comma); }
-	public static String ands(Collection<String> ss) { return Frmt.frmts(ss, comma, and); }
-	public static String ors(Collection<String> ss) { return Frmt.frmts(ss, comma, or); }
+	public static String csvs(Collection<String> ss) { return Frmt.frmts(ss, COMMA_SP, COMMA_SP); }
+	public static String ands(Collection<String> ss) { return Frmt.frmts(ss, COMMA_SP, AND); }
+	public static String ors(Collection<String> ss) { return Frmt.frmts(ss, COMMA_SP, OR); }
 	public static String frmts(Collection<String> ss, String sep, String lastSep) {
-		if(ss==null) return "";
+		if(ss==null) return EMPTY_STRING;
 		MY_SB.setLength(0);
 		return appendTos(MY_SB, ss, sep, lastSep).toString();
 	}
@@ -285,20 +306,20 @@ public final class Frmt {
 	// =============================== int... =================================
 
 	/** csv: {1,2,4,0} => "1, 2, 4, 0" */
-	public static String csv(int... vs) { return Frmt.frmt(vs, comma, comma); }
+	public static String csv(int... vs) { return Frmt.frmt(vs, COMMA_SP, COMMA_SP); }
 	/** ssv: 3, {1,2,4,0} => "1 2 4" */
-	public static String ssv(int n, int... vs) { return Frmt.frmt(vs, n, space, space); }
+	public static String ssv(int n, int... vs) { return Frmt.frmt(vs, n, SPACE, SPACE); }
 	/** and: {1,2,4,0} => "1, 2, 4 and 0" */
-	public static String and(int... vs) { return Frmt.frmt(vs, comma, and); }
+	public static String and(int... vs) { return Frmt.frmt(vs, COMMA_SP, AND); }
 	/** or: {1,2,4,0} => "1, 2, 4 or 0" */
-	public static String or(int... vs) { return Frmt.frmt(vs, comma, or); }
+	public static String or(int... vs) { return Frmt.frmt(vs, COMMA_SP, OR); }
 	/** frmt: {1,2,4,0}, ", ", " or "  =>  "1, 2, 4 or 0" */
 	public static String frmt(int[] vs, String sep, String lastSep) {
 		return frmt(vs, vs.length, sep, lastSep);
 	}
 	/** frmt: {1,2,4,0}, 3, ", ", " or "  =>  "1, 2 or 4" */
 	public static String frmt(int[] vs, int n, String sep, String lastSep) {
-		if(vs==null || vs.length==0 || n==0) return "";
+		if(vs==null || vs.length==0 || n==0) return EMPTY_STRING;
 		MY_SB.setLength(0);
 		return append(MY_SB, vs, n, sep, lastSep).toString();
 	}
@@ -335,7 +356,7 @@ public final class Frmt {
 //	public static String orNTL(int... vs) { return Frmt.frmtNTL(vs, comma, or); }
 //	/** frmt-Null-Terminated-List: {1,2,4,0,0}, ", ", " or "  =>  "1, 2 or 4" */
 //	public static String frmtNTL(int[] vs, String sep, String lastSep) {
-//		if(vs==null || vs.length==0) return "";
+//		if(vs==null || vs.length==0) return EMPTY_STRING;
 //		MY_SB.setLength(0);
 //		return append(MY_SB, vs, eoNTL(vs), sep, lastSep).toString();
 //	}
@@ -417,10 +438,10 @@ public final class Frmt {
 	// ============================ boolean... ==============================
 
 //not used 2020-11-23 but retained just coz I think I should have it
-	public static String plain(boolean... bs) { return Frmt.frmt(bs, none, none); }
-	public static String csv(boolean... bs) { return Frmt.frmt(bs, comma, comma); }
-	public static String and(boolean... bs) { return Frmt.frmt(bs, comma, and); }
-	public static String or(boolean... bs) { return Frmt.frmt(bs, comma, or); }
+	public static String plain(boolean... bs) { return Frmt.frmt(bs, EMPTY_STRING, EMPTY_STRING); }
+	public static String csv(boolean... bs) { return Frmt.frmt(bs, COMMA_SP, COMMA_SP); }
+	public static String and(boolean... bs) { return Frmt.frmt(bs, COMMA_SP, AND); }
+	public static String or(boolean... bs) { return Frmt.frmt(bs, COMMA_SP, OR); }
 	public static String frmt(boolean[] bs, String sep, String lastSep) {
 		MY_SB.setLength(0);
 		return append(MY_SB, bs, sep, lastSep).toString();
@@ -435,275 +456,11 @@ public final class Frmt {
 		return sb;
 	}
 
-	// ============================ Values ==============================
-
-	public static String csv(Values vs) { return Frmt.frmt(vs, comma, comma); }
-	public static String and(Values vs) { return Frmt.frmt(vs, comma, and); }
-	public static String or(Values vs) { return Frmt.frmt(vs, comma, or); }
-	public static String frmt(Values vs, String sep, String lastSep) {
-		if(vs==null) return "";
-		MY_SB.setLength(0);
-		return appendTo(MY_SB, vs.bits, vs.size, sep, lastSep).toString();
-	}
-	/** Appends the string representation of bits (a Values bitset) to the
-	 * given StringBuilder, separating each value with 'sep', except the
-	 * last which is preceeded by 'lastSep'.
-	 * @param sb to append to.
-	 * @param bits int to format.
-	 * @param size int the number of set bits (1s) in bits.
-	 * @param sep values separator.
-	 * @param lastSep the last values separator.
-	 * @return the given 'sb' so that you can chain method calls. */
-	public static StringBuilder appendTo(StringBuilder sb, int bits, int size
-			, String sep, String lastSep) {
-		int i = 0;
-		for ( int v : VALUESES[bits] ) {
-			if ( ++i > 1 ) //nb: i is now effectively 1-based, so i<size is correct
-				sb.append(i<size ? sep : lastSep);
-			sb.append(v);
-		}
-		return sb;
-	}
-
-//not used 2020-10-23 but retain for a while. Delete if you like
-//	public static String asValues(int... bitss) {
-//		final int n = bitss.length;
-//		Values[] vss = new Values[n];
-//		for ( int i=0; i<n; ++i )
-//			vss[i] = new Values(bitss[i], false);
-//		return Frmt.frmt(vss, comma, comma);
-//	}
-
-//not used 2020-10-23 but I'm loath to delete any of this crap
-//	public static String csv(Values... vss) { return Frmt.frmt(vss, comma, comma); }
-//	public static String and(Values... vss) { return Frmt.frmt(vss, comma, and); }
-//	public static String or(Values... vss) { return Frmt.frmt(vss, comma, or); }
-//	public static String frmt(Values[] vss, final String sep, final String lastSep) {
-//		MY_SB.setLength(0);
-//		return append(MY_SB, vss, sep, lastSep).toString();
-//	}
-//	public static StringBuilder append(StringBuilder sb, Values[] vss, String sep, String lastSep) {
-//		if(vss==null) return sb;
-//		for ( int i=0, n=vss.length, m=n-1; i<n; ++i ) {
-//			if ( vss[i] == null )
-//				break; // it's a null terminated array
-//			if ( i > 0 )
-//				sb.append(i<m ? sep : lastSep);
-//			vss[i].appendTo(sb); // delegate actual formatting back to Values
-//		}
-//		return sb;
-//	}
-
-	// ============================ Indexes ==============================
-
-//not used 2020-10-23 but I'm loath to delete any of this crap
-//	public static String csv(Indexes is) { return Frmt.frmt(is, comma, comma); }
-//	public static String and(Indexes is) { return Frmt.frmt(is, comma, and); }
-//	public static String or(Indexes is) { return Frmt.frmt(is, comma, or); }
-//	public static String frmt(Indexes is, String sep, String lastSep) {
-//		if(is==null) return "";
-//		MY_SB.setLength(0);
-//		return is.appendTo(MY_SB, sep, lastSep).toString();
-//	}
-
-	// ============================ Cell ==============================
-
-	/**
-	 * Currently only used for debug logging.
-	 * @param sep the separator between cells-strings: " " works, ", " is standard
-	 * @param numCells the number of cells to format
-	 * @param cells arguements array of Cell to be formatted.
-	 * @return a CSV list of the cell.toFullString() of each cell in cells
-	 * (which may be a null-terminated array).
-	 */
-	public static String toFullString(String sep, int numCells, Cell... cells) {
-		if(cells==null) return "null";
-		MY_SB.setLength(0);
-		final int n = Math.min(numCells, cells.length);
-		for ( int i=0; i<n; ++i ) {
-			if ( cells[i] == null )
-				break; // null terminated list
-			if ( i > 0 )
-				MY_SB.append(sep);
-			MY_SB.append(cells[i].toFullString());
-		}
-		return MY_SB.toString();
-	}
-
-//not used 2020-10-23 but I'm loath to delete any of this crap
-//	/**
-//	 * Currently only ever used to format watches in the debugger, where it's
-//	 * very useful, so keep it, even though it's not used, because it is. See?
-//	 * @param numCells the number of cells to format
-//	 * @param cells arguements array of Cell to be formatted.
-//	 * @return a CSV list of the cell.toFullString() of each cell in cells
-//	 * (which may be a null-terminated array).
-//	 */
-//	public static String toFullString(int numCells, Cell... cells) {
-//		return toFullString(", ", numCells, cells);
-//	}
-//
-//	/**
-//	 * Currently only ever used to format watches in the debugger, where it's
-//	 * very useful, so keep it, even though it's not used, because it is. See?
-//	 * @param cells arguements array Cells to format (may be a null-terminated
-//	 * array)
-//	 * @return a CSV list of the cell.toFullString() of each cell in cells
-//	 * (which may be a null-terminated array).
-//	 */
-//	public static String toFullString(Cell... cells) {
-//		return toFullString(", ", cells.length, cells);
-//	}
-
-	/**
-	 * Currently only ever used to format watches in the debugger, where it's
-	 * very useful, so keep it, even though it's not used, because it is. See?
-	 * @param cells {@code Iterable<Cell>} to be formatted.
-	 * @param sep cell separator String. The default is ", "
-	 * @return a CSV list of the cell.toFullString() of each cell in cells
-	 * (which may be a null-terminated array).
-	 */
-	public static String toFullString(String sep, Iterable<Cell> cells) {
-		if(cells==null) return "null";
-		MY_SB.setLength(0);
-		int i = 0;
-		// Iterator used to handle null-terminated lists, which Nutbeans
-		// is sure can't possibly exist. F___ing Nutbeans!
-		Cell cell;
-		for ( Iterator<Cell> it = cells.iterator(); it.hasNext(); ) {
-			if ( (cell=it.next()) == null )
-				break; // null terminated list
-			if ( ++i > 1 )
-				MY_SB.append(sep);
-			MY_SB.append(cell.toFullString());
-		}
-		return MY_SB.toString();
-	}
-
-	public static String toFullString(Iterable<Cell> cells) {
-		return toFullString(", ", cells);
-	}
-
-//not used 2020-10-23 but I'm loath to delete any of this crap
-//	// this method currently only used in Debug watch statements in A*E.
-//	public static String csv(boolean dummy, int... bitss) {
-//		if(bitss==null) return "null";
-//		final int n = bitss.length;
-//		if(n==0) return "";
-//		StringBuilder sb = MY_SB;
-//		sb.setLength(0);
-//		sb.append(Values.toString(bitss[0]));
-//		for ( int i=1; i<n; ++i )
-//			sb.append(", ").append(Values.toString(bitss[i]));
-//		return sb.toString();
-//	}
-//
-//	// this method currently only used in Debug watch statements in A*E.
-//	public static String csv(Cell[] cells, int n) {
-//		if(cells==null) return "null";
-//		if(n==0) return "";
-//		StringBuilder sb = MY_SB;
-//		sb.setLength(0);
-//		sb.append(cells[0].toFullString());
-//		for ( int i=1; i<n; ++i )
-//			sb.append(", ").append(cells[i].toFullString());
-//		return sb.toString();
-//	}
-
-	public static String csv(Cell... cells) { return Frmt.frmt(cells, cells.length, comma, comma); }
-	public static String csv(int n, Cell... cells) { return Frmt.frmt(cells, n, comma, comma); }
-	public static String ssv(Cell... cells) { return Frmt.frmt(cells, cells.length, space, space); }
-	public static String ssv(int n, Cell... cells) { return Frmt.frmt(cells, n, space, space); }
-	public static String and(Cell... cells) { return Frmt.frmt(cells, cells.length, comma, and); }
-	public static String or(Cell... cells) { return Frmt.frmt(cells, cells.length, comma, or); }
-	public static String frmt(Cell[] cells, int n, final String sep, final String lastSep) {
-		MY_SB.setLength(0);
-		return append(MY_SB, cells, n, sep, lastSep).toString();
-	}
-	public static StringBuilder append(StringBuilder sb, Cell[] cells, int n, String sep, String lastSep) {
-		if(cells==null) return sb;
-		for ( int i=0,m=n-1; i<n; ++i ) {
-			if ( cells[i] == null )
-				break; // it's a null terminated array
-			if ( i > 0 )
-				sb.append(i<m ? sep : lastSep);
-			sb.append(cells[i].id);
-		}
-		return sb;
-	}
-
-//not used 2020-10-23 but I'm loath to delete any of this crap
-//	public static String csv(Iterable<Cell> cells) { return Frmt.frmt(cells, comma, comma); }
-//	public static String and(Iterable<Cell> cells) { return Frmt.frmt(cells, comma, and); }
-//	public static String or(Iterable<Cell> cells) { return Frmt.frmt(cells, comma, or); }
-//	public static String frmt(Iterable<Cell> cells, final String sep, final String lastSep) {
-//		MY_SB.setLength(0);
-//		return append(MY_SB, cells, sep, lastSep).toString();
-//	}
-//	public static StringBuilder append(StringBuilder sb, Iterable<Cell> cells, final String sep, final String lastSep) {
-//		if(cells==null) return sb;
-//		final int n = count(cells);
-//		int i = 0;
-//		for ( Cell c : cells ) {
-//			if ( ++i > 1 )
-//				sb.append(i<n ? sep : lastSep);
-//			sb.append(c.id);
-//		}
-//		return sb;
-//	}
-
-	public static String csv(final Collection<Cell> cells) { return frmt(cells, comma, comma); }
-	public static String ssv(final Collection<Cell> cells) { return frmt(cells, space, space); }
-	public static String and(final Collection<Cell> cells) { return frmt(cells, comma, and); }
-	public static String or(final Collection<Cell> cells) { return frmt(cells, comma, or); }
-	public static String frmt(final Collection<Cell> cells, final String sep, final String lastSep) {
-		MY_SB.setLength(0);
-		return append(MY_SB, cells, sep, lastSep).toString();
-	}
-	public static StringBuilder append(final StringBuilder sb, final Collection<Cell> cells, final String sep, final String lastSep) {
-		if ( cells == null )
-			return sb;
-		final int n = cells.size();
-		int i = 0;
-		for ( Cell c : cells ) {
-			if ( c==null)
-				break; // null terminated list!
-			if ( ++i > 1 )
-				// note: i<n only works coz i is 1-based and n is 0-based;
-				// but it works so don't ____ with it.
-				sb.append(i<n ? sep : lastSep);
-			sb.append(c.id);
-		}
-		return sb;
-	}
-
-//not used 2020-10-23 but I'm loath to delete any of this crap
-//	// Currently only used by Frmt.map which is only called by Debug.diff.
-//	public static String csvFS(Collection<Cell> cells) { return Frmt.frmtFS(cells, commaOnly, commaOnly); }
-//	public static String andFS(Collection<Cell> cells) { return Frmt.frmtFS(cells, comma, and); }
-//	public static String orFS(Collection<Cell> cells) { return Frmt.frmtFS(cells, comma, or); }
-//	public static String frmtFS(Collection<Cell> cells, final String sep, final String lastSep) {
-//		MY_SB.setLength(0);
-//		return appendFS(MY_SB, cells, sep, lastSep).toString();
-//	}
-
-	public static StringBuilder appendFS(StringBuilder sb, Collection<Cell> cells, final String sep, final String lastSep) {
-		if(cells==null) return sb;
-		int m = cells.size() - 1; // m is n-1
-		int i = 0;
-		for ( Cell c : cells ) {
-			if ( ++i > 1 )
-				sb.append(i<m ? sep : lastSep);
-			sb.append(c.toFullString());
-		}
-		return sb;
-	}
-
 	// ============================ Object ==============================
 
-	public static String csv(Object[] a) { return Frmt.frmtObj(comma, comma, a); }
-	public static String and(Object[] a) { return Frmt.frmtObj(comma, and, a); }
-	public static String or(Object[] a) { return Frmt.frmtObj(comma, or, a); }
+	public static String csv(Object[] a) { return Frmt.frmtObj(COMMA_SP, COMMA_SP, a); }
+	public static String and(Object[] a) { return Frmt.frmtObj(COMMA_SP, AND, a); }
+	public static String or(Object[] a) { return Frmt.frmtObj(COMMA_SP, OR, a); }
 	public static String frmtObj(final String sep, final String lastSep, Object[] a) {
 		MY_SB.setLength(0);
 		return appendObj(MY_SB, a, sep, lastSep).toString();
@@ -727,15 +484,15 @@ public final class Frmt {
 		return sb;
 	}
 
-	public static String csvIt(Iterable<?> any) { return formatIt(any, comma, comma); }
-	public static String andIt(Iterable<?> any) { return formatIt(any, comma, and); }
-	public static String orIt(Iterable<?> any) { return formatIt(any, comma, or); }
+	public static String csvIt(Iterable<?> any) { return formatIt(any, COMMA_SP, COMMA_SP); }
+	public static String andIt(Iterable<?> any) { return formatIt(any, COMMA_SP, AND); }
+	public static String orIt(Iterable<?> any) { return formatIt(any, COMMA_SP, OR); }
 	public static String formatIt(Iterable<?> any, final String sep, final String lastSep) {
 		if ( any == null )
-			return "";
+			return EMPTY_STRING;
 		final int n = countIt(any); // count them to recognise the last one
 		if ( n == 0 )
-			return "";
+			return EMPTY_STRING;
 		StringBuilder sb = getSB();
 		Iterator<?> it = any.iterator();
 		// foreach element
@@ -753,180 +510,16 @@ public final class Frmt {
 		return count;
 	}
 
-	// ========================== regions ============================
-
-	// nb: List binds before Collection to avert type-erasure problem
-	public static String and(List<ARegion> list) {
-		return and((Object[])list.toArray(new ARegion[list.size()]));
-	}
-
-	public static String and(List<ARegion> bases, List<ARegion> covers) {
-		StringBuilder sb = getSB(7 * (bases.size()+covers.size()));
-		boolean first = true;
-		Iterator<ARegion> b = bases.iterator();
-		Iterator<ARegion> c = covers.iterator();
-		// append a base and then a cover
-		while ( b.hasNext() && c.hasNext() ) {
-			ARegion base = b.next();
-			ARegion cover = c.next();
-			if(first) first=false; else sb.append(", ");
-			sb.append(base.id).append(", ").append(cover.id);
-		}
-		// append any trailers
-		while ( b.hasNext() ) {
-			ARegion base = b.next();
-			if(first) first=false; else sb.append(", ");
-			sb.append(base.id);
-		}
-		// append any trailers
-		while ( c.hasNext() ) {
-			ARegion cover = c.next();
-			if(first) first=false; else sb.append(", ");
-			sb.append(cover.id);
-		}
-		return sb.toString();
-	}
-
-	// nb: List binds before Collection to avert type-erasure problem
-	public static String ssv(List<ARegion> regions) {
-		if ( regions == null )
-			return "null";
-		StringBuilder sb = getSB(7 * regions.size());
-		boolean first = true;
-		for ( ARegion r : regions ) {
-			if(first) first=false; else sb.append(" ");
-			sb.append(r.id);
-		}
-		return sb.toString();
-	}
-
-	// nb: List binds before Collection to avert type-erasure problem
-	public static String csv(List<ARegion> regions) {
-		if ( regions == null )
-			return "null";
-		StringBuilder sb = getSB(7 * regions.size());
-		boolean first = true;
-		for ( ARegion r : regions ) {
-			if(first) first=false; else sb.append(", ");
-			sb.append(r.id);
-		}
-		return sb.toString();
-	}
-
-	// nb: Set binds before Collection to avert type-erasure problem
-	public static String csv(Set<ARegion> regions) {
-		if ( regions == null )
-			return "null";
-		StringBuilder sb = getSB(4 * regions.size());
-		boolean first = true;
-		for ( ARegion r : regions ) {
-			if ( first )
-				first = false;
-			else
-				sb.append(", ");
-			sb.append(r.id);
-		}
-		return sb.toString();
-	}
-
-	public static StringBuilder basesAndCovers(List<ARegion> bases, List<ARegion> covers) {
-		return basesAndCovers(new StringBuilder(), bases, covers);
-	}
-	public static StringBuilder basesAndCovers(StringBuilder sb, List<ARegion> bases, List<ARegion> covers) {
-		return sb.append(csv(bases)).append(" and ").append(csv(covers));
-	}
-
-//not used 2020-10-23 but I'm loath to delete any of this crap
-//	/**
-//	 * Return "$basesCSV and $coversCSV" from $basesUsed and $coversUsed.
-//	 * @param basesUsed 27 booleans (consequent with Grid.regions): true when
-//	 *  this region is used as a base, else false.
-//	 * @param coversUsed 27 booleans (consequent with Grid.regions): true when
-//	 *  this region is used as a cover, else false.
-//	 * @return used "$basesCSV and $coversCSV"
-//	 */
-//	public static String basesAndCovers(boolean[] basesUsed, boolean[] coversUsed) {
-//		StringBuilder sb = getSB(128);
-//		csv(sb, basesUsed);
-//		sb.append(" and ");
-//		csv(sb, coversUsed);
-//		return sb.toString();
-//	}
-//
-//	/**
-//	 * Append the id's of the used regions to sb, and return sb.
-//	 * @param used regions to this
-//	 * @param sb
-//	 * @return sb
-//	 */
-//	public static final StringBuilder csv(StringBuilder sb, boolean[] used) {
-//		boolean first = true;
-//		for ( int i=0; i<27; ++i )
-//			if ( used[i] ) {
-//				if ( first )
-//					first = false;
-//				else
-//					sb.append(", ");
-//				sb.append(Grid.REGION_IDS[i]);
-//			}
-//		return sb;
-//	}
-//
-//	public static String basesAndCovers(ARegion[] regions) {
-//		final int n = regions.length; // nb: must be even
-//		StringBuilder sb = getSB(4 * n);
-//		// bases are evens
-//		csv(sb, 0, n, regions);
-//		sb.append(" and ");
-//		// covers are odds
-//		csv(sb, 1, n, regions);
-//		return sb.toString();
-//	}
-//	private static void csv(StringBuilder sb, int firstI, int n, ARegion[] regions) {
-//		sb.append(regions[firstI].id);
-//		for ( int i=firstI+2; i<n; i+=2 )
-//			if ( regions[i] != null ) // skip any nulls
-//				sb.append(", ").append(regions[i].id);
-//	}
-//
-//	// append 2 => id's, else if full => id's, else => just types
-//	public static void frmt(StringBuilder sb, ARegion[] regions) {
-//		frmt(sb, regions, false);
-//	}
-//	public static void frmt(StringBuilder sb, ARegion[] regions, boolean full) {
-//		final int len = regions.length;
-//		if (len == 2) {
-//			sb.append(regions[0].id)		// bases (evens)
-//			  .append(" and ").append(regions[1].id);	// covers (odds)
-//		} else if (full) {
-//			sb.append(regions[0].id);
-//			for ( int i=2; i<regions.length; i+=2 )
-//				sb.append(", ").append(regions[i].id);
-//			sb.append(" and ").append(regions[1].id);
-//			for ( int i=3; i<regions.length; i+=2 )
-//				sb.append(", ").append(regions[i].id);
-//		} else {
-////			assert len>=4 && len%2==0; // 4 or 6
-//			final int n = (len - (len%2)) / 2;
-//			plural(sb, n, regions[0].typeName).append(" and ");
-//			plural(sb, n, regions[1].typeName);
-//		}
-//	}
-//
-//	public static StringBuilder plural(StringBuilder sb, int n, String thing) {
-//		return sb.append(n).append(' ').append(thing).append(n==1?"":"s");
-//	}
-
 	// ========================== funky stuff ============================
 
-	public static DecimalFormat DOUBLE = new DecimalFormat("#0.00");
-	public static String dbl(double d) { return DOUBLE.format(d); }
+	public static DecimalFormat DOUBLE_FORMAT = new DecimalFormat("#0.00");
+	public static String frmtDbl(double d) { return DOUBLE_FORMAT.format(d); }
 
 	// 132 spaces should be enough, I guess
-	private static final String SPACES = repeat(" ", 132);
+	public static final String SPACES = repeat(SPACE, 132);
 
 	public static String repeat(String chars, int howManyTimes) {
-		StringBuilder sb = new StringBuilder(chars.length()*howManyTimes);
+		final StringBuilder sb = new StringBuilder(chars.length()*howManyTimes);
 		for ( int i=0; i<howManyTimes; ++i )
 			sb.append(chars);
 		return sb.toString();
@@ -943,28 +536,19 @@ public final class Frmt {
 	}
 
 	public static String plural(int n, String thing) {
-		return thing+(n==1?"":"s");
+		return thing+(n==1?EMPTY_STRING:"s");
 	}
 
-	public static String values(Values vs) {
-		return Frmt.plural(vs.size, "value")+" "+Frmt.and(vs);
-	}
-
-	// Currently only used by Debug.diff to format CellSet's out of the exclusion map.
-	static String excludersMap(HashMap<Cell, CellSet> map) {
-		StringBuilder sb = getSB();
-		sb.setLength(0);
-		sb.append(map.size()).append(": [").append(NL).append("\t  ");
-		boolean isSubsequent = false;
-		for ( Cell cell : map.keySet() ) {
-			CellSet set = map.get(cell);
-			if (isSubsequent) sb.append(NL).append("\t, "); else isSubsequent = true;
-			sb.append(rpad(cell.toString(),12)).append("=>").append(set.size()).append(":[");
-			appendFS(sb, set, ",", ","); // only use of this method currently
-			sb.append("]");
-		}
-		sb.append(" ]");
-		return sb.toString();
+	/**
+	 * Return a string of i, left padded with spaces to atleast size length.
+	 * @param i
+	 * @param size
+	 * @return enspace(1, 2) -&gt; " 1"
+	 */
+	public static String enspace(int i, int size) {
+		if ( i>-1 && i<(10*(size-1)) )
+			return spaces(size-1)+Integer.toString(i);
+		return Integer.toString(i);
 	}
 
 //not used 2020-10-23 but I'm loath to delete any of this crap
@@ -980,26 +564,6 @@ public final class Frmt {
 //		return sb.toString();
 //	}
 //	private static final char[] DIGITS = {'.', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
-
-	public static String interleave(List<ARegion> bases, List<ARegion> covers) {
-		StringBuilder sb = getSB();
-		final int n = 2 * Math.max(bases.size(), covers.size());
-		Iterator<ARegion> b = bases.iterator();
-		Iterator<ARegion> c = covers.iterator();
-		boolean first = true;
-		for ( int i=0; i<n; ++i ) {
-			if(first) first=false; else sb.append(", ");
-			try {
-				sb.append(i%2==0 ? b.next() : c.next());
-			} catch (NoSuchElementException ex) {
-				// do nothing, just leave it blank
-			}
-		}
-		// trim off any trailing ", "
-		if ( sb.charAt(sb.length()-2)==',' )
-			sb.setLength(sb.length()-2);
-		return sb.toString();
-	}
 
 	private Frmt() {} // make this class non-instantiable
 }

@@ -15,8 +15,8 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
-import static diuf.sudoku.Values.ALL;
-import static diuf.sudoku.Values.FIRST_VALUE;
+import static diuf.sudoku.Values.VALL;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -129,7 +129,7 @@ public final class NakedSet extends AHinter
 							} else {
 								// NORMAL MODE: 96+% remove no maybes
 								// foreach cell (sib) in the region except the-naked-set-cells
-								for ( any=false,ia=INDEXES[ALL & ~nkdSet],nn=ia.length,i=0; i<nn; ++i )
+								for ( any=false,ia=INDEXES[VALL & ~nkdSet],nn=ia.length,i=0; i<nn; ++i )
 									if ( ((sib=r.cells[ia[i]]).maybes.bits & cands) != 0 ) {
 										redPots.put(sib, sib.maybes.intersectBits(cands));
 										any = true;
@@ -217,16 +217,15 @@ public final class NakedSet extends AHinter
 		assert tech.isDirect;
 		Cell sib;  int redBits;
 		// foreach cell in the region EXCEPT the cells in this naked set
-		for ( int i : INDEXES[ALL & ~nkdSet] )
+		for ( int i : INDEXES[VALL & ~nkdSet] )
 			// skip if sib doesn't have $degreePlus1 maybes
 			if ( (sib=r.cells[i]).maybes.size == degreePlus1
 			  // if sib has the nkdSetValues plus ONE other
 			  && VSIZE[redBits=sib.maybes.bits & ~cands] == 1 )
 				// then we can create the hint and add it to the accumulator
-				return createNakedSetDirectHint(
-					  r
+				return createNakedSetDirectHint(r
 					, sib					// cellToSet
-					, FIRST_VALUE[redBits]	// valueToSet
+					, VFIRST[redBits]	// valueToSet
 					, nkdSet				// nkdSetIdxBits
 					, cands					// nkdSetValsBits
 				);
@@ -242,7 +241,7 @@ public final class NakedSet extends AHinter
 		Pots reds = new Pots(9-degree, 1F);
 		// foreach cell in the region EXCEPT the naked set cells
 		Cell sib;  int redBits; // bitset of values to remove from sib
-		for ( int i : INDEXES[ALL & ~nkdSet] )
+		for ( int i : INDEXES[VALL & ~nkdSet] )
 			// if sib maybe any of the naked set values
 			if ( (redBits=(sib=r.cells[i]).maybes.bits & cands) != 0 )
 				reds.put(sib, new Values(redBits, false));

@@ -10,8 +10,11 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
 
 
 /**
@@ -61,15 +64,18 @@ public final class Bug2Hint extends ABugHint  {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+Frmt.csv(bugCells)+" on "+bugValue;
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(bugCells))
+		  .append(ON).append(bugValue)
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "Bug2Hint.html"
 				, bugValue				// {0}
-				, Frmt.and(bugCells)	//  1
-				, Frmt.or(bugCells)		//  2
+				, Frmu.and(bugCells)	//  1
+				, Frmu.or(bugCells)		//  2
 		);
 	}
 }

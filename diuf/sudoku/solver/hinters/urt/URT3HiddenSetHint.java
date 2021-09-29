@@ -6,7 +6,7 @@
  */
 package diuf.sudoku.solver.hinters.urt;
 
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
@@ -104,13 +104,13 @@ public final class URT3HiddenSetHint extends AURTHint {
 				, getTypeName()			// {0}
 				, v1					//  1
 				, v2					//  2
-				, Frmt.csv(loop)		//  3
+				, Frmu.csv(loop)		//  3
 				, c1.id					//  4
 				, c2.id					//  5
-				, Frmt.or(otherValues)	//  6
+				, Frmu.or(otherValues)//  6
 				, GROUP_NAMES[hdnSetVals.size-2] // 7
-				, Frmt.and(region.atNew(hdnSetIdxsArray)) // 8
-				, Frmt.and(hdnSetVals)	//  9
+				, Frmu.and(region.atNew(hdnSetIdxsArray)) // 8
+				, Frmu.and(hdnSetVals)//  9
 				, region.id				// 10
 				, redPots.toString()	// 11
 		);

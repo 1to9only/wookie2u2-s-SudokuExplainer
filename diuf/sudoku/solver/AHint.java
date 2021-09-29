@@ -20,6 +20,12 @@ import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.als.Als;
 import diuf.sudoku.utils.Debug;
+import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.NULL_ST;
+import static diuf.sudoku.utils.Frmt.PLUS;
+import static diuf.sudoku.utils.Frmt.SPACE;
+import diuf.sudoku.utils.Log;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -41,6 +47,8 @@ import java.util.Set;
  * @see {@link IndirectHint}
  */
 public abstract class AHint implements Comparable<AHint> {
+
+	public static boolean printHintHtml;
 
 	/**
 	 * Returns a real <b>java.util.</b>ArrayList of the given hint.
@@ -72,7 +80,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	protected static final boolean IS_CACHING_HTML = true; // @check true
 
-	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
+	protected static final String NL = diuf.sudoku.utils.Frmt.NL; // @check true
 
 	public static final int DIRECT=0, WARNING=1, INDIRECT=2, AGGREGATE=3, MULTI=4;
 
@@ -84,7 +92,7 @@ public abstract class AHint implements Comparable<AHint> {
 		"two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"
 	};
 
-	public static final int AVG_CHARS_PER = 80; // per toString (approximate)
+	public static final int CHARS_PER_HINT = 80; // per toString (approximate)
 
 	public final AHinter hinter; // The hinter that produced this hint
 	public final int degree;	 // The degree of my hinter
@@ -187,8 +195,8 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 
 	/**
-	 * Apply this hint to the grid. This wrapper handles isNoisy, and calls the
-	 * applyImpl method, which may be overridden, to actually apply this hint.
+	 * Apply this hint to its grid. This wrapper gets the grid from the hint.
+	 * It's slower, so should only be used when you don't have the grid!
 	 *
 	 * @param isAutosolving true (Grid.AUTOSOLVE) makes Cell.set find and set
 	 * subsequent NakedSingles and HiddenSingles; and also makes me find and
@@ -200,33 +208,36 @@ public abstract class AHint implements Comparable<AHint> {
 	 */
 	public final int apply(boolean isAutosolving, boolean isNoisy) {
 		final Grid grid = getGrid();
-		if ( isNoisy )
-			return apply(isAutosolving, isNoisy, grid);
-		return applyImpl(isAutosolving, grid);
-
+		// for speed, NEVER log when autosolving (not real sure about this)
+		if ( isAutosolving || !isNoisy )
+			return applyQuitely(isAutosolving, grid);
+		return applyNoisily(isAutosolving, grid);
 	}
-	public final int apply(boolean isAutosolving, boolean isNoisy, Grid grid) {
-		// I handle isNoisy, and applyImpl actually applies this hint.
-		if ( grid == null )
-			isNoisy = false;
-		final String before;
-		if ( isNoisy )
-			before = grid.toString();
-		else
-			before = null;
+
+	public final int applyNoisily(final boolean isAutosolving, final Grid grid) {
+		Print.grid(Log.log, grid); // the grid this hint was found in
 		final int result = applyImpl(isAutosolving, grid);
-		if ( isNoisy )
-			Print.hint(this, grid, before);
+		if ( printHintHtml )
+			Print.html(Log.log, this);
 		return result;
+	}
+
+	public final int applyQuitely(final boolean isAutosolving, final Grid grid) {
+		return applyImpl(isAutosolving, grid);
 	}
 
 	/**
 	 * Actually apply this hint to the grid.
 	 * <p>
 	 * This default implementation is protected, to be overridden by:<br>
-	 * ADirectHint, AggregatedChainingHint, AppliedHintsSummaryHint
-	 * , AWarningHint, MultipleSolutionsHint, SolutionHint, XColoringHintMulti
-	 * , GemHintMulti.
+	 *   ADirectHint
+	 * , AggregatedChainingHint
+	 * , AppliedHintsSummaryHint
+	 * , AWarningHint
+	 * , MultipleSolutionsHint
+	 * , SolutionHint
+	 * , XColoringHintMulti
+	 * , GemHintMulti
 	 * <p>
 	 * I'm <b>ALWAYS</b> called via {@link #apply(boolean, boolean)} so I'm
 	 * protected, ergo only accessible to the solver package, which never calls
@@ -237,7 +248,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @return the score: numCellsSet*10 + numMaybesRemoved
 	 * @throws UnsolvableException on the odd occasion
 	 */
-	protected int applyImpl(boolean isAutosolving, Grid grid) {
+	protected int applyImpl(final boolean isAutosolving, final Grid grid) {
 		if ( isInvalid )
 			return 0; // invalid hints are dead cats!
 		int myNumElims = 0;
@@ -647,12 +658,18 @@ public abstract class AHint implements Comparable<AHint> {
 	 */
 	public String toFullString() {
 		if(fullString!=null) return fullString;
-		final String cv; if(cell==null) cv=""; else cv=cell.id+"+"+value;
-		final String rp; if(redPots==null) rp=""; else rp=redPots.toString();
-		final String sep; if(cv.isEmpty()||rp.isEmpty()) sep=""; else sep=" ";
+		final String cv; if(cell==null) cv=EMPTY_STRING; else cv=cell.id+PLUS+value;
+		final String rp; if(redPots==null) rp=EMPTY_STRING; else rp=redPots.toString();
+		final String sep; if(cv.isEmpty()||rp.isEmpty()) sep=EMPTY_STRING; else sep=SPACE;
 		return fullString = toString()+" ("+cv+sep+rp+")";
 	}
 	private String fullString; // toFullStrings cache
+
+	public static String toFullString(AHint hint) {
+		if ( hint == null )
+			return NULL_ST;
+		return hint.toFullString();
+	}
 
 	/**
 	 * Overridden to prevent a huge number of equivalent chains.
@@ -763,21 +780,20 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 	private int indice = -1;
 
-	/** Used by getHints. */
-	public static final Comparator<AHint> BY_SCORE_DESC_AND_INDICE
-			= (AHint h1, AHint h2) -> {
+	/** Used by getHints: order by score DESCENDING, indice */
+	public static final Comparator<AHint> BY_ORDER = (AHint a, AHint b) -> {
 		// short circuit
-		if ( h1 == h2 )
+		if ( a == b )
 			return 0;
 		int ret;
-		if ( (ret=h2.getScore() - h1.getScore()) != 0 ) // DESC
+		if ( (ret=b.getScore() - a.getScore()) != 0 ) // DESCENDING
 			return ret;
 		// getIndice returns the indice of the first cell encountered,
 		// which is PROBABLY the topest-leftest because that is the order in
 		// which cells are normally added to redPots; some hinters may differ.
-		if ( (ret=h1.getIndice() - h2.getIndice()) != 0 ) // ASC
+		if ( (ret=a.getIndice() - b.getIndice()) != 0 ) // ASCENDING
 			return ret;
-		return h1.toString().compareTo(h2.toString());
+		return a.toString().compareTo(b.toString());
 	};
 
 	@Override
@@ -822,6 +838,15 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 	public int getResultColor() {
 		return -1; // 0 for green, 1 for blue
+	}
+
+	/**
+	 * Is this a Kraken hint?
+	 *
+	 * @return is this a bloody Kraken hint?
+	 */
+	public boolean isKraken() {
+		return false;
 	}
 
 }

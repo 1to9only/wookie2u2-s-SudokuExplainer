@@ -66,7 +66,7 @@ public class SortMtFileBySolveTimeDesc {
 	}
 
 //	private static void dumpLine(String line) {
-//		String myLine = line.replaceAll("\t", " "); // tabs ____ this all up.
+//		String myLine = line.replaceAll(TAB, SPACE); // tabs ____ this all up.
 //		System.out.println(myLine);
 //		// print a line containing the index of the start of each word.
 //		boolean prevIsWhitespace = true; // is the previous char tab or space

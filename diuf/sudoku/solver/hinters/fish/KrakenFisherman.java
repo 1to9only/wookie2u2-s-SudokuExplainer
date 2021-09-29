@@ -50,9 +50,10 @@ import static diuf.sudoku.Regions.ROW_MASK;
 import diuf.sudoku.Run;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.hinters.LinkedMatrixAssSet;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import diuf.sudoku.utils.IntHashSet;
 import java.util.Arrays;
 import java.util.Deque;
@@ -74,7 +75,7 @@ import java.util.Map;
  * @author Keith Corlett 2020-10-11
  */
 public class KrakenFisherman extends AHinter
-		implements diuf.sudoku.solver.IPreparer
+		implements diuf.sudoku.solver.hinters.IPreparer
 {
 	// ~~~~~~~~~~~~~~~~~~~~~~~~ krakenTables ---~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -102,9 +103,10 @@ public class KrakenFisherman extends AHinter
 		/** endo-fins: indices of cells that are in more than one base region,
 		 * and therefore must be treated as fins. */
 		int efM0, efM1, efM2;
+		// debug only, not used in actual code.
 		@Override
 		public String toString() {
-			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
+			return ""+index+COLON_SP+Idx.toString(vsM0, vsM1, vsM2);
 		}
 	}
 
@@ -135,9 +137,10 @@ public class KrakenFisherman extends AHinter
 		/** sharks (cannibalistic): an Idx of cells in more than one cover set,
 		 * so become potential eliminations. */
 		int skM0, skM1, skM2;
+		// debug only, not used in actual code.
 		@Override
 		public String toString() {
-			return ""+index+": "+Idx.toString(vsM0, vsM1, vsM2);
+			return ""+index+COLON_SP+Idx.toString(vsM0, vsM1, vsM2);
 		}
 	}
 
@@ -1251,11 +1254,11 @@ public class KrakenFisherman extends AHinter
 		// paint the endo-fins purple, not corners (green) or exo-fins (blue).
 		purple.removeFromAll(green, blue);
 
-		String debugMessage = "";
+		String tag = EMPTY_STRING; // debug message
 
 		ComplexFishHint hint = new ComplexFishHint(this, type, false, v
 				, usedBases, usedCovers, reds, green, blue, purple, yellow
-				, debugMessage);
+				, tag);
 
 // this pointless coz the base hint most probably has no redPots!
 //		if ( HintValidator.KRAKEN_FISHERMAN_USES ) {

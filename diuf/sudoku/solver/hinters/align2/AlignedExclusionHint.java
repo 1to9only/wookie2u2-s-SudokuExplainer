@@ -13,13 +13,19 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Html;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -106,7 +112,7 @@ public final class AlignedExclusionHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for an " + getHintTypeName();
 		if ( isBig )
-			s += " at " + Frmt.csv(selectedCellsSet);
+			s += " at " + Frmu.csv(selectedCellsSet);
 		return s;
 	}
 
@@ -141,16 +147,16 @@ public final class AlignedExclusionHint extends AHint  {
 	 *  in this combo. Simultaneous with my cells array.
 	 * @param lockCell the cell which disallows this combo because it's maybes
 	 *  are a subset of this combos values. */
-	private void appendTo(StringBuilder sb, int[] combo, Cell lockCell) {
+	private void append(StringBuilder sb, int[] combo, Cell lockCell) {
 		// <o><b>2</b></o>, <o><b>6</b></o>, <o><b>5</b></o> and <r><b>3</b></r>
 		final int n = Math.min(cells.length, combo.length); // in case the combo is too long (has happened)
 		for ( int i=0,m=n-1; i<n; ++i ) {
 			// "1, 2 and 3"
 			if ( i > 0 ) // not the first
 				if ( i < m )
-					sb.append(", ");
+					sb.append(COMMA_SP);
 				else
-					sb.append(" and ");
+					sb.append(AND);
 			char c = getColorOf(cells[i], combo[i]);
 			if(c!=0) sb.append('<').append(c).append('>');
 			sb.append("<b>").append(combo[i]).append("</b>");
@@ -162,7 +168,7 @@ public final class AlignedExclusionHint extends AHint  {
 		else
 			sb.append("the cell <b>").append(lockCell.id)
 			  .append("</b> must contain <g><b>")
-			  .append(Frmt.or(lockCell.maybes)).append("</b></g>");
+			  .append(Frmu.or(lockCell.maybes)).append("</b></g>");
 	}
 
 	/** Append the HTML representing the given combosMap to the StringBuilder.
@@ -183,7 +189,7 @@ public final class AlignedExclusionHint extends AHint  {
 		for ( HashA key : keyArray )
 			if ( isRelevent(key.array) ) {
 				++relevantCount;
-				appendTo(sb, key.array, excludedCombosMap.get(key)); // get lockCell, maybe null
+				append(sb, key.array, excludedCombosMap.get(key)); // get lockCell, maybe null
 				sb.append("<br>").append(NL);
 			}
 		if ( relevantCount == 0 )
@@ -218,17 +224,18 @@ public final class AlignedExclusionHint extends AHint  {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()
-				+ ": " + Frmt.csv(selectedCellsSet)
-				+ " on " + cmnExcluders;
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(selectedCellsSet))
+		  .append(ON).append(cmnExcluders)
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		final String excludedCombos;
 		try {
-			StringBuilder sb = new StringBuilder(degree*256);
-			excludedCombos = Html.colorIn(appendTo(sb, excludedCombosMap).toString());
+			// 256 is just a guess, but observed to be big enough
+			excludedCombos = Html.colorIn(appendTo(new StringBuilder(256), excludedCombosMap).toString());
 		} catch (IrrelevantHintException ex) { // from appendTo
 			// see IrrelevantHintException declaration for discussion
 			return Html.load(ex, "IrrelevantHintException.html");
@@ -238,10 +245,10 @@ public final class AlignedExclusionHint extends AHint  {
 				: "AlignedExclusionHint.html";
 		return Html.produce(this, filename
 			, GROUP_NAMES[degree-2]				//{0}
-			, Frmt.and(selectedCellsSet)		// 1
+			, Frmu.and(selectedCellsSet)		// 1
 			, excludedCombos					// 2
-			, Frmt.and(redPots.keySet())		// 3
-			, Frmt.csv(getRemovableValues())	// 4
+			, Frmu.and(redPots.keySet())		// 3
+			, Frmu.csv(getRemovableValues())	// 4
 			, redPots.toString()				// 5
 			, cmnExcluders						// 6
 		);

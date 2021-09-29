@@ -18,6 +18,9 @@
  */
 package diuf.sudoku.utils;
 
+import static diuf.sudoku.utils.Frmt.EQUALS;
+import static diuf.sudoku.utils.Frmt.SPACE;
+
 /**
  * LongLongHashMap is a {@code java.util.HashMap<long, long>} which supports
  * just the operations I actually use: put and get, and clean.
@@ -41,7 +44,7 @@ public class LongLongHashMap {
 		}
 		@Override
 		public String toString() {
-			return ""+key+"="+value+" "+next; // No loops!
+			return ""+key+EQUALS+value+SPACE+next; // No loops!
 		}
 		@Override
 		public boolean equals(Object o) {
@@ -56,9 +59,13 @@ public class LongLongHashMap {
 		}
 	}
 
+	/** The array of Entry to store keys and there values. */
 	protected final Entry[] table;
+
+	/** table.length - 1. */
 	protected final int mask; // table.length - 1;
-	// readonly to public or I kill you.
+	
+	/** readonly to public or I kill you. */
 	public int size;
 
 	/**

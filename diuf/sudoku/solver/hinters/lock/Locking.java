@@ -11,12 +11,15 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Grid.Col;
+import diuf.sudoku.Grid.Row;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Run;
 import diuf.sudoku.Settings;
+import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
@@ -30,6 +33,7 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.hdnset.HiddenSet;
 import diuf.sudoku.solver.hinters.hdnset.HiddenSetHint;
 import diuf.sudoku.utils.Debug;
+import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyHashMap;
 import diuf.sudoku.utils.MyLinkedHashMap;
 import diuf.sudoku.utils.Permutations;
@@ -37,7 +41,11 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -89,7 +97,7 @@ import java.util.Set;
 public final class Locking extends AHinter {
 
 	private final HintsApplicumulator apcu;
-	private final boolean useApcu;
+	private final boolean speedMode;
 
 	// each region of each effected cell, and it's maybes before eliminations
 	private final RegionQueue dirtyRegions;
@@ -100,26 +108,29 @@ public final class Locking extends AHinter {
 	public Locking() {
 		super(Tech.Locking);
 		this.apcu = null;
-		this.useApcu = false;
+		this.speedMode = false;
 		this.dirtyRegions = null;
 	}
 
 	/**
-	 * Constructor for "speed mode".
+	 * Constructor for "speed mode". Used by RecursiveAnalyser,
+	 * ie RecursiveSolver, passing a HintsApplicumulator, so that my
+	 * getHints applies it's hints the directly grid; so that any
+	 * subsequent hints can also be found in a pass through the Grid,
+	 * then I add an AppliedHintsSummaryHint (numElims = total elims)
+	 * to the "normal" HintsAccumulator passed into findHints.
 	 * <p>
-	 * This constructor is used by RecursiveAnalyser ie RecursiveSolver passing
-	 * a HintsApplicumulator so that getHints immediately applies any hints it
-	 * finds to the grid, so that any subsequent hints will also be identified
-	 * in a single pass through the Grid, then we add AppliedHintsSummaryHint
-	 * to the "normal" HintsAccumulator that was passed to getHints, in order
-	 * to maintain the elimCount.
+	 * The notable bit is that the Grid mutates WHILE I'm searching it,
+	 * and it all still works anyway, which is pretty damn cool. In my
+	 * humble opinion, ConcurrentModificationException is programmereese
+	 * for "____ing soft-cock"; it's most often thrown unnecessarily.
 	 *
 	 * @param apcu HintsApplicumulator
 	 */
 	public Locking(HintsApplicumulator apcu) {
 		super(Tech.Locking);
 		this.apcu = apcu;
-		this.useApcu = true;
+		this.speedMode = true;
 		this.dirtyRegions = new RegionQueue();
 		// asserts only for techies (who java -ea) and this is a constructor,
 		// so not performance critical; but it's still a hack.
@@ -163,77 +174,92 @@ public final class Locking extends AHinter {
 	/**
 	 * Searches the given grid for Pointing (box on row/col) and Claiming
 	 * (row/col on box) Hints, which are added to the given HintsAccumulator.
-	 * Except stuff gets a bit weird when a HintsApplicumulator was passed to
-	 * the Constructor, in which case we apply each hint immediately (because
-	 * we're autosolving this grid) and then pass back the total number of
-	 * eliminations to the getHints caller via the given HintsAccumulator.
+	 * <p>
+	 * S__t goes weird in "speed mode" when a HintsApplicumulator was passed to
+	 * my Constructor, in which case we apply each hint now (to autosolve grid)
+	 * and then pass-back the total elims in a AppliedHintsSummaryHint to
+	 * getHints-caller via the "normal" HintsAccumulator passed into getHints.
+	 * <p>
+	 * It's all bit complicated, so writing an explanation seems harder than
+	 * writing the code, and I expect the explanation is probably harder to
+	 * understand than the code. I just suck at explaining stuff. sigh.
+	 * <p>
+	 * Note that the HintsApplicumulator has a "debug mode" where it populates
+	 * a StringBuilder with the-full-string of each hint applied to the grid.
+	 *
 	 * @return was a hint/s found.
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
+		if ( speedMode ) // ie a HintsApplicumulator was provided
+			return findHintsSpeedMode(grid, accu);
 
 		// normal mode: GUI, test-cases, batch
-		if ( !useApcu ) { // if my HintsApplicumulator is null
-			if ( accu.isSingle() )
-				// user wants 1 hint so prefer pointing to claiming.
-				// nb: "normal" short-circuiting boolean-or operator (||).
-				return pointing(grid, accu)
-					|| claiming(grid, accu);
-			// GUI wants multiple hints so collect both pointing & claiming
-			// nb: unusual bitwise-or operator (|) so they're both executed.
-			boolean result = pointing(grid, accu)
-						   | claiming(grid, accu);
-			// GUI only: siamese: remove any hints whose eliminations are a
-			// subset of any other hints eliminations.
-			if ( result && accu instanceof HintsAccumulator && accu.size()>1
-			  && Run.type == Run.Type.GUI // this breaks the test-case
-			  // don't do this if isFilteringHints is off, so user sees all
-			  && Settings.THE.getBoolean(Settings.isFilteringHints, false) )
-				// remove each hint whose eliminations are a subset of anothers
-				removeSubsets(((HintsAccumulator)accu).getHints());
-			return result;
-		}
+		if ( accu.isSingle() )
+			// user wants 1 hint so prefer pointing to claiming.
+			// nb: "normal" short-circuiting boolean-or operator.
+			return pointing(grid, accu)
+				|| claiming(grid, accu);
+		// GUI wants multiple hints so collect both pointing & claiming
+		// nb: "unusual" bitwise-or operator, so they're both executed.
+		final boolean result = pointing(grid, accu)
+							 | claiming(grid, accu);
+		// GUI only: siamese: remove any hints whose eliminations are a
+		// subset of any other hints eliminations.
+		if ( result
+		  && Run.type == Run.Type.GUI // removeSubsets breaks test-cases
+		  && accu instanceof HintsAccumulator // no chainers!
+		  && accu.size() > 1 // and there's more than one locking hint
+		  // only if isFilteringHints, so user can see all "plain" hints
+		  && THE_SETTINGS.getBoolean(Settings.isFilteringHints, false) )
+			// remove each hint whose elims are a subset of anothers
+			removeSubsets(((HintsAccumulator)accu).getHints());
+		return result;
+	}
 
-		// speed mode: RecursiveAnalyser
-		//
-		// CAUTION: Seriously Weird S__t!
-		//
-		// I was created by RecursiveAnalyser with a HintsApplicumulator to
-		// apply all point and claim hints in one pass through the regions.
-		// It's just a bit quicker that way.
-		//
-		// We do an exhaustive search, so that when a maybe is removed from a
-		// region that's already been searched we search it again. This is a
-		// bit slower here, but the recursive hint-search is faster overall,
-		// because it won't miss a hint that leaves us guessing.
-		//
-		// Then we accu.add an AppliedHintsSummaryHint and return the result.
-		//
+	/**
+	 * speed mode: RecursiveAnalyser
+	 * <p>
+	 * <b>CAUTION:</b> Some Seriously Weird S__t!
+	 * <p>
+	 * This Locking was created by RecursiveAnalyser with a HintsApplicumulator
+	 * to apply all point and claim hints in one pass through the grid. It's a
+	 * bit quicker that way.
+	 * <p>
+	 * I do an exhaustive search, so that when a maybe is removed from a region
+	 * that's already been searched we search it again. It's a bit slower here,
+	 * but this exhaustive-search is faster overall, because it doesn't miss a
+	 * hint that leaves recursiveSolve guessing a cell-value that can't be OK.
+	 * <p>
+	 * Then we accu.add an AppliedHintsSummaryHint and return have any hints
+	 * been applied.
+	 * 
+	 * @param grid
+	 * @param accu
+	 * @return 
+	 */
+	private boolean findHintsSpeedMode(Grid grid, IAccumulator accu) {
 		MyHashMap.Entry<ARegion,Values> e;
-		ARegion region;
-		Values maybes;
-		dirtyRegions.clear();
-		int preElims = apcu.numElims;
+		ARegion dirtyRegion; // Dougs box hole?
+		dirtyRegions.clear(); // Na, bog roll!
+		final int preElims = apcu.numElims;
 		// note the bitwise-or operator (|) so they're both executed.
-		boolean result = pointing(grid, apcu)
-				       | claiming(grid, apcu);
+		final boolean result = pointing(grid, apcu)
+							 | claiming(grid, apcu);
 		if ( result ) {
-			// Second pass at the regions and former maybes of effected cells.
-			// NOTE: I've never found anything in a third pass, so now it's
-			// just an if (was a while loop), and we only re-process dirty
-			// regions and values, not everything twice.
-			while ( (e=dirtyRegions.poll()) != null ) {
-				region = e.getKey();
-				maybes = e.getValue();
-				if ( region instanceof Box )
-					pointFrom(grid, apcu, (Box)region, maybes.bits);
-				else // Row or Col
-					claimFrom(grid, apcu, region, maybes.bits);
-			}
+			// Second pass of the regions.
+			// NB: I've never found anything in a third pass, so now it's just
+			// an if (was a while loop), and we're only re-processing the dirty
+			// regions, not doing all regions twice, for speed.
+			while ( (e=dirtyRegions.poll()) != null ) // wax
+				if ( (dirtyRegion=e.getKey()) instanceof Box ) // on
+					pointFrom((Box)dirtyRegion, grid.rows, grid.cols, e.getValue().bits, grid);
+				else // Row or Col // off
+					claimFrom(dirtyRegion, e.getValue().bits, grid);
 		}
-		int myElims = apcu.numElims - preElims;
+		final int myElims = apcu.numElims - preElims;
 		if ( myElims > 0 ) {
-			AHint hint = new AppliedHintsSummaryHint(myElims, apcu);
+			final AHint hint = new AppliedHintsSummaryHint(Log.me(), myElims, apcu);
 			if ( accu.add(hint) )
 				return true;
 		}
@@ -276,28 +302,28 @@ public final class Locking extends AHinter {
 		hints.sort(AHint.BY_SCORE_DESC);
 	}
 
-	// constants to determine if a boxes idxsOf[value] are all in a row.
-	// The best way to show the logic is with binary strings (costs 3/4 of FA).
-	// ROWs appear upside down in a left-to-right view of right-to-left number.
+	// constants to determine if a boxes indexesOf[value] are all in a row.
+	// The best way to show the logic is in binary, and that costs nothing.
+	// ROWs appear upside down in a left-to-right view of right-to-left bits.
 	private static final int ROW1 = Integer.parseInt("000"
 												   + "000"
-												   + "111", 2);
+												   + "111", 2); // 7
 	private static final int ROW2 = Integer.parseInt("000"
 												   + "111"
-												   + "000", 2);
+												   + "000", 2); // 56 = 7<<3
 	private static final int ROW3 = Integer.parseInt("111"
 												   + "000"
-												   + "000", 2);
+												   + "000", 2); // 448 = 56<<3
 	// constants to determine if a boxes idxsOf[value] are all in a column.
 	private static final int COL1 = Integer.parseInt("001"
 												   + "001"
-												   + "001", 2);
+												   + "001", 2); // 73
 	private static final int COL2 = Integer.parseInt("010"
 												   + "010"
-												   + "010", 2);
+												   + "010", 2); // 146
 	private static final int COL3 = Integer.parseInt("100"
 												   + "100"
-												   + "100", 2);
+												   + "100", 2); // 292
 
 	// Pointing: Box => Row/Col
 	// Eg: All the cells in box 2 which maybe 9 are in column D, hence one of
@@ -358,8 +384,8 @@ public final class Locking extends AHinter {
 						// so it's OK to create the cells array which we'll need.
 						cnt = box.maybe(VSHFT[v], cells=Cells.array(card));
 						assert cnt == card;
-						final LockingHint hint = createHint("Point", box, cover
-								, cells, card, v, grid);
+						final LockingHint hint = createHint(LockType.Pointing
+								, box, cover, cells, card, v, grid);
 						if ( hint != null ) {
 							result = true;
 							if ( doSiamese )
@@ -370,8 +396,8 @@ public final class Locking extends AHinter {
 					}
 				}
 			} // next value
-//if ( !Debug.isClassNameInTheCallStack(5, "RecursiveAnalyser")
-//	&& regionHints!=null && !regionHints.isEmpty() )
+//if ( regionHints!=null && !regionHints.isEmpty()
+//	&& !Debug.isClassNameInTheCallStack(5, "RecursiveAnalyser") )
 //	Debug.breakpoint();
 			// merge siamese when box points-out multiple values.
 			if ( doSiamese )
@@ -422,9 +448,6 @@ public final class Locking extends AHinter {
 				else
 					regionHints.clear();
 			for ( v=1; v<10; ++v ) {
-//// Claiming: row 9 and box 7 on 4
-//if ( i==17 && v==4 )
-//	Debug.breakpoint();
 				// 2 or 3 cells in base might all be in a box; 4 or more won't.
 				// 1 is a hidden single, 0 means v is set, so not my problem.
 				if ( (card=rio[v].size)>1 && card<4
@@ -451,7 +474,8 @@ public final class Locking extends AHinter {
 					cnt = base.maybe(VSHFT[v], cells);
 					assert cnt == card;
 					// create the hint and add it to the accumulator
-					final LockingHint hint = createHint("Claim", base, crossingBoxes[offset]
+					final LockingHint hint = createHint(LockType.Claiming, base
+							, crossingBoxes[offset]
 							, cells, card, v, grid);
 					assert hint.isPointing == false;
 					if ( hint != null ) {
@@ -483,35 +507,32 @@ public final class Locking extends AHinter {
 
 	// WARN: Make a copy of cells array if you stash it, it's reused!
 	// NB: a "Dynamic Plus" puzzle comes through this method 3,340 times
-	// @param type is "Point" or "Claim" (lazy coding)
-	private LockingHint createHint(String type, ARegion base, ARegion cover
+	// @param type tells you who called me, in error-messages for debugging
+	private LockingHint createHint(LockType type, ARegion base, ARegion cover
 			, Cell[] cells, int card, int valueToRemove, Grid grid) {
-		final int sv = VSHFT[valueToRemove]; // shiftedValueToRemove
 		// Build removable (red) potentials
-		Pots redPots = new Pots();
+		final Pots redPots = new Pots();
 		// foreach cell which maybe valueToRemove in covers except bases
+		final int sv = VSHFT[valueToRemove]; // shiftedValueToRemove
 		for ( Cell cell : cover.cells )
 			if ( (cell.maybes.bits & sv)!=0 && !base.contains(cell) )
 				redPots.put(cell, new Values(valueToRemove));
 		if ( redPots.isEmpty() ) {
 			// this should NEVER happen coz we check that r2 has extra idxs
 			// before we createHint. Developers investigate. Users no see.
-			// IGNORE if "RecursiveAnalyser" is in my callstack
+			// IGNORE if "RecursiveAnalyser" is in my callstack (BFIIK)
 			assert Debug.isClassNameInTheCallStack(5, "RecursiveAnalyser")
-				: "BAD "+type+": empty redPots at "+base+" -> "
-				+ cover+" on "+valueToRemove+" in "+Arrays.toString(cells)+"\n"
-				+ grid.toString();
+				: "BAD "+type+": No elims at "+base+AND+cover+ON+valueToRemove
+				  +IN+Arrays.toString(cells)+NL+grid.toString();
 			return null;
 		}
-		if ( useApcu )
+		if ( speedMode )
 			dirtyRegions.add(redPots.keySet());
 		// Build highlighted (green) potentials
-		Pots greenPots = new Pots();
-		for ( int i=0; i<card; ++i )
-			greenPots.put(cells[i], new Values(valueToRemove));
+		final Pots greenPots = new Pots(cells, card, valueToRemove);
 		// Build the hint from LockingHint.html
 		return new LockingHint(this, valueToRemove, greenPots, redPots
-				, base, cover, "");
+				, base, cover, EMPTY_STRING);
 	}
 
 	/**
@@ -577,7 +598,7 @@ public final class Locking extends AHinter {
 			if ( regionHints.size() < size )
 				break;
 			// theseHints are a possible combo of size hints among regionHints
-			LockingHint[] theseHints = new LockingHint[size];
+			final LockingHint[] theseHints = new LockingHint[size];
 			// foreach possible combination of size hints in our n hints
 			LOOP: for ( int[] perm : new Permutations(n, new int[size]) ) {
 				// build an array of this combo of Locking hints
@@ -713,84 +734,107 @@ public final class Locking extends AHinter {
 		return result;
 	}
 
-	// Do the redPots (aka reds) of theseHints all share a common region?
+	// Do the redPots (aka reds) of lockingHints all share a common region?
 	// If not then this ain't Siamese, just disjunct hints from one region,
 	// which is rare but does happen (about a dozen times in top1465).
-	private boolean redsAllShareARegion(LockingHint[] theseHints){
+	private boolean redsAllShareARegion(LockingHint[] lockingHints){
 		// working storage is for speed only.
 		// we need 2 of them because set.retainAll(set) is nonsensical.
 		// nb: if I wrote retainAll it would assert c!=this;
-		ArrayList<ARegion> crs = Regions.clear(WS1); // commonRegions
-		ArrayList<ARegion> ws2 = Regions.clear(WS2); // working storage
+		final ArrayList<ARegion> crs = Regions.clear(WS1); // commonRegions
+		final ArrayList<ARegion> ws2 = Regions.clear(WS2); // working storage
 		boolean first = true;
-		for ( LockingHint pfh : theseHints )
+		for ( LockingHint lh : lockingHints )
 			if ( first ) {
-				Regions.common(pfh.redPots.keySet(), crs);
+				Regions.common(lh.redPots.keySet(), crs);
 				first = false;
 			} else
-				crs.retainAll(Regions.common(pfh.redPots.keySet(), ws2));
+				crs.retainAll(Regions.common(lh.redPots.keySet(), ws2));
 		return !crs.isEmpty();
 	}
 	private final ArrayList<ARegion> WS1 = new ArrayList<>(3);
 	private final ArrayList<ARegion> WS2 = new ArrayList<>(3);
 
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ The Johnny Squad ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	// as in Johnny come lately: check only the effected regions is a rather
-	// codey performance optimisation, which doesn't appear to be any faster.
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ Johnny come lately ~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// the whole "speed mode" thing was added after the fact. It's only an
+	// accomplice to puzzle murder, and cannot be held accountable for it's
+	// taste in art, music, or eliminations. The wide blue gander. Hoooonk!
 
-	private boolean pointFrom(Grid grid, HintsApplicumulator apcu, Box box, int maybesBits) {
-		assert box instanceof Box;
-		ARegion r2;
-		Cell[] cells;
-		int b, card, offset;
+	/**
+	 * Used in error messages, to tell the programmer which method called
+	 * createHint, just to make the errors a bit more traceable. sigh.
+	 */
+	private static enum LockType {
+		  Pointing
+		, Claiming
+		, PointFrom
+		, ClaimFrom
+	}
+
+	private boolean pointFrom(final Box box, final Row[] rows, final Col[] cols
+			, final int cands, final Grid grid) {
+		int card;
 		boolean result = false;
-		for ( int v : VALUESES[maybesBits] ) {
-			if ( (card=box.indexesOf[v].size)<2 || card>3 )
-				continue;
-			b = box.indexesOf[v].bits;
-			if ( ((b & ROW1)==b && ((offset=0)==0))
-			  || ((b & ROW2)==b && ((offset=1)==1))
-			  || ((b & ROW3)==b && ((offset=2)==2)) )
-				r2 = grid.rows[box.top + offset];
-			else if ( ((b & COL1)==b && ((offset=0)==0))
-				   || ((b & COL2)==b && ((offset=1)==1))
-				   || ((b & COL3)==b && ((offset=2)==2)) )
-				r2 = grid.cols[box.left + offset];
-			else
-				continue;
-			if ( r2.indexesOf[v].size > card ) {
-				box.maybe(VSHFT[v], cells=Cells.array(card));
-				final AHint hint = createHint("PointFrom", box, r2, cells, card, v, grid);
-				if ( hint != null ) {
-					result |= true;
-					apcu.add(hint);
-				}
+		for ( int v : VALUESES[cands] ) {
+			if ( (card=box.indexesOf[v].size)>1 && card<4 ) {
+				final int b = box.indexesOf[v].bits;
+				if ( (b & ROW1) == b )
+					result |= pointFromElims(rows[box.top], box, v, card, grid);
+				else if ( (b & ROW2) == b )
+					result |= pointFromElims(rows[box.top + 1], box, v, card, grid);
+				else if ( (b & ROW3) == b )
+					result |= pointFromElims(rows[box.top + 2], box, v, card, grid);
+				else if ( (b & COL1) == b )
+					result |= pointFromElims(cols[box.left], box, v, card, grid);
+				else if ( (b & COL2) == b )
+					result |= pointFromElims(cols[box.left + 1], box, v, card, grid);
+				else if ( (b & COL3) == b )
+					result |= pointFromElims(cols[box.left + 2], box, v, card, grid);
 			}
 		}
 		return result;
 	}
+	// called ONLY by above pointFrom, to handle it's eliminations, rather than
+	// farnackle my way around repeating the same code multiple times.
+	// * a line is a row or a col
+	// * card is the number of cells in the box which maybe v
+	// * the grid is currently only used for error messages.
+	// * I'm only called in speed mode, and so I add hints to the apcu.
+	private boolean pointFromElims(final ARegion line, final Box box
+			, final int v, final int card, final Grid grid) {
+		// if v's in line other than those in the line-box-intersection
+		if ( line.indexesOf[v].size > card ) {
+			final Cell[] cells;
+			box.maybe(VSHFT[v], cells=Cells.array(card));
+			final AHint hint = createHint(LockType.PointFrom, box, line
+					, cells, card, v, grid);
+			if ( hint != null ) {
+				apcu.add(hint);
+				return true;
+			}
+		}
+		return false;
+	}
 
-	private boolean claimFrom(Grid grid, HintsApplicumulator apcu, ARegion line, int maybesBits) {
+	// Note that I'm only called in speed mode, so add my hints to the apcu!
+	private boolean claimFrom(final ARegion line, final int cands, final Grid grid) {
 		Cell[] cells;
 		int card, b, offset;
 		boolean result = false;
-		for ( int v : VALUESES[maybesBits] ) {
-			if ( (card=line.indexesOf[v].size)<2 || card>3 )
-				continue;
-			b = line.indexesOf[v].bits;
-			if ( ( ((b & ROW1)==b && (offset=0)==0)
-				|| ((b & ROW2)==b && (offset=1)==1)
-				|| ((b & ROW3)==b && (offset=2)==2) )
-			  && line.crossingBoxs[offset].indexesOf[v].size > card ) {
-				line.maybe(VSHFT[v], cells=Cells.array(card));
-//// java.lang.AssertionError: BAD Claim: empty redPots at row 4 -> box 4 on 3 in [D1:2{15}, D2:2{45}]
-//if ( line==grid.rows[3] && line.crossingBoxs[offset]==grid.boxs[3] && v==3 )
-//	Debug.breakpoint();
-				final AHint hint = createHint("ClaimFrom", line, line.crossingBoxs[offset]
-						, cells, card, v, grid);
-				if ( hint != null ) {
-					result |= true; // never say never!
-					apcu.add(hint);
+		for ( int v : VALUESES[cands] ) {
+			if ( (card=line.indexesOf[v].size)>1 && card<4 ) {
+				b = line.indexesOf[v].bits;
+				if ( ( ((b & ROW1)==b && (offset=0)==0)
+					|| ((b & ROW2)==b && (offset=1)==1)
+					|| ((b & ROW3)==b && (offset=2)==2) )
+				  && line.crossingBoxs[offset].indexesOf[v].size > card ) {
+					line.maybe(VSHFT[v], cells=Cells.array(card));
+					final AHint hint = createHint(LockType.ClaimFrom, line
+							, line.crossingBoxs[offset], cells, card, v, grid);
+					if ( hint != null ) {
+						result |= true; // never say never!
+						apcu.add(hint);
+					}
 				}
 			}
 		}
@@ -811,7 +855,7 @@ public final class Locking extends AHinter {
 	 */
 	private static class RegionQueue extends MyLinkedHashMap<ARegion, Values> {
 		private static final long serialVersionUID = 1459048958903L;
-		private void add(Set<Cell> cells) {
+		private void add(Iterable<Cell> cells) {
 			for ( Cell cell : cells )
 				for ( ARegion r : cell.regions ) {
 					Values existing = super.get(r);

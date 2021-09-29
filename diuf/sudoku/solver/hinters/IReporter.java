@@ -4,7 +4,7 @@
  * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
-package diuf.sudoku.solver;
+package diuf.sudoku.solver.hinters;
 
 /**
  * Reporter is an which tells the LogicalSolver that this IHinter exposes a

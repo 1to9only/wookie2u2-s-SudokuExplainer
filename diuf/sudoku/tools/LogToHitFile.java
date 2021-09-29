@@ -7,10 +7,12 @@
 package diuf.sudoku.tools;
 
 import diuf.sudoku.io.IO;
-import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.MyInteger;
 import java.io.BufferedReader;
 import java.io.FileReader;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.TAB;
 
 /**
  * Create a .hit from an a10e.log file.
@@ -35,11 +37,11 @@ puzz hn ce eb cl sb hi|cells                                                    
 */
 				puzz = MyInteger.parse(line, 0, 5);
 				hintNum = MyInteger.parse(line, 5, 7);
-				cells = line.substring(23, line.indexOf("\t", 23)).trim();
+				cells = line.substring(23, line.indexOf(TAB, 23)).trim();
 				int cnt=0;
 				sb.setLength(0);
-				for ( String cell : cells.split(" ") ) {
-					if(++cnt>1)sb.append(", ");
+				for ( String cell : cells.split(SPACE) ) {
+					if(++cnt>1)sb.append(COMMA_SP);
 					sb.append(cell.substring(0, 2));
 				}
 				System.out.format("%d\t%d\t%s\n", puzz, hintNum, sb);

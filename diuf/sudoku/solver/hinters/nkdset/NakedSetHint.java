@@ -17,13 +17,15 @@ import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.IN;
 
 
 /**
@@ -53,7 +55,7 @@ public final class NakedSetHint extends AHint implements IChildHint {
 		this.nkdSetCellList = nkdSetCellList;
 		this.nkdSetValues = nkdSetValues;
 		assert super.degree == nkdSetValues.size;
-		this.regionIds = Frmt.and(bases);
+		this.regionIds = Frmu.and(bases);
 		this.nkdSetIdx = Idx.of(nkdSetCellList);
 	}
 
@@ -80,19 +82,18 @@ public final class NakedSetHint extends AHint implements IChildHint {
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.csv(nkdSetCellList)).append(": ")
-		  .append(Frmt.csv(nkdSetValues)).append(" in ").append(regionIds);
-		return sb.toString();
+		return Frmu.getSB(64).append(getHintTypeName()).append(COLON_SP)
+		  .append(Frmu.csv(nkdSetCellList)).append(COLON_SP)
+		  .append(Frmu.csv(nkdSetValues)).append(IN).append(regionIds)
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "NakedSetHint.html"
 				, NUMBER_NAMES[degree-2]	// {0}
-				, Frmt.and(nkdSetCellList)	//  1
-				, Frmt.and(nkdSetValues)	//  2
+				, Frmu.and(nkdSetCellList)//  1
+				, Frmu.and(nkdSetValues)	//  2
 				, regionIds					//  3
 				, getHintTypeName()			//  4
 				, redPots.toString()		//  5

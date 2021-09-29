@@ -11,7 +11,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
 
@@ -46,7 +46,7 @@ public final class URT4Hint extends AURTHint {
 			, getTypeName()		//{0}
 			, lockVal			// 1
 			, valueToRemove		// 2
-			, Frmt.csv(loop)	// 3
+			, Frmu.csv(loop)	// 3
 			, c1.id				// 4
 			, c2.id				// 5
 			, region.id			// 6

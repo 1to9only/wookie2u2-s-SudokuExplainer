@@ -31,6 +31,7 @@ package diuf.sudoku.utils;
  * questions.
  */
 
+import static diuf.sudoku.utils.Frmt.EQUALS;
 import java.util.AbstractCollection;
 import java.util.AbstractSet;
 import java.util.Collection;
@@ -510,20 +511,26 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	 */
 	@Override
 	public String toString() {
-		Iterator<Entry<K,V>> i = entrySet().iterator();
-		if (! i.hasNext())
+		final Set<Entry<K,V>> set = entrySet();
+		final Iterator<Entry<K,V>> it = set.iterator();
+		if ( !it.hasNext() )
 			return "{}";
-
-		StringBuilder sb = new StringBuilder();
+		final StringBuilder sb = new StringBuilder(Math.min(set.size()<<3,4096));
 		sb.append('{');
 		for (;;) {
-			Entry<K,V> e = i.next();
-			K key = e.getKey();
-			V value = e.getValue();
-			sb.append(key   == this ? "(this Map)" : key);
+			final Entry<K,V> e = it.next();
+			final K key = e.getKey();
+			if ( key == this )
+				sb.append("(this Map)");
+			else
+				sb.append(key);
 			sb.append('=');
-			sb.append(value == this ? "(this Map)" : value);
-			if (! i.hasNext())
+			final V value = e.getValue();
+			if ( value == this )
+				sb.append("(this Map)");
+			else
+				sb.append(value);
+			if ( !it.hasNext() )
 				return sb.append('}').toString();
 			sb.append(',').append(' ');
 		}
@@ -692,7 +699,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 		 */
 		@Override
 		public String toString() {
-			return key + "=" + value;
+			return key + EQUALS + value;
 		}
 
 	}
@@ -830,7 +837,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 		 */
 		@Override
 		public String toString() {
-			return key + "=" + value;
+			return key + EQUALS + value;
 		}
 
 	}

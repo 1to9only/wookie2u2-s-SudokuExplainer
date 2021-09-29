@@ -11,22 +11,22 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
-import diuf.sudoku.Settings;
+import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.MyArrays;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHIFTED;
 import static diuf.sudoku.Values.VSIZE;
+import static diuf.sudoku.utils.Frmt.MINUS;
 
 
 /**
@@ -222,7 +222,7 @@ import static diuf.sudoku.Values.VSIZE;
  * @author Keith Corlett 2020-12-10 created
  */
 public class AlignedExclusion extends AHinter
-		implements diuf.sudoku.solver.IPreparer
+		implements diuf.sudoku.solver.hinters.IPreparer
 				 , diuf.sudoku.solver.hinters.ICleanUp
 {
 //	//@check: commented out: for debugging only
@@ -230,7 +230,7 @@ public class AlignedExclusion extends AHinter
 //	private String hotCandsToString() {
 //		StringBuilder sb = new StringBuilder(14*degree);
 //		for ( int i=0; i<degree; ++i ) {
-//			if(i>0) sb.append(", ");
+//			if(i>0) sb.append(comma);
 ////			sb.append(vStack[i].cands)
 ////			  .append(':')
 ////			  .append(Values.toString(vStack[i].cands));
@@ -393,7 +393,7 @@ public class AlignedExclusion extends AHinter
 		// is inherently a heavy process, because it does combinatorial TIMES
 		// combinatorial comparisons. Hacked takes about a tenth of the time,
 		// and misses about two thirds of the hints. sigh.
-		needTwo = Settings.THE.get("isa"+degree+"ehacked", defaultIsHacked);
+		needTwo = THE_SETTINGS.get("isa"+degree+"ehacked", defaultIsHacked);
 		// optimisation: create an "Excluderator" ONCE per AlignedExclusion
 		// intead of deciding to call idx1 or idx2 repeatedly: once for each
 		// cell in each possible combination of $degree cells, ie many times.
@@ -844,7 +844,7 @@ public class AlignedExclusion extends AHinter
 									cmnExcluders, cellsA, reds);
 							// create the hint
 							final AHint hint = new AlignedExclusionHint(this, reds
-									, cellsA, Frmt.ssv(cmnExcluders), map);
+									, cellsA, Frmu.ssv(cmnExcluders), map);
 							if ( HintValidator.ALIGNED_EXCLUSION_USES ) {
 								if ( !HintValidator.isValid(grid, reds) ) {
 									hint.isInvalid = true;
@@ -869,7 +869,7 @@ public class AlignedExclusion extends AHinter
 					} // fi
 				}
 			}
-		} while ( false ); // a non-loop
+		} while ( false ); // a non-loop // a non-loop
 	}
 
 	/**
@@ -1122,7 +1122,7 @@ public class AlignedExclusion extends AHinter
 		@Override
 		public String toString() {
 			if ( cell == null )
-				return "-";
+				return MINUS;
 			return ""+index+":"+cell.toFullString()+"->"+excls;
 		}
 	}
@@ -1270,10 +1270,8 @@ public class AlignedExclusion extends AHinter
 
 		public LinkedHashSet<Cell> getUsedCommonExcluders(Cell cmnExcls[], int numCmnExcls) {
 			final LinkedHashSet<Cell> set = new LinkedHashSet<>(16, 0.75f);
-			final Iterator<HashA> it = super.keySet().iterator();
-			Cell c;
-			while ( it.hasNext() )
-				if ( (c=get(it.next())) != null )
+			for ( Cell c : super.values() )
+				if ( c != null )
 					set.add(c);
 			if ( set.isEmpty() )
 				for ( int i=0; i<numCmnExcls; ++i )

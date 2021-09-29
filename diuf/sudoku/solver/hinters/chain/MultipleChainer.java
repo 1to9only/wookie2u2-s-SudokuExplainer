@@ -16,6 +16,7 @@ import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.HintsList;
@@ -27,7 +28,8 @@ import diuf.sudoku.solver.hinters.hdnset.HiddenSet;
 import diuf.sudoku.solver.hinters.nkdset.NakedSet;
 import diuf.sudoku.solver.hinters.lock.Locking;
 import diuf.sudoku.utils.Debug;
-import diuf.sudoku.utils.FunkyAssSet;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.NULL_ST;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMyPollSet;
 import diuf.sudoku.utils.IMySet;
@@ -89,7 +91,7 @@ public final class MultipleChainer extends AChainer
 	 *  bloody-well cache hints! If you do cache hints then bloody-well BEWARE!
 	 */
 	@SuppressWarnings("fallthrough")
-	private MultipleChainer(Tech tech, boolean isImbedded, IInterruptMonitor im) {
+	private MultipleChainer(Tech tech, boolean isImbedded, IInterruptMonitor im, LogicalSolver solver) {
 		super(tech, isImbedded, im);
 		// build the hinters array
 		assert degree>=0 && degree<=5;
@@ -100,10 +102,17 @@ public final class MultipleChainer extends AChainer
 		// Create and populate the hinters array.
 		this.hinters = new IHinter[numHinters(degree)];
 		// imbed the Four Quick Foxes					// ns/call
-		hinters[0] = new Locking();						//   3,026
-		hinters[1] = new HiddenSet(Tech.HiddenPair);	//   2,858
-		hinters[2] = new NakedSet(Tech.NakedPair);		//   4,089
-		hinters[3] = new BasicFisherman(Tech.Swampfish);	//   3,756
+		if ( solver != null ) {
+			hinters[0] = solver.getLocking();
+			hinters[1] = solver.getHiddenPair();
+			hinters[2] = solver.getNakedPair();
+			hinters[3] = solver.getSwampfish();
+		} else {
+			hinters[0] = new Locking();
+			hinters[1] = new HiddenSet(Tech.HiddenPair);
+			hinters[2] = new NakedSet(Tech.NakedPair);
+			hinters[3] = new BasicFisherman(Tech.Swampfish);
+		}
 		// degree >= 2: Create the 1or2 nested (imbedded) Chainers.
 		//  reasonabls: 0 UnaryChain, NishioChain, MultipleChain, DynamicChain
 		//    possible: 1=DynamicPlus // I've never seen it NOT find a hint
@@ -113,16 +122,16 @@ public final class MultipleChainer extends AChainer
 		case DynamicPlus: // has no imbedded chainers, just the Four Quick Foxes
 			break;
 		case NestedMultiple: // has imbedded UnaryChain + MultipleChain
-			hinters[5]=new MultipleChainer(Tech.MultipleChain, T, im);
+			hinters[5]=new MultipleChainer(Tech.MultipleChain, T, im, solver);
  			//fallthrough
 		case NestedUnary: // has imbedded UnaryChain
 			hinters[4]=new UnaryChainer(T, im);
 			break;
 		case NestedPlus: // has imbedded DynamicChain + DynamicPlus
-			hinters[5]=new MultipleChainer(Tech.DynamicPlus, T, im);
+			hinters[5]=new MultipleChainer(Tech.DynamicPlus, T, im, solver);
 			//fallthrough
 		case NestedDynamic: // has imbedded DynamicChain
-			hinters[4]=new MultipleChainer(Tech.DynamicChain, T, im);
+			hinters[4]=new MultipleChainer(Tech.DynamicChain, T, im, solver);
 			//fallout
 		}
 	}
@@ -132,10 +141,10 @@ public final class MultipleChainer extends AChainer
 	 * @param tech a Tech with isChainer==true.
 	 */
 	public MultipleChainer(Tech tech) {
-		this(tech, F, null);
+		this(tech, F, null, null);
 	}
 	public MultipleChainer(Tech tech, IInterruptMonitor im) {
-		this(tech, F, im);
+		this(tech, F, im, null);
 	}
 
 	@Override
@@ -812,7 +821,7 @@ public final class MultipleChainer extends AChainer
 				: new Pots(target.cell, target.value);
 		if ( redPots == null )
 			return null;
-		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid="";
+		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid=EMPTY_STRING;
 		return new BinaryChainHint(this, redPots, source, dstOn, dstOff
 				, isNishio, isContradiction, tid);
 	}
@@ -838,7 +847,7 @@ public final class MultipleChainer extends AChainer
 			IAssSet vEffects = valuesEffects[v];
 			if ( vEffects==null || vEffects.isEmpty() ) { // shouldn't exist
 				assert false : "valueEffects["+v+"] is "
-					+(vEffects==null?"null":"empty")+"\n"
+					+(vEffects==null?NULL_ST:"empty")+"\n"
 					+" cell="+srcCell.toFullString()
 					+" target="+target
 					+" typeID="+typeID;
@@ -858,7 +867,7 @@ public final class MultipleChainer extends AChainer
 		} // next v
 		if(chains.isEmpty()) return null; // should never happen AFAIK
 		// Build & return the hint
-		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid="";
+		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid=EMPTY_STRING;
 		return new CellReductionHint(this, redPots, srcCell, chains, tid);
 	}
 
@@ -890,7 +899,7 @@ public final class MultipleChainer extends AChainer
 				chains.put(i, targetWithParents);
 			}
 		if(chains==null) return null;
-		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid="";
+		String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid=EMPTY_STRING;
 		return new RegionReductionHint(this, reds, region, value, chains, tid);
 	}
 
@@ -921,7 +930,6 @@ public final class MultipleChainer extends AChainer
 				if ( (p=prntOffs.getAss(cell,v)) != null )
 					// nb: we call the addParent method despite it being slower
 					// because it is required to create a missing parents list
-//					effect.addParent(p);
 					effect.parents.linkLast(p);
 		}
 	}
@@ -935,34 +943,23 @@ public final class MultipleChainer extends AChainer
 	 * order for this assumption to become applicable.
 	 */
 	@Override
-	protected void addHiddenParentsOfRegion(
-		  Ass effect
-		, Cell cell
-		, int value
-		, IAssSet prntOffs
-		, int currBits
-		, Cell otherCell
-		, int regionTypeIndex
-		, ARegion region
-	) {
-		// get the initial (not-erased) positions of value in region.
-		final int initBits = initGrid.cells[otherCell.i]
-				.regions[regionTypeIndex].indexesOf[value].bits;
-		if ( initBits == currBits )
-			return; // Nothing has been erased
-		Ass p; // parent
-		// foreach possible position of v in the region that has been erased
-		for ( int i : INDEXES[initBits & ~currBits] )
-			// nb: parentOffs is a LinkedMatrixAssSet with the strange getAss
-			// method (java.util.Set has no get) defined in IAssSet to fetch
-			// the Ass from the Set at this cell with this value; whether or
-			// not the Ass is an ON does not matter here coz all asses in an
-			// IAssSet must either be all ONs or all OFFs.
-			if ( (p=prntOffs.getAss(region.cells[i],value)) != null )
-				// nb: addParent is slower (a method call) but is required to
-				// create the parents list when it's missing, which is often.
-//				effect.addParent(p);
-				effect.parents.linkLast(p);
+	protected void addHiddenParentsOfRegion(int oci, int rti, int v
+			, int currPlaces, ARegion region, IAssSet rents, Ass effect) {
+		// get the erased places of value in region
+		// ie in the initialGrid andNot in the currentGrid.
+		final int erasedPlaces = initGrid.cells[oci].regions[rti].indexesOf[v].bits & ~currPlaces;
+		if ( erasedPlaces != 0 ) {
+			Ass p; // parent
+			// foreach possible position of v in the region that has been erased
+			for ( int i : INDEXES[erasedPlaces] )
+				// nb: parentOffs is a LinkedMatrixAssSet with the strange getAss
+				// method (java.util.Set has no get) defined by IAssSet to fetch
+				// the Ass from the Set at this cell with this value; whether or
+				// not the Ass is an ON does not matter here coz all asses in an
+				// IAssSet must either be all ONs or all OFFs.
+				if ( (p=rents.getAss(region.cells[i],v)) != null )
+					effect.parents.linkLast(p);
+		}
 	}
 
 }

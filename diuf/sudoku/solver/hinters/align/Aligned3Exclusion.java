@@ -11,8 +11,8 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -91,7 +91,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 	private final Idx idx02 = new Idx(); // = idx01 & idx2
 
 	public Aligned3Exclusion() {
-		super(Tech.AlignedTriple, null);
+		super(Tech.AlignedTriple, null, IO.A3E_HITS);
 		assert tech.isAligned;
 		assert degree == 3;
 	}

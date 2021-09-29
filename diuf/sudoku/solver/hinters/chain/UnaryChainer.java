@@ -7,7 +7,6 @@
 package diuf.sudoku.solver.hinters.chain;
 
 import diuf.sudoku.Ass;
-import diuf.sudoku.utils.FunkyAssSet;
 import diuf.sudoku.solver.hinters.LinkedMatrixAssSet;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.Grid;

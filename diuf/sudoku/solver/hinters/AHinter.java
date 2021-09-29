@@ -22,31 +22,7 @@ import java.util.Objects;
 public abstract class AHinter implements IHinter {
 
 	/** System.lineSeparator() by any other name is a rose. */
-	public static final String NL = diuf.sudoku.utils.Frmt.NL;
-
-	/**
-	 * Compares two IHinters by difficulty ASCENDING,
-	 * and then by toString() ASCENDING.
-	 * Used by the UsageMap: a TreeMap.
-	 * You could also use me to sort the wantedHinters list!
-	 */
-	public static final Comparator<IHinter> BY_DIFFICULTY_ASC_TOSTRING_ASC
-			= new Comparator<IHinter>() {
-		@Override
-		public int compare(IHinter a, IHinter b) {
-			if ( Objects.equals(a, b) ) // Currently a==b. May be overridden in future
-				return 0;
-			double da = a.getDifficulty();
-			double db = b.getDifficulty();
-			if ( da < db )
-				return -1;
-			if ( da > db )
-				return 1;
-			// WARNING: toString can be "a bit slow Redge"
-			// See: toString
-			return a.toString().compareTo(b.toString());
-		}
-	};
+	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	/** The Solving Technique which this {@code AHinter} implements. */
 	public final Tech tech;
@@ -77,6 +53,26 @@ public abstract class AHinter implements IHinter {
 	 * we do enabled once at the top of each solve, and then we de/activate
 	 * on the fly. Clear as bloody mud, right? */
 	protected boolean isActive = true;
+
+	/**
+	 * The index of this hinter in the wantedHinters array.
+	 * <p>
+	 * This rather weird field is used to order hinter-summary-lines in the
+	 * LogicalSolverTester .log by numCalls and then by the order of hinters
+	 * in the wantedHinters array, which is the order in which solve executes
+	 * each hinter. Without this field we need to create an external map of
+	 * the IHinter back to it's index, and a HashMap look-up is a bit slow
+	 * Redge (It's under the bonnet son).
+	 */
+	public int index;
+	@Override
+	public int getIndex() {
+		return index;
+	}
+	@Override
+	public void setIndex(int i) {
+		index = i;
+	}
 
 	/**
 	 * Constructor.

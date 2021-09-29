@@ -54,7 +54,7 @@ public class ExtractHintTypesFromLog {
 //						puzzleLine = line;
 					} else if ( hintPattern.matcher(line).matches() ) {
 						puzzleNumbers.set(puzzleNumber);
-//						System.out.print(puzzleLine.substring(puzzleLine.indexOf('\t')+1)+" ");
+//						System.out.print(puzzleLine.substring(puzzleLine.indexOf('\t')+1)+SPACE);
 						System.out.println(line.substring(HINT_START));
 					}
 				}

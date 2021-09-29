@@ -19,10 +19,14 @@ import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.Ass;
 import diuf.sudoku.Regions;
 import diuf.sudoku.utils.IAssSet;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -174,20 +178,11 @@ public final class LockingHint extends AHint implements IChildHint {
 
 	@Override
 	public String toStringImpl() {
-		if ( toString == null ) {
-			try {
-				StringBuilder sb = Frmt.getSB();
-				sb.append(getHintTypeName()).append(": ")
-				  .append(base).append(" and ").append(cover)
-				  .append(" on ").append(valueToRemove);
-				toString = sb.toString();
-			} catch (Exception ex) {
-				ex.printStackTrace(System.err);
-			}
-		}
-		return toString;
+		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(base).append(AND).append(cover)
+		  .append(ON).append(valueToRemove)
+		  .toString();
 	}
-	private String toString;
 
 	@Override
 	public String toHtmlImpl() {

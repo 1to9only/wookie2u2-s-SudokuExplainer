@@ -9,6 +9,8 @@ package diuf.sudoku;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.utils.Frmt;
 import java.util.Iterator;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.MINUS;
 
 /**
  * A 1-based (nonstandard) java.util.BitSet'ish set of the values 1..9.
@@ -37,6 +39,32 @@ public final class Values implements Iterable<Integer> {
 
 	/** 32 1's: to left-shift for a partial word mask. */
 	private static final int ONES = 0xffffffff; // 8 F's = 8 * 4 1's = 32 1's
+
+	/**
+	 * Produces a new int-array of the "value" of each set (1) bit in bits. The
+	 * "value" of each set bit is it's distance-from-the-right-hand-end + 1 of
+	 * the given bits in a standard LSR (Least Significant Right), just like
+	 * the "normal" decimal number representation, except in binary. It's just
+	 * a bit faster using an array, and cleaner.
+	 * <p>
+	 * For example: Given bits=9 (binary 1001) I return {1, 4}, an array of the
+	 * distance of each set (1) bit from the right + 1.
+	 *
+	 * @param bits the bits to extract "distances" from. If the given bits is 0
+	 *  then a zero-length array is returned.
+	 * @return an array of the distance-from-right + 1 of each set (1) bit.
+	 */
+	public static int[] toValuesArrayNew(int bits) {
+		final int size = Integer.bitCount(bits); // Don't use SIZE array here!
+		int[] a = new int[size];
+		int cnt = 0;
+		// nb: Don't use SHFT (as per normal) in case it doesn't exist yet
+		for ( int sv=1,i=1; sv<=bits; sv<<=1,++i )
+			if ( (bits & sv) != 0 ) // the sv bit is set in bits
+				a[cnt++] = i;
+		assert cnt == size;
+		return a;
+	}
 
 	/**
 	 * Produces a new int-array of the left-shifted bitset representation of
@@ -162,10 +190,11 @@ public final class Values implements Iterable<Integer> {
 			VSIZE[i] = (VALUESES[i]=toValuesArrayNew(i)).length;
 	}
 
-	public static final int[] FIRST_VALUE = Indexes.FIRST_INDEX.clone();
+	// clone Indexes.IFIRST and then add 1 to each element
+	public static final int[] VFIRST = Indexes.IFIRST.clone();
 	static {
-		for ( int i=0; i<FIRST_VALUE.length; ++i )
-			++FIRST_VALUE[i];
+		for ( int i=0; i<VFIRST.length; ++i )
+			++VFIRST[i];
 	}
 
 	/** The minimum value storable in this 1-based Values Set is 1. */
@@ -179,7 +208,7 @@ public final class Values implements Iterable<Integer> {
 	// Note that ALL_BITS also works for Indexes. It's just 9 (1) bits,
 	// regardless of whether those bits represent 1..9 or 0..8.
 	/** The bits of all values (1,2,3,4,5,6,7,8,9) == 111,111,111 == 511 */
-	public static final int ALL = (1<<ALL_SIZE)-1;
+	public static final int VALL = (1<<ALL_SIZE)-1;
 
 	/** An array of shifted bitset-values (faster than 1&lt;&lt;v-1) with a
 	 * representation of 0 (which isn't a value) but makes SHFT[1] the shifted
@@ -214,7 +243,7 @@ public final class Values implements Iterable<Integer> {
 
 	/** Creates a new filled (1,2,3,4,5,6,7,8,9) Values Set. */
 	static Values all() {
-		return new Values(ALL, ALL_SIZE, false);
+		return new Values(VALL, ALL_SIZE, false);
 	}
 	/** Creates a new empty () Values Set. */
 	static Values none() {
@@ -352,7 +381,7 @@ public final class Values implements Iterable<Integer> {
 
 	/** Sets all values (ie indexes) in this Values. */
 	public void fill() {
-		bits = ALL; //111,111,111
+		bits = VALL; //111,111,111
 		size = ALL_SIZE; //9
 	}
 
@@ -634,7 +663,7 @@ public final class Values implements Iterable<Integer> {
 	public int first() {
 		if ( bits == 0 )
 			return NONE; // WTF: was 0 pre KRC 2021-01-22
-		return FIRST_VALUE[bits];
+		return VFIRST[bits];
 	}
 
 //not used 2020-11-23, but there's solid logic for keeping it anyway
@@ -657,7 +686,7 @@ public final class Values implements Iterable<Integer> {
 		// let it AIOOBE if v is too big!
 		if ( b == 0 )
 			return NONE;
-		return FIRST_VALUE[b];
+		return VFIRST[b];
 	}
 
 //not used 2020-11-23, but there's solid logic for keeping it anyway
@@ -683,7 +712,7 @@ public final class Values implements Iterable<Integer> {
 //		assert Integer.bitCount(bits) == 2;
 //		assert (bits & ~VSHFT[zValue]) != 0;
 //		assert Integer.bitCount(bits & ~VSHFT[zValue]) == 1;
-		return FIRST_VALUE[bits & ~VSHFT[zValue]];
+		return VFIRST[bits & ~VSHFT[zValue]];
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ toArray & friends ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -737,32 +766,6 @@ public final class Values implements Iterable<Integer> {
 		return a;
 	}
 
-	/**
-	 * Produces a new int-array of the "value" of each set (1) bit in bits. The
-	 * "value" of each set bit is it's distance-from-the-right-hand-end + 1 of
-	 * the given bits in a standard LSR (Least Significant Right), just like
-	 * the "normal" decimal number representation, except in binary. It's just
-	 * a bit faster using an array, and cleaner.
-	 * <p>
-	 * For example: Given bits=9 (binary 1001) I return {1, 4}, an array of the
-	 * distance of each set (1) bit from the right + 1.
-	 *
-	 * @param bits the bits to extract "distances" from. If the given bits is 0
-	 *  then a zero-length array is returned.
-	 * @return an array of the distance-from-right + 1 of each set (1) bit.
-	 */
-	public static int[] toValuesArrayNew(int bits) {
-		final int size = Integer.bitCount(bits); // Don't use SIZE array here!
-		int[] a = new int[size];
-		int cnt = 0;
-		// nb: Don't use SHFT (as per normal) in case it doesn't exist yet
-		for ( int sv=1,i=1; sv<=bits; sv<<=1,++i )
-			if ( (bits & sv) != 0 ) // the sv bit is set in bits
-				a[cnt++] = i;
-		assert cnt == size;
-		return a;
-	}
-
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ toString & friends ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	private static final StringBuilder SB = new StringBuilder(3*MAX+5);
@@ -773,19 +776,21 @@ public final class Values implements Iterable<Integer> {
 	 * @param bits int to format.
 	 * @return the given 'sb' so that you can chain method calls. */
 	public static StringBuilder appendTo(StringBuilder sb, int bits) {
-		if(bits==0) return sb.append("-");
+		if ( bits == 0 )
+			return sb.append(MINUS);
 		for ( int v : VALUESES[bits] )
 			sb.append(v);
 		return sb;
 	}
 
-	/** Appends the string representation of this Values to the
-	 * given StringBuilder, in "plain format". EG: "1389"
-	 * @param sb to append to.
-	 * @return the given 'sb' so that you can chain method calls. */
-	public StringBuilder appendTo(StringBuilder sb) {
-		return Values.appendTo(sb, this.bits);
-	}
+//not_used
+//	/** Appends the string representation of this Values to the
+//	 * given StringBuilder, in "plain format". EG: "1389"
+//	 * @param sb to append to.
+//	 * @return the given 'sb' so that you can chain method calls. */
+//	public StringBuilder appendTo(StringBuilder sb) {
+//		return Values.appendTo(sb, this.bits);
+//	}
 
 	/**
 	 * Returns a String representation of the given bits.
@@ -797,17 +802,18 @@ public final class Values implements Iterable<Integer> {
 		return Values.appendTo(SB, bits).toString();
 	}
 
-	/**
-	 * Returns a String representation of the given bits, for debugging.
-	 * @param bits Values.bits (commonly called maybes, bitset, or just bits).
-	 * @return 7 => 3:123
-	 */
-	public static String toFullString(int bits) {
-		SB.setLength(0);
-		SB.append(VSIZE[bits]).append(":");
-		Values.appendTo(SB, bits);
-		return SB.toString();
-	}
+//not_used
+//	/**
+//	 * Returns a String representation of the given bits, for debugging.
+//	 * @param bits Values.bits (commonly called maybes, bitset, or just bits).
+//	 * @return 7 => 3:123
+//	 */
+//	public static String toFullString(int bits) {
+//		SB.setLength(0);
+//		SB.append(VSIZE[bits]).append(":");
+//		Values.appendTo(SB, bits);
+//		return SB.toString();
+//	}
 
 	/**
 	 * Returns a String representation of these Values.
@@ -838,11 +844,11 @@ public final class Values implements Iterable<Integer> {
 
 	/** only used in watch expressions on Aligned*Exclusion. */
 	public static String csv(long dummy, int n, int[] svs) {
-		if(n==0) return "-";
+		if(n==0) return MINUS;
 		SB.setLength(0);
 		Values.appendTo(SB, svs[0]);
 		for (int i=1; i<n; ++i) {
-			SB.append(", ");
+			SB.append(COMMA_SP);
 			Values.appendTo(SB, svs[i]);
 		}
 		return SB.toString();
@@ -857,7 +863,7 @@ public final class Values implements Iterable<Integer> {
 	 */
 	public static String toString(int bits, String sep, String lastSep) {
 		if ( bits == 0 )
-			return "-"; // this appears in AlsXzHint text, so MUST remain ""
+			return MINUS;
 		SB.setLength(0);
 		final int[] array = VALUESES[bits];
 		final int n = array.length;
@@ -898,7 +904,7 @@ public final class Values implements Iterable<Integer> {
 	 * @return 7 => "1, 2, 3"
 	 */
 	public static String csv(int bits) {
-		return toString(bits, Frmt.comma, Frmt.comma);
+		return toString(bits, Frmt.COMMA_SP, Frmt.COMMA_SP);
 	}
 
 	/**
@@ -908,7 +914,7 @@ public final class Values implements Iterable<Integer> {
 	 * @return 7 => "1, 2, and 3"
 	 */
 	public static String andS(int bits) {
-		return Values.toString(bits, Frmt.comma, Frmt.and);
+		return Values.toString(bits, Frmt.COMMA_SP, Frmt.AND);
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ plumbing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -19,7 +19,7 @@ public final class MyLong {
 	 * NumberFormatException.
 	 * <p>
 	 * This method is (roughly ~ I am naive) equivalent to
-	 * {@code Long.parseLong(line.substring(start, end).replaceAll(",",""))}
+	 * Long.parse(line.substring(start, end).trim().replaceAll(COMMA,EMPTY_STRING))
 	 * but without all the temporary Strings.
 	 * <p>
 	 * Also note that no warranty is made of the performance of this method

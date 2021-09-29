@@ -16,13 +16,16 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.ON;
 
 
 /**
@@ -143,26 +146,18 @@ public final class BasicFishHint extends AHint implements IChildHint {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " on <b>"+valueToRemove+"</b>";
+			s += ON+"<b>"+valueToRemove+"</b>";
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		if ( toString == null ) {
-			try {
-				StringBuilder sb = new StringBuilder(128);
-				sb.append(getHintTypeName()).append(": ");
-				Frmt.basesAndCovers(sb, bases, covers);
-				sb.append(" on ").append(valueToRemove);
-				toString = sb.toString();
-			} catch (Exception ex) {
-				ex.printStackTrace(System.err);
-			}
-		}
-		return toString;
+		// work this one out
+		final StringBuilder sb = new StringBuilder(64)
+		  .append(getHintTypeName()).append(COLON_SP);
+		return Frmu.basesAndCovers(sb, bases, covers)
+		  .append(ON).append(valueToRemove).toString();
 	}
-	private String toString;
 
 	// This method yields a special-case common name "Swampfish (nee X-Wing)"
 	// in the HTML tech name, as apposed to just the "ubiqitous" Tech.name().
@@ -174,7 +169,7 @@ public final class BasicFishHint extends AHint implements IChildHint {
 
 	@Override
 	public String toHtmlImpl() {
-		final String nn; if(degree<2) nn=""; else nn=NUMBER_NAMES[degree-2];
+		final String nn; if(degree<2) nn=EMPTY_STRING; else nn=NUMBER_NAMES[degree-2];
 		return Html.produce(this, "BasicFishHint.html"
 			, getHtmlHintTypeName()				// {0} "Swampfish (nee X-Wing)"
 			, Integer.toString(valueToRemove)	//  1

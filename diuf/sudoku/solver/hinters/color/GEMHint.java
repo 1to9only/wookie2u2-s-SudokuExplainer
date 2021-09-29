@@ -13,9 +13,13 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 /**
  * XColoringHint is the Extended Coloring hint DTO.
@@ -88,8 +92,10 @@ public class GEMHint extends AHint  {
 
 	@Override
 	protected String toStringImpl() {
-		return getHintTypeName()+": "+greenCells+", "+blueCells
-			 + " on " + v;
+		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(greenCells).append(COMMA_SP).append(blueCells)
+		  .append(ON).append(v)
+		  .toString();
 	}
 
 	@Override

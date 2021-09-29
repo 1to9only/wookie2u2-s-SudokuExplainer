@@ -7,6 +7,7 @@
 package diuf.sudoku.test;
 
 import diuf.sudoku.Grid;
+import static diuf.sudoku.utils.Frmt.TAB;
 import diuf.sudoku.utils.MyInteger;
 import diuf.sudoku.utils.MyLong;
 import diuf.sudoku.utils.ParseException;
@@ -23,11 +24,15 @@ import java.util.List;
 
 
 /**
- * Helper methods & fields which are static imported into my test classes, and
- * now also my tools (so I'm public) but not in the Sudoku Solver itself.
+ * Static helper methods and constants used in test classes, in the main
+ * package; not to be confused with TestHelp in the test package. sigh.
+ * And now also tools (so I'm public) but never in Sudoku Solver itself.
+ *
  * @author Keith Corlett
  */
  public final class TestHelpers {
+
+	static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	public static long div(long l, long i) {
 		return i==0L ? 0L : l/i;
@@ -71,15 +76,17 @@ import java.util.List;
 	 */
 	public static final class Line {
 
-		public static final Comparator<Line> BY_SOLVE_NANOS_DESC
-				= new Comparator<Line>() {
+		/**
+		 * Line order by solveNanos DESCENDING. Used only by a tool. sigh.
+		 */
+		public static final Comparator<Line> BY_TIME_DESC = new Comparator<Line>() {
 			@Override
 			public int compare(Line a, Line b) {
 				if ( a.solveNanos < b.solveNanos )
 					return 1; // DESCENDING
 				if ( a.solveNanos > b.solveNanos )
 					return -1; // DESCENDING
-				return a==b ? 0 : 1; // DESCENDING!!!
+				return a==b ? 0 : 1; // DESCENDING
 			}
 		};
 
@@ -111,7 +118,7 @@ import java.util.List;
 				return toString;
 			return toString = (number==0 ? "" : ""+number+"#")
 							+ file.getAbsolutePath()
-							+ "\t" + contents;
+							+ TAB + contents;
 		}
 
 		// only used in InputFileSorter

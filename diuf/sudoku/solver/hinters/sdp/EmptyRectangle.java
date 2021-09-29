@@ -38,7 +38,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.Col;
 import diuf.sudoku.Grid.Row;
-import static diuf.sudoku.Indexes.FIRST_INDEX;
+import static diuf.sudoku.Indexes.IFIRST;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
@@ -46,6 +46,7 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.List;
 
 /**
@@ -344,7 +345,7 @@ public class EmptyRectangle extends AHinter {
 									if ( (col.indexesOf[v].bits & c2yBits) != 0 ) {
 										// get the victim cell
 //KEEP4DOC: the combined line is ungrockable.
-										c2y = FIRST_INDEX[c2yBits];
+										c2y = IFIRST[c2yBits];
 										victim = cells[c2y*9+erC];
 										// if he's NOT in the erBox
 										if ( victim.box != box ) {
@@ -392,7 +393,7 @@ public class EmptyRectangle extends AHinter {
 										// get the red (removable value) cell
 										// and check that it's not in the erBox
 //KEEP4DOC: the combined line is ungrockable.
-										c2x = FIRST_INDEX[c2xBits];
+										c2x = IFIRST[c2xBits];
 										victim = cells[erR*9+c2x];
 										if ( victim.box != box ) {
 											// FOUND Empty Rectangle!
@@ -430,9 +431,8 @@ public class EmptyRectangle extends AHinter {
 			covers = Regions.list(erCol, erBox, erRow, c2.col, c2.row);
 		else
 			covers = Regions.list(erRow, erBox, erCol, c2.col, c2.row);
-		// for debugging to identify which method found this hint.
 //		final String tag = isCol ? "COL" : "ROW";
-		final String tag = "";
+		final String tag = EMPTY_STRING; // debug message
 		// build the hightlighted (green) potential values map
 		final Pots greens = new Pots(v, c1, c2);
 		// build the "fins" (blue) potential values map Cell->Values

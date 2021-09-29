@@ -19,7 +19,7 @@ public final class MyFile {
 
 	/** System.getProperty("os.name") returns "Windows 10" on my box. */
 	public static final String OS_NAME = System.getProperty("os.name");
-	
+
 	/** DILDOWS is not final, so you can flip it if it causes problems when
 	 * accessing files on a samba drive (or whatever), but I suggest you flip it
 	 * back in a finally block, so that native file-system rules are respected;
@@ -68,12 +68,25 @@ public final class MyFile {
 
 	/**
 	 * Throws a new FileNotFoundException if a File of fileName does not exist.
-	 * @param fileName
-	 * @throws FileNotFoundException 
+	 * @param filename
+	 * @throws FileNotFoundException
 	 */
-	public static void mustExist(String fileName) throws FileNotFoundException {
-		final File file = new File(fileName);
+	public static void mustExist(String filename) throws FileNotFoundException {
+		final File file = new File(filename);
 		if ( !file.exists() )
 			throw new FileNotFoundException(file.getAbsolutePath());
+	}
+
+	/**
+	 * Return filename minus the last period and thereafter.
+	 *
+	 * @param filename
+	 * @return
+	 */
+	public static String minusExt(String filename) {
+		int i = filename.lastIndexOf('.');
+		if ( i < 0 )
+			return filename;
+		return filename.substring(0, i);
 	}
 }

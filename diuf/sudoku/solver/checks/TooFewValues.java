@@ -9,8 +9,11 @@ package diuf.sudoku.solver.checks;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
-import java.util.BitSet;
+import static diuf.sudoku.Values.VALL;
+import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.accu.IAccumulator;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -25,22 +28,25 @@ public final class TooFewValues extends AWarningHinter {
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		BitSet seen = new BitSet(10);
+		if ( grid.enoughValues )
+			return false;
+		// Does this puzzle contain atleast 8 distinct values?
+		int seen = 0;
 		for ( Cell cell : grid.cells )
-			seen.set(cell.value);
-		seen.clear(0); // filter out 0, the value of empty cells
-		int numValues = seen.cardinality();
-		if ( numValues >= 8 )
+			seen |= VSHFT[cell.value]; // 0 safe!
+		int numValues = Integer.bitCount(seen);
+		if ( numValues >= 8 ) {
+			grid.enoughValues = true;
 			return false; // 0 or 1 missing values is OK
-
-		// Two or more values are missing, so build a string of missing values
+		}
+		// Two or more values are missing
 		StringBuilder sb = new StringBuilder((9-numValues)*3);
-		for ( int v=1, cnt=0; v<10; ++v )
-			if ( !seen.get(v) ) {
-				if ( ++cnt > 1 )
-					sb.append(", ");
-				sb.append(v);
-			}
+		int cnt = 0;
+		for ( int v : VALUESES[VALL & ~seen] ) {
+			if ( ++cnt > 1 )
+				sb.append(COMMA_SP);
+			sb.append(v);
+		}
 		accu.add(new WarningHint(this
 				, "Distinct values "+numValues+" is less than 8"
 				, "TooFewValues.html", sb.toString())

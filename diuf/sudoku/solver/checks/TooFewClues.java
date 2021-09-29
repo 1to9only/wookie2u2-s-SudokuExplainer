@@ -21,15 +21,18 @@ public final class TooFewClues extends AWarningHinter {
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
+		if ( grid.enoughClues )
+			return false;
+		// Does this puzzle have atleast 17 clues?
 		final int count = grid.countFilledCells();
-		assert count != 81; // don't validate when the grid.isFull() ya dummy
-		if ( count < 17 ) {
-			accu.add(new WarningHint(this
-					, "Number of clues "+count+" is less than 17"
-					, "TooFewClues.html", count));
-			return true;
+		if ( count > 16 ) {
+			grid.enoughClues = true;
+			return false;
 		}
-		return false;
+		accu.add(new WarningHint(this
+				, "Number of clues "+count+" is less than 17"
+				, "TooFewClues.html", count));
+		return true;
 	}
 
 }

@@ -11,8 +11,13 @@ import diuf.sudoku.solver.UsageMap;
 import diuf.sudoku.solver.Usage;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IHinter;
-import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.enspace;
+import static diuf.sudoku.utils.Frmt.frmtDbl;
 import diuf.sudoku.utils.Html;
+import static diuf.sudoku.utils.MyStrings.BIG_BUFFER_SIZE;
+import static diuf.sudoku.utils.MyStrings.bigSB;
 import diuf.sudoku.utils.Pair;
 import java.util.Map;
 
@@ -28,7 +33,9 @@ public final class AnalysisHint extends AWarningHint  {
 
 	public final UsageMap usageMap;
 
+	// The GUI reads these back to display them, and log them.
 	public double maxDifficulty;
+	public double ttlDifficulty;
 
 	public AnalysisHint(AHinter hinter, UsageMap usageMap) {
 		super(hinter);
@@ -49,58 +56,61 @@ public final class AnalysisHint extends AWarningHint  {
 			if(numHints < 100) mySB.append(' ');
 			if(numHints < 10) mySB.append(' ');
 			// append the line
-			mySB.append(numHints).append(" x ").append(hintName).append(" ")
-					.append(Frmt.dbl(difficulty)).append(NL);
+			mySB.append(numHints).append(" x ").append(hintName).append(SPACE)
+					.append(frmtDbl(difficulty)).append(NL);
 		}
 	}
 
 	private void appendUsage(StringBuilder sb, IHinter h, Usage u) {
 		final String difficulty;
 		if ( u.maxDifficulty > 0.0 )
-			difficulty = " "+Frmt.dbl(u.maxDifficulty);
+			difficulty = SPACE+frmtDbl(u.maxDifficulty);
 		else
-			difficulty = "";
-		int numHints = u.numHints;
+			difficulty = EMPTY_STRING;
+		int numHints = u.hints;
 		if ( numHints > 0 ) {
-			if(numHints < 10) sb.append(' ');
-			sb.append(numHints).append(" x ")
+			sb.append(enspace(numHints, 2)).append(" x ")
 			  .append(h).append(difficulty).append(NL);
 			// if this hinter produced more than one type of hint
 			// then append a count of each type of hint
 			if ( u.subHintsMap.size() > 1 )
 				appendSubHints(sb, u.subHintsMap);
 		}
+		// update the hint's difficulty feilds
+		if ( u.maxDifficulty > maxDifficulty )
+			maxDifficulty = u.maxDifficulty;
+		ttlDifficulty += u.ttlDifficulty;
 	}
 
 	// Cast me to AnalysisHint to access this method.
 	public StringBuilder appendUsageMap() {
-		return appendUsageMap(new StringBuilder(1024));
+		return appendUsageMap(bigSB());
 	}
-	// appendUsageMap takes mySB so that I can log a formatted summary of an
-	// AnalysisHint without all the HTML-extras.
-	private StringBuilder appendUsageMap(StringBuilder sb) {
+
+	// appendUsageMap takes mySB: a formatted summary of AnalysisHint.
+	public StringBuilder appendUsageMap(StringBuilder sb) {
 		Usage usage;
-		for ( IHinter h : usageMap.keySet() )
-			if ( (usage=usageMap.get(h)) == null )
-				// we ONLY get here when the catch-all was executed (no usage)
+		for ( java.util.Map.Entry<IHinter,Usage> e : usageMap.entrySet() )
+			if ( (usage=e.getValue()) == null ) {
+				// no usage only happens with the catch-all
 				sb.append(" 1 x catch-all usage data is unavailable (18.96)").append(NL)
 				  .append(" 1 x enable some bloody hinters ya putz  (42.42)").append(NL)
 				  .append(" 1 x or you've broken a bloody hinter    (86.69)").append(NL);
-			else
-				appendUsage(sb, h, usage);
+			    break; // NONE SHALL PASS
+			} else
+				appendUsage(sb, e.getKey(), usage);
 		return sb;
 	}
 
 	@Override
 	public String toHtmlImpl() {
-		StringBuilder mySB = Frmt.getSB();
+		// nb: MyStrings.bigSB is already used!
+		final StringBuilder mySB = new StringBuilder(BIG_BUFFER_SIZE);
 		mySB.append(NL).append("<pre>").append(NL);
 		appendUsageMap(mySB);
 		mySB.append("</pre>").append(NL);
 		return Html.produce(this, "AnalysisHint.html"
-				, Frmt.dbl(getDifficulty())
-				, mySB
-		);
+				, frmtDbl(getDifficulty()), mySB);
 	}
 
 	@Override
@@ -114,4 +124,5 @@ public final class AnalysisHint extends AWarningHint  {
 	public String toStringImpl() {
 		return "Sudoku Rating";
 	}
+
 }

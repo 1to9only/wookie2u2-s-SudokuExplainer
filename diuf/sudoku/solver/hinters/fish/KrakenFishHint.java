@@ -16,6 +16,9 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.AND;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyFunkyLinkedHashSet;
@@ -26,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
 
 /**
  * KrakenFishHint is the data transfer object for a Kraken Fish hint.
@@ -69,6 +73,12 @@ public class KrakenFishHint extends AHint  {
 		this.chains = chains;
 //		this.fins = fins;
 		cleanPots();
+	}
+	
+	// needed to squeeze the bloody hint toString!
+	@Override
+	public boolean isKraken() {
+		return true;
 	}
 
 	private void cleanPots() {
@@ -207,14 +217,15 @@ public class KrakenFishHint extends AHint  {
 
 	@Override
 	protected String getHintTypeNameImpl() {
-		return hType.name + ": " + cause.getHintTypeName();
+		return hType.name + COLON_SP + cause.getHintTypeName();
 	}
 
 	@Override
 	protected String toStringImpl() {
+		final StringBuilder sb = Frmu.getSB();
 		if ( isInvalid )
-			return "#" + hType.name + ": " + cause;
-		return hType.name + ": " + cause;
+			sb.append("#");
+		return sb.append(hType.name).append(COLON_SP).append(cause).toString();
 	}
 
 	@Override
@@ -222,8 +233,8 @@ public class KrakenFishHint extends AHint  {
 		// add some color to toString() to make it easier to see what's what.
 		// NOTE: replaceSecond to cater for the odd "wrapped" hint name:
 		// Kraken type 2: Finned Swampfish: col D, col H and row 2, row 6 on 3
-		String coloredHint = MyStrings.replaceSecond(toString(), ": ", ": <b1>")
-				.replaceFirst(" and ", "</b1> and <b2>")
+		String coloredHint = MyStrings.replaceSecond(toString(), COLON_SP, ": <b1>")
+				.replaceFirst(AND, "</b1> and <b2>")
 				.replaceFirst(" on", "</b2> on");
 		coloredHint = Html.colorIn(coloredHint);
 		final String chainsString = appendChains(new StringBuilder(1024))

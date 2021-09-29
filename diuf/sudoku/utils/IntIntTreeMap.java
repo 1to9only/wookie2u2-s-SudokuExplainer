@@ -212,7 +212,7 @@
 //
 //		@Override
 //		public String toString() {
-//			return key + "=" + value;
+//			return key + EQUALS + value;
 //		}
 //	}
 //

@@ -8,6 +8,8 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.hinters.chain.AChainingHint;
+import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.PLUS;
 import static diuf.sudoku.utils.Hash.LSH4;
 import static diuf.sudoku.utils.Hash.LSH8;
 import diuf.sudoku.utils.MyLinkedList;
@@ -102,12 +104,23 @@ public class Ass {
 	}
 
 	/** An enum of the type-of the cause of an Assumption. */
-	public enum Cause {
-		NakedSingle(-1),		 // regionTypeIndex not applicable
-		HiddenBox(Grid.BOX), // 0
-		HiddenRow(Grid.ROW), // 1
-		HiddenCol(Grid.COL), // 2
-		Advanced(-1);		 // regionTypeIndex not applicable
+	public static enum Cause {
+		  NakedSingle(-1)		// regionTypeIndex not applicable
+		, HiddenBox(Grid.BOX)	// 0
+		, HiddenRow(Grid.ROW)	// 1
+		, HiddenCol(Grid.COL)	// 2
+		, Advanced(-1)			// regionTypeIndex not applicable
+		;
+		/**
+		 * An array of the Cause for a HiddenSingle in each region type,
+		 * so that we can just look it up by regionTypeIndex, rather than
+		 * calculating each on the fly.
+		 */
+		public static final Cause[] CAUSE_FOR_REGION_TYPE = {
+			  HiddenBox
+			, HiddenRow
+			, HiddenCol
+		};
 		public final int regionTypeIndex;
 		private Cause(int regionTypeIndex) {
 			this.regionTypeIndex = regionTypeIndex;
@@ -187,9 +200,8 @@ public class Ass {
 			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
 		else
 			hashCode = LSH8[value] ^ cell.hashCode;
-//		parents = new MyLinkedList<>();
-		parents = null; // we now always create the list when you populate it!
-		// NB: parents remains an empty collection
+		// parents is null until it is populated
+		parents = null;
 		this.cause = null;
 		this.explanation = null;
 		this.nestedChain = null;
@@ -304,7 +316,8 @@ public class Ass {
 			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
 		else
 			hashCode = LSH8[value] ^ cell.hashCode;
-		this.parents = new MyLinkedList<>(); // list created even if parent is null!
+		// Eff's have parents even if the given parent is null!
+		this.parents = new MyLinkedList<>();
 		if ( parent != null )
 			this.parents.linkLast(parent);
 		this.cause = null;
@@ -413,6 +426,7 @@ public class Ass {
 	 *  upon if isOn==parity.
 	 */
 	public String weak(boolean parity) {
+		// nb: terniaries are fast enough when we're building html
 		return cell.id
 			 + (isOn==parity ? " contains" : " does not contain")
 			 + " the value " + value;
@@ -423,8 +437,9 @@ public class Ass {
 	 * @return "A1 (contains/does not contain) the value 1" depending on isOn.
 	 */
 	public String weak() {
-		// NB: if you change the result then you also need to do a search for
+		// nb: if you change the result then you also need to do a search for
 		//     sourceWeakPrefix and change it as well.
+		// nb: terniaries are fast enough when we're building html
 		return cell.id
 			 + (isOn ? " contains" : " does not contain")
 			 + " the value " + value;
@@ -440,14 +455,14 @@ public class Ass {
 			 + " the value " + value;
 	}
 
-	/** @return {@code cell.id+(isOn?"+":"-")+value} */
+	/** @return {@code cell.id+(isOn?PLUS:MINUS)+value} */
 	@Override
 	public String toString() {
 		if ( true ) { // @check true
 			if(ts!=null) return ts;
-			return ts = cell.id + (isOn?"+":"-") + value;
+			return ts = cell.id + (isOn?PLUS:MINUS) + value;
 		} else { // DEBUG: no caching
-			return cell.id + (isOn?"+":"-") + value;
+			return cell.id + (isOn?PLUS:MINUS) + value;
 		}
 	}
 	private String ts;

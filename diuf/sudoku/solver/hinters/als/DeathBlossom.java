@@ -8,8 +8,9 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.*;
 import diuf.sudoku.Grid.*;
-import static diuf.sudoku.Values.FIRST_VALUE;
+import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
@@ -45,7 +46,7 @@ import java.util.List;
  * @author Keith Corlett 2020-01-13
  */
 public class DeathBlossom extends AAlsHinter
-		implements diuf.sudoku.solver.IPreparer
+		implements diuf.sudoku.solver.hinters.IPreparer
 				 , diuf.sudoku.solver.hinters.ICleanUp
 {
 	// the default number of ALSs per candidate value.
@@ -215,7 +216,7 @@ public class DeathBlossom extends AAlsHinter
 				// each ALSs cells are added to db.idx
 				db.idx.clear();
 				// ALS's must share a common value other than stem.maybes
-				db.cmnCands = Values.ALL & ~stem.maybes.bits;
+				db.cmnCands = VALL & ~stem.maybes.bits;
 				// seek an ALS for each stem.maybe (each freeCand)
 				// if the DeathBlossom has any eliminations then hint
 				if ( (result|=recurse(stem)) && onlyOne )
@@ -241,7 +242,7 @@ public class DeathBlossom extends AAlsHinter
 			// preCmnCands: maybes common to all ALS's already in this DB
 			int preCands, preCmnCands;
 			// find an ALS for the next free (unassociated) stem.maybe
-			int v = FIRST_VALUE[db.freeCands];
+			int v = VFIRST[db.freeCands];
 			// foreach ALS with v as a candidate
 			for ( Als als : alssByValue[v] ) {
 				// each ALS.cell which maybe value sees the stem

@@ -11,13 +11,20 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Bounds;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
 import diuf.sudoku.Settings;
+import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.hinters.als.Als;
+import static diuf.sudoku.utils.Frmt.DIGITS;
+import static diuf.sudoku.utils.Frmt.LETTERS;
+import static diuf.sudoku.utils.Frmt.LOWERCASE_LETTERS;
+import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.PLUS;
 import diuf.sudoku.utils.Log;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -151,14 +158,6 @@ class SudokuGridPanel extends JPanel {
 		POTS_COLORS[CI_BLUE] = Color.BLUE;
 	}
 
-	private static final String[] DIGITS = new String[] {
-		".", "1", "2", "3", "4", "5", "6", "7", "8", "9"
-	};
-	private static final String[] LETTERS = new String[] {
-		"A", "B", "C", "D", "E", "F", "G", "H", "I"
-	};
-
-
 	// number of corners in a triange
 	private static final int NUM_POINTS = 3;
 	// used to draw the arrow at the end of the link
@@ -189,9 +188,9 @@ class SudokuGridPanel extends JPanel {
 	private int ARROW_LENGTH = 9; // 5
 	private int ARROW_WIDTH  = 3; // 2
 	private double LINK_OFFSET = 4.0;  // 3.0
-	private Dimension PREFFERED_SIZE = new Dimension(GRID_SIZE+H_GAP+V_GAP
-			, GRID_SIZE+H_GAP+V_GAP);
-	private final int TOP_OF_COLUMN_LABELS = V_GAP + GRID_SIZE;
+	private Dimension PREFFERED_SIZE
+			= new Dimension(GRID_SIZE+H_GAP+V_GAP, GRID_SIZE+H_GAP+V_GAP);
+	private final int BELOW_GRID = V_GAP + GRID_SIZE; // top of column labels
 
 	private Grid grid; // the current Sudoku grid to display.
 	private final SudokuExplainer engine; // I "borrow" my parents engine
@@ -341,27 +340,27 @@ class SudokuGridPanel extends JPanel {
 
 			@Override
 			public void mousePressed(MouseEvent e) {
-				if ( e.getY() > TOP_OF_COLUMN_LABELS ) { // below the grid
+				if ( e.getY() > BELOW_GRID ) { // below grid (column letters)
 					if ( e.getX() < H_GAP ) { // left of the 'A'
 						setRedBGCells(grid.getWrongens());
 						e.consume();
 						repaint();
-					} else if ( e.getButton() == BUTTON1 ) { // left
-						final char col = (char)('A' + ((e.getX()-H_GAP) / COS));
-						if ( col>='A' && col<='I' ) {
-							setGreenPots(engine.solver.cheat(grid, col));
+					} else if ( e.getButton() == BUTTON1 ) { // left button
+						final int i = (e.getX()-H_GAP) / COS;
+						if ( i>-1 && i<LETTERS.length ) {
+							setGreenPots(engine.cheat(grid, LETTERS[i]));
 							e.consume();
 							repaint();
 						}
 					} else { // right/middle button
-						final char col = (char)('a' + ((e.getX()-H_GAP) / COS));
-						if ( col>='a' && col<='i' ) {
-							setGreenPots(engine.solver.cheat(grid, col));
+						final int i = (e.getX()-H_GAP) / COS;
+						if ( i>-1 && i<LOWERCASE_LETTERS.length ) {
+							setGreenPots(engine.cheat(grid, LOWERCASE_LETTERS[i]));
 							e.consume();
 							repaint();
 						}
 					}
-				} else if ( e.getX() < H_GAP ) {
+				} else if ( e.getX() < H_GAP ) { // left of grid (row numbers)
 					// hold down the left button over a row legend
 					//      to highlight all candidates of this number.
 					// hold down the right/middle button over a row legend
@@ -370,26 +369,25 @@ class SudokuGridPanel extends JPanel {
 					if ( v>0 && v<10 ) {
 						if ( e.getButton() == BUTTON1 ) // left
 							setGreenPots(grid.getCandidatePots(v));
-						else // right or middle
+						else if ( v<9 || engine.cheatMode ) // right or middle
 							setGreenPots(grid.getMaybesSizePots(v));
+						else
+							engine.beep();
 						e.consume();
 						repaint();
 					}
 				}
-				if ( !e.isConsumed() )
-					super.mousePressed(e);
 			}
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
 				// unhighlight all candidates. "Drag" the mouse to the right
 				// and then release it to leave these candidates highlighted.
-				if ( e.getX() < H_GAP ) {
+				if ( e.getX()<H_GAP || e.getY()>BELOW_GRID ) {
 					setGreenPots(null);
 					e.consume();
 					repaint();
-				} else
-					super.mouseReleased(e);
+				}
 			}
 
 		});
@@ -603,43 +601,50 @@ class SudokuGridPanel extends JPanel {
 		this.resultColor = resultColor;
 	}
 
+	// it's faster to detect empty ONCE here than repeatedly downstream
+	private static void setColorPots(int colorIndex, Pots pots) {
+		if ( pots==null || pots.isEmpty() )
+			COLOR_POTS[colorIndex] = null;
+		else
+			COLOR_POTS[colorIndex] = pots;
+	}
+
 	/** Set the green potentials.
 	 * NOTE that formerly green+red=orange. Now oranges are separate! */
-	boolean setGreenPots(Pots pots) {
-		COLOR_POTS[CI_GREEN] = pots;
-		return pots != null;
+	void setGreenPots(Pots pots) {
+		setColorPots(CI_GREEN, pots);
 	}
 
 	/** Set the red potentials.
 	 * NOTE that formerly green+red=orange. Now oranges are separate! */
 	void setRedPots(Pots pots) {
-		COLOR_POTS[CI_RED] = pots;
+		setColorPots(CI_RED, pots);
 	}
 
 	/** Set the orange potentials.
 	 * NOTE that formerly green+red=orange. Now oranges are separate! */
 	void setOrangePots(Pots pots) {
-		COLOR_POTS[CI_ORANGE] = pots;
+		setColorPots(CI_ORANGE, pots);
 	}
 
 	/** Set the blue potentials. Used in nested hint explanations. */
 	void setBluePots(Pots pots) {
-		COLOR_POTS[CI_BLUE] = pots;
+		setColorPots(CI_BLUE, pots);
 	}
 
 	/** Set the yellow potentials. Implemented for Coloring hints. */
 	void setYellowPots(Pots pots) {
-		COLOR_POTS[CI_YELLOW] = pots;
+		setColorPots(CI_YELLOW, pots);
 	}
 
 	/** Set the purple potentials. Implemented for Coloring hints. */
 	void setPurplePots(Pots pots) {
-		COLOR_POTS[CI_PURPLE] = pots;
+		setColorPots(CI_PURPLE, pots);
 	}
 
 	/** Set the brown potentials. Implemented for Coloring hints. */
 	void setBrownPots(Pots pots) {
-		COLOR_POTS[CI_BROWN] = pots;
+		setColorPots(CI_BROWN, pots);
 	}
 
 	/** Set the bases (the blues). */
@@ -781,7 +786,7 @@ class SudokuGridPanel extends JPanel {
 	}
 
 	private void initGraphics(Graphics2D g2) {
-		if (Settings.THE.get(Settings.isAntialiasing)) {
+		if (THE_SETTINGS.get(Settings.isAntialiasing)) {
 			g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 			g2.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
 			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
@@ -967,41 +972,60 @@ class SudokuGridPanel extends JPanel {
 	 * array-lookups, and an array-lookup is MUCH faster than HashMap.get. So
 	 * it's faster overall because it dramatically reduces the number of gets!
 	 * Nothing But Net! The downside is memory: a matrix of 81*9 Color's. Meh!
-	 * <p>NOTE: formerly green+red=orange. Now oranges are separate!
-	 * @return
+	 * <p>
+	 * NOTE: formerly green+red=orange. Now oranges are separate!
+	 * <p>
+	 * KRC 2021-06-21 I'm replacing all keySet->get with entrySet, because it's
+	 * faster, and I've done so here. I think it's worth noting the original
+	 * did upto 5,103 gets, and now we do precisely 0, which just goes to show
+	 * that there really are more than one ways to skin a cat, just some are a
+	 * bit more efficient than others. I think this is now "fairly efficient".
+	 * The only possible enhancement that I can see is making paintCellValues
+	 * (my caller) default to Color.GRAY instead of defaulting to GRAY down in
+	 * the setMaybeColor function, which would then no longer need to exist;
+	 * we could just look-up the [cell-indice][value-1] in MAYBES_COLORS and
+	 * if it's null we use GRAY. I'd also like to delay creating MAYBES_COLORS
+	 * sub-arrays until required, because we have an array of 9 Colors for each
+	 * of atleast 17 clues, which is 17*9=153 unused Color, which isn't small,
+	 * so its a bit of a waste of memory: 153*(4+4+4+4+4)=3,060 bytes.
 	 */
-	private Color[][] initMaybesColors() {
+	private void initMaybesColors() {
 		// clear all MAYBES_COLORS (a matrix[cellIndex][value-1])
 		for ( int i=0; i<81; ++i )
 			Arrays.fill(MAYBES_COLORS[i], null);
-		// populate MAYBES_COLORS array from the array of Pots
+		// populate the MAYBES_COLORS array from the Pots array
 		Pots pots;  Color color;
-		Color[] cellsColors;
+		Color[] cellsMaybesColor;
 		for ( int i=0; i<NUM_COLOR_POTS; ++i ) {
 			color = POTS_COLORS[i];
-			if ( (pots=COLOR_POTS[i])!=null && !pots.isEmpty() )
-				for ( Cell cell : pots.keySet() ) {
-					cellsColors = MAYBES_COLORS[cell.i];
-					// nb: array-iterator is MUCH faster than any Iterator
-					for ( int value : VALUESES[pots.get(cell).bits] )
-						// one-based-value to zero-based-array
-						cellsColors[value-1] = color;
+			if ( (pots=COLOR_POTS[i]) != null ) {
+				assert !pots.isEmpty() : "empty pots denied, for speed!";
+				for ( java.util.Map.Entry<Cell,Values> e : pots.entrySet() ) {
+					cellsMaybesColor = MAYBES_COLORS[e.getKey().i];
+					//nb: INDEXES[i] is VALUES[i] with one removed from each v,
+					//to cater for a one-based-value in a zero-based-array.
+					//Just beware that the returned v is acually vMinus1!
+					for ( int vMinus1 : INDEXES[e.getValue().bits] )
+						cellsMaybesColor[vMinus1] = color;
 				}
+			}
 		}
-		return MAYBES_COLORS;
 	}
+	// first index is indice 0..80, second index is value-1 0..8.
 	private static final Color[][] MAYBES_COLORS = new Color[81][9];
 
 	// set the graphics-color to the color of the given Cell-value (ie maybe)
 	// @return isHighlighted == color!=GRAY (the default)
-	private boolean setMaybeColor(Graphics g, Cell cell, int value) {
-		// one-based-value to zero-based-array
-		Color c = MAYBES_COLORS[cell.i][value-1];
-		boolean ret = c != null;
-		if ( !ret )
-			c = Color.GRAY;
-		g.setColor(c);
-		return ret;
+	private boolean setMaybeColor(Graphics g, int i, int vMinus1) {
+		final Color color;
+		// value-1 for one-based-value to zero-based-array
+		if ( (color=MAYBES_COLORS[i][vMinus1]) != null ) {
+			g.setColor(color);
+			return true;
+		} else {
+			g.setColor(Color.GRAY);
+			return false;
+		}
 	}
 
 	/**
@@ -1009,7 +1033,7 @@ class SudokuGridPanel extends JPanel {
 	 * @param g The Graphics to paint on.
 	 */
 	private void paintCellValues(Graphics g) {
-		final boolean isShowingMaybes = Settings.THE.get(Settings.isShowingMaybes);
+		final boolean isShowingMaybes = THE_SETTINGS.get(Settings.isShowingMaybes);
 		initMaybesColors(); // sets MAYBES_COLORS
 		Values values;
 		int x,y, cx,cy, i;
@@ -1027,7 +1051,7 @@ class SudokuGridPanel extends JPanel {
 					i = v - 1;
 					cx = x*COS + CELL_PAD + (i%3)*CISo3 + CISo6;
 					cy = y*COS + CELL_PAD + (i/3)*CISo3 + CISo6;
-					isHighlighted = setMaybeColor(g, cell, v);
+					isHighlighted = setMaybeColor(g, cell.i, v-1);
 					if ( result!=null && result.equals(cell, v) )
 						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont3);
 					else if ( results!=null && (values=results.get(cell))!=null
@@ -1055,16 +1079,16 @@ class SudokuGridPanel extends JPanel {
 			g.setColor(SS_COLORS[c]);
 			for ( int v=1; v<10; ++v ) {
 				if ( subs[c][v].any() )
-					paintMarkers(g, v, subs[c][v], "-", 8);
+					paintMarkers(g, v, subs[c][v], MINUS, 8);
 				if ( supers[c][v].any() )
-					paintMarkers(g, v, supers[c][v], "+", 10);
+					paintMarkers(g, v, supers[c][v], PLUS, 10);
 			}
 		}
 		// over-paint RED any that're in both sub colors.
 		g.setColor(Color.RED);
 		for ( int v=1; v<10; ++v )
 			if ( tmp.setAndAny(subs[0][v], subs[1][v]) )
-				paintMarkers(g, v, tmp, "-", 8);
+				paintMarkers(g, v, tmp, MINUS, 8);
 	}
 	private final Idx tmp = new Idx();
 
@@ -1073,8 +1097,8 @@ class SudokuGridPanel extends JPanel {
 		final int u = v - 1;
 		for ( int i : idx.toArrayB() )
 			// x,y are the centre point to paint at (I expected top left)
-			drawStringCentered(g, s,
-					  i%9*COS + CELL_PAD + (u%3)*CISo3 + CISo6 + offset // horizontal
+			drawStringCentered(g, s
+					, i%9*COS + CELL_PAD + (u%3)*CISo3 + CISo6 + offset // horizontal
 					, i/9*COS + CELL_PAD + (u/3)*CISo3 + CISo6 // vertical
 			);
 	}
@@ -1162,6 +1186,7 @@ class SudokuGridPanel extends JPanel {
 			p.y = y + CISo3;
 		}
 	}
+
 	private void paintLinks(Graphics g) {
 		if ( links==null || links.size()==0 )
 			return;

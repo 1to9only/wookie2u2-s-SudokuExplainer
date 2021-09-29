@@ -12,8 +12,15 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 
 
 /**
@@ -166,7 +173,7 @@ public class ComplexFishHint extends AHint  {
 	// we search the bases, but remove candidates from the covers
 	final Pots endoFins; // the endoFins Cell=>Values
 	final Pots sharks; // the shark (canniblistic) Cell=>Values
-	String debugMessage; // the techies debug message, else "" (never null)
+	String tag; // the techies debug message, else "" (never null)
 	ComplexFishHint(AHinter hinter, Type hintType, boolean isSashimi
 			, int candidate, List<ARegion> bases, List<ARegion> covers
 			, Pots redPots, Pots greenPots, Pots fins, Pots endoFins
@@ -177,7 +184,7 @@ public class ComplexFishHint extends AHint  {
 		this.candidate = candidate;
 		this.endoFins = endoFins;
 		this.sharks = sharks;
-		this.debugMessage = debugMessage;
+		this.tag = debugMessage;
 	}
 
 	@Override
@@ -205,18 +212,15 @@ public class ComplexFishHint extends AHint  {
 
 	@Override
 	protected String toStringImpl() {
-		// is this bastard invalid
-		final String s; if(isInvalid) s="#"; else s="";
-		// sashimi fins replace a corner
-		final String fins;
+		final StringBuilder sb = Frmt.getSB();
+		if ( isInvalid )
+			sb.append("#");
+		sb.append(getHintTypeName()).append(COLON_SP).append(Frmu.csv(bases));
 		if ( isSashimi )
-			fins = " (fins "+blues.cells()+")";
-		else
-			fins = "";
-		return s+getHintTypeName()+": "+Frmt.csv(bases)
-				 + fins
-				 + " and "+Frmt.csv(covers)
-				 + " on "+candidate;
+			sb.append(" (fins ").append(blues.cells()).append(")");
+		return sb.append(AND).append(Frmu.csv(covers))
+		  .append(ON).append(candidate)
+		  .toString();
 	}
 
 	String squeeze() {
@@ -228,27 +232,27 @@ public class ComplexFishHint extends AHint  {
 		// Finned/Sashimi: hijack debugMessage = names of finned regions
 		if ( (hType.isFinned || hType.isSashimi)
 		  && !hType.isFranken && !hType.isMutant )
-			debugMessage = Regions.finned(bases, blues.keySet());
+			tag = Regions.finned(bases, blues.keySet());
 		else
-			debugMessage = "";
+			tag = EMPTY_STRING;
 		final String filename =
 			hType.isMutant ? "MutantFishHint.html"
 			: hType.isFranken ? "FrankenFishHint.html"
 			: hType.isFinned||hType.isSashimi ? "FinnedFishHint.html"
 			: "BasicFishHint.html";
-		final String nn; if(degree<2) nn=""; else nn=NUMBER_NAMES[degree-2];
+		final String nn; if(degree<2) nn=EMPTY_STRING; else nn=NUMBER_NAMES[degree-2];
 		// add some color to toString() to make it easier to see what's what.
 		final String coloredHint = Html.colorIn(toString()
 				.replaceFirst(": ", ": <b1>")
-				.replaceFirst(" and ", "</b1> and <b2>")
-				.replaceFirst(" on", "</b2> on"));
+				.replaceFirst(AND, "</b1> and <b2>")
+				.replaceFirst(ON, "</b2> on "));
 		return Html.produce(this, filename
 			, getHintTypeName()				// {0}
 			, Integer.toString(candidate)	//  1
 			, Regions.typeNames(bases)		//  2
 			, Regions.typeNames(covers)		//  3
 			, nn							//  4 number name
-			, debugMessage					//  5
+			, tag							//  5 debug message
 			, redPots.toString()			//  6 eliminations
 			, blues.toString()				//  7 fins
 			, coloredHint					//  8 hint (elims)

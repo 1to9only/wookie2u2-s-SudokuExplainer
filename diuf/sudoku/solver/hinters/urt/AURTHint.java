@@ -12,6 +12,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.ArrayList;
@@ -19,6 +20,13 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.SPACE;
 
 
 /**
@@ -120,7 +128,7 @@ public abstract class AURTHint extends AHint  {
 			return "Unique Rectangle Hidden";
 		return "Unique "
 				+ (loopSize==4 ? "Rectangle" : "Loop")
-				+ (loopSize>6 ? " "+loopSize : "")
+				+ (loopSize>6 ? SPACE+loopSize : EMPTY_STRING)
 				+ " type " + typeIndex;
 	}
 
@@ -134,7 +142,10 @@ public abstract class AURTHint extends AHint  {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+Frmt.csv(loop)+" on "+v1+" and "+v2;
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(loop))
+		  .append(ON).append(v1).append(AND).append(v2)
+		  .toString();
 	}
 
 	@Override

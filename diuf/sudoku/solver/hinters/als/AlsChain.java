@@ -38,6 +38,8 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 import java.util.List;
 import java.util.SortedMap;
@@ -308,7 +310,7 @@ public final class AlsChain extends AAlsHinter
 //									--chainIndex;
 //									redPots.clear(); bluePots.clear();
 									// on top of it -> die
-									StdErr.exit(StdErr.me()+": invalid hint", new Throwable());
+									StdErr.exit(Log.me()+": invalid hint", new Throwable());
 								}
 							}
 							// build a list of alss: chainAlss[0] = startAls
@@ -317,8 +319,8 @@ public final class AlsChain extends AAlsHinter
 							// nb: blue overwrites all incl red; so rmv reds
 							blues.removeAll(reds);
 							// tag normally blank (so you see nothing)
-//							String tag = invalidity.isEmpty() ? "" : "<br><h2>"+invalidity+"</h2>";
-							final String tag = "";
+//							String tag = invalidity.isEmpty() ? EMPTY_STRING : "<br><h2>"+invalidity+"</h2>";
+							final String tag = EMPTY_STRING;
 							// build the hint
 							final AHint hint = new AlsChainHint(
 								  this

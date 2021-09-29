@@ -18,6 +18,9 @@
  */
 package diuf.sudoku.utils;
 
+import static diuf.sudoku.utils.Frmt.EQUALS;
+import static diuf.sudoku.utils.Frmt.SPACE;
+
 /**
  * IntIntHashMap is a {@code java.util.HashMap<int, int>} which supports just
  * the operations I actually use: put and get, and clean.
@@ -43,7 +46,7 @@ public class IntIntHashMap {
 		}
 		@Override
 		public String toString() {
-			return ""+key+"="+value+" "+next; // No loops!
+			return ""+key+EQUALS+value+SPACE+next; // No loops!
 		}
 		@Override
 		public boolean equals(Object o) {

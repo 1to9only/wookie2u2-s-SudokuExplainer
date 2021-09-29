@@ -21,7 +21,7 @@ import diuf.sudoku.solver.hinters.AHinter;
  */
 public class DummyHinter extends AHinter {
 	public DummyHinter() {
-		super(Tech.Solution);
+		super(Tech.Analysis);
 	}
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {

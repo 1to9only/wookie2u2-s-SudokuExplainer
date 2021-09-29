@@ -19,23 +19,26 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
-import static diuf.sudoku.Values.FIRST_VALUE;
+import static diuf.sudoku.Grid.BOX_OF;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.IPreparer;
+import diuf.sudoku.solver.hinters.IPreparer;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
+import static diuf.sudoku.solver.hinters.color.Words.*;
+import diuf.sudoku.utils.Debug;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Set;
-import static diuf.sudoku.Grid.BOX_OF;
 
 /**
  * Medusa3D implements the 3D Medusa Coloring Sudoku solving technique as
@@ -62,13 +65,13 @@ public class Medusa3D extends AHinter implements IPreparer
 	/** The opposite color. */
 	private static final int[] OPPOSITE = {BLUE, GREEN};
 	/** names of the colors, in an array to select from. */
-	private static final String[] COLORS = {"green", "blue"};
+	private static final String[] COLORS = {green, blue};
 	/** colors ON HTML tags. */
-	private static final String[] CON = {"<g>", "<b1>"};
+	private static final String[] CON = {GON, BON};
 	/** colors OFF HTML tags. */
-	private static final String[] COFF = {"</g>", "</b1>"};
+	private static final String[] COFF = {GOFF, BOFF};
 	/** colored color names, for convenience. */
-	private static final String[] CCOLORS = {"<g>green</g>", "<b1>blue</b1>"};
+	private static final String[] CCOLORS = {GON+green+GOFF, BON+blue+BOFF};
 	// The starting size of the steps StringBuilder. It'll grow if necessary.
 	private static final int STEPS_SIZE = 4096;
 
@@ -97,9 +100,10 @@ public class Medusa3D extends AHinter implements IPreparer
 		ValueScore(int value) {
 			this.value = value;
 		}
+		// debug only, not used in actual code
 		@Override
 		public String toString() {
-			return ""+value+": "+score;
+			return ""+value+COLON_SP+score;
 		}
 	}
 
@@ -325,7 +329,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		try {
 			// Paint the cell, and all of it's ramifications (as above).
 			paint(GREEN, v, conjugatePair[0], true, "Let us assume that "
-				+conjugatePair[0].id+"-"+v+" is "+CCOLORS[GREEN]+NL);
+				+conjugatePair[0].id+MINUS+v+IS+CCOLORS[GREEN]+NL);
 			// Paint any "strong" hidden singles.
 			paintMonoBoxs();
 //			if ( steps.length() > STEPS_SIZE )
@@ -334,7 +338,7 @@ public class Medusa3D extends AHinter implements IPreparer
 			// a cell was painted both colors, ergo my implementation is wrong.
 			// Don't get your knickers in a twist. It'd be nice if it didn't
 			// happen, but it did, so it's handled, ie "prudently ignored".
-			Log.teeln("WARN: Meduda3dColoring: "+ex);
+			Log.teeln("WARN: Meduda3D: "+ex);
 			return false;
 		}
 		// Step 5: Analyze the cluster.
@@ -469,8 +473,8 @@ public class Medusa3D extends AHinter implements IPreparer
 		// If cell-value is already painted the opposite color then throw!
 		final int o = OPPOSITE[c]; // the opposite color
 		if ( colors[o][v].contains(cell.i) )
-			throw new OverpaintException("Cannot paint "+cell.id+"-"+v+" "
-					+COLORS[c]+" when it's already "+COLORS[o]+".");
+			throw new OverpaintException("Cannot paint "+cell.id+MINUS+v+SPACE
+					+COLORS[c]+" when it's already "+COLORS[o]+PERIOD);
 		int otherValue; // the other value
 		Cell otherCell; // the other cell
 		// 1. Paint the given cell-value this color
@@ -490,8 +494,8 @@ public class Medusa3D extends AHinter implements IPreparer
 				// we want explanation in GUI and testcases
 				// NOTE: batch is a MINUTE faster for this!
 				if ( wantWhy )
-					why = CON[c]+cell.id+"-"+v+COFF[c]+" conjugate in "+r2.id
-						+" is "+CON[o]+otherCell.id+"-"+v+COFF[o]+NL;
+					why = CON[c]+cell.id+MINUS+v+COFF[c]+CONJUGATE_IN+r2.id
+						+IS+CON[o]+otherCell.id+MINUS+v+COFF[o]+NL;
 				// paint otherCell-v the opposite color, recursively.
 				paint(o, v, otherCell, true, why);
 			}
@@ -501,14 +505,14 @@ public class Medusa3D extends AHinter implements IPreparer
 		 // skip this bi-check when we're painting "the other value"
 		 && biCheck
 		 // nb: pre-check faster than needlessly building the why string!
-		 && !colors[o][otherValue=FIRST_VALUE[cell.maybes.bits & ~VSHFT[v]]].contains(cell.i)
+		 && !colors[o][otherValue=VFIRST[cell.maybes.bits & ~VSHFT[v]]].contains(cell.i)
 		) {
 			// we want explanation in GUI and testcases
 			// NOTE: batch is a MINUTE faster for this!
 			// NOTE: terniaries are slow!
 			if ( wantWhy )
-				why = CON[c]+cell.id+"-"+v+COFF[c]+" only other value is "
-					+CON[o]+cell.id+"-"+otherValue+COFF[o]+NL;
+				why = CON[c]+cell.id+MINUS+v+COFF[c]+ONLY_OTHER_VALUE_IS
+					+CON[o]+cell.id+MINUS+otherValue+COFF[o]+NL;
 			// paint cell-otherValue the opposite color, recursively,
 			// but skip the bi-check.
 			paint(o, otherValue, cell, false, why);
@@ -606,11 +610,11 @@ public class Medusa3D extends AHinter implements IPreparer
 //	Debug.breakpoint();
 							// we want explanation in GUI and testcases
 							if ( wantWhy )
-								why = CON[c]+cell.id+"-"+v+COFF[c]+" leaves "
-								+cell2.id+" only "+v+" in "+box.id
+								why = CON[c]+cell.id+MINUS+v+COFF[c]+LEAVES
+								+cell2.id+ONLY+v+IN+box.id
 								+", which leaves "
-								+cell.id+" only "+v+" in "+cell.box.id
-								+", so "+CON[c]+cell2.id+"-"+v+COFF[c]+NL;
+								+cell.id+ONLY+v+IN+cell.box.id
+								+COMMA_SO+CON[c]+cell2.id+MINUS+v+COFF[c]+NL;
 							paint(c, v, cell2, false, why);
 						}
 					}
@@ -652,12 +656,12 @@ public class Medusa3D extends AHinter implements IPreparer
 					goodColor = o;
 					// we want explanation in GUI and testcases
 					if ( wantWhy )
-						steps.append(NL).append("<u>Contradiction</u>").append(NL)
-						.append("<k>").append(r.id).append("</k> has multiple ")
-						.append(CON[c]).append(COLORS[c]).append(" ").append(v)
-						.append("'s").append(COFF[c])
+						steps.append(NL).append(CONTRADICTION_LABEL).append(NL)
+						.append(KON).append(r.id).append(KOFF).append(HAS).append(MULTIPLE)
+						.append(CON[c]).append(COLORS[c]).append(SPACE).append(v)
+						.append(APOSTROPHE_S).append(COFF[c])
 						.append(", which is invalid, so ").append(CCOLORS[o])
-						.append(" must be true.").append(NL);
+						.append(MUST_BE_TRUE).append(NL);
 					return 2;
 				}
 
@@ -670,12 +674,12 @@ public class Medusa3D extends AHinter implements IPreparer
 					cause = Cells.set(cell);
 					// we want explanation in GUI and testcases
 					if ( wantWhy )
-						steps.append(NL).append("<u>Contradiction</u>").append(NL)
-						  .append("<k>").append(cell.id).append("</k> has ")
-						  .append(CON[c]).append(COLORS[c]).append(" ")
-						  .append(v1).append(" and ").append(v2).append(COFF[c])
+						steps.append(NL).append(CONTRADICTION_LABEL).append(NL)
+						  .append(KON).append(cell.id).append(KOFF).append(HAS)
+						  .append(CON[c]).append(COLORS[c]).append(SPACE)
+						  .append(v1).append(AND).append(v2).append(COFF[c])
 						  .append(", which is invalid, so ").append(CCOLORS[o])
-						  .append(" must be true.").append(NL);
+						  .append(MUST_BE_TRUE).append(NL);
 					return 3;
 				}
 		return 0;
@@ -773,12 +777,12 @@ public class Medusa3D extends AHinter implements IPreparer
 					if ( wantWhy ) {
 						if ( first ) {
 							first = false;
-							steps.append(NL).append("<u>Eliminations</u>").append(NL);
+							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 						}
-						steps.append(cc.id).append(" has both <g>")
-						  .append(Values.toString(g)).append("</g> and <b1>")
-						  .append(Values.toString(b))
-						  .append("</b1>, eliminating <r>all other values</r>.")
+						steps.append(cc.id).append(HAS_BOTH)
+						  .append(GON).append(Values.toString(g)).append(GOFF).append(AND)
+						  .append(BON).append(Values.toString(b)).append(BOFF).append(COMMA).append(ELIMINATING)
+						  .append(RON).append(ALL_OTHER_VALUES).append(ROFF).append(PERIOD)
 						  .append(NL);
 					}
 					subtype |= 1;
@@ -802,14 +806,13 @@ public class Medusa3D extends AHinter implements IPreparer
 						Cell bc = closest(tmp4, cc);
 						if ( first ) {
 							first = false;
-							steps.append(NL).append("<u>Eliminations</u>").append(NL);
+							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 						}
-						steps.append(cc.id).append("-").append(v)
-						  .append(" sees both <g>").append(gc.id).append("-")
-						  .append(v).append("</g> and <b1>").append(bc.id)
-						  .append("-").append(v).append("</b1>, so ")
-						  .append(cc.id).append(" can't be <r>").append(v)
-						  .append("</r>.").append(NL);
+						steps.append(cc.id).append(MINUS).append(v).append(SEES_BOTH)
+						  .append(GON).append(gc.id).append(MINUS).append(v).append(GOFF).append(AND)
+						  .append(BON).append(bc.id).append(MINUS).append(v).append(BOFF)
+						  .append(COMMA_SO).append(cc.id).append(CANT_BE)
+						  .append(RON).append(v).append(ROFF).append(PERIOD).append(NL);
 						if ( links == null )
 							links = new LinkedList<>();
 						links.add(new Link(cc, v, gc, v));
@@ -840,14 +843,14 @@ public class Medusa3D extends AHinter implements IPreparer
 							int otherV = firstValue(o, ii);
 							if ( first ) {
 								first = false;
-								steps.append(NL).append("<u>Eliminations</u>").append(NL);
+								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 							}
-							steps.append(cc.id).append(" sees ").append(CON[c])
-							  .append(sibling.id).append("-").append(v)
-							  .append(COFF[c]).append(" and has ")
+							steps.append(cc.id).append(SPACE).append(SEES).append(CON[c])
+							  .append(sibling.id).append(MINUS).append(v)
+							  .append(COFF[c]).append(AND_HAS)
 							  .append(CON[o]).append(otherV).append(COFF[o])
-							  .append(", so it can't be <r>").append(v)
-							  .append("</r>.").append(NL);
+							  .append(", so it can't be ").append(RON).append(v).append(ROFF)
+							  .append(PERIOD).append(NL);
 							if ( links == null )
 								links = new LinkedList<>();
 							links.add(new Link(cc, v, sibling, v));

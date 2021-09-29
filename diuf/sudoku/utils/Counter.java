@@ -6,7 +6,7 @@
  */
 package diuf.sudoku.utils;
 
-import diuf.sudoku.Settings;
+import static diuf.sudoku.Settings.THE_SETTINGS;
 
 
 /**
@@ -149,8 +149,8 @@ public class Counter {
 		// if hit() was called and hitMax was set to a valid value.
 		// I really don't want crap values to be stored in the registry.
 		if ( hitCnt>0  && hitMax!=0 ) {
-			Settings.THE.putInt(name+"Min", hitMin);
-			Settings.THE.putInt(name+"Max", hitMax);
+			THE_SETTINGS.putInt(name+"Min", hitMin);
+			THE_SETTINGS.putInt(name+"Max", hitMax);
 		}
 	}
 

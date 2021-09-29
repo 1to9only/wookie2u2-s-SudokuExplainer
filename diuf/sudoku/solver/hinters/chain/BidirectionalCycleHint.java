@@ -12,12 +12,16 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.ON;
 
 
 /**
@@ -153,11 +157,13 @@ public final class BidirectionalCycleHint extends AChainingHint {
 		return "X Cycle";
 	}
 	@Override
-	protected String getNameSuffix() { return ""; }
+	protected String getNameSuffix() { return EMPTY_STRING; }
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName() + ": " + Frmt.csv(getAquaCells(0));
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(getAquaCells(0)))
+		  .toString();
 	}
 
 	@Override
@@ -172,7 +178,7 @@ public final class BidirectionalCycleHint extends AChainingHint {
 		else
 			swamp = "";
 		return Html.produce(this, fileName
-			, Frmt.and(getAquaCells(0))		//{0}
+			, Frmu.and(getAquaCells(0))		//{0}
 			, Integer.toString(dstOn.value)	// 1
 			, swamp							// 2
 			, getChainHtml(dstOn)			// 3

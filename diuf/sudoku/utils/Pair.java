@@ -6,6 +6,8 @@
  */
 package diuf.sudoku.utils;
 
+import static diuf.sudoku.utils.Frmt.EQUALS;
+
 
 /**
  * A pair of generically-typed objects.
@@ -49,7 +51,7 @@ public class Pair<A, B> {
 	// not used in anger
 	@Override
 	public String toString() {
-		return ""+a+"="+b;
+		return ""+a+EQUALS+b;
 	}
 
 }

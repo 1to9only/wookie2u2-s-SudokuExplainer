@@ -14,15 +14,6 @@ import diuf.sudoku.Grid;
  */
 public final class StdErr {
 
-	/**
-	 * Returns my callers class.methodName.
-	 * @return 
-	 */
-	public static String me() {
-		StackTraceElement e = new Throwable().getStackTrace()[1]; // 0 is this method, 1 is my direct caller
-		return e.getClassName()+"."+e.getMethodName();
-	}
-
 	/** prints t's stackTrace to stderr and returns false. */
 	public static boolean whinge(Throwable t) {
 		waitForStdOut();
@@ -111,10 +102,11 @@ public final class StdErr {
 	// Wait for stdout so stderr doesn't interleave. This code is complete-s__t
 	// but I have no idea what I should do. The problem is that Netbeans allows
 	// stderr to interleave with stdout, so that neither is legible. When the
-	// LogicalSolverTester is run in cmd.com this problem goes away.
+	// GUI or LogicalSolverTester is run in cmd.com there's no problem.
 	private static void waitForStdOut() {
 		System.out.flush();
-		try{Thread.sleep(50);}catch(InterruptedException eaten){}
+// sleep doesn't help.
+//		try{Thread.sleep(50);}catch(InterruptedException eaten){}
 	}
 
 	// never used

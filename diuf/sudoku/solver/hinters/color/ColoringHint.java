@@ -10,9 +10,13 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.HashSet;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -148,20 +152,15 @@ public class ColoringHint extends AHint  {
 
 	@Override
 	protected String toStringImpl() {
-		// something weird has happened to pots the second time this method is
-		// invoked, so I cache the bastard, which, yes, is VERY VERY weird!
-		if ( toStringImpl == null ) {
-			StringBuilder sb = new StringBuilder(128);
-			boolean first = true;
-			for ( Pots p : pots ) {
-				if(first) first=false; else sb.append(", ");
-				sb.append(p.cells());
-			}
-			toStringImpl = getHintTypeName()+": "+sb.toString()+" on "+valueToRemove;
+		final StringBuilder sb = Frmt.getSB(128);
+		sb.append(getHintTypeName()).append(COLON_SP);
+		boolean first = true;
+		for ( Pots p : pots ) {
+			if(first) first=false; else sb.append(COMMA_SP);
+			sb.append(p.cells());
 		}
-		return toStringImpl;
+		return sb.append(ON).append(valueToRemove).toString();
 	}
-	private String toStringImpl;
 
 	@Override
 	protected String toHtmlImpl() {

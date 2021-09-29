@@ -39,10 +39,13 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 
 
 /**
@@ -206,8 +209,8 @@ public class Als {
 	 */
 	public String format() {
 		// region should never be null. Never say never.
-		final String s; if(region==null) s=""; else s=region.id+": ";
-		return s+Frmt.csv(cells)+" {"+Values.toString(maybes)+"}";
+		final String s; if(region==null) s=EMPTY_STRING; else s=region.id+COLON_SP;
+		return s+Frmu.csv(cells)+" {"+Values.toString(maybes)+"}";
 	}
 
 	/**
@@ -254,3 +257,4 @@ public class Als {
 	private ArrayList<ARegion> regions;
 
 }
+// Almost Locked Set from HoDoKu

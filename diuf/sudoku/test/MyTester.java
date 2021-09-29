@@ -392,8 +392,8 @@ public final class MyTester {
 //		System.out.println(TIMES);
 //		long o = t1 - t0;
 //		long n = t2 - t1;
-//		System.out.println("old  "+cnt0+"\t"+o);
-//		System.out.println("new  "+cnt1+"\t"+n);
+//		System.out.println("old  "+cnt0+TAB+o);
+//		System.out.println("new  "+cnt1+TAB+n);
 //		System.out.println("gain \t\t\t"+(o-n));
 //		System.out.format ("pct  \t\t\t%5.2f%%\n", TestHelperMethods.pct(o-n, o) );
 //	}
@@ -439,9 +439,9 @@ public final class MyTester {
 //
 //		long t2 = System.nanoTime();
 //
-//		System.out.println(""+oldBits+"\t"+newBits);
+//		System.out.println(""+oldBits+TAB+newBits);
 //		long a=(t1-t0), b=(t2-t1);
-//		System.out.println(""+a+"\t"+b+"\t"+(a-b));
+//		System.out.println(""+a+TAB+b+TAB+(a-b));
 //		//10*1000*1000
 //		// 389823148	550138426	-160315278
 //		// 407610953	477505591	 -69894638
@@ -503,15 +503,15 @@ public final class MyTester {
 //	private static final int TIMES = 10*1000*1000;
 //	public static void main(String[] args) {
 //		Values values = new Values(0);
-//		System.out.println(""+values.bits+"\t"+values.size+"\t"+values.toBinaryString());
+//		System.out.println(""+values.bits+TAB+values.size+TAB+values.toBinaryString());
 //		values.set("029");
-//		System.out.println(""+values.bits+"\t"+values.size+"\t"+values.toBinaryString());
+//		System.out.println(""+values.bits+TAB+values.size+TAB+values.toBinaryString());
 //		values.clear(0);
-//		System.out.println(""+values.bits+"\t"+values.size+"\t"+values.toBinaryString());
+//		System.out.println(""+values.bits+TAB+values.size+TAB+values.toBinaryString());
 //		values.clear(8);
-//		System.out.println(""+values.bits+"\t"+values.size+"\t"+values.toBinaryString());
+//		System.out.println(""+values.bits+TAB+values.size+TAB+values.toBinaryString());
 //		values.clear(9);
-//		System.out.println(""+values.bits+"\t"+values.size+"\t"+values.toBinaryString());
+//		System.out.println(""+values.bits+TAB+values.size+TAB+values.toBinaryString());
 //	}
 
 // Q: Performance test is-subset-of method
@@ -883,10 +883,10 @@ public final class MyTester {
 ////			while ( (line=r.readLine()) != null ) {
 ////				if ( line.length() == 0
 ////				  || line.charAt(0) != '#' ) continue;
-////				line = line.replaceFirst("#", ""); // remove leading hash
-////				line = line.replaceAll(" ", ""); // remove spaces
-////				line = line.replaceAll(",", ""); // remove commas
-////				String[] fields = line.split("\t");
+////				line = line.replaceFirst(HASH, EMPTY_STRING); // remove leading hash
+////				line = line.replaceAll(SPACE, EMPTY_STRING); // remove spaces
+////				line = line.replaceAll(COMMA, EMPTY_STRING); // remove commas
+////				String[] fields = line.split(TAB);
 ////				assert fields.length == 4;
 ////				int i = 0;
 ////				for ( String field : fields )
@@ -1005,7 +1005,7 @@ public final class MyTester {
 //				while( (line=reader.readLine()) != null ) {
 //					if ( line.startsWith("PC: ") ) {
 //						if ( ++count > 1 )
-//							System.out.format(", ");
+//							System.out.format(comma);
 //						System.out.format("%s", line.substring(4));
 //					} else if ( line.matches("^[1-9]*\t.*") ) {
 //						System.out.format("\t\t\t%d\n", count);
@@ -1033,7 +1033,7 @@ public final class MyTester {
 //				while( (line=reader.readLine()) != null ) {
 //					if ( line.startsWith("PC: ") ) {
 //						if ( ++count > 1 )
-//							System.out.format(", ");
+//							System.out.format(comma);
 //						System.out.format("%s", line.substring(4));
 //					} else if ( line.matches("^[1-9]*\t.*") ) {
 //						System.out.format("\t\t\t%d\n", count);
@@ -1181,7 +1181,7 @@ public final class MyTester {
 //			} while ( i < n );
 //			System.out.println("Look for the 1 and the 8:");
 //			for ( i=0; i<b.length; ++i )
-//				System.out.print(" "+b[i]);
+//				System.out.print(SPACE+b[i]);
 //			System.out.println();
 //		} catch (Exception ex) {
 //			ex.printStackTrace(System.out);
@@ -1586,7 +1586,7 @@ public final class MyTester {
 //			activatables = MyArrays.narrowCast(wantedHinters, activatables); // <<<< ==== THE INTERESTING BIT
 //			System.out.print("activatables:");
 //			for ( IHintNumberActivatableHinter hnah : activatables )
-//				System.out.print(" "+hnah);
+//				System.out.print(SPACE+hnah);
 //			System.out.println();
 // 		} catch (Exception ex) {
 // 			ex.printStackTrace(System.out);
@@ -1617,7 +1617,7 @@ public final class MyTester {
 //					= MyArrays.filter(wh, ACTIVATABLES_FILTER);
 //			System.out.print("activatables:");
 //			for ( IHinter hnah : activatables )
-//				System.out.print(" "+HINTER_TECH_NAME.format(hnah));
+//				System.out.print(SPACE+HINTER_TECH_NAME.format(hnah));
 //			System.out.println();
 // 		} catch (Exception ex) {
 // 			ex.printStackTrace(System.out);
@@ -1662,7 +1662,7 @@ public final class MyTester {
 //	private static void println(String hdr, IFormatter<IHinter> formatter, List<IHinter> list) {
 //		System.out.print(hdr);
 //		for ( IHinter hnah : list )
-//			System.out.print(" "+formatter.format(hnah));
+//			System.out.print(SPACE+formatter.format(hnah));
 //		System.out.println();
 //	}
 /*

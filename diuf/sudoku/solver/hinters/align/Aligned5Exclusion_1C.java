@@ -16,6 +16,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
 
@@ -104,11 +105,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 //	private java.io.PrintStream myLog = open("a5e.log", standardHeader());
 
 	public Aligned5Exclusion_1C(IInterruptMonitor monitor) {
-		// firstHintNumber: A5E never finds the 1st, 2nd, or 3rd hint in
-		// top1465.d5.mt, the first hint I ever find is the 4th one, so I am
-		// deactivated (ie I am not even called) until the 4th hint, because
-		// that's a bit faster.
-		super(monitor);
+		super(monitor, IO.A5E_1C_HITS);
 	}
 
 	@Override
@@ -1373,58 +1370,3 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 	}
 
 }
-
-/*
-wantedHinters: NakedSingle, HiddenSingle, Locking, NakedPair, HiddenPair,
-NakedTriple, HiddenTriple, Swampfish, Swordfish, XY_Wing, XYZ_Wing, W_Wing,
-Skyscraper, TwoStringKite, EmptyRectangle, NakedQuad, Jellyfish, URT,
-FinnedSwampfish, FinnedSwordfish, FinnedJellyfish, SashimiSwampfish,
-SashimiSwordfish, SashimiJellyfish, ALS_XZ, ALS_XY_Wing, BUG, AlignedPair,
-AlignedTriple, AlignedQuad, AlignedPent, AlignedHex, AlignedSept, AlignedOct,
-AlignedNona, UnaryChain, NishioChain, MultipleChain, DynamicChain, DynamicPlus,
-NestedUnary, NestedPlus
-Sudoku Explainer 6.30.064 built 2020-04-28 07:51:04 ran 2020-04-28.12-21-41
-mode    : ACCURACY !STATS !REDO !HACKY
-input   : C:/Users/User/Documents/NetBeansProjects/DiufSudoku/top1465.d5.mt
-log 50  : C:/Users/User/Documents/NetBeansProjects/DiufSudoku/top1465.d5.2020-04-28.12-21-41.log
-stdout  : progress only
-
-Aligned5Exclusion_1C
-HitSet.size = 263
-							//  w/o HitSet: 1 = 194,211,904 of 207,712,049 = 93.50% (hints 204)
-							//  w/o HitSet: 2 =  12,955,049 of 207,712,049 =  6.24% (hints 56)
-							//  w/o HitSet: 3 =     540,983 of 207,712,049 =  0.26% (hints 2)
-							//  w/o HitSet: 4 =       3,856 of 207,712,049 =  0.00% (hints 1)
-							//  w/o HitSet: 5 =         249 of 207,712,049 =  0.00% (hints 0)
-							//  w/o HitSet: 6 =           8 of 207,712,049 =  0.00% (hints 0)
-// colCnt min=4/0 max=21/49 pass 479,126,287 of 495,933,101 skip 16,806,814 = 3.39%
-// mbsCnt min=12/10 max=19/30 pass 408,226,934 of 479,126,287 skip 70,899,353 = 14.80%
-// sibCnt min=4/2 max=8/10 pass 270,244,230 of 408,226,934 skip 137,982,704 = 33.80%
-// maxMbs pass 270,090,251 of 270,244,230 skip 153,979 = 0.06%
-// hitCnt min=3/2 max=29/66 pass 220,825,116 of 220,906,392 skip 81,276 = 0.04%
-// sumCnt min=10/4 max=37/52 pass 218,114,621 of 220,825,116 skip 2,710,495 = 1.23%
-// prangRate min=1.912/1.714 max=5.940/14.250 pass 207,712,049 of 218,114,621 skip 10,402,572 = 4.77%
-// cnt1hit min=2/2 max=16/19 pass 193,921,605 of 194,211,904 skip 290,299 = 0.15%
-// cnt1sum min=7/6 max=36/37 pass 193,918,921 of 193,921,605 skip 2,684 = 0.00%
-// cnt1prg min=1.912/1.789 max=8.168/8.250 pass 193,918,665 of 193,918,921 skip 256 = 0.00%
-// cnt2col min=2/2 max=17/21 pass 12,947,376 of 12,955,049 skip 7,673 = 0.06%
-// cnt2cs min=6/6 max=24/24 pass 12,947,376 of 12,947,376 skip 0 = 0.00%
-// cnt2hit min=5/4 max=29/31 pass 12,945,391 of 12,947,376 skip 1,985 = 0.02%
-// cnt2prg min=1.896/1.753 max=7.779/8.250 pass 12,849,364 of 12,945,391 skip 96,027 = 0.74%
-// cnt3col min=2/2 max=14/18 pass 540,740 of 540,983 skip 243 = 0.04%
-// cnt3cs min=6/6 max=20/21 pass 540,740 of 540,740 skip 0 = 0.00%
-// cnt3mbs min=11/10 max=19/19 pass 540,728 of 540,740 skip 12 = 0.00%
-// cnt3hit min=7/6 max=31/31 pass 540,654 of 540,728 skip 74 = 0.01%
-// cnt3sum min=11/9 max=37/37 pass 540,654 of 540,654 skip 0 = 0.00%
-// cnt3prg min=2.028/1.897 max=7.934/8.250 pass 540,593 of 540,654 skip 61 = 0.01%
-// cnt4col min=2/2 max=11/12 pass 3,856 of 3,856 skip 0 = 0.00%
-// cnt4sib min=4/4 max=4/4 pass 3,856 of 3,856 skip 0 = 0.00%
-// cnt4cs min=6/6 max=15/16 pass 3,856 of 3,856 skip 0 = 0.00%
-// cnt4mbs min=10/10 max=19/19 pass 3,856 of 3,856 skip 0 = 0.00%
-// cnt4ces min=2/2 max=3/3 pass 3,856 of 3,856 skip 0 = 0.00%
-// cnt4hit min=11/10 max=31/31 pass 3,856 of 3,856 skip 0 = 0.00%
-// cnt4sum min=13/12 max=37/37 pass 3,856 of 3,856 skip 0 = 0.00%
-// cnt4prg min=2.342/2.220 max=7.683/8.250 pass 3,856 of 3,856 skip 0 = 0.00%
-prangErrors = 0
-
-*/

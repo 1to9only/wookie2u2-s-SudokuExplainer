@@ -37,29 +37,33 @@ class RecentFiles implements Closeable {
 
 	private static RecentFiles me;
 	public static RecentFiles getInstance() {
-		return me!=null ? me : (me=new RecentFiles());
+		if ( me == null )
+			me = new RecentFiles();
+		return me;
 	}
 
-	/** PRIVATE Constructor: use RecentFiles.getInstance() instead. */
+	/** PRIVATE Constructor: use getInstance() instead. */
 	private RecentFiles() {
-		try ( BufferedReader reader = new BufferedReader(
-				new FileReader(IO.RECENT_FILES)) ) {
-			int lineCount = 0;
-			String line;
-			while ( (line=reader.readLine()) != null ) {
-				list.add(PuzzleID.parse(line));
-				if ( ++lineCount >= MAX_SIZE )
-					break;
+		if ( IO.RECENT_FILES.exists() ) // avert FileNotFoundException
+			try ( BufferedReader reader = new BufferedReader(new FileReader(IO.RECENT_FILES)) ) {
+				int lineCount = 0;
+				String line;
+				while ( (line=reader.readLine()) != null ) {
+					list.add(PuzzleID.parse(line));
+					if ( ++lineCount >= MAX_SIZE )
+						break;
+				}
+			} catch (IOException ex) {
+				StdErr.whinge(ex);
+//				throw new RuntimeException("Unreadable "+FILE, ex);
 			}
-		} catch (IOException ex) {
-			StdErr.whinge(ex);
-//			throw new RuntimeException("Unreadable "+FILE, ex);
-		}
 	}
 
 	/** @return the PuzzleID of the most recently accessed file. */
 	PuzzleID mostRecent() {
-		return list.isEmpty() ? null : list.get(0);
+		if ( list.isEmpty() )
+			return null;
+		return list.get(0);
 	}
 
 	/** Make this PuzzleID the most recently accessed file, returning the given

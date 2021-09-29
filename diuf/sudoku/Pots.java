@@ -9,16 +9,19 @@ package diuf.sudoku;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Indexes.INDEXES;
-import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.MyLinkedHashMap;
+import diuf.sudoku.utils.Frmu;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import static diuf.sudoku.Values.VFIRST;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.PLUS;
 
 
 /**
@@ -56,8 +59,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 */
 	public static Pots deepCopy(Pots src) {
 		Pots copy = new Pots();
-		for ( Cell c : src.keySet() )
-			copy.put(c, new Values(src.get(c)));
+		for ( java.util.Map.Entry<Cell,Values> e : src.entrySet() )
+			copy.put(e.getKey(), new Values(e.getValue()));
 		return copy;
 	}
 
@@ -274,19 +277,30 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	}
 
 	/**
-	 * Constructor: Constructs a new Pots from a re-usable cells array, all
-	 * to the given value (used for LockingGeneralised greenPots only).
+	 * Constructor for fixed-size cells array: Constructs a new Pots from a
+	 * re-usable fixed-sized cells array, all to the given value.
+	 * <p>
+	 * Currently only used by Locking, but others may follow, for speed.
 	 *
+	 * @param cells a fixed-size array of cells
+	 * @param n the number of cells to add
 	 * @param value
-	 * @param numCells
-	 * @param cells
 	 */
-	public Pots(int value, int numCells, Cell[] cells) {
-		this(numCells, 1F);
-		for ( int i=0; i<numCells; ++i )
+	public Pots(Cell[] cells, int n, int value) {
+		this(n, 1F);
+		for ( int i=0; i<n; ++i )
 			upsert(cells[i], value);
 	}
 
+	/**
+	 * Constructor for Idx's: add each cell from the grid that in the idx;
+	 * the values for each cell are cands that are in each cell, and are
+	 * presumed to intersect.
+	 *
+	 * @param grid
+	 * @param idx
+	 * @param cands 
+	 */
 	public Pots(Grid grid, Idx idx, int cands) {
 		for ( Cell c : idx.cells(grid) )
 			put(c, new Values(c.maybes.bits & cands, false));
@@ -301,9 +315,10 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		// head-off adding myself to myself
 		if ( others==null || others==this )
 			return this;
-		for ( Cell cell : others.keySet() ) {
-			Values otherValues = others.get(cell);
-			Values myExistingValues = get(cell);
+		for ( java.util.Map.Entry<Cell,Values> e : others.entrySet() ) {
+			final Cell cell = e.getKey();
+			final Values otherValues = e.getValue();
+			final Values myExistingValues = get(cell);
 			if ( myExistingValues == null )
 				put(cell, new Values(otherValues));
 			else
@@ -349,7 +364,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @return a new Pots of my intersections with bits.
 	 */
 	public Pots withBits(int bits) {
-		Pots result = new Pots();
+		final Pots result = new Pots();
 		int cbits; // cells bits
 		for ( Cell cell : keySet() ) {
 			cbits = cell.maybes.bits & bits;
@@ -368,8 +383,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @return this Pots.
 	 */
 	public Pots putAll2(Map<? extends Cell, ? extends Values> map) {
-		for ( Cell c : map.keySet() )
-			put(c, new Values(map.get(c)) ); // inserts new Values
+		for ( java.util.Map.Entry<? extends Cell,? extends Values> e : map.entrySet() )
+			put(e.getKey(), new Values(e.getValue()) ); // inserts new Values
 		return this;
 	}
 
@@ -386,20 +401,21 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		putAll2(map);
 	}
 
-	/**
-	 * retainAll removes any not-keepers (which is a bitset) from the values of
-	 * each cell in this Pots, and if that leaves that Values empty then we
-	 * also remove the Cell.
-	 *
-	 * @param keepers
-	 * @return
-	 */
-	public Pots retainAll(int keepers) {
-		for ( Cell cell : keySet() )
-			if ( get(cell).retainAll(keepers) == 0 )
-				remove(cell);
-		return this;
-	}
+//not_used
+//	/**
+//	 * retainAll removes any not-keepers (which is a bitset) from the values of
+//	 * each cell in this Pots, and if that leaves that Values empty then we
+//	 * also remove the Cell.
+//	 *
+//	 * @param keepers
+//	 * @return
+//	 */
+//	public Pots retainAll(int keepers) {
+//		for ( java.util.Map.Entry<Cell,Values> e : entrySet() )
+//			if ( e.getValue().retainAll(keepers) == 0 )
+//				remove(e.getKey());
+//		return this;
+//	}
 
 	/**
 	 * Put the given Cell and Values if the Values is NOT null-or-empty.
@@ -488,8 +504,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 */
 	public Pots upsertAll(Pots others) {
 		if ( others != null )
-			for ( Cell cell : others.keySet() )
-				upsert(cell, others.get(cell));
+			for ( java.util.Map.Entry<Cell,Values> e : others.entrySet() )
+				upsert(e.getKey(), e.getValue());
 		return this;
 	}
 
@@ -542,7 +558,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	public void insert(Cell cell, Values values) {
 		Values existing = get(cell);
 		if ( existing != null )
-			throw new IToldHimWeveAlreadyGotOneException(cell.id+"+"+existing+"+"+values);
+			throw new IToldHimWeveAlreadyGotOneException(cell.id+PLUS+existing+PLUS+values);
 		put(cell, values);
 	}
 
@@ -590,11 +606,11 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	public Pots removeAll(Pots others) {
 		if ( others != null ) {
 			Values mine;
-			for ( Cell c : others.keySet() )
-				// remove others values from my values, and if that leaves the my
+			for ( java.util.Map.Entry<Cell,Values> e : others.entrySet() )
+				// remove others values from my values, and if that leaves my
 				// values empty then remove my cell also
-				if ( (mine=get(c))!=null && mine.remove(others.get(c)).size==0 )
-					remove(c);
+				if ( (mine=get(e.getKey()))!=null && mine.remove(e.getValue()).size==0 )
+					remove(e.getKey());
 		}
 		return this; // may be empty
 	}
@@ -618,22 +634,18 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @return
 	 */
 	public Pots intersection(Pots others) {
-		Pots result = new Pots();
+		Cell cell;
 		Values myValues, otherValues;
-		int commonBits; // the Values.bits common to the current cell in both this Pots and others Pots
-		for ( Cell cell : keySet() )
-			// myValues SHOULD never be empty, it's only done this way to push
-			// the get down into the if statement! So this'll always be true in
-			// normal-usage. If empty cells start appearing in Pots then this
-			// part atleast will handle them correctly. Now it's just the whole
-			// rest of the system you have to worry about. That's nice!
-			if ( (myValues=get(cell)).bits != 0
+		int commonValues; // values common to this cell in both me and others
+		final Pots result = new Pots();
+		for ( java.util.Map.Entry<Cell,Values> e : entrySet() )
+			if ( (myValues=e.getValue()).bits != 0
 			  // but otherValue pretty obviously can be null.
-			  && (otherValues=others.get(cell)) != null
+			  && (otherValues=others.get(cell=e.getKey())) != null
 			  // are there any common values?
-			  && (commonBits=myValues.bits & otherValues.bits) != 0 )
+			  && (commonValues=myValues.bits & otherValues.bits) != 0 )
 				// add the common values to the result.
-				result.put(cell, new Values(commonBits, false));
+				result.put(cell, new Values(commonValues, false));
 		return result; // which may still be empty!
 	}
 
@@ -652,23 +664,23 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 */
 	public int valuesOf() {
 		int ag = 0; // aggregate
-		for ( Cell c : keySet() )
-			ag |= get(c).bits;
-		return ag; // Go for gold baby!
+		for ( Values v : values() )
+			ag |= v.bits;
+		return ag; // Go for gold Kathy!
 	}
 
 	/**
 	 * Is this Pots a subset of these other Pots?<br>
 	 * ie Does other contain all eliminations in this Pots?
 	 *
-	 * @param other
+	 * @param others
 	 * @return
 	 */
-	public boolean isSubsetOf(Pots other) {
-		Values values;
-		for ( Cell key : other.keySet() )
-			if ( (values=get(key)) == null
-			  || !other.get(key).containsAll(values) )
+	public boolean isSubsetOf(Pots others) {
+		Values myValues;
+		for ( java.util.Map.Entry<Cell,Values> e : others.entrySet() )
+			if ( (myValues=get(e.getKey())) == null
+			  || !e.getValue().containsAll(myValues) )
 				return false;
 		return true;
 	}
@@ -680,10 +692,9 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @return are any of my value/s still in the cell?
 	 */
 	public boolean anyCurrent() {
-		final int[] SHFT = VSHFT;
-		for ( Cell cell : keySet() ) // there's one for the advertisers
-			for ( int v : VALUESES[get(cell).bits] )
-				if ( (cell.maybes.bits & SHFT[v]) != 0 )
+		for ( java.util.Map.Entry<Cell,Values> e : entrySet() )
+			for ( int v : VALUESES[e.getValue().bits] )
+				if ( (e.getKey().maybes.bits & VSHFT[v]) != 0 )
 					return true;
 		return false;
 	}
@@ -702,22 +713,13 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		for ( java.util.Map.Entry<Cell,Values> e : entrySet() ) {
 			cell = e.getKey();
 			values = e.getValue();
-//System.out.println("Pots.setCells: set "+cell+" => "+values);
+//System.out.println("Pots.setCells: set "+cell+PRODUCES+values);
 //if ( "I9".equals(cell.id) )
 //	Debug.breakpoint();
 			assert values.size == 1; // ONE value per cell in a setPots!
-			numSet += cell.set(FIRST_VALUE[values.bits], 0, isAutosolving, null);
+			numSet += cell.set(VFIRST[values.bits], 0, isAutosolving, null);
 		}
 		return numSet;
-	}
-
-	private static StringBuilder sb = null;
-	private static StringBuilder getSB() {
-		if ( sb == null )
-			sb = new StringBuilder(9*16); // not massive, but MANY
-		else
-			sb.setLength(0); // clear the buffer
-		return sb;
 	}
 
 	/**
@@ -732,28 +734,28 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 			return "";
 		if ( n == 1 ) {
 			Cell cell = firstKey();
-			return cell.id+"-"+get(cell);
+			return cell.id+MINUS+get(cell);
 		}
 		// select "${cell.id}-${get(cell)}" from this
 		String[] strings = new String[n];
 		int i = 0;
-		for ( Cell cell : keySet() )
-			strings[i++] = cell.id+"-"+get(cell);
+		for ( java.util.Map.Entry<Cell,Values> e : entrySet() )
+			strings[i++] = e.getKey().id+MINUS+e.getValue();
 		// order by cell.id
 		Arrays.sort(strings);
 		// stringify the Pots-strings
-		StringBuilder mySB = getSB();
+		StringBuilder sb = new StringBuilder(n*9); // not massive, but big enough
 		i = 0;
 		for ( String s : strings ) {
 			if ( ++i > 1 )
-				mySB.append(", ");
-			mySB.append(s);
+				sb.append(COMMA_SP);
+			sb.append(s);
 		}
-		return mySB.toString();
+		return sb.toString();
 	}
 
 	public String cells() {
-		return Frmt.ssv(keySet());
+		return Frmu.ssv(keySet());
 	}
 
 	/**
@@ -813,13 +815,11 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 	 * @return !isEmpty() ie any remaining
 	 */
 	public boolean clean() {
-		Cell c;
 		Values vs;
 		// use an Iterator to delete as we go
-		for ( Iterator<Cell> it=keySet().iterator(); it.hasNext(); )
-			// remove any elims which aren't in this cells maybes
-			// and if that leaves none then also remove this cell
-			if ( (vs=get(c=it.next())).removeBits(vs.bits & ~c.maybes.bits) == 0 )
+		java.util.Map.Entry<Cell,Values> e;
+		for ( Iterator<java.util.Map.Entry<Cell,Values>> it=entrySet().iterator(); it.hasNext(); )
+			if ( (vs=(e=it.next()).getValue()).removeBits(vs.bits & ~e.getKey().maybes.bits) == 0 )
 				it.remove();
 		return !isEmpty(); // ie any remaining
 	}
@@ -830,11 +830,12 @@ public final class Pots extends MyLinkedHashMap<Cell, Values> {
 		return 0; // something other than -1
 	}
 
-	public void toIdx(Idx result) {
-		result.clear();
-		for ( Cell c : keySet() )
-			result.add(c.i);
-	}
+//not_used
+//	public void toIdx(Idx result) {
+//		result.clear();
+//		for ( Cell c : keySet() )
+//			result.add(c.i);
+//	}
 
 	/**
 	 * Translate this Pots into an array of Idx's, one per value.

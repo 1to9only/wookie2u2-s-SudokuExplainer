@@ -101,7 +101,7 @@ import java.util.TreeSet;
 
 public class MyHashSet<E>
 	extends AMySet<E>
-	implements Set<E>, Cloneable, java.io.Serializable
+	implements IMySet<E>, Cloneable, java.io.Serializable
 {
 	static final long serialVersionUID = -5024744406713321676L;
 
@@ -238,6 +238,17 @@ public class MyHashSet<E>
 	}
 
 	/**
+	 * Get the existing value or put new.
+	 *
+	 * @param t
+	 * @return the existing value if exists, else null (it was added).
+	 */
+	@Override
+	public boolean visit(E t) {
+		return map.visit(t, t);
+	}
+
+	/**
 	 * Removes the specified element from this set if it is present.
 	 * More formally, removes an element <tt>e</tt> such that
 	 * <tt>(o==null&nbsp;?&nbsp;e==null&nbsp;:&nbsp;o.equals(e))</tt>,
@@ -336,7 +347,8 @@ public class MyHashSet<E>
 	}
 
 	@SuppressWarnings("unchecked")
-	protected E poll() {
+	@Override
+	public E poll() {
 		MyHashMap.Entry<E,?> e = ((MyLinkedHashMap)map).poll();
 		return e==null ? null : e.key;
 	}
@@ -367,6 +379,26 @@ public class MyHashSet<E>
 			return this.map.equals(((MyHashSet)o).map);
 		// else defer to AMySet's implementation of equals
 		return super.equals(o);
+	}
+
+	@Override
+	public E get(E pKey) {
+		throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+	}
+
+	@Override
+	public E remove() {
+		throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+	}
+
+	@Override
+	public boolean retainAllIsEmpty(IMySet<E> c) {
+		throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+	}
+
+	@Override
+	public void retainAllClear(IMySet<E> c) {
+		throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
 	}
 
 }

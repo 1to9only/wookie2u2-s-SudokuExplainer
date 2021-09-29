@@ -11,13 +11,18 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -102,13 +107,15 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 		String s = "Look for a "+getHintTypeName();
 		if ( !isBig )
 			return s;
-		return s+" on "+value+" in "+region.id;
+		return s+ON+value+IN+region.id;
 	}
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+Frmt.ssv(cells)+" on "+value+" in "
-			 +region.id;
+		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(Frmu.ssv(cells)).append(ON).append(value)
+		  .append(IN).append(region.id)
+		  .toString();
 	}
 
 	@Override

@@ -11,9 +11,13 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.hinters.align.CellSet;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.Pots.EMPTY;
+import static diuf.sudoku.utils.Frmt.NL;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.List;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.TWO_SPACES;
 
 /**
  * Static utility methods for debugging.
@@ -22,17 +26,13 @@ import java.util.List;
  */
 public final class Debug {
 
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
-
 	public static final boolean IS_ON = false; // @check false
 
 	/** @see Log.out, DevNull.out */
 	public static PrintStream out = System.out;
 
-	private static final StringBuilder SB = new StringBuilder(16);
-
 	/**
-	 * breakpoint() is a no-op for conditional breakpoints. The JIT compiler 
+	 * breakpoint() is a no-op for conditional breakpoints. The JIT compiler
 	 * erases calls to no-op's, just in case you leave one in.
 	 * <p>
 	 * Netbeans (which I use) and other IDE's now have conditional breakpoints,
@@ -108,15 +108,15 @@ public final class Debug {
 	/**
 	 * Parse {@link Frmt#csv(java.util.List)} back into the actual regions in
 	 * the given Grid.
-	 * 
+	 *
 	 * @param csv for example: <tt>"row 2, row 5, row 8, row 9"</tt>
 	 * @param grid the Grid to get regions from.
 	 * @return a {@code new ARegion[]} of these regions in the given grid
 	 */
-	public static ARegion[] parseRegions(String csv, Grid grid) {
+	public static ARegion[] parse(String csv, Grid grid) {
 		if ( csv==null || csv.length()<5 )
 			return new ARegion[0]; // an empty array
-		String[] ids = csv.split(", ");
+		String[] ids = csv.split(COMMA_SP);
 		ARegion[] regions = new ARegion[ids.length];
 		int i = 0;
 		for ( String id : ids )
@@ -143,7 +143,7 @@ public final class Debug {
 	 * @return a new boolean[27] with the given regions true.
 	 */
 	public static boolean[] usedRegions(String regions, Grid grid) {
-		return usedRegions(parseRegions(regions, grid));
+		return usedRegions(parse(regions, grid));
 	}
 
 	public static void println(String message) {
@@ -173,23 +173,24 @@ public final class Debug {
 	}
 
 	public static String repeat(char c, int howMany) {
-		SB.setLength(0);
-		for (int i=0; i<howMany; ++i)
-			SB.append(c);
-		return SB.toString();
+		final StringBuilder sb = new StringBuilder(howMany);
+		sb.setLength(0);
+		for ( int i=0; i<howMany; ++i )
+			sb.append(c);
+		return sb.toString();
 	}
 
 	public static void dumpAncestors(List<Ass> targets) {
 		out.println();
 		out.println("dumpAncestors:");
 		for ( Ass a : targets )
-			recursivelyDumpAncestors("  ", a);
+			recursivelyDumpAncestors(TWO_SPACES, a);
 		out.println();
 	}
 	public static void recursivelyDumpAncestors(String spaces, Ass a) {
 		out.format("%s%s cause=%s; explanation=%s nestedChain=%s\n"
 				, spaces, a, a.cause, a.explanation, a.nestedChain);
-		spaces += "  ";
+		spaces += TWO_SPACES;
 		if ( a.hasParents() ) // fast enough for Debug
 			for ( Ass p : a.parents )
 				recursivelyDumpAncestors(spaces, p);
@@ -202,20 +203,20 @@ public final class Debug {
 			if ( valueEffects[v] != null ) {
 				out.println("VALUE: "+v);
 				if ( valueEffects[v].isEmpty() )
-					out.println("empty");
+					out.println(EMPTY);
 				else {
 					boolean found = false;
 					for ( Ass a : valueEffects[v] ) {
 						if ( a == target ) { // we want THE instance
 							found = true;
-							recursivelyDumpAncestors("  ", a);
+							recursivelyDumpAncestors(TWO_SPACES, a);
 							break;
 						}
 					}
 					if ( !found ) { // NB: it'll probably go through here
 						out.println("target "+target+" not found in:");
 						for ( Ass a : valueEffects[v] )
-							recursivelyDumpAncestors("  ", a);
+							recursivelyDumpAncestors(TWO_SPACES, a);
 					}
 				}
 				out.println();
@@ -239,20 +240,20 @@ public final class Debug {
 	 * @param rMap right {@code HashMap<Cell, CellSet>}
 	 */
 	public static void diff(HashMap<Cell, CellSet> lMap, HashMap<Cell, CellSet> rMap) {
-		out.format("HDR: WAS=%s\n", Frmt.excludersMap(lMap));
-		out.format("HDR: NOW=%s\n", Frmt.excludersMap(rMap));
+		out.format("HDR: WAS=%s\n", Frmu.excludersMap(lMap));
+		out.format("HDR: NOW=%s\n", Frmu.excludersMap(rMap));
 		for ( Cell key : lMap.keySet() ) { // leftKey
 			CellSet lv = lMap.get(key);
 			CellSet rv = rMap.get(key);
 			if ( rv == null )
-				out.format("ALL: %-12s WAS=%d:[%s]\n", key, lv.size(),Frmt.csv(lv));
+				out.format("ALL: %-12s WAS=%d:[%s]\n", key, lv.size(),Frmu.csv(lv));
 			else if ( lv.size() == rv.size() )
-				out.format("NON: %-12s BOT=%d:[%s]\n", key, lv.size(),Frmt.csv(lv));
+				out.format("NON: %-12s BOT=%d:[%s]\n", key, lv.size(),Frmu.csv(lv));
 			else {
 				CellSet xv = new CellSet(lv);  xv.removeAll(rv);
-				out.format("SOM: %-12s WAS=%d:[%s]\n", key, lv.size(),Frmt.csv(lv));
-				out.format("               - NOW=%d:[%s]\n", rv.size(),Frmt.csv(rv));
-				out.format("               = GON=%d:[%s]\n", xv.size(),Frmt.csv(xv));
+				out.format("SOM: %-12s WAS=%d:[%s]\n", key, lv.size(),Frmu.csv(lv));
+				out.format("               - NOW=%d:[%s]\n", rv.size(),Frmu.csv(rv));
+				out.format("               = GON=%d:[%s]\n", xv.size(),Frmu.csv(xv));
 			}
 		}
 	}

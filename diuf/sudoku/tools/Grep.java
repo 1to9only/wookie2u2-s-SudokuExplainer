@@ -7,15 +7,11 @@
 package diuf.sudoku.tools;
 
 import diuf.sudoku.io.IO;
-import diuf.sudoku.utils.Debug;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.IOException;
 import java.io.PrintStream;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 
 /**
  * Shows the divergence of the hint-paths in 2 LogicalSolverTester

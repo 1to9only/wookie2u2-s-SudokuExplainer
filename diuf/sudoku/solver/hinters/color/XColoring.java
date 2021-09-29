@@ -50,9 +50,14 @@ import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.SPACE;
 
 /**
  * XColoring implements the Extended Coloring Sudoku solving technique.
@@ -158,6 +163,11 @@ public final class XColoring extends AHinter {
 	// It's part of the hint-HTML.
 	private final StringBuilder steps = new StringBuilder(1024);
 
+	private static final String green = "green";
+	private static final String blue = "blue";
+	private static final String[] cc = {green, blue};
+	private static final String[] oc = {blue, green};
+
 	public XColoring() {
 		super(Tech.XColoring);
 	}
@@ -228,8 +238,8 @@ public final class XColoring extends AHinter {
 		// foreach value
 		VALUES: for ( int v=1; v<10; ++v ) {
 			final int fv = v; // for lambda expressions. sigh.
-			debug("");
-			debug("");
+			debug(EMPTY_STRING);
+			debug(EMPTY_STRING);
 			debug("XColoring Value="+v);
 			debug("=================");
 			// foreach region in the grid
@@ -252,14 +262,14 @@ public final class XColoring extends AHinter {
 					rivs = INDEXES[riv.bits];
 					colorSets[C1].clear().add(a = region.cells[rivs[0]].i);
 					colorSets[C2].clear().add(b = region.cells[rivs[1]].i);
-					debug("");
+					debug(EMPTY_STRING);
 					debug("a="+a+", b="+b);
 					steps.setLength(0); // clear the steps string
-					step("Step 1: Color conjugate pair:"
-						+" green="+colorSets[C1].ids()
-						+" and blue="+colorSets[C2].ids()
-						+" in "+region.id
-						+" on "+v);
+					step(Frmt.getSB(64).append("Step 1: Color conjugate pair: green=")
+					  .append(colorSets[C1].ids())
+					  .append(" and blue=").append(colorSets[C2].ids())
+					  .append(IN).append(region.id)
+					  .append(ON).append(v).toString());
 					// --------------------------------------------------------
 					// Step 2: Until no more new cells are colored, do:
 					// Find an uncolored conjugate of a colored cell
@@ -283,9 +293,12 @@ public final class XColoring extends AHinter {
 							) {
 								indice = ice[0];
 								color = ice[1];
-								step("    Step 2: "+CELL_IDS[indice]+" ("+(color==0?"green":"blue")+")"
-									+" =conjugate=> "+CELL_IDS[conjugate]+" ("+(color==0?"blue":"green")+")"
-									+" in "+rgn.id);
+								step(Frmt.getSB(64).append("    Step 2: ")
+								  .append(CELL_IDS[indice]).append(" (")
+								  .append(cc[color]).append(") =conjugate=> ")
+								  .append(CELL_IDS[conjugate]).append(" (")
+								  .append(oc[color]).append(") in ")
+								  .append(rgn.id).toString());
 								// color it the OPPOSITE color
 								oppositeColor = OPPOSITE[color];
 								colorSets[oppositeColor].add(conjugate);
@@ -322,9 +335,12 @@ public final class XColoring extends AHinter {
 							// foreach region in the grid
 							for ( ARegion rgn : grid.regions ) {
 								if ( xSet.setAndNot(rgn.idxs[v], bothBuds).size() == 1 ) {
-									step("    Step 3: "+CELL_IDS[xSet.peek()]
-										+" is the only place for "+v+" in "+rgn.id
-										+", so it's "+(c==0?"green":"blue"));
+									step(Frmt.getSB(64).append("    Step 3: ")
+									  .append(CELL_IDS[xSet.peek()])
+									  .append(" is the only place for ")
+									  .append(v).append(IN).append(rgn.id)
+									  .append(", so it's ").append(cc[c])
+									  .toString());
 									colorSet.or(xSet);
 									bothColors.or(xSet);
 									indice = xSet.peek();
@@ -372,11 +388,15 @@ public final class XColoring extends AHinter {
 							for ( ARegion rgn : grid.regions )
 								// nb: I'm hijacking xSet
 								if ( xSet.setAndMany(colorSet, rgn.idx) ) {
-									step("    Step 4.2: Multiple cells {"+xSet.ids()+"}"
-										+" in "+rgn.id+" are "+(c==0?"green":"blue")
-										+", which is invalid, so the "+(c==0?"blue":"green")
-										+" set {"+otherSet.ids()+"}"
-										+" must be true, ie "+v);
+									step(Frmt.getSB(64)
+									  .append("    Step 4.2: Multiple cells {")
+									  .append(xSet.ids()).append("} in ")
+									  .append(rgn.id).append(" are ").append(cc[c])
+									  .append(", which is invalid, so the ")
+									  .append(oc[c]).append(" set {")
+									  .append(otherSet.ids())
+									  .append("} must be true, ie ").append(v)
+									  .toString());
 									otherSet.forEach(grid.cells, (cc) ->
 										setPots.put(cc, new Values(fv))
 									);
@@ -400,13 +420,18 @@ public final class XColoring extends AHinter {
 									// hijack xSet
 									if ( xSet.setAnd(colorBuds, rgn.idxs[v]).any()
 									  && xSet.size() == rgn.indexesOf[v].size ) {
-										step("    Step 4.3: ALL cells in "+rgn.id
-											+" which maybe "+v+" {"+rgn.idxs[v].ids()+"}"
-											+" see a "+(c==0?"green":"blue")+" "+v
-											+", which is invalid"
-											+", so the "+(c==0?"blue":"green")
-											+" set {"+otherSet.ids()+"}"
-											+" must be true, ie "+v);
+										step(Frmt.getSB(64)
+										  .append("    Step 4.3: ALL cells in ")
+										  .append(rgn.id).append(" which maybe ")
+										  .append(v).append(" {")
+										  .append(rgn.idxs[v].ids())
+										  .append("} see a ").append(cc[c])
+										  .append(SPACE).append(v)
+										  .append(", which is invalid, so the ")
+										  .append(oc[c]).append(" set {")
+										  .append(otherSet.ids())
+										  .append("} must be true, ie ")
+										  .append(v).toString());
 										otherSet.forEach(grid.cells, (cc) ->
 											setPots.put(cc, new Values(fv))
 										);

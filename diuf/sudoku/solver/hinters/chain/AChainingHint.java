@@ -37,6 +37,12 @@ import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.HashMap;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.TWO_SPACES;
 
 
 /**
@@ -408,7 +414,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 				cause = Cause.NakedSingle;
 			else if ( this instanceof RegionReductionHint )
 				// region.cause is HiddenBox, HiddenRow, or HiddenCol
-				cause = ((RegionReductionHint)this).getRegion().cause;
+				cause = Cause.CAUSE_FOR_REGION_TYPE[((RegionReductionHint)this).getRegion().typeIndex];
 		}
 		if ( cause != null ) {
 			final Cell c = a.cell;
@@ -534,7 +540,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 			if ( this instanceof CellReductionHint )
 				cause = Cause.NakedSingle;
 			else if ( this instanceof RegionReductionHint )
-				cause = ((RegionReductionHint)this).getRegion().cause;
+				cause = Cause.CAUSE_FOR_REGION_TYPE[((RegionReductionHint)this).getRegion().typeIndex];
 		}
 		if ( cause != null ) {
 			final Cell[] ic = initGrid.cells; // initial matrix
@@ -702,14 +708,14 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	}
 
 	protected String getNamePrefix() {
-		return "";
+		return EMPTY_STRING;
 	}
 	protected String getNameMiddle() {
 		final AChainer c = (AChainer)hinter;
 		return c.isNishio ? "Nishio"
 			 : c.isDynamic ? (c.degree>1 ? "Nested " : "Dynamic ")
 			 : c.isMultiple ? "Multiple "
-			 : "";
+			 : EMPTY_STRING;
 	}
 	protected String getNameSuffix() {
 		//int degree = ((Chainer)hinter).degree;
@@ -729,7 +735,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	@Override
 	public String getHintTypeNameImpl() {
 		String s = getNamePrefix() + getNameMiddle() + getNameSuffix();
-		s = s.replaceAll("  ", " ");
+		s = s.replaceAll(TWO_SPACES, SPACE);
 		return s;
 	}
 
@@ -745,93 +751,101 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	}
 
 	/**
-	 * Produce HTML of a depth first search (DFS) of 'a's ancestry.
-	 * @param a the Ass to examine
-	 * @param ancestors A list of all 'a's parents is (this is weird) passed
-	 *  back UP from the depth first recursion.
+	 * Populate htmlLines with HTML of a depth first search (DFS) of Ass 'a's
+	 * ancestry. The ancestors list is used as working storage, and is passed
+	 * down from the top rather than have each top invocation create it's own
+	 * list. It's populated down the DFS stack and processed at the top, so
+	 * that each invocation appends a line of HTML for each of
+	 * me-and-all-of-my-ancestors.
+	 *
+	 * @param a the Ass to examine (Taste!)
+	 * @param ancestors A list of all 'a's parents that is (this is weird)
+	 *  populated down in the depth first recursion, and then virtually passed
+	 *  back UP to the recurseChainHtmlLines which processes it.
 	 * @param htmlLines A List of the lines of HTML which is also passed back up
 	 *  from the ancestoral depths, thanks to the DFS.
-	 * @param path used only for debugging, to see "Where the hell are ya?"
+	 * @param path for debugging, to see "Where the hell are we?"
 	 */
-	private void recurseChainHtmlLines(Ass a, List<Ass> ancestors
-			, List<String> htmlLines, String path) { // path for debug only
+	private void recurseChainHtml(final Ass a, final List<Ass> ancestors
+			, final List<String> htmlLines, String path) { // path for debug only
 		// First add parent chains (DFS)
 		if ( a.parents!=null && a.parents.size>0 )
 			for ( Ass p : a.parents )
-				recurseChainHtmlLines(p, ancestors, htmlLines, path+=" "+p);
+				recurseChainHtml(p, ancestors, htmlLines, path+=SPACE+p);
 		//System.out.println(path);
 		// NB: When we get back from the recursive call the 'parents' List will
 		// contain all a's parent assumptions. Remember that it's the one list
 		// being mutated by all levels of recursion, so changes down the call
-		// stack are reflected "back up here".
+		// stack are seen "back up here".
 		// NB: LinkedLists O(n) indexOf is fast enough, coz n is < 100.
-		assert ancestors.size() < 101 : "We're gonna need a bigger boat.";
+		assert ancestors.size() < 101 : "We're gonna need a bigger boat."; // a MyLinkedHashSet, I think: O(1) heavy get/contains, ordered iterator,
 //maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
 		if ( a.parents!=null && a.parents.size>0 && ancestors.indexOf(a)==-1 ) { // O(n/2) ONCE
 			final int n=htmlLines.size(), m=n-1;
 			// Add chain item for given assumption
-			sb.setLength(0); // we're reusing a single buffer. lessG==lessGC.
-			sb.append('(').append(n+1).append(") ").append("If ");
+			line.setLength(0); // we're reusing a single buffer. lessG==lessGC.
+			line.append('(').append(n+1).append(") ").append("If ");
+			// now list each parent Assumption of this Assumption (last first)
 			final int last = a.parents.size - 1;
 			int i = last;
-			for ( Iterator<Ass> it=a.parents.descendingIterator(); // <<<======= DESCENDING!
-				  it.hasNext();
-				  --i
-			) {
+			// parents DESCENDING is newest to oldest (the last added first)
+			for ( Iterator<Ass> it=a.parents.descendingIterator(); it.hasNext(); --i ) {
 				final Ass p = it.next(); // parent
 				// recursiveNumCalls * a.parents.size * O(ancestors.size/2) = a bit slow Redge
 				final int pi = ancestors.indexOf(p); // parentsIndex
-				if ( i < last ) // this is not the first parent
+				if ( i < last ) // if this is not the first parent processed
 					if ( i > 0 )
-						sb.append(", ");
+						line.append(COMMA_SP);
 					else
-						sb.append(" and "); // last when i==0
-				sb.append(p.weak());
+						line.append(AND); // last when i==0
+				line.append(p.weak());
 				if ( m < 0 ) { // -1 meaning these are the parent of the initial assumption
 					if ( p.nestedChain != null ) // parent is a nested chain
-						sb.append(" (<b>").append(p.nestedChain).append("</b>)");
-				} else if ( pi < m ) { // if parent is not the previous assumption
-					if ( pi < 0 ) { // -1 meaning not found
-						if ( p.nestedChain != null ) // parent is a nested chain
-							sb.append(" (<b>").append(p.nestedChain).append("</b>)");
+						line.append(" (<b>").append(p.nestedChain).append("</b>)");
+//					else // this is first consequence of initial assumption
+//						sb.append(" (<b>aero coitus</b>)"); // getting warmer
+				} else if ( pi < m ) { // if parent is not previous assumption
+					if ( pi < 0 ) // -1 parent not found in ancestors (aliens!)
+						if ( p.nestedChain != null ) // parent is nested chain
+							line.append(" (<b>").append(p.nestedChain).append("</b>)");
 						else
-							sb.append(" (initial assumption)");
-//							sb.append(" (<b>lost luggage</b>)"); // Euston Station
-					} else if ( pi < 1 ) // 0 meaning the initial assumption
-//						sb.append(" (initial assumption)");
-						sb.append(" (<b>misplaced towel</b>)"); // You're ____ed now
-					else // a previous assumption, but not the previous one, obviously!
-						sb.append(" (").append(pi+1).append(')');
+//							sb.append(" (<b>initial assumption</b>)");
+							line.append(" (<b>misplaced towel</b>)"); // getting warm
+					else if ( pi < 1 ) // 0 is the initial assumption
+//						sb.append(" (<b>initial assumption</b>)"); // I hope
+						line.append(" (<b>lost luggage</b>)"); // Euston Station
+					else // a previous assumption, but not THE previous.
+						line.append(" (").append(pi+1).append(')');
 				}
-			} // next parent
-			sb.append(" then ").append(a.strong());
+			} // next parent (or previous, depending on how you look at it)
+			line.append(" then ").append(a.strong());
 			String explanation = a.explanation;
 			if ( explanation != null )
 				if ( a.cause == Cause.Advanced ) // bold the "odd" explanations
-					sb.append(" (<b>").append(explanation).append("</b>)");
+					line.append(" (<b>").append(explanation).append("</b>)");
 				else
-					sb.append(" (").append(explanation).append(')');
+					line.append(" (").append(explanation).append(')');
 			ancestors.add(a);
-			maxSbSize = Math.max(sb.length(), maxSbSize);
-			htmlLines.add(sb.toString());
+			htmlSize += line.length();
+			htmlLines.add(line.toString());
 		}
 	}
-	// sb size is quite interesting. casually observed max is 481, but it'll
-	// grow automatically (but more slowly) if it's not set big enough. We want
-	// to cover 90% of cases without growing, for efficiency. The best I can do
-	// is cover 90% of the maxSize and hope it's enough.
-	private int maxSbSize = 570; // comes down to 513 which covers 481
-	private final StringBuilder sb = new StringBuilder((int)(maxSbSize * 0.9));
+	private StringBuilder line;
+	private int htmlSize;
 
 	// the override is a hack around
 	protected String getChainHtml(Ass a) {
-		List<Ass> ancestors = new LinkedList<>(); // working storage for getChainHtmlLinesRecursively
-		List<String> htmlLines = new LinkedList<>(); // HTML lines output by getChainHtmlLinesRecursively
-		recurseChainHtmlLines(a, ancestors, htmlLines, a.toString());
-		StringBuilder bfr = new StringBuilder(htmlLines.size()*132);
-		for ( String line : htmlLines )
-			bfr.append(line).append("<br>").append(NL);
-		return bfr.toString();
+		final List<Ass> ancestors = new LinkedList<>(); // working storage
+		final List<String> lines = new LinkedList<>(); // the output
+		htmlSize = 0;
+		line = new StringBuilder(512); // max observed 481
+		recurseChainHtml(a, ancestors, lines, a.toString());
+		line = null;
+		htmlSize += lines.size() * 6; // <br>NL
+		final StringBuilder sb = new StringBuilder(htmlSize);
+		for ( String line : lines )
+			sb.append(line).append("<br>").append(NL);
+		return sb.toString();
 	}
 
 	/**
@@ -891,7 +905,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	protected String getHinterName() {
 		if ( hinterName == null ) {
 			hinterName = hinter.toString();
-			int i = hinterName.lastIndexOf(" Chain");
+			int i = hinterName.lastIndexOf("Chain");
 			if ( i > -1 )
 				hinterName = hinterName.substring(0, i);
 		}
@@ -901,7 +915,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 
 	protected String getPlusHtml() {
 		if ( ((AChainer)hinter).degree == 0 )
-			return "";
+			return EMPTY_STRING;
 		return "<p>Plus means the four quick foxes: Locking, NakedPairs," + NL
 		     + "HiddenPairs, and Swampfish are applied only when no basic" + NL
 		     + "chain-step is available.</p>";
@@ -909,7 +923,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 
 	protected String getNestedHtml() {
 		if ( !((AChainer)hinter).tech.isNested )
-			return ""; // empty for "normal" hints
+			return EMPTY_STRING; // empty for "normal" hints
 		return "<p>Nested means this chainer parses its assumptions with a" + NL
 			 + "chainer that itself makes less complex assumptions, so we're" + NL
 			 + "making assumptions on our assumptions. Tequila and hand-guns." + NL

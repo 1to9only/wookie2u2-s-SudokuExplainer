@@ -16,6 +16,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
 
@@ -65,7 +66,7 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 	private final NonHinters64 nonHinters = new NonHinters64(16*1024, 4);
 
 	public Aligned10Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor);
+		super(monitor, IO.A10E_2H_HITS);
 	}
 
 //	@Override

@@ -11,8 +11,11 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.IN;
 
 
 /**
@@ -53,13 +56,15 @@ public class AlsWingHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " in "+Frmt.csv(Als.regionsList(getAlss()));
+			s += IN+Frmu.csv(Als.regionsList(getAlss()));
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+Frmt.csv(Als.regionsList(getAlss()));
+		return Frmt.getSB(64).append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(Als.regionsList(getAlss())))
+		  .toString();
 	}
 
 	@Override

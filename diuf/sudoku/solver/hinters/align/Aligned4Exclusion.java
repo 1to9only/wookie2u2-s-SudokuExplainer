@@ -17,6 +17,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.io.IO;
 
 
 /**
@@ -64,8 +65,9 @@ import diuf.sudoku.gen.IInterruptMonitor;
  * </pre>
  */
 public final class Aligned4Exclusion extends AAlignedSetExclusionBase
-//		implements diuf.sudoku.solver.IReporter
-//				 , java.io.Closeable
+implements
+		//diuf.sudoku.solver.IReporter,
+		java.io.Closeable
 {
 	private static final int MIN_CANDIDATES = 20; // <HACK/>
 
@@ -85,15 +87,15 @@ public final class Aligned4Exclusion extends AAlignedSetExclusionBase
 	private final Idx idx03 = new Idx(); // = idx02 & idx3
 
 	public Aligned4Exclusion(IInterruptMonitor im) {
-		super(Tech.AlignedQuad, im);
+		super(Tech.AlignedQuad, im, IO.A4E_HITS);
 		assert tech.isAligned;
 		assert degree == 4;
 	}
 
-//	@Override
-//	public void close() throws java.io.IOException {
-//		hits.save();
-//	}
+	@Override
+	public void close() throws java.io.IOException {
+		hits.save();
+	}
 
 	/**
 	 * getHints: And now for something completely different.

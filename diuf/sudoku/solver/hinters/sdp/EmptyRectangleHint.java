@@ -12,11 +12,13 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
 
 /**
  * EmptyRectangleHint encapsulates the data required to display an Empty
@@ -46,19 +48,18 @@ public class EmptyRectangleHint extends AHint  {
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		String s = "Look for a " + getHintTypeName();
+		String s = "Look for a "+getHintTypeName();
 		if ( isBig )
-			s += " on "+redValue;
+			s += ON+redValue;
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(greens.keySet()))
-		  .append(" on ").append(redValue);
-		return sb.toString();
+		return Frmu.getSB(64).append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(greens.keySet()))
+		  .append(ON).append(redValue)
+		  .toString();
 	}
 
 	@Override

@@ -11,9 +11,11 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
 
 /**
  * SkyscraperHint contains the hint data for display in the GUI, and also
@@ -33,17 +35,16 @@ public class SkyscraperHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " on "+Frmt.and(new Values(greens.values()));
+			s += ON+Frmu.and(new Values(greens.values()));
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName())
-		  .append(": ").append(Frmt.csv(greens.keySet()))
-		  .append(" on ").append(Integer.toString(valueToRemove));
-		return sb.toString();
+		return Frmu.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(greens.keySet()))
+		  .append(ON).append(Integer.toString(valueToRemove))
+		  .toString();
 	}
 
 	@Override
@@ -56,5 +57,5 @@ public class SkyscraperHint extends AHint  {
 				, redPots.toString()		//  4
 		);
 	}
-	
+
 }

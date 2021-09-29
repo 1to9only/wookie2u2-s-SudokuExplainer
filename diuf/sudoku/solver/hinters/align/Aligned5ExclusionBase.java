@@ -11,6 +11,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import diuf.sudoku.gen.IInterruptMonitor;
+import java.io.File;
 
 
 /**
@@ -20,8 +21,8 @@ import diuf.sudoku.gen.IInterruptMonitor;
  */
 abstract class Aligned5ExclusionBase extends AAlignedSetExclusionBase {
 
-	public Aligned5ExclusionBase(IInterruptMonitor monitor) {
-		super(Tech.AlignedPent, monitor);
+	public Aligned5ExclusionBase(IInterruptMonitor monitor, File hitFile) {
+		super(Tech.AlignedPent, monitor, hitFile);
 		assert tech.isAligned;
 		assert degree == 5;
 	}

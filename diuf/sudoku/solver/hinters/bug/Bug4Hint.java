@@ -12,12 +12,15 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -78,19 +81,23 @@ public final class Bug4Hint extends ABugHint  {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+bugCell1.id+", "+bugCell2.id+" on "+valueToRemove;
+		return Frmu.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(bugCell1.id)
+		  .append(COMMA_SP).append(bugCell2.id)
+		  .append(ON).append(valueToRemove)
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "Bug4Hint.html"
-				, Frmt.and(allExtraValues)					// {0}
-				, Frmt.and(bugCell1, bugCell2)				//  1
-				, Frmt.or(bugCell1, bugCell2)				//  2
-				, Frmt.or(allExtraValues)					//  3
-				, Integer.toString(valueToRemove)			//  4
-				, region.id									//  5
-				, Frmt.and(new Values(redPots.values()))	//  6
+			, Frmu.and(allExtraValues)				// {0}
+			, Frmu.and(bugCell1, bugCell2)			//  1
+			, Frmu.or(bugCell1, bugCell2)				//  2
+			, Frmu.or(allExtraValues)					//  3
+			, Integer.toString(valueToRemove)			//  4
+			, region.id									//  5
+			, Frmu.and(new Values(redPots.values()))	//  6
 		);
 	}
 }

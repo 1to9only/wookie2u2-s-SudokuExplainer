@@ -14,7 +14,7 @@ import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.Ass;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.ArrayList;
@@ -22,8 +22,14 @@ import java.util.Collection;
 import java.util.Set;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.solver.hinters.IChildHint;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedList;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -148,17 +154,15 @@ public final class XYWingHint extends AHint implements IChildHint {
 	public String getClueHtmlImpl(boolean isBig) {
 		 String s = "Look for a " + getHintTypeName();
 		 if ( isBig )
-			 s += " on "+x()+", "+y()+" and <b>"+zValue+"</b>";
+			 s += ON+x()+COMMA_SP+y()+AND+"<b>"+zValue+"</b>";
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.csv(xy, xz, yz))
-		  .append(" on ").append(zValue);
-		return sb.toString();
+		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(Frmu.csv(xy, xz, yz))
+		  .append(ON).append(zValue).toString();
 	}
 
 	@Override

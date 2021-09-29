@@ -13,7 +13,7 @@ import static diuf.sudoku.Grid.COL;
 import static diuf.sudoku.Grid.ROW;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -189,16 +190,6 @@ public final class Regions {
 		return sb.toString();
 	}
 
-//not used
-//	public static String ids(Idx rs) {
-//		final StringBuilder sb = new StringBuilder(rs.size() * 6);
-//		rs.forEach((cnt, ri) -> {
-//			if(cnt>0) sb.append(' ');
-//			sb.append(IDS[ri]);
-//		});
-//		return sb.toString();
-//	}
-
 	// returns CSV of the finned region/s. Mostly there's one fin. Multiple
 	// fins are almost always in the one base. Just occassionally: BUGGER!
 	// so for the testcases these MUST be consistent order, so I have to put
@@ -220,7 +211,7 @@ public final class Regions {
 		List<ARegion> list = new ArrayList<>(set);
 		list.sort((a, b)->{return a.id.compareTo(b.id);});
 		// format the bastards, and is more human than CSV. sigh.
-		return Frmt.and(list);
+		return Frmu.and(list);
 		// Guinness, for strength!
 	}
 
@@ -269,7 +260,7 @@ public final class Regions {
 	// parse "row 1, row 3, row 6" into a "used" boolean array
 	public static boolean[] used(String used) {
 		boolean[] result = new boolean[27];
-		for ( String rid : used.split(", ") )
+		for ( String rid : used.split(COMMA_SP) )
 			result[index(rid)] = true;
 		return result;
 	}
@@ -296,9 +287,9 @@ public final class Regions {
 	// an array of the type of each of the 27 regions to look-up
 	// NB: SE is (box, row, col) whereas HoDoKu is (row, col, box)
 	public static final int[] REGION_TYPE = {
-		BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX,
-		ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW,
-		COL, COL, COL, COL, COL, COL, COL, COL, COL
+		  BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX
+		, ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW
+		, COL, COL, COL, COL, COL, COL, COL, COL, COL
 	};
 
 	// a left-shifted mask for each of the 3 types of regions
@@ -324,7 +315,7 @@ public final class Regions {
 		final StringBuilder sb = new StringBuilder(n*6);
 		sb.append(regions[0].id);
 		for ( int i=1; i<n; ++i )
-			sb.append(", ").append(regions[i].id);
+			sb.append(COMMA_SP).append(regions[i].id);
 		return sb.toString();
 	}
 

@@ -66,7 +66,7 @@ import java.util.Set;
  * @since 1.2
  */
 
-public abstract class AMySet<E> extends AbstractCollection<E> implements Set<E> {
+public abstract class AMySet<E> extends AbstractCollection<E> implements IMySet<E> {
 
 	/**
 	 * Sole constructor.  (For invocation by subclass constructors, typically

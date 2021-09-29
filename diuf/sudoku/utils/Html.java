@@ -8,6 +8,7 @@ package diuf.sudoku.utils;
 
 import diuf.sudoku.io.IO;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.utils.Frmt.NL;
 import static diuf.sudoku.utils.MyStrings.replaceAll;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -28,8 +29,6 @@ public final class Html {
 	private static final int BUFFER_SIZE = 2 * 1024;
 
 	public static final Map<String, String> CACHE = new HashMap<>(64, .098F);
-
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	// the maximum size of the arguments array passed to the format method.
 	private static final int MAX_ARGS = 32;

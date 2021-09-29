@@ -11,8 +11,14 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.hinters.als.Als;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.NOT_EQUALS;
+import static diuf.sudoku.utils.Frmt.PLUS;
+import static diuf.sudoku.utils.Frmt.SPACE;
 import diuf.sudoku.utils.Log;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 /**
  * HintValidator exposes static helper methods to validate a hint against the
@@ -156,11 +162,12 @@ public class HintValidator {
 	public static boolean isValid(Grid grid, Pots redPots) {
 		// presume that the hint (ie redPots) is valid;
 		final int[] solutionValues = grid.getSolutionValues();
-		invalidity = "";
-		for ( Cell cell : redPots.keySet() )
-			if ( redPots.get(cell).contains(solutionValues[cell.i]) )
+		invalidity = EMPTY_STRING;
+		Cell cell;
+		for ( java.util.Map.Entry<Cell,Values> e : redPots.entrySet() )
+			if ( e.getValue().contains(solutionValues[(cell=e.getKey()).i]) )
 				// note the leading space before first
-				invalidity += " " + cell.id + "-" + solutionValues[cell.i];
+				invalidity += SPACE+cell.id+MINUS+solutionValues[cell.i];
 		return invalidity.isEmpty();
 	}
 
@@ -188,15 +195,16 @@ public class HintValidator {
 	}
 
 	public static boolean isValidSetPots(Grid grid, Pots setPots) {
-		invalidity = "";
+		invalidity = EMPTY_STRING;
 		final int[] solutionValues = grid.getSolutionValues();
 		// note the leading space before the first invalidity
-		for (Cell cell : setPots.keySet()) {
-			Values values = setPots.get(cell);
+		for ( Entry<Cell,Values> e : setPots.entrySet()) {
+			final Cell cell = e.getKey();
+			final Values values = e.getValue();
 			if (values.size != 1) {
-				invalidity += " " + cell.id + "+" + values.toString() + " is not one value!";
+				invalidity += SPACE+cell.id+PLUS+values.toString()+" is not one value!";
 			} else if (!values.contains(solutionValues[cell.i])) {
-				invalidity += " " + cell.id + "+" + values.toString() + "!=" + solutionValues[cell.i];
+				invalidity += SPACE+cell.id+PLUS+values.toString()+NOT_EQUALS+solutionValues[cell.i];
 			}
 		}
 		return invalidity.isEmpty();

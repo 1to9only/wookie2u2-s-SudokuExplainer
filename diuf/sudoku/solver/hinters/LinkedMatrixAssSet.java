@@ -26,8 +26,10 @@ import java.util.NoSuchElementException;
  * Note that LinkedMatrixAssSet is always "Funky", ie add does NOT update
  * existing Ass's, it returns false; consistent with {@link FunkyAssSet}.
  * This is a pre-requisite of the getAss method which returns the Ass with
- * parents, ie the first one added. An attempt to add a duplicate is ignored,
- * returning false.
+ * parents, ie the first one added. Any attempt to add a duplicate does
+ * nothing, and returns false. This differs from java.util.Set implementations
+ * which all replace an existing with the proffered new, and return false.
+ * Ergo: It wasn't me boss! Mental!
  * <p>
  * Features are:<ul>
  * <li>contains and remove methods are fast O(1) as apposed to the slow O(1)
@@ -35,13 +37,13 @@ import java.util.NoSuchElementException;
  * <li>a fast iterator (for an iterator, which are all slow compared to Javas
  *  array-iterator, mainly because of two methods per element).</li>
  * <li>clear is O(size) as apposed to arrays O(capacity).</li>
- * <li>WARNING: Construction takes 19,549 nanoseconds (on an i3) thanks to
- *  the 9,270 byte matrix, so don't create me OFTEN or MANY.</li>
+ * <li>WARNING: Construction is pretty slow thanks to the 9,270 byte matrix, so
+ *  do NOT create me OFTEN, or MANY. Never in a loop!</li>
  * </ul>
  * KRC 2020-10-23 moved LinkedMatrixAssSet from diuf.sudoku.utils coz nothing
  * with project-types (except Debug) should be in utils (to keep utils portable
  * between projects); It is now used in both chain and fish packages; so I am
- * not really sure where it belongs; so here it is.
+ * not really sure where it belongs; so here it is, above both of them.
  */
 public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 		implements IAssSet, IMyPollSet<Ass> {
@@ -76,16 +78,30 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 		copy(src);
 	}
 
-	public void copyOf(LinkedMatrixAssSet src) {
+	/**
+	 * Set this LinkedMatrixAssSet to a copy of the source.
+	 * @param source to copy
+	 */
+	public void copyOf(LinkedMatrixAssSet source) {
 		clear();
-		copy(src);
+		copy(source);
 	}
 
-	protected void copy(LinkedMatrixAssSet src) {
-		if ( src.head == null )
+	/**
+	 * The copy method is protected so that it can be overridden. The copyOf
+	 * method clears this LinkedMatrixAssSet and then calls me, or whatever
+	 * you override me to be. If you want to add operations then override me
+	 * to do your pre-stuff, call me with super.copy(source);, then do your
+	 * post-stuff. If you want copyOf to append (no clear) then override copyOf
+	 * and just call me with copy(source);.
+	 *
+	 * @param source to copy
+	 */
+	protected void copy(LinkedMatrixAssSet source) {
+		if ( source.head == null )
 			return;
 		Ass a;
-		Node sn = src.head;
+		Node sn = source.head;
 		Node dn = new Node(foot, sn.ass, null);
 		head = foot = dn;
 		for ( sn=sn.next; sn!=null; sn=sn.next ) {
@@ -102,6 +118,7 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 	 * getAss implements IAssSet.getAss.
 	 * <p>WARN this implementation relies upon all Ass's in this set having the
 	 *  same isOn, which happily is how it is "naturally" in Chainer.
+	 *
 	 * @param cell Cell from which we take just the x and y coordinates.
 	 * @param value the potential value you seek
 	 * @return the Ass if it is present, else null
@@ -114,7 +131,9 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 		return n.ass;
 	}
 
-	/** @return remove and return the first Ass, else null means empty Set. */
+	/**
+	 * @return remove and return the first Ass, else null means empty Set.
+	 */
 	@Override
 	public Ass poll() {
 		if ( head == null )
@@ -131,10 +150,13 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 		return ass;
 	}
 
-	/** Remove and return the first element of this Set, throwing
+	/**
+	 * Remove and return the first element of this Set, throwing
 	 * a NoSuchElementException if the set is already empty.
 	 * Specified by the IMySet interface for consistency with Deque.
-	 * @return the first Ass in this Set, else throws */
+	 *
+	 * @return the first Ass in this Set, else throws
+	 */
 	@Override
 	public Ass remove() {
 		if ( head == null )
@@ -144,14 +166,41 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 
 	/**
 	 * Returns the full Assumption (ie with ancestors) from this Set.
+	 *
 	 * @param a the identity-only (ie without ancestors) Assumption to fetch.
-	 * @return the full Assumption with ancestors. */
+	 * @return the full Assumption with ancestors.
+	 */
 	@Override
 	public Ass get(Ass a) {
 		final Node n = nodes[a.i][a.value];
 		if ( n == null )
 			return null;
 		return n.ass;
+	}
+
+	/**
+	 * visit returns "is this the first time we've visited so-and-so?".
+	 * Returns true the first time you visit each Ass, and false thereafter.
+	 *
+	 * @param a the Ass to visit
+	 * @return did this Ass NOT already exist? because it does now.
+	 */
+	@Override
+	public boolean visit(Ass a) {
+		// I told him we've already got one
+		if ( nodes[a.i][a.value] != null )
+			return false;
+		// Ok, add this Ass and return true (inlined for speed)
+		final Node newNode = new Node(foot, a, null);
+		if ( head == null )
+			head = foot = newNode; // nb: foot was null when newNode was built
+		else {
+			foot.next = newNode;
+			foot = newNode;
+		}
+		nodes[a.i][a.value] = newNode;
+		++size;
+		return true; // We've seen this one now
 	}
 
 	@Override
@@ -181,14 +230,14 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 		// The "Funky" test: do NOT replace an existing Ass, just return false.
 		if ( nodes[a.i][a.value] != null )
 			return false;
-		Node n = new Node(foot, a, null);
+		Node newNode = new Node(foot, a, null);
 		if ( head == null )
-			head = foot = n; // NB: foot was null when node was constructed
+			head = foot = newNode; // nb: foot was null when newNode was built
 		else {
-			foot.next = n;
-			foot = n;
+			foot.next = newNode;
+			foot = newNode;
 		}
-		nodes[a.i][a.value] = n;
+		nodes[a.i][a.value] = newNode;
 		++size;
 		return true;
 	}

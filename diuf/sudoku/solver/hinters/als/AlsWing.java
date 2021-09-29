@@ -41,6 +41,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 
 
@@ -194,7 +195,7 @@ public final class AlsWing extends AAlsHinter
 											, grid, Arrays.asList(a, b, c));
 									if ( true ) {
 										// I'm sort-of on top of invalid hints
-										StdErr.exit(StdErr.me()+": invalid hint", new Throwable());
+										StdErr.exit(Log.me()+": invalid hint", new Throwable());
 									} else {
 										// just skip invalid elimination/s
 										redPots.clear();
@@ -203,8 +204,7 @@ public final class AlsWing extends AAlsHinter
 								}
 							}
 							// get the zValues String BEFORE we clear redPots
-							final String zValues = Values.toString(
-								redPots.valuesOf(), Frmt.comma, Frmt.and);
+							final String zValues = Values.toString(redPots.valuesOf(), Frmt.COMMA_SP, Frmt.AND);
 							// build the hint
 							final AHint hint = new AlsWingHint(
 								  this

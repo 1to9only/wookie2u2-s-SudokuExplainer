@@ -6,7 +6,7 @@
  */
 package diuf.sudoku.solver;
 
-import diuf.sudoku.Settings;
+import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.io.StdErr;
 
 /**
@@ -27,7 +27,6 @@ import diuf.sudoku.io.StdErr;
 public final class LogicalSolverFactory {
 
 	private static LogicalSolver solver;
-	private static Settings solversSettings;
 
 	/**
 	 * Get the current LogicalSolver if it has the given IInterruptMonitor,
@@ -73,7 +72,7 @@ public final class LogicalSolverFactory {
 	public static LogicalSolver recreate() {
 		// create a default LogicalSolver if unset (should never happen).
 		// recreate the LogicalSolver if the underlying Settings have changed.
-		if ( solver==null || !Settings.THE.equals(solversSettings) )
+		if ( solver==null || !THE_SETTINGS.equals(solver.mySettings) )
 			solver = newLogicalSolver();
 		return solver;
 	}
@@ -84,9 +83,8 @@ public final class LogicalSolverFactory {
 		LogicalSolver result;
 		try {
 			result = new LogicalSolver();
-			solversSettings = (Settings)Settings.THE.clone();
 		} catch (Exception ex) {
-			StdErr.exit("newLogicalSolver failed", ex);
+			StdErr.exit("WTF: new LogicalSolver() Exception!", ex);
 			result = null; // you can't get here!
 		}
 		return result;

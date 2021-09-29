@@ -13,12 +13,18 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.SO;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -85,7 +91,7 @@ public final class RegionReductionHint extends AChainingHint {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a "+getHintTypeName();
 		if ( isBig )
-			s += " on "+theValue+" in <b1>"+region.id+"</b1>";
+			s += ON+theValue+IN+"<b1>"+region.id+"</b1>";
 		return s;
 	}
 
@@ -96,30 +102,34 @@ public final class RegionReductionHint extends AChainingHint {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+theValue+" in "+region.id+" so "+resultAss;
+		return Frmt.getSB(64).append(getHintTypeName())
+		  .append(COLON_SP).append(theValue)
+		  .append(IN).append(region.id)
+		  .append(SO).append(resultAss)
+		  .toString();
 	}
 
 	private String getAssertionsHtml() {
-		StringBuilder bfr = new StringBuilder(64 * flatViewCount);
+		final StringBuilder sb = new StringBuilder(64 * flatViewCount);
 		for ( Ass target : chains.values() )
-			bfr.append("<li>If ").append(getSource(target).weak())
+			sb.append("<li>If ").append(getSource(target).weak())
 			  .append(" then ").append(target.strong())
 			  .append("</li>").append(NL);
-		return bfr.toString();
+		return sb.toString();
 	}
 
 	private StringBuilder getChainsHtml() {
-		StringBuilder bs = new StringBuilder(128 * flatViewCount);
+		final StringBuilder sb = new StringBuilder(128 * flatViewCount);
 		int i = 1;
 		for ( Ass target : chains.values() ) {
-			bs.append("Chain ").append(i)
+			sb.append("Chain ").append(i)
 			  .append(": <b>If ").append(getSource(target).weak())
 			  .append(" then ").append(target.strong())
-			  .append("</b> (View ").append(i).append("):<br>").append(NL);
-			bs.append(getChainHtml(target)).append("<br>").append(NL); // current chain
+			  .append("</b> (View ").append(i).append("):<br>").append(NL)
+			  .append(getChainHtml(target)).append("<br>").append(NL); // current chain
 			++i;
 		}
-		return bs;
+		return sb;
 	}
 
 	@Override

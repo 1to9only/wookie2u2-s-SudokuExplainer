@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters.align2;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Values.VSIZE;
+import static diuf.sudoku.utils.Frmt.NULL_ST;
 import diuf.sudoku.utils.IMyPollSet;
 import java.util.AbstractSet;
 import java.util.Iterator;
@@ -95,7 +96,7 @@ public class LinkedMatrixCellSet
 		@Override
 		public String toString() {
 			if ( cell == null )
-				return "null";
+				return NULL_ST;
 			return cell.toString()+"=>"+next;
 		}
 	}

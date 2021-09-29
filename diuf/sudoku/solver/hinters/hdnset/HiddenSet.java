@@ -10,11 +10,12 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Indexes;
-import static diuf.sudoku.Indexes.FIRST_INDEX;
 import static diuf.sudoku.Indexes.INDEXES;
+import static diuf.sudoku.Indexes.IFIRST;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
@@ -22,7 +23,6 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Permutations;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
-import static diuf.sudoku.Values.ALL;
 
 
 /**
@@ -288,11 +288,11 @@ public final class HiddenSet extends AHinter {
 		// which will erroneously find ALL HiddenSingles in this region, but
 		// HiddenSingle runs BEFORE HiddenSet, so it's all good, except in
 		// Shft-F5 with filterHints off, where this produces false positives.
-		for ( int v : VALUESES[ALL & ~values] )
+		for ( int v : VALUESES[VALL & ~values] )
 			if ( VSIZE[bits=r.indexesOf[v].bits & ~indexes] == 1 )
 				// this aligned set causes a Hidden Single
 				return new HiddenSetDirectHint(this, cells, vs, greens, reds, r
-						, v, r.cells[FIRST_INDEX[bits]]);
+						, v, r.cells[IFIRST[bits]]);
 		return null; // No hidden single found
 	}
 

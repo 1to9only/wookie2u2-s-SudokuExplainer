@@ -47,4 +47,14 @@ public interface IMySet<E> extends Set<E> {
 	 * @param c {@code IMySet<E>}
 	 */
 	public void retainAllClear(IMySet<E> c);
+	
+	/**
+	 * do get and if not then put it, allowing you to visit each element of
+	 * a master set once.
+	 * 
+	 * @param pKey 
+	 * @return the existing key, if there, else put this one and return null
+	 */
+	public boolean visit(E pKey);
+
 }

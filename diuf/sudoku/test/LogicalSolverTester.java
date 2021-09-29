@@ -9,14 +9,27 @@ package diuf.sudoku.test;
 import static diuf.sudoku.test.TestHelpers.*;
 
 import diuf.sudoku.*;
+import static diuf.sudoku.Settings.THE_SETTINGS;
+import diuf.sudoku.gui.Print;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.*;
 import diuf.sudoku.solver.hinters.*;
 import diuf.sudoku.solver.hinters.chain.*;
 import diuf.sudoku.utils.*;
-import java.io.*;
-import java.util.*;
+import static diuf.sudoku.utils.Frmt.COMMA;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 
 /**
@@ -54,9 +67,12 @@ import java.util.*;
  */
 public final class LogicalSolverTester {
 
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
+	private static final boolean IS_HACKY = THE_SETTINGS.get(Settings.isHacky);
 
-	private static final boolean IS_HACKY = Settings.THE.get(Settings.isHacky);
+	// KRC 2021-06-20 I'm trying to find my misplaced towel
+	// When 1 puzzle is reprocessed print hint.toHtml to stdout (very verbose),
+	// so that I can see all occurrences of misplaced towel in a puzzle.
+	private static final boolean PRINT_HINT_HTML = false; // #check false
 
 	// KRC BUG 2020-08-20 888#top1465.d5.mt from hint.apply
 	// DEBUG_SIAMESE_LOCKING_BUG=true makes LogicalSolverTester behave as per
@@ -65,7 +81,8 @@ public final class LogicalSolverTester {
 	// Also makes LogicalSolverTester follow (approximately) the same hint-path
 	// through each puzzle as the GUI, which is quite handy coz no figuring out
 	// where they diverge. Most useful EARLY in the hint-path, like Locking.
-	private static final boolean DEBUG_SIAMESE_LOCKING_BUGS = true;
+	// SLOWER: KRC 2021-06-28 disabled because it's slower!
+	private static final boolean DEBUG_SIAMESE_LOCKING_BUGS = false;
 
 	private static int numSolved=0, numFailed=0;
 
@@ -145,10 +162,21 @@ public final class LogicalSolverTester {
 			// paste the whole damn line rather than piss-about with it.
 			// WARN: NOT TESTED with any other args!
 			// WARN: Settings changes are PERMANENT!
-			Settings.THE.justSetWantedTechs(parseWantedHinters(args));
+			THE_SETTINGS.justSetWantedTechs(parseWantedHinters(args));
 			pids = null;
-		} else
-			pids = Frmt.toIntArray(args); // may be null
+		} else {
+			pids = Frmt.toIntArray(args); // may still be null
+			// do BEFORE new LogicalSolver because new LogicalSolver ->
+			// new RecursiveAnalyser -> new HintsApplicumulator ->
+			// if AHint.printHtml then new SB, so hint.toString() contains
+			// a list of the hints that have already been applied, the actual
+			// HTML for which is above this entry in the log because it was
+			// printed as each hint was applied, so this is just a summary.
+			if ( PRINT_HINT_HTML ) {
+				if ( pids!=null && pids.length==1 )
+					AHint.printHintHtml = true; // this is REALLY verbose
+			}
+		}
 
 		// get the output logFilename from the inputFilename
 		// KRC 2019-10-03 put run date-time in logFilename.
@@ -165,21 +193,24 @@ public final class LogicalSolverTester {
 		// So let's run this little fire trucker down the list...
 		try ( PrintStream out = new PrintStream(new FileOutputStream(logFile), true) ) {
 			Log.initialise(out);
+			Print.initialise();
 
 			// nb: LogicalSolver's want method (et al) write to Log.out
-			LogicalSolver solver = LogicalSolverFactory.get();
-			Log.tee("wantedHinters: ");
-			Log.teeln(solver.getWantedHinterNames());
+			solver = LogicalSolverFactory.get();
 
-			// KRC BUG 2020-08-20 Find the mergeSiameseHints bug. Switch on
-			// DEBUG_SIAMESE_LOCKING_BUGS to make LogicalSolverTester behave as
-			// per the GUI to find the puzzle which hits a siamese bug.
+			// KRC BUG 2020-08-20 Find the mergeSiameseHints bug.
+			// DEBUG_SIAMESE_LOCKING_BUGS makes LogicalSolverTester behave
+			// as-per the GUI to find a puzzle which hits the siamese bug.
 			if ( DEBUG_SIAMESE_LOCKING_BUGS ) {
 				// also made mergeSiameseHints handle SingleHintsAccumulator
 				// as well as it's intended [Default]HintsAccumulator.
-				solver.locking.setSiamese(solver.hiddenPair, solver.hiddenTriple);
-				Log.teeln("logicalSolver.locking.setSiamese!");
+				solver.setSiamese();
+				if (Log.MODE >= Log.VERBOSE_5_MODE) {
+					Log.teeln("logicalSolver.locking.setSiamese!");
+				}
 			}
+
+			final boolean logHints = true;
 
 			if ( pids!=null && pids.length>0 ) { // RETEST SPECIFIC PUZZLE/S
 				UsageMap totalUsageMap = new UsageMap();
@@ -188,9 +219,10 @@ public final class LogicalSolverTester {
 //					if ( redo )
 //						logicalSolver.reconfigureToUse(hintyHinters[pid-1]);
 					System.out.println("processing pid "+pid+" ...");
-					process(readALine(inputFile, pid), solver, totalUsageMap, true, false, true);
+					final boolean logIt = pids.length==1;
+					process(readALine(inputFile, pid), totalUsageMap, logIt, logIt); // ONE exception
 					// print running-total usages (for A*E monitoring)
-					printTotalUsageMap(totalUsageMap, solver);
+					printTotalUsageMap(totalUsageMap);
 				}
 				// report, close files, clean-up, etc.
 				try { solver.close(); } catch (IOException impossible) { }
@@ -198,19 +230,26 @@ public final class LogicalSolverTester {
 
 				// PRIMING SOLVE: don't time the bloody JIT compiler!
 				if ( true ) {
-					// run solve manually (process buggers-up count)
-					Grid g = new Grid(readALine(inputFile, 1).contents);
-					solver.prepare(g);
-					boolean validate = true;
-					boolean isNoisy = false;
-					boolean logHints = false;
-					System.out.println("<priming-solve>");
-					solver.solve(g, new UsageMap(), validate, isNoisy, logHints);
-					System.out.println("</priming-solve>");
+					if (Log.MODE >= Log.VERBOSE_5_MODE) {
+						System.out.println("<priming-solve>");
+					}
+					final Grid grid = new Grid(readALine(inputFile, 1).contents);
+					solver.prepare(grid);
+					// priming solve: isNoisy but NO logHints (unless you have a bug)!
+					// nb: manual solve coz process buggers-up the counts
+					// nb: logTimes ALWAYS false for top1465 (too verbose)
+					solver.solve(grid, new UsageMap(), true, true, false, false);
+					if (Log.MODE >= Log.VERBOSE_5_MODE) {
+						System.out.println("</priming-solve>");
+					}
 				}
 
 				// now the actual run
 				printHeaders(now, inputFile, logFile);
+				if (Log.MODE >= Log.VERBOSE_2_MODE) {
+					Log.teeln(solver.getWantedHinterNames("wantedHinters: "));
+					Log.teeln(solver.getUnwantedHinterNames("unwantedTechs: "));
+				}
 				UsageMap totalUsageMap = new UsageMap();
 				try ( BufferedReader reader = new BufferedReader(new FileReader(inputFile)) ) {
 					int lineCount=0;  String contents;
@@ -218,10 +257,10 @@ public final class LogicalSolverTester {
 						Line line = new Line(inputFile, ++lineCount, contents);
 //						if(lineCount<9) continue;
 						// totalUsageMap += process line with solver
-						if ( !process(line, solver, totalUsageMap, true, false, true) )
+						if ( !process(line, totalUsageMap, logHints, false) )
 							break;
 						// print running total usages (for A*E monitoring)
-						printTotalUsageMap(totalUsageMap, solver);
+						printTotalUsageMap(totalUsageMap);
 						if ( false ) {
 							// I'm sick of GC making solve timings inconsistent,
 							// but can't predict if it'll need to GC in the next
@@ -235,6 +274,7 @@ public final class LogicalSolverTester {
 //						if(lineCount>=10) break; // 100 is standard profile size
 						// just do the first one, and log its stats!
 //						break;
+//						Debug.breakpoint();
 					} // next line in .mt file
 				}
 
@@ -258,7 +298,9 @@ public final class LogicalSolverTester {
 				}
 				printRunSummary(took);
 
-				// this is where we print "performance metrics" from static imported hinters
+				// here we print hinters performance metrics/sizes/whatever
+//				Log.teeln("AlignedExclusionHint.maxLen="+AlignedExclusionHint.maxLen);
+//				Log.teeln("AChainingHint.maxLineLen="+AChainingHint.maxLineLen);
 
 				// just leave me in (silent when unused). This reports the max
 				// size of the Chainers HashSet's when you use FunkyAssSet2 in
@@ -272,7 +314,7 @@ public final class LogicalSolverTester {
 				try { solver.close(); } catch (IOException impossible) { }
 
 				System.out.flush(); // ____ing dildows
-				Log.out.flush(); // ____ing dildows
+				Log.log.flush(); // ____ing dildows
 
 			} // fi
 
@@ -287,10 +329,10 @@ public final class LogicalSolverTester {
 
 	private static int procCount = 0;
 	private static long ttlTook = 0L;
-	private static boolean process(Line line, LogicalSolver solver
-			, UsageMap totalUsage, boolean isNoisy, boolean showHints
-			, boolean logHints) {
-		if ( isNoisy ) {
+	private static LogicalSolver solver;
+	private static boolean process(final Line line, final UsageMap totalUsage
+			, final boolean logHints, final boolean logTimes) {
+		if ( logHints ) {
 			++procCount;
 			// this is the puzzle-header-line for when we're logging a line per hint
 			if (Log.MODE >= Log.VERBOSE_2_MODE) {
@@ -298,7 +340,7 @@ public final class LogicalSolverTester {
 				Log.println(line.toString()); // $pid#$absolutePath\t$contents
 			}
 		}
-		Grid grid = new Grid(line.contents);
+		final Grid grid = new Grid(line.contents);
 		grid.source = new PuzzleID(line.file, line.number);
 
 		long took = 0L;
@@ -309,57 +351,55 @@ public final class LogicalSolverTester {
 			solver.prepare(grid);
 
 			// solve the puzzle!
-			UsageMap usageMap = new UsageMap(); // Hinter usages
-			boolean isSolved = solver.solve(grid, usageMap, true, showHints, logHints);
-			if ( isNoisy )
+			final UsageMap usageMap = new UsageMap(); // Hinter usages
+			boolean isSolved = solver.solve(grid, usageMap, true, false, logHints, logTimes);
+			if ( logHints )
 				ttlTook += took = System.nanoTime() - start;
 			if ( !isSolved )
 				throw new UnsolvableException(grid.invalidity);
 			++numSolved;
 
-			if ( isNoisy ) {
+			if ( logHints ) {
 				// print the hinter detail lines in VERBOSE_MODE
-				String hinterName, hardestHinter="Ignoto";
-				double d, maxDifficulty=0.0D, ttlDifficulty=0.0D;
-				int calls, ttlCalls=0;
-				int hints, ttlHints=0;
-				int elims, ttlElims=0;
-				long time;
 				Usage u;
+				double d, maxDifficulty=0.0D, ttlDifficulty=0.0D;
+				IHinter hardestHinter=null;
+				final Usage ttl = new Usage(0, 0, 0, 0L);
 				if (Log.MODE >= Log.NORMAL_MODE) {
 					if ( procCount == 1 ) // FIRST ONLY
-						Log.teeln(Log.PUZZLE_SUMMARY_HEADERS);
-					else if (Log.MODE >= Log.VERBOSE_2_MODE)
-						// repeat coz hints mean you can't see previous
-						Log.println(Log.PUZZLE_SUMMARY_HEADERS);
+						Log.tee(Print.PUZZLE_SUMMARY_HEADERS);
+					else
+						if (Log.MODE >= Log.VERBOSE_2_MODE) {
+							// repeat coz hints mean you can't see previous
+							Log.print(Print.PUZZLE_SUMMARY_HEADERS);
+						}
 				}
-				for ( IHinter hinter : usageMap.keySet() ) {
-					hinterName = hinter.toString();
-					u = usageMap.get(hinter);
-					ttlCalls += (calls = u.numCalls);
-					ttlHints += (hints = u.numHints);
-					ttlElims += (elims = u.numElims);
-					time = u.time;
-					if ( elims > 0 ) {
-						d = u.maxDifficulty;
-						if ( d > maxDifficulty ) {
+				for ( Entry<IHinter,Usage> e : usageMap.entrySet() ) {
+					ttl.add(u=e.getValue());
+					if ( u.elims > 0 ) {
+						if ( (d=u.maxDifficulty) > maxDifficulty ) {
 							maxDifficulty = d;
-							hardestHinter = hinterName;
+							hardestHinter = e.getKey();
 						}
 						ttlDifficulty += u.ttlDifficulty;
 					}
-					if (Log.MODE >= Log.VERBOSE_2_MODE)
-						printHintDetailsLine(Log.out, time, calls, hints, elims
-							, maxDifficulty, ttlDifficulty, hinterName);
+					if (Log.MODE >= Log.VERBOSE_2_MODE) {
+						printHintDetailsLine(Log.log, u.time
+							, u.calls, u.hints, u.elims
+							, maxDifficulty, ttlDifficulty
+							, String.valueOf(e.getKey()));
+					}
 				}
-				if (Log.MODE >= Log.NORMAL_MODE)
+				if (Log.MODE >= Log.NORMAL_MODE) {
 					printPuzzleSummary(line, took, ttlTook/procCount
-							, ttlCalls, ttlHints, ttlElims
-							, maxDifficulty, ttlDifficulty, hardestHinter);
+							, ttl.calls, ttl.hints, ttl.elims
+							, maxDifficulty, ttlDifficulty
+							, String.valueOf(hardestHinter));
+				}
 				Log.flush();
 
 				if ( totalUsage != null )
-					totalUsage.addonate(usageMap);
+					totalUsage.addonAll(usageMap);
 			}
 
 			return true;
@@ -378,9 +418,9 @@ public final class LogicalSolverTester {
 			Log.format("\t%4.2f", 0.0);
 			Log.format("\t%s", ex);
 			Log.format(NL);
-			carp(grid, ex, Log.out);
+			carp(grid, ex, Log.log);
 
-			if ( Log.out != System.out )
+			if ( Log.log != System.out )
 				carp(grid, ex, System.out);
 
 			return false;
@@ -389,16 +429,16 @@ public final class LogicalSolverTester {
 
 	private static void printHeaders(String now, File inputFile, File logFile) {
 		// create solver here coz logs unwanted hinters in NORMAL_MODE
-		Log.teef("%s built %s ran %s%s", Settings.ATV, Settings.BUILT, now, NL);
-		Log.teef(" %sHACKY", IS_HACKY?"":"!");
 		Log.teeln();
-		Log.teef("input   : %s%s", inputFile.getAbsolutePath(), NL);
-		Log.teef("log %2d  : %s%s", Log.MODE, logFile.getAbsolutePath(), NL);
-		Log.teef("stdout  : progress only%s", NL);
+		Log.teef("%s built %s ran %s%s", Build.ATV, Build.BUILT, now, NL);
 		// + 1 line per Hint (header)
 		if (Log.MODE >= Log.VERBOSE_2_MODE) {
+			Log.teef("hacky   : %s%s", IS_HACKY?"HACKY ":"NOT_HACKY", NL);
+			Log.teef("input   : %s%s", inputFile.getAbsolutePath(), NL);
+			Log.teef("log %2d  : %s%s", Log.MODE, logFile.getAbsolutePath(), NL);
+			Log.teef("stdout  : progress only%s", NL);
 			Log.println();
-			printHintDetailsHeaders(Log.out);
+			printHintDetailsHeaders(Log.log);
 			if ( false )
 				printAlignedExclusionHeaders(System.out);
 		}
@@ -426,7 +466,7 @@ public final class LogicalSolverTester {
 			, String hinterName) {
 		// hint-details-line
 		// + 1 line per Hint
-		out.format("%5s", ""); // hid (hintNumber)
+		out.format("%5s", EMPTY_STRING); // hid (hintNumber)
 		out.format("\t%,17d", time);
 		out.format("\t%,17d", div(time,calls));
 		out.format("\t%5d", calls);
@@ -467,25 +507,29 @@ public final class LogicalSolverTester {
 
 	private static void printHinterSummary(PrintStream out, Usage u) {
 		out.format("%,18d", u.time);
-		out.format("\t%7d\t%,14d", u.numCalls, div(u.time,u.numCalls));
-		out.format("\t%7d\t%,14d", u.numElims, div(u.time,u.numElims));
-		out.format("\t%s%s", u.hinterName, NL);
+		out.format("\t%7d\t%,14d", u.calls, div(u.time,u.calls));
+		out.format("\t%7d\t%,14d", u.elims, div(u.time,u.elims));
+		// note that the solver field is static, just for this line
+		out.format("\t%s%s", solver.wantedHinters[u.hinterIndex], NL);
 	}
 
-	private static List<Usage> printTotalUsageMap(UsageMap totalUsageMap, LogicalSolver solver) {
-		Log.println();
-		if (Log.MODE >= Log.VERBOSE_1_MODE)
-			printHinterSummaryHeader(Log.out);
+	private static List<Usage> printTotalUsageMap(UsageMap totalUsageMap) {
+		if (Log.MODE >= Log.VERBOSE_1_MODE) {
+			Log.println();
+			printHinterSummaryHeader(Log.log);
+		}
 		// totalUsageMap: + 1 line per Hinter (summary) DETAIL
 		long ttlTime = 0L;
 		final List<Usage> totalUsageList = totalUsageMap.toArrayList();
-		totalUsageList.sort(Usage.newRunOrderComparator(solver.wantedHinters));
 		for ( Usage u : totalUsageList ) {
-			if (Log.MODE >= Log.VERBOSE_1_MODE)
-				printHinterSummary(Log.out, u);
+			if (Log.MODE >= Log.VERBOSE_1_MODE) {
+				printHinterSummary(Log.log, u);
+			}
 			ttlTime += u.time;
 		}
-		Log.format("%,18d%s", ttlTime, NL);
+		if (Log.MODE >= Log.VERBOSE_1_MODE) {
+			Log.format("%,18d%s", ttlTime, NL);
+		}
 		return totalUsageList;
 	}
 
@@ -563,7 +607,7 @@ public final class LogicalSolverTester {
 		for ( int i=1; i<n; ++i ) {
 			name = args[i];
 			// remove trailing comma, if any
-			if ( name.endsWith(",") )
+			if ( name.endsWith(COMMA) )
 				name = name.substring(0, name.length()-1);
 			// fail on any unknown tech (check aliases first)
 			if ( (tech=Tech.valueOf(name)) == null
@@ -641,7 +685,7 @@ public final class LogicalSolverTester {
 //						break;
 //					//a hint-details-line, starts with a space, unlike the puzzle-clues and puzzle-maybes lines
 //					//   35	         19,394	28	 161	  1	Point and Claim               	Pointing: A5, C5 on 5 in box 4 and row 5 (G5-5)
-//					} else if ( line.startsWith(" ") && line.length()>NAME_END ) {
+//					} else if ( line.startsWith(SPACE) && line.length()>NAME_END ) {
 //						name = line.substring(NAME_BEGIN, NAME_END).trim();
 //						Set<Integer> hintNumbersSet = hintNumbersMap.get(name);
 //						if ( hintNumbersSet != null )
@@ -708,8 +752,8 @@ public final class LogicalSolverTester {
 //
 //	private static String asString(Set<Integer> hintNumbers) {
 //		if ( hintNumbers.isEmpty() )
-//			return "";
-//		return " " + Frmt.frmtIntegers(hintNumbers, " ", " ");
+//			return EMPTY_STRING;
+//		return SPACE + Frmt.frmtIntegers(hintNumbers, SPACE, SPACE);
 //	}
 //
 //	private static class SkipReader extends BufferedReader {

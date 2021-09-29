@@ -13,12 +13,17 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSIZE;
+import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import static diuf.sudoku.utils.Frmt.SPACE;
+import diuf.sudoku.utils.IntIntHashMap;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyArrays;
 import diuf.sudoku.utils.MyClass;
@@ -26,16 +31,11 @@ import diuf.sudoku.utils.MyStrings;
 import java.io.PrintStream;
 import java.util.Comparator;
 import java.util.Deque;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
-import diuf.sudoku.gen.IInterruptMonitor;
-import diuf.sudoku.solver.LogicalSolver;
-import diuf.sudoku.utils.IntIntHashMap;
-import static diuf.sudoku.Values.ALL;
-
+import java.io.File;
 
 /**
  * AAlignedSetExclusionBase is an abstract base class of all Aligned*Exclusion.
@@ -270,8 +270,20 @@ import static diuf.sudoku.Values.ALL;
  * </pre>
  */
 public abstract class AAlignedSetExclusionBase extends AHinter
-		implements diuf.sudoku.solver.IPreparer
+		implements diuf.sudoku.solver.hinters.IPreparer
 {
+	/**
+	 * Set this ALLWAYS if you want the HitSet to always save, even when hits
+	 * are disabled by turning-off hackTop1465, which is one way to create a
+	 * set of "virgin" hit-files (with ALL other non-basic hinters disabled).
+	 * Then set me to NO_SAVE and use those hitFiles with hackTop1465 true.
+	 * This setting is not final, so that it can be changed on-the-fly.
+	 */
+	public static final int ALLWAYS_SAVE = 0; // save even when !hackTop1465
+	public static final int NORMAL = 1; // allows overwrites
+	public static final int NO_SAVE = 2; // never save
+	public static int hitFileMode = NORMAL; // @check NORMAL
+
 	// coz getCounters() reflectively references by superclass by SUPER_NAME,
 	// so if you rename me you need to change SUPER_NAME also.
 	private static final String SUPER_NAME = "AHinter";
@@ -329,9 +341,9 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		log.format(" %2d", totalMaybesSize);
 		log.format(" %2d", siblingsCount);
 		log.format(" %2d", countHits(cmnExclBits, numCmnExclBits, cells));
-		log.format("\t%-110s", diuf.sudoku.utils.Frmt.toFullString(" ", cells.length, cells));
+		log.format("\t%-110s", diuf.sudoku.utils.Frmu.toFullString(SPACE, cells.length, cells));
 		log.format("\t%-25s", redPots);
-		log.format("\t%s", diuf.sudoku.utils.Frmt.toFullString(" ", map.getUsedCommonExcluders(cmnExcls, numCmnExcls)));
+		log.format("\t%s", diuf.sudoku.utils.Frmu.toFullString(SPACE, map.getUsedCommonExcluders(cmnExcls, numCmnExcls)));
 		log.println();
 		log.flush();
 	}
@@ -381,7 +393,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	// 2. AHint.hintNumber: the hint number (1 based) in this file
 	// 3. the id's of the cells in the aligned set
 	// and use them in the next run, to ignore all others. UBER HACK!
-	protected final HitSet hits = new HitSet();
+	protected final HitSet hits;
 	protected String loadedFileName = null; // which puzzle file is loaded into the hits
 	protected boolean useHits = false;
 
@@ -403,7 +415,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 //	protected final Counter sumCnt = new Counter("sumCnt");
 //	protected final Counter prangCnt = new Counter("prangRate");
 
-	public AAlignedSetExclusionBase(Tech tech, IInterruptMonitor im) {
+	public AAlignedSetExclusionBase(Tech tech, IInterruptMonitor im, File hitFile) {
 		super(tech);
 		this.interruptMonitor = im;
 		assert tech.isAligned;
@@ -417,7 +429,9 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		// 10 is masturbating with a cheese grater:
 		//    slightly ammusing, but mostly painful
 		assert degree>=2 && degree<=10;
-		Log.println(classNameOnly);
+		if ( Log.log != null ) // BUGGER!
+			Log.println(classNameOnly);
+		this.hits = new HitSet(hitFile);
 	}
 
 	/**
@@ -443,16 +457,21 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 */
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {
-		// load top1465.d5.*.hits.txt only when the puzzleFile changes
-		// nb: loadedFileName is initially null
-		if ( AHinter.hackTop1465
+		// load top1465.d5.Aligned*Exclusion.hits.txt when puzzleFile changes
+		final String fn;
+		if ( grid != null // anally retentive
 		  && grid.source != null // Avert NPE from pasted puzzles
-		  && !grid.source.fileName.equals(loadedFileName) ) {
-			useHits = hits.load(HitSet.hitFile(grid.source.fileName, this));
-			assert useHits == hits.fileExists();
-			loadedFileName = grid.source.fileName; // load ONCE per file
+		  && (fn=grid.source.fileName) != null // anally retentive
+		  && !fn.equals(loadedFileName) ) {
+			// setting the hitFile name is a bit complicated
+			if ( AHinter.hackTop1465 || hitFileMode==ALLWAYS_SAVE )
+				hits.setHitFile(HitSet.getHitFile(fn, this));
+			useHits = AHinter.hackTop1465 && hits.load();
+			if ( useHits && hitFileMode==NO_SAVE )
+				hits.setHitFile(null); // so that save aborts
+			loadedFileName = fn; // load ONCE per file
 		}
-//		Log.teef("%s.prepare: %s%s\n", classNameOnly, useHits, useHits ? " "+hits.size() : "");
+//		Log.teef("%s.prepare: %s%s\n", classNameOnly, useHits, useHits ? SPACE+hits.size() : EMPTY_STRING);
 	}
 
 	/**
@@ -796,7 +815,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		assert numCmnExclBits>0 && allMaybesBits!=0;
 		// if allBits is all potential values then we're done, because no
 		// reduction of common excluders will be possible.
-		if ( allMaybesBits == ALL )
+		if ( allMaybesBits == VALL )
 			return numCmnExclBits; // never occurs. Never say never.
 		// subtract allBits from each common excluders maybes, and if there
 		// are any left-overs then we remove that excluder.
@@ -1241,19 +1260,6 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		void report() {
 		}
 
-//		public String scoresToString(Cell[] cells) {
-//			final StringBuilder sb = new StringBuilder(32);
-//			sb.setLength(0);
-//			boolean first = true;
-//			for ( Cell cell : cells ) {
-//				if ( first )
-//					first = false;
-//				else
-//					sb.append(",");
-//				sb.append(scores[cell.i]);
-//			}
-//			return sb.toString();
-//		}
 	}
 
 	// =========================================================================
@@ -1322,24 +1328,10 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		}
 
 		public LinkedHashSet<Cell> getUsedCommonExcluders(Cell cmnExcls[], int numCmnExcls) {
-			LinkedHashSet<Cell> set = new LinkedHashSet<>(16, 0.75f);
-			Iterator<HashA> it = super.keySet().iterator();
-			Cell c;
-			while ( it.hasNext() )
-				if ( (c=get(it.next())) != null )
+			final LinkedHashSet<Cell> set = new LinkedHashSet<>(16, 0.75f);
+			for ( Cell c : super.values() )
+				if ( c != null )
 					set.add(c);
-			// If there are no USED common excluders (ie we still reached an
-			// exclusion without a common excluder blocking ANY combo) then
-			// we just add the common excluders array to the set, coz an empty
-			// usedCmnExcls field breaks a*e.log format, which is parsed by
-			// tools.AnalyseLog & tools.ReformatLog, which break if missing.
-/*
-KEEP4DOC: The only known example of set.isEmpty():
-61#C:\Users\User\Documents\NetBeansProjects\DiufSudoku\top1465.d5.mt	....15.6..3...4.7....8...593...7...6......21.4....1...92..........59.7..8.5..3...
-2..715.6.53.964.72...832.593...795.6.....821.4....19.7926187..5143596728875..3691
-,89,49,,,,348,,34,,,18,,,,18,,,67,16,47,,,,14,,,,18,12,24,,,,48,,67,569,79,36,45,,,,34,,56,28,36,25,,,38,,,,,,,,34,34,,,,,,,,,,,,,,24,24,,,,
-67   	      4,296,300	52	  59	  1	Aligned Dec                   	Aligned Dec: B1, B3, B4, C4, A5, B5, C5, C6, D6, E6 on B6:2{56} (B5-6)
-*/
 			if ( set.isEmpty() )
 				for ( int i=0; i<numCmnExcls; ++i )
 					set.add(cmnExcls[i]);

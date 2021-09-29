@@ -13,6 +13,7 @@ import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.test.knuth.RecursiveSolver.Timing;
 import static diuf.sudoku.test.TestHelpers.*;
 import static diuf.sudoku.test.knuth.RecursiveSolver.TIMINGS;
+import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.Log;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -44,8 +45,6 @@ import java.util.Set;
  * @author Keith Corlett 2013
  */
 public final class RecursiveSolverTester {
-
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	/**
 	 * The TOTALING Technique used here-in. This is an unnecessary complication
@@ -113,7 +112,7 @@ public final class RecursiveSolverTester {
 		}
 		if ( args.length > 1 ) {
 			try {
-				Log.out = new PrintStream(new BufferedOutputStream(new FileOutputStream(new File(args[1]))));
+				Log.log = new PrintStream(new BufferedOutputStream(new FileOutputStream(new File(args[1]))));
 			} catch (FileNotFoundException ex) {
 				System.err.println(Log.me()+": Buffered output file failed to open");
 				ex.printStackTrace(System.err);
@@ -123,7 +122,7 @@ public final class RecursiveSolverTester {
 
 		try {
 			EnumMap<Tech, Timing> timings = new EnumMap<>(Tech.class);
-			RecursiveSolver solver = new RecursiveSolver(); // clears RecursiveSolver.timings
+			RecursiveSolver solver = new RecursiveSolver();
 
 			if ( false ) { // solve 1 puzzle
 				// I only do singles with asserts, and Debug
@@ -190,9 +189,9 @@ public final class RecursiveSolverTester {
 				}
 			}
 		} catch (Exception ex) {
-			ex.printStackTrace(Log.out);
+			ex.printStackTrace(Log.log);
 		} finally {
-			if ( Log.out != System.out ) {
+			if ( Log.log != System.out ) {
 				Log.flush();
 				Log.close();
 			}
@@ -257,7 +256,7 @@ public final class RecursiveSolverTester {
 			Log.format("%s", NL);
 			Log.format("%s%s", grid, NL);
 			Log.format("%s", NL);
-			ex.printStackTrace(Log.out);
+			ex.printStackTrace(Log.log);
 			Log.flush();
 		}
 		return result;

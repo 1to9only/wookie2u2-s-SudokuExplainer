@@ -12,6 +12,7 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
@@ -32,7 +33,7 @@ import java.util.EnumMap;
  * used in the rest of Sudoku Explainer, hence the separate test.knuth package.
  * The RecursiveAnalyser is used in the rest of SE. It does basically the same
  * stuff, with cheese. This is the stripped-out racing version: sans cheese,
- * special sauce, pickles, and any other s__t you can think of. 
+ * special sauce, pickles, and any other s__t you can think of.
  * RecursiveAnalyser is about functionality, but knuth.RecursiveSolver is all
  * about speed. I'm all about speed. Did I mention that I quite like speed. Not
  * that kind ya dumbass. REAL speed. The kind you discover by working at it.
@@ -44,12 +45,12 @@ import java.util.EnumMap;
  * and the expenses outweigh the gains. Knuth is/was a bloody genius.
  * <p>
  * It's harder to pick than a broken nose. Suck it and see.
+ * <p>
+ * You're Knuthing but a bampot!
  *
  * @author Keith Corlett 2013 (IIRC)
  */
 public final class RecursiveSolver {
-
-	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	/**
 	 * The TIMINGS. <ul>
@@ -76,19 +77,19 @@ public final class RecursiveSolver {
 	private final Timer[] fourQuickFoxes;
 	// Locking must be reset before each solve
 	private final Locking locking;
-	
+
 	HintsApplicumulator apcu = new HintsApplicumulator(false, true);
 
-	/** 
+	/**
 	 * Constructor.
 	 */
 	public RecursiveSolver() {
 		locking = new Locking(apcu);
 		fourQuickFoxes = new Timer[] {
-		  new Timer(new HiddenSingle())
-		, new Timer(new NakedSingle())
-		, new Timer(new HiddenSet(Tech.HiddenPair))
-		, new Timer(locking)
+			  new Timer(new HiddenSingle())
+			, new Timer(new NakedSingle())
+			, new Timer(new HiddenSet(Tech.HiddenPair))
+			, new Timer(locking)
 		};
 	}
 
@@ -192,7 +193,7 @@ public final class RecursiveSolver {
 				// propagates back up to process in RecsursiveSolverTester,
 				// which is fine, because the puzzle is broken (or more likely
 				// RecursiveSolver is broken).
-				fox.timing.elims += hint.apply(true, isNoisy, grid);
+				fox.timing.elims += hint.applyQuitely(true, grid);
 			if ( grid.isFull() )
 				return true;
 		}

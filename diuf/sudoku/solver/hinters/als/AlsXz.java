@@ -40,6 +40,9 @@ import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -76,12 +79,17 @@ public final class AlsXz extends AAlsHinter
 //ALS_XZ: alss=902,700 rccs=13,988,600,100 self=303,228,500
 //    14,196,723,200	   9791	     1,449,976	   3955	     3,589,563	ALS-XZ
 
-	// weird: LogicalAnalyserTest needs to know if AAlsHinter.ALS_FINDER is
-	// AlsFinderRecursive (or AlsFinder) because it finds different hints, but
-	// AAlsFinder is a package-only class, and should remain so, so I put a
-	// public getter in AlsXz, which is a public class. Clear?
-	public static boolean isAlsFinderRecursive() {
-		return USE_ALS_FINDER_RECURSIVE;
+	// weird: LogicalAnalyser test gets different results from AlsFinder to
+	// AlsFinderRecursive because they put alss in a different order, but it
+	// changes the whole puzzle-solve-path from there-on so LogicalAnalyserTest
+	// needs to know the name of the ALS_FINDER class, to build it into it's
+	// result html file-name, so now we have a test for each implementation;
+	// there may be others in future, because AlsFinderRecursive is still slow!
+	public static String alsFinderName() {
+		return ALS_FINDER.getClass().getSimpleName();
+	}
+	public static String rccFinderName() {
+		return RCC_FINDER.getClass().getSimpleName();
 	}
 
 	/**
@@ -123,7 +131,7 @@ public final class AlsXz extends AAlsHinter
 	 * KRC edited hobiwan's explanation.
 	 *
 	 * @param grid the Grid to search
-	 * @param candidates array of Idx of grid cells which maybe each value 1..9.<br>
+	 * @param candidates array of Idx of cells which maybe each value 1..9.<br>
 	 *  NO LONGER USED in this implementation, but not removed coz it may still
 	 *  be used in the other sub-classes of AAlsHinter
 	 * @param alss array of Almost Locked Sets (ALSs)
@@ -151,8 +159,8 @@ public final class AlsXz extends AAlsHinter
 		  , zsZapped // bitset of z-values (non-RCs) removed by single-link
 		  , bt0,bt1,bt2 // both.setOr(a.idx, b.idx)
 		  , vt0,vt1,vt2; // victims.setAnd(a.vBuds[z], b.vBuds[z]).andNot(both)
-		boolean singleLinked // are there any z-values
-			  , doubleLinked; // rcc.cand2!=0, then any double-elims
+		boolean snglLnkd // are there any z-values
+			  , dblLnkd; // rcc.cand2!=0, then any double-elims
 //		final long start = System.nanoTime();
 //		final Idx both = this.both; // cells in both ALSs
 		final Idx victims = AlsXz.VICTIMS; // buds of all z's in both ALSs
@@ -163,17 +171,18 @@ public final class AlsXz extends AAlsHinter
 		for ( int i=0; i<numRccs; ++i )
 			// singleLinked ALS-XZs need z-values;
 			// doubleLinked ALS-XZs can still eliminate even without z-values.
-			if ( ( singleLinked = (zs = alss[(rcc=rccs[i]).als1].maybes
-									  & alss[rcc.als2].maybes
-									  & ~VSHFT[rcc.v1]
-									  & ~VSHFT[rcc.v2]) != 0 )
-			   | ( doubleLinked = rcc.v2 != 0 ) ) {
+			if ( (snglLnkd=(zs = alss[(rcc=rccs[i]).als1].maybes
+							   & alss[rcc.als2].maybes
+							   & ~VSHFT[rcc.v1]
+							   & ~VSHFT[rcc.v2]) != 0)
+			   | (dblLnkd=rcc.v2 != 0)
+			) {
 				a = alss[rcc.als1];
 				b = alss[rcc.als2];
 				v1 = rcc.v1;
 				v2 = rcc.v2;
 				zsZapped = 0;
-				if ( singleLinked ) {
+				if ( snglLnkd ) {
 					// look to eliminate each z-value
 					// get indices of all cells in both ALSs
 // inline for speed: eliminate method calls
@@ -189,7 +198,8 @@ public final class AlsXz extends AAlsHinter
 //								.andNot(both).any() ) {
 						if ( ( (vt0=(ai=a.vBuds[z]).a0 & (bi=b.vBuds[z]).a0 & ~bt0)
 							 | (vt1=ai.a1 & bi.a1 & ~bt1)
-							 | (vt2=ai.a2 & bi.a2 & ~bt2) ) != 0 ) {
+							 | (vt2=ai.a2 & bi.a2 & ~bt2) ) != 0
+						) {
 							// add the removable (red) potentials
 							REDS.upsertAll(victims.set(vt0,vt1,vt2), grid, z);
 							// build-up bitset of z-values zapped by singleLink
@@ -197,29 +207,29 @@ public final class AlsXz extends AAlsHinter
 						}
 					}
 				}
-				if ( doubleLinked ) {
-					doubleLinked = false;
-					// 1. eliminate x's outside the ALS which see all x's in both ALSs
+				if ( dblLnkd ) {
+					dblLnkd = false;
+					// 1. elim x's outside ALS which see all xs in both ALSs
 					if ( VICTIMS.setAndAny(a.vBuds[v1], b.vBuds[v1]) )
-						doubleLinked = REDS.upsertAll(VICTIMS, grid, v1);
+						dblLnkd = REDS.upsertAll(VICTIMS, grid, v1);
 					if ( VICTIMS.setAndAny(a.vBuds[v2], b.vBuds[v2]) )
-						doubleLinked |= REDS.upsertAll(VICTIMS, grid, v2);
-					// 2. eliminate all z's outside the ALS that see all z's in the ALS
-					for ( int z : VALUESES[a.maybes & ~VSHFT[v1] & ~VSHFT[v2]] )
+						dblLnkd |= REDS.upsertAll(VICTIMS, grid, v2);
+					// 2. elim all z's outside ALS that see all zs in the ALS
+					for (int z : VALUESES[a.maybes & ~VSHFT[v1] & ~VSHFT[v2]])
 						if ( a.vBuds[z].any() )
-							doubleLinked |= REDS.upsertAll(a.vBuds[z], grid, z);
-					for ( int z : VALUESES[b.maybes & ~VSHFT[v1] & ~VSHFT[v2]] )
+							dblLnkd |= REDS.upsertAll(a.vBuds[z], grid, z);
+					for (int z : VALUESES[b.maybes & ~VSHFT[v1] & ~VSHFT[v2]])
 						if ( b.vBuds[z].any() )
-							doubleLinked |= REDS.upsertAll(b.vBuds[z], grid, z);
+							dblLnkd |= REDS.upsertAll(b.vBuds[z], grid, z);
 				}
 				if ( !REDS.isEmpty() ) {
 					// FOUND ALS-XZ! create the hint and add it to accu
-					final AHint hint = createHint(grid, a, b, zsZapped
-							, v1, v2, doubleLinked);
+					final AHint hint = createHint(grid, a, b, zsZapped, v1, v2
+							, dblLnkd);
 					result = true;
 					if ( accu.add(hint) )
 						break;
-					doubleLinked = false;
+					dblLnkd = false;
 				}
 			}
 		// GUI only (we don't get here if accu is a SingleHintAccumulator)
@@ -267,9 +277,9 @@ public final class AlsXz extends AAlsHinter
 		// build a string of the RCC-value/s
 		String rccs = Integer.toString(v1);
 		if ( v2 != 0 )
-			rccs += " and " + v2;
+			rccs += AND + v2;
 		// debugMessage
-		final String tag = "";
+		final String tag = EMPTY_STRING;
 		// build the hint, and add it to the IAccumulator
 		return new AlsXzHint(this, a, b, zsZapped, REDS.copyAndClear()
 				, anyDoubleLinked, rccs, tag);

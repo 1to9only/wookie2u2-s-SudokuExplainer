@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.utils;
 
+import static diuf.sudoku.utils.Frmt.NL;
 import java.io.PrintStream;
 import java.math.BigInteger;
 import java.util.Iterator;
@@ -59,8 +60,6 @@ import java.util.Iterator;
  *
  */
 public final class Permutations implements Iterable<int[]> {
-
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	public final int nBits;
 	public final int nOnes;
@@ -168,8 +167,7 @@ public final class Permutations implements Iterable<int[]> {
 		out.print(nBits);
 		out.print(":");
 		out.print(NL);
-		if(SB==null) SB = new StringBuilder(nBits*2);
-		final StringBuilder sb = SB; sb.setLength(0);
+		StringBuilder sb = new StringBuilder(nBits*2);
 		int count = 0;
 		for ( int[] perm : new Permutations(nBits, new int[nOnes]) ) {
 			sb.setLength(0);
@@ -184,8 +182,6 @@ public final class Permutations implements Iterable<int[]> {
 	}
 
 	// =============== main method exercises Permutations class ===============
-
-	private static StringBuilder SB = null;
 
 	public static StringBuilder appendBinaryString(StringBuilder sb, int[] perm, int nBits) {
 		// convert the perm back into long bits
@@ -394,9 +390,7 @@ public final class Permutations implements Iterable<int[]> {
 	 * <tt>"1_11111111_1________________________________"</tt>
 	 */
 	public static String format(int[] perm, int n) {
-		// re-use the existing SB if any. We presume it's NOT already in use.
-		if(SB==null) SB = new StringBuilder(n);
-		final StringBuilder sb=SB;  sb.setLength(0);
+		StringBuilder sb = new StringBuilder(n);
 		// convert the perm back into long bits
 		final long bits = toLong(perm);
 		// build the string in the sb

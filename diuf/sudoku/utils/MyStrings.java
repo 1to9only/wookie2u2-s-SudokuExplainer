@@ -6,6 +6,8 @@
  */
 package diuf.sudoku.utils;
 
+import static diuf.sudoku.utils.Frmt.NL;
+import static diuf.sudoku.utils.Frmt.SPACE;
 import java.util.Formatter;
 import java.util.Locale;
 
@@ -15,8 +17,6 @@ import java.util.Locale;
  * @author Keith Corlett 2019 OCT
  */
 public final class MyStrings {
-
-	public static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -28,14 +28,6 @@ public final class MyStrings {
 			return new String[]{lines};
 		return lines.split("\\r\\n|\\r|\\n");
 	}
-
-//not used 2020-10-23 but I'm loath to remove any of this crap
-//	public static String combine(String[] lines, int first, int n) {
-//		StringBuilder sb = new StringBuilder(1024); // big enough, but not too big
-//		for ( int i=first; i<n; ++i )
-//			sb.append(lines[i]);
-//		return sb.toString();
-//	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -76,12 +68,15 @@ public final class MyStrings {
 	// ------------------------------ replaceAll ------------------------------
 
 	// Welcome.html is the largest .html file at just under 2K (1,995 bytes)
-	private static final int BUFFER_SIZE = 2 * 1024;
+	public static final int BIG_BUFFER_SIZE = 2 * 1024;
 
-	// get the "clean" StringBuilder field
-	public static StringBuilder getSB() {
+	/**
+	 * get the cached StringBuilder of atleast BUFFER_SIZE.
+	 * @return 
+	 */
+	public static StringBuilder bigSB() {
 		if ( sb == null )
-			sb = new StringBuilder(BUFFER_SIZE); // growable!
+			sb = new StringBuilder(BIG_BUFFER_SIZE); // growable!
 		else
 			sb.setLength(0);
 		return sb;
@@ -124,9 +119,9 @@ public final class MyStrings {
 		int count = 0; // Used for debugging. Ignore the "not used" warning.
 		for ( int i = -len
 			; (i=s.indexOf(target, i+len)) > -1
-			; s = getSB().append(s.substring(0, i))				// prefix
+			; s = bigSB().append(s.substring(0, i))				// prefix
 						 .append(replacement)					// replace
-						 .append(s.substring(i+len)).toString()	// suffix
+						 .append(s.substring(i+len)).toString()	// suffix	// suffix
 			)
 				++count; // Used for debugging. It's this or a null statement.
 // there are valid cases where 4-args are passed to HTML which doesn't contain
@@ -176,12 +171,14 @@ public final class MyStrings {
 //		return s==null || s.isEmpty();
 //	}
 
+	public static final String TWO_OR_MORE_SPACES = "  +"; // regex
+
 	/**
 	 * Squeeze a multi-line string into one line, reducing all consecutive
 	 * spaces to a single space, and trim it.
 	 */
 	public static String squeeze(String s) {
-		return s.replaceAll(NL, " ").replaceAll("  +", " ").trim();
+		return s.replaceAll(NL, SPACE).replaceAll(TWO_OR_MORE_SPACES, SPACE).trim();
 	}
 
 	/**

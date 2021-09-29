@@ -58,7 +58,7 @@ class AlsFinder {
 		// copy and computeFields
 		int cnt = 0;
 		for ( Als als : alsSet ) {
-//			System.out.println(""+cnt+"\t"+als);
+//			System.out.println(""+cnt+TAB+als);
 			als.computeFields(grid, candidates);
 			alss[cnt++] = als;
 		}

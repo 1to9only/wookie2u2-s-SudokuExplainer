@@ -16,6 +16,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
 
@@ -30,8 +31,9 @@ import diuf.sudoku.solver.LogicalSolver;
  * for sets of 7 Cells.
  */
 public final class Aligned7Exclusion_2H extends Aligned7ExclusionBase
-//		implements diuf.sudoku.solver.IReporter
-//				 , java.io.Closeable
+implements 
+		// diuf.sudoku.solver.IReporter,
+		java.io.Closeable
 {
 	// the minimim number of candidates to permute (process).
 	private static final int MIN_CANDIDATES = 34; // <HACK/>
@@ -63,13 +65,13 @@ public final class Aligned7Exclusion_2H extends Aligned7ExclusionBase
 	private boolean firstPass = true;
 
 	public Aligned7Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor);
+		super(monitor, IO.A7E_2H_HITS);
 	}
 
-//	@Override
-//	public void close() throws java.io.IOException {
-//		hits.save();
-//	}
+	@Override
+	public void close() throws java.io.IOException {
+		hits.save();
+	}
 
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {

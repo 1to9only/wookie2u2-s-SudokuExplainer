@@ -11,7 +11,9 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
 
 /**
  * Data transfer object for a Sue De Coc hint.
@@ -36,16 +38,18 @@ public class SueDeCoqHint extends AHint  {
 
 	@Override
 	protected String toStringImpl() {
-		return "SueDeCoq: "+greens.toString();
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(greens)
+		  .toString();
 	}
 
 	@Override
 	protected String toHtmlImpl() {
 		return Html.produce(this, "SueDeCoqHint.html"
-				, greens.toString()		// intersection <g>
-				, blues.toString()		// inter & line <b1>
-				, purples.toString()	// inter & box  <b6>
-				, redPots.toString()	// eliminations <r>
+			, greens.toString()	 // intersection <g>
+			, blues.toString()	 // inter & line <b1>
+			, purples.toString() // inter & box  <b6>
+			, redPots.toString() // eliminations <r>
 		);
 	}
 	

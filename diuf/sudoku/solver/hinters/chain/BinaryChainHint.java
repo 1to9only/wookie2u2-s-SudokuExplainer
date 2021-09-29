@@ -11,10 +11,13 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.ArrayList;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.SO;
 
 
 /**
@@ -82,10 +85,16 @@ public final class BinaryChainHint extends AChainingHint {
 	@Override
 	public String toStringImpl() {
 		if ( isNishio )
-			return "Binary Nishio Chain"+typeID+": "+source+" so "+dstOff.contra();
+			return Frmu.getSB(64).append("Binary Nishio Chain").append(typeID)
+			  .append(COLON_SP).append(source).append(SO).append(dstOff.contra())
+			  .toString();
 		if ( isContradiction )
-			return "Binary Contradiction Chain"+typeID+": "+source+" so "+dstOff.contra();
-		return "Binary Reduction Chain"+typeID+": "+source.contra()+" so "+dstOn;
+			return Frmu.getSB(64).append("Binary Contradiction Chain").append(typeID)
+			  .append(COLON_SP).append(source).append(SO).append(dstOff.contra())
+			  .toString();
+		return Frmu.getSB(64).append("Binary Reduction Chain").append(typeID)
+		  .append(COLON_SP).append(source.contra()).append(SO).append(dstOn)
+		  .toString();
 	}
 
 	@Override

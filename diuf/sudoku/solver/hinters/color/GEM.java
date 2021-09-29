@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.solver.hinters.color;
 
+import diuf.sudoku.solver.hinters.IPreparer;
 import static diuf.sudoku.Grid.*;
 import static diuf.sudoku.Indexes.*;
 import static diuf.sudoku.Values.*;
@@ -15,6 +16,8 @@ import diuf.sudoku.Grid.*;
 import diuf.sudoku.solver.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.hinters.*;
+import static diuf.sudoku.solver.hinters.color.Words.*;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -126,23 +129,25 @@ public class GEM extends AHinter implements IPreparer
 	// and there's a car crash. Then you try a smash-up derby, and discover how
 	// much you like rubber bumpers; so it's all good.
 	private static final boolean CHECK_HINTS = true;
-//	// should we Log s__t when we CHECK_HINTS?
-//	private static final boolean CHECK_NOISE = true;
+	// should we Log s__t when we CHECK_HINTS?
+	private static final boolean CHECK_NOISE = true;
 
-	/** The first color: green. */
+	/** GREEN and BLUE. */
 	private static final int GREEN = 0;
-	/** The second color: blue. */
 	private static final int BLUE = 1;
+	/** The second color: blue. */
+	/** names of the colors, in an array to select from. */
+	private static final String[] COLORS = {green, blue};
 	/** The opposite color. */
 	private static final int[] OPPOSITE = {BLUE, GREEN};
-	/** names of the colors, in an array to select from. */
-	private static final String[] COLORS = {"green", "blue"};
 	/** colors ON HTML tags. */
-	private static final String[] CON = {"<g>", "<b1>"};
+	private static final String[] CON = {GON, BON};
 	/** colors OFF HTML tags. */
-	private static final String[] COFF = {"</g>", "</b1>"};
-	/** colored color names, for convenience. */
-	private static final String[] CCOLORS = {"<g>green</g>", "<b1>blue</b1>"};
+	private static final String[] COFF = {GOFF, BOFF};
+	/** colored color names. */
+	private static final String[] CCOLORS = {GON+green+GOFF, BON+blue+BOFF};
+//	/** opposite colored color names. */
+//	private static final String[] OCOLORS = {BON+blue+BOFF, GON+green+GOFF};
 	// The starting size of the steps StringBuilder. It'll grow if necessary.
 	private static final int STEPS_SIZE = 4096;
 
@@ -205,6 +210,7 @@ public class GEM extends AHinter implements IPreparer
 		ValueScore(int value) {
 			this.value = value;
 		}
+		// debug only, not used in actual code
 		@Override
 		public String toString() {
 			return ""+value+": "+score;
@@ -618,8 +624,8 @@ public class GEM extends AHinter implements IPreparer
 		// and then any ons with colors siblings/cell-mates are painted.
 		try {
 			// paint this cell-value, and it's consequences, ...
-			paint(cell, v, GREEN, true, "Let's assume that "+cell.id+"-"+v
-					+" is "+CCOLORS[GREEN]+NL);
+			paint(cell, v, GREEN, true, "Let's assume that "+cell.id+MINUS+v
+					+IS+CCOLORS[GREEN]+NL);
 			// on/paint consequences, and there consequences, ...
 			while ( paintMonoBoxs() | paintPromotions() ) {
 				// do nothing, just go again
@@ -810,7 +816,7 @@ public class GEM extends AHinter implements IPreparer
 		// breaks everything. So development is ONLY incremental, step by slow
 		// step; double-checking each fully before moving on.
 		if ( otherColor[v].contains(i) )
-			throw new OverpaintException(cell.id+"-"+v+" is already "+COLORS[o]);
+			throw new OverpaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
 
 		// 1. Paint the given cell-value this color
 		colors[c][v].add(i);
@@ -829,9 +835,9 @@ public class GEM extends AHinter implements IPreparer
 			  // pre-check faster than building why string pointlessly
 			  && !otherColor[v].contains((otherCell=r.otherThan(cell, v)).i) ) {
 				if ( wantWhy )
-					why = CON[c]+cell.id+"-"+v+COFF[c]
-						+" conjugate in "+r.id
-						+" is "+CON[o]+otherCell.id+"-"+v+COFF[o]+NL;
+					why = CON[c]+cell.id+MINUS+v+COFF[c]
+						+CONJUGATE_IN+r.id+IS
+						+CON[o]+otherCell.id+MINUS+v+COFF[o]+NL;
 				// paint otherCell-v the opposite color, recursively.
 				paint(otherCell, v, o, true, why);
 			}
@@ -845,11 +851,10 @@ public class GEM extends AHinter implements IPreparer
 		  // if this cell has just two potential values
 		  && cell.maybes.size == 2
 		  // pre-check faster than building why string pointlessly
-		  && !otherColor[otherValue=FIRST_VALUE[cell.maybes.bits & ~VSHFT[v]]].contains(i) ) {
+		  && !otherColor[otherValue=VFIRST[cell.maybes.bits & ~VSHFT[v]]].contains(i) ) {
 			if ( wantWhy )
-				why = CON[c]+cell.id+"-"+v+COFF[c]
-					+" only other value is "
-					+CON[o]+cell.id+"-"+otherValue+COFF[o]+NL;
+				why = CON[c]+cell.id+MINUS+v+COFF[c]+ONLY_OTHER_VALUE_IS
+					+CON[o]+cell.id+MINUS+otherValue+COFF[o]+NL;
 			// paint cell-otherValue the opposite color, skipping biCheck
 			paint(cell, otherValue, o, false, why);
 		}
@@ -945,13 +950,13 @@ public class GEM extends AHinter implements IPreparer
 								if ( wantWhy ) {
 									if ( first ) {
 										first = false;
-										why = NL+"<u>Mono Boxs</u>"+NL;
+										why = MONOBOXS_LABEL;
 									} else
 										why = "";
-									why += CON[c]+c1.id+"-"+v+COFF[c]
-									+" leaves "+c2.id+" only "+v+" in "+Grid.REGION_IDS[ri]
-									+", which leaves "+c1.id+" only "+v+" in "+sb.id
-									+" => "+CON[c]+c2.id+"-"+v+COFF[c]+NL;
+									why += CON[c]+c1.id+MINUS+v+COFF[c]
+									+LEAVES+c2.id+ONLY+v+IN+Grid.REGION_IDS[ri]
+									+", which leaves "+c1.id+ONLY+v+IN+sb.id
+									+PRODUCES+CON[c]+c2.id+MINUS+v+COFF[c]+NL;
 								}
 								// note that paint removes any pre-existing On
 								any |= paint(c2, v, c, false, why);
@@ -960,11 +965,11 @@ public class GEM extends AHinter implements IPreparer
 								if ( wantWhy ) {
 									if ( first ) {
 										first = false;
-										steps.append(NL).append("<u>Mono Boxs</u>").append(NL);
+										steps.append(MONOBOXS_LABEL);
 									}
-									steps.append(CON[c]).append(c1.id).append("-").append(v).append(COFF[c])
-									  .append(" leaves ").append(c2.id).append(" only ").append(v).append(" in ").append(Grid.REGION_IDS[ri])
-									  .append(" => $").append(CON[c]).append(c2.id).append("+").append(v).append(COFF[c])
+									steps.append(CON[c]).append(c1.id).append(MINUS).append(v).append(COFF[c])
+									  .append(LEAVES).append(c2.id).append(ONLY).append(v).append(IN).append(Grid.REGION_IDS[ri])
+									  .append(PRODUCES).append(ON_MARKER).append(CON[c]).append(c2.id).append(PLUS).append(v).append(COFF[c])
 									  .append(NL);
 								}
 								ons[c][v].add(c2.i);
@@ -1040,7 +1045,7 @@ public class GEM extends AHinter implements IPreparer
 			getValuesOffedFromEachCell(c); // repopulate OFF_VALS
 			for ( i=0; i<81; ++i )
 				if ( cells[i].maybes.size == VSIZE[OFF_VALS[i]] + 1 ) {
-					v = FIRST_VALUE[cells[i].maybes.bits & ~OFF_VALS[i]];
+					v = VFIRST[cells[i].maybes.bits & ~OFF_VALS[i]];
 					// pre-check it's not already painted for speed
 					if ( !colors[c][v].contains(i)
 					  // and it's not already an On
@@ -1048,11 +1053,11 @@ public class GEM extends AHinter implements IPreparer
 						if ( wantWhy ) {
 							if ( first ) {
 								first = false;
-								steps.append(NL).append("<u>Promotions</u>").append(NL);
+								steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
 							}
-							steps.append("last potential value => $")
-							  .append(CON[c]).append(CELL_IDS[i]).append("+")
-							  .append(v).append(COFF[c]).append(NL);
+							steps.append("last potential value").append(PRODUCES).append(ON_MARKER)
+							  .append(CON[c]).append(CELL_IDS[i]).append(PLUS).append(v).append(COFF[c])
+							  .append(NL);
 						}
 						ons[c][v].add(i);
 						onsValues[c] |= VSHFT[v];
@@ -1074,11 +1079,10 @@ public class GEM extends AHinter implements IPreparer
 						if ( wantWhy ) {
 							if ( first ) {
 								first = false;
-								steps.append(NL).append("<u>Promotions</u>").append(NL);
+								steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
 							}
-							steps.append("last place in ").append(r.id)
-							  .append(" => $").append(CON[c]).append(cell.id)
-							  .append("+").append(v1).append(COFF[c])
+							steps.append("last place in ").append(r.id).append(PRODUCES).append(ON_MARKER)
+							  .append(CON[c]).append(cell.id).append(PLUS).append(v1).append(COFF[c])
 							  .append(NL);
 						}
 						ons[c][v1].add(cell.i);
@@ -1097,10 +1101,10 @@ public class GEM extends AHinter implements IPreparer
 						if ( wantWhy ) {
 							if ( first ) {
 								first = false;
-								steps.append(NL).append("<u>Promotions</u>").append(NL);
+								steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
 							}
-							why = "sees a "+CCOLORS[o]+" => "
-								+CON[c]+cell.id+"-"+v1+COFF[c]+NL;
+							why = SEES+A+CCOLORS[o]+PRODUCES
+								+CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
 						}
 						any |= paint(cell, v1, c, T, why);
 					}
@@ -1125,10 +1129,10 @@ public class GEM extends AHinter implements IPreparer
 							if ( wantWhy ) {
 								if ( first ) {
 									first = false;
-									steps.append(NL).append("<u>Promotions</u>").append(NL);
+									steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
 								}
-								why = "has a "+CCOLORS[o]+" => "
-									+ CON[c]+cell.id+"-"+v1+COFF[c]+NL;
+								why = HAS+A+CCOLORS[o]+PRODUCES
+									+ CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
 							}
 							any |= paint(cell, v1, c, T, why);
 						}
@@ -1159,8 +1163,8 @@ public class GEM extends AHinter implements IPreparer
 							) {
 								cell = cells[ii];
 								if ( wantWhy ) //      the source Cell id
-									why = "shoot back at "+Grid.CELL_IDS[tmp1.poll()]+" => "
-										+ CON[c]+cell.id+"-"+v1+COFF[c]+NL;
+									why = "shoot back at "+Grid.CELL_IDS[tmp1.poll()]+PRODUCES
+										+ CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
 								any |= paint(cell, v1, c, T, why);
 								break; // first box only
 							}
@@ -1254,11 +1258,12 @@ public class GEM extends AHinter implements IPreparer
 						cause = Cells.set(cell);
 						goodColor = OPPOSITE[c];
 						if ( wantWhy )
-							steps.append(NL).append("<u>Contradiction</u>").append(NL)
-							  .append("<k>").append(cell.id).append("</k>")
-							  .append(" has ").append(CON[c]).append(COLORS[c]).append(" ").append(v1)
-							  .append(" and ").append(v2).append(COFF[c])
-							  .append(", so ").append(CCOLORS[goodColor]).append(" is true.").append(NL);
+							steps.append(NL).append(CONTRADICTION_LABEL).append(NL)
+							  .append(KON).append(cell.id).append(KOFF)
+							  .append(HAS).append(CON[c]).append(COLORS[c]).append(SPACE).append(v1)
+							  .append(AND).append(v2).append(COFF[c])
+							  .append(COMMA_SO).append(CCOLORS[goodColor])
+							  .append(IS_TRUE).append(PERIOD).append(NL);
 						return SUBTYPE_2;
 					}
 
@@ -1273,11 +1278,11 @@ public class GEM extends AHinter implements IPreparer
 						goodColor = OPPOSITE[c];
 						if ( wantWhy )
 							steps.append(NL)
-							  .append("<u>Contradiction</u>").append(NL)
-							  .append("<k>").append(r.id).append("</k>")
-							  .append(" has multiple ").append(CON[c]).append(v).append("/+'s").append(COFF[c])
-							  .append(", so ").append(CCOLORS[goodColor]).append(" is true.")
-							  .append(NL);
+							  .append(CONTRADICTION_LABEL).append(NL)
+							  .append(KON).append(r.id).append(KOFF)
+							  .append(HAS).append(MULTIPLE).append(CON[c]).append(v).append("/+'s").append(COFF[c])
+							  .append(COMMA_SO).append(CCOLORS[goodColor])
+							  .append(IS_TRUE).append(PERIOD).append(NL);
 						return SUBTYPE_3;
 					}
 
@@ -1291,11 +1296,11 @@ public class GEM extends AHinter implements IPreparer
 					goodColor = OPPOSITE[c];
 					if ( wantWhy )
 						steps.append(NL)
-						  .append("<u>Contradiction</u>").append(NL)
-						  .append("<k>").append(cell.id).append("</k>")
-						  .append(" all values are ").append(CON[c]).append(COLORS[c]).append(" -").append(COFF[c])
-						  .append(", so ").append(CCOLORS[goodColor]).append(" is true.")
-						  .append(NL);
+						  .append(CONTRADICTION_LABEL).append(NL)
+						  .append(KON).append(cell.id).append(KOFF).append(" all values are ")
+						  .append(CON[c]).append(COLORS[c]).append(SPACE).append(MINUS).append(COFF[c])
+						  .append(COMMA_SO).append(CCOLORS[goodColor]).append(IS_TRUE)
+						  .append(PERIOD).append(NL);
 					return SUBTYPE_4;
 				}
 
@@ -1312,12 +1317,12 @@ public class GEM extends AHinter implements IPreparer
 						goodColor = OPPOSITE[c];
 						if ( wantWhy )
 							steps.append(NL)
-							  .append("<u>Contradiction</u>").append(NL)
-							  .append("<k>").append(r.id).append("</k>")
-							  .append(" all ").append(v).append("'s")
-							  .append(" see ").append(CON[c]).append(v).append("'s").append(COFF[c])
-							  .append(", so ").append(CCOLORS[goodColor]).append(" is true.")
-							  .append(NL);
+							  .append(CONTRADICTION_LABEL).append(NL)
+							  .append(KON).append(r.id).append(KOFF)
+							  .append(ALL).append(v).append(APOSTROPHE_S)
+							  .append(SEE).append(CON[c]).append(v).append(APOSTROPHE_S).append(COFF[c])
+							  .append(COMMA_SO).append(CCOLORS[goodColor]).append(IS_TRUE)
+							  .append(PERIOD).append(NL);
 						return SUBTYPE_5;
 					}
 				}
@@ -1383,11 +1388,11 @@ public class GEM extends AHinter implements IPreparer
 					) {
 						if ( wantWhy )
 							steps.append(NL)
-							  .append("<u>Confirmation</u>").append(NL)
-							  .append(color(c, cell.id+"-"+v))
+							  .append(CONFIRMATION_LABEL).append(NL)
+							  .append(color(c, cell.id+MINUS+v))
 							  .append(" and all other values are eliminated")
-							  .append(", so ").append(CCOLORS[c])
-							  .append(" is ALL true.").append(NL);
+							  .append(COMMA_SO).append(CCOLORS[c])
+							  .append(IS_ALL_TRUE).append(NL);
 						goodColor = c;
 						return SUBTYPE_6; // continue on from existing subtypes
 					}
@@ -1415,11 +1420,11 @@ public class GEM extends AHinter implements IPreparer
 							) {
 								if ( wantWhy )
 									steps.append(NL)
-									  .append("<u>Confirmation</u>").append(NL)
-									  .append(color(c, grid.cells[i].id+"-"+v))
-									  .append(" and all other ").append(v).append("'s in ").append(r.id)
+									  .append(CONFIRMATION_LABEL).append(NL)
+									  .append(color(c, grid.cells[i].id+MINUS+v))
+									  .append(" and all other ").append(v).append(APOSTROPHE_S).append(IN).append(r.id)
 									  .append(" are eliminated, so ").append(CCOLORS[c])
-									  .append(" is ALL true.").append(NL);
+									  .append(IS_ALL_TRUE).append(NL);
 								goodColor = c;
 								region = r;
 								return SUBTYPE_7;
@@ -1561,12 +1566,13 @@ public class GEM extends AHinter implements IPreparer
 				if ( wantWhy ) {
 					if ( first ) {
 						first = false;
-						steps.append(NL).append("<u>Eliminations</u>").append(NL);
+						steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 					}
-					steps.append(cc.id).append(" has")
-					  .append(" both <g>").append(Values.toString(g)).append("</g>")
-					  .append(" and <b1>").append(Values.toString(b)).append("</b1>")
-					  .append(", eliminating <r>all other values</r>.")
+					steps.append(cc.id).append(HAS_BOTH)
+					  .append(GON).append(Values.toString(g)).append(GOFF)
+					  .append(AND).append(BON).append(Values.toString(b)).append(BOFF)
+					  .append(COMMA).append(ELIMINATING)
+					  .append(RON).append(ALL_OTHER_VALUES).append(ROFF).append(PERIOD)
 					  .append(NL);
 				}
 				subtype |= 1;
@@ -1591,13 +1597,13 @@ public class GEM extends AHinter implements IPreparer
 						Cell bc = closest(tmp4, cc); // blue cell seen
 						if ( first ) {
 							first = false;
-							steps.append(NL).append("<u>Eliminations</u>").append(NL);
+							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 						}
-						steps.append(cc.id).append("-").append(v)
-						  .append(" sees both <g>").append(gc.id).append("-").append(v).append("</g>")
-						  .append(" and <b1>").append(bc.id).append("-").append(v).append("</b1>")
-						  .append(", so ").append(cc.id).append(" can't be <r>").append(v).append("</r>.")
-						  .append(NL);
+						steps.append(cc.id).append(MINUS).append(v)
+						  .append(SEES_BOTH).append(GON).append(gc.id).append(MINUS).append(v).append(GOFF)
+						  .append(AND).append(BON).append(bc.id).append(MINUS).append(v).append(BOFF)
+						  .append(COMMA_SO).append(cc.id).append(CANT_BE).append(RON).append(v).append(ROFF)
+						  .append(PERIOD).append(NL);
 					}
 					subtype |= 2;
 				}
@@ -1623,13 +1629,13 @@ public class GEM extends AHinter implements IPreparer
 							int otherV = firstValue(o, ii);
 							if ( first ) {
 								first = false;
-								steps.append(NL).append("<u>Eliminations</u>").append(NL);
+								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 							}
 							steps.append(cc.id)
-							  .append(" has ").append(color(o, ""+otherV))
-							  .append(" and sees ").append(color(c, sib.id+"-"+v))
-							  .append(", so ").append(cc.id).append(" can't be <r>").append(v).append("</r>.")
-							  .append(NL);
+							  .append(HAS).append(color(o, ""+otherV))
+							  .append(" and sees ").append(color(c, sib.id+MINUS+v))
+							  .append(COMMA_SO).append(cc.id).append(CANT_BE).append(RON).append(v).append(ROFF)
+							  .append(PERIOD).append(NL);
 						}
 						subtype |= 4;
 					}
@@ -1651,12 +1657,12 @@ public class GEM extends AHinter implements IPreparer
 							cc = grid.cells[ii];
 							if ( first ) {
 								first = false;
-								steps.append(NL).append("<u>Eliminations</u>").append(NL);
+								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 							}
-							steps.append(cc.id).append("-").append(v)
-							  .append(" is eliminated in both ").append(CCOLORS[GREEN]).append(" and ").append(CCOLORS[BLUE])
-							  .append(", so ").append(cc.id).append(" can't be <r>").append(v).append("</r>.")
-							  .append(NL);
+							steps.append(cc.id).append(MINUS).append(v)
+							  .append(" is eliminated in both ").append(CCOLORS[GREEN]).append(AND).append(CCOLORS[BLUE])
+							  .append(COMMA_SO).append(cc.id).append(CANT_BE).append(RON).append(v).append(ROFF)
+							  .append(PERIOD).append(NL);
 						}
 						subtype |= 8;
 					}
@@ -1846,26 +1852,29 @@ public class GEM extends AHinter implements IPreparer
 
 	// HACK: clean non-solution values out of setPots
 	private boolean cleanSetPots(Pots setPots) {
-		Cell cell;
-		Values values;
 		final int[] svs = grid.getSolutionValues();
-//		boolean first = true;
-		for ( Iterator<Cell> it=setPots.keySet().iterator(); it.hasNext(); ) {
-			if ( (values=setPots.get(cell=it.next())).first() != svs[cell.i] ) {
-// unforgiving
-				throw new UncleanException("Invalid SetPot: "+cell.id+"+"+values.first()+"!="+svs[cell.i]);
-// forgiving
-//				if ( CHECK_NOISE )
-//					Log.println("WARN: GEM: Promo: Invalid SetPot: "+cell.id+"+"+values.first()+"!="+solution[cell.i]);
-//				if ( wantWhy ) {
-//					if ( first ) {
-//						first = false;
-//						steps.append(NL).append("<u>Invalid SetPots</u>").append(NL);
-//					}
-//					steps.append("<k><b>").append(cell.id).append("+").append(values.first())
-//					  .append("!=").append(solution[cell.i]).append("</b></k>").append(NL);
-//				}
-//				it.remove();
+		if ( true ) { // unforgiving
+			for ( java.util.Map.Entry<Cell,Values> e : setPots.entrySet() )
+				if ( VFIRST[e.getValue().bits] != svs[e.getKey().i] )
+					throw new UncleanException("Invalid SetPot: "+e.getKey().id+PLUS+e.getValue().first()+NOT_EQUALS+svs[e.getKey().i]);
+		} else { // forgiving
+			Cell cell;
+			Values values;
+			boolean first = true;
+			for ( Iterator<Cell> it=setPots.keySet().iterator(); it.hasNext(); ) {
+				if ( (values=setPots.get(cell=it.next())).first() != svs[cell.i] ) {
+					if ( CHECK_NOISE )
+						Log.println("WARN: GEM: Promo: Invalid SetPot: "+cell.id+PLUS+values.first()+NOT_EQUALS+svs[cell.i]);
+					if ( wantWhy ) {
+						if ( first ) {
+							first = false;
+							steps.append(NL).append("<u>Invalid SetPots</u>").append(NL);
+						}
+						steps.append(KON).append(BOLDON).append(cell.id).append(PLUS).append(values.first())
+						  .append(NOT_EQUALS).append(svs[cell.i]).append(BOLDOFF).append(KOFF).append(NL);
+					}
+					it.remove(); // <<<<<<< ==== NEEDS THE ITERATOR !!!!!
+				}
 			}
 		}
 		return !setPots.isEmpty(); // return any remaining cell-values to set?
@@ -1873,33 +1882,35 @@ public class GEM extends AHinter implements IPreparer
 
 	// HACK: clean solution values out of redPots
 	private boolean cleanRedPots() {
-		Cell cell;
-		Values values;
 		final int[] svs = grid.getSolutionValues();
-//		// is this the first invalid elimination?
-//		boolean first = true;
-		// use an iterator to delete from it
-		for ( Iterator<Cell> it=redPots.keySet().iterator(); it.hasNext(); ) {
-			values = redPots.get(cell = it.next());
-			for ( int v : VALUESES[values.bits] )
-				if ( svs[cell.i] == v ) {
-// unforgiving
-					throw new UncleanException("Invalid Elimination: "+cell.id+"-"+v+" is this cells value!");
-// forgiving
-//					if ( CHECK_NOISE )
-//						Log.println("WARN: GEM: Promo: Invalid Elimination: "+cell.id+"-"+v+" is this cells value!");
-//					if ( wantWhy ) {
-//						if ( first ) {
-//							first = false;
-//							steps.append(NL).append("<u>Invalid Eliminations</u>").append(NL);
-//						}
-//						steps.append("<k><b>").append(cell.id).append("+").append(v)
-//						  .append("</b></k> is this cells value!").append(NL);
-//					}
-//					if ( values.remove(v) == 0 )
-//						it.remove();
-				}
-
+		if ( true ) { // unforgiving
+			for ( java.util.Map.Entry<Cell,Values> e : redPots.entrySet() )
+				if ( VFIRST[e.getValue().bits] == svs[e.getKey().i] )
+					throw new UncleanException("Invalid Elimination: "+e.getKey().id+MINUS+e.getValue().first()+" is this cells value in the solution!");
+		} else { // forgiving
+			Cell cell;
+			Values values;
+			// is this the first invalid elimination?
+			boolean first = true;
+			// use an iterator to delete from it
+			for ( Iterator<Cell> it=redPots.keySet().iterator(); it.hasNext(); ) {
+				values = redPots.get(cell = it.next());
+				for ( int v : VALUESES[values.bits] )
+					if ( svs[cell.i] == v ) {
+						if ( CHECK_NOISE )
+							Log.println("WARN: GEM: Promo: Invalid Elimination: "+cell.id+MINUS+v+" is this cells value!");
+						if ( wantWhy ) {
+							if ( first ) {
+								first = false;
+								steps.append(NL).append("<u>Invalid Eliminations</u>").append(NL);
+							}
+							steps.append(BON).append(KON).append(cell.id).append(PLUS).append(v)
+							  .append(BOFF).append(KOFF).append(" is this cells value!").append(NL);
+						}
+						if ( values.remove(v) == 0 )
+							it.remove();
+					}
+			}
 		}
 		return !redPots.isEmpty(); // return any eliminations remaining
 	}

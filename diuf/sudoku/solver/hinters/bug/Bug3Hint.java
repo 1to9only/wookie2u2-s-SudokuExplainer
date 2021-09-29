@@ -13,10 +13,13 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
 
 /**
  * Bug3Hint holds the data for a "BUG type 3:" hint.
@@ -27,7 +30,7 @@ import java.util.Set;
  * There are 29 "BUG type 1:"s and just 1 "BUG type 2:"s in top1465 if you
  * turn-off all the HoDoKu hint types. If you turn on all the HoDoKu hint-types
  * (especially Coloring) then no BUG's are found so you may as well deselect me.
- * 
+ *
  * @author Nicolas Juillerat
  */
 public final class Bug3Hint extends ABugHint  {
@@ -111,19 +114,22 @@ public final class Bug3Hint extends ABugHint  {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+Frmt.csv(bugCells)+" on "+Frmt.csv(nkdSetVals);
+		return Frmt.getSB(64).append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(bugCells))
+		  .append(ON).append(Frmu.csv(nkdSetVals))
+		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "Bug3Hint.html"
-				, Frmt.and(allExtraValues)	// {0}
-				, Frmt.and(bugCells)		//  1
-				, Frmt.or(bugCells)			//  2
-				, Frmt.or(allExtraValues)	//  3
+				, Frmu.and(allExtraValues)	// {0}
+				, Frmu.and(bugCells)		//  1
+				, Frmu.or(bugCells)			//  2
+				, Frmu.or(allExtraValues)	//  3
 				, GROUP_NAMES[degree-2]		//  4
-				, Frmt.and(nkdSetCells)		//  5
-				, Frmt.and(nkdSetVals)		//  6
+				, Frmu.and(nkdSetCells)		//  5
+				, Frmu.and(nkdSetVals)		//  6
 				, region.id					//  7
 		);
 	}

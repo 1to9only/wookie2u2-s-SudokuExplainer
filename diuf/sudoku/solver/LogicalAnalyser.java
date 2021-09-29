@@ -20,56 +20,46 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * is, and produce a summary of the solving techniques that were applied in
  * order to solve the puzzle.
  * <p>
- * I'm only wafer-thin: I just present the LogicalSolver in IHinter's clothes.
- * LogicalAnalyser and LogicalSolver are codependant, so they MUST be in the
- * same package. The analyser calls back the LogicalSolver passed to it's
- * constructor, so it's best if analysers are always automatic variables (not
- * fields) so that: he comes, he's used, he goes; rather than make the GC deal
- * with a cut-off closed-loop of references.
+ * I'm a wafer-thin single-use class: I just present LogicalSolver.solve in an
+ * IHinter's clothing. LogicalAnalyser and LogicalSolver are codependant. They
+ * MUST be in the same package. The analyser calls back the LogicalSolver
+ * passed to it's constructor, so analysers are ALWAYS automatic variables (not
+ * fields) so that: he comes, he's used, he goes. My constructor takes the
+ * logHints and logTimes settings. I'm single use, and wafer-thin!
+ *
  * @see diuf.sudoku.solver.checks.AnalysisHint
  *
  * @author Keith Corlett
  */
-public final class LogicalAnalyser extends AWarningHinter
-		implements IPreparer
-{
+public final class LogicalAnalyser extends AWarningHinter {
+
 	/**
 	 * The LogicalSolver that created me (ie was passed to my constructor).
 	 */
 	private final LogicalSolver solver;
-
-	/**
-	 * When isNoisy is true {@link LogicalAnalyser#findHints} prints each hint
-	 * as it is applied to the grid.
-	 * <p>
-	 * Normally isNoisy is false. I'm a public field because the findHints
-	 * method is defined by IHinter, and therefore cannot accept additional
-	 * parameters, which is a shame. If you set me true then play nice with
-	 * the other kiddies and <b>finally</b> set me false again. The single
-	 * instance of LogicalAnalyser is shared.
-	 * <p>
-	 * If you have trouble try creating your own LogicalAnalyser and set it's
-	 * isNoisy to true, use it, then loose it. You REALLY don't want isNoisy
-	 * true when a puzzle is validated coz the recursive analyser is verbose,
-	 * filling-up your hard-disk, especially if it's a small SDD like mine.
-	 * <p>
-	 * I've tried loads of workarounds for this problem, and am yet to find a
-	 * solution that I'm really happy with.
-	 */
-	public boolean isNoisy = false;
+	private final boolean logHints;
+	private final boolean logTimes;
 
 	/**
 	 * Note that the only constructor is package visible, and is only called by
 	 * LogicalSolver (except in the JUnit test-case, which is a bit trixie).
 	 *
 	 * @param solver My master LogicalSolver. Not null.
+	 * @param logHints if true then hints are printed in the Log. <br>
+	 *  In the GUI that's HOME/SudokuExplainer.log in my normal setup.
+	 * @param logTimes if true then EVERY single hinter execution is logged. <br>
+	 *  In the GUI that's HOME/SudokuExplainer.log in my normal setup.
+	 *  This setting is ONLY respected in the GUI! If you did this in a large
+	 *  LogicalSolverTester run the log-file would be enormous.
 	 */
-	LogicalAnalyser(LogicalSolver solver) {
+	LogicalAnalyser(LogicalSolver solver, boolean logHints, boolean logTimes) {
 		// Tech.Solution isn't a real solving technique, it's the sum of all
 		// wanted techniques. Tech.Solution.degree is 0, and it's difficulty
 		// is also 0.0, which is NOT representative. Sigh.
-		super(Tech.Solution);
+		super(Tech.Analysis);
 		this.solver = solver;
+		this.logHints = logHints | logTimes; // times make no sense without the hints
+		this.logTimes = logTimes;
 		assert solver != null;
 	}
 
@@ -86,7 +76,7 @@ public final class LogicalAnalyser extends AWarningHinter
 	 * never be invalid, so this should never happen. Never say never.
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		try {
 			// run the puzzleValidators and the gridValidators seperately
 			// here because differentiating a WarningHint is complicated.
@@ -102,7 +92,7 @@ public final class LogicalAnalyser extends AWarningHinter
 			final boolean isSolved;
 			synchronized ( LogicalSolver.ANALYSE_LOCK ) {
 				// call-back the LogicalSolver that created me.
-				isSolved = solver.solve(grid, usageMap, false, isNoisy, false);
+				isSolved = solver.solve(grid, usageMap, false, false, logHints, logTimes);
 			}
 			if ( isSolved )
 				accu.add(new AnalysisHint(this, usageMap));
@@ -118,11 +108,6 @@ public final class LogicalAnalyser extends AWarningHinter
 	@Override
 	public String toString() {
 		return "LogicalAnalyser";
-	}
-
-	@Override
-	public void prepare(Grid grid, LogicalSolver logicalSolver) {
-		// A no-op required for the bloody test case: LogicalAnalyserTester.
 	}
 
 }

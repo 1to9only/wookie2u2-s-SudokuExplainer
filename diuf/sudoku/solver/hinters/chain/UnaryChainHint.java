@@ -10,10 +10,15 @@ import diuf.sudoku.Ass;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.ON;
 
 
 /**
@@ -61,7 +66,7 @@ public final class UnaryChainHint extends AChainingHint {
 	}
 
 	@Override
-	protected String getNamePrefix() { return ""; }
+	protected String getNamePrefix() { return EMPTY_STRING; }
 	@Override
 	protected String getNameMiddle() {
 		if (isXChain && isYChain) return "Unary XY Chain";
@@ -69,7 +74,7 @@ public final class UnaryChainHint extends AChainingHint {
 		return "Unary X Chain";
 	}
 	@Override
-	protected String getNameSuffix() { return ""; }
+	protected String getNameSuffix() { return EMPTY_STRING; }
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
@@ -82,7 +87,9 @@ public final class UnaryChainHint extends AChainingHint {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName() + ": " + resultAss;
+		return Frmt.getSB(64).append(getHintTypeName())
+		  .append(COLON_SP).append(resultAss)
+		  .toString();
 	}
 
 	@Override

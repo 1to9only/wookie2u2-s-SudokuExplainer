@@ -19,7 +19,7 @@ public final class MyInteger {
 	 * Returns the int value of the substring of line starting at start and
 	 * ending at the character before end. Try it, it does make sense.
 	 * Equivalent to <pre>{@code
-	 * Integer.parse(line.substring(start, end).trim().replaceAll(",",""))
+	 * Integer.parse(line.substring(start, end).trim().replaceAll(COMMA,EMPTY_STRING))
 	 * }</pre>
 	 * except without any temporary bloody Strings.
 	 *

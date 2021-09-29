@@ -13,9 +13,9 @@ import diuf.sudoku.solver.hinters.AHinter;
 import java.util.Arrays;
 import static diuf.sudoku.Grid.BUDDIES;
 import diuf.sudoku.Idx;
-import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Grid.LATER_BUDS;
+import static diuf.sudoku.Values.VFIRST;
 
 /**
  * Implementation of the "S/T/U/V/WXYZ-Wing" solving techniques.
@@ -241,8 +241,8 @@ public class BigWing extends AHinter {
 				if ( yzs.and(bivalues).any() )
 					for ( Cell yz : yzs.cells(grid, new Cell[yzs.size()]) )
 						if ( VSIZE[cands[i] & (b=yz.maybes.bits)] == 2
-						  && ( (xWing=isWing(VSHFT[x=FIRST_VALUE[b]], yz, als))
-							 | (zWing=isWing(VSHFT[z=FIRST_VALUE[b & ~VSHFT[x]]], yz, als)) )
+						  && ( (xWing=isWing(VSHFT[x=VFIRST[b]], yz, als))
+							 | (zWing=isWing(VSHFT[z=VFIRST[b & ~VSHFT[x]]], yz, als)) )
 						) {
 							if ( !xWing ) {
 								j = x;

@@ -9,7 +9,7 @@ package diuf.sudoku.gui;
 import diuf.sudoku.Difficulty;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Settings;
+import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.gen.Generator;
 import diuf.sudoku.gen.PuzzleCache;
 import diuf.sudoku.gen.Symmetry;
@@ -141,8 +141,8 @@ public final class GenerateDialog extends JDialog {
 	}
 
 	private boolean checkSafeTechs() {
-		return Settings.THE.allWanted(SAFE_TECHS)
-			&& Settings.THE.anyWanted(SAFETY_NETS);
+		return THE_SETTINGS.allWanted(SAFE_TECHS)
+			&& THE_SETTINGS.anyWanted(SAFETY_NETS);
 	}
 
 	private static final String UNSAFE_QUESTION =
@@ -229,7 +229,7 @@ public final class GenerateDialog extends JDialog {
 					if ( !checkSafeTechs() && !userOverridesUnsafe() )
 						return;
 					// check selected techs can produce this difficulty
-					if ( !Settings.THE.anyWanted(difficulty.techs()) ) {
+					if ( !THE_SETTINGS.anyWanted(difficulty.techs()) ) {
 						carp("Generate", BAD_TECHS_MESSAGE);
 						return;
 					}
@@ -529,7 +529,7 @@ public final class GenerateDialog extends JDialog {
 			// Display the analysis of this Sudoku
 			AHint analysis = analysisMap.get(grid);
 			if ( analysis == null ) {
-				analysis = engine.analyse();
+				analysis = engine.analysePuzzle(false, false); // NEVER noisy in generate!
 				analysisMap.put(grid, analysis);
 			}
 			engine.showHint(analysis);

@@ -6,10 +6,6 @@
  */
 package diuf.sudoku.utils;
 
-import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
-import java.util.Arrays;
-
 
 /**
  * An Arrays helper utility class instead of repeating ourselves.
@@ -65,37 +61,40 @@ public final class MyArrays {
 		return false;
 	}
 
-	/**
-	 * Does a contain the target Object. For speed, equals is reference-equals,
-	 * ie the Objects identity... I do not use the equals method.
-	 * @param a
-	 * @param target
-	 * @return Does a contain target?
-	 */
-	public static boolean contains(final Object[] a, final Object target) {
-		switch ( a.length ) {
-			case 2: return a[0]==target || a[1]==target;
-			case 3: return a[0]==target || a[1]==target || a[2]==target;
-			case 4: return a[0]==target || a[1]==target || a[2]==target || a[3]==target;
-			case 1: return a[0]==target;
-			case 0: return false;
-			default:
-				for ( Object e : a )
-					if ( e == target )
-						return true;
-				return false;
-		}
-	}
+//not_used
+//	/**
+//	 * Does a contain the target Object. For speed, equals is reference-equals,
+//	 * ie the Objects identity... I do not use the equals method.
+//	 * @param a
+//	 * @param target
+//	 * @return Does a contain target?
+//	 */
+//	public static boolean contains(final Object[] a, final Object target) {
+//		switch ( a.length ) {
+//			case 2: return a[0]==target || a[1]==target;
+//			case 3: return a[0]==target || a[1]==target || a[2]==target;
+//			case 4: return a[0]==target || a[1]==target || a[2]==target || a[3]==target;
+//			case 1: return a[0]==target;
+//			case 0: return false;
+//			default:
+//				for ( Object e : a )
+//					if ( e == target )
+//						return true;
+//				return false;
+//		}
+//	}
 
-	public static String toString(String sep, Object[] a) {
-		StringBuilder sb = new StringBuilder();
-		for ( int i=0,n=a.length; i<n; ++i ) {
-			if ( i > 0 )
-				sb.append(sep);
-			sb.append(i).append("=").append(a[i]);
-		}
-		return sb.toString();
-	}
+//not_used
+//	public static String toString(String sep, Object[] a) {
+//		final int n = a.length;
+//		StringBuilder sb = new StringBuilder(n*16);
+//		for ( int i=0; i<n; ++i ) {
+//			if ( i > 0 )
+//				sb.append(sep);
+//			sb.append(i).append(EQUALS).append(a[i]);
+//		}
+//		return sb.toString();
+//	}
 
 	public static String[] leftShift(String[] args) {
 		String[] newArgs = new String[args.length-1];
@@ -103,12 +102,13 @@ public final class MyArrays {
 		return newArgs;
 	}
 
-	public static Cell[] clone(Cell[] src, int n) {
-		Cell[] copy = new Cell[n];
-		for ( int i=0; i<n; ++i )
-			copy[i] = src[i];
-		return copy;
-	}
+//not_used
+//	public static Cell[] clone(Cell[] src, int n) {
+//		Cell[] copy = new Cell[n];
+//		for ( int i=0; i<n; ++i )
+//			copy[i] = src[i];
+//		return copy;
+//	}
 
 	public static int[] clone(int[] src, int n) {
 		int[] copy = new int[n];
@@ -117,118 +117,133 @@ public final class MyArrays {
 		return copy;
 	}
 
-	public static int[] clone(int[] src) {
-		return clone(src, src.length);
-	}
+//not_used
+//	public static int[] clone(int[] src) {
+//		return clone(src, src.length);
+//	}
 
-	// remove target from a, if it's there, and return a new downsized array
-	public static int[] remove(int[] a, int target) {
-		final int n = a.length;
-		int i = 0;
-		for ( ; i<n; ++i )
-			if ( a[i] == target )
-				break;
-		if ( i == n ) // target not found
-			return a;
-		int[] newA = new int[n-1];
-		for ( int j=0; j<i; ++j )
-			newA[j] = a[j];
-		for ( int j=i+1; j<n; ++j )
-			newA[j-1] = a[j];
-		return newA;
-	}
+//not_used
+//	// remove target from a, if it's there, and return a new downsized array
+//	public static int[] remove(int[] a, int target) {
+//		final int n = a.length;
+//		int i = 0;
+//		for ( ; i<n; ++i )
+//			if ( a[i] == target )
+//				break;
+//		if ( i == n ) // target not found
+//			return a;
+//		int[] newA = new int[n-1];
+//		for ( int j=0; j<i; ++j )
+//			newA[j] = a[j];
+//		for ( int j=i+1; j<n; ++j )
+//			newA[j-1] = a[j];
+//		return newA;
+//	}
 
-	public static boolean equals(Cell[] a, Cell[] b, int n) {
-		if (a==b)
-			return true;
-		if (a==null || b==null)
-			return false;
-		assert a.length == b.length;
-		final int minLength = Math.min(a.length, n);
-		for (int i=0; i<minLength; i++) {
-			Object ab = a[i];
-			Object ob = b[i];
-			if ( !(ab==null ? ob==null : ab.equals(ob)) )
-				return equalsSorted(a, b, n);
-		}
-		return true;
-	}
+//not_used
+//	public static boolean equals(Cell[] a, Cell[] b, int n) {
+//		if (a==b)
+//			return true;
+//		if (a==null || b==null)
+//			return false;
+//		assert a.length == b.length;
+//		final int minLength = Math.min(a.length, n);
+//		for (int i=0; i<minLength; i++) {
+//			Object ab = a[i];
+//			Object ob = b[i];
+//			if ( !(ab==null ? ob==null : ab.equals(ob)) )
+//				return equalsSorted(a, b, n);
+//		}
+//		return true;
+//	}
 
-	public static boolean equals(int[] a, int[] b, int n) {
-		if (a==b)
-			return true; // even if they're both null
-		if (a==null || b==null)
-			return false;
-		assert a.length == b.length;
-		final int minLength = Math.min(a.length, n);
-		for ( int i=0; i<minLength; i++ )
-			if ( a[i] != b[i] )
-				return false;
-		return true;
-	}
+//not_used
+//	public static boolean equals(int[] a, int[] b, int n) {
+//		if (a==b)
+//			return true; // even if they're both null
+//		if (a==null || b==null)
+//			return false;
+//		assert a.length == b.length;
+//		final int minLength = Math.min(a.length, n);
+//		for ( int i=0; i<minLength; i++ )
+//			if ( a[i] != b[i] )
+//				return false;
+//		return true;
+//	}
 
-	// sort the two arrays and then compare the first n elements. Actually we'll
-	// take a copy of the first n-elements of both array, sort the copies, and
-	// them compare them, to avert the side-effect of sorting the source arrays.
-	// If you want that side effect then sort the damn arrays yourself and then
-	// just use bloody equals.
-	public static boolean equalsSorted(Cell[] a, Cell[] b, int n) {
-		if (a==b)
-			return true;
-		if (a==null || b==null) // recall only a or b is null, not both.
-			return false;
-		if (a.length<n || b.length<n )
-			return false;
-
-		Cell[] aa=new Cell[n]; System.arraycopy(a,0, aa,0, n); Arrays.sort(aa);
-		Cell[] bb=new Cell[n]; System.arraycopy(b,0, bb,0, n); Arrays.sort(bb);
-		assert aa.length==n && bb.length==n;
-		for (int i=0; i<n; i++) {
-			Object ab = aa[i];
-			Object ob = bb[i];
-			if ( !(ab==null ? ob==null : ab.equals(ob)) )
-				return false;
-		}
-		return true;
-	}
+//not_used
+//	// sort the two arrays and then compare the first n elements. Actually we'll
+//	// take a copy of the first n-elements of both array, sort the copies, and
+//	// them compare them, to avert the side-effect of sorting the source arrays.
+//	// If you want that side effect then sort the damn arrays yourself and then
+//	// just use bloody equals.
+//	public static boolean equalsSorted(Cell[] a, Cell[] b, int n) {
+//		if (a==b)
+//			return true;
+//		if (a==null || b==null) // recall only a or b is null, not both.
+//			return false;
+//		if (a.length<n || b.length<n )
+//			return false;
+//
+//		Cell[] aa=new Cell[n]; System.arraycopy(a,0, aa,0, n); Arrays.sort(aa);
+//		Cell[] bb=new Cell[n]; System.arraycopy(b,0, bb,0, n); Arrays.sort(bb);
+//		assert aa.length==n && bb.length==n;
+//		for (int i=0; i<n; i++) {
+//			Object ab = aa[i];
+//			Object ob = bb[i];
+//			if ( !(ab==null ? ob==null : ab.equals(ob)) )
+//				return false;
+//		}
+//		return true;
+//	}
 
 	/**
-	 * The in method does a simple O(n) linear search of array for target. I
-	 * I use this sometimes because java.util.Arrays.binarySearch assumes array
-	 * is sorted ascending, if it isn't then it could be faster to just search
-	 * linearly. Don't use this on large arrays, obviously.
-	 * @param target to look for
+	 * The in method does a simple O(n) linear search of array for target,
+	 * using reference-equals (identity), so the target must be the same
+	 * instance that is in the array, not another instance that equals it.
+	 * <p>
+	 * This method exists because java.util.Arrays.binarySearch assumes array
+	 * is sorted ascending, and if it isn't then it's probably faster to just
+	 * search it linearly.
+	 * <p>
+	 * This method is O(n), so the larger the array the longer I take to not
+	 * find the target. Do NOT use this method in anger on big (say more than
+	 * 256 elements) arrays.
+	 *
 	 * @param array to look in
+	 * @param target to look for
 	 * @return true if target is in array, else false
 	 */
-	static boolean in(int target, int... array) {
-		for ( int i : array )
+	static boolean in(Object[] array, Object target) {
+		for ( Object i : array )
 			if ( i == target )
 				return true;
 		return false;
 	}
 
-	// copies cells into a new array minus (except) c.
-	// @param cells is a set (no duplicates, no nulls, not a null terminated array)
-	// @param c is the target cell to "ignore"
-	// @returns a new array of cells minus c
-	public static Cell[] minus(Cell[] cells, Cell c) {
-		final int n = cells.length - 1;
-		Cell[] result = new Cell[n];
-		int cnt = 0;
-		for ( Cell cell : cells )
-			if ( cell != c )
-				result[cnt++] = cell;
-		assert cnt == n;
-		return result;
-	}
+//not_used
+//	// copies cells into a new array minus (except) c.
+//	// @param cells is a set (no duplicates, no nulls, not a null terminated array)
+//	// @param c is the target cell to "ignore"
+//	// @returns a new array of cells minus c
+//	public static Cell[] minus(Cell[] cells, Cell c) {
+//		final int n = cells.length - 1;
+//		Cell[] result = new Cell[n];
+//		int cnt = 0;
+//		for ( Cell cell : cells )
+//			if ( cell != c )
+//				result[cnt++] = cell;
+//		assert cnt == n;
+//		return result;
+//	}
 
-	// JAPI incompetence astonishes me. It was a different world. We now know so
-	// much. I hope people think I'm an idjit in 30 years. Nah, make it 45!
-	public static int[] sort(int[] src) {
-		java.util.Arrays.sort(src);
-		return src;
-	}
+//not_used
+//	// JAPI incompetence astonishes me. It was a different world. We now know
+//	// so much. I hope people think I'm an idjit in 30 years. Nah, make it 20!
+//	public static int[] sort(int[] src) {
+//		java.util.Arrays.sort(src);
+//		return src;
+//	}
 
 //not used
 //	/**
@@ -458,23 +473,27 @@ public final class MyArrays {
 //		return result;
 //	}
 
-	public static ARegion[] join(ARegion[] rowsOrCols, ARegion[] boxs) {
-		ARegion[] result = new ARegion[18];
-		System.arraycopy(rowsOrCols, 0, result, 0, 9);
-		System.arraycopy(boxs, 0, result, 9, 9);
-		return result;
-	}
+//not_used
+//	public static ARegion[] join(ARegion[] rowsOrCols, ARegion[] boxs) {
+//		ARegion[] result = new ARegion[18];
+//		System.arraycopy(rowsOrCols, 0, result, 0, 9);
+//		System.arraycopy(boxs, 0, result, 9, 9);
+//		return result;
+//	}
 
-	public static boolean isNullOrEmpty(Object[] a) {
-		return a==null || a.length==0 || a[0]==null;
-	}
+//not_used
+//	public static boolean isNullOrEmpty(Object[] a) {
+//		return a==null || a.length==0 || a[0]==null;
+//	}
 
-	public static String toString(int[] a, int n) {
-		StringBuilder sb = new StringBuilder(n*6);
-		for ( int i=0; i<n; ++i ) {
-			if (i>0) sb.append(' ');
-			sb.append(a[i]);
-		}
-		return sb.toString();
-	}
+//not_used
+//	public static String toString(int[] a, int n) {
+//		StringBuilder sb = new StringBuilder(n*6);
+//		for ( int i=0; i<n; ++i ) {
+//			if (i>0) sb.append(' ');
+//			sb.append(a[i]);
+//		}
+//		return sb.toString();
+//	}
+
 }

@@ -7,6 +7,7 @@
 package diuf.sudoku.tools;
 
 import diuf.sudoku.io.IO;
+import static diuf.sudoku.utils.Frmt.TAB;
 import diuf.sudoku.utils.MyStrings;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -41,7 +42,7 @@ puzz hn ce eb cl sb sm hi|cells                                                 
 ... this one also plays a 57 chev at 45, but I'll need a numerologist to find the 454, and a mechanic to blow me (Sorry Shar. Big sigh.). Sigh. ...
   45 57  1  1 15 25  4|B1:2{79} B4:2{46} A7:2{49} C7:2{78} D7:2{18} E7:2{15} H7:3{248} I7:3{589} B8:2{49} B9:2{26}|A7-9, B1-9, B4-6, B8-4, B9-2, C7-8, D7-8, E7-1, H7-24, I7-58|B7:2{27}
 */
-				fields = line.split("\t");
+				fields = line.split(TAB);
 				assert fields.length == 4 : ""+fields.length+": "+line;
 				
 				// now we modify the fields in situ
@@ -58,7 +59,7 @@ puzz hn ce eb cl sb sm hi|cells                                                 
 				// print the fields
 				System.out.print(fields[0]);
 				for ( int i=1,n=fields.length; i<n; ++i ) {
-					System.out.print("\t");
+					System.out.print(TAB);
 					System.out.print(fields[i]);
 				}
 				System.out.println();

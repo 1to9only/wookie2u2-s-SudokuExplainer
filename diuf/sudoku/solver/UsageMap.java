@@ -6,11 +6,10 @@
  */
 package diuf.sudoku.solver;
 
-import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IHinter;
 import java.util.ArrayList;
+import java.util.Map.Entry;
 import java.util.TreeMap;
-
 
 /**
  * A UsageMap stores the usage statistics of a collection of hinters. It's used
@@ -25,20 +24,20 @@ public final class UsageMap extends TreeMap<IHinter, Usage> {
 	 * Constructs a new empty UsageMap
 	 */
 	public UsageMap() {
-		super(AHinter.BY_DIFFICULTY_ASC_TOSTRING_ASC);
+		super(IHinter.BY_EXECUTION_ORDER);
 	}
 
 	/**
 	 * Add the given values if hinter exists, else add a new Usage for hinter.
 	 */
-	Usage addon(IHinter hinter, int numCalls, int numHints, int numElims, long time) {
+	Usage addon(IHinter hinter, int calls, int hints, int elims, long time) {
 		Usage u = super.get(hinter);
 		if ( u == null ) {
-			put(hinter, u = new Usage(numCalls, numHints, numElims, time));
+			put(hinter, u = new Usage(calls, hints, elims, time));
 		} else {
-			u.numCalls += numCalls;
-			u.numHints += numHints;
-			u.numElims += numElims;
+			u.calls += calls;
+			u.hints += hints;
+			u.elims += elims;
 			u.time += time;
 		}
 		return u;
@@ -49,26 +48,31 @@ public final class UsageMap extends TreeMap<IHinter, Usage> {
 	 *
 	 * @param toAddOn UsageMap to add on
 	 */
-	public void addonate(UsageMap toAddOn) {
+	public void addonAll(UsageMap toAddOn) {
 		Usage a; // each Usage to add
-		for ( IHinter hinter : toAddOn.keySet() ) {
-			a = toAddOn.get(hinter);
-			addon(hinter, a.numCalls, a.numHints, a.numElims, a.time);
-		}
+		for ( Entry<IHinter,Usage> e : toAddOn.entrySet() )
+			addon(e.getKey(), (a=e.getValue()).calls, a.hints, a.elims, a.time);
 	}
 
 	/**
-	 * Listify totals to sort and report them.
-	 * <p>Used only by LogicalSolverTester.
+	 * Construct an ArrayList of usages to sort and report them.
+	 * <p>
+	 * Used only by LogicalSolverTester. so it's OK that I also
+	 * set the hinterIndex of each Usage as it passes thrue.
+	 *
 	 * @return {@code ArrayList<Usage>}
 	 */
 	public ArrayList<Usage> toArrayList() {
 		ArrayList<Usage> result = new ArrayList<>(size());
-		for ( IHinter hinter : keySet() ) {
-			final Usage u = get(hinter);
-			u.hinterName = hinter.toString();
+		for ( Entry<IHinter,Usage> e : entrySet() ) { // sorted
+			final Usage u = e.getValue();
+			// for LogicalSolverTester
+			u.hinterIndex = e.getKey().getIndex();
 			result.add(u);
 		}
+//entrySet is sorted, according to TreeMap documentation
+//		// order by the index in the wantedHinters array
+//		result.sort(Usage.BY_EXECUTION_ORDER);
 		return result;
 	}
 

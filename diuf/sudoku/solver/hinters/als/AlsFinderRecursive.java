@@ -131,7 +131,7 @@ final class AlsFinderRecursive extends AlsFinder {
 			}
 			// copy and computeFields
 			for ( Als a : alsSet ) {
-//				System.out.println(""+cnt+"\t"+a);
+//				System.out.println(""+cnt+TAB+a);
 				a.computeFields(grid, candidates);
 				alss[cnt++] = a;
 			}

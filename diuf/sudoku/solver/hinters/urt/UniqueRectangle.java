@@ -18,23 +18,23 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
-import static diuf.sudoku.Values.FIRST_VALUE;
+import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
+import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmu;
+import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.Permutations;
+import diuf.sudoku.utils.MyArrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
-import diuf.sudoku.utils.Log;
-import diuf.sudoku.utils.MyArrays;
-import static diuf.sudoku.Values.ALL;
 
 /**
  * UniqueRectangle implements the Unique Rectangles and Unique Loops Sudoku
@@ -236,8 +236,8 @@ public final class UniqueRectangle extends AHinter
 								Log.teeln();
 								Log.teef("%s: Bad number of rescue cells!\n", getClass().getSimpleName());
 								Log.teeln("    numExtraCells = "+numExtraCells);
-								Log.teeln("    extraCells = "+Frmt.toFullString(extraCells));
-								Log.teeln("    loop = "+Frmt.toFullString(loop));
+								Log.teeln("    extraCells = "+Frmu.toFullString(extraCells));
+								Log.teeln("    loop = "+Frmu.toFullString(loop));
 								Log.teeln("    cell = "+cell.toFullString());
 								Log.teeln("    v1 = "+v1);
 								Log.teeln("    v2 = "+v2);
@@ -401,7 +401,7 @@ public final class UniqueRectangle extends AHinter
 		// Type 2 has 1 extra value; more is a Hidden Unique Rectangle
 		if ( VSIZE[evs] == 1 ) {
 			// Type 2 UR
-			final int theExtraValue = FIRST_VALUE[evs]; // get first
+			final int theExtraValue = VFIRST[evs]; // get first
 			// get extraBuds := buds common to all extraCells, except the
 			// extraCells themselves, which maybe theExtraValue, and if there
 			// are none then there's no hint here. Move along!
@@ -690,8 +690,7 @@ public final class UniqueRectangle extends AHinter
 		// constants
 		final int shftIdxOfC2 = ISHFT[idxOfC2];
 		// get the removable values array := {1..9} - extraVals - v1 - v2
-		final int[] rmvVals = VALUESES[ALL & ~extraVals.bits
-				& ~VSHFT[v1] & ~VSHFT[v2]];
+		final int[] rmvVals = VALUESES[VALL & ~extraVals.bits & ~VSHFT[v1] & ~VSHFT[v2]];
 		// the values of the hidden set
 		final int[] hdnSetVals = IAS2[N];
 		// set sizes

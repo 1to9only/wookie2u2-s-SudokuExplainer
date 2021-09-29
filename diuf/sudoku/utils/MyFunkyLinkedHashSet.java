@@ -69,8 +69,13 @@ public class MyFunkyLinkedHashSet<T> extends AbstractSet<T> implements IMySet<T>
 	}
 
 	@Override
-	public T get(T o) {
-		return map.get(o);
+	public T get(T t) {
+		return map.get(t);
+	}
+
+	@Override
+	public boolean visit(T o) {
+		return map.visit(o, o);
 	}
 
 	/**

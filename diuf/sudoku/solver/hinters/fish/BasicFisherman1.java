@@ -21,6 +21,7 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -108,7 +109,7 @@ public class BasicFisherman1 extends AHinter {
 		public int index;
 		// a bitset of the indexes of cells which maybe v in these bases.
 		public int vs;
-		// for debug only, not that it really matters (not called in prod).
+		// debug only, not used in actual code.
 		@Override
 		public String toString() {
 			return ""+index+": "+Indexes.toString(vs);
@@ -286,7 +287,7 @@ public class BasicFisherman1 extends AHinter {
 		for ( int i=1; i<degreePlus1; ++i )
 			basesL.add(bases[stack[i].index-1]);
 		// construct the hint and return it
-		return new BasicFishHint(this, reds, v, greens, "", basesL, coversL);
+		return new BasicFishHint(this, reds, v, greens, EMPTY_STRING, basesL, coversL);
 	}
 
 }

@@ -16,6 +16,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
 
@@ -32,7 +33,7 @@ import diuf.sudoku.solver.LogicalSolver;
 public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 		implements java.io.Closeable
 //				 , diuf.sudoku.solver.IReporter
-				 , diuf.sudoku.solver.IPreparer
+				 , diuf.sudoku.solver.hinters.IPreparer
 {
 	// the minimim number of candidates to permute (process).
 	private static final int MIN_CANDIDATES = 27; // <HACK/>
@@ -100,7 +101,7 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 //	private java.io.PrintStream myLog = open("a6e.log", standardHeader());
 
 	public Aligned6Exclusion_1C(IInterruptMonitor monitor) {
-		super(monitor);
+		super(monitor, IO.A6E_1C_HITS);
 	}
 
 	@Override

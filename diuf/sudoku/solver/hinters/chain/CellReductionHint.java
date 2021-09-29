@@ -11,11 +11,15 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.SO;
 
 
 /**
@@ -139,7 +143,10 @@ public final class CellReductionHint extends AChainingHint {
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName()+": "+srcCell.id+" so "+resultAss;
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(srcCell.id)
+		  .append(SO).append(resultAss)
+		  .toString();
 	}
 
 	@Override

@@ -9,6 +9,9 @@ package diuf.sudoku.solver.accu;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import diuf.sudoku.utils.Frmu;
+import static diuf.sudoku.utils.Frmt.NULL_ST;
 
 
 /**
@@ -28,7 +31,7 @@ public final class AppliedHintsSummaryHint extends AHint {
 
 	private final int numElims;
 	private final String toString;
-	
+
 	/**
 	 * The AppliedHintsSummaryHint constructor.
 	 * @param numElims
@@ -38,12 +41,20 @@ public final class AppliedHintsSummaryHint extends AHint {
 	 * hint.toString() so it's HintsApplicumulator doesn't build the buffer,
 	 * so apcu.sb==null within RecursiveAnalyser.
 	 */
-	public AppliedHintsSummaryHint(int numElims, HintsApplicumulator apcu) {
+	public AppliedHintsSummaryHint(String source, int numElims, HintsApplicumulator apcu) {
 		super(null, AHint.INDIRECT, null, 0, null, null, null, null, null, null);
 		this.numElims = numElims;
-		this.toString = apcu!=null && apcu.SB!=null && apcu.numHints>0
-				? apcu.SB.toString()
-				: "NONE";
+		// build-up the toString string
+		final StringBuilder sb = Frmu.getSB();
+		sb.append(source).append("->AppliedHintsSummaryHint#");
+		if ( apcu==null )
+			sb.append(NULL_ST);
+		else {
+			sb.append(Integer.toString(apcu.numHints));
+			if ( apcu.SB != null )
+				sb.append(NL).append(apcu.SB);
+		}
+		toString = sb.toString();
 	}
 
 	@Override
@@ -73,7 +84,7 @@ public final class AppliedHintsSummaryHint extends AHint {
 
 	@Override
 	public String toHtmlImpl() {
-		return "";
+		return EMPTY_STRING;
 	}
 
 	@Override

@@ -15,11 +15,16 @@ import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.getSB;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_ONLY;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.IN;
 
 /**
  * DeathBlossomHint holds all the data of a DeathBlossom hint, which is
@@ -65,17 +70,16 @@ public class DeathBlossomHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " stem "+stem.id+" in "+Frmt.ssv(Als.regionsList(alss));
+			s += " stem "+stem.id+IN+Frmu.ssv(Als.regionsList(alss));
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = new StringBuilder(64);
-		sb.append(getHintTypeName()).append(":")
+		return Frmt.getSB().append(getHintTypeName()).append(COLON_ONLY)
 		  .append(" stem ").append(stem.id)
-		  .append(" in ").append(Frmt.ssv(Als.regionsList(alss)));
-		return sb.toString();
+		  .append(IN).append(Frmu.ssv(Als.regionsList(alss)))
+		  .toString();
 	}
 
 	// produce a line per ALS in this DB, that's colored to match the grid.
@@ -90,7 +94,7 @@ public class DeathBlossomHint extends AHint  {
 			if ( i > 0 )
 				sb.append(NL).append("       "); // 7 spaces
 			sb.append('<').append(COLORS[i % COLORS.length]).append('>')
-			  .append(v).append(" in ").append(alssByValue[v])
+			  .append(v).append(IN).append(alssByValue[v])
 			  .append("</").append(COLORS[i % COLORS.length]).append('>');
 		}
 		return Html.colorIn(sb.toString());
@@ -102,7 +106,7 @@ public class DeathBlossomHint extends AHint  {
 
 	@Override
 	public String toHtmlImpl() {
-		final String invalid; if(isInvalid) invalid="INVALID "; else invalid="";
+		final String invalid; if(isInvalid) invalid="INVALID "; else invalid=EMPTY_STRING;
 		return Html.produce(this, "DeathBlossomHint.html"
 			, stem.toFullString()	//{0}
 			, coloredAlss()			// 1

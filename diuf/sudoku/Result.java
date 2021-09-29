@@ -7,6 +7,8 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.PLUS;
 
 /**
  * A Result is the result of a hint, as distinct from all the other 
@@ -34,6 +36,6 @@ public class Result {
 	}
 	@Override
 	public String toString() {
-		return "Result:"+cell.id+(isOn?"+":"-")+value; // Now what does that look like?
+		return "Result:"+cell.id+(isOn?PLUS:MINUS)+value; // Now what does that look like?
 	}
 }

@@ -8,6 +8,7 @@ package diuf.sudoku.tools;
 
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
+import static diuf.sudoku.utils.Frmt.TAB;
 import diuf.sudoku.utils.MyLong;
 import java.io.BufferedReader;
 import java.io.File;
@@ -32,7 +33,7 @@ public class SortRecursiveSolverTesterLog {
 			int count = 0;
 			String line;
 			while ( (line=reader.readLine()) != null && count<1465 )
-				lines[count++] = line.split("\t", 3);
+				lines[count++] = line.split(TAB, 3);
 			while ( (line=reader.readLine()) != null )
 				trailer.add(line);
 			
@@ -62,7 +63,7 @@ public class SortRecursiveSolverTesterLog {
 		SB.setLength(0);
 		SB.append(a[0]);
 		for ( int i=1,n=a.length; i<n; ++i )
-			SB.append("\t").append(a[i]);
+			SB.append(TAB).append(a[i]);
 		return SB.toString();
 	}
 }

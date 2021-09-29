@@ -10,12 +10,19 @@ import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.COLON_ONLY;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -128,18 +135,19 @@ class BigWingsHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a "+getHintTypeName();
 		if ( isBig )
-			s += " on "+Frmt.csv(wingValues)+" and <b>"+z+"</b>";
+			s += ON+Frmt.csv(wingValues)+AND+"<b>"+z+"</b>";
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		String s = getHintTypeName()+": "+Frmt.ssv(alsCells)+" and "+biv.id+" on ";
+		final StringBuilder sb = Frmt.getSB();
+		sb.append(getHintTypeName()).append(COLON_SP)
+		  .append(Frmu.ssv(alsCells)).append(AND).append(biv.id)
+		  .append(ON).append(x);
 		if ( both )
-			s += x + " and " + z;
-		else
-			s += x; // primary only
-		return s;
+			sb.append(AND).append(z);
+		return sb.toString();
 	}
 
 	@Override
@@ -165,8 +173,8 @@ class BigWingsHint extends AHint  {
 		// double-linked wings have there own explanation for more eliminations
 		String filename = both ? "BigWingsHintDL.html" : "BigWingsHint.html";
 		return Html.produce(hinter, filename
-			, Frmt.csv(alsCells)		//{0}
-			, Frmt.and(alsCells)		// 1
+			, Frmu.csv(alsCells)		//{0}
+			, Frmu.and(alsCells)		// 1
 			, biv.id					// 2
 			, x							// 3 primary
 			, z							// 4 secondary

@@ -14,9 +14,11 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
+import static diuf.sudoku.utils.Frmt.EQUALS;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.IN;
 
 
 /**
@@ -158,11 +160,10 @@ public abstract class ADirectHint extends AHint  {
 	 * Format: "$id=$value in $region". */
 	@Override
 	public String toStringImpl() {
-		if ( ts != null )
-			return ts;
-		ts = cell.id + "=" + value;
-		if (region != null)
-			ts += " in " + region.id;
-		return ts;
+		final StringBuilder sb = new StringBuilder(13);
+		sb.append(cell.id).append(EQUALS).append(value);
+		if ( region != null )
+			sb.append(IN).append(region.id);
+		return sb.toString();
 	}
 }

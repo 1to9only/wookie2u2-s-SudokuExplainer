@@ -16,8 +16,9 @@ import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.Ass.Cause;
-import static diuf.sudoku.Indexes.FIRST_INDEX;
+import static diuf.sudoku.Ass.Cause.CAUSE_FOR_REGION_TYPE;
 import static diuf.sudoku.Indexes.ISHFT;
+import static diuf.sudoku.Indexes.IFIRST;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.gen.IInterruptMonitor;
@@ -25,14 +26,14 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.solver.hinters.ICleanUp;
 import diuf.sudoku.solver.hinters.HintValidator;
+import static diuf.sudoku.utils.Frmt.OR;
+import static diuf.sudoku.utils.Frmt.PLUS;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMySet;
-import diuf.sudoku.utils.FunkyAssSet;
 import diuf.sudoku.utils.Hash;
 import diuf.sudoku.utils.Log;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.LinkedList;
 
 
 /**
@@ -103,16 +104,18 @@ public abstract class AChainer extends AHinter
 //	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
 //	 * @param msg */
 //	protected static void noiseln(String msg) {
-//		if ( Log.MODE >= Log.VERBOSE_3_MODE )
+//		if (Log.MODE >= Log.VERBOSE_3_MODE) {
 //			Log.format(NL+msg+NL);
+//		}
 //	}
 //
 //	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on.
 //	 * @param fmt a PrintStream.format format argument
 //	 * @param args a PrintStream.format args list */
 //	protected static void noisef(String fmt, Object... args) {
-//		if ( Log.MODE >= Log.VERBOSE_3_MODE )
+//		if (Log.MODE >= Log.VERBOSE_3_MODE) {
 //			Log.format(fmt, args);
+//		}
 //	}
 
 	/** a local shortcut to Hash's LSH8, used in Ass hashCodes. */
@@ -292,15 +295,18 @@ public abstract class AChainer extends AHinter
 		final int sv = VSHFT[value]; // shiftedValue
 		for ( Cell sib : cell.box.cells )
 			if ( (sib.maybes.bits & sv)!=0 && sib!=cell )
-				effects.add(new Ass(sib, value, false, anOn, cell.box.cause
+				effects.add(new Ass(sib, value, false, anOn
+						, Cause.CAUSE_FOR_REGION_TYPE[Grid.BOX]
 						, "the value can occur only once in the box"));
 		for ( Cell sib : cell.row.cells )
 			if ( (sib.maybes.bits & sv)!=0 && sib!=cell )
-				effects.add(new Ass(sib, value, false, anOn, cell.row.cause
+				effects.add(new Ass(sib, value, false, anOn
+						, Cause.CAUSE_FOR_REGION_TYPE[Grid.ROW]
 						, "the value can occur only once in the row"));
 		for ( Cell sib : cell.col.cells )
 			if ( (sib.maybes.bits & sv)!=0 && sib!=cell )
-				effects.add(new Ass(sib, value, false, anOn, cell.col.cause
+				effects.add(new Ass(sib, value, false, anOn
+						, Cause.CAUSE_FOR_REGION_TYPE[Grid.COL]
 						, "the value can occur only once in the col"));
 	}
 
@@ -324,21 +330,22 @@ public abstract class AChainer extends AHinter
 	 * MultipleChainer when it isDynamic, to add any "hidden" causal parent
 	 * assumptions to the effects parent-list. Apologies for parameters list
 	 * length, it just kept growing.
+	 *
 	 * @param effect
-	 * @param cell
-	 * @param value
-	 * @param prntOffs
-	 * @param currBits
-	 * @param otherCell
-	 * @param regionTypeIndex
+	 * @param v value
 	 * @param region
+	 * @param currPlaces grid.region.indexesOf[value].bits
+	 * @param oci otherCellIndice
+	 * @param rti regionTypeIndex
+	 * @param rents A set of complete parent offs, must be an IAssSet for that
+	 *  weird getAss method, which I rely on, for speed, and comfort.
 	 */
-	protected void addHiddenParentsOfRegion(Ass effect, Cell cell, int value
-		, IAssSet prntOffs, int currBits, Cell otherCell, int regionTypeIndex
-		, ARegion region) {
+	protected void addHiddenParentsOfRegion(int oci, int rti, int v
+			, int currPlaces, ARegion region, IAssSet rents, Ass effect) {
 		// NB: this implementation never invoked. MultipleChainer overrides me.
 	}
 
+	//<NO_WRAPPING comment="Line wrapping is far too much of a pain in the ass here, so I have not bothered. Get over it.">
 	/**
 	 * Calculates the direct "on" effects of "anOff".
 	 * Note that either isXChain or isYChain (or both) must be true.
@@ -370,8 +377,7 @@ public abstract class AChainer extends AHinter
 		// cell then the other value gets "on"ed.
 		Ass effectOn; //effectOn and his parent.
 		if ( isYChain && cell.maybes.size==2 ) {
-			result |= effects.add(effectOn = new Ass(cell, anOff.otherValue()
-					, true, anOff, Cause.NakedSingle, ONLYVALUE));
+			result |= effects.add(effectOn = new Ass(cell, anOff.otherValue(), true, anOff, Cause.NakedSingle, ONLYVALUE));
 			// add any erased parents of eOn to eOn (only in MultipleChainer)
 			if ( isDynamic )
 				// call-back MultipleChainer coz it has the current grid
@@ -383,59 +389,47 @@ public abstract class AChainer extends AHinter
 		// the region then the other position gets "on"ed.
 		if ( !isXChain )
 			return result;
-		final int value = anOff.value; // the value of the initial "off" Ass
-		ARegion region;
-		Cell otherCell;
-		int currBits; // indexes of other cells in region which maybe v
-		int rti; // regionTypeIndex
-		int i; // index of cell in region.cells array
+		final int v = anOff.value; // the value of the initial "off" Ass
 		// foreach of the cells regions which has 2 positions for value
-		for ( rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
-
+		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
 			// skip unless there are 2 possible positions for value in region
-			if ( cell.regions[rti].indexesOf[value].size != 2 )
-				continue;
-
-			// hit rate too low for pre-test-caching (above) to pay off
-			region = cell.regions[rti]; // Box, Row or Col of anOff.cell
-
-			// inline: otherCell = anOff.otherCellIn(region);
-			//   a method which calls 1-or-2 methods, each calling a method,
-			//   which is all a bit slow Redge, so we do it inline instead.
-			// HAMMERED: top1465 ACCURACY: 209,704,756 iterations
-			// FYI: Created Cell.indexIn and Indexes.FIRST_INDEX
-			//   especially for this, then promulgated them both everywhere.
-			// (1) region.idxsOf[value] - cell.idxInRegion[rti]
-			i = (currBits=region.indexesOf[value].bits)
-					& ~ISHFT[cell.indexIn[rti]];
-			// (2) lookup Integer.numberOfTrailingZeros(i), and otherCell
-			// NB: you can do both in one line, and then push that into the
-			//   "new Ass" line (below), but it is totally ungrockable,
-			//   and its already pretty bloody hard to comprehend.
-			otherCell = region.cells[FIRST_INDEX[i]];
-
-			// create the effectOn Assumption and add it to the effects list
-			effectOn = new Ass(otherCell, value, true, anOff
-					, region.cause, ONLYPOS[rti]);
-			result |= effects.add(effectOn);
-
-			// Dynamic: parents += Ass's which erased value in this region.
-			if ( isDynamic ) // ie I am a MultipleChainer
-				// call-back my MultipleChainer subclass because it has the
-				// current and initial grids, to which I have no access.
-				addHiddenParentsOfRegion(
-					  effectOn		// effect
-					, cell
-					, value
-					, prntOffs
-					, currBits
-					, otherCell
-					, rti			// regionTypeIndex
-					, region
+			if ( cell.regions[rti].indexesOf[v].size == 2 ) {
+				final ARegion region; // the current region which contains this cell
+				final int places; // indexes of cells in region which maybe v (current grid)
+				final Cell otherCell; // the other cell in this region which maybe v
+				// This cluster____ was brought you by the word SPEED and the number 42.
+				// Create the effectOn Assumption and add it to effects list
+				// with inline otherCell = anOff.otherCellIn(region), a method
+				// which calls 1-or-2 methods, each calling a method, which is
+				// all a bit slow Redge, and so has been "inlined", for speed.
+				// HAMMERED: top1465 ACCURACY: 209,704,756 iterations
+				// BUT IT'S INCOMPREHENSIBLE, SO THIS LINE DOES:
+				// (1) region = cell.regions[rti]; // not cached above coz hit rate too low.
+				// (2) places = region.indexesOf[v].bits; // region.cells indexes of cell which maybe v
+				// (3) otherCell = region.cells[IFIRST[places & ~ISHFT[cell.indexIn[rti]]]]; // the cell at the first [places except me] in this region
+				// (4) effectOn = new Ass(otherCell, v, true, anOff, region.cause, ONLYPOS[rti]);
+				// NOTES: Created Cell.indexIn and Indexes.IFIRST arrays
+				// especially for this cluster____; and promulgated for speed.
+				// The Indexes.IFIRST array was built for this also. It has the
+				// results of Integer.numberOfTrailingZeros(i).
+				// Likewise Cause.CAUSE_FOR_REGION_TYPE was created for me, and
+				// my ONLYPOS array interns each String rather than building an
+				// individual String on the fly a total of 209,704,756 times.
+				// Array look-ups are fast. More thunk, less work, more speed!
+				effectOn = new Ass(
+					  otherCell = (region=cell.regions[rti]).cells[IFIRST[(places=region.indexesOf[v].bits) & ~ISHFT[cell.indexIn[rti]]]]
+					, v, true, anOff, CAUSE_FOR_REGION_TYPE[rti], ONLYPOS[rti]
 				);
+				result |= effects.add(effectOn);
+				// Dynamic: effectOn.parents += Ass's that erased this value in this region.
+				if ( isDynamic ) // ie I am a MultipleChainer in dynamic mode
+					// call-back my MultipleChainer subclass because it has the current and initial grids, to which I have no access.
+					addHiddenParentsOfRegion(otherCell.i, rti, v, places, region, prntOffs, effectOn);
+			}
 		} // next regionTypeIndex
 		return result;
 	}
+	//</NO_WRAPPING>
 	// use only interned (static final) strings in assumptions, so we store
 	// an address rather than a copy of the string in each assumption.
 	private static final String ONLYVALUE =
@@ -486,7 +480,7 @@ public abstract class AChainer extends AHinter
 			} else if ( hint.value!=0 && hint.cell!=null ) {
 				int sv = svs[hint.cell.i];
 				if ( hint.value != sv ) {
-					String problem = "hint says "+hint.cell.id+"+"+hint.value+" when solution value is "+hint.cell.id+"+"+sv;
+					String problem = "hint says "+hint.cell.id+PLUS+hint.value+" when solution value is "+hint.cell.id+PLUS+sv;
 					Log.println("AChainer.validateTheHints:");
 					Log.println("Invalid hint ("+problem+"): "+hint.toFullString());
 					Log.println("Invalid grid:\n"+grid);
@@ -504,7 +498,7 @@ public abstract class AChainer extends AHinter
 				// This should never happen. Every hint eliminates a cell value
 				// OR sets a cell value. Never say never.
 				Log.println("AChainer.validateTheHints:");
-				Log.println("Dodgy: MIA "+hint.cell+"+"+hint.value+" OR "+hint.redPots);
+				Log.println("Dodgy: MIA "+hint.cell+PLUS+hint.value+OR+hint.redPots);
 				Log.println("Dodgy hint: No elims in: "+hint.toFullString());
 				Log.println("Dodgy grid:\n"+grid);
 				it.remove(); // all I can do it skip it. Sigh.
@@ -580,10 +574,8 @@ public abstract class AChainer extends AHinter
 		final FunkyAssSizes sizes = FunkyAssSizes.THE; // a set of the sizes of sets.
 		if ( sizes.size() > 0 ) {
 			final OverallSizes overalls = OverallSizes.THE;
-			for ( String id : sizes.keySet() ) {
-				int maxSize = sizes.get(id).maxSize;
-				overalls.max(id, maxSize);
-			}
+			for ( java.util.Map.Entry<String,FunkyAssSet2> e : sizes.entrySet() )
+				overalls.max(e.getKey(), e.getValue().maxSize);
 			sizes.clear();
 		}
 	}

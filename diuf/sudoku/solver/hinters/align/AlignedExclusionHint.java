@@ -12,13 +12,20 @@ import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
+import diuf.sudoku.utils.MyStrings;
+import diuf.sudoku.utils.Frmu;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -40,7 +47,7 @@ public final class AlignedExclusionHint extends AHint  {
 			, LinkedHashMap<HashA, Cell> excludedCombosMap) {
 		super(hinter, redPots);
 		this.cells = cells.clone();
-		this.commonExcluders = Frmt.ssv(numCmnExcls, cmnExcls);
+		this.commonExcluders = Frmu.ssv(numCmnExcls, cmnExcls);
 		// NB: iteration order is significant to user understanding explanation
 		this.selectedCellsSet = new MyLinkedHashSet<>(cells);
 		this.excludedCombosMap = excludedCombosMap;
@@ -106,14 +113,16 @@ public final class AlignedExclusionHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for an " + getHintTypeName();
 		if ( isBig )
-			s += " at " + Frmt.csv(selectedCellsSet);
+			s += " at " + Frmu.csv(selectedCellsSet);
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		return getHintTypeName() + ": " + Frmt.csv(selectedCellsSet) + " on "
-			 + commonExcluders;
+		return Frmt.getSB().append(getHintTypeName())
+		  .append(COLON_SP).append(Frmu.csv(selectedCellsSet))
+		  .append(ON).append(commonExcluders)
+		  .toString();
 	}
 
 	/** Gets the color of the given 'cell' and 'value', as a single char, which
@@ -148,8 +157,11 @@ public final class AlignedExclusionHint extends AHint  {
 		// <o><b>2</b></o>, <o><b>6</b></o>, <o><b>5</b></o> and <r><b>3</b></r>
 		final int n = Math.min(cells.length, combo.length); // in case the combo is too long (has happened)
 		for ( int i=0,m=n-1; i<n; ++i ) {
-			if (i > 0) // just not the first one
-				sb.append(i<m ? ", " : " and "); // "1, 2 and 3"
+			if ( i > 0 ) // just not the first one
+				if ( i < m ) // "1, 2, 3 and 4"
+					sb.append(COMMA_SP);
+				else
+					sb.append(AND);
 			char c = getColorOf(cells[i], combo[i]);
 			if(c!=0) sb.append('<').append(c).append('>');
 			sb.append("<b>").append(combo[i]).append("</b>");
@@ -161,7 +173,7 @@ public final class AlignedExclusionHint extends AHint  {
 		else
 			sb.append("the cell <b>").append(lockCell.id)
 			  .append("</b> must contain <g><b>")
-			  .append(Frmt.or(lockCell.maybes)).append("</b></g>");
+			  .append(Frmu.or(lockCell.maybes)).append("</b></g>");
 	}
 
 	/**
@@ -172,10 +184,10 @@ public final class AlignedExclusionHint extends AHint  {
 	 * @throws diuf.sudoku.solver.IrrelevantHintException
 	 */
 	private StringBuilder frmt(Map<HashA, Cell> map) throws IrrelevantHintException {
-		StringBuilder sb = Frmt.getSB();
+		final StringBuilder sb = MyStrings.bigSB();
 		// first we get an "index" (keys) of the combos sorted by there values.
-		Set<HashA> keySet = map.keySet();
-		HashA[] keyArray = keySet.toArray(new HashA[keySet.size()]);
+		final Set<HashA> keySet = map.keySet();
+		final HashA[] keyArray = keySet.toArray(new HashA[keySet.size()]);
 		Arrays.sort(keyArray, HashA.BY_VALUES_ASC);
 		// now we'll append the HTML for each combo to the StringBuilder
 		int relevantCount = 0;
@@ -207,10 +219,10 @@ public final class AlignedExclusionHint extends AHint  {
 			String excl = frmt(excludedCombosMap).toString();
 			return Html.produce(this, filename
 				, GROUP_NAMES[degree-2]				//{0}
-				, Frmt.and(selectedCellsSet)		// 1
+				, Frmu.and(selectedCellsSet)		// 1
 				, Html.colorIn(excl)				// 2
-				, Frmt.and(redPots.keySet())		// 3
-				, Frmt.csv(getRemovableValues())	// 4
+				, Frmu.and(redPots.keySet())		// 3
+				, Frmu.csv(getRemovableValues())	// 4
 				, redPots.toString()				// 5
 				, commonExcluders					// 6
 			);

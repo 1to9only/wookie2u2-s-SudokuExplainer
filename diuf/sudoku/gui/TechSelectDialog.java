@@ -7,9 +7,9 @@
 package diuf.sudoku.gui;
 
 import diuf.sudoku.Tech;
-import diuf.sudoku.Settings;
-import diuf.sudoku.solver.LogicalSolverFactory;
-import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.Settings.THE_SETTINGS;
+import static diuf.sudoku.utils.Frmt.SPACE;
+import diuf.sudoku.utils.Log;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -28,7 +28,6 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.border.TitledBorder;
-
 
 /**
  * A JDialog for the user to de/select which Sudoku solving Tech(niques) are
@@ -83,13 +82,13 @@ class TechSelectDialog extends JDialog {
 	 * Populate the TechSelectDialog form with a CheckBox for each Tech.
 	 */
 	private void fillTechniques() {
-		wantedTechs = Settings.THE.getWantedTechs();
+		wantedTechs = THE_SETTINGS.getWantedTechs();
 		int count = 0;
 		for ( final Tech tech : Tech.allHinters() ) { // no validators
 
 			boolean enable = true;
 			final JCheckBox chk = new JCheckBox();
-			chk.setText(text(tech));
+			chk.setText(tech.text());
 			chk.setToolTipText(tech.tip);
 
 			// "core" techs are always wanted, so the user can't unwant them.
@@ -164,7 +163,7 @@ class TechSelectDialog extends JDialog {
 							if ( tech.warning && tech.tip!=null ) {
 								JOptionPane.showMessageDialog(
 								  TechSelectDialog.this
-								, tech.name()+" "+tech.tip
+								, tech.name()+SPACE+tech.tip
 								, "WARNING"
 								, JOptionPane.WARNING_MESSAGE
 								);
@@ -177,10 +176,18 @@ class TechSelectDialog extends JDialog {
 							case LockingGeneralised:
 								unselect(Tech.Locking);
 								break;
-							// BigWings prefered to individual BigWing's.
+							// BigWings is prefered to individual BigWing's.
 							case BigWings:
 								for ( Tech bw : BIG_WING )
 									unselect(bw);
+								break;
+							// then selecting any BigWing unselects BigWings.
+							case WXYZ_Wing:
+							case VWXYZ_Wing:
+							case UVWXYZ_Wing:
+							case TUVWXYZ_Wing:
+							case STUVWXYZ_Wing:
+								unselect(Tech.BigWings);
 								break;
 							// Medusa3d is counter-productive with GEM
 							case GEM:
@@ -211,11 +218,6 @@ class TechSelectDialog extends JDialog {
 		}
 	}
 
-	// get JCheckBox[Tech].text
-	private static String text(Tech t) {
-		return Frmt.dbl(t.difficulty)+" "+t.nameInEnglish();
-	}
-
 //	// is target in techs?
 //	private static boolean in(Tech target, Tech[] techs) {
 //		for ( Tech t : techs )
@@ -227,7 +229,7 @@ class TechSelectDialog extends JDialog {
 	// Unselect the JCheckBox for this Tech
 	// return was it found and unselected
 	private boolean unselect(Tech t) {
-		final String text = text(t);
+		final String text = t.text();
 		JCheckBox chk;
 		for ( Component c : centerPanel.getComponents() ) {
 			if ( c instanceof JCheckBox
@@ -243,11 +245,11 @@ class TechSelectDialog extends JDialog {
 	// create a new hacked JCheckBox
 	private static JCheckBox newHackBox(final String settingName) {
 		final JCheckBox box = new JCheckBox("hacked");
-		box.setSelected(Settings.THE.get(settingName));
+		box.setSelected(THE_SETTINGS.get(settingName));
 		box.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				Settings.THE.set(settingName, box.isSelected());
+				THE_SETTINGS.set(settingName, box.isSelected());
 			}
 		});
 		return box;
@@ -348,12 +350,14 @@ class TechSelectDialog extends JDialog {
 				wantedTechs.remove(t);
 		else if ( anyWanted(BIG_WING) )
 			wantedTechs.remove(Tech.BigWings);
-		Settings.THE.justSetWantedTechs(wantedTechs);
-		Settings.THE.save();
-		LogicalSolverFactory.get().printWantedEnabledHinters(System.out);
+		THE_SETTINGS.justSetWantedTechs(wantedTechs);
+		THE_SETTINGS.save();
 		setVisible(false);
 		engine.clearHints();
+		Log.teeln("\nTechSelectDialog updated wanted hinters...");
 		engine.recreateLogicalSolver();
+		engine.solver.printWantedEnabledHinters(System.out);
+		engine.solver.printWantedEnabledHinters(Log.log);
 		parentFrame.refreshDisabledRulesWarning();
 		dispose();
 	}

@@ -6,7 +6,6 @@
  */
 package diuf.sudoku.solver.hinters.wing;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
@@ -14,10 +13,15 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -58,18 +62,16 @@ public final class WWingHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += " on "+value0+" and "+value1;
+			s += ON+value0+AND+value1;
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		StringBuilder sb = Frmt.getSB();
-		sb.append(getHintTypeName()).append(": ")
-		  .append(Frmt.csv(greens.keySet()))
-		  .append(" on ").append(value0)
-		  .append(" and ").append(value1);
-		return sb.toString();
+		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
+		  .append(Frmu.csv(greens.keySet()))
+		  .append(ON).append(value0).append(AND).append(value1)
+		  .toString();
 	}
 
 	@Override
@@ -82,7 +84,7 @@ public final class WWingHint extends AHint  {
 			, Integer.toString(value0)			// 4
 			, Integer.toString(value1)			// 5
 			, wABCommonRegion					// 6
-			, Frmt.and(redPots.keySet())		// 7
+			, Frmu.and(redPots.keySet())		// 7
 			, redPots.toString()				// 8
 		);
 	}

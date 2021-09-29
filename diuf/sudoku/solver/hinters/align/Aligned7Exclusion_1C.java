@@ -16,6 +16,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.gen.IInterruptMonitor;
+import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
 
@@ -30,9 +31,10 @@ import diuf.sudoku.solver.LogicalSolver;
  * of 7 Cells.
  */
 public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
-		implements java.io.Closeable
-//				 , diuf.sudoku.solver.IReporter
-				 , diuf.sudoku.solver.IPreparer
+implements
+//		diuf.sudoku.solver.IReporter,
+		diuf.sudoku.solver.hinters.IPreparer,
+		java.io.Closeable
 {
 	// the minimim number of candidates to permute (process).
 	private static final int MIN_CANDIDATES = 34; // <HACK/>
@@ -96,7 +98,7 @@ public final class Aligned7Exclusion_1C extends Aligned7ExclusionBase
 //	private java.io.PrintStream myLog = open("a7e.log", standardHeader());
 
 	public Aligned7Exclusion_1C(IInterruptMonitor monitor) {
-		super(monitor);
+		super(monitor, IO.A7E_1C_HITS);
 	}
 
 	@Override

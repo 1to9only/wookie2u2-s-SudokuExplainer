@@ -14,12 +14,12 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
-import static diuf.sudoku.Values.FIRST_VALUE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
+import static diuf.sudoku.Values.VFIRST;
 
 /**
  * BigWings implements the Tech.BigWings Sudoku Solving technique, which is an
@@ -183,8 +183,8 @@ public class BigWings extends AAlsHinter
 					  // and get x and z values from biv.maybes.bits (above w)
 					  // and all x's in the ALS see the bivalue cell
 					  //  or all z's in the ALS see the bivalue cell
-					  && ( (xWing=als.vBuds[x=FIRST_VALUE[w]].contains(biv.i))
-						 | (zWing=als.vBuds[z=FIRST_VALUE[w & ~VSHFT[x]]].contains(biv.i)) )
+					  && ( (xWing=als.vBuds[x=VFIRST[w]].contains(biv.i))
+						 | (zWing=als.vBuds[z=VFIRST[w & ~VSHFT[x]]].contains(biv.i)) )
 					) {
 						if ( !xWing ) { // ie zWing only
 							// x is the primary link

@@ -11,6 +11,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import diuf.sudoku.gen.IInterruptMonitor;
+import java.io.File;
 
 /**
  * Aligned10ExclusionBase implements methods common to both
@@ -19,8 +20,8 @@ import diuf.sudoku.gen.IInterruptMonitor;
  */
 abstract class Aligned10ExclusionBase extends AAlignedSetExclusionBase {
 
-	public Aligned10ExclusionBase(IInterruptMonitor monitor) {
-		super(Tech.AlignedDec, monitor);
+	public Aligned10ExclusionBase(IInterruptMonitor monitor, File hitFile) {
+		super(Tech.AlignedDec, monitor, hitFile);
 		assert tech.isAligned;
 		assert degree == 10;
 	}

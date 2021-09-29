@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -50,13 +51,15 @@ public final class RecursiveAnalyser extends AWarningHinter {
 
 	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on. */
 	private static void noiseln(String msg) {
-		if ( Log.MODE >= Log.VERBOSE_3_MODE )
+		if (Log.MODE >= Log.VERBOSE_3_MODE) {
 			Log.format(NL+msg+NL);
+		}
 	}
 	/** Set IS_NOISY && Log.VERBOSE_3_MODE to turn me on. */
 	private static void noisef(String fmt, Object... args) {
-		if ( Log.MODE >= Log.VERBOSE_3_MODE )
+		if (Log.MODE >= Log.VERBOSE_3_MODE) {
 			Log.format(fmt, args);
+		}
 	}
 
 	// for the solve methods isReverse parameter.
@@ -64,18 +67,86 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	// for the solve methods isReverse parameter.
 	private static final boolean BACKWARDS = true;
 
-	/** the solution is derived once when mode = STORED. */
-	public SolutionHint solutionHint = null;
-
-	/** true produces a SolutionHint for F8 Tools ~ Solve; else<br>
-	 * false a plain SudokuSolved hint for solution by natural causes.<br>
+	/**
+	 * true produces a SolutionHint for F8 Tools ~ Solve; else <br>
+	 * false a plain SudokuSolved hint for solution by natural causes. <br>
 	 * Set to true by LogicalSolver.solveRecursively and then reset to false
-	 * at the end of each getHints call. */
+	 * at the end of each getHints call.
+	 */
 	public boolean wantSolutionHint = false;
 
-	/** Constructs a new RecursiveAnalyser. */
+	/** the solution is derived. */
+	public SolutionHint solutionHint = null;
+
+	// ---------------------- the solveLogically section ----------------------
+
+	// This is the "normal" hints accumulator, nb: we want only one hint.
+	private final IAccumulator accu;
+
+	// the singles are both passed the above apcu explicitly.
+	private final AHinter[] singlesHinters;
+
+	// HintsApplicumulator is used by locking. It immediately applies each hint
+	// to the grid and we carry on searching, and later it'll return true,
+	// which is handy for singles that tend to cause singles; and Locking which
+	// tend to cause points/claims, and now Locking even searches exhuastively
+	// when its accu is a HintsApplicumulator, instead of missing hints when
+	// maybes were removed from cells that had already been searched.
+	// @param isStringy = true to enbuffenate hints toFullString. // for debug!
+	//        isStringy = false to not waste time enbuffenating. // normal use!
+	//  the passed AHint.printHintHtml is only true in LogicalSolverTester when
+	//  the compile-time constant PRINT_HINT_HTML is true and we re-process ONE
+	//  puzzle, because output is too verbose for "normal" use, and its slower.
+	// @param isAutosolving = true, so it'll set any subsequent singles coz it
+	//  can do it faster than THE_SINGLES, coz Cell.set has less area to search
+	//  (20 siblings, verses 81 cells) for the next cell to set. This also
+	//  means that a Cell.set can "spontaneously" completely fill the grid.
+	private final HintsApplicumulator apcu;
+
+	// The "fast" hinters evaluated by ns/elim.
+	// Locking uses the HintsApplicumulator under the hood, and then adds
+	// to the "normal" accu an AppliedHintsSummaryHint, whose apply method
+	// returns numElims, so that everything else still works as per normal.
+	private final AHinter[] fourQuickFoxes;
+
+	/**
+	 * This constructor is only used by the test-cases, where I don't want
+	 * to create a LogicalSolver in order to create a RecursiveAnalyser.
+	 */
 	public RecursiveAnalyser() {
 		super(Tech.SingleSolution);
+		accu = new SingleHintsAccumulator();
+		apcu = new HintsApplicumulator(AHint.printHintHtml, true);
+		this.singlesHinters = new AHinter[] {
+			  new HiddenSingle() // NB: hidden first, coz it's quicker this way
+			, new NakedSingle()  // when we run them both anyway.
+		};
+		this.fourQuickFoxes = new AHinter[] {
+			  new Locking(apcu) // nb: the apcu applies hints immediately
+			, new NakedSet(Tech.NakedPair)
+			, new HiddenSet(Tech.HiddenPair)
+			, new BasicFisherman(Tech.Swampfish)
+		};
+	}
+
+	/**
+	 * Constructs a new RecursiveAnalyser using hinters of this solver.
+	 * @param solver
+	 */
+	public RecursiveAnalyser(LogicalSolver solver) {
+		super(Tech.SingleSolution);
+		accu = new SingleHintsAccumulator();
+		apcu = new HintsApplicumulator(AHint.printHintHtml, true);
+		this.singlesHinters = new AHinter[] {
+			  solver.getHiddenSingle() // NB: hidden first, coz it's quicker this way
+			, solver.getNakedSingle()  // when we run them both anyway.
+		};
+		this.fourQuickFoxes = new AHinter[] {
+			  new Locking(apcu) // nb: the apcu applies hints immediately
+			, solver.getNakedPair()
+			, solver.getHiddenPair()
+			, solver.getSwampfish()
+		};
 	}
 
 	/**
@@ -87,7 +158,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * @return the solution Grid.
 	 */
 	public Grid buildRandomPuzzle(Random rnd) {
-		Grid solution = new Grid();
+		final Grid solution = new Grid();
 		try {
 			apcu.grid = solution;
 			boolean success = recursiveSolve(solution, 1, false, rnd, false);
@@ -127,15 +198,14 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * @return int the number of solutions to this puzzle (see above)
 	 */
 	public int countSolutions(Grid grid, boolean isNoisy) {
-		Grid grid1 = new Grid(grid);
-		if ( !doRecursiveSolve(grid1, FORWARDS, isNoisy) )
+		Grid f = new Grid(grid); // forwardsSolution
+		if ( !doRecursiveSolve(f, FORWARDS, isNoisy) )
 			return 0; // no solution
-		Grid grid2 = new Grid(grid);
-		doRecursiveSolve(grid2, BACKWARDS, isNoisy);
-		if ( grid1.equals(grid2) )
-			return 1;
-		else
-			return 2; // 2 means 2-or-more.
+		Grid b = new Grid(grid); // backwardsSolution
+		doRecursiveSolve(b, BACKWARDS, isNoisy);
+		if ( f.equals(b) )
+			return 1; // 1 solution means the Sudoku is valid.
+		return 2; // 2 means 2-or-more.
 	}
 
 	/**
@@ -146,7 +216,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * @return  solution Grid (a copy of grid that's been solved)
 	 */
 	public Grid solveASAP(Grid grid) {
-		Grid solution = new Grid(grid);
+		final Grid solution = new Grid(grid);
 		if ( !doRecursiveSolve(solution, FORWARDS, false) )
 			throw new UnsolvableException("recursiveSolve failed. Puzzle is invalid (probable) or recursiveSolve is rooted again.");
 		// set the given grid's solution field to my solved copy
@@ -257,10 +327,8 @@ public final class RecursiveAnalyser extends AWarningHinter {
 		try {
 			apcu.grid = grid;
 			result = recursiveSolve(grid, 1, isReverse, null, isNoisy);
-		} catch (UnsolvableException unexpected) {
-			// from the top level of recursiveSolve, meaning that the puzzle
-			// is invalid somehow.
-			result = false;
+		} catch (UnsolvableException unexpected) { // from the top level.
+			result = false; // Sudoku is invalid.
 		} finally {
 			apcu.grid = null;
 		}
@@ -275,15 +343,15 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * Recursively solves the given puzzle by trying (not very hard) to solve
 	 * the puzzle logically and guessing the value of each indeterminate cell.
 	 * <p>
-	 * When a non-null Random is given this method uses it to generate a random
-	 * puzzle.
+	 * When a non-null Random is given I use it to generate a random puzzle.
 	 * <p>
 	 * This is Donald Knuth's recursive algorithm (guess value of each unknown
 	 * cell and prove it right/wrong) with FOUR QUICK FOXES (fast basic Sudoku
 	 * solving logic). It's pretty fast.
 	 */
-	private boolean recursiveSolve(Grid grid, int depth, boolean isReverse
-			, Random rnd, boolean isNoisy) {
+	private boolean recursiveSolve(final Grid grid, final int depth
+			, final boolean isReverse, final Random rnd
+			, final boolean isNoisy) {
 		assert depth < 81;
 		// hasMissingMaybes() || firstDoubledValue()!=0 || hasHomelessValues()
 		if ( grid.isInvalidated() )
@@ -306,13 +374,13 @@ public final class RecursiveAnalyser extends AWarningHinter {
 		// auto-growing to be as large as required, but it was SLOWER than just
 		// creating new each time, and I can't figure out WHY! Just Shoot Me!
 		// LASTER: I now think it's the auto-grow part that snafooed you. Just
-		// use an array of int[maxDepth][9] and a size = int[maxDepth]. I wonder
+		// use an array of int[maxDepth][9] and a size=int[maxDepth]. I wonder
 		// what the ACTUAL maxDepth is? Theoretically it's 80-17=63 for solve,
 		// and I guess 80 for generate.
 		final int[] values = getValuesToGuess(leastCell, rnd, isReverse);
 		final int n = values.length;
 		int i = 0;
-		for (;;) { // a faster while(true) which literally has NO conditional test
+		for (;;) {
 			try {
 				// Guess the value of leastCell
 				// nb: cell.set(... true) also sets any subsequent naked
@@ -333,42 +401,6 @@ public final class RecursiveAnalyser extends AWarningHinter {
 		}
 		return false;
 	}
-
-	// ---------------------- the solveLogically section ----------------------
-
-	// This is the "normal" hints accumulator, nb: we want only one hint.
-	private final IAccumulator accu = new SingleHintsAccumulator();
-
-	// the singles are both passed the above apcu explicitly.
-	private final AHinter[] singlesHinters = new AHinter[] {
-		    new HiddenSingle() // NB: hidden first, coz it's quicker this way
-		  , new NakedSingle()  // when we run them both anyway.
-	};
-
-	// HintsApplicumulator is used by locking. It immediately applies each hint
-	// to the grid and we carry on searching, and later it'll return true,
-	// which is handy for singles that tend to cause singles; and Locking which
-	// tend to cause points/claims, and now Locking even searches exhuastively
-	// when its accu is a HintsApplicumulator, instead of missing hints when
-	// maybes were removed from cells that had already been searched.
-	// @param isStringy = true to enbuffenate hints toFullString. // for debug!
-	//        isStringy = false to not waste time enbuffenating. // normal use!
-	// @param isAutosolving = true, so it'll set any subsequent singles coz it
-	// can do it faster than THE_SINGLES, coz Cell.set has less area to search
-	// (20 siblings, verses 81 cells) for the next cell to set. This also means
-	// that a Cell.set can "spontaneously" completely fill the grid.
-	private final HintsApplicumulator apcu = new HintsApplicumulator(false, true);
-
-	// The "fast" hinters evaluated by ns/elim.
-	// Locking uses the HintsApplicumulator under the hood, and then adds
-	// to the "normal" accu an AppliedHintsSummaryHint, whose apply method
-	// returns numElims, so that everything else still works as per normal.
-	private final AHinter[] fourQuickFoxes = new AHinter[] {
-		  new Locking(apcu) // nb: the apcu applies hints immediately
-		, new NakedSet(Tech.NakedPair)
-		, new HiddenSet(Tech.HiddenPair)
-		, new BasicFisherman(Tech.Swampfish)
-	};
 
 	/**
 	 * (1) Fill all naked and hidden singles, and eliminate using the four
@@ -407,7 +439,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 				  // get any apply the hint
 				  && (hint=myAccu.getHint()) != null
 				  && (any|=true)
-				  && hint.apply(true, isNoisy, grid) > 0 // throws UnsolvableException
+				  && hint.applyQuitely(true, grid) > 0 // throws UnsolvableException
 				  // before seeing if the grid is full
 				  && grid.isFull() )
 					return true;

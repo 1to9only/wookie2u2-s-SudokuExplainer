@@ -52,17 +52,21 @@ public final class HintsApplicumulator implements IAccumulator {
 	 /**
 	  * Constructor.
 	  * <p>
-	  * <b>Note</b> for speed, the grid field should be set post-construction,
-	  * rather than have every single bloody hint lookup it's own grid.
-	  * Clear it in a finally block when you're finished with that grid or this
-	  * HintsApplicumulator. Most HintsApplicumulator are short-lived.
+	  * <b>Note</b> that, for speed, the grid field is set post-construction,
+	  * rather than have every single hint lookup it's own grid. Null it in a
+	  * finally block when you're finished with that grid or this apcu.
+	  * <p>
+	  * By design, most HintsApplicumulator's are single-use instances: by
+	  * which I mean that a HintsApplicumulator is created, used to parse a
+	  * run through Grid (several hinters) and then forgotten, because it's
+	  * light to construct, but heavy to hold onto, coz it has a Grid.
 	  *
 	  * @param isStringy
 	  * @param isAutosolving 
 	  */
 	public HintsApplicumulator(boolean isStringy, boolean isAutosolving) {
-		if ( isStringy )
-			this.SB = new StringBuilder(256); // 256 just a guess
+		if ( isStringy ) // NEVER in anger
+			this.SB = new StringBuilder(512); // just a guess
 		else
 			this.SB = null;
 		this.isAutosolving = isAutosolving;
@@ -99,18 +103,11 @@ public final class HintsApplicumulator implements IAccumulator {
 				SB.append(Frmt.NL);
 			SB.append(hint.toFullString());
 		}
-		// make Cell.set append subsequent singles (if sb!=null)
-		hint.SB = SB;
-		// nb: Do NOT eat apply exceptions, they're handled by my caller!
-		Grid myGrid = this.grid; // this.grid should be set and finally cleared
-		if ( myGrid != null ) // so pass it to apply, for speed
-			numElims += hint.apply(isAutosolving, false, myGrid);
-		else // else let the hint look-up it's own grid
-			numElims += hint.apply(isAutosolving, false);
-		// keep count
-		++numHints;
-		// always return false so that the hinter always keeps searching
-		return false;
+		hint.SB = SB; // make Cell.set append subsequent singles (if SB!=null)
+		numElims += hint.applyQuitely(isAutosolving, grid); // don't eat exceptions!
+		hint.SB = null;
+		++numHints; // keep count
+		return false; // false means hinter keeps searching
 	}
 
 	@Override

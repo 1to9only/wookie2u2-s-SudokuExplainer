@@ -55,6 +55,6 @@ public final class Link {
 	public String toString() {
 		// to build links statement in test-case from error message
 		return "\""+srcCell.id+"\""; 
-		//return srcCell.id+"-"+srcValue+"==>"+endCell.id+"-"+endValue;
+		//return srcCell.id+MINUS+srcValue+"==>"+endCell.id+MINUS+endValue;
 	}
 }

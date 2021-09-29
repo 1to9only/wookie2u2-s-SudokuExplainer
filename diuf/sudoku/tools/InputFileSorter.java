@@ -7,6 +7,7 @@
 package diuf.sudoku.tools;
 
 import static diuf.sudoku.test.TestHelpers.*;
+import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.MyFile;
 import diuf.sudoku.utils.ParseException;
 import java.io.File;
@@ -23,8 +24,6 @@ import java.util.List;
  * @author Keith Corlett, August 2019
  */
 public final class InputFileSorter {
-
-	private static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	private static final String USAGE =
  "usage: DiufSudoku.jar inputLogFile outputFile" + NL
@@ -65,8 +64,8 @@ public final class InputFileSorter {
 					while ( lines.size() > ex.lineNumber )
 						lines.remove(ex.lineNumber);
 				}
-				// sort by solve times descending
-				lines.sort(Line.BY_SOLVE_NANOS_DESC);		
+				// sort by solveNanos DESCENDING
+				lines.sort(Line.BY_TIME_DESC);		
 				// print the output file = the mt lines by execution time descending
 				for ( Line line : lines )
 					out.println(line.puzzle);
