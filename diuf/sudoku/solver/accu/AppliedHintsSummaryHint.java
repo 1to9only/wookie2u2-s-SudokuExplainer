@@ -37,9 +37,9 @@ public final class AppliedHintsSummaryHint extends AHint {
 	 * @param numElims
 	 * @param apcu the HintsApplicumulator used to apply the hints as they were
 	 * added by the hinter. We toString from it if it!=null and its sb!=null.
-	 * toString = applied hints toFullStrings; BUT RecursiveAnalyser doesn't
+	 * toString = applied hints toFullStrings; BUT SingleSolution doesn't
 	 * hint.toString() so it's HintsApplicumulator doesn't build the buffer,
-	 * so apcu.sb==null within RecursiveAnalyser.
+	 * so apcu.sb==null within SingleSolution.
 	 */
 	public AppliedHintsSummaryHint(String source, int numElims, HintsApplicumulator apcu) {
 		super(null, AHint.INDIRECT, null, 0, null, null, null, null, null, null);

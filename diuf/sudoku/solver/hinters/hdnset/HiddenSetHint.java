@@ -46,13 +46,11 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 	private final ARegion region;
 
 	/** Used by Locking */
-	public final Values hdnSetValues;
+	public final int hdnSetValues;
 	/** Used by Locking */
 	public final Idx hdnSetIdx;
 
-	private String ts;
-
-	public HiddenSetHint(AHinter hinter, Cell[] cells, Values hdnSetValues
+	public HiddenSetHint(AHinter hinter, Cell[] cells, int hdnSetValues
 			, Pots greenPots, Pots redPots, ARegion region
 			, int hdnSetRegionIdxBits) {
 		super(hinter, redPots, greenPots, null, null, Regions.list(region)
@@ -60,7 +58,7 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 		this.cells = cells;
 		this.hdnSetRegionIdxBits = hdnSetRegionIdxBits;
 		this.hdnSetValues = hdnSetValues;
-		this.hdnSetValuesArray = hdnSetValues.toArrayNew();
+		this.hdnSetValuesArray = Values.toArrayNew(hdnSetValues);
 		assert hdnSetValuesArray.length == super.degree
 			: "hdnSetValuesArray "+java.util.Arrays.toString(hdnSetValuesArray)
 			+" length "+hdnSetValuesArray.length+" != degree "+degree;
@@ -95,12 +93,12 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 		Ass p; // parent = the complete parent, with it's own parents, if any
 		int j // index
 		  , J // index ceiling
-		  , initBits // initGrid.cells[indice].maybes.bits
+		  , initBits // initGrid.cells[indice].maybes
 		  , v; // the candidate value
 		// foreach cell in my region EXCEPT the hidden-set-cells
 		for ( int i : INDEXES[Indexes.ALL_BITS & ~hdnSetRegionIdxBits] )
 			// if this initGrid.cell has any maybes
-			if ( (initBits=ic[(cc=rc[i]).i].maybes.bits) != 0 )
+			if ( (initBits=ic[(cc=rc[i]).i].maybes) != 0 )
 				// foreach hidden-set-value
 				for ( j=0,J=degree; j<J; ++j )
 					// if this initGrid.cell maybe this hidden-set-value

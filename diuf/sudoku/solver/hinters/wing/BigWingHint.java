@@ -4,11 +4,12 @@ import diuf.sudoku.Cells;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
@@ -16,10 +17,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -44,7 +41,7 @@ class BigWingHint extends AHint  {
 		this.z = z;
 		this.both = both;
 		this.yz = yz;
-		this.wingValues = VALUESES[alsCands ^ yz.maybes.bits];
+		this.wingValues = VALUESES[alsCands ^ yz.maybes];
 		this.als = als.clone(); // copy reused array
 		// all cells = als cells + the yz cell
 		this.all = new Cell[als.length+1];
@@ -67,11 +64,11 @@ class BigWingHint extends AHint  {
 		Pots result = new Pots();
 		if ( both ) // all green
 			for ( Cell c : all )
-				result.put(c, new Values(c.maybes));
+				result.put(c, c.maybes);
 		else // z green
 			for ( Cell c : all )
 				if ( c.maybe(z) )
-					result.put(c, new Values(z));
+					result.put(c, VSHFT[z]);
 		return result;
 	}
 

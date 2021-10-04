@@ -29,6 +29,7 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
@@ -116,118 +117,122 @@ public final class AlsWing extends AAlsHinter
 	@Override
 	protected boolean findHints(Grid grid, Idx[] candidates, Als[] alss
 			, int numAlss, Rcc[] rccs, int numRccs, IAccumulator accu) {
-		int i,n,m, j, v1,v2,a1,a2, v3,v4,b1,b2, zs, count;
-		Rcc A, B;
-		Als c, a=null, b=null;
-		// presume that no hint will be found
-		boolean result = false;
-//		ttlRccs += rccs.length;
-		// foreach distinct pair of RCCs (a forward-only search)
-		for ( i=0,n=numRccs,m=n-1; i<m; ++i ) {
-			v1 = (A=rccs[i]).v1;
-			v2 = A.v2;
-			a1 = A.als1;
-			a2 = A.als2;
-			// WARNING: this loop executes nearly 2.3 BILLION times
-			for ( j=i+1; j<n; ++j ) {
-				v4 = (B=rccs[j]).v2;
-				// need at least two different common candidates in A & B
-				// which can't be true if they have same single value.
-				if ( v1!=(v3=B.v1) || v2!=0 || v4!=0 ) {
-					// the two RCCs contain 4 ALSs, from which we need to
-					// connect 3 distinct ALSs; and since
-					//     A.als1!=A.als2 && B.als1!=B.als2
-					// thankfully not too many possibilites remain,
-					// so compare them all to determine ALS c
-					b2=B.als2;
-					if ( a2==(b1=B.als1) && a1!=b2 ) { // out of sequence
-						a=alss[a1]; b=alss[b2]; c=alss[a2];
-//						++counts[3];
-					} else if ( a1==b1 && a2!=b2 ) {
-						a=alss[a2]; b=alss[b2]; c=alss[a1];
-//						++counts[1];
-					} else if ( a2==b2 && a1!=b1 ) {
-						a=alss[a1]; b=alss[b1]; c=alss[a2];
-//						++counts[4];
-////counts[2] is 0, so either there's no hits or there's a mistake I can't see!
-//					} else if ( a1==b2 && a2!=b1 ) { // out of sequence
-//						a=alss[a2]; b=alss[b1]; c=alss[a1];
-//						++counts[2];
-					} else {
-						c = null;
-//						++counts[0];
-					}
-					if ( c != null
-					  // if ALS a and ALS b have any common buds to eliminate
-					  // done inline for speed
-					  // ignore IDE: Dereferencing possible null pointer
-					  && ( ( (a.buddies.a0 & b.buddies.a0)
-						   | (a.buddies.a1 & b.buddies.a1)
-						   | (a.buddies.a2 & b.buddies.a2) ) != 0 )
-					  // and there's atleast one z-value: maybes common to
-					  // ALS a and ALS b, excluding the RCC values.
-					  && (zs=a.maybes & b.maybes & ~VSHFT[v1] & ~VSHFT[v2]
-							& ~VSHFT[v3] & ~VSHFT[v4]) != 0
-//allowOverlaps=true in AlsWing constructor so this does nothing except eat CPU
-//					  // check overlaps: RCs already done, so just a and b
-//					  // doing this inline was no faster so stop inlining
-//					  && (allowOverlaps || a.idx.andNone(b.idx))
-//I believe this is "correct", but doesn't do anything in top1465.
-//					  // one cannot contain the other, even if allowOverlap
-//					  && !Idx.orEqualsEither(a.idx, b.idx)
-					) {
-						// examine each z value (usually one)
-						count = 0; // number of cells eliminated from
-						for ( int z : VALUESES[zs] )
-							// victims: cells seeing all z's in both ALSs,
-							// including the ALSs themselves.
-							if ( victims.setAndAny(a.vBuds[z], b.vBuds[z]) )
-								// eliminate z from each victim
-								count += victims.forEach(grid.cells, (x) ->
-									redPots.upsert(x, z)
-								);
-						if ( count > 0 ) {
-							// FOUND an ALS-XY-Wing, with eliminations!
-							// validate
-							if ( HintValidator.ALS_USES ) {
-								if ( !HintValidator.isValid(grid, redPots) ) {
-									HintValidator.report(this.getClass().getSimpleName()
-											, grid, Arrays.asList(a, b, c));
-									if ( true ) {
-										// I'm sort-of on top of invalid hints
-										StdErr.exit(Log.me()+": invalid hint", new Throwable());
-									} else {
-										// just skip invalid elimination/s
-										redPots.clear();
-										return false;
+		try {
+			int i,n,m, j, v1,v2,a1,a2, v3,v4,b1,b2, zs, count;
+			Rcc A, B;
+			Als c, a=null, b=null;
+			// presume that no hint will be found
+			boolean result = false;
+	//		ttlRccs += rccs.length;
+			// foreach distinct pair of RCCs (a forward-only search)
+			for ( i=0,n=numRccs,m=n-1; i<m; ++i ) {
+				v1 = (A=rccs[i]).v1;
+				v2 = A.v2;
+				a1 = A.als1;
+				a2 = A.als2;
+				// WARNING: this loop executes nearly 2.3 BILLION times
+				for ( j=i+1; j<n; ++j ) {
+					v4 = (B=rccs[j]).v2;
+					// need at least two different common candidates in A & B
+					// which can't be true if they have same single value.
+					if ( v1!=(v3=B.v1) || v2!=0 || v4!=0 ) {
+						// the two RCCs contain 4 ALSs, from which we need to
+						// connect 3 distinct ALSs; and since
+						//     A.als1!=A.als2 && B.als1!=B.als2
+						// thankfully not too many possibilites remain,
+						// so compare them all to determine ALS c
+						b2=B.als2;
+						if ( a2==(b1=B.als1) && a1!=b2 ) { // out of sequence
+							a=alss[a1]; b=alss[b2]; c=alss[a2];
+	//						++counts[3];
+						} else if ( a1==b1 && a2!=b2 ) {
+							a=alss[a2]; b=alss[b2]; c=alss[a1];
+	//						++counts[1];
+						} else if ( a2==b2 && a1!=b1 ) {
+							a=alss[a1]; b=alss[b1]; c=alss[a2];
+	//						++counts[4];
+	////counts[2] is 0, so either there's no hits or there's a mistake I can't see!
+	//					} else if ( a1==b2 && a2!=b1 ) { // out of sequence
+	//						a=alss[a2]; b=alss[b1]; c=alss[a1];
+	//						++counts[2];
+						} else {
+							c = null;
+	//						++counts[0];
+						}
+						if ( c != null
+						  // if ALS a and ALS b have any common buds to eliminate
+						  // done inline for speed
+						  // ignore IDE: Dereferencing possible null pointer
+						  && ( ( (a.buddies.a0 & b.buddies.a0)
+							   | (a.buddies.a1 & b.buddies.a1)
+							   | (a.buddies.a2 & b.buddies.a2) ) != 0 )
+						  // and there's atleast one z-value: maybes common to
+						  // ALS a and ALS b, excluding the RCC values.
+						  && (zs=a.maybes & b.maybes & ~VSHFT[v1] & ~VSHFT[v2]
+								& ~VSHFT[v3] & ~VSHFT[v4]) != 0
+	//allowOverlaps=true in AlsWing constructor so this does nothing except eat CPU
+	//					  // check overlaps: RCs already done, so just a and b
+	//					  // doing this inline was no faster so stop inlining
+	//					  && (allowOverlaps || a.idx.andNone(b.idx))
+	//I believe this is "correct", but doesn't do anything in top1465.
+	//					  // one cannot contain the other, even if allowOverlap
+	//					  && !Idx.orEqualsEither(a.idx, b.idx)
+						) {
+							// examine each z value (usually one)
+							count = 0; // number of cells eliminated from
+							for ( int z : VALUESES[zs] )
+								// victims: cells seeing all z's in both ALSs,
+								// including the ALSs themselves.
+								if ( victims.setAndAny(a.vBuds[z], b.vBuds[z]) )
+									// eliminate z from each victim
+									count += victims.forEach(grid.cells, (x) ->
+										redPots.upsert(x, z)
+									);
+							if ( count > 0 ) {
+								// FOUND an ALS-XY-Wing, with eliminations!
+								// validate
+								if ( HintValidator.ALS_USES ) {
+									if ( !HintValidator.isValid(grid, redPots) ) {
+										HintValidator.report(this.getClass().getSimpleName()
+												, grid, Arrays.asList(a, b, c));
+										if ( true ) {
+											// I'm sort-of on top of invalid hints
+											StdErr.exit(Log.me()+": invalid hint", new Throwable());
+										} else {
+											// just skip invalid elimination/s
+											redPots.clear();
+											return false;
+										}
 									}
 								}
+								// get the zValues String BEFORE we clear redPots
+								final String zValues = Values.toString(redPots.valuesOf(), Frmt.COMMA_SP, Frmt.AND);
+								// build the hint
+								final AHint hint = new AlsWingHint(
+									  this
+									, redPots.copyAndClear()
+									, a, b, c
+									, v1 // x value
+									, v3 // y value
+									, zValues
+								);
+								// we found a hint (in GUI)
+								result = true;
+								// add the hint to accu
+								if ( accu.add(hint) )
+									return result; // exit-early (in batch)
 							}
-							// get the zValues String BEFORE we clear redPots
-							final String zValues = Values.toString(redPots.valuesOf(), Frmt.COMMA_SP, Frmt.AND);
-							// build the hint
-							final AHint hint = new AlsWingHint(
-								  this
-								, redPots.copyAndClear()
-								, a, b, c
-								, v1 // x value
-								, v3 // y value
-								, zValues
-							);
-							// we found a hint (in GUI)
-							result = true;
-							// add the hint to accu
-							if ( accu.add(hint) )
-								return result; // exit-early (in batch)
 						}
 					}
 				}
 			}
+			// GUI mode: sort hints by score (elimination count) descending
+			if ( result )
+				accu.sort();
+			return result;
+		} finally {
+			Cells.cleanCasA();
 		}
-		// GUI mode: sort hints by score (elimination count) descending
-		if ( result )
-			accu.sort();
-		return result;
 	}
 
 }

@@ -8,6 +8,7 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 
@@ -46,15 +47,26 @@ public class Cells {
 	}
 
 	/**
+	 * Splitting them out by types means no type-erasure contention, so you
+	 * can have "plain" list method.
+	 *
+	 * @param cells
+	 * @return 
+	 */
+	public static ArrayList<Cell> list(Cell[] cells) {
+		return list(cells, cells.length);
+	}
+	
+	/**
 	 * Create a new List from a re-usable cells array.
 	 *
 	 * @param cells
-	 * @param numCells
+	 * @param n
 	 * @return
 	 */
-	public static ArrayList<Cell> list(Cell[] cells, int numCells) {
-		ArrayList<Cell> result = new ArrayList<>(numCells);
-		for ( int i=0; i<numCells; ++i )
+	public static ArrayList<Cell> list(Cell[] cells, int n) {
+		ArrayList<Cell> result = new ArrayList<>(n);
+		for ( int i=0; i<n; ++i )
 			result.add(cells[i]);
 		return result;
 	}
@@ -81,15 +93,19 @@ public class Cells {
 	 * is late-populated rather than creating many large arrays that are simply
 	 * never used.
 	 * <p>
-	 * See {@link #array(int size)}
+	 * See {@link #arrayA(int)}
 	 */
-	private static final Cell[][] CAS = new Cell[82][];
+	private static final Cell[][] CASA = new Cell[82][];
+	private static final Cell[][] CASB = new Cell[82][];
 	static {
 		// A cell has 20 siblings. The larger arrays are late-populated upon
 		// use, except the last of 81 cells, which I presume is always used.
-		for ( int i=0; i<21; ++i )
-			CAS[i] = new Cell[i];
-		CAS[81] = new Cell[81];
+		for ( int i=0; i<21; ++i ) {
+			CASA[i] = new Cell[i];
+			CASB[i] = new Cell[i];
+		}
+		// CASA only has the 81-cell-array premade
+		CASA[81] = new Cell[81];
 	}
 
 	/**
@@ -118,13 +134,42 @@ public class Cells {
 	 * @param size the size of the cached array to retrieve
 	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
 	 */
-	public static Cell[] array(int size) {
-		// @stretch lease each array, using Closable and try blocks.
-		Cell[] cells = CAS[size];
+	public static Cell[] arrayA(int size) {
+		Cell[] cells = CASA[size];
 		// late populate CellsArrayS 21..80
 		if ( cells == null )
-			cells = CAS[size] = new Cell[size];
+			cells = CASA[size] = new Cell[size];
 		return cells;
+	}
+
+	/**
+	 * As per arrayA above, except my arrays are in a separate CASB.
+	 * @param size the size of the cached array to retrieve
+	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
+	 */
+	public static Cell[] arrayB(int size) {
+		Cell[] cells = CASB[size];
+		// late populate CellsArrayS 21..80
+		if ( cells == null )
+			cells = CASB[size] = new Cell[size];
+		return cells;
+	}
+
+	public static void cleanCasA() {
+		for ( int i=0; i<81; ++i )
+			if ( CASA[i] != null )
+				Arrays.fill(CASA[i], null);
+	}
+
+	public static void cleanCasA(int i) {
+		if ( CASA[i] != null )
+			Arrays.fill(CASA[i], null);
+	}
+
+	public static void cleanCasB() {
+		for ( int i=0; i<81; ++i )
+			if ( CASB[i] != null )
+				Arrays.fill(CASB[i], null);
 	}
 
 	/**
@@ -132,7 +177,7 @@ public class Cells {
 	 *
 	 * @param src
 	 * @param n
-	 * @return 
+	 * @return
 	 */
 	public static Cell[] copy(Cell[] src, int n) {
 		Cell[] dest = new Cell[n];
@@ -151,21 +196,7 @@ public class Cells {
 	}
 
 	/**
-	 * Returns a new Cell[] of the first n cells
-	 * in the given re-usable cells array.
-	 *
-	 * @param n the number of cells to copy
-	 * @param cells the re-usable cells array to copy from
-	 * @return a new Cell[] containing a copy of the first n cells.
-	 */
-	public static Cell[] copy(int n, Cell[] cells) {
-		Cell[] result = new Cell[n];
-		System.arraycopy(cells, 0, result, 0, n);
-		return result;
-	}
-
-	/**
-	 * Extract maybes.bits from 'cells' into 'maybes'. Done for speed, rather
+	 * Extract maybes from 'cells' into 'maybes'. Done for speed, rather
 	 * than repeatedly dereferencing the bloody cell repeatedly.
 	 *
 	 * @param cells to read maybe.bits from
@@ -177,7 +208,7 @@ public class Cells {
 	 */
 	public static int[] maybesBits(final Cell[] cells, final int[] maybes) {
 		for ( int i=0,n=maybes.length; i<n; ++i )
-			maybes[i] = cells[i].maybes.bits;
+			maybes[i] = cells[i].maybes;
 		return maybes;
 	}
 

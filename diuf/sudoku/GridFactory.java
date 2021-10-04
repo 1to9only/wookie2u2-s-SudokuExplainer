@@ -33,8 +33,8 @@ public class GridFactory {
 		final DataFlavor flavor = new DataFlavor(String.class, "Plain text");
 		try {
 			grid.load(IO.slurp(flavor.getReaderForText(contents)));
-			if ( !grid.isMaybesLoaded )
-				grid.rebuildMaybesAndS__t();
+//			if ( !grid.isMaybesLoaded )
+//				grid.rebuildMaybesAndS__t();
 		} catch (UnsupportedFlavorException ex) {
 			throw new IOException("Bad flavor \"Plain text\"", ex);
 		}

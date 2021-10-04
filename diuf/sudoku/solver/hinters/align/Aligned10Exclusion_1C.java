@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -102,8 +101,8 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 
 //	private java.io.PrintStream myLog = open("a10e.log", standardHeader());
 
-	public Aligned10Exclusion_1C(IInterruptMonitor monitor) {
-		super(monitor, IO.A10E_1C_HITS);
+	public Aligned10Exclusion_1C() {
+		super(IO.A10E_1C_HITS);
 	}
 
 //	@Override
@@ -149,11 +148,11 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values for more.
+		// that are packed into your maybes 0..511. See Values for more.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 2 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -205,8 +204,8 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 		// are siblings of this cell. This is more code than "skip collision" as
 		// as in A234E but it's faster, because it's doing more of the work less
 		// often. Think DNA: a one-way trip departing the eye of my k___b.
-		// So c1b0 is version-0 of c1.maybes.bits, with v0 removed if c1 is a
-		// sibling of c0, and c1b (c1.maybes.bits) contained v0 to start with.
+		// So c1b0 is version-0 of c1.maybes, with v0 removed if c1 is a
+		// sibling of c0, and c1b (c1.maybes) contained v0 to start with.
 		int c0b, c1b , c2b , c3b , c4b , c5b , c6b , c7b , c8b , c9b;
 		int		       c2b0, c3b0, c4b0, c5b0, c6b0, c7b0, c8b0, c9b0;
 		int			         c3b1, c4b1, c5b1, c6b1, c7b1, c8b1, c9b1;
@@ -261,7 +260,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 
 		// find cells that are candidates to participate in exclusion sets,
 		// and also the set of sibling excluder-cells for each candidate.
-		// RE: That 8: The maximum aligned-set-cell.maybes.size which hints is 7
+		// RE: That 8: The maximum aligned-set-cell.maybesSize which hints is 7
 		numCandidates = populateCandidatesAndExcluders(candidates, excluders, grid, 8);
 		if ( numCandidates < degree )
 			return false; // this'll never happen, but never say never.
@@ -321,8 +320,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 												continue;
 											cells[8] = candidates[i8];
 											if(hitMe && cells[8]!=hitCells[8]) continue;
-											if ( isInterrupted() )
-												return false;
+											interrupt();
 											for ( i9=i8+1; i9<numCandidates; ++i9 ) {
 												if ( excluders[candidates[i9].i].idx1(idx09, idx08) )
 													continue;
@@ -341,7 +339,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 													if(col<10 || col>91) continue;
 //													++colCnt.pass;
 
-													// filter by total cells.maybes.size
+													// filter by total cells.maybesSize
 													mbs = totalMaybesSize; // from countCollisions
 //													mbsCnt.count(mbs);
 													if(mbs<21 || mbs>45) continue;
@@ -367,7 +365,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 //													++maxMbs.cnt;
 													fives = sixes = sevns = eigts = 0;
 													for ( Cell cell : cells )
-														switch ( cell.maybes.size ) {
+														switch ( cell.size ) {
 														case 9: //fallthrough // 9 is the maximum possible
 														case 8: ++eigts; //fallthrough
 														case 7: ++sevns; //fallthrough
@@ -383,7 +381,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 
 												// read common excluder cells from grid at idx09
 												if ( (numCmnExcls = idx09.cellsN(grid, cmnExcls)) == 1 ) {
-													cmnExclBits[0] = cmnExcls[0].maybes.bits;
+													cmnExclBits[0] = cmnExcls[0].maybes;
 													numCmnExclBits = 1;
 												} else {
 													// performance enhancement: examine smaller maybes sooner.
@@ -422,7 +420,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 												}
 
 												// set is overridden to sort cells by the number of intersections
-												// with cmnExclBits then by cell.maybes.size. Note that I call
+												// with cmnExclBits then by cell.maybesSize. Note that I call
 												// super.set and then change the scores[] AFTER the stats used by
 												// the filters have all been calculated, so changing the scores[]
 												// effects ONLY the sort, not the filters. Just beware of any odd
@@ -432,17 +430,17 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 												//MyTimSort.small(scells, degree, cc);
 												bubbleSort(scells, degree, cc);
 
-												// get c* + maybes.bits from sortedCells
-												c0b = (c0=scells[0]).maybes.bits;
-												c1b = (c1=scells[1]).maybes.bits;
-												c2b = (c2=scells[2]).maybes.bits;
-												c3b = (c3=scells[3]).maybes.bits;
-												c4b = (c4=scells[4]).maybes.bits;
-												c5b = (c5=scells[5]).maybes.bits;
-												c6b = (c6=scells[6]).maybes.bits;
-												c7b = (c7=scells[7]).maybes.bits;
-												c8b = (c8=scells[8]).maybes.bits;
-												c9b = (c9=scells[9]).maybes.bits;
+												// get c* + maybes from sortedCells
+												c0b = (c0=scells[0]).maybes;
+												c1b = (c1=scells[1]).maybes;
+												c2b = (c2=scells[2]).maybes;
+												c3b = (c3=scells[3]).maybes;
+												c4b = (c4=scells[4]).maybes;
+												c5b = (c5=scells[5]).maybes;
+												c6b = (c6=scells[6]).maybes;
+												c7b = (c7=scells[7]).maybes;
+												c8b = (c8=scells[8]).maybes;
+												c9b = (c9=scells[9]).maybes;
 
 												// build the notSiblings cache
 												ns10 = c1.notSees[c0.i];
@@ -1212,7 +1210,7 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 		 * {@inheritDoc}
 		 * <p>
 		 * Overridden to sort cells by the number of intersections with
-		 * cmnExclBits then by cell.maybes.size. Note that I call super.set
+		 * cmnExclBits then by cell.maybesSize. Note that I call super.set
 		 * and then change the scores[] AFTER the stats used by the filters
 		 * have all been calculated, so this change to scores[] effects ONLY
 		 * the sort, not the filters. Just beware of any odd future filter
@@ -1221,14 +1219,14 @@ public final class Aligned10Exclusion_1C extends Aligned10ExclusionBase
 		@Override
 		void set(Cell[] cells, int[] cmnExclBits, int numCmnExclBits) {
 			super.set(cells, cmnExclBits, numCmnExclBits);
-			Values cellMaybes;  int intersections;
+			Integer cellMaybes;  int intersections;
 			for ( int i=0,n=degree; i<n; ++i ) {
 				cellMaybes = cells[i].maybes;
 				intersections = 0;
 				for ( int j=0; j<numCmnExclBits; ++j )
-					intersections += VSIZE[cellMaybes.bits & cmnExclBits[j]];
-				// by intersections with cmnExclBits then cell.maybes.size
-				scores[i] = (intersections << 4) | cellMaybes.size;
+					intersections += VSIZE[cellMaybes & cmnExclBits[j]];
+				// by intersections with cmnExclBits then cell.maybesSize
+				scores[i] = (intersections << 4) | VSIZE[cellMaybes];
 			}
 		}
 	}

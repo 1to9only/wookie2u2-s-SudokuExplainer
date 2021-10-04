@@ -12,9 +12,15 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 
 /**
- * A UsageMap stores the usage statistics of a collection of hinters. It's used
- * by AnalysisHint as a summary of the hints required to solve a puzzle. I'm
- * just a TreeMap from IHinter to Usage, plus a few helper methods.
+ * A UsageMap stores the usage statistics (see below) of the used hinters.
+ * AnalysisHint uses UsageMap as a summary of the hints that solve a puzzle.
+ * UsageMap is just a TreeMap from IHinter to Usage, plus a few helper methods.
+ * <p>
+ * A UsageMap is a table of hinters: number of times each hinter was called,
+ * number of hints produced, total number of eliminations, and elapsed time.
+ * <p>
+ * Setting a cell-value counts as 10 eliminations in the total-eliminations.
+ *
  * @author Keith Corlett
  */
 public final class UsageMap extends TreeMap<IHinter, Usage> {
@@ -33,12 +39,9 @@ public final class UsageMap extends TreeMap<IHinter, Usage> {
 	Usage addon(IHinter hinter, int calls, int hints, int elims, long time) {
 		Usage u = super.get(hinter);
 		if ( u == null ) {
-			put(hinter, u = new Usage(calls, hints, elims, time));
+			put(hinter, u=new Usage(hinter.toString(), calls, hints, elims, time));
 		} else {
-			u.calls += calls;
-			u.hints += hints;
-			u.elims += elims;
-			u.time += time;
+			u.add(calls, hints, elims, time);
 		}
 		return u;
 	}
@@ -50,8 +53,9 @@ public final class UsageMap extends TreeMap<IHinter, Usage> {
 	 */
 	public void addonAll(UsageMap toAddOn) {
 		Usage a; // each Usage to add
-		for ( Entry<IHinter,Usage> e : toAddOn.entrySet() )
+		for ( Entry<IHinter,Usage> e : toAddOn.entrySet() ) {
 			addon(e.getKey(), (a=e.getValue()).calls, a.hints, a.elims, a.time);
+		}
 	}
 
 	/**
@@ -64,24 +68,11 @@ public final class UsageMap extends TreeMap<IHinter, Usage> {
 	 */
 	public ArrayList<Usage> toArrayList() {
 		ArrayList<Usage> result = new ArrayList<>(size());
-		for ( Entry<IHinter,Usage> e : entrySet() ) { // sorted
-			final Usage u = e.getValue();
-			// for LogicalSolverTester
-			u.hinterIndex = e.getKey().getIndex();
-			result.add(u);
+		for ( Entry<IHinter,Usage> e : entrySet() ) { // pre-sorted
+			result.add(e.getValue());
 		}
-//entrySet is sorted, according to TreeMap documentation
-//		// order by the index in the wantedHinters array
-//		result.sort(Usage.BY_EXECUTION_ORDER);
 		return result;
 	}
-
-//	public Usage getByTechName(String name) {
-//		for ( IHinter hinter : keySet() )
-//			if ( hinter.getTech().name().equals(name) )
-//				return get(hinter);
-//		return null;
-//	}
 
 	/**
 	 * Get the maximum difficulty of all the Usage in this map.
@@ -90,8 +81,9 @@ public final class UsageMap extends TreeMap<IHinter, Usage> {
 	 */
 	public double getMaxDifficulty() {
 		double max = 0.0D;
-		for (Usage u : values())
+		for ( Usage u : values() ) {
 			max = Math.max(max, u.maxDifficulty);
+		}
 		return max;
 	}
 }

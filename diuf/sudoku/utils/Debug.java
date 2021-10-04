@@ -72,36 +72,36 @@ public final class Debug {
 		return null;
 	}
 
-	private static boolean contains(String s, String[] targets) {
+	public static boolean isClassNameInTheCallStack(int n, String className) {
+		return isInTheCallStack(n, (e)->e.getClassName().contains(className));
+	}
+
+	public static boolean isMethodNameInTheCallStack(int n, String methodName) {
+		return isInTheCallStack(n, (e)->e.getMethodName().contains(methodName));
+	}
+
+	// s.containsAny(targets)
+	private static boolean containsAny(String s, String[] targets) {
 		for ( String t : targets )
 			if ( s.contains(t) )
 				return true;
 		return false;
 	}
-
-	public static boolean isClassNameInTheCallStack(int n, String... classNames) {
-		int i = -1;
-		StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-		for ( StackTraceElement e : stack ) {
-			String className = e.getClassName();
-			if ( contains(className, classNames) )
-				return true;
-			else if ( ++i > n )
-				return false;
-		}
-		return false;
+	public static boolean isMethodNameInTheCallStack(int n, String[] methodNames) {
+		return isInTheCallStack(n, (e)->containsAny(e.getMethodName(), methodNames));
 	}
 
-	public static boolean isMethodNameInTheCallStack(int n, String... methodNames) {
-		int i = -1; // be lenient
-		StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-		for ( StackTraceElement e : stack ) {
-			String methodName = e.getMethodName();
-			if ( contains(methodName, methodNames) )
+	public static boolean isInTheCallStack(int n, String className, String methodName) {
+		return isInTheCallStack(n, (e) -> e.getClassName().equals(className)
+									   && e.getMethodName().equals(methodName));
+	}
+
+	public static boolean isInTheCallStack(int n, IFilter<StackTraceElement> filter) {
+		final StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+		// 3 is getStackTrace, me, and my caller, which are all unsearchable
+		for ( int i=3,N=MyMath.min(n, stack.length); i<N; ++i )
+			if ( filter.accept(stack[i]) )
 				return true;
-			else if ( ++i > n )
-				return false;
-		}
 		return false;
 	}
 
@@ -295,7 +295,7 @@ public final class Debug {
  					isFirst = false;
  				else
  					out.print(cell.i%9==0 ? "\n" : ", ");
- 				String s = Integer.toBinaryString(cell.maybes.bits);
+ 				String s = Integer.toBinaryString(cell.maybes);
  				indentf('0', 9-s.length(), "%s", s);
  			}
  			out.println();

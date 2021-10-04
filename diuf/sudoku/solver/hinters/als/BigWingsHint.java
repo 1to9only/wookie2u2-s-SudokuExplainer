@@ -5,24 +5,20 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
+import diuf.sudoku.utils.MyMath;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.COLON_ONLY;
-import static diuf.sudoku.utils.Frmt.IN;
-import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
@@ -33,12 +29,34 @@ import static diuf.sudoku.utils.Frmt.and;
 class BigWingsHint extends AHint  {
 
 	private static final String[] HINT_TYPE_NAMES = {
-		  Tech.XYZ_Wing.name() // DODGY coz it's not Big, but they exist
+		// XY_Wing is DODGY coz it's not "Big" Wing, but they're already in the
+		// ALS's, so it's faster/easier to finds-em vs filter-em.
+		// Note that I do NOT find XYZ_Wings. See also "special" numberName.
+		  Tech.XY_Wing.name()
 		, Tech.WXYZ_Wing.name()
 		, Tech.VWXYZ_Wing.name()
 		, Tech.UVWXYZ_Wing.name()
 		, Tech.TUVWXYZ_Wing.name()
 		, Tech.STUVWXYZ_Wing.name()
+	};
+
+	// this array allows me to avoid doing maths to calculate the difficulty,
+	// which tends to end in tears when we discover that double precision
+	// floating-point arithmetic does not mean perfect precision floating-point
+	// arithmetic, and is therefore commonly a bit wrong, which tends to
+	// eventually make everything go horribly wrong, producing screaming users,
+	// producing defiant programmers, who really just need a good cry.
+	// So avoid calculating comparable doubles wherever possible.
+	private static final double[] DIFFICULTIES = { // a better named variable does not exist anywhere in the kindom, except possibly in the Restaurant At the End Of The Universe. Or just because you really really want to!
+		// XY_Wing is DODGY coz it's not "Big" Wing, but they're already in the
+		// ALS's, so it's faster/easier to finds-em vs filter-em.
+		// Note that I do NOT find XYZ_Wings. See also "special" numberName.
+		  Tech.XY_Wing.difficulty
+		, Tech.WXYZ_Wing.difficulty
+		, Tech.VWXYZ_Wing.difficulty
+		, Tech.UVWXYZ_Wing.difficulty
+		, Tech.TUVWXYZ_Wing.difficulty
+		, Tech.STUVWXYZ_Wing.difficulty
 	};
 
 	private final int[] wingValues; // als values - yz values
@@ -65,9 +83,10 @@ class BigWingsHint extends AHint  {
 		this.z = z;
 		this.both = both;
 		this.biv = biv;
-		this.wingValues = VALUESES[als.maybes ^ biv.maybes.bits];
-		this.degree = als.cells.length;
-		assert degree>1 && degree<8 : "WTF: degree "+degree+" not in 2..7";
+		this.wingValues = VALUESES[als.maybes ^ biv.maybes];
+		this.degree = MyMath.max(als.cells.length, 2); // if it's not atleast two cells then just pretend that it it's atleast two cells, rather than breaking everything. sigh.
+//		if ( degree<3 || degree>7 )
+//			Log.teeln("WARN: "+Log.me()+": degree "+degree+" not in 3..7");
 		this.alsCells = als.cells.clone(); // copy reused array
 		// all cells = als cells + the biv cell
 		final int n = alsCells.length;
@@ -91,11 +110,11 @@ class BigWingsHint extends AHint  {
 		Pots result = new Pots();
 		if ( both ) // all green
 			for ( Cell c : all )
-				result.put(c, new Values(c.maybes));
+				result.put(c, c.maybes);
 		else // x green
 			for ( Cell c : all )
 				if ( c.maybe(x) )
-					result.put(c, new Values(x));
+					result.put(c, VSHFT[x]);
 		return result;
 	}
 
@@ -123,12 +142,16 @@ class BigWingsHint extends AHint  {
 
 	@Override
 	protected String getHintTypeNameImpl() {
-		return HINT_TYPE_NAMES[degree-2]; // note the - 2 allows XYZ-Wing
+		// note the - 2 allows XY_Wing, which is NOT a "big" wing, but they're
+		// in ALSs already, so it's faster/easier to finds-em than filter-em.
+		return HINT_TYPE_NAMES[degree-2];
 	}
 
 	@Override
 	public double getDifficulty() {
-		return Tech.WXYZ_Wing.difficulty + 0.1 * (degree-3);
+		// note the - 2 allows XY_Wing, which is NOT a "big" wing, but they're
+		// in ALSs already, so it's faster/easier to finds-em than filter-em.
+		return DIFFICULTIES[degree-2];
 	}
 
 	@Override
@@ -172,6 +195,10 @@ class BigWingsHint extends AHint  {
 	public String toHtmlImpl() {
 		// double-linked wings have there own explanation for more eliminations
 		String filename = both ? "BigWingsHintDL.html" : "BigWingsHint.html";
+		// avoid AIOB exceptions
+		String numWingCells = numberName(degree-1); // 7
+		String numAlsCells  = numberName(degree-2); // 8
+		String numOneShort  = numberName(degree-3); // 9
 		return Html.produce(hinter, filename
 			, Frmu.csv(alsCells)		//{0}
 			, Frmu.and(alsCells)		// 1
@@ -180,9 +207,9 @@ class BigWingsHint extends AHint  {
 			, z							// 4 secondary
 			, redPots.toString()		// 5
 			, Integer.toString(degree)	// 6
-			, NUMBER_NAMES[degree-1]	// 7
-			, NUMBER_NAMES[degree-2]	// 8
-			, NUMBER_NAMES[degree-3]	// 9
+			, numWingCells				// 7
+			, numAlsCells				// 8
+			, numOneShort				// 9
 			, getHintTypeName()			// 10
 			// double-linked wings are called rings (used in BigWingHintDL)
 			, hinter.tech.name().replaceFirst("Wing", "Ring") // 11

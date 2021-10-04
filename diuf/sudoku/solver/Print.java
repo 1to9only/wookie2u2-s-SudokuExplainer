@@ -4,11 +4,10 @@
  * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
-package diuf.sudoku.gui;
+package diuf.sudoku.solver;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Run;
-import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyStrings;
 import java.io.PrintStream;
@@ -90,8 +89,8 @@ public class Print {
 		out.format("%-5d", grid.hintNumber);
 		// time between hints includes activate time et al
 		out.format("\t%,15d", took);
-		out.format("\t%2d", grid.countFilledCells());
-		out.format("\t%4d", grid.countMaybes());
+		out.format("\t%2d", grid.numSet);
+		out.format("\t%4d", grid.totalSize);
 		out.format("\t%3d", numElims);
 		out.format("\t%-30s", hint.hinter);
 		// Kraken: squeeze hobiwans multiline format back onto one line

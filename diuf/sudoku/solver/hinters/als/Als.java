@@ -169,7 +169,7 @@ public class Als {
 	 */
 	public void computeFields(Grid grid, Idx[] candidates) {
 		if ( this.cells == null )
-			this.cells = idx.cells(grid).clone();
+			this.cells = idx.cells(grid, new Cell[idx.size()]);
 		this.buddies = new Idx();
 		for ( int v : VALUESES[maybes] ) {
 			vs[v] = Idx.newAnd(idx, candidates[v]);
@@ -234,7 +234,7 @@ public class Als {
 	private String ts;
 
 	/**
-	 * DiufAdapter: an alternative to the {@link Idx#cells(Grid)} method;
+	 * DiufAdapter: an alternative to the {@link Idx#cellsA(Grid)} method;
 	 * Returns a cached (in the given grid) array of the cells in the given
 	 * Grid at the indices in this Als.
 	 *
@@ -242,7 +242,7 @@ public class Als {
 	 * @return a cached Cell[], so clone() it before you store it!
 	 */
 	Cell[] cells(Grid grid) {
-		return idx.cells(grid);
+		return idx.cellsA(grid);
 	}
 
 	/**

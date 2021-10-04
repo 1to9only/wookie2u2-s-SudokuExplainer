@@ -4,16 +4,14 @@
  * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
-package diuf.sudoku.gui;
+package diuf.sudoku.solver.hinters;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.solver.hinters.AHinter;
-
 
 /**
- * The DummyHinter is a stand-in IHinter for solution hints.
+ * The DummyHinter is a stand-in IHinter for solution hints (et al).
  * <p>
  * Do <b>NOT</b> call me from LogicalSolver.solve (et al), I'm not real!
  * 

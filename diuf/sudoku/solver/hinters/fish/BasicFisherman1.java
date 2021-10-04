@@ -16,7 +16,6 @@ import static diuf.sudoku.Indexes.ISIZE;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -246,9 +245,9 @@ public class BasicFisherman1 extends AHinter {
 						if ( coverVs.andNot(baseVs).any() ) {
 							// FOUND a Fish, with eliminations!
 							final Pots reds = new Pots();
-							final int fv = v;
+							final int fsv = VSHFT[v];
 							coverVs.forEach(grid.cells, (cc) ->
-								reds.put(cc, new Values(fv))
+								reds.put(cc, fsv)
 							);
 							final AHint hint = createHint(v, reds
 									, Regions.list(degree, covers, c.vs));
@@ -278,10 +277,11 @@ public class BasicFisherman1 extends AHinter {
 	private AHint createHint(final int v, final Pots reds, final List<ARegion> coversL) {
 		// get highlighted (green) potentials = the corners
 		final Pots greens = new Pots();
+		final int sv = VSHFT[v];
 		for ( int i=1; i<degreePlus1; ++i )
 			for ( Cell cc : bases[stack[i].index-1].cells )
-				if ( (cc.maybes.bits & VSHFT[v]) != 0 )
-					greens.put(cc, new Values(v));
+				if ( (cc.maybes & VSHFT[v]) != 0 )
+					greens.put(cc, sv);
 		// get a List of the base regions in this fish
 		final List<ARegion> basesL = new ArrayList<>(degree);
 		for ( int i=1; i<degreePlus1; ++i )

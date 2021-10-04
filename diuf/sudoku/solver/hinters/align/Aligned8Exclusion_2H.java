@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -62,11 +61,9 @@ implements
 	private final ACollisionComparator cc = new ACollisionComparator();
 
 	private final NonHinters nonHinters = new NonHinters(16*1024, 3);
-	// What's that Skip? Why it's the skipper skipper flipper Flipper.
-	private boolean firstPass = true;
 
-	public Aligned8Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor, IO.A8E_2H_HITS);
+	public Aligned8Exclusion_2H() {
+		super(IO.A8E_2H_HITS);
 	}
 
 	@Override
@@ -82,14 +79,6 @@ implements
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		// it's just easier to set firstPass ONCE, rather than deal with it in
-		// each of the multiple exit-points from what is now findHintsImpl.
-		boolean ret = findHintsImpl(grid, accu);
-		firstPass = false;
-		return ret;
-	}
-
-	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
 
 		// localise this variable for speed (and make it final).
 		// hackTop1465 is isHacky && filePath.contains("top1465")
@@ -116,11 +105,11 @@ implements
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values for more.
+		// that are packed into your maybes 0..511. See Values for more.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 2 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -169,7 +158,7 @@ implements
 		// the set which are siblings of this cell. This is more code than
 		// "skip collision" (as per A234E) but it is faster, because it does
 		// more of the work less often.
-		// c1b0 is an acronymn for: c1 bits zero, meaning the maybes.bits of c1
+		// c1b0 is an acronymn for: c1 bits zero, meaning the maybes of c1
 		// minus v0 (presuming that c1 is a sibling of c0).
 		int c0b, c1b , c2b , c3b , c4b , c5b , c6b , c7b ;
 		int		       c2b0, c3b0, c4b0, c5b0, c6b0, c7b0;
@@ -266,8 +255,7 @@ implements
 										continue;
 									cells[6] = candidates[i6];
 									if(hitMe && cells[6]!=hitCells[6]) continue;
-									if ( isInterrupted() )
-										return false;
+									interrupt();
 									for ( i7=i6+1; i7<numCandidates; ++i7 ) {
 										if ( excluders[candidates[i7].i].idx2(idx07, idx06) )
 											continue;
@@ -303,7 +291,7 @@ implements
 										// the dog____ing algorithm is faster with dodgem-cars to the left,
 										// but the above for-i-loops need a static cells array; so we copy
 										// cells to scells (sortedCells) and sort that array DESCENDING by:
-										// 4*maybesCollisions + 2*commonExcluderHits + maybes.size
+										// 4*maybesCollisions + 2*commonExcluderHits + maybesSize
 										cc.set(cells, cmnExclBits, numCmnExclBits);
 
 //KRC#2020-06-30 09:50:00
@@ -314,14 +302,14 @@ implements
 										bubbleSort(scells, degree, cc);
 
 										// cache the sortedCells, and there maybes.
-										c0b = (c0=scells[0]).maybes.bits;
-										c1b = (c1=scells[1]).maybes.bits;
-										c2b = (c2=scells[2]).maybes.bits;
-										c3b = (c3=scells[3]).maybes.bits;
-										c4b = (c4=scells[4]).maybes.bits;
-										c5b = (c5=scells[5]).maybes.bits;
-										c6b = (c6=scells[6]).maybes.bits;
-										c7b = (c7=scells[7]).maybes.bits;
+										c0b = (c0=scells[0]).maybes;
+										c1b = (c1=scells[1]).maybes;
+										c2b = (c2=scells[2]).maybes;
+										c3b = (c3=scells[3]).maybes;
+										c4b = (c4=scells[4]).maybes;
+										c5b = (c5=scells[5]).maybes;
+										c6b = (c6=scells[6]).maybes;
+										c7b = (c7=scells[7]).maybes;
 
 										// build the isNotSibingsOf cache
 										ns10 = c1.notSees[c0.i];

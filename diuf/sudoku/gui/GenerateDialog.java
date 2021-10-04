@@ -16,6 +16,8 @@ import diuf.sudoku.gen.Symmetry;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.utils.Log;
+import diuf.sudoku.utils.MyStrings;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -27,8 +29,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
@@ -42,7 +46,6 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
-
 
 /**
  * The GenerateDialog allows the user to provide the parameters required to
@@ -64,6 +67,8 @@ public final class GenerateDialog extends JDialog {
 
 	private static final long serialVersionUID = 8620081149465721387L;
 
+	private static final String NL = System.lineSeparator();
+
 	// load the PuzzleCache when the GenerateDialog form is first loaded, to
 	// give him time to load/generate a cache of puzzles BEFORE you press the
 	// Generate button. This only matters the first time a machine loads the
@@ -77,7 +82,7 @@ public final class GenerateDialog extends JDialog {
 
 	// Techs we want the user to want. These are really for speed, not actually
 	// required for safety.
-	private static final Tech[] SAFE_TECHS = new Tech[] {
+	private static final Tech[] SPEED_TECHS = new Tech[] {
 			  Tech.NakedSingle
 			, Tech.HiddenSingle
 			, Tech.Locking
@@ -114,11 +119,20 @@ public final class GenerateDialog extends JDialog {
 	private Difficulty difficulty = Difficulty.Fiendish;
 	private boolean isExact = true;
 
-	private volatile GeneratorThread generatorThread = null;
 	private final List<Grid> sudokuList = new ArrayList<>();
 	private int sudokuIndex = 0;
 	private final Map<Grid, AHint> analysisMap = new HashMap<>();
 	private final JCheckBox[] chkSymmetries = new JCheckBox[Symmetry.ALL.length];
+
+	// it's safer to add/remove to/from a List, in case multiple are started.
+	private Queue<Thread> generatorThreads = new LinkedList<>();
+
+	private static GenerateDialog theInstance;
+	public static final GenerateDialog getInstance() {
+		if ( theInstance == null )
+			theInstance = new GenerateDialog();
+		return theInstance;
+	}
 
 	/**
 	 * Constructor: Constructs a new GenerateDialog which is owned by the given
@@ -127,10 +141,10 @@ public final class GenerateDialog extends JDialog {
 	 * @param frame SudokuFrame just pass me this. Sigh.
 	 * @param engine SudokuExplainer the engine
 	 */
-	GenerateDialog(SudokuFrame frame, SudokuExplainer engine) {
-		super(frame, false);
-		this.frame = frame;
-		this.engine = engine;
+	private GenerateDialog() {
+		super(SudokuExplainer.getInstance().frame, false);
+		this.engine = SudokuExplainer.getInstance();
+		this.frame = engine.frame;
 		initParameters();
 		initGUI();
 	}
@@ -140,44 +154,44 @@ public final class GenerateDialog extends JDialog {
 		sudokuList.add(engine.getGrid());
 	}
 
-	private boolean checkSafeTechs() {
-		return THE_SETTINGS.allWanted(SAFE_TECHS)
+	private boolean checkTechs() {
+		return THE_SETTINGS.allWanted(SPEED_TECHS)
 			&& THE_SETTINGS.anyWanted(SAFETY_NETS);
 	}
 
-	private static final String UNSAFE_QUESTION =
-"<html><body>" +
-"<b>Warning:</b> not all the \"safe\" solving techniques are enabled.<br>" +
-"Sudoku Explainer may not be able to generate a Sudoku puzzle using only<br>" +
-"the selected techniques, the generator may just run for ever.<br>" +
-"<br>" +
-"<u>Safe Techs</u> Select ALL of: " + Tech.names(SAFE_TECHS) +"<br>" +
-"These are for speed really, not safety. Tick Tock!<br>" +
-"<br>" +
-"<u>Safety Nets</u> Select ONE of: " + Tech.names(SAFETY_NETS) + "<br>" +
-"ONE of these is needed for safety, else puzzles may not solve.<br>" +
-"DynamicPlus covers normal puzzles; Nested all cover ALL puzzles.<br>" +
-"<br>" +
-"Do you wish to continue anyway?" +
-"</body></html>";
+	private static final String TECHS_QUESTION =
+"Warning: not all the \"speed\" solving techniques are wanted.\n" +
+"\n" +
+"Solving a Sudoku takes much longer without all of these techniques, so Generate\n" +
+"struggles without them, taking ages, or it could even run for ever.\n" +
+"\n" +
+"Speed Techs: Want ALL of:\n" +
+Tech.names(SPEED_TECHS) + "\n" +
+"These are for speed really, not safety, but tick bloody tock!\n" +
+"\n" +
+"Safety Nets: Want ONE of:\n" +
+Tech.names(SAFETY_NETS) + "\n" +
+"ONE of these is needed for safety, else hard puzzles may not solve.\n" +
+"DynamicPlus covers normal puzzles; Nested* all cover ALL puzzles.\n" +
+"\n" +
+"Continue anyway?";
 
-	private boolean userOverridesUnsafe() {
+	private boolean userOverridesTechs() {
 		return overriddenUnsafe
 			|| (overriddenUnsafe = JOptionPane.YES_OPTION ==
-				JOptionPane.showConfirmDialog(this, UNSAFE_QUESTION
+				JOptionPane.showConfirmDialog(this, TECHS_QUESTION
 						, getTitle(), JOptionPane.YES_NO_OPTION
 						, JOptionPane.QUESTION_MESSAGE));
 	}
 	private boolean overriddenUnsafe = false;
 
-	private static final String NL = System.lineSeparator();
-	private static final String BAD_TECHS_MESSAGE =
-		"No Sudoku solving techniques are wanted that are in the"+NL
-		+"selected difficulty, so generate would just run for ever,"+NL
-		+"without replacing the cached Sudoku puzzle."+NL
-		+NL
-		+"Menu: Options ~ Solving techniques... to choose more techs,"+NL
-		+"or just choose another difficulty to generate.";
+	private static final String BAD_TECHS_MESSAGE
+="No Sudoku solving techniques are wanted that are in the selected difficulty,"+NL
++"so generate would just run for-ever without getting there."+NL
++NL
++"Use Options menu ~ Solving techniques... to want one or more of: "+NL
++"#TECHS#"+NL
++"or just choose another difficulty to generate.";
 
 	private void initGUI() {
 		// This
@@ -219,18 +233,23 @@ public final class GenerateDialog extends JDialog {
 		btnGenerate.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if ( generatorThread == null ) {
+				if ( generatorThreads.isEmpty() ) {
 					// a symmetry is required
 					if ( selectedSyms.isEmpty() ) {
-						carp("Generate", "Please select at least one symmetry");
+						carp("Generate", "Select at least one symmetry");
 						return;
 					}
-					// check the "safe" (faster) techs are selected
-					if ( !checkSafeTechs() && !userOverridesUnsafe() )
+					// check the "safe" (faster) techs are wanted
+					// and that a catch-all is wanted
+					if ( !checkTechs() && !userOverridesTechs() )
 						return;
-					// check selected techs can produce this difficulty
-					if ( !THE_SETTINGS.anyWanted(difficulty.techs()) ) {
-						carp("Generate", BAD_TECHS_MESSAGE);
+					// check that atleast one Tech of this difficulty is wanted
+					final Tech[] diffTechs = difficulty.techs();
+					if ( !THE_SETTINGS.anyWanted(diffTechs) ) {
+						String s = Tech.names(diffTechs);
+						s = MyStrings.wordWrap(s, 80);
+						s = BAD_TECHS_MESSAGE.replaceFirst("#TECHS#", s);
+						carp("Generate", s);
 						return;
 					}
 					// start a new generatorThread
@@ -382,7 +401,7 @@ public final class GenerateDialog extends JDialog {
 		// grows as the description changes) so it and controls below it are
 		// pushed below the bottom of the dialog, which sux, especially when
 		// the user can't resize the dialog to fix it.
-		setMinimumSize(new Dimension(440, 440));
+		setMinimumSize(new Dimension(500, 500));
 		setResizable(false); // prevent user accidentally disappearing controls
 		pack();
 	}
@@ -419,30 +438,42 @@ public final class GenerateDialog extends JDialog {
 
 	private void startNewGeneratorThread() {
 		// Generate grid
-		generatorThread = new GeneratorThread(
+		Thread gt = new GeneratorThread(
 				  selectedSyms.toArray(new Symmetry[selectedSyms.size()])
 				, difficulty
 				, isExact
 		);
-		generatorThread.start();
+		generatorThreads.add(gt);
+		gt.start();
 	}
 
-	private void stopGeneratorThread() {
-		if ( generatorThread!=null && generatorThread.isAlive() ) {
-			generatorThread.interrupt();
+	public void generateCompleted() {
+		generatorThreads.poll(); // remove the current generator thread
+		refreshSudokuPanel();
+		buttonSaysGenerate();
+	}
+
+	public void stopGeneratorThread() {
+		Thread gt = generatorThreads.poll();
+		if ( gt != null ) {
+			gt.interrupt();
 			try {
-				generatorThread.join(500); // wait half a second
+				gt.join(250); // wait a quarter second
+				refreshSudokuPanel();
+				buttonSaysGenerate();
 			} catch (InterruptedException ex) {
-				StdErr.whinge(ex);
+				Log.teef(Log.me()+": interrupted");
 			}
-			refreshSudokuPanel();
 		}
-		generatorThread = null;
 	}
 
 	private void carp(String title, String message) {
 		JOptionPane.showMessageDialog(this, message, title
 				, JOptionPane.ERROR_MESSAGE);
+	}
+
+	public void setGeneratorThread(Thread gt) {
+		generatorThreads.add(gt);
 	}
 
 	/**
@@ -452,56 +483,74 @@ public final class GenerateDialog extends JDialog {
 		private final Symmetry[] syms;
 		private final Difficulty diff;
 		private final boolean isExact;
-		private Generator generator;
 	    public GeneratorThread(Symmetry[] syms, Difficulty diff, boolean isExact) {
-			super("GeneratorThread");
+			super(Generator.GENERATOR_THREAD_NAME);
 			this.syms = syms;
 			this.diff = diff;
 			this.isExact = isExact;
 		}
 		@Override
 		public void interrupt() {
-			if ( generator != null )
-				generator.interrupt();
+			Generator.getInstance().interrupt();
 		}
 		@Override
 		public void run() {
-			// first update the GUI on the Swing thread
-			// BUG: only works the first time, and I don't understand why.
-			SwingUtilities.invokeLater(new Runnable() {
+			try {
+				buttonSaysStop(); // change btnGenerate label to "Stop"
+				// fetch a puzzle from the cache
+				final Grid puzzle = Generator.getInstance().cachedGenerate(syms, diff, isExact);
+				// display the puzzle in the GUI on the AWT thread
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						if ( puzzle != null ) {
+							sudokuList.add(puzzle);
+							sudokuIndex = sudokuList.size() - 1;
+							refreshSudokuPanel(); // sets engine.grid
+							engine.saveFile(IO.GENERATED_FILE); // also adds to recentFiles, and catches IOException in a standard way
+							frame.setTitle(IO.GENERATED_FILE.getAbsolutePath());
+						}
+					}
+				});
+			} catch ( Exception ex ) {
+				Log.stackTrace(Log.me()+" hit a snag.", ex);
+			}
+		}
+	}
+
+	// first update the GUI on the Swing thread
+	private void buttonSaysStop() {
+		try {
+			SwingUtilities.invokeAndWait(new Runnable() { // NOTE: wait!
 				@Override
 				public void run() {
 					engine.setGrid(new Grid()); // clear the grid
+					engine.frame.setHintDetailArea("<html><body>Generating...</body></html>");
 					AutoBusy.setBusy(GenerateDialog.this, true);
 					AutoBusy.setBusy(btnGenerate, false);
 					btnGenerate.setText("Stop");
-					repaint();
+					btnGenerate.repaint();
 				}
 			});
-			// then generate a new puzzle (ie fetch it from the cache)
-			generator = new Generator();
-			final Grid solution = generator.generate(syms, diff, isExact);
-			// then display the puzzle in the GUI on the Swing thread
+		} catch (Exception eaten) {
+			// Do nothing
+		}
+	}
+
+	public boolean doFinished = true;
+	private void buttonSaysGenerate() {
+		if ( doFinished ) {
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
 				public void run() {
-					if ( solution != null ) {
-						sudokuList.add(solution);
-						sudokuIndex = sudokuList.size() - 1;
-						refreshSudokuPanel(); // sets engine.grid
-						engine.saveFile(IO.GENERATED_FILE); // also adds to recentFiles, and catches IOException in a standard way
-						frame.setTitle(IO.GENERATED_FILE.getAbsolutePath());
-					}
 					if ( GenerateDialog.this.isVisible() ) {
 						AutoBusy.setBusy(GenerateDialog.this, false);
 						AutoBusy.setBusy(btnGenerate, false);
 						btnGenerate.setText("Generate");
-						repaint();
+						btnGenerate.repaint();
 					}
 				}
 			});
-			// and clear the generate dialog's reference to this thread
-			GenerateDialog.this.generatorThread = null;
 		}
 	}
 
@@ -520,7 +569,7 @@ public final class GenerateDialog extends JDialog {
 	}
 
 	private void refreshSudokuPanel() {
-		Grid grid = sudokuList.get(sudokuIndex);
+		final Grid grid = sudokuList.get(sudokuIndex);
 		engine.setGrid(grid);
 		// Generate buggers-up krakens
 		btnPrev.setEnabled(sudokuIndex > 0);
@@ -529,7 +578,11 @@ public final class GenerateDialog extends JDialog {
 			// Display the analysis of this Sudoku
 			AHint analysis = analysisMap.get(grid);
 			if ( analysis == null ) {
-				analysis = engine.analysePuzzle(false, false); // NEVER noisy in generate!
+				analysis = engine.analysePuzzle(false, false);
+				if ( analysis == null ) {
+					engine.frame.setHintDetailArea("<html><body>Generate was interrupted!</body></html>");
+					return;
+				}
 				analysisMap.put(grid, analysis);
 			}
 			engine.showHint(analysis);
@@ -542,7 +595,8 @@ public final class GenerateDialog extends JDialog {
 	}
 
 	private void close() {
-		stopGeneratorThread();
+		while ( generatorThreads.peek() != null )
+			stopGeneratorThread();
 		super.setVisible(false);
 		super.dispose();
 	}

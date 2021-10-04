@@ -7,10 +7,10 @@
 package diuf.sudoku;
 
 import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.COMMA_SP;
 import java.util.LinkedList;
 import java.util.List;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
-import static diuf.sudoku.utils.Frmt.SPACE;
 
 
 /**
@@ -43,28 +43,38 @@ import static diuf.sudoku.utils.Frmt.SPACE;
 public enum Difficulty {
 
 	//Name		(index, minDifficulty, maxDifficulty)
-	  Easy		(0, 0.0,  1.3, "Learners Test")
-	, Medium	(1, 1.3,  2.7, "L Plates")
-	, Hard		(2, 2.7,  3.6, "P Plates")
-	, Fiendish	(3, 3.6,  4.3, "Open Licence")
-	, Nightmare	(4, 4.39, 5.0, "Truck Licence")
-	, Diabolical(5, 4.40, 9.0, "Bus licence")
-	, IDKFA		(6, 9.0,100.0, "FTL Licence")
+	  Easy		(0.0,  1.5, "Testing 123")
+	, Medium	(1.5,  2.5, "L Plates")
+	, Hard		(2.5,  3.0, "P Plates")
+	, Fiendish	(3.0,  4.0, "Car Licence")
+	, Nightmare	(4.0,  6.0, "Art Licence")
+	, Diabolical(6.0,  9.0, "Bus Licence")
+	, IDKFA		(9.0,100.0, "FTL Licence")
 	;
 
-	// get a list of the Techs of this difficulty
-	public List<Tech> techs() {
-		return techs(min, max);
+	// Weird: Difficulty.values() reversed.
+	public static Difficulty[] reverseValues() {
+		final Difficulty[] values = values();
+		final int n = values.length;
+		final Difficulty[] result = new Difficulty[n];
+		for ( int i=0,m=n-1; i<n; ++i )
+			result[i] = values[m-i];
+		return result;
 	}
 
+	// get a list of the Techs of this difficulty
+	public Tech[] techs() {
+		return Tech.array(techs(min, max));
+	}
+
+	// get a list of Tech's from min (inclusive) to less than max (exclusive)
 	public static List<Tech> techs(double min, double max) {
-		List<Tech> results = new LinkedList<>();
-		if ( min == 0.0 )
-			min = 0.1;
+		final List<Tech> results = new LinkedList<>();
 		for ( Tech tech : Tech.values() ) {
 			if ( tech.difficulty >= min
 			  && tech.difficulty < max
-			  && !tech.name().startsWith("Direct") ) {
+			  && !tech.name().startsWith("Direct")
+			) {
 				results.add(tech);
 			}
 		}
@@ -82,12 +92,10 @@ public enum Difficulty {
 		return sb.toString();
 	}
 
-	public final int index; // a plain ordinal
 	public final double min; // minimum difficulty
 	public final double max; // maximum difficulty
 	public final String html; // html describing this Difficulty in the GUI
-	private Difficulty(int index, double min, double max, String licence) {
-		this.index = index;
+	private Difficulty(double min, double max, String licence) {
 		this.min = min;
 		this.max = max;
 		this.html = html(names(techs(min, max)), licence);
@@ -95,7 +103,7 @@ public enum Difficulty {
 	public String html(String description, String licence) {
 		final String NL = System.lineSeparator();
 		return "<html><body>"+NL
-			+"<b>"+index+SPACE+name()+"</b>: "+description+NL
+			+"<b>"+ordinal()+COLON_SP+name()+"</b> "+description+NL
 			+"<p><b>Rating</b>: "+Frmt.frmtDbl(min)+" - "+Frmt.frmtDbl(max)+" ["+licence+"]"+NL
 			+"</body></html>"+NL;
 	}

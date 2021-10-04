@@ -184,7 +184,7 @@ public class MyLinkedHashMap<K,V>
 	private static final long serialVersionUID = 3801124242820219131L;
 
 	/**
-	 * The head of the doubly linked list, in "natural order", meaning this 
+	 * The head of the doubly linked list, in "natural order", meaning this
 	 * linked list iterates in the same order that entries where added.
 	 * (NB: Natural order is lost in an unlinked HashMap, it's pseudo-random.)
 	 */
@@ -249,7 +249,7 @@ public class MyLinkedHashMap<K,V>
 	/**
 	 * Called by MyHashSet.poll to remove and return the first KEY (not the
 	 * value associated with it, as you might reasonably expect) in this map.
-	 * "First" is the first entry after the head of this map, ie the first 
+	 * "First" is the first entry after the head of this map, ie the first
 	 * entry that was added to this map, ie "natural order".
 	 *
 	 * @return remove and return the first KEY in this map; or <tt>null</tt>
@@ -366,7 +366,7 @@ public class MyLinkedHashMap<K,V>
 			return;
 		// KRC: a dirty hack, for a tiny efficiency gain.
 		final int n = table.length;
-		if ( (size<<1) >= n ) {
+//		if ( (size<<1) >= n ) {
 			// table is at least half full, so blindly clear the whole table.
 			++modCount; // invalidates any existing iterators
 			final MyHashMap.Entry<K,V>[] myTable = table;
@@ -375,9 +375,10 @@ public class MyLinkedHashMap<K,V>
 			header = new AnEntry<>(-1, null, null, null);
 			header.before = header.after = header;
 			size = 0;
-		} else // clear the linked-list.
-			for ( K key=header.after.key; key!=null; key=header.after.key )
-				removeEntryForNotNullKey(key);
+// this seems to be broken!
+//		} else // clear the linked-list.
+//			for ( K key=header.after.key; key!=null; key=header.after.key )
+//				removeEntryForNotNullKey(key);
 	}
 
 	/**
@@ -547,4 +548,5 @@ public class MyLinkedHashMap<K,V>
 	protected boolean removeEldestEntry(Map.Entry<K,V> eldest) {
 		return false;
 	}
+
 }

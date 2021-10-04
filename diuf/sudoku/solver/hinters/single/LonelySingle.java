@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.accu.HintsAccumulator;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -64,7 +65,7 @@ public final class LonelySingle extends AHinter {
 			if ( (box=grid.boxs[i]).emptyCellCount == 1 ) {
 				// the cell is the first (and only) empty cell in this region
 				// the value is it's first (and only) potential value
-				value = (cell=box.firstEmptyCell()).maybes.first();
+				value = VFIRST[(cell=box.firstEmptyCell()).maybes];
 
 				// late-validate the code (like Cell.set) that updates maybes
 				// when the Grid changes. Better late than never. It's REALLY
@@ -74,9 +75,9 @@ public final class LonelySingle extends AHinter {
 				//
 				// <I am the Cell> Be the Cell. Humina humina humina.
 				// check I have one potential value (ie I'm naked).
-				assert cell.maybes.size == 1;
+				assert cell.size == 1;
 				// check that my maybes ARE that value
-				assert cell.maybes.bits == VSHFT[value];
+				assert cell.maybes == VSHFT[value];
 				// check region has one position for value (ie I'm hidden).
 				assert box.indexesOf[value].size == 1;
 				// check I am the regions position for value.

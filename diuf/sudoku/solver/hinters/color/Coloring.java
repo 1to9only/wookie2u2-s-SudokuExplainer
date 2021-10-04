@@ -37,12 +37,13 @@
  */
 package diuf.sudoku.solver.hinters.color;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -115,7 +116,7 @@ public final class Coloring extends AHinter {
 
 	/** The grid to search. */
 	private Grid grid;
-	/** The getIdxs() of the grid to search. */
+	/** The idxs of the grid to search. */
 	private Idx[] idxs;
 	/** The IAccumulator to which any hints found are added. */
 	private IAccumulator accu;
@@ -136,7 +137,7 @@ public final class Coloring extends AHinter {
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		this.grid = grid;
-		this.idxs = grid.getIdxs(); // cached indices which maybe each value
+		this.idxs = grid.idxs; // cached indices which maybe each value
 		this.accu = accu;
 
 		// clear the cache each time I'm called coz I'm either on a new grid,
@@ -155,6 +156,7 @@ public final class Coloring extends AHinter {
 			this.grid = null;
 			this.idxs = null;
 			this.accu = null;
+			Cells.cleanCasA();
 		}
 		return result;
 	}
@@ -165,7 +167,7 @@ public final class Coloring extends AHinter {
 	 * Finds all Simple-Color Trap/Wrap hints in the grid and adds them to accu.
 	 *
 	 * @param grid the Grid to search
-	 * @param idxs pass me grid.getIdxs() which you need get only ONCE.
+	 * @param idxs pass me grid.idxs which you need get only ONCE.
 	 * @param accu the IAccumulator to which I add any hints
 	 * @return true if any hint/s were found, else false
 	 */
@@ -193,9 +195,9 @@ public final class Coloring extends AHinter {
 				// other, then we can remove all candidates of that color.
 				any = false;
 				if ( checkColorWrap(c1) )
-					any = redPots.addAll(c1.cells(grid), new Values(v));
+					any = redPots.addAll(c1.cellsA(grid), VSHFT[v]);
 				if ( checkColorWrap(c2) )
-					any |= redPots.addAll(c2.cells(grid), new Values(v));
+					any |= redPots.addAll(c2.cellsA(grid), VSHFT[v]);
 				if ( any ) {
 					// build the hint and add it to accu
 					hint = new ColoringHint(this, Subtype.SimpleColorWrap
@@ -266,7 +268,8 @@ public final class Coloring extends AHinter {
 		a.forEach((ai)->b.forEach((bi)->cmnBuds.orAnd(buds[ai], buds[bi], vs)));
 		if ( cmnBuds.none() )
 			return false;
-		cmnBuds.forEach(grid.cells, (c)->redPots.put(c, new Values(v)));
+		final int sv = VSHFT[v];
+		cmnBuds.forEach(grid.cells, (c)->redPots.put(c, sv));
 		return true;
 	}
 	private final Idx cmnBuds = new Idx();
@@ -454,9 +457,9 @@ public final class Coloring extends AHinter {
 							// first see if cells of one-color see cells of the
 							// other color, eliminating all v's of that color.
 							if ( isMultiColor1(a1, b1, b2) )
-								any = reds.addAll(a1.cells(grid), new Values(v));
+								any = reds.addAll(a1.cellsA(grid), VSHFT[v]);
 							if ( isMultiColor1(a2, b1, b2) )
-								any |= reds.addAll(a2.cells(grid), new Values(v));
+								any |= reds.addAll(a2.cellsA(grid), VSHFT[v]);
 							if ( any ) {
 								hint = new ColoringHint(this, Subtype.MultiColor1
 										, potsArray(v, a1, a2, b1, b2), v, reds);
@@ -547,7 +550,7 @@ public final class Coloring extends AHinter {
 		final int n = idxs.length;
 		Pots[] result = new Pots[n];
 		for ( int i=0; i<n; ++i )
-			result[i] = new Pots(idxs[i].cells(grid), new Values(valueToRemove));
+			result[i] = new Pots(idxs[i].cellsA(grid), valueToRemove);
 		return result;
 	}
 

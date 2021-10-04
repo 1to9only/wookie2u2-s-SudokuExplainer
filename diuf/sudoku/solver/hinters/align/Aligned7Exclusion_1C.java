@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -63,8 +62,6 @@ implements
 
 	// I checked by speed. 32k is fastest
 	private final NonHinters nonHinters = new NonHinters(32*1024, 3);
-	// What's that Skip? Why it's the skipper skipper flipper Flipper.
-	private boolean firstPass = true;
 
 //	//useless: protected final Counter cnt1col = new Counter("cnt1col");
 //	//useless: protected final Counter cnt1sib = new Counter("cnt1sib");
@@ -97,8 +94,8 @@ implements
 
 //	private java.io.PrintStream myLog = open("a7e.log", standardHeader());
 
-	public Aligned7Exclusion_1C(IInterruptMonitor monitor) {
-		super(monitor, IO.A7E_1C_HITS);
+	public Aligned7Exclusion_1C() {
+		super(IO.A7E_1C_HITS);
 	}
 
 	@Override
@@ -114,16 +111,8 @@ implements
 	}
 
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
-		// it's just easier to set firstPass ONCE, rather than deal with it in
-		// each of the multiple exit-points from what is now findHintsImpl.
-		boolean ret = findHintsImpl(grid, accu);
-		firstPass = false;
-		return ret;
-	}
-
 	@SuppressWarnings("fallthrough")
-	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
+	public boolean findHints(Grid grid, IAccumulator accu) {
 
 		// these 4 vars are "special" for processing top1465.d5.mt faster
 		// localise hackTop1465 for speed (and to make it final).
@@ -152,11 +141,11 @@ implements
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values for more.
+		// that are packed into your maybes 0..511. See Values for more.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 2 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -196,7 +185,7 @@ implements
 		// the set which are siblings of this cell. This is more code than
 		// "skip collision" (as per A234E) but it is faster, because it does
 		// more of the work less often.
-		// c1b0: c1 bits version zero = the maybes.bits of c1 minus v0,
+		// c1b0: c1 bits version zero = the maybes of c1 minus v0,
 		// presuming that c1 is a sibling of c0.
 		int	c0b , c1b , c2b , c3b , c4b , c5b , c6b;
 		int	            c2b0, c3b0, c4b0, c5b0, c6b0;
@@ -302,8 +291,7 @@ implements
 								cells[5] = candidates[i5];
 								if(hitMe && cells[5]!=hitCells[5]) continue;
 								// happens "often enough" in the penultimate loop.
-								if ( isInterrupted() )
-									return false;
+								interrupt();
 								for ( i6=i5+1; i6<numCandidates; ++i6 ) {
 									// skips about 90% so not worth caching
 									if ( excluders[candidates[i6].i].idx1(idx06, idx05) )
@@ -324,7 +312,7 @@ implements
 										if(col<7 || col>49) continue;
 //										++colCnt.pass;
 
-										// filter by total cells.maybes.size
+										// filter by total cells.maybesSize
 										mbs = totalMaybesSize; // from countCollisions
 //										mbsCnt.count(mbs);
 										// mbsCnt min=15/14 max=30/42 pass 1,252,380,927 of 1,298,497,489 skip 46,116,562 = 3.55%
@@ -346,7 +334,7 @@ implements
 //										++maxMbs.cnt;
 										fives = sixes = sevns = eigts = 0;
 										for ( Cell cell : cells )
-											switch ( cell.maybes.size ) {
+											switch ( cell.size ) {
 											case 9: //fallthrough // 9 is the maximum possible
 											case 8: ++eigts; //fallthrough
 											case 7: ++sevns; //fallthrough
@@ -363,7 +351,7 @@ implements
 
 									// read common excluder cells from grid at idx06
 									if ( (numCmnExcls = idx06.cellsN(grid, cmnExcls)) == 1 ) {
-										cmnExclBits[0] = cmnExcls[0].maybes.bits;
+										cmnExclBits[0] = cmnExcls[0].maybes;
 										numCmnExclBits = 1;
 									} else {
 										// performance enhancement: examine smaller maybes sooner.
@@ -413,20 +401,20 @@ implements
 									// the dog____ing algorithm is faster with dodgem-cars to the left,
 									// but the above for-i-loops need a static cells array; so we copy
 									// cells to scells (sortedCells) and sort that array DESCENDING by:
-									// 4*maybesCollisions + 2*commonExcluderHits + maybes.size
+									// 4*maybesCollisions + 2*commonExcluderHits + maybesSize
 									cc.set(cells, cmnExclBits, numCmnExclBits);
 									System.arraycopy(cells, 0, scells, 0, degree);
 									//MyTimSort.small(scells, degree, cc);
 									bubbleSort(scells, degree, cc);
 
 									// cache the cells in the aligned set, and there maybes.
-									c0b = (c0=scells[0]).maybes.bits;
-									c1b = (c1=scells[1]).maybes.bits;
-									c2b = (c2=scells[2]).maybes.bits;
-									c3b = (c3=scells[3]).maybes.bits;
-									c4b = (c4=scells[4]).maybes.bits;
-									c5b = (c5=scells[5]).maybes.bits;
-									c6b = (c6=scells[6]).maybes.bits;
+									c0b = (c0=scells[0]).maybes;
+									c1b = (c1=scells[1]).maybes;
+									c2b = (c2=scells[2]).maybes;
+									c3b = (c3=scells[3]).maybes;
+									c4b = (c4=scells[4]).maybes;
+									c5b = (c5=scells[5]).maybes;
+									c6b = (c6=scells[6]).maybes;
 
 									// build the isNotSibingsOf cache
 									ns10 = c1.notSees[c0.i];

@@ -30,21 +30,19 @@ import java.util.Map;
  * @author Keith Corlett 2017 Dec
  */
 public final class Usage {
-
-	// hintTypeName => Pair<numHints, difficulty>
-	public final Map<String,Pair<Integer,Double>> subHintsMap;
+	
+	public String hinterName; // for LogicalSolverTester
 	public int calls, hints, elims;
 	public long time;
+	// hintTypeName => Pair<numHints, difficulty>
+	public final Map<String,Pair<Integer,Double>> subHintsMap;
 	// the difficulty for maximum calculations
 	public double maxDifficulty = 0D;
 	// the difficulty for total calculations
 	public double ttlDifficulty = 0D;
 
-	// the index of my hinter in the wantedHinters array
-	// Still used by LogicalSolverTester, even though it's Comparator is gone.
-	public int hinterIndex;
-
-	public Usage(int calls, int hints, int elims, long time) {
+	public Usage(String hinterName, int calls, int hints, int elims, long time) {
+		this.hinterName = hinterName;
 		this.calls = calls;
 		this.hints += hints;
 		this.elims = elims;
@@ -86,10 +84,14 @@ public final class Usage {
 	}
 
 	public void add(Usage u) {
-		calls += u.calls;
-		hints += u.hints;
-		elims += u.elims;
-		time += u.time;
+		add(u.calls, u.hints, u.elims, u.time);
+	}
+
+	public void add(int calls, int hints, int elims, long time) {
+		this.calls += calls;
+		this.hints += hints;
+		this.elims += elims;
+		this.time += time;
 	}
 
 }

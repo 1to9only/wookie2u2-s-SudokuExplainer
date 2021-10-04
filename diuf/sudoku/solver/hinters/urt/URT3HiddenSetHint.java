@@ -14,6 +14,7 @@ import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSIZE;
 import java.util.List;
 
 
@@ -21,9 +22,9 @@ public final class URT3HiddenSetHint extends AURTHint {
 
 	private final Cell c1;
 	private final Cell c2;
-	private final Values otherValues;
+	private final int extraValues;
+	private final int hdnSetValues;
 	private final ARegion region;
-	private final Values hdnSetVals;
 	private final Indexes hdnSetIdxs; // indexes of the hidden set
 	private final int[] hdnSetIdxsArray; // indexes of the hidden set
 
@@ -36,13 +37,13 @@ public final class URT3HiddenSetHint extends AURTHint {
 
 	public URT3HiddenSetHint(UniqueRectangle hinter, List<Cell> loop
 			, int v1, int v2, Pots redPots, Cell c1, Cell c2
-			, Values otherValues, Values hdnSetVals, ARegion region
+			, int extraValues, int hdnSetValues, ARegion region
 			, Indexes hdnSetIdxs) {
 		super(3, hinter, loop, v1, v2, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
-		this.otherValues = otherValues;
-		this.hdnSetVals = hdnSetVals;
+		this.extraValues = extraValues;
+		this.hdnSetValues = hdnSetValues;
 		this.region = region;
 		this.hdnSetIdxs = hdnSetIdxs;
 		this.hdnSetIdxsArray = hdnSetIdxs.toArray();
@@ -64,10 +65,10 @@ public final class URT3HiddenSetHint extends AURTHint {
 		if ( orangePots == null ) {
 			Pots pots = new Pots();
 			for ( int i=0; i<degree; ++i )
-				pots.put(region.cells[hdnSetIdxsArray[i]], hdnSetVals);
+				pots.put(region.cells[hdnSetIdxsArray[i]], hdnSetValues);
 			// Add the two cells of the loop
-			pots.upsert(c1, hdnSetVals);
-			pots.upsert(c2, hdnSetVals);
+			pots.upsert(c1, hdnSetValues, false);
+			pots.upsert(c2, hdnSetValues, false);
 			orangePots = pots;
 		}
 		return orangePots;
@@ -94,8 +95,8 @@ public final class URT3HiddenSetHint extends AURTHint {
 		URT3HiddenSetHint other = (URT3HiddenSetHint)o;
 		return this.region == other.region
 			&& this.degree == other.degree
-			&& this.hdnSetVals.bits == other.hdnSetVals.bits
-			&& this.hdnSetIdxs.bits == other.hdnSetIdxs.bits;
+			&& this.hdnSetValues == other.hdnSetValues
+			&& this.hdnSetIdxs == other.hdnSetIdxs;
 	}
 
 	@Override
@@ -107,10 +108,10 @@ public final class URT3HiddenSetHint extends AURTHint {
 				, Frmu.csv(loop)		//  3
 				, c1.id					//  4
 				, c2.id					//  5
-				, Frmu.or(otherValues)//  6
-				, GROUP_NAMES[hdnSetVals.size-2] // 7
+				, Values.or(extraValues)//  6
+				, GROUP_NAMES[VSIZE[hdnSetValues]-2] // 7
 				, Frmu.and(region.atNew(hdnSetIdxsArray)) // 8
-				, Frmu.and(hdnSetVals)//  9
+				, Values.and(hdnSetValues)//  9
 				, region.id				// 10
 				, redPots.toString()	// 11
 		);

@@ -10,6 +10,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
@@ -84,10 +85,13 @@ public class GEMHint extends AHint  {
 		return offs;
 	}
 
+	/**
+	 * @return Tech.GEM.difficulty plus an elimination bonus of number of 
+	 * eliminations * 0.01.
+	 */
 	@Override
 	public double getDifficultyTotal() {
-		return getDifficulty()
-			 + redPots.totalSize() * 0.01; // elimination bonus
+		return getDifficulty() + (redPots.totalSize() * 0.01);
 	}
 
 	@Override

@@ -28,6 +28,7 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Idx;
@@ -160,6 +161,7 @@ public final class AlsChain extends AAlsHinter
 			this.alss = null;
 			this.rccs = null;
 			this.accu = null;
+			Cells.cleanCasA();
 		}
 		// GUI mode, so sort hints by score descending
 		if ( result && !oneOnly )

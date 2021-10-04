@@ -12,6 +12,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -82,21 +83,22 @@ public final class BasicFishHint extends AHint implements IChildHint {
 	@Override
 	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
 			, IAssSet parentOffs) {
-		MyLinkedList<Ass> result = null;
+		MyLinkedList<Ass> result = null; // created on demand
 		// make basesAndCovers null safe
 		final Collection<ARegion> bases = this.bases;
 		if ( bases == null )
 			return result;
 		final int v = this.valueToRemove;
+		final int sv = VSHFT[v];
 		for ( ARegion base : bases )
 			for ( Cell c : base.cells )
-				if ( initGrid.cells[c.i].maybes.contains(v)
-				  && currGrid.cells[c.i].maybes.no(v)
+				if ( (initGrid.cells[c.i].maybes & sv) != 0
+				  && (currGrid.cells[c.i].maybes & sv) == 0
 				  && !Regions.contains(covers, c) ) {
 					if(result==null) result = new MyLinkedList<>();
 					result.add(parentOffs.getAss(c, v));
 				}
-		if (result==null)
+		if ( result == null )
 			throw new UnsolvableException("Not a chaining hint!");
 		return result;
 	}

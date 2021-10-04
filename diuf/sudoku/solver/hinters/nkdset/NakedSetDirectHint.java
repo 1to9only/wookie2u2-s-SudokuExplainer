@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmu;
@@ -55,7 +56,7 @@ public final class NakedSetDirectHint extends AHint  {
 	@Override
 	public Pots getGreens(int viewNum) {
 		if ( greenPots == null )
-			greenPots = new Pots(cell, new Values(value));
+			greenPots = new Pots(cell, value);
 		return greenPots;
 	}
 	private Pots greenPots;

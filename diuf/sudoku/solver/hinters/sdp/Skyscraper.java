@@ -31,6 +31,7 @@
  */
 package diuf.sudoku.solver.hinters.sdp;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
@@ -136,6 +137,7 @@ public class Skyscraper extends AHinter {
 			clear(this.pairs); // each cell reference holds the whole grid
 			this.grid = null;
 			this.accu = null;
+			Cells.cleanCasA();
 		}
 		return result;
 	}
@@ -156,7 +158,7 @@ public class Skyscraper extends AHinter {
 		// localise field for speed
 		final Cell[][] pairs = this.pairs; // an array of a-pair-of-cells
 		// indices of cells in Grid which maybe value 1..9 (cached)
-		final Idx[] candidates = grid.getIdxs();
+		final Idx[] candidates = grid.idxs;
 		// indices of removable v's, if any
 		final Idx victims = this.victims;
 		// work-out the regionType and otherType from the given rowsOrCols
@@ -189,7 +191,7 @@ public class Skyscraper extends AHinter {
 						) {
 							// FOUND a Skyscraper!
 							// build the removable (red) potentials
-							final Pots reds = new Pots(v, victims.cells(grid));
+							final Pots reds = new Pots(v, victims.cellsA(grid));
 							// it was producing hints with no eliminations
 							if ( reds.clean() ) {
 								result = true;

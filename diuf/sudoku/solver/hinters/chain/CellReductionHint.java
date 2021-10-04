@@ -40,7 +40,7 @@ public final class CellReductionHint extends AChainingHint {
 	public CellReductionHint(AHinter hinter, Pots redPots, Cell srcCell
 			, LinkedHashMap<Integer, Ass> chains, String typeID) {
 		super(hinter, redPots // Darth-AHinter, the removable cells=>maybes
-				, chains.size() // flatViewCount = srcCell.maybes.size
+				, chains.size() // flatViewCount = srcCell.maybesSize
 				, true, true // isYChain, isXChain
 				, chains.values().iterator().next()); // resultAss
 		this.srcCell = srcCell;
@@ -151,7 +151,7 @@ public final class CellReductionHint extends AChainingHint {
 
 	@Override
 	public String toHtmlImpl() {
-		String filename = ((AChainer)hinter).isDynamic
+		String filename = ((ChainerBase)hinter).isDynamic
 				? "CellReductionHintDynamic.html"
 				: "CellReductionHintStatic.html";
 		String html = Html.load(this, filename);

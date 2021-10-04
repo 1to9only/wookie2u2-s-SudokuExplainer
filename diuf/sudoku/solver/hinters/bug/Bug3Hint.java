@@ -37,21 +37,21 @@ public final class Bug3Hint extends ABugHint  {
 
 	private final Set<Cell> bugCells;
 	private final Cell[] nkdSetCells;
-	private final Map<Cell, Values> extraValues;
-	private final Values allExtraValues;
-	private final Values nkdSetVals;
+	private final Map<Cell, Integer> extraValues;
+	private final Integer allExtraValues;
+	private final Integer nkdSetVals;
 	private final ARegion region;
 
 	public Bug3Hint(AHinter hinter, Pots redPots
-			, Cell[] nakedCells, Map<Cell, Values> extraValues
-			, Values allExtraValues, Values nakedSetValues, ARegion region) {
+			, Cell[] nakedCells, Map<Cell, Integer> extraValues
+			, Integer allExtraValues, Integer nakedSetValues, ARegion region) {
 		super(hinter, redPots);
 		this.bugCells = extraValues.keySet();
 		this.extraValues = extraValues;
 		this.allExtraValues = allExtraValues;
 		this.nkdSetCells = nakedCells;
 		this.nkdSetVals = nakedSetValues;
-		assert super.degree == nakedSetValues.size;
+		assert super.degree == diuf.sudoku.Values.VSIZE[nakedSetValues];
 		this.region = region;
 	}
 
@@ -65,7 +65,7 @@ public final class Bug3Hint extends ABugHint  {
 		if ( greenPots == null ) {
 			Pots pots = new Pots(bugCells.size()+nkdSetCells.length, 1F);
 			for ( Cell c : bugCells )
-				pots.put(c, nkdSetVals.intersect(extraValues.get(c))); // green
+				pots.put(c, nkdSetVals & extraValues.get(c)); // green
 			greenPots = pots;
 		}
 		return greenPots;
@@ -78,7 +78,7 @@ public final class Bug3Hint extends ABugHint  {
 			Pots pots = new Pots(super.redPots.size()+nkdSetCells.length, 1F);
 			pots.putAll2(redPots);
 			for ( Cell c : nkdSetCells )
-				pots.put(c, new Values(nkdSetVals)); // orange
+				pots.put(c, nkdSetVals); // orange
 		}
 		return myRedPots;
 	}
@@ -89,7 +89,7 @@ public final class Bug3Hint extends ABugHint  {
 		if ( orangePots == null ) {
 			Pots pots = new Pots(bugCells.size()+nkdSetCells.length, 1F);
 			for ( Cell c : nkdSetCells )
-				pots.put(c, new Values(nkdSetVals)); // orange
+				pots.put(c, nkdSetVals); // orange
 			orangePots = pots;
 		}
 		return orangePots;
@@ -123,13 +123,13 @@ public final class Bug3Hint extends ABugHint  {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "Bug3Hint.html"
-				, Frmu.and(allExtraValues)	// {0}
+				, Values.and(allExtraValues)// {0}
 				, Frmu.and(bugCells)		//  1
 				, Frmu.or(bugCells)			//  2
-				, Frmu.or(allExtraValues)	//  3
+				, Values.or(allExtraValues)	//  3
 				, GROUP_NAMES[degree-2]		//  4
 				, Frmu.and(nkdSetCells)		//  5
-				, Frmu.and(nkdSetVals)		//  6
+				, Values.and(nkdSetVals)	//  6
 				, region.id					//  7
 		);
 	}

@@ -36,7 +36,6 @@ import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
-import static diuf.sudoku.Grid.CELL_IDS;
 import static diuf.sudoku.Grid.CELL_IDXS;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
@@ -84,7 +83,7 @@ public class SueDeCoq extends AHinter {
 	/** All final indices in the current intersection (empty cells only). */
 	private final Idx interAllIdx = new Idx();
 	/** The 2 or 3 empty cells in this intersection between line and box. */
-	private final Cell[] interCells = Cells.array(3);
+	private final Cell[] interCells = Cells.arrayA(3);
 	/** All indices only in line: line empties - intersection. */
 	private final Idx lineOnlyIdx = new Idx();
 	/** All indices only in box: box empties - intersection. */
@@ -156,6 +155,7 @@ public class SueDeCoq extends AHinter {
 			this.accu = null;
 			this.line = null;
 			this.box = null;
+			Cells.cleanCasA();
 		}
 		return result;
 	}
@@ -228,7 +228,7 @@ public class SueDeCoq extends AHinter {
 		// first we get the first cell
 		for ( int i1=0,m=n-1; i1<m; ++i1 ) {
 			// set the bitset of the first candidate value
-			cands1 = (c1=interCells[i1]).maybes.bits;
+			cands1 = (c1=interCells[i1]).maybes;
 			// add this cell to the intersection actual set
 			interActIdx.add(c1.i);
 			// now we get the second cell
@@ -239,7 +239,7 @@ public class SueDeCoq extends AHinter {
 				// build-up the bitset of two candidate values
 				// we have two cells in the intersection, so they need atleast
 				// four candidates between them in order to form an AALS
-				if ( VSIZE[cands2 = cands1 | c2.maybes.bits] > 3 ) {
+				if ( VSIZE[cands2 = cands1 | c2.maybes] > 3 ) {
 					// possible SDC -> check
 					// store the candidates of the current intersection
 					interActCands = cands2;
@@ -258,7 +258,7 @@ public class SueDeCoq extends AHinter {
 					// build-up the bitset of three candidate values
 					// now we have three cells in the intersection, so they
 					// need atleast five candidates in order to form an AALS
-					if ( VSIZE[cands3 = cands2 | (c3=interCells[i3]).maybes.bits] > 4 ) {
+					if ( VSIZE[cands3 = cands2 | (c3=interCells[i3]).maybes] > 4 ) {
 						// possible SDC -> check
 						// store the candidates of the current intersection
 						interActCands = cands3;
@@ -287,13 +287,13 @@ public class SueDeCoq extends AHinter {
 	/**
 	 * Returns the candidates in boxAllIdx.
 	 *
-	 * @return a bitset of the combined maybes.bits of cells in boxAllIdx
+	 * @return a bitset of the combined maybes of cells in boxAllIdx
 	 */
 	private int boxAllCands() {
 		final Cell[] cells = grid.cells;
 		int values = 0;
 		for ( int i : boxAllIdx.toArrayB() )
-			values |= cells[i].maybes.bits;
+			values |= cells[i].maybes;
 		return values;
 	}
 
@@ -363,7 +363,7 @@ public class SueDeCoq extends AHinter {
 			// current cells = previous cells + this cell
 			c.idx.setOr(p.idx, CELL_IDXS[indice=indices[++c.indice]]);
 			// current cands = previous cands + this cells maybes
-			c.cands = p.cands | cells[indice].maybes.bits;
+			c.cands = p.cands | cells[indice].maybes;
 			// if current-line-cells-cands contains a candidate in intersection
 			if ( (c.cands & interActCands) != 0 ) {
 				// number of (candidates except the intersection candidates)
@@ -495,7 +495,7 @@ public class SueDeCoq extends AHinter {
 			// current cells = previous cells + this cell
 			c.idx.setOr(p.idx, CELL_IDXS[indice=indices[++c.indice]]);
 			// current cands = previous cands + this cells maybes
-			c.cands = p.cands | cells[indice].maybes.bits;
+			c.cands = p.cands | cells[indice].maybes;
 			// the current cell combo must eliminate at least one candidate in
 			// the current intersection or we dont have to look further.
 			// KRC: if box-cands is covered-by intersection-only-cands
@@ -567,7 +567,7 @@ public class SueDeCoq extends AHinter {
 	private void eliminate(final Idx idx, final int cands, final Pots reds) {
 		if ( VSIZE[cands]>0 && idx.any() )
 			idx.forEach(grid.cells, (cell) -> {
-				final int bits = cell.maybes.bits & cands;
+				final int bits = cell.maybes & cands;
 				if ( bits != 0 )
 					reds.upsert(cell, bits, false);
 			});
@@ -584,7 +584,7 @@ public class SueDeCoq extends AHinter {
 	private Pots potify(final Idx a, final Idx b, final int cands) {
 		final Pots result = new Pots();
 		tmpIdx.setOr(a, b).forEach(grid.cells, (cell) -> {
-			int bits = cell.maybes.bits & cands;
+			int bits = cell.maybes & cands;
 			if ( bits != 0 )
 				result.upsert(cell, bits, false);
 		});

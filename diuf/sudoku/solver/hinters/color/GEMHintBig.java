@@ -122,6 +122,17 @@ public class GEMHintBig extends AHint  {
 		return offs;
 	}
 
+	/**
+	 * Return Tech.GEM.difficulty plus two bonuses: <ul>
+	 *  <li>The number of set-cells * Tech.NakedSingle.difficulty <br>
+	 *  because a GEMHintBig can set many cells it's total difficulty includes
+	 *  the total difficulty of setting all of those cells individually,
+	 *  otherwise switching-off GEM makes SE report that a puzzle is harder
+	 *  than it was with GEM, which it, pretty obviously, is not.
+	 *  <li>The number of eliminations * 0.01 for consistency with GEMHint.
+	 * </ul>
+	 * @return Tech.GEM.difficulty plus two bonuses (as described).
+	 */
 	@Override
 	public double getDifficultyTotal() {
 		return getDifficulty()
@@ -138,14 +149,15 @@ public class GEMHintBig extends AHint  {
 		return setPots.size() * 10;
 	}
 
-	@Override
-	public Grid getGrid() {
-		if ( setPots!=null && !setPots.isEmpty() )
-			return setPots.firstKey().getGrid();
-		if ( redPots!=null && !redPots.isEmpty() )
-			return redPots.firstKey().getGrid();
-		return null;
-	}
+//not_used 2021-07-02
+//	@Override
+//	public Grid getGrid() {
+//		if ( setPots!=null && !setPots.isEmpty() )
+//			return setPots.firstKey().getGrid();
+//		if ( redPots!=null && !redPots.isEmpty() )
+//			return redPots.firstKey().getGrid();
+//		return null;
+//	}
 
 	// @return numElims = 10*numCellsSet + numMaybesEliminated.
 	@Override

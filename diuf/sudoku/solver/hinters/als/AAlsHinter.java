@@ -221,7 +221,7 @@ abstract class AAlsHinter extends AHinter
 		if ( !isEnabled )
 			return false;
 		// get indices of cells which maybe each value 1..9.
-		final Idx[] candidates = grid.getIdxs();
+		final Idx[] candidates = grid.idxs;
 		// get the Almost Locked Sets (N cells with N+1 values between them)
 //		long start = System.nanoTime();
 		getAlss(grid, candidates); // repopulates alss, sets numAlss

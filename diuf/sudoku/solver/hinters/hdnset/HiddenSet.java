@@ -14,7 +14,6 @@ import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.IFIRST;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
@@ -23,7 +22,6 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Permutations;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
-
 
 /**
  * Implementation of the Hidden Set Sudoku solving technique:
@@ -57,10 +55,10 @@ public final class HiddenSet extends AHinter {
 	 * <li>HiddenPair = 2
 	 * <li>HiddenTriple = 3
 	 * <li>HiddenQuad = 4
-	 * <li>HiddenPent = 5 is degenerate, meaning that all occurrences are
-	 *  combinations of simpler techniques (like a hidden pair and a hidden
-	 *  triple, in one region); but they CAN appear in get MORE hints.<br>
-	 *  So I usually unwant Naked Pent and Hidden Pent, coz they're useless!
+	 * <li>HiddenPent = 5 and up is degenerate, meaning that all occurrences
+	 *  are combinations of simpler techniques (hidden pair plus a triple);
+	 *  but they CAN appear in get MORE hints.<br>
+	 *  So I unwant Naked and Hidden Pent, coz they're basically useless.
 	 * </ul>
 	 * <p>
 	 * There are also "Direct" variant Techs:<ul>
@@ -69,15 +67,15 @@ public final class HiddenSet extends AHinter {
 	 * </ul>
 	 * which seek HiddenSets that cause a HiddenSingle; ie when we remove all
 	 * other possible values from each of these cells that leaves one only
-	 * possible location for a value in this region. These direct variants are
-	 * fundamentally useless, in that all hints that they find would be found
+	 * possible location for a value in the region. These direct variants are
+	 * also fundamentally useless, in that all hints that they find are found
 	 * anyway by the "normal" HiddenSet hinter; the only difference is the
 	 * direct variant produces a "bigger" hint with the "subsequently set this
-	 * hidden single", where-as the "normal" version leaves the subsequent
-	 * hidden single to the next HiddenSingle, because that's what it's for.
+	 * hidden single", where-as the "normal" version leaves the hidden single
+	 * to the next HiddenSingle call, because that's what it's for. sigh.
 	 * <p>
 	 * For speed unwant all the Direct hinters (they're useless).<br>
-	 * If you want fancy hints then select them (they're still useless).
+	 * For fancier hints want them, but they're still bloody useless.
 	 *
 	 * @param tech the Tech to implement, see above.
 	 */
@@ -100,12 +98,13 @@ public final class HiddenSet extends AHinter {
 	}
 
 	/**
-	 * This one is weird. Locking finds Naked Pairs and Naked Triples but only
-	 * has the capacity to perform a subset of the eliminations, so it needs a
-	 * way to ask me (NakedPair and NakedTriple) "Is this a Naked Set? And if
-	 * so can you do the eliminations for me please?" Hence search is public,
-	 * with variables created for each region, which is a bit slower, but shows
-	 * the user ALL eliminations from "the most eliminative pattern" available.
+	 * Search this region in the grid for Naked Sets.
+	 * <p>
+	 * This method is weirdly public. Locking finds Naked Pairs/Triples but can
+	 * do only a subset of the eliminations, so it needs a way to ask NakedPair
+	 * and NakedTriple "Is this a Naked Set? And if so do the elims for me?"
+	 * So search is public, with variables created for each region, which is a
+	 * bit slower, but shows the user all available eliminations.
 	 *
 	 * @param region the ARegion to search
 	 * @param grid the Grid to search
@@ -155,24 +154,14 @@ public final class HiddenSet extends AHinter {
 						indexes |= rio[candidates[perm[i]]].bits;
 					// if there are degree positions for our degree values
 					if ( VSIZE[indexes] == degree ) {
-//// BUG 2020-08-20 888#top1465.d5.mt UnsolvableException: apply canNotBeBits
-//// So I debug mergeSiameseHints. There are TWO triples in row 1:
-//// First Naked Triple in A1, B1, C1 on 379 => siamese claiming.
-//// Second Hidden Triple in G1, H1, I1 on 124 => HiddenTriple.
-//// Maybes don't line-up! Siamese presumes that the locking-set MUST equal the
-//// hidden-set. In this case it doesn't. There may be other occurrences.
-//if ( Debug.isClassNameInTheCallStack(5, "Locking")
-//  // 1 2 4 8 16 32 64 128 256
-//  // 0 1 2 3 4  5  6  7   8
-//  && r == grid.regions[9] // row 1
-//  && 64+128+256 == hdnSetIdx ) // 448 is G1, H1, I1
-//	Debug.breakpoint();
 						// build a bitset of the hidden set values
 						values = 0;
 						for ( i=0; i<degree; ++i )
 							values |= VSHFT[candidates[perm[i]]];
-						// if any eliminations then create and add hint
-						if ( (reds=eliminate(region, values, indexes)) != null ) {
+						// if there's degree bloody values (seen 1 in generate)
+						if ( VSIZE[values] == degree
+						  // and any eliminations then create and add hint
+						  && (reds=eliminate(region, values, indexes)) != null ) {
 							// FOUND HiddenSet! (about 80% skip)
 							final AHint hint = createHint(region, values
 									, indexes, reds, accu);
@@ -184,7 +173,7 @@ public final class HiddenSet extends AHinter {
 						}
 						// exit if not enough cells for another set,
 						// even if we didn't actually hint here
-						if ( n-degree < degree )
+						if ( n < degree<<1 )
 							return result;
 					}
 				} // next permutation
@@ -202,23 +191,16 @@ public final class HiddenSet extends AHinter {
 	 * @param values a bitset of the hidden set values
 	 * @param indexes a bitset of indexes in region.cells of cells in the
 	 *  hidden set
-	 * @return removable (red) Cell=&gt;Values if any, else null (about 80%)
+	 * @return removable (red) Pots if any, else null (about 80%)
 	 */
 	private Pots eliminate(ARegion region, int values, int indexes) {
-		int pinks; // a bitset of the removable maybes of each cell in hdn set
-		Pots reds = null; // the result removable (red) Cell=>Values
-		// foreach index-in-this-region of a cell that is in the hidden set
+		int pinks;
+		Pots reds = null;
 		for ( int i : INDEXES[indexes] )
-			// removable-values := cell.maybes.bits - hidden-set-values
-			// if there are any removable-values
-			if ( (pinks=(region.cells[i].maybes.bits & ~values)) != 0 ) {
-//if ( tech == Tech.HiddenTriple
-//&& !Debug.isClassNameInTheCallStack(5, "RecursiveAnalyser")
-//&& "H1".equals(r.cells[i].id) )
-//	Debug.breakpoint();
+			if ( (pinks=(region.cells[i].maybes & ~values)) != 0 ) {
 				if ( reds == null )
 					reds = new Pots();
-				reds.put(region.cells[i], new Values(pinks, false));
+				reds.put(region.cells[i], pinks);
 			}
 		return reds;
 	}
@@ -244,41 +226,22 @@ public final class HiddenSet extends AHinter {
 	 */
 	private AHint createHint(ARegion r, int values, int indexes, Pots reds
 			, IAccumulator accu) {
-		// build a Values of the values in the hidden set
-		final Values vs = new Values(values, false);
 		// build the highlighted (green) Cell=>Values
-		final Pots greens = new Pots();
-		for ( int i : INDEXES[indexes] ) {
-			Cell cell = r.cells[i];
-			greens.put(cell, cell.maybes.intersect(vs));
-		}
+		final Pots greens = new Pots(r.cells, indexes, values, F, F);
 		// build an array of the cells in this hidden set (for the hint)
 		final Cell[] cells = r.atNew(indexes);
 		//
 		// NORMAL MODE: A Hint has been found
 		//
 		if ( !tech.isDirect )
-			return new HiddenSetHint(this, cells, vs, greens, reds, r, indexes);
+			return new HiddenSetHint(this, cells, values, greens, reds, r
+					, indexes);
 		//
 		// DIRECT MODE: Does this Hidden Set cause a Hidden Single?
 		//
-		// Direct mode is slower, so never used by RecursiveAnalyser
+		// Direct mode is slower, so never used by SingleSolution
 		assert !"diuf.sudoku.solver.hinters.chain.ChainersHintsAccumulator"
 				.equals(accu.getClass().getCanonicalName());
-
-//this is the first "Direct Hidden Triple:"
-//12#top1465.d5.mt	5..4..8......9..1...2..1..56..3..4...5..7......4.....83..6..7...6.....8...8..2..1
-//5..4..8......9..1...2..1..56..3..4...5..741.6..4.....832.6.87...6.....8...8..2..1
-//,13,13679,,26,367,,2379,379,478,3478,367,25,,3567,23,,2347,479,349,,78,38,,369,3467,,,1789,17,,158,59,,27,27,28,,39,28,,,,39,,1279,379,,12,26,69,359,357,,,,159,,145,,,459,49,149,,57,1579,345,37,2359,,234,479,479,,579,345,,3569,3456,
-//36   	        126,000	29	 144	 11	Direct Hidden Triple          	Direct Hidden Triple: B4, E4, F4: 5, 8, 9 in row 4 (C4+1 B4-17, E4-1)
-//if ( true
-//&& tech == Tech.DirectHiddenTriple
-//&& region.id.equals("row 4")
-//&& hdnSetValsArray[0] == 5
-//&& hdnSetValsArray[1] == 8
-//&& hdnSetValsArray[2] == 9
-//)
-//	diuf.sudoku.utils.Debug.breakpoint();
 		// do the eliminations cause a hidden single?
 		int bits;
 		// foreach value EXCEPT the hidden set values
@@ -291,8 +254,8 @@ public final class HiddenSet extends AHinter {
 		for ( int v : VALUESES[VALL & ~values] )
 			if ( VSIZE[bits=r.indexesOf[v].bits & ~indexes] == 1 )
 				// this aligned set causes a Hidden Single
-				return new HiddenSetDirectHint(this, cells, vs, greens, reds, r
-						, v, r.cells[IFIRST[bits]]);
+				return new HiddenSetDirectHint(this, cells, values, greens
+						, reds, r, v, r.cells[IFIRST[bits]]);
 		return null; // No hidden single found
 	}
 

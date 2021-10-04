@@ -16,7 +16,9 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -58,7 +60,7 @@ public final class BUG extends AHinter
 	private final Grid stripper = new Grid();
 
 	private Pots bcPots = null;
-	private final Values allBugValues = new Values();
+	private int allBugValues = 0;
 
 	// Index of common siblings
 	private final Idx cmnSibsIdx = new Idx();
@@ -72,6 +74,7 @@ public final class BUG extends AHinter
 		accu = null;
 		bcPots = null;
 		cmnSibsIdx.clear();
+		Cells.cleanCasA();
 	}
 
 //	@Override
@@ -106,7 +109,7 @@ public final class BUG extends AHinter
 
 		// cleanup from the previous call
 		this.bcPots = null; // bugCellsPots
-		this.allBugValues.clear();
+		this.allBugValues = 0;
 		this.cmnSibsIdx.clear();
 
 		for ( ri=0; ri<27; ++ri ) { // foreach box, row, and col
@@ -125,7 +128,7 @@ public final class BUG extends AHinter
 				// maybe value in this region and has 3+ maybes.
 				Cell newBugCell = null; // a field to save on passing it around
 				for ( int i : INDEXES[region.indexesOf[v].bits] ) {
-					if ( region.cells[i].maybes.size > 2 ) {
+					if ( region.cells[i].size > 2 ) {
 						// if there are multiple positions we can't decide
 						// which is the BUG cell, so we just leave it for
 						// another region to capture the single cell.
@@ -145,16 +148,16 @@ public final class BUG extends AHinter
 
 				// so we map newBugCell => value in bugCellsPots
 				if ( bcPots == null )
-					bcPots = new Pots(newBugCell, new Values(v));
+					bcPots = new Pots(newBugCell, v);
 				else
 					bcPots.upsert(newBugCell, v);
 				// and add value to allBugValues
-				allBugValues.add(v); // yes really mutate THE instance
+				allBugValues |= VSHFT[v]; // yes really mutate THE instance
 
 				// "strip" value off our bon-nommed grid
 				try {
 					Cell sc = stripper.cells[newBugCell.i];
-					if ( sc.maybes.contains(v) )
+					if ( (sc.maybes & VSHFT[v]) != 0 )
 						sc.canNotBe(v); // throws UnsolvableException
 				} catch (UnsolvableException ex) { // should never happen
 					// v was the last potential value for the cell
@@ -172,7 +175,7 @@ public final class BUG extends AHinter
 				// now check if we've still got at a potential BUG
 				// BUG NonBug  pass 38,532 of 45,309 = skip 14.96%
 //++nbCnt;
-				if ( bcPots.size()>1 && allBugValues.size>1
+				if ( bcPots.size()>1 && VSIZE[allBugValues]>1
 				  && cmnSibsIdx.none() )
 					return false; // None of type 1, 2 or 3
 //++nbPass;
@@ -191,7 +194,7 @@ public final class BUG extends AHinter
 		// BUG TwoPots pass 66 of 6,479 = skip 98.98%
 //++p2Cnt;
 		for ( Cell sc : stripper.cells )
-			if ( sc.value==0 && sc.maybes.size!=2 )
+			if ( sc.value==0 && sc.size!=2 )
 				return false; // Not a BUG // 6,213 top1465
 //++p2Pass;
 
@@ -214,7 +217,7 @@ public final class BUG extends AHinter
 		if ( numBugCells == 1 ) {
 			// Yeah, potential BUG type-1 pattern found
 			result = addBug1Hint();
-		} else if ( allBugValues.size == 1 ) {
+		} else if ( VSIZE[allBugValues] == 1 ) {
 			// Yeah, potential BUG type-2 or type-4 pattern found
 			result = addBug2Hint(grid);
 			if ( numBugCells == 2 )
@@ -233,9 +236,9 @@ public final class BUG extends AHinter
 	private boolean addBug1Hint() {
 		Cell theBugCell = bcPots.firstKey();
 		Pots redPots = new Pots();
-		redPots.put(theBugCell, theBugCell.maybes.minus(allBugValues));
+		redPots.put(theBugCell, theBugCell.maybes & ~allBugValues);
 //++bug1HintCount;
-		accu.add(new Bug1Hint(this, redPots, theBugCell, new Values(allBugValues)));
+		accu.add(new Bug1Hint(this, redPots, theBugCell, allBugValues));
 		return true;
 	}
 
@@ -243,15 +246,15 @@ public final class BUG extends AHinter
 		// check that cells were found
 		if ( cmnSibsIdx==null || cmnSibsIdx.none() )
 			return false;
-		assert allBugValues.size == 1;
-		int v = allBugValues.first(); // theBugValue
+		assert VSIZE[allBugValues] == 1;
+		int v = VFIRST[allBugValues]; // theBugValue
 		final int sv = VSHFT[v];
 		Pots redPots = null;
-		for ( Cell sib : cmnSibsIdx.cells(grid) )
-			if ( (sib.maybes.bits & sv) != 0 ) {
+		for ( Cell sib : cmnSibsIdx.cellsA(grid) )
+			if ( (sib.maybes & sv) != 0 ) {
 				if ( redPots == null )
 					redPots = new Pots();
-				redPots.put(sib, new Values(v));
+				redPots.put(sib, sv);
 			}
 		if ( redPots == null )
 			return false;
@@ -274,7 +277,7 @@ public final class BUG extends AHinter
 	private boolean addBug3Hint(Grid grid) {
 		boolean result = false;
 		assert !cmnSibsIdx.none();
-		assert bcPots.size()!=1 && allBugValues.size!=1;
+		assert bcPots.size()!=1 && VSIZE[allBugValues]!=1;
 		// common cells list
 		ArrayList<Cell> ccsList = new ArrayList<>(cmnSibsIdx.size());
 		ARegion cmnRgn;
@@ -285,37 +288,37 @@ public final class BUG extends AHinter
 			// A common region of type rti has been found.
 			// Gather other cells of this region from the grid.
 			ccsList.clear();
-			for ( Cell c : cmnSibsIdx.cells(grid) )
+			for ( Cell c : cmnSibsIdx.cellsA(grid) )
 				if ( c.regions[rti] == cmnRgn )
 					ccsList.add(c);
 			// how many common cells are there
 			final int n = ccsList.size();
 			// common cells array
 //			Cell[] ccsArray = ccsList.toArray(new Cell[n]);
-			Cell[] ccsArray = ccsList.toArray(Cells.array(n));
+			Cell[] ccsArray = ccsList.toArray(Cells.arrayA(n));
 			// foreach dd (degree) between (greater of 2 or n) and 6
 			for ( int dd=Math.max(2, n); dd<7; ++dd ) {
 				final int cc = dd - 1; // degreeMinusOne (cc is dd-1, right?)
 				// NB: create these once per degree, not per permutation
-				Values[] potentialValueses = new Values[dd];
-				Cell[] nakedCells = Cells.array(cc); // something borrowed!
-				Values otherCmnValues = new Values();
+				int[] potentialValueses = new int[dd];
+				Cell[] nakedCells = Cells.arrayA(cc); // something borrowed!
+				int otherCmnValues;
 				// foreach possible combination of the missing $degree-1 cells
 				P_LOOP: for ( int[] perm : new Permutations(n, IAS[cc]) ) {
 					// NB: no need to clear potentials or nakedCells arrays coz
 					//     they're completely overwritten before they are read
-					otherCmnValues.clear(); // ie bits = size = 0;
+					otherCmnValues = 0;
 					for ( int i=0; i<cc; ++i ) {
 						// Fill array of missing naked cells
 						nakedCells[i] = ccsArray[perm[i]];
 						// Fill potential values array
 						potentialValueses[i] = nakedCells[i].maybes;
 						// Gather union of potentials
-						if (otherCmnValues.add(potentialValueses[i]).size > dd)
+						if ( VSIZE[otherCmnValues|=potentialValueses[i]] > dd )
 							continue P_LOOP;
 					}
 					// Ensure that all values of the naked set are covered by non-bug cells
-					if ( otherCmnValues.size != dd ) // size may still be LESS than dd
+					if ( VSIZE[otherCmnValues] != dd ) // size may still be LESS than dd
 						continue;
 
 					// ------------------------------------------
@@ -325,8 +328,8 @@ public final class BUG extends AHinter
 					// Get potentials for bug cells
 					potentialValueses[cc] = allBugValues;
 					// Search for a naked set
-					Values nakedSetValues = Values.common(potentialValueses, dd);
-					if ( nakedSetValues == null )
+					int nakedSetValues = Values.common(potentialValueses, dd);
+					if ( nakedSetValues == 0 )
 						continue;
 
 					// -----------------------
@@ -345,8 +348,8 @@ public final class BUG extends AHinter
 					Pots redPots = new Pots();
 					int redBits;
 					for ( Cell cell : redCells )
-						if ( (redBits=cell.maybes.bits & nakedSetValues.bits) != 0 )
-							redPots.put(cell, new Values(redBits, false));
+						if ( (redBits=cell.maybes & nakedSetValues) != 0 )
+							redPots.put(cell, redBits);
 					if ( !redPots.isEmpty() ) {
 //++bug3HintCount;
 						result = true;
@@ -364,7 +367,7 @@ public final class BUG extends AHinter
 	private boolean addBug4Hint() {
 		boolean result = false;
 		assert bcPots.size()==2;
-		assert allBugValues.size==1 || !cmnSibsIdx.none();
+		assert VSIZE[allBugValues]==1 || !cmnSibsIdx.none();
 		// get the two BUG cells
 		Cell c1, c2;
 		{	// This block just localises 'it'.
@@ -373,10 +376,10 @@ public final class BUG extends AHinter
 			c2 = it.next();
 		}
 		// get the potential values common to both cells, minus the BUG values.
-		Values cmnVals=c1.maybes.intersect(c2.maybes).remove(allBugValues);
-		if (cmnVals.size != 1) // Uncle Fester just pissed on my gannet!
+		int cmnVals=c1.maybes & c2.maybes & ~allBugValues;
+		if ( VSIZE[cmnVals] != 1 ) // Uncle Fester just pissed on my gannet!
 			return false; // No BUG type 4
-		int value = cmnVals.first();
+		int value = VFIRST[cmnVals];
 		// for regionType in {box, row, col}
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex
 			// Look for the region of this type shared by all bug cells
@@ -384,14 +387,14 @@ public final class BUG extends AHinter
 			if ( cmnRgn != null ) {
 				// Yeah! this is a BUG type 4, but does it kill any maybes?
 				final Pots reds = new Pots();
-				reds.putIfNotEmpty(c1, c1.maybes.minus(bcPots.get(c1), value));
-				reds.putIfNotEmpty(c2, c2.maybes.minus(bcPots.get(c2), value));
+				reds.putIfNotEmpty(c1, c1.maybes & ~bcPots.get(c1) & ~VSHFT[value]);
+				reds.putIfNotEmpty(c2, c2.maybes & ~bcPots.get(c2) & ~VSHFT[value]);
 				if ( !reds.isEmpty() ) {
 //++bug4HintCount;
 					result = true;
 					if ( accu.add(new Bug4Hint(this, reds, c1, c2
 							, new Pots(bcPots)
-							, new Values(allBugValues)
+							, allBugValues
 							, value
 							, cmnRgn)) )
 						return true;

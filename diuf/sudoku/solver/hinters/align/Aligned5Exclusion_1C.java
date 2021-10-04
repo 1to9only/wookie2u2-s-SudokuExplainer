@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -104,8 +103,8 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 
 //	private java.io.PrintStream myLog = open("a5e.log", standardHeader());
 
-	public Aligned5Exclusion_1C(IInterruptMonitor monitor) {
-		super(monitor, IO.A5E_1C_HITS);
+	public Aligned5Exclusion_1C() {
+		super(IO.A5E_1C_HITS);
 	}
 
 	@Override
@@ -156,12 +155,12 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values.SHIFTED.
+		// that are packed into your maybes 0..511. See Values.SHIFTED.
 		// We create the local reference just for speed of access.
 		final int[][] SVS = VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 2 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -223,7 +222,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 		// the set which are siblings of this cell. This is more code than just
 		// "skip collision" (as per A234E) but it is faster, because it does
 		// more of the work less often.
-		int c0b, c1b , c2b , c3b , c4b;  // c4b = c4.maybes.bits;
+		int c0b, c1b , c2b , c3b , c4b;  // c4b = c4.maybes;
 		int		       c2b0, c3b0, c4b0; // c4b0= c4.sib(c0) ? c4b&~sv0 : c4b;
 		int			         c3b1, c4b1; // c4b1= c4.sib(c1) ? c4b0&~sv1 : c4b0;
 		int					 c3b2, c4b2; // c4b2= c4.sib(c2) ? c4b1&~sv2 : c4b1;
@@ -333,7 +332,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 			// ugly, but she gives fantasic ____jobs, so I pay the rent. Clear?
 			if(hitMe && cells[0]!=hitCells[0]) continue;
 //KRC#2020-06-30 09:50:00
-			c0b = (c0=cells[0]).maybes.bits;
+			c0b = (c0=cells[0]).maybes;
 
 			for ( i1=i0+1; i1<n1; ++i1 ) {
 				// get idx01 := an index of the cells common to c0 and c1; skip
@@ -350,7 +349,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 					continue;
 				if(hitMe && cells[1]!=hitCells[1]) continue;
 //KRC#2020-06-30 09:50:00
-				c1b = (c1=cells[1]).maybes.bits;
+				c1b = (c1=cells[1]).maybes;
 				ns10 = c1.notSees[c0.i];
 
 				for ( i2=i1+1; i2<n2; ++i2 ) {
@@ -358,7 +357,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 						continue;
 					if(hitMe && cells[2]!=hitCells[2]) continue;
 //KRC#2020-06-30 09:50:00
-					c2b = (c2=cells[2]).maybes.bits;
+					c2b = (c2=cells[2]).maybes;
 					ns20 = c2.notSees[c0.i];
 					ns21 = c2.notSees[c1.i];
 
@@ -367,10 +366,9 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 							continue;
 						cells[3] = candidates[i3];
 						if(hitMe && cells[3]!=hitCells[3]) continue;
-						if ( isInterrupted() )
-							return false;
+						interrupt();
 //KRC#2020-06-30 09:50:00
-						c3b = (c3=cells[3]).maybes.bits;
+						c3b = (c3=cells[3]).maybes;
 						ns30 = c3.notSees[c0.i];
 						ns31 = c3.notSees[c1.i];
 						ns32 = c3.notSees[c2.i];
@@ -412,7 +410,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 								if(col<2 || col>21) continue;
 //								++colCnt.pass;
 
-								// filter by total cells.maybes.size
+								// filter by total cells.maybesSize
 								mbs = totalMaybesSize; // from countCollisions
 //								mbsCnt.count(mbs);
 								// mbsCnt min=10/10 max=19/31 pass 654,947,227 of 774,930,334 skip 119,983,107 = 15.48%
@@ -434,7 +432,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 //								++maxMbs.cnt;
 								fives = 0;
 								for ( Cell cell : cells )
-									if ( cell.maybes.size >= 5 )
+									if ( cell.size >= 5 )
 										++fives; //fallout
 								// maxMbs pass 434,614,570 of 434,909,828 skip 295,258 = 0.07%
 								if(fives>2) continue;
@@ -448,7 +446,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 
 							// read common excluder cells from grid at idx04
 							if ( (numCmnExcls = idx04.cellsN(grid, cmnExcls)) == 1 ) {
-								cmnExclBits[0] = cmnExcls[0].maybes.bits;
+								cmnExclBits[0] = cmnExcls[0].maybes;
 								numCmnExclBits = 1;
 							} else {
 								// performance enhancement: smaller cells to the left.
@@ -514,18 +512,18 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 //							// the dog____ing algorithm should be faster with dodgem-cars to the left, but
 //							// the above for-i-loops need a static cells array; so we copy cells to scells
 //							// (sortedCells) and sort that array DESCENDING by:
-//							//     4*maybesCollisions + 2*cmnExclHits + maybes.size
+//							//     4*maybesCollisions + 2*cmnExclHits + maybesSize
 //							cc.set(cells, cmnExclBits, numCmnExclBits);
 //							System.arraycopy(cells, 0, scells, 0, degree);
 //							//MyTimSort.small(scells, degree, cc);
 //							bubbleSort(scells, degree, cc);
 //
-//							// cache the sorted cells and there maybes.bits
-//							c0b = (c0=scells[0]).maybes.bits;
-//							c1b = (c1=scells[1]).maybes.bits;
-//							c2b = (c2=scells[2]).maybes.bits;
-//							c3b = (c3=scells[3]).maybes.bits;
-//							c4b = (c4=scells[4]).maybes.bits;
+//							// cache the sorted cells and there maybes
+//							c0b = (c0=scells[0]).maybes;
+//							c1b = (c1=scells[1]).maybes;
+//							c2b = (c2=scells[2]).maybes;
+//							c3b = (c3=scells[3]).maybes;
+//							c4b = (c4=scells[4]).maybes;
 //
 //							// build the NOT sibling cache
 //							ns10 = c1.notSees[c0.i];
@@ -537,7 +535,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 //							ns31 = c3.notSees[c1.i];
 //							ns32 = c3.notSees[c2.i];
 
-							c4b = (c4=cells[4]).maybes.bits;
+							c4b = (c4=cells[4]).maybes;
 							ns40 = c4.notSees[c0.i];
 							ns41 = c4.notSees[c1.i];
 							ns42 = c4.notSees[c2.i];
@@ -628,13 +626,13 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 								// LETTUCE PRESUME: The Cabbage is in the mail:
 								// * The $degree (5) cells c0, c1, c2, c3, and c4 are pre-selected.
 								// * The array of common excluder cells (and cmnExclBits) is set-up.
-								// * ceb0 := the single (in case 1:) Common Excluder cell's maybes.bits
+								// * ceb0 := the single (in case 1:) Common Excluder cell's maybes
 								//   ie: the potential values of the remaining common excluder cell as a bitset.
 								//   ie: cmnExclBits[0] noting that one-or-more cmnExclBits may've been removed
 								//       by the subsets or the disdisjunct method.
 								//
 								// DA PSEUDO-CODEZ:
-								// // we iterate Values.SHIFTED[c0.maybes.bits] coz it is faster to use an
+								// // we iterate Values.SHIFTED[c0.maybes] coz it is faster to use an
 								// // array iterator than the old-school method. See Values.SHIFTED for more.
 								// foreach v0 in c0's potential values
 								//   // in large sets (A5..10E) it's faster to remove each selected value
@@ -690,7 +688,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 								// bastard, and I wrote it!
 								// =============================================================================
 
-//AVG_1of3: System.out.format("%6d calculated %,5d", cnt, c0.maybes.size*c1.maybes.size*c2.maybes.size*c3.maybes.size*c4.maybes.size);
+//AVG_1of3: System.out.format("%6d calculated %,5d", cnt, c0.maybesSize*c1.maybesSize*c2.maybesSize*c3.maybesSize*c4.maybesSize);
 //long setCount = 0L;
 
 								// filter top1465 even when !isHacky, to not take 34 hours again.
@@ -742,7 +740,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 								// =============================================================================
 								// foreach of c0's potential values.
 								// nb: SVS is a local reference (for speed) to Values.SHIFTED, an array of
-								// jagged-arrays. The first index is "maybes.bits", so SVS[c0b] gives us an
+								// jagged-arrays. The first index is "maybes", so SVS[c0b] gives us an
 								// array of shifted-values that've been "unpacked" from the bitset c0b.
 								// I do this coz an array-iterator is about 25% faster than iterating all
 								// possible shifted-values skipping unset bits, ie the old-shool method:
@@ -756,8 +754,8 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 									// We do c432b0 upside-down to hopefully keep the last one the CPU-cache. Also
 									// we don't need (or have) a c1b0 variable, we just do the calculation directly
 									// in the SV1_LOOP line. Same for c2b1 in SV2_LOOP.
-									// IN ENGLISH: cell4.maybes.bits.version0 = cell0.isNotSiblingOf[cell4.index]    ?    cell4.maybes.bits  :    cell4.maybes.bits & ~     shiftedValueOfCell0
-									// ie:     set cell4.maybes.bits.version0 = if cell0.isNotSiblingOf[cell4.index] then cell4.maybes.bits, else cell4.maybes.bits without the current valueOfCell0
+									// IN ENGLISH: cell4.maybes.version0 = cell0.isNotSiblingOf[cell4.index]    ?    cell4.maybes  :    cell4.maybes & ~     shiftedValueOfCell0
+									// ie:     set cell4.maybes.version0 = if cell0.isNotSiblingOf[cell4.index] then cell4.maybes, else cell4.maybes without the current valueOfCell0
 									c4b0 = ns40 ? c4b : c4b & ~sv0;
 									c3b0 = ns30 ? c3b : c3b & ~sv0;
 									c2b0 = ns20 ? c2b : c2b & ~sv0;
@@ -778,8 +776,8 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 										// It's faster to NOT test if sv01 covers ceb0, which can only happen when
 										// size[ceb0]==2, which is pretty rare.
 										// It's also faster to NOT test if c2/3/4b1 is empty. c2b1 can only be empty
-										// when c2.maybes.size==2, which is rare, and it only fires when sv01 ==
-										// c2.maybes.bits, or 25% of the time at best. Running around to avoid kissing
+										// when c2.maybesSize==2, which is rare, and it only fires when sv01 ==
+										// c2.maybes, or 25% of the time at best. Running around to avoid kissing
 										// 25% of chickens-lips is pointless: it costs more than it saves.
 										// nb: Iterating an empty array no-longer appears "dead slow": real or just
 										// perception? Probably just perception. Everything else is so expensive the
@@ -809,7 +807,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 											// PLAIN   the current value of c0 PLUS the current value of c1 PLUS       the current value of c2
 											//
 											// CODE    if ( (do30                                     &&                           (ceb0                                             &           ~                       sv02)             == 0)
-											// VERBOSE if ( (size[ceb0]<=3                            short-circuiting-boolean-and theOnlyCommonExcluderCells.maybes.bits            bitwise-and the-bitwise-negation-of shiftedValues0to2 == 0
+											// VERBOSE if ( (size[ceb0]<=3                            short-circuiting-boolean-and theOnlyCommonExcluderCells.maybes            bitwise-and the-bitwise-negation-of shiftedValues0to2 == 0
 											// PLAIN   if ( first(shortest)CommonExcluderHas<=3Maybes and                          the single common excluder cells potential values without                             the-combo-so-far  is an empty-bitset
 											//
 											// CODE    || (c3b2            =    ns32                                           ?    c3b1             :    c3b1            &           ~                       sv2               ) == 0 )
@@ -893,7 +891,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 													// and set IS_HACKY=false then run the GUI, do first A5E_1C of 1#top1465.d5.mt
 													// and copy-paste the output into "tmp.txt", then run diuf.sudoku.tools.Average:
 													//     Average calculated 433.12 experienced 19.52
-													// Where "calculated" is the average n*n*n*n*n of the actual maybes.size's.
+													// Where "calculated" is the average n*n*n*n*n of the actual maybesSize's.
 													//       "experienced" is average number of times we hit "Combo Allowed" line.
 													// So DOG_1A in A5E_1C operated at O(square root of n*n*n*n*n) in this case, but
 													// your mileage may vary significantly, it is dependant on your puzzle/s, but it
@@ -1317,7 +1315,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 
 							// check if any of each cells maybes have not been allowed,
 							// and if so then it's an exclusion, ie we found a hint!
-							if ( avb0 == c0b // c0b == c0.maybes.bits
+							if ( avb0 == c0b // c0b == c0.maybes
 							  && avb1 == c1b
 							  && avb2 == c2b
 							  && avb3 == c3b

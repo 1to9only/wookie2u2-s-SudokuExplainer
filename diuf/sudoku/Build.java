@@ -161,7 +161,7 @@ import static diuf.sudoku.utils.Frmt.SPACE;
  *			foreground analyse to complete. Building now for a backup when
  *			I subtype Chainer into UnaryChainer and MultipleChainer.
  *			1465 in 135,020,038,901	(02:15) @ 92,163,849 -REDO with A10E.
- * 6.30.029 2019-11-02 08:50:29 Split Chainer into AChainer, UnaryChainer,
+ * 6.30.029 2019-11-02 08:50:29 Split Chainer into ChainerBase, UnaryChainer,
  *			and MultipleChainer. All test cases passed first time. WTWTF?
  *			1465 in 136,386,363,363	(02:16) @ 93,096,493 -REDO with A10E.
  * 6.30.030 2019-11-11 15:01:30 I just thought I should build and release.
@@ -224,7 +224,7 @@ import static diuf.sudoku.utils.Frmt.SPACE;
  *			col collisions, and ces common excluders size.
  * 6.30.042 2020-01-28 21:11:42 A7E_1C now has "top shelf" filters.
  *			It sorts the cells in the aligned set by:
- *				numMaybesCollisions*4 + cmnExclHits*2 + maybes.size,
+ *				numMaybesCollisions*4 + cmnExclHits*2 + maybesSize,
  *			and filters by every stat I can think of. The total runtime is
  *			down to ? hours ? minutes with A234567E correct and A8910E
  *			hacked. I've also replaced Integer.bitCount calls with Values
@@ -604,6 +604,23 @@ import static diuf.sudoku.utils.Frmt.SPACE;
  * 6.30.146 2021-06-29 22:26:26 Cleaning-up Log and stdout, which are still a
  *			bloody nightmare. I should port it to Logging, but I'm too lazy.
  *			Constantised common strings, but it's no faster. sigh.
+ * 6.30.147 2021-07-04 00:05:27 NOT Cleaned-up NakedSets Collections. maybes
+ *			and maybesSize, with no Values instances. Sexy GRID_WATCH. Turbo
+ *			mode. Fixed TreeSet comparator by adding toString.
+ * 6.30.148 2021-07-09 06:25:28 Redid Grid.numSet and totalSize, change WWing,
+ *			simplified cell.set, Cells and Regions test-cases.
+ * 6.30.149 2021-07-09 17:45:29 Settings written-to/read-from file instead of
+ *			the Windows registry.
+ * 6.30.150 2021-07-12 09:58:30 Generate -> analyseDifficulty now validates,
+ *			and so rebuildMaybesAndS__t, solving all generate's index issues.
+ * 6.30.151 2021-07-12 21:56:31 SiameseLocking factored-out of Locking, which
+ *			is now basically back to itself, and comprehensible.
+ * 6.30.152 2021-07-13 23:00:32 indexes maintained on the fly.
+ * 6.30.153 2021-07-17 08:29:33 make generate stoppable.
+ * 6.30.154 2021-07-18 11:08:33 make generate stoppable, not 30 seconds slower.
+ * 6.30.155 2021-07-18 17:56:35 make generate actually stop. sigh.
+ * 6.30.156 2021-07-19 09:25:36 I wish I could stop stopping Generate.
+ * 6.30.157 2021-07-20 08:51:37 jar-only-distribution rolls it's own Settings.
  * </pre>
  *
  * @author Keith Corlett 2013 - 2021
@@ -614,10 +631,10 @@ public final class Build {
 	public static final String TITLE = "DiufSudoku";
 
 	/** The VERSION number of this build. */
-	public static final String VERSION = "6.30.146";
+	public static final String VERSION = "6.30.157";
 
 	/** The BUILT date of this build. */
-	public static final String BUILT = "2021-06-29 22:26:26";
+	public static final String BUILT = "2021-07-20 08:51:37";
 
 	/** APPLICATION_TITLE_AND_VERSION is too long, so I went bush. */
 	public static final String ATV = TITLE + SPACE + VERSION;

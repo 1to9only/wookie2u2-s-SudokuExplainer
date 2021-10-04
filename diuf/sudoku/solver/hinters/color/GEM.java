@@ -160,66 +160,10 @@ public class GEM extends AHinter implements IPreparer
 	private static final int SUBTYPE_6 = 6; // Naked Single in colors
 	private static final int SUBTYPE_7 = 7; // Hidden Single in colors
 
-	/** A distinctive subtype of RuntimeException. */
-	private static final class StopException extends RuntimeException {
-		private static final long serialVersionUID = 68198734001267L;
-	}
 	/** thrown ONLY when a Type 2 hint has been found and added to accu. */
 	private static final StopException STOP_EXCEPTION = new StopException();
-
-	/** A distinctive subtype of RuntimeException. */
-	private static final class OverpaintException extends IllegalStateException {
-		private static final long serialVersionUID = 720396129058L;
-		public OverpaintException(String msg) {
-			super(msg);
-		}
-	}
-
-	/**
-	 * A distinctive subtype of RuntimeException thrown by create[Big]Hint when
-	 * a bad Elimination [or SetPot] is detected.
-	 *
-	 * This the more extreme way to handle it, for when you think you're on top
-	 * of invalid hints. If you're getting invalid hints then comment out my
-	 * throw an uncomment the "programmer friendly" handlers, but don't forget
-	 * to put me back. Users should NEVER see "Invalid Eliminations" in a hint
-	 * explanation, because it makes them distrust ALL of your software, not
-	 * just the small part they shouldn't trust, mainly coz they haven't got a
-	 * clue, and really don't want one; that's WHY they're using software to
-	 * get nice fat hints. Don't scare the chooks! Gobble, gobble, gobble.
-	 *
-	 * NOTE that GEM is disabled (for this puzzle only) whenever this exception
-	 * is thrown.
-	 */
-	private static class UncleanException extends RuntimeException {
-		private static final long serialVersionUID = 64099692026011L;
-		public UncleanException(String msg) {
-			super(msg);
-		}
-	}
-
-	/**
-	 * ValueScore is the score for each value; only used in the startingValues
-	 * method, to keep the value WITH it's score, so that we can sort the array
-	 * by score descending and keep the value. The array is unsorted back to
-	 * value order (including 0) at the start of each startingValues run.
-	 */
-	private static class ValueScore {
-		public final int value;
-		public int score;
-		ValueScore(int value) {
-			this.value = value;
-		}
-		// debug only, not used in actual code
-		@Override
-		public String toString() {
-			return ""+value+": "+score;
-		}
-		/** just reset the score to 0 (value is final). */
-		private void clear() {
-			score = 0;
-		}
-	}
+	// this Object is every value in my hashes map, to use a Map as a Set.
+	private static final Object PRESENT = new Object();
 
 	/**
 	 * Create the array of arrays which is a colors, or supers, subs.
@@ -355,6 +299,8 @@ public class GEM extends AHinter implements IPreparer
 	private final Idx[][] offs = new Idx[2][10];
 	// A bitset of those values which have an on
 	private final int[] onsValues = new int[2];
+	// Count the number of values off'd of each cell in the grid.
+	private final int[] countOffs = new int[81];
 
 	// all values of each color; array to swap between colors.
 	private final Idx[] painted = {new Idx(), new Idx()};
@@ -382,7 +328,6 @@ public class GEM extends AHinter implements IPreparer
 
 	/** The hashCode of each color, independent of it's color. */
 	private final Map<Long,Object> hashes = new HashMap<>(128, 0.75F);
-	private static final Object PRESENT = new Object();
 
 	// the (presumably) "good" color to display "results" in the hint.
 	private int goodColor;
@@ -396,6 +341,19 @@ public class GEM extends AHinter implements IPreparer
 	// and also any conclusions of contradictions/eliminations/confirmations.
 	// This is a persistant buffer for speed. Faster to re-use than grow new.
 	private final StringBuilder steps = new StringBuilder(STEPS_SIZE);
+
+	// A field to build the array once per instance, not during eliminations.
+	// They're only ints (not Cells) so cleanup not required, and any hangovers
+	// from the previous invocation don't effect the logic (they're skipped).
+	// Note that the actual arrays referenced by this array-of-arrays actually
+	// belong to the Idx's IAS (Integer ArrayS) cache, so toArray (et el) will
+	// interfere arbitrarily with uncoloredCandidates, so do not call them
+	// while uncoloredCandidates is in use.
+	private final int[][] uncoloredCandidates = new int[10][];
+
+	// score of values 1..9 (a field only to support reporting minScore, but it
+	// is also faster (I think) to not recreate the array for every call)
+	private final ValueScore[] scores = new ValueScore[10];
 
 	/**
 	 * The constructor.
@@ -469,7 +427,7 @@ public class GEM extends AHinter implements IPreparer
 		this.grid = grid;
 		this.accu = accu;
 		this.onlyOne = accu.isSingle();
-		this.vs = grid.getIdxs();
+		this.vs = grid.idxs;
 		// presume that no hint will be found
 		boolean result = false;
 		try {
@@ -497,9 +455,12 @@ public class GEM extends AHinter implements IPreparer
 						return result; // all done
 				}
 			}
+		// This indicates an invalid grid so now throws UnsolvableException.
+		// To debug it change both throws to UncleanException instead!
 		} catch ( UncleanException ex ) {
 			// USE_PROMOTIONS -> create(Big)?Hint: bad elim or cell-value.
-			Log.teeln("WARN: GEM: "+ex.getMessage());
+			Log.teeln("WARN: "+Log.me()+": "+ex.getClass().getSimpleName()+NL
+					+ex.getMessage());
 			// disable me for this puzzle (re-enabled by prepare)
 			setIsEnabled(false); // use the setter!
 		} catch ( StopException meh ) {
@@ -547,8 +508,8 @@ public class GEM extends AHinter implements IPreparer
 		// foreach bivalue cell
 		// increment the score of each value with 2+ conjugate pairs
 		for ( Cell c : grid.cells )
-			if ( c.maybes.size == 2 ) {
-				values = VALUESES[c.maybes.bits & cands];
+			if ( c.size == 2 ) {
+				values = VALUESES[c.maybes & cands];
 				for ( i=0,n=values.length; i<n; ++i )
 					++scores[values[i]].score;
 			}
@@ -564,9 +525,7 @@ public class GEM extends AHinter implements IPreparer
 				break;
 		return n;
 	}
-	// score of values 1..9 (a field only to support reporting minScore, but it
-	// is also faster (I think) to not recreate the array for every call)
-	private final ValueScore[] scores = new ValueScore[10];
+
 //KEEP: used to get minScore to report and set the minimum score (above)
 //	// get the score for the given value
 //	private int getScore(int value) {
@@ -778,7 +737,7 @@ public class GEM extends AHinter implements IPreparer
 	 * @param v the value to paint
 	 * @param c the color to paint this cell-value: GREEN or BLUE
 	 * @param biCheck if true then I also paint the otherValue of each bivalue
-	 *  cell (cell.maybes.size==2) the opposite color, recursively. If false
+	 *  cell (cell.maybesSize==2) the opposite color, recursively. If false
 	 *  then skip step 3, because we already know it's a waste of time.
 	 * @param why a one-liner defining why this cell-value is painted this
 	 *  color.
@@ -849,9 +808,9 @@ public class GEM extends AHinter implements IPreparer
 		// skip this bi-check when we're painting "the other value"
 		if ( biCheck
 		  // if this cell has just two potential values
-		  && cell.maybes.size == 2
+		  && cell.size == 2
 		  // pre-check faster than building why string pointlessly
-		  && !otherColor[otherValue=VFIRST[cell.maybes.bits & ~VSHFT[v]]].contains(i) ) {
+		  && !otherColor[otherValue=VFIRST[cell.maybes & ~VSHFT[v]]].contains(i) ) {
 			if ( wantWhy )
 				why = CON[c]+cell.id+MINUS+v+COFF[c]+ONLY_OTHER_VALUE_IS
 					+CON[o]+cell.id+MINUS+otherValue+COFF[o]+NL;
@@ -859,7 +818,7 @@ public class GEM extends AHinter implements IPreparer
 			paint(cell, otherValue, o, false, why);
 		}
 		// off all other values of this cell
-		for ( int ov : VALUESES[cell.maybes.bits & ~VSHFT[v]] )
+		for ( int ov : VALUESES[cell.maybes & ~VSHFT[v]] )
 			offs[c][ov].add(i);
 
 		return true;
@@ -1044,8 +1003,8 @@ public class GEM extends AHinter implements IPreparer
 		for ( c=0; c<2; ++c ) {
 			getValuesOffedFromEachCell(c); // repopulate OFF_VALS
 			for ( i=0; i<81; ++i )
-				if ( cells[i].maybes.size == VSIZE[OFF_VALS[i]] + 1 ) {
-					v = VFIRST[cells[i].maybes.bits & ~OFF_VALS[i]];
+				if ( cells[i].size == VSIZE[OFF_VALS[i]] + 1 ) {
+					v = VFIRST[cells[i].maybes & ~OFF_VALS[i]];
 					// pre-check it's not already painted for speed
 					if ( !colors[c][v].contains(i)
 					  // and it's not already an On
@@ -1288,9 +1247,9 @@ public class GEM extends AHinter implements IPreparer
 
 			// If green off's all of a cells values then blue is true.
 			// RARE: 10 in top1465
-			countOffsInEachCell(c); // repopulates counts from offs
+			countOffsInEachCell(c); // repopulates countOffs from offs
 			for ( i=0; i<81; ++i )
-				if ( counts[i]>0 && counts[i]==grid.cells[i].maybes.size ) {
+				if ( countOffs[i]>0 && countOffs[i]==grid.cells[i].size ) {
 					cell = grid.cells[i];
 					cause = Cells.set(cell);
 					goodColor = OPPOSITE[c];
@@ -1336,12 +1295,11 @@ public class GEM extends AHinter implements IPreparer
 	 * Count the number of values off'd of each cell in the grid.
 	 */
 	private void countOffsInEachCell(int c) {
-		final Idx[] thisOffs = offs[c];
-		Arrays.fill(counts, 0);
+		final Idx[] thisColorsOffs = offs[c];
+		Arrays.fill(countOffs, 0);
 		for ( int v=1; v<10; ++v )
-			thisOffs[v].forEach((i)->++counts[i]);
+			thisColorsOffs[v].forEach((i)->++countOffs[i]);
 	}
-	private final int[] counts = new int[81];
 
 	/**
 	 * Do a post-eliminations confirmation (opposite of contradiction) search
@@ -1375,7 +1333,7 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	private int confirmations() {
 		Cell cell;
-		Values vals;
+		Integer values;
 
 		// a) all bar one value is actually eliminated from a cell and that
 		//    cell-value is colored then ALL of this color is true
@@ -1383,8 +1341,8 @@ public class GEM extends AHinter implements IPreparer
 		for ( int c=0; c<2; ++c ) {
 			for ( int v : VALUESES[colorValues[c]] ) {
 				for ( int i : colors[c][v].toArrayA() ) {
-					if ( (vals=redPots.get(cell=grid.cells[i])) != null
-					  && vals.size == cell.maybes.size - 1
+					if ( (values=redPots.get(cell=grid.cells[i])) != null
+					  && VSIZE[values] == cell.size - 1
 					) {
 						if ( wantWhy )
 							steps.append(NL)
@@ -1449,13 +1407,13 @@ public class GEM extends AHinter implements IPreparer
 		try {
 			final Pots setPots = squishSetPots(goodColor); //cell-values to set
 			addOns(setPots);
-			if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
-				if ( !cleanSetPots(setPots) )
-					return null; // none remain once invalid removed
-			}
 			final AHint hint = new GEMHintBig(this, value, new Pots(redPots)
 					, subtype, cause, goodColor, steps.toString(), setPots
 					, pots(GREEN), pots(BLUE) , region, copy(ons), copy(offs));
+			if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
+				if ( !cleanSetPots(setPots, hint) )
+					return null; // none remain once invalid removed
+			}
 			cause = null;
 			region = null;
 //			int s = getScore(value);
@@ -1472,19 +1430,19 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	private void addOns(Pots setPots) {
 		Cell cell;
-		Values vals;
+		Integer values;
 		for ( int v=1; v<10; ++v ) {
 			if ( ons[goodColor][v].any() ) {
 				for ( int i : ons[goodColor][v].toArrayA() ) {
-					if ( (vals=setPots.get(cell=grid.cells[i])) == null )
-						setPots.put(cell, new Values(v));
+					if ( (values=setPots.get(cell=grid.cells[i])) == null )
+						setPots.put(cell, VSHFT[v]);
 					else {
 						// colors MUST contain only one value
-						assert vals.size == 1;
+						assert VSIZE[values] == 1;
 						// if colors-value != on-value then throw
-						if ( !vals.contains(v) )
+						if ( (values & VSHFT[v]) != 0 )
 							throw new Pots.IToldHimWeveAlreadyGotOneException(
-								"Off on: "+cell.id+" colors:"+vals+" != ons:"+v);
+								"Off on: "+cell.id+" colors:"+Values.toString(values)+" != ons:"+v);
 						// if on-value == colors-value then just ignore the on.
 						// This should never happen but if it does, meh!
 					}
@@ -1509,7 +1467,7 @@ public class GEM extends AHinter implements IPreparer
 		final Idx[] thisColor = colors[c];
 		for ( int v : VALUESES[colorValues[c]] )
 			thisColor[v].forEach(grid.cells, (cc) ->
-				result.insert(cc, new Values(v)) // throws
+				result.insert(cc, VSHFT[v]) // throws
 			);
 		return result;
 	}
@@ -1549,7 +1507,7 @@ public class GEM extends AHinter implements IPreparer
 
 		// (a) Both colors in one cell eliminates all other values.
 		for ( int i : tmp1.setAnd(painted[GREEN], painted[BLUE]).toArrayA() ) {
-			if ( grid.cells[i].maybes.size > 2
+			if ( grid.cells[i].size > 2
 			  // get a bitset of all values of cells[i] that're green and blue.
 		      // There may be none, never multiple (contradictions pre-tested)
 			  // We need 1 green value and 1 blue value, to strip from pinks.
@@ -1559,9 +1517,9 @@ public class GEM extends AHinter implements IPreparer
 			  // ensure that g and b are not equal (should NEVER be equal)
 			  && g != b
 			  // pinkos is a bitset of "all other values" to be eliminated.
-			  && (pinks=(cc=grid.cells[i]).maybes.bits & ~g & ~b) != 0
+			  && (pinks=(cc=grid.cells[i]).maybes & ~g & ~b) != 0
 			  // ignore already-justified eliminations (shouldn't happen here)
-			  && redPots.upsert(cc, new Values(pinks, false))
+			  && redPots.upsert(cc, pinks, false)
 			) {
 				if ( wantWhy ) {
 					if ( first ) {
@@ -1589,7 +1547,7 @@ public class GEM extends AHinter implements IPreparer
 				if ( tmp3.setAndAny(BUDDIES[ii], colors[GREEN][v])
 				  && tmp4.setAndAny(BUDDIES[ii], colors[BLUE][v])
 				  // ignore already-justified eliminations
-				  && redPots.upsert(grid.cells[ii], new Values(v))
+				  && redPots.upsert(grid.cells[ii], v)
 				) {
 					if ( wantWhy ) {
 						cc = grid.cells[ii]; // current cell
@@ -1672,14 +1630,6 @@ public class GEM extends AHinter implements IPreparer
 
 		return subtype;
 	}
-	// A field to build the array once per instance, not during eliminations.
-	// They're only ints (not Cells) so cleanup not required, and any hangovers
-	// from the previous invocation don't effect the logic (they're skipped).
-	// Note that the actual arrays referenced by this array-of-arrays actually
-	// belong to the Idx's IAS (Integer ArrayS) cache, so toArray (et el) will
-	// interfere arbitrarily with uncoloredCandidates, so do not call them
-	// while uncoloredCandidates is in use.
-	private final int[][] uncoloredCandidates = new int[10][];
 
 	/**
 	 * Get a bitset of the values that are painted color-c at indice-i.
@@ -1769,14 +1719,15 @@ public class GEM extends AHinter implements IPreparer
 //		int s = getScore(value);
 //		if ( s < minScore )
 //			minScore = s;
+		final Idx[] colorSet = null;
+		final Pots reds = new Pots(redPots);
+		final AHint hint = new GEMHint(this, value, reds, pots(GREEN)
+				, pots(BLUE), colorSet, steps.toString(), null, copy(ons)
+				, copy(offs));
 		if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
-			if ( !cleanRedPots() )
+			if ( !cleanRedPots(reds, hint) )
 				return null;
 		}
-		final Idx[] colorSet = null;
-		final AHint hint = new GEMHint(this, value, new Pots(redPots)
-			, pots(GREEN), pots(BLUE), colorSet, steps.toString(), null
-			, copy(ons), copy(offs));
 		// don't hold cell references past there use-by date; so we copy-off
 		// the fields when we create the hint (above) then clear the bastards.
 		redPots.clear();
@@ -1793,7 +1744,7 @@ public class GEM extends AHinter implements IPreparer
 		final Pots result = new Pots();
 		for ( int v : VALUESES[colorValues[c]] )
 			colors[c][v].forEach(grid.cells, (cc) -> {
-					result.upsert(cc, new Values(v));
+					result.upsert(cc, v);
 			});
 		return result;
 	}
@@ -1851,68 +1802,105 @@ public class GEM extends AHinter implements IPreparer
 	}
 
 	// HACK: clean non-solution values out of setPots
-	private boolean cleanSetPots(Pots setPots) {
-		final int[] svs = grid.getSolutionValues();
-		if ( true ) { // unforgiving
-			for ( java.util.Map.Entry<Cell,Values> e : setPots.entrySet() )
-				if ( VFIRST[e.getValue().bits] != svs[e.getKey().i] )
-					throw new UncleanException("Invalid SetPot: "+e.getKey().id+PLUS+e.getValue().first()+NOT_EQUALS+svs[e.getKey().i]);
-		} else { // forgiving
-			Cell cell;
-			Values values;
-			boolean first = true;
-			for ( Iterator<Cell> it=setPots.keySet().iterator(); it.hasNext(); ) {
-				if ( (values=setPots.get(cell=it.next())).first() != svs[cell.i] ) {
-					if ( CHECK_NOISE )
-						Log.println("WARN: GEM: Promo: Invalid SetPot: "+cell.id+PLUS+values.first()+NOT_EQUALS+svs[cell.i]);
-					if ( wantWhy ) {
-						if ( first ) {
-							first = false;
-							steps.append(NL).append("<u>Invalid SetPots</u>").append(NL);
-						}
-						steps.append(KON).append(BOLDON).append(cell.id).append(PLUS).append(values.first())
-						  .append(NOT_EQUALS).append(svs[cell.i]).append(BOLDOFF).append(KOFF).append(NL);
-					}
-					it.remove(); // <<<<<<< ==== NEEDS THE ITERATOR !!!!!
-				}
-			}
+	private boolean cleanSetPots(Pots sets, AHint hint) {
+		final int[] svs = grid.getSolutionValues(); // solutionValues
+		for ( java.util.Map.Entry<Cell,Integer> e : sets.entrySet() ) {
+			int hv = VFIRST[e.getValue()]; // hintValue
+			Cell cell = e.getKey();
+			int sv = svs[cell.i]; // solutionValue
+			if ( hv != sv )
+//				throw new UncleanException(
+				throw new UnsolvableException(
+						"Invalid SetPot: "+cell.id+PLUS+hv+NOT_EQUALS+sv+NL
+						+grid+NL
+						+hint.toFullString()+NL
+				);
 		}
-		return !setPots.isEmpty(); // return any remaining cell-values to set?
+		return !sets.isEmpty(); // return anything remaining?
 	}
 
 	// HACK: clean solution values out of redPots
-	private boolean cleanRedPots() {
+	private boolean cleanRedPots(Pots reds, AHint hint) {
 		final int[] svs = grid.getSolutionValues();
-		if ( true ) { // unforgiving
-			for ( java.util.Map.Entry<Cell,Values> e : redPots.entrySet() )
-				if ( VFIRST[e.getValue().bits] == svs[e.getKey().i] )
-					throw new UncleanException("Invalid Elimination: "+e.getKey().id+MINUS+e.getValue().first()+" is this cells value in the solution!");
-		} else { // forgiving
-			Cell cell;
-			Values values;
-			// is this the first invalid elimination?
-			boolean first = true;
-			// use an iterator to delete from it
-			for ( Iterator<Cell> it=redPots.keySet().iterator(); it.hasNext(); ) {
-				values = redPots.get(cell = it.next());
-				for ( int v : VALUESES[values.bits] )
-					if ( svs[cell.i] == v ) {
-						if ( CHECK_NOISE )
-							Log.println("WARN: GEM: Promo: Invalid Elimination: "+cell.id+MINUS+v+" is this cells value!");
-						if ( wantWhy ) {
-							if ( first ) {
-								first = false;
-								steps.append(NL).append("<u>Invalid Eliminations</u>").append(NL);
-							}
-							steps.append(BON).append(KON).append(cell.id).append(PLUS).append(v)
-							  .append(BOFF).append(KOFF).append(" is this cells value!").append(NL);
-						}
-						if ( values.remove(v) == 0 )
-							it.remove();
-					}
+		Iterator<Map.Entry<Cell,Integer>> it = reds.entrySet().iterator();
+		while ( it.hasNext() ) {
+			Map.Entry<Cell,Integer> e = it.next();
+			Cell cell = e.getKey();
+			Integer cands = e.getValue();
+			if ( cell==null || cands==null )
+				it.remove(); // BFIIK!
+			else {
+				final int sv = svs[cell.i]; // solutionValue
+				for ( int v : VALUESES[cands] )
+					if ( v == sv )
+//						throw new UncleanException(
+						throw new UnsolvableException(
+							"Invalid Elimination: "+cell.id+MINUS+v+" is solution value!"+NL
+							+grid+NL
+							+hint.toFullString()+NL
+						);
 			}
 		}
-		return !redPots.isEmpty(); // return any eliminations remaining
+		return !reds.isEmpty(); // return anything remaining?
+	}
+
+	/**
+	 * ValueScore is the score for each value; only used in the startingValues
+	 * method, to keep the value WITH it's score, so that we can sort the array
+	 * by score descending and keep the value. The array is unsorted back to
+	 * value order (including 0) at the start of each startingValues run.
+	 */
+	private static class ValueScore {
+		public final int value;
+		public int score;
+		ValueScore(int value) {
+			this.value = value;
+		}
+		// debug only, not used in actual code
+		@Override
+		public String toString() {
+			return ""+value+": "+score;
+		}
+		/** just reset the score to 0 (value is final). */
+		private void clear() {
+			score = 0;
+		}
+	}
+
+	/** A distinctive subtype of RuntimeException. */
+	private static final class OverpaintException extends IllegalStateException {
+		private static final long serialVersionUID = 720396129058L;
+		public OverpaintException(String msg) {
+			super(msg);
+		}
+	}
+
+	/** A distinctive subtype of RuntimeException used by search stops find. */
+	private static final class StopException extends RuntimeException {
+		private static final long serialVersionUID = 68198734001267L;
+	}
+
+	/**
+	 * A distinctive subtype of RuntimeException thrown by create[Big]Hint when
+	 * a bad Elimination [or SetPot] is detected.
+	 *
+	 * This the more extreme way to handle it, for when you think you're on top
+	 * of invalid hints. If you're getting invalid hints then comment out my
+	 * throw an uncomment the "programmer friendly" handlers, but don't forget
+	 * to put me back. Users should NEVER see "Invalid Eliminations" in a hint
+	 * explanation, because it makes them distrust ALL of your software, not
+	 * just the small part they shouldn't trust, mainly coz they haven't got a
+	 * clue, and really don't want one; that's WHY they're using software to
+	 * get nice fat hints. Don't scare the chooks! Gobble, gobble, gobble.
+	 *
+	 * NOTE that GEM is disabled (for this puzzle only) whenever this exception
+	 * is thrown.
+	 */
+	private static class UncleanException extends RuntimeException {
+		private static final long serialVersionUID = 64099692026011L;
+		public UncleanException(String msg) {
+			super(msg);
+		}
 	}
 
 }

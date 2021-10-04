@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -74,8 +73,6 @@ implements
 	// I think we're starting to become memory bound, so large "helper sets"
 	// like this one start to overwork the GC, so everything bogs down.
 	private final NonHinters nonHinters = new NonHinters(64*1024, 3);
-	// What's that Skip? Why it's the skipper skipper flipper Flipper.
-	private boolean firstPass = true;
 
 //	//useless: protected final Counter cnt1col = new Counter("cnt1col");
 //	//useless: protected final Counter cnt1sib = new Counter("cnt1sib");
@@ -106,8 +103,8 @@ implements
 
 //	private java.io.PrintStream myLog = open("a8e.log", standardHeader());
 
-	public Aligned8Exclusion_1C(IInterruptMonitor monitor) {
-		super(monitor, IO.A8E_1C_HITS);
+	public Aligned8Exclusion_1C() {
+		super(IO.A8E_1C_HITS);
 	}
 
 	@Override
@@ -123,16 +120,8 @@ implements
 	}
 
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
-		// it's just easier to set firstPass ONCE, rather than deal with it in
-		// each of the multiple exit-points from what is now findHintsImpl.
-		boolean ret = findHintsImpl(grid, accu);
-		firstPass = false;
-		return ret;
-	}
-
 	@SuppressWarnings("fallthrough")
-	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
+	public boolean findHints(Grid grid, IAccumulator accu) {
 
 		// these 4 vars are "special" for processing top1465.d5.mt faster
 		// localise hackTop1465 for speed (and to make it final).
@@ -161,11 +150,11 @@ implements
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values.SHIFTED.
+		// that are packed into your maybes 0..511. See Values.SHIFTED.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 2 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -220,7 +209,7 @@ implements
 		// the set which are siblings of this cell. This is more code than
 		// "skip collision" (as per A234E) but it is faster, because it does
 		// more of the work less often.
-		// c1b0 is an acronymn for: c1 bits zero, meaning the maybes.bits of c1
+		// c1b0 is an acronymn for: c1 bits zero, meaning the maybes of c1
 		// minus v0 (presuming that c1 is a sibling of c0).
 		int c0b, c1b , c2b , c3b , c4b , c5b , c6b , c7b ;
 		int		       c2b0, c3b0, c4b0, c5b0, c6b0, c7b0;
@@ -309,8 +298,7 @@ implements
 										continue;
 									cells[6] = candidates[i6];
 									if(hitMe && cells[6]!=hitCells[6]) continue;
-									if ( isInterrupted() )
-										return false;
+									interrupt();
 									for ( i7=i6+1; i7<numCandidates; ++i7 ) {
 										if ( excluders[candidates[i7].i].idx1(idx07, idx06) )
 											continue;
@@ -346,7 +334,7 @@ implements
 											if(col<9 || col>62) continue;
 //											++colCnt.pass;
 
-											// filter by total cells.maybes.size
+											// filter by total cells.maybesSize
 											mbs = totalMaybesSize; // from countCollisions
 //											mbsCnt.count(mbs);
 											// mbsCnt min=17/16 max=34/48 pass 1,146,988,339 of 1,202,308,440 skip 55,320,101 = 4.60%
@@ -367,7 +355,7 @@ implements
 //											++maxMbs.cnt;
 //											fives = sixes = sevns = eigts = 0;
 //											for ( Cell cell : cells )
-//												switch ( cell.maybes.size ) {
+//												switch ( cell.maybesSize ) {
 //												case 9: //fallthrough // 9 is the maximum possible
 //												case 8: ++eigts; //fallthrough
 //												case 7: ++sevns; //fallthrough
@@ -385,7 +373,7 @@ implements
 
 										// get the common excluder cells from grid at idx07
 										if ( (numCmnExcls = idx07.cellsN(grid, cmnExcls)) == 1 ) {
-											cmnExclBits[0] = cmnExcls[0].maybes.bits;
+											cmnExclBits[0] = cmnExcls[0].maybes;
 											numCmnExclBits = 1;
 										} else {
 											// performance enhancement: examine smaller maybes sooner.
@@ -429,21 +417,21 @@ implements
 										// the dog____ing algorithm is faster with dodgem-cars to the left,
 										// but the above for-i-loops need a static cells array; so we copy
 										// cells to scells (sortedCells) and sort that array DESCENDING by:
-										// 4*maybesCollisions + 2*commonExcluderHits + maybes.size
+										// 4*maybesCollisions + 2*commonExcluderHits + maybesSize
 										cc.set(cells, cmnExclBits, numCmnExclBits);
 										System.arraycopy(cells, 0, scells, 0, degree);
 										//MyTimSort.small(scells, degree, cc);
 										bubbleSort(scells, degree, cc);
 
 										// cache the sortedCells, and there maybes.
-										c0b = (c0=scells[0]).maybes.bits;
-										c1b = (c1=scells[1]).maybes.bits;
-										c2b = (c2=scells[2]).maybes.bits;
-										c3b = (c3=scells[3]).maybes.bits;
-										c4b = (c4=scells[4]).maybes.bits;
-										c5b = (c5=scells[5]).maybes.bits;
-										c6b = (c6=scells[6]).maybes.bits;
-										c7b = (c7=scells[7]).maybes.bits;
+										c0b = (c0=scells[0]).maybes;
+										c1b = (c1=scells[1]).maybes;
+										c2b = (c2=scells[2]).maybes;
+										c3b = (c3=scells[3]).maybes;
+										c4b = (c4=scells[4]).maybes;
+										c5b = (c5=scells[5]).maybes;
+										c6b = (c6=scells[6]).maybes;
+										c7b = (c7=scells[7]).maybes;
 
 										// build the isNotSibingsOf cache
 										ns10 = c1.notSees[c0.i];
@@ -1140,12 +1128,12 @@ implements
 		// build the excluder-sibling-cells-set of each candidate cell
 		// foreach cell in grid which has more than one potential value
 		CELL_LOOP: for ( Cell cell : grid.cells ) {
-			if ( cell.maybes.size > 1 ) {
-				// find cells excluders: ie siblings with maybes.size 2..5
+			if ( cell.size > 1 ) {
+				// find cells excluders: ie siblings with maybesSize 2..5
 				for ( Cell sib : cell.siblings ) { // 81*20=1620
-					// sib is an excluder if it has maybes.size 2..degree
+					// sib is an excluder if it has maybesSize 2..degree
 					// optimise: do the < first because it's more deterministic.
-					if ( (card=sib.maybes.size)<degreePlus1 && card>1 ) {
+					if ( (card=sib.size)<degreePlus1 && card>1 ) {
 						if ( set == null )
 							set = new CellSet(); //slow constructor, O(1) contains
 						set.add(sib);
@@ -1160,7 +1148,7 @@ implements
 					// remember what it meant.
 					// Does this hold true for 9 and as well?
 					// IBFIIK: I'll work that s__t out another day.
-					if ( cell.maybes.size>=8 ) // kinky boots!
+					if ( cell.size >= 8 ) // kinky boots!
 						System.out.format("fBomb: %s: %d %d %s\n"
 							, classNameOnly
 							, grid.source==null ? 0 : grid.source.lineNumber

@@ -245,11 +245,11 @@ class TechSelectDialog extends JDialog {
 	// create a new hacked JCheckBox
 	private static JCheckBox newHackBox(final String settingName) {
 		final JCheckBox box = new JCheckBox("hacked");
-		box.setSelected(THE_SETTINGS.get(settingName));
+		box.setSelected(THE_SETTINGS.getBoolean(settingName));
 		box.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				THE_SETTINGS.set(settingName, box.isSelected());
+				THE_SETTINGS.setBoolean(settingName, box.isSelected());
 			}
 		});
 		return box;
@@ -354,10 +354,8 @@ class TechSelectDialog extends JDialog {
 		THE_SETTINGS.save();
 		setVisible(false);
 		engine.clearHints();
-		Log.teeln("\nTechSelectDialog updated wanted hinters...");
+		Log.teeln("\nTechSelectDialog updating wanted hinters...");
 		engine.recreateLogicalSolver();
-		engine.solver.printWantedEnabledHinters(System.out);
-		engine.solver.printWantedEnabledHinters(Log.log);
 		parentFrame.refreshDisabledRulesWarning();
 		dispose();
 	}

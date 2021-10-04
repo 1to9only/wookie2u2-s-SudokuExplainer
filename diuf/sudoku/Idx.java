@@ -9,7 +9,8 @@ package diuf.sudoku;
 import static diuf.sudoku.Grid.BUDDIES;
 import static diuf.sudoku.Grid.CELL_IDS;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Grid.CellFilter;
+import diuf.sudoku.utils.IFilter;
+import diuf.sudoku.utils.IVisitor;
 import java.io.Serializable;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -146,6 +147,13 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		}
 	}
 
+	public static Idx empty() {
+		return new Idx(); // they're empty by default
+	}
+	public static Idx full() {
+		return new Idx(true); // they're full by adding a dodgy true
+	}
+
 	/**
 	 * Returns a new Idx containing the given cell indice.
 	 *
@@ -203,6 +211,16 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
+	 * Returns a new Idx containing a copy of src.
+	 *
+	 * @param src Idx (which could be an IdxL or IdxI)
+	 * @return
+	 */
+	static Idx of(Idx src) {
+		return new Idx(src);
+	}
+
+	/**
 	 * Returns is size(a0,a1,a2) &lt;= max.
 	 *
 	 * @param a0
@@ -237,13 +255,36 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param csv a comma separated values String of Cell.id's.
 	 * @return a new Idx.
 	 */
-	public static final Idx parse(final String csv) {
+	public static final Idx parseCsv(final String csv) {
 		final Idx idx = new Idx();
 		if ( csv==null || csv.isEmpty() )
 			return idx;
 		final Pattern pattern = Pattern.compile("[A-I][1-9]");
 		for ( final String id : csv.split(" *, *") ) // box 6, row 9, col A
 			if ( pattern.matcher(id).matches() ) // ignore crap, just in case
+				//        col               +  row
+				idx.add( (id.charAt(0)-'A') + ((id.charAt(1)-'1')*9) );
+		return idx;
+	}
+
+	/**
+	 * Parse an Idx from SSV (space separated values) of Cell.id's.
+	 * <p>
+	 * For example: "E3 H3 I3 H8 I8 E6 I6"
+	 * <p>
+	 * Note that this is Idx's standard toString format! So WTF was I
+	 * thinking implementing CSV and not SSV? I'm a putz!
+	 *
+	 * @param ssv space separated values (Cell.id's).
+	 * @return a new Idx.
+	 */
+	public static final Idx parseSsv(final String ssv) {
+		final Idx idx = new Idx();
+		if ( ssv==null || ssv.isEmpty() )
+			return idx;
+		final Pattern pattern = Pattern.compile("[A-I][1-9]");
+		for ( final String id : ssv.split(" +") )
+			if ( pattern.matcher(id).matches() )
 				//        col               +  row
 				idx.add( (id.charAt(0)-'A') + ((id.charAt(1)-'1')*9) );
 		return idx;
@@ -500,6 +541,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Set this = src.
+	 *
 	 * @param src
 	 * @return this Idx, for method chaining.
 	 */
@@ -512,6 +554,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Set this = trues in b.
+	 *
 	 * @param bits an array of 81 booleans
 	 * @return this Idx, for method chaining.
 	 */
@@ -565,7 +608,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 *
 	 * @param cells
 	 * @param indexes
-	 * @return
+	 * @return this Idx, for method chaining.
 	 */
 	public Idx set(Cell[] cells, int[] indexes) {
 		a0 = a1 = a2 = 0;
@@ -580,7 +623,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param m0 the mask of the first 27 indices in the Idx
 	 * @param m1 the mask of the second 27 indices in the Idx
 	 * @param m2 the mask of the third 27 indices in the Idx
-	 * @return any?
+	 * @return not empty
 	 */
 	public boolean setAny(int m0, int m1, int m2) {
 		a0 = m0;
@@ -608,7 +651,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 *
 	 * @param aa
 	 * @param bb
-	 * @return
+	 * @return not empty
 	 */
 	public boolean setAndAny(Idx aa, Idx bb) {
 		a0 = aa.a0 & bb.a0;
@@ -623,7 +666,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param aa
 	 * @param bb
 	 * @param cc
-	 * @return
+	 * @return not empty
 	 */
 	public boolean setAndAny(Idx aa, Idx bb, Idx cc) {
 		a0 = aa.a0 & bb.a0 & cc.a0;
@@ -637,7 +680,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 *
 	 * @param aa
 	 * @param bb
-	 * @return
+	 * @return 2 or more
 	 */
 	public boolean setAndMany(Idx aa, Idx bb) {
 		a0 = aa.a0 & bb.a0;
@@ -652,13 +695,26 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param aa
 	 * @param bb
 	 * @param min
-	 * @return
+	 * @return this Idx, for method chaining.
 	 */
 	public boolean setAndMin(Idx aa, Idx bb, int min) {
 		a0 = aa.a0 & bb.a0;
 		a1 = aa.a1 & bb.a1;
 		a2 = aa.a2 & bb.a2;
 		return (a0|a1|a2)!=0 && size()>=min;
+	}
+
+	/**
+	 * Set this = src then remove indice and return self.
+	 *
+	 * @param src the source Idx
+	 * @param indice to be removed
+	 * @return this Idx, for method chaining.
+	 */
+	public Idx setExcept(Idx src, int indice) {
+		set(src);
+		remove(indice);
+		return this;
 	}
 
 	/**
@@ -834,7 +890,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Mutate this &= other.
+	 * Mutate this &= aa.
 	 *
 	 * @param aa
 	 * @return this Idx, for method chaining.
@@ -843,6 +899,20 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		a0 &= aa.a0;
 		a1 &= aa.a1;
 		a2 &= aa.a2;
+		return this;
+	}
+
+	/**
+	 * Mutate this = this & aa & bb.
+	 * Two and's, no waiting.
+	 * @param aa
+	 * @param bb
+	 * @return this Idx, for method chaining.
+	 */
+	public Idx and(Idx aa, Idx bb) {
+		a0 &= aa.a0 & bb.a0;
+		a1 &= aa.a1 & bb.a1;
+		a2 &= aa.a2 & bb.a2;
 		return this;
 	}
 
@@ -1184,6 +1254,13 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return array;
 	}
 
+	public boolean[] toArrayBooleanNew() {
+		final boolean[] result = new boolean[81];
+		forEach((i)->result[i]=true);
+		return result;
+	}
+
+	// You can't use IFilter on a primitive
 	public static interface IndiceFilter {
 		public boolean accept(int indice);
 	}
@@ -1451,10 +1528,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	// ------------------------- Just visiting! -------------------------------
 
-	public interface CellVisitor {
-		void visit(Cell cell);
-	}
-	public int forEach(Cell[] cells, CellVisitor v) {
+	public int forEach(Cell[] cells, IVisitor<Cell> v) {
 		int bits, j, count = 0;
 		if ( (bits=a0) != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
@@ -1589,6 +1663,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	// cellsN is hammered by Aligned*Exclusion, so we create ONE instance of
 	// CellsNVisitor, just to be more memory efficient, that's all.
+	// package visible for the test-case
 	private static final class CellsNVisitor implements Visitor2 {
 		/** source cells to copy from */
 		public Cell[] src;
@@ -1599,6 +1674,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			dest[count] = src[indice];
 		}
 	}
+	// package visible for the test-case
 	private static final CellsNVisitor CELLS_N_VISITOR = new CellsNVisitor();
 	/**
 	 * Get the cells from the given Grid at indices in this Idx. Use this one
@@ -1629,7 +1705,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		public int[] maybes;
 		@Override
 		public void visit(int count, int indice) {
-			maybes[count] = grid.cells[indice].maybes.bits;
+			maybes[count] = grid.cells[indice].maybes;
 		}
 	}
 	public static final CellsMaybesVisitor CELLS_MAYBES_VISITOR = new CellsMaybesVisitor();
@@ -1645,8 +1721,18 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param grid the grid to read cells from
 	 * @return the {@code Cell[]} from the Grid.cas (cache) so clone to keep.
 	 */
-	public Cell[] cells(Grid grid) {
-		return cells(grid, Cells.array(size()));
+	public Cell[] cellsA(Grid grid) {
+		return cells(grid, Cells.arrayA(size()));
+	}
+
+	/**
+	 * Just like cells (above) but using a second CAS, so that you can stick
+	 * a cellsB loop inside of a cells loop. Pretty snazy.
+	 * @param grid
+	 * @return an array from Cells.CASB populated with the cells in this Idx.
+	 */
+	public Cell[] cellsB(Grid grid) {
+		return cells(grid, Cells.arrayB(size()));
 	}
 
 	// ----------------------------- stringy stuff ----------------------------
@@ -1754,7 +1840,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return 0;
 	}
 
-	public Idx where(final Cell[] cells, final CellFilter f) {
+	public Idx where(final Cell[] cells, final IFilter<Cell> f) {
 		int bits, j, r0=0,r1=0,r2=0; // the result
 		if ( (bits=a0) != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
@@ -1774,7 +1860,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return new Idx(r0,r1,r2);
 	}
 
-	public int cellsWhere(final Cell[] src, final Cell[] dest, final CellFilter f) {
+	public int cellsWhere(final Cell[] src, final Cell[] dest, final IFilter<Cell> f) {
 		int bits, j, cnt=0;
 		Cell c;
 		if ( (bits=a0) != 0 )

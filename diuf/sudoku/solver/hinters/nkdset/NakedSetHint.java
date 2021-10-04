@@ -73,7 +73,7 @@ public final class NakedSetHint extends AHint implements IChildHint {
 		int rmvdBits;
 		for ( Cell c : nkdSetCellList )
 			// removed := initial cell maybes minus nakedSetValues (may be 0)
-			if ( (rmvdBits=initGridCells[c.i].maybes.bits & ~bits) != 0 )
+			if ( (rmvdBits=initGridCells[c.i].maybes & ~bits) != 0 )
 				for ( int v : VALUESES[rmvdBits] )
 					// my parent Ass must be applied before I am applicable
 					result.add(parentOffs.getAss(c, v));

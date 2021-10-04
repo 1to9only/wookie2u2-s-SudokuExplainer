@@ -40,13 +40,13 @@ public final class Bug4Hint extends ABugHint  {
 	private final Cell bugCell1;
 	private final Cell bugCell2;
 //	private final Map<Cell, Values> extraValues;
-	private final Values allExtraValues;
-	private final int valueToRemove; // removable value appearing on both cells
+	private final Integer allExtraValues;
+	private final Integer valueToRemove; // removable value appearing on both cells
 	private final ARegion region;
 
 	public Bug4Hint(AHinter hinter, Pots redPots, Cell bugCell1
-			, Cell bugCell2, Map<Cell, Values> extraValues
-			, Values allExtraValues, int valueToRemove, ARegion region) {
+			, Cell bugCell2, Map<Cell, Integer> extraValues
+			, Integer allExtraValues, int valueToRemove, ARegion region) {
 		super(hinter, redPots);
 		this.bugCell1 = bugCell1;
 		this.bugCell2 = bugCell2;
@@ -64,8 +64,8 @@ public final class Bug4Hint extends ABugHint  {
 	@Override
 	public Pots getOranges(int viewNum) {
         Pots result = new Pots();
-        result.put(bugCell1, new Values(valueToRemove)); // orange
-        result.put(bugCell2, new Values(valueToRemove)); // orange
+        result.put(bugCell1, valueToRemove); // orange
+        result.put(bugCell2, valueToRemove); // orange
         return result;
 	}
 
@@ -91,13 +91,15 @@ public final class Bug4Hint extends ABugHint  {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "Bug4Hint.html"
-			, Frmu.and(allExtraValues)				// {0}
-			, Frmu.and(bugCell1, bugCell2)			//  1
-			, Frmu.or(bugCell1, bugCell2)				//  2
-			, Frmu.or(allExtraValues)					//  3
-			, Integer.toString(valueToRemove)			//  4
-			, region.id									//  5
-			, Frmu.and(new Values(redPots.values()))	//  6
+			, Values.and(allExtraValues)		// {0}
+			, Frmu.and(bugCell1, bugCell2)		//  1
+			, Frmu.or(bugCell1, bugCell2)		//  2
+			, Values.or(allExtraValues)			//  3
+			, Integer.toString(valueToRemove)	//  4
+			, region.id							//  5
+//WTF!
+//			, Values.and(redPots.values())		//  6
+			, Values.and(allExtraValues)		//  6
 		);
 	}
 }

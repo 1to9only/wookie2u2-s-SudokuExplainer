@@ -20,16 +20,17 @@ import diuf.sudoku.solver.accu.SingleHintsAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.fish.BasicFisherman;
 import diuf.sudoku.solver.hinters.hdnset.HiddenSet;
+import diuf.sudoku.solver.hinters.lock.LockingSpeedMode;
 import diuf.sudoku.solver.hinters.single.HiddenSingle;
 import diuf.sudoku.solver.hinters.nkdset.NakedSet;
 import diuf.sudoku.solver.hinters.single.NakedSingle;
-import diuf.sudoku.solver.hinters.lock.Locking;
+import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.Log;
 import java.util.Random;
 
 /**
- * RecursiveAnalyser implements the Brute Force Sudoku solving technique. It
- * determines: Does this Sudoku have one-and-only-one solution? The Brute
+ * SingleSolution implements the Brute Force Sudoku solving technique.
+ * It determines: Does this Sudoku have one-and-only-one solution? The Brute
  * Force technique recursively guesses cell values, because it's FAST! We solve
  * the puzzle twice, once 'forwards' (smallest possible) and once 'backwards'
  * (largest possible) and if those two solutions are the same then the puzzle
@@ -44,7 +45,7 @@ import java.util.Random;
  * LogicalSolver, because we can easily get him from him factory, anywhere,
  * without having to pass bloody references around everywhere.
  */
-public final class RecursiveAnalyser extends AWarningHinter {
+public final class SingleSolution extends AWarningHinter {
 
 	/** If true && VERBOSE_3_MODE then I write stuff to Log.out */
 	private static final boolean IS_NOISY = false; // @check false
@@ -111,18 +112,18 @@ public final class RecursiveAnalyser extends AWarningHinter {
 
 	/**
 	 * This constructor is only used by the test-cases, where I don't want
-	 * to create a LogicalSolver in order to create a RecursiveAnalyser.
+	 * to create a LogicalSolver in order to create a SingleSolution.
 	 */
-	public RecursiveAnalyser() {
+	public SingleSolution() {
 		super(Tech.SingleSolution);
 		accu = new SingleHintsAccumulator();
-		apcu = new HintsApplicumulator(AHint.printHintHtml, true);
+		apcu = new HintsApplicumulator(AHint.printHintHtml);
 		this.singlesHinters = new AHinter[] {
 			  new HiddenSingle() // NB: hidden first, coz it's quicker this way
 			, new NakedSingle()  // when we run them both anyway.
 		};
 		this.fourQuickFoxes = new AHinter[] {
-			  new Locking(apcu) // nb: the apcu applies hints immediately
+			  new LockingSpeedMode(apcu) // apcu applies hints immediately
 			, new NakedSet(Tech.NakedPair)
 			, new HiddenSet(Tech.HiddenPair)
 			, new BasicFisherman(Tech.Swampfish)
@@ -130,19 +131,19 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	}
 
 	/**
-	 * Constructs a new RecursiveAnalyser using hinters of this solver.
+	 * Constructs a new SingleSolution using hinters of this solver.
 	 * @param solver
 	 */
-	public RecursiveAnalyser(LogicalSolver solver) {
+	public SingleSolution(LogicalSolver solver) {
 		super(Tech.SingleSolution);
 		accu = new SingleHintsAccumulator();
-		apcu = new HintsApplicumulator(AHint.printHintHtml, true);
+		apcu = new HintsApplicumulator(AHint.printHintHtml);
 		this.singlesHinters = new AHinter[] {
-			  solver.getHiddenSingle() // NB: hidden first, coz it's quicker this way
+			  solver.getHiddenSingle() // NB: hidden first, for speed
 			, solver.getNakedSingle()  // when we run them both anyway.
 		};
 		this.fourQuickFoxes = new AHinter[] {
-			  new Locking(apcu) // nb: the apcu applies hints immediately
+			  new LockingSpeedMode(apcu) // always create a new one!
 			, solver.getNakedPair()
 			, solver.getHiddenPair()
 			, solver.getSwampfish()
@@ -161,7 +162,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 		final Grid solution = new Grid();
 		try {
 			apcu.grid = solution;
-			boolean success = recursiveSolve(solution, 1, false, rnd, false);
+			boolean success = recursiveSolve(solution, 1, FORWARDS, rnd);
 			assert success;
 		} finally {
 			apcu.grid = null;
@@ -175,7 +176,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * The meaning of the returned value is:<ul>
 	 *  <li><b>0</b> means the Sudoku has no solution (ie is invalid).
 	 * <pre>This actually means that we failed to solve the puzzle
-	 * using RecursiveAnalyser (ie Knuths Brute Force algorithm)
+	 * using SingleSolution (ie Knuths Brute Force algorithm)
 	 * and the Four Quick Foxes:
 	 *   * Locking using the HintsApplicumulator
 	 *   * NakedSet(Tech.NakedPair)
@@ -186,7 +187,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * or (most likely) the-most-recently-modified-hinter produced
 	 *    an invalid hint so use the HintValidator;
 	 * or (less likely) s__t broke in the Four Quick Foxes;
-	 * or (wtf) HintsApplicumulator or RecursiveAnalyser is rooted.
+	 * or (wtf) HintsApplicumulator or SingleSolution is rooted.
 	 *    Start with whichever has changed most recently.</pre>
 	 *  <li><b>1</b> means the Sudoku has exactly one solution (ie is valid)
 	 *  <li><b>2</b> means the Sudoku has <b>more than one</b> solution (ie is
@@ -194,18 +195,20 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * </ul>
 	 *
 	 * @param grid the Sudoku grid
-	 * @param isNoisy makes the tabanid refry fairy dust on Tuesdays
 	 * @return int the number of solutions to this puzzle (see above)
 	 */
-	public int countSolutions(Grid grid, boolean isNoisy) {
-		Grid f = new Grid(grid); // forwardsSolution
-		if ( !doRecursiveSolve(f, FORWARDS, isNoisy) )
-			return 0; // no solution
-		Grid b = new Grid(grid); // backwardsSolution
-		doRecursiveSolve(b, BACKWARDS, isNoisy);
+	public int countSolutions(final Grid grid) {
+		// NOTE: rebuild the maybes here before we countSolutions
+		// (generate only place were grid IS borken; so fix here).
+		Grid f = new Grid(grid); // forwards
+		if ( !doRecursiveSolve(f, FORWARDS) )
+			return 0; // 0 solutions
+		Grid b = new Grid(grid); // backwards
+		if ( !doRecursiveSolve(b, BACKWARDS) )
+			return 0; // 0 solutions (should never happen)
 		if ( f.equals(b) )
-			return 1; // 1 solution means the Sudoku is valid.
-		return 2; // 2 means 2-or-more.
+			return 1; // 1 solution: the Sudoku is valid.
+		return 2; // 2-or-more solutions: the Sudoku is invalid
 	}
 
 	/**
@@ -217,10 +220,10 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 */
 	public Grid solveASAP(Grid grid) {
 		final Grid solution = new Grid(grid);
-		if ( !doRecursiveSolve(solution, FORWARDS, false) )
+		if ( !doRecursiveSolve(solution, FORWARDS) )
 			throw new UnsolvableException("recursiveSolve failed. Puzzle is invalid (probable) or recursiveSolve is rooted again.");
 		// set the given grid's solution field to my solved copy
-		grid.solutionValues = solution.toValuesArray();
+		grid.solutionValues = solution.toValuesArrayNew();
 		if ( wantSolutionHint ) {
 			solutionHint = new SolutionHint(this, grid, solution);
 			wantSolutionHint = false;
@@ -246,7 +249,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 *    <li>WANTED so store the solution grid in Grid.solution,
 	 *     and add a SolutionHint to the IAccumulator.
 	 *    <li>Note that using a constructor field works here coz you ALWAYS
-	 *     create a RecursiveAnalyser (me), use me, and throw me away! You do
+	 *     create a SingleSolution (me), use me, and throw me away! You do
 	 *     NOT keep me hanging around like a bad smell to go off in the sun,
 	 *     except of course in LogicalSolver itself were we do exactly that,
 	 *     rather than wear repeat creation costs, so we CAREfully test him for
@@ -262,7 +265,6 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	@Override
 	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		// debug only: true logs each hint when it's applied (verbose)
-		final boolean isNoisy = false; // @check false
 		boolean result = false;
 		try {
 			final Grid f = new Grid(grid); // FORWARDS solution
@@ -271,13 +273,13 @@ public final class RecursiveAnalyser extends AWarningHinter {
 				if ( !new Grid.Diff(grid, f).diff(System.out) )
 					System.out.println("...same...");
 			}
-			if ( doRecursiveSolve(f, FORWARDS, isNoisy) ) {
+			if ( doRecursiveSolve(f, FORWARDS) ) {
 				final Grid b = new Grid(grid); // BACKWARDS solution
-				doRecursiveSolve(b, BACKWARDS, isNoisy);
+				doRecursiveSolve(b, BACKWARDS);
 				if ( b.equals(f) ) {
 					// the Sudoku is valid
 					// store the solution to this puzzle in the grid itself
-					grid.solutionValues = f.toValuesArray();
+					grid.solutionValues = f.toValuesArrayNew();
 					// cache hint in public field for later collection.
 					if ( wantSolutionHint )
 						solutionHint = new SolutionHint(this, grid, f);
@@ -294,9 +296,9 @@ public final class RecursiveAnalyser extends AWarningHinter {
 				// but are we just missing some maybe/s?
 				grid.copyTo(f);
 				// restore any missing maybes
-				f.rebuildMaybesAndS__t();
+//				f.rebuildMaybesAndS__t();
 				// solve it again Sam. Or not. sigh.
-				if ( !f.equals(grid) && doRecursiveSolve(f, BACKWARDS, false) ) {
+				if ( !f.equals(grid) && doRecursiveSolve(f, BACKWARDS) ) {
 					// Missing maybe/s: a cells solution value has been removed
 					// from its potential values, so the puzzle is unsolvable.
 					accu.add(new WarningHint(this, "Missing maybes", "NoMissingMaybes.html"));
@@ -306,6 +308,8 @@ public final class RecursiveAnalyser extends AWarningHinter {
 				}
 				result = true;
 			}
+		} catch (Exception ex) {
+			Log.teeTrace(Log.me()+" caught "+ex, ex);
 		} finally {
 			wantSolutionHint = false; // reset it for next time
 		}
@@ -322,11 +326,12 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * @return <tt>true</tt> if the grid has been solved successfully
 	 * (in which case the grid is filled with the solution), or
 	 * <tt>false</tt> if the grid has no solution. */
-	private boolean doRecursiveSolve(Grid grid, boolean isReverse, boolean isNoisy) {
+	private boolean doRecursiveSolve(Grid grid, boolean isReverse) {
 		boolean result;
 		try {
 			apcu.grid = grid;
-			result = recursiveSolve(grid, 1, isReverse, null, isNoisy);
+			grid.rebuildMaybes();
+			result = recursiveSolve(grid, 1, isReverse, null);
 		} catch (UnsolvableException unexpected) { // from the top level.
 			result = false; // Sudoku is invalid.
 		} finally {
@@ -350,21 +355,21 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 * solving logic). It's pretty fast.
 	 */
 	private boolean recursiveSolve(final Grid grid, final int depth
-			, final boolean isReverse, final Random rnd
-			, final boolean isNoisy) {
+			, final boolean isReverse, final Random rnd) {
 		assert depth < 81;
-		// hasMissingMaybes() || firstDoubledValue()!=0 || hasHomelessValues()
-		if ( grid.isInvalidated() )
-			return false;
+// generate: these are more trouble than they're worth!
+//		// hasMissingMaybes() || firstDoubledValue()!=0 || hasHomelessValues()
+//		if ( grid.isInvalidated() )
+//			return false;
 		// (1) Fill-in whatever you can logically (faster than just guessing)
-		if ( solveLogically(grid, isNoisy) )
+		if ( solveLogically(grid) )
 			return true;
 		// (2) Find the cell with the smallest number of potential values.
 		//     nb: the first cell with two potential values is returned, which
 		//     fits in with above solveLogically that fills-in any cells with
 		//     only one remaining potential value (ie Naked Singles).
-		final Cell leastCell = getLeastCell(grid);
-		if ( leastCell == null ) // grid was solved by previous set
+		final Cell smallestCell = getSmallestCell(grid);
+		if ( smallestCell == null ) // grid was solved by previous set
 			return true;
 		// (3) Try each potential value for that cell
 		// we need a savePoint to revert to if/when we guess a wrong value.
@@ -377,7 +382,7 @@ public final class RecursiveAnalyser extends AWarningHinter {
 		// use an array of int[maxDepth][9] and a size=int[maxDepth]. I wonder
 		// what the ACTUAL maxDepth is? Theoretically it's 80-17=63 for solve,
 		// and I guess 80 for generate.
-		final int[] values = getValuesToGuess(leastCell, rnd, isReverse);
+		final int[] values = getValuesToGuess(smallestCell, rnd, isReverse);
 		final int n = values.length;
 		int i = 0;
 		for (;;) {
@@ -385,10 +390,10 @@ public final class RecursiveAnalyser extends AWarningHinter {
 				// Guess the value of leastCell
 				// nb: cell.set(... true) also sets any subsequent naked
 				//     or hidden singles, and may throw UnsolvableException
-				leastCell.set(values[i], 0, true, null); // Grid.AUTOSOLVE
-				if ( recursiveSolve(grid, depth+1, isReverse, rnd, isNoisy) )
+				smallestCell.set(values[i], 0, true, null); // Grid.AUTOSOLVE
+				if ( recursiveSolve(grid, depth+1, isReverse, rnd) )
 					return true;
-			} catch (UnsolvableException meh) {
+			} catch (UnsolvableException eaten) {
 				// guessed wrong, so guess again.
 			}
 			// note that if ++i==n then this is last possible value of cell, and
@@ -411,17 +416,15 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	 *
 	 * @throws throws UnsolvableException if the grid is found to be rooted.
 	 */
-	private boolean solveLogically(Grid grid, boolean isNoisy) {
-		// localise fields for speed
-		final HintsApplicumulator myApcu = apcu;
-		final IAccumulator myAccu = accu;
-
-		// reset my hint applicumulator (and my hint accumulator just in case)
-		myApcu.reset();
-		myAccu.reset();
-
+	private boolean solveLogically(Grid grid) {
 		AHint hint;
 		boolean any; // were any hints found in this pass through the hinters?
+		// localise fields for speed
+		final HintsApplicumulator apcu = this.apcu;
+		final IAccumulator accu = this.accu;
+		// reset my hint applicumulator (and my hint accumulator just in case)
+		apcu.reset();
+		accu.reset();
 		// We keep running through the hinters until nobody finds a hint,
 		// returning true immediately if the grid is filled (ie solved).
 		do {
@@ -429,36 +432,37 @@ public final class RecursiveAnalyser extends AWarningHinter {
 			// singles use the apcu where-as foxes are applied manually.
 			for ( AHinter hinter : singlesHinters )
 				// apcu immediately applies hints
-				if ( (hinter.findHints(grid, myApcu)) // throws UnsolvableException
+				if ( (hinter.findHints(grid, apcu)) // throws UnsolvableException
 				  && (any|=true)
-				  && grid.isFull() )
-					return true;
+				  && grid.numSet > 80 )
+					return true; // it's solved
 			for ( AHinter hinter : fourQuickFoxes )
 				// note that Locking is using the apcu "under the hood".
-				if ( hinter.findHints(grid, myAccu) // throws UnsolvableException
+				if ( hinter.findHints(grid, accu) // throws UnsolvableException
 				  // get any apply the hint
-				  && (hint=myAccu.getHint()) != null
+				  && (hint=accu.getHint()) != null
 				  && (any|=true)
 				  && hint.applyQuitely(true, grid) > 0 // throws UnsolvableException
-				  // before seeing if the grid is full
-				  && grid.isFull() )
-					return true;
+				  && grid.numSet > 80 )
+					return true;  // it's solved
 		} while ( any );
 		return false;
 	}
 
 	// ----------------------- the guess a value section ----------------------
 
-	/** (2) Look for the cell with the least number of potential values,
-	 *     which is fastest because it gives us the highest probability
-	 *     of guessing correctly. */
-	private Cell getLeastCell(Grid grid) {
+	/**
+	 * (2) Look for the cell with the smallest number of potential values,
+	 *     which is fastest because it gives us the highest probability of
+	 *     guessing correctly.
+	 */
+	private Cell getSmallestCell(Grid grid) {
 		int card;
 		Cell leastCell = null;
 		int least = 10;
 		for ( Cell cell : grid.cells )
 			if ( cell.value == 0
-			  && (card=cell.maybes.size) < least ) {
+			  && (card=cell.size) < least ) {
 				leastCell = cell;
 				if ( (least=card) < 3 )
 					break; // no point looking any further
@@ -467,17 +471,17 @@ public final class RecursiveAnalyser extends AWarningHinter {
 	}
 
 	/**
-	 * (3) Try each potential value for the leastCell.
+	 * (3) Try each potential value of the smallestCell.
 	 * Note that reverse has no effect when rnd!=null; but AFAIK this is only
 	 * ever used forwards, never in reverse, so it doesn't matter.
 	 */
 	private int[] getValuesToGuess(Cell least, Random rnd, boolean reverse) {
 		int count, v, rv, value;
-		final int cands = least.maybes.bits;
+		final int cands = least.maybes;
 		// nb: values is a new array, else big cache! So try big cache, but its
 		// SLOWER! BFIIK! Upside is generating puzzle is already the fast part.
 		// Miss Sudoku is Mrs Lincoln Continental: Easy to fill. Hard to strip.
-		final int[] values = new int[least.maybes.size];
+		final int[] values = new int[least.size];
 		final int start; if(reverse) start=8;  else start=0; // INCLUSIVE
 		final int stop;  if(reverse) stop=-1;  else stop=9;  // EXCLUSIVE
 		final int delta; if(reverse) delta=-1; else delta=1; // back/forwards

@@ -387,9 +387,13 @@ final class RccFinder {
 						  && (bv0 & (avA=avAll[v]).a0 & (bi=b.vAll[v]).a0) == bv0
 						  && (bv1 & avA.a1 & bi.a1) == bv1
 						  && (bv2 & avA.a2 & bi.a2) == bv2 )
-							if ( rcc == null )
+							if ( rcc == null ) {
 								RCCS[numRccs++] = rcc = new Rcc(i, j, v);
-							else { // a rare second RC value in the one RCC
+								if ( numRccs+1 >= RCCS.length ) {
+									System.out.println("WARN: MAX_RCCS exceeded!");
+									return numRccs; // out of space, no crash!
+								}
+							} else { // a rare second RC value in the one RCC
 								rcc.v2 = v;
 								break; // there can NEVER be a third one!
 							}

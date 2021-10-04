@@ -61,6 +61,13 @@ public final class MyArrays {
 		return false;
 	}
 
+	public static boolean contains(final int[] array, final int n, final int target) {
+		for ( int i=0; i<n; ++i )
+			if ( array[i] == target ) // NB: reference equals is OK
+				return true;
+		return false;
+	}
+
 //not_used
 //	/**
 //	 * Does a contain the target Object. For speed, equals is reference-equals,

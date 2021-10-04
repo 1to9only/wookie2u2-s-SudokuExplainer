@@ -55,11 +55,13 @@ import java.util.List;
 	}
 
 	public static void carp(Grid grid, Exception ex, PrintStream out) {
+		out.flush();
 		out.println();
 		out.println(ex);
 		out.println();
 		out.println(grid);
 		out.println();
+		out.flush();
 		ex.printStackTrace(out);
 		out.println();
 		out.flush();

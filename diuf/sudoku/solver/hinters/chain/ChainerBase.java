@@ -12,18 +12,16 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.Ass.Cause;
-import static diuf.sudoku.Ass.Cause.CAUSE_FOR_REGION_TYPE;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.IFIRST;
+import diuf.sudoku.Run;
+import static diuf.sudoku.Settings.THE_SETTINGS;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.solver.hinters.ICleanUp;
 import diuf.sudoku.solver.hinters.HintValidator;
 import static diuf.sudoku.utils.Frmt.OR;
@@ -34,12 +32,12 @@ import diuf.sudoku.utils.Hash;
 import diuf.sudoku.utils.Log;
 import java.util.Collection;
 import java.util.Iterator;
-
+import static diuf.sudoku.Ass.Cause.CAUSE_FOR;
 
 /**
- * AChainer is an abstract engine for searching a Grid for forcing chains. It
- * is extended by UnaryChainer and by MultipleChainer to implement all Sudoku
- * solving techniques that involve following a chain of implications persueant
+ * ChainerBase is an abstract engine for searching a Grid for forcing chains.
+ * It's extended by UnaryChainer and MultipleChainer to implement all Sudoku
+ * solving techniques that involve following a chain of implications persuent
  * to an assumption of the value of a Cell within the Grid, including all types
  * of Forcing Chains and Bidirectional Cycles.
  * <p>
@@ -82,7 +80,7 @@ import java.util.Iterator;
  * <p>
  * KRC 2011-11-01 I've split the existing Chainer class into UnaryChainer and
  * MultipleChainer, leaving the shared methods in this class, which is now
- * abstract, so is now AChainer. I'm doing this because the methods and even
+ * abstract, so is now ChainerBase. I'm doing this because the methods and even
  * fields of Unary and Multiple chaining are disjunct, especially at the upper
  * levels; they really only share the onToOff and OffToOn methods, and the few
  * differences between the two at the bottom levels are handled with call-backs
@@ -95,7 +93,7 @@ import java.util.Iterator;
  * too deep into this s__t to judge) followed. Mind you, using inheritance to
  * make things simpler sounds oxymoronic.
  */
-public abstract class AChainer extends AHinter
+abstract class ChainerBase extends AHinter
 		implements ICleanUp
 {
 //	/** If true && VERBOSE_3_MODE then I write stuff to Log.out */
@@ -139,31 +137,59 @@ public abstract class AChainer extends AHinter
 	protected final boolean isNishio;
 	/** Is this Chainer imbedded (nested) inside another Chainer? */
 	protected final boolean isImbedded;
-	/** interruptMonitor.isInterrupted() means please stop-now. */
-	protected final IInterruptMonitor interruptMonitor;
 
-	private final HintsList hints = new HintsList();
+	/**
+	 * I retain a list of hints.
+	 */
+	private final HintCache cache;
 
 	/**
 	 * Constructs an abstract Chainer: an engine for searching a Sudoku Grid
 	 * for forcing chains.
+	 * <p>
+	 * My cache (an implementation of HintCache) is constructed when the hinter
+	 * is created (ie when the LogicalSolver is constructed) based on the
+	 * <b>CURRENT</b> isFilteringHints setting, unlike other isFilteringHints
+	 * features the caching-implementation used doesn't change when you switch
+	 * on/off isFilteringHints, it's set for the life of the LogicalSolver, so
+	 * to switch on/off caching you have to set isFilteringHints and then go
+	 * into the TechSelectDialog (Options menu ~ Solving techniques...) and
+	 * press the [OK] button, which recreates the LogicalSolver.
+	 * <p>
+	 * When isFilteringHints is true I use a HintCacheFiltered which sorts
+	 * hints by there score (number of eliminations) descending, so that the
+	 * most effective hint is first.
+	 * When isFilteringHints is I use a plain-old HintCacheBasic which returns
+	 * hints in "natural order": the order in which they were added.
+	 *
 	 * @param tech a Tech with isChainer==true,
 	 * @param isImbedded true only when this is an imbedded hinter, ie is nested
 	 * inside another hinter.
 	 */
-	protected AChainer(Tech tech, boolean isImbedded, IInterruptMonitor im) {
+	protected ChainerBase(Tech tech, boolean isImbedded) {
 		super(tech);
 		assert tech.isChainer;
 		this.isMultiple	 = tech.isMultiple;
 		this.isDynamic	 = tech.isDynamic;
 		this.isNishio	 = tech.isNishio;
 		this.isImbedded  = isImbedded;
-		this.interruptMonitor = im;
+		// NEVER cache in a test-case (register as GUI to test the cache!)
+		if ( Run.type == Run.Type.TestCase )
+			cache = new HintCacheBasic();
+		// always cache in the batch
+		else if ( Run.type == Run.Type.Batch
+		  // or when isFiltering is switched-on
+		  || THE_SETTINGS.isFilteringHints() )
+			cache = new HintCacheSorted();
+		else
+			cache = new HintCacheBasic();
 		assert degree>=0 && degree<=5;
 	}
-	protected AChainer(Tech tech) {
-		this(tech, false, null); // not imbedded
-	}
+
+//not_used
+//	protected ChainerBase(Tech tech) {
+//		this(tech, false, null); // not imbedded
+//	}
 
 	/**
 	 * Clear out the hints cache.
@@ -173,7 +199,7 @@ public abstract class AChainer extends AHinter
 	 */
 	@Override
 	public void cleanUp() {
-		hints.clear();
+		cache.clear();
 	}
 
 	/**
@@ -183,9 +209,9 @@ public abstract class AChainer extends AHinter
 	 * findHints method to cache hints.
 	 *
 	 * @param grid Grid to search
-	 * @param hints HintsList to add hints to.
+	 * @param hints HintCache to add hints to.
 	 */
-	protected abstract void findChainHints(Grid grid, HintsList hints);
+	protected abstract void findChainHints(Grid grid, HintCache hints);
 
 	/**
 	 * {@inheritDoc}
@@ -204,60 +230,66 @@ public abstract class AChainer extends AHinter
 		// do NOT cache if I'm an imbedded hinter (buggers-up chaining)
 		// I do not understand why/how it buggers-up chaining, all I know is
 		// that when I put-in the cache NestedUnary produced invalid hints.
-		if ( !isImbedded && hints.size() > 0 ) {
+		if ( cache instanceof HintCacheSorted // ie, was isFilteringHints on when I was created
+		  && cache.size() > 0
+		  && !isImbedded // caching breaks imbedded chainers
+		  && Run.type!=Run.Type.TestCase // caching breaks test cases!
+		) {
 			AHint cached;
 			// nb: I poll: so I throw away the "dead wood"; hints are sorted by
 			// score (number of eliminations) DESCENDING, so we take the most
 			// effective hint (not simplest, but all hints come from the same
 			// Chainer, so they're in the same ball park atleast).
-			while ( (cached=hints.pollFirst()) != null )
+			while ( (cached=cache.pollFirst()) != null )
 				// if either any elimination in the cached hint is still there
-				if ( cached.redPots.anyCurrent()
-				  // or cached hint sets a cell which has not yet been set
-				  || cached.cell!=null && cached.cell.value==0 ) {
-					// -> then return the cached hint so that it is applied,
+				if ( cached.redPots != null ) {
+					if ( cached.redPots.anyCurrent()
+				      // or cached hint sets a cell which has not yet been set
+					  || cached.cell!=null && cached.cell.value==0
+					) {
+						// -> then return the cached hint so that it is applied,
+						accu.add(cached);
+						return true; // always, regardless of accu.add's retVal
+					}
+				} else { // Nothing to see here
 					accu.add(cached);
-					return true; // always, regardless of accu.add's retVal
 				}
 		}
+		
+		cache.clear();
 
 		// implemented by my subtypes to find the bloody hints.
-		findChainHints(grid, hints);
+		findChainHints(grid, cache);
 
 		if ( HintValidator.CHAINER_USES ) {
 			// valid nested hints, they've got problems!
 			if ( tech.isNested  )
-				validateTheHints(grid, hints);
+				validateTheHints(grid, cache);
 		}
 
 		processFunkyAssSizes();
 //		if ( IS_NOISY )
 //			noisef("\t\t\t%s %d hints%s", toString(), hints.size(), NL);
-		final int n = hints.size();
+		final int n = cache.size();
+		// no hints
 		if ( n == 0 )
-			return false; // we found no hints.
+			return false;
+		// flick-pass a single hint as itself
 		if ( n == 1 ) {
-			// allways just flick-pass a single hint as itself
-			accu.add(hints.pollFirst());
-			// nb: ignore accu.add's return value because we've already stopped
-			// searching, so wether or not caller wants to stop is irrelevant.
-			// n==1 so return true, meaning yes we found a hint. Returning
-			// accu.add's retval was firing the next chainer until one found
-			// multiple hints. Oops! My bad!
-			return true; // coz we know n == 1
+			accu.add(cache.pollFirst());
+			return true; // unusually, I ignore accu.add's return value
 		}
+		// caller wants one hint so find the most effective hint to apply.
 		if ( accu.isSingle() ) {
-			// caller wants one hint, but we're not in SPEED mode, so
-			// find the most effective (highest scoring) hint to apply.
-			accu.add(hints.pollFirst());
+			accu.add(cache.pollFirst());
 			// nb: ignore accu.add's retval coz we already stopped searching.
 			return true; // coz we know n != 0
 		}
 		// pass through multiple hints
-		accu.addAll(hints);
+		accu.addAll(cache);
 		// Do NOT cache hints if I am an imbedded (nested) Chainer.
 		if ( isImbedded )
-			hints.clear();
+			cache.clear();
 		// nb: ignore accu.add's return value coz we already stopped searching.
 		return true; // coz we know n != 0
 	}
@@ -280,11 +312,12 @@ public abstract class AChainer extends AHinter
 		assert anOn.isOn && effects.isEmpty();
 		final Cell cell = anOn.cell;
 		final int value = anOn.value;
+		final int sv = VSHFT[value]; // shiftedValue
 		// Rule 1: other potential values of this cell get "off"ed.
 		if ( isYChain ) { // Y-Chain: look for consequent naked singles
 			final int ovb; // otherValuesBits
 			// nb: "empty test" for dynamic mode where grid has naked singles
-			if ( (ovb=cell.maybes.bits & ~VSHFT[value]) != 0 )
+			if ( (ovb=cell.maybes & ~sv) != 0 )
 				for ( int v : VALUESES[ovb] )
 					effects.add(new Ass(cell, v, false, anOn, Cause.NakedSingle
 							, "the cell can contain only one value"));
@@ -292,21 +325,20 @@ public abstract class AChainer extends AHinter
 		// Rule 2: X-Chain: other possible positions for value get "off"ed.
 		// NB: done this way because we need to know which region we're in;
 		// and it is faster to "repeat" the "same" code three times. YMMV.
-		final int sv = VSHFT[value]; // shiftedValue
 		for ( Cell sib : cell.box.cells )
-			if ( (sib.maybes.bits & sv)!=0 && sib!=cell )
+			if ( (sib.maybes & sv)!=0 && sib!=cell )
 				effects.add(new Ass(sib, value, false, anOn
-						, Cause.CAUSE_FOR_REGION_TYPE[Grid.BOX]
+						, Cause.CAUSE_FOR[Grid.BOX]
 						, "the value can occur only once in the box"));
 		for ( Cell sib : cell.row.cells )
-			if ( (sib.maybes.bits & sv)!=0 && sib!=cell )
+			if ( (sib.maybes & sv)!=0 && sib!=cell )
 				effects.add(new Ass(sib, value, false, anOn
-						, Cause.CAUSE_FOR_REGION_TYPE[Grid.ROW]
+						, Cause.CAUSE_FOR[Grid.ROW]
 						, "the value can occur only once in the row"));
 		for ( Cell sib : cell.col.cells )
-			if ( (sib.maybes.bits & sv)!=0 && sib!=cell )
+			if ( (sib.maybes & sv)!=0 && sib!=cell )
 				effects.add(new Ass(sib, value, false, anOn
-						, Cause.CAUSE_FOR_REGION_TYPE[Grid.COL]
+						, Cause.CAUSE_FOR[Grid.COL]
 						, "the value can occur only once in the col"));
 	}
 
@@ -376,7 +408,7 @@ public abstract class AChainer extends AHinter
 		// Rule 1: Y-Chain: if there are only two potential values for this
 		// cell then the other value gets "on"ed.
 		Ass effectOn; //effectOn and his parent.
-		if ( isYChain && cell.maybes.size==2 ) {
+		if ( isYChain && cell.size==2 ) {
 			result |= effects.add(effectOn = new Ass(cell, anOff.otherValue(), true, anOff, Cause.NakedSingle, ONLYVALUE));
 			// add any erased parents of eOn to eOn (only in MultipleChainer)
 			if ( isDynamic )
@@ -394,9 +426,9 @@ public abstract class AChainer extends AHinter
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
 			// skip unless there are 2 possible positions for value in region
 			if ( cell.regions[rti].indexesOf[v].size == 2 ) {
-				final ARegion region; // the current region which contains this cell
-				final int places; // indexes of cells in region which maybe v (current grid)
-				final Cell otherCell; // the other cell in this region which maybe v
+//				final ARegion region; // the current region which contains this cell
+//				final int places; // indexes of cells in region which maybe v (current grid)
+//				final Cell otherCell; // the other cell in this region which maybe v
 				// This cluster____ was brought you by the word SPEED and the number 42.
 				// Create the effectOn Assumption and add it to effects list
 				// with inline otherCell = anOff.otherCellIn(region), a method
@@ -416,10 +448,11 @@ public abstract class AChainer extends AHinter
 				// my ONLYPOS array interns each String rather than building an
 				// individual String on the fly a total of 209,704,756 times.
 				// Array look-ups are fast. More thunk, less work, more speed!
-				effectOn = new Ass(
-					  otherCell = (region=cell.regions[rti]).cells[IFIRST[(places=region.indexesOf[v].bits) & ~ISHFT[cell.indexIn[rti]]]]
-					, v, true, anOff, CAUSE_FOR_REGION_TYPE[rti], ONLYPOS[rti]
-				);
+				final ARegion region = cell.regions[rti];
+				final int places = region.indexesOf[v].bits;
+				final int myIndex = cell.indexIn[rti];
+				final Cell otherCell = region.cells[IFIRST[places & ~ISHFT[myIndex]]];
+				effectOn = new Ass(otherCell, v, true, anOff, CAUSE_FOR[rti], ONLYPOS[rti]);
 				result |= effects.add(effectOn);
 				// Dynamic: effectOn.parents += Ass's that erased this value in this region.
 				if ( isDynamic ) // ie I am a MultipleChainer in dynamic mode
@@ -455,33 +488,34 @@ public abstract class AChainer extends AHinter
 	}
 
 	protected Pots createRedPots(Ass target) {
-		final Values redVals;
+		final int bits;
+		final int sv = VSHFT[target.value]; // shiftedValue
 		if ( target.isOn ) { // target is an "On"
-			// chaining a NakedSingle nulled all my pinkBits! Hmmm.
-			if ( target.cell.maybes.bits == VSHFT[target.value] )
+			// chaining a NakedSingle nullified my pinkBits! Hmmm.
+			if ( target.cell.maybes == sv )
 				return null; // I don't think this ever happens
 			// NB: target is an "On" -> all other cells potential values
-			redVals = target.cell.maybes.minus(target.value);
+			bits = target.cell.maybes & sv;
 		} else // target is an "Off" -> just the value
-			redVals = new Values(target.value);
-		assert !redVals.isEmpty();
-		return new Pots(target.cell, redVals);
+			bits = sv;
+		assert bits != 0;
+		return new Pots(target.cell, bits, false);
 	}
 
-	private void validateTheHints(Grid grid, HintsList hints) {
+	private void validateTheHints(Grid grid, HintCache hints) {
 		final int[] svs = grid.getSolutionValues();
 		for ( Iterator<AHint> it = hints.iterator(); it.hasNext(); ) {
 			AHint hint = it.next();
 			if ( hint == null ) {
 				// should never happen! Never say never.
-				Log.println("AChainer.validateTheHints:");
+				Log.println("ChainerBase.validateTheHints:");
 				Log.println("null hint!");
 				it.remove(); // all I can do it skip it. Sigh.
 			} else if ( hint.value!=0 && hint.cell!=null ) {
 				int sv = svs[hint.cell.i];
 				if ( hint.value != sv ) {
 					String problem = "hint says "+hint.cell.id+PLUS+hint.value+" when solution value is "+hint.cell.id+PLUS+sv;
-					Log.println("AChainer.validateTheHints:");
+					Log.println("ChainerBase.validateTheHints:");
 					Log.println("Invalid hint ("+problem+"): "+hint.toFullString());
 					Log.println("Invalid grid:\n"+grid);
 					it.remove(); // all I can do it skip it. Sigh.
@@ -489,7 +523,7 @@ public abstract class AChainer extends AHinter
 			} else if ( hint.redPots!=null && !hint.redPots.isEmpty() ) {
 				if ( !HintValidator.isValid(grid, hint.redPots) ) {
 					String problem = "invalidity: "+HintValidator.invalidity;
-					Log.println("AChainer.validateTheHints:");
+					Log.println("ChainerBase.validateTheHints:");
 					Log.println("Invalid hint ("+problem+"): "+hint.toFullString());
 					Log.println("Invalid grid:\n"+grid);
 					it.remove(); // all I can do it skip it. Sigh.
@@ -497,7 +531,7 @@ public abstract class AChainer extends AHinter
 			} else {
 				// This should never happen. Every hint eliminates a cell value
 				// OR sets a cell value. Never say never.
-				Log.println("AChainer.validateTheHints:");
+				Log.println("ChainerBase.validateTheHints:");
 				Log.println("Dodgy: MIA "+hint.cell+PLUS+hint.value+OR+hint.redPots);
 				Log.println("Dodgy hint: No elims in: "+hint.toFullString());
 				Log.println("Dodgy grid:\n"+grid);
@@ -578,11 +612,6 @@ public abstract class AChainer extends AHinter
 				overalls.max(e.getKey(), e.getValue().maxSize);
 			sizes.clear();
 		}
-	}
-
-	protected final boolean interrupted() {
-		final IInterruptMonitor im = this.interruptMonitor;
-		return im!=null && im.isInterrupted();
 	}
 
 }

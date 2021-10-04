@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -72,11 +71,9 @@ implements
 	private final ACollisionComparator cc = new ACollisionComparator();
 
 	private final NonHinters nonHinters = new NonHinters(16*1024, 4);
-	// What's that Skip? Why it's the skipper skipper flipper Flipper.
-	private boolean firstPass = true;
 
-	public Aligned5Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor, IO.A5E_2H_HITS);
+	public Aligned5Exclusion_2H() {
+		super(IO.A5E_2H_HITS);
 	}
 
 	@Override
@@ -91,15 +88,8 @@ implements
 	}
 
 	@Override
+	@SuppressWarnings("fallthrough")
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		// it's just easier to set firstPass ONCE, rather than deal with it in
-		// each of the multiple exit-points from what is now findHintsImpl.
-		boolean ret = findHintsImpl(grid, accu);
-		firstPass = false;
-		return ret;
-	}
-
-	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
 
 		// localise this variable for speed (and make it final).
 		// hackTop1465 is isHacky && filePath.contains("top1465")
@@ -126,12 +116,12 @@ implements
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values for more.
+		// that are packed into your maybes 0..511. See Values for more.
 		// We create the local reference just for speed of access.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// the populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 2 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -184,7 +174,7 @@ implements
 		// in the set which is a sibling of this cell. It's more code than
 		// "skip collision" (as per A234E) but it's faster, because it does
 		// more of the work less often.
-		int c0b, c1b , c2b , c3b , c4b;  // c4b = c4.maybes.bits // original
+		int c0b, c1b , c2b , c3b , c4b;  // c4b = c4.maybes // original
 		int		       c2b0, c3b0, c4b0; // c4b0 = c4b  & ~sv0   // version 0
 		int			         c3b1, c4b1; // c4b1 = c4b0 & ~sv1   // version 1
 		int					 c3b2, c4b2; // c4b2 = c4b1 & ~sv2   // version 2
@@ -256,8 +246,7 @@ implements
 							continue;
 						cells[3] = candidates[i3];
 						if(hitMe && cells[3]!=hitCells[3]) continue;
-						if ( isInterrupted() )
-							return false;
+						interrupt();
 						for ( i4=i3+1; i4<numCandidates; ++i4 ) {
 							if ( excluders[candidates[i4].i].idx2(idx04, idx03) )
 								continue;
@@ -288,18 +277,18 @@ implements
 							// the dog____ing algorithm is faster with dodgem-cars to the left,
 							// but the above for-i-loops need a static cells array; so we copy
 							// cells to scells (sortedCells) and sort that array DESCENDING by:
-							// 4*maybesCollisions + 2*cmnExclHits + maybes.size
+							// 4*maybesCollisions + 2*cmnExclHits + maybesSize
 							cc.set(cells, cmnExclBits, numCmnExclBits);
 							System.arraycopy(cells, 0, scells, 0, degree);
 							//MyTimSort.small(scells, degree, cc);
 							bubbleSort(scells, degree, cc);
 
 							// cache the sorted cells and there potential values
-							c0b = (c0=scells[0]).maybes.bits;
-							c1b = (c1=scells[1]).maybes.bits;
-							c2b = (c2=scells[2]).maybes.bits;
-							c3b = (c3=scells[3]).maybes.bits;
-							c4b = (c4=scells[4]).maybes.bits;
+							c0b = (c0=scells[0]).maybes;
+							c1b = (c1=scells[1]).maybes;
+							c2b = (c2=scells[2]).maybes;
+							c3b = (c3=scells[3]).maybes;
+							c4b = (c4=scells[4]).maybes;
 
 							// complete the isSiblingOf cache
 							ns10 = c1.notSees[c0.i];
@@ -652,7 +641,7 @@ implements
 
 							// check if any of each cells maybes have not been allowed,
 							// and if so then it's an exclusion, ie we found a hint!
-							if ( avb0 == c0b // c0b == c0.maybes.bits
+							if ( avb0 == c0b // c0b == c0.maybes
 							  && avb1 == c1b
 							  && avb2 == c2b
 							  && avb3 == c3b
@@ -671,19 +660,19 @@ implements
 								hits.add(gsl, hintNum, cells);
 
 							// create the removable (red) potential values.
-							Pots redPots = createRedPotentials(scells
+							final Pots redPots = createRedPotentials(scells
 									, avb0,avb1,avb2,avb3,avb4);
-							if ( redPots.isEmpty() )
-								continue; // Should never happen. Never say never.
-							// create and add the hint
-							AHint hint = new AlignedExclusionHint(this
-									, redPots, cells, numCmnExcls, cmnExcls
-									, buildExcludedCombosMap(cmnExcls, numCmnExcls, cells, redPots)
-							);
-							result = true; // in case add returns false
-							if ( accu.add(hint) )
-								return true;
-
+							if ( !redPots.isEmpty() ) {
+								// create and add the hint
+								final AHint hint = new AlignedExclusionHint(this
+										, redPots, cells, numCmnExcls, cmnExcls
+										, buildExcludedCombosMap(cmnExcls
+												, numCmnExcls, cells, redPots)
+								);
+								result = true; // in case add returns false
+								if ( accu.add(hint) )
+									return true;
+							}
 						} // next c4
 					} // next c3
 				} // next c2

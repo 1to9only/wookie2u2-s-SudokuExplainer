@@ -72,7 +72,7 @@ public final class MyStrings {
 
 	/**
 	 * get the cached StringBuilder of atleast BUFFER_SIZE.
-	 * @return 
+	 * @return
 	 */
 	public static StringBuilder bigSB() {
 		if ( sb == null )
@@ -202,6 +202,31 @@ public final class MyStrings {
 		  && (i=s.indexOf(target, i+1)) > -1 )
 			s = s.substring(0, i) + replacement + s.substring(i+target.length());
 		return s;
+	}
+
+	/** 
+	 * Wrap the String 's' into lines of maximum 'len' on spaces.
+	 *
+	 * @param s to be word-wrapped
+	 * @param len the length of the line (eg 80)
+	 * @return s wrapped into lines of max-length len
+	 */
+	public static String wordWrap(String s, int len) {
+		int n = s.length();
+		if ( n < len )
+			return s;
+		final StringBuilder sb = new StringBuilder(n + n/80*NL.length() + 1);
+		// wrap at the last space before len in s
+		for ( int i=len; i>0 && n>len; --i ) {
+			if ( s.charAt(i) == ' ' ) {
+				sb.append(s.substring(0, i)).append(NL);
+				s = s.substring(i+1, n);
+				n = s.length();
+				i = len + 1;
+			}
+		}
+		sb.append(s); // append the remainder
+		return sb.toString();
 	}
 
 	private MyStrings() {}

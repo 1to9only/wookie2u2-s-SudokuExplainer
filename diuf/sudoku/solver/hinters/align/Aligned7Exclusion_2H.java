@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -61,11 +60,9 @@ implements
 	private final ACollisionComparator cc = new ACollisionComparator();
 
 	private final NonHinters nonHinters = new NonHinters(16*1024, 3);
-	// What's that Skip? Why it's the skipper skipper flipper Flipper.
-	private boolean firstPass = true;
 
-	public Aligned7Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor, IO.A7E_2H_HITS);
+	public Aligned7Exclusion_2H() {
+		super(IO.A7E_2H_HITS);
 	}
 
 	@Override
@@ -81,14 +78,6 @@ implements
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		// it's just easier to set firstPass ONCE, rather than deal with it in
-		// each of the multiple exit-points from what is now findHintsImpl.
-		boolean ret = findHintsImpl(grid, accu);
-		firstPass = false;
-		return ret;
-	}
-
-	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
 
 		// localise this variable for speed (and make it final).
 		// hackTop1465 is isHacky && filePath.contains("top1465")
@@ -115,11 +104,11 @@ implements
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values for more.
+		// that are packed into your maybes 0..511. See Values for more.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 2 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -156,7 +145,7 @@ implements
 		// the set which are siblings of this cell. This is more code than
 		// "skip collision" (as per A234E) but it is faster, because it does
 		// more of the work less often.
-		// c2b0 is an acronymn for: c2 bits zero, meaning the maybes.bits of c2
+		// c2b0 is an acronymn for: c2 bits zero, meaning the maybes of c2
 		// minus v0 (presuming that c2 is a sibling of c0).
 		int	c0b , c1b , c2b , c3b , c4b , c5b , c6b;
 		int	            c2b0, c3b0, c4b0, c5b0, c6b0;
@@ -235,14 +224,14 @@ implements
 			idx0 = excluders[(cells[0]=candidates[i0]).i].idx();
 			if(hitMe && cells[0]!=hitCells[0]) continue;
 //KRC#2020-06-30 09:50:00
-			c0b = (c0=cells[0]).maybes.bits;
+			c0b = (c0=cells[0]).maybes;
 
 			for ( i1=i0+1; i1<n1; ++i1 ) {
 				if ( excluders[(cells[1]=candidates[i1]).i].idx2(idx01, idx0) )
 					continue;
 				if(hitMe && cells[1]!=hitCells[1]) continue;
 //KRC#2020-06-30 09:50:00
-				c1b = (c1=cells[1]).maybes.bits;
+				c1b = (c1=cells[1]).maybes;
 				ns10 = c1.notSees[c0.i];
 
 				for ( i2=i1+1; i2<n2; ++i2 ) {
@@ -250,7 +239,7 @@ implements
 						continue;
 					if(hitMe && cells[2]!=hitCells[2]) continue;
 //KRC#2020-06-30 09:50:00
-					c2b = (c2=cells[2]).maybes.bits;
+					c2b = (c2=cells[2]).maybes;
 					ns21 = c2.notSees[c1.i];
 					ns20 = c2.notSees[c0.i];
 
@@ -260,7 +249,7 @@ implements
 						cells[3] = candidates[i3];
 						if(hitMe && cells[3]!=hitCells[3]) continue;
 //KRC#2020-06-30 09:50:00
-						c3b = (c3=cells[3]).maybes.bits;
+						c3b = (c3=cells[3]).maybes;
 						ns32 = c3.notSees[c2.i];
 						ns31 = c3.notSees[c1.i];
 						ns30 = c3.notSees[c0.i];
@@ -271,7 +260,7 @@ implements
 							cells[4] = candidates[i4];
 							if(hitMe && cells[4]!=hitCells[4]) continue;
 //KRC#2020-06-30 09:50:00
-							c4b = (c4=cells[4]).maybes.bits;
+							c4b = (c4=cells[4]).maybes;
 							ns43 = c4.notSees[c3.i];
 							ns42 = c4.notSees[c2.i];
 							ns41 = c4.notSees[c1.i];
@@ -283,7 +272,7 @@ implements
 								cells[5] = candidates[i5];
 								if(hitMe && cells[5]!=hitCells[5]) continue;
 //KRC#2020-06-30 09:50:00
-								c5b = (c5=cells[5]).maybes.bits;
+								c5b = (c5=cells[5]).maybes;
 								ns54 = c5.notSees[c4.i];
 								ns53 = c5.notSees[c3.i];
 								ns52 = c5.notSees[c2.i];
@@ -292,8 +281,7 @@ implements
 
 								// I guess this interrupt happens every 100 ms at most, which is
 								// certainly often enough. It's probably more like 10 ms.
-								if ( isInterrupted() )
-									return false;
+								interrupt();
 								for ( i6=i5+1; i6<numCandidates; ++i6 ) {
 									if ( excluders[candidates[i6].i].idx2(idx06, idx05) )
 										continue;
@@ -333,7 +321,7 @@ implements
 									// the dog____ing algorithm is faster with dodgem-cars to the left,
 									// but the above for-i-loops need a static cells array; so we copy
 									// cells to scells (sortedCells) and sort that array DESCENDING by:
-									// 4*maybesCollisions + 2*cmnExclHits + maybes.size
+									// 4*maybesCollisions + 2*cmnExclHits + maybesSize
 									cc.set(cells, cmnExclBits, numCmnExclBits);
 
 //KRC#2020-06-30 09:50:00
@@ -342,13 +330,13 @@ implements
 //									bubbleSort(scells, degree, cc);
 //
 //									// cache the cells in the aligned set, and there maybes.
-//									c0b = (c0=scells[0]).maybes.bits;
-//									c1b = (c1=scells[1]).maybes.bits;
-//									c2b = (c2=scells[2]).maybes.bits;
-//									c3b = (c3=scells[3]).maybes.bits;
-//									c4b = (c4=scells[4]).maybes.bits;
-//									c5b = (c5=scells[5]).maybes.bits;
-//									c6b = (c6=scells[6]).maybes.bits;
+//									c0b = (c0=scells[0]).maybes;
+//									c1b = (c1=scells[1]).maybes;
+//									c2b = (c2=scells[2]).maybes;
+//									c3b = (c3=scells[3]).maybes;
+//									c4b = (c4=scells[4]).maybes;
+//									c5b = (c5=scells[5]).maybes;
+//									c6b = (c6=scells[6]).maybes;
 //
 //									// build the isNotSibingsOf cache
 //									ns10 = c1.notSees[c0.i];
@@ -371,7 +359,7 @@ implements
 //									ns51 = c5.notSees[c1.i];
 //									ns50 = c5.notSees[c0.i];
 
-									c6b = (c6=cells[6]).maybes.bits;
+									c6b = (c6=cells[6]).maybes;
 									ns65 = c6.notSees[c5.i];
 									ns64 = c6.notSees[c4.i];
 									ns63 = c6.notSees[c3.i];

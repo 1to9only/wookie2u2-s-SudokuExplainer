@@ -8,6 +8,8 @@ package diuf.sudoku;
 
 import diuf.sudoku.solver.checks.*;
 import diuf.sudoku.solver.hinters.IHinter;
+import diuf.sudoku.solver.hinters.align.*;
+import diuf.sudoku.solver.hinters.align2.*;
 import diuf.sudoku.solver.hinters.als.*;
 import diuf.sudoku.solver.hinters.bug.*;
 import diuf.sudoku.solver.hinters.color.*;
@@ -24,6 +26,9 @@ import diuf.sudoku.utils.Frmt;
 import java.util.EnumSet;
 import static diuf.sudoku.utils.Frmt.COMMA_SP;
 import static diuf.sudoku.utils.Frmt.SPACE;
+import diuf.sudoku.utils.IFilter;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A Tech(nique) is a Sudoku Solving Technique: a place holder for a hinter.
@@ -73,6 +78,8 @@ import static diuf.sudoku.utils.Frmt.SPACE;
  * </ul>
  * <p>
  * <b>WARNING:</b> If you rename a Tech add it to LogicalSolverTester.aliases!
+ * <p>
+ * NOTE: The longest Tech.name() is 18 characters.
  */
 public enum Tech {
 
@@ -83,7 +90,7 @@ public enum Tech {
 	// puzzleValidators
 	, TooFewClues		(0.0, 0, TooFewClues.class, false)
 	, TooFewValues		(0.0, 0, TooFewValues.class, false)
-	, SingleSolution	(0.0, 0, RecursiveAnalyser.class, false)
+	, SingleSolution	(0.0, 0, SingleSolution.class, false)
 	// gridValidators
 	, NoMissingMaybes	(0.0, 0, NoMissingMaybes.class, false)
 	, NoDoubleValues		(0.0, 0, NoDoubleValues.class, false)
@@ -97,81 +104,83 @@ public enum Tech {
 
 	// Medium
 	// NB: constructor does name().startsWith("Direct")
-	, Locking			(2.1, 1, "OR Locking Generalised", false, Locking.class, false, true)
-	, LockingGeneralised(2.1, 1, "OR Locking", false, LockingGeneralised.class, false, false)
-	, DirectNakedPair	(2.3, 2, NakedSet.class, true)
-	, DirectHiddenPair	(2.4, 2, HiddenSet.class, true)
-	, DirectNakedTriple	(2.5, 3, NakedSet.class, true)
-	, DirectHiddenTriple	(2.6, 3, HiddenSet.class, true) // longest name is 18 characters
+	, Locking			(2.0, 1, "OR Locking Generalised", false, Locking.class, true)
+	, LockingGeneralised(2.0, 1, "OR Locking", false, LockingGeneralised.class, false)
+	, DirectNakedPair	(2.1, 2, NakedSet.class, true)
+	, DirectHiddenPair	(2.2, 2, HiddenSet.class, true)
+	, DirectNakedTriple	(2.3, 3, NakedSet.class, true)
+	, DirectHiddenTriple	(2.4, 3, HiddenSet.class, true)
 
 	// Hard
-	, NakedPair			(3.0, 2, NakedSet.class, true)
-	, HiddenPair		(3.1, 2, HiddenSet.class, true)
-	, NakedTriple		(3.2, 3, NakedSet.class, true)
-	, HiddenTriple		(3.3, 3, HiddenSet.class, true)
-	, Swampfish			(3.4, 2) // Luke, Swampfish, Yoda, X-Wing.
-	, TwoStringKite		(3.5, 4, TwoStringKite.class, false)
+	, NakedPair			(2.50, 2, NakedSet.class, true)
+	, HiddenPair		(2.55, 2, HiddenSet.class, true)
+	, NakedTriple		(2.60, 3, NakedSet.class, true)
+	, HiddenTriple		(2.65, 3, HiddenSet.class, true)
+	, Swampfish			(2.70, 2) // Luke, Swampfish, Yoda, X-Wing.
+	, TwoStringKite		(2.80, 4, TwoStringKite.class, false)
 
 	// Fiendish
-	, XY_Wing			(3.6, 2, XYWing.class, true)
-	, XYZ_Wing			(3.7, 3, XYWing.class, true)
-	, W_Wing			(3.8, 4, WWing.class, false)
-	, Swordfish			(3.9, 3)
-	, Skyscraper		(4.0, 4, Skyscraper.class, false)
-	, EmptyRectangle		(4.1, 4, EmptyRectangle.class, false)
-	, Jellyfish			(4.2, 4)
-	// FYI: Don't try larger Fish, I did, and they find nothing.
-	//      They're all degenerate (comprised of simpler hints)
-
+	, XY_Wing			(3.00, 2, XYWing.class, true)
+	, XYZ_Wing			(3.05, 3, XYWing.class, true)
+	, W_Wing			(3.10, 4, WWing.class, false)
+	, Swordfish			(3.20, 3)
+	, Skyscraper		(3.30, 4, Skyscraper.class, false)
+	, EmptyRectangle		(3.35, 4, EmptyRectangle.class, false)
+	, Jellyfish			(3.40, 4) // None in top1465 with my preferred techs
+	// FYI: Larger Fish are all DEGENERATE (comprised of simpler hints)
+	, BUG				(3.50, 0, "DROP (Bivalue Universal Grave) Old and slow", true, BUG.class, false)
+	, Coloring			(3.52, 0, "KEEP BUG++ Simple-Coloring and the ONLY Multi-Coloring", false, Coloring.class, true)
+	, XColoring			(3.54, 0, "KEEP Coloring++ finds stuff that GEM misses", false, XColoring.class, true)
+	, Medusa3D			(3.56, 0, "DROP XColoring++ counter-productive with GEM", true, Medusa3D.class, false)
+	, GEM				(3.58, 0, "KEEP (Graded Equivalence Marks) Medusa3D++", false, GEM.class, true)
+	, NakedQuad			(3.60, 4, NakedSet.class, true)
+	, HiddenQuad		(3.62, 4, HiddenSet.class, true)
+	, NakedPent			(3.64, 5, "Degenerate", true, NakedSet.class, false)  // DEGENERATE
+	, HiddenPent			(3.66, 5, "Degenerate", true, HiddenSet.class, false) // DEGENERATE
+	// BigWings is all BigWing: slower (sigh), but faster over-all (yeah).
+	, BigWings			(3.70, 0, "or individual S/T/U/V/WXYZ-Wing", false, BigWings.class, true)
+	, WXYZ_Wing			(3.71, 3, "or BigWings", false, BigWing.class, false) // 3 Cell ALS + bivalue
+	, VWXYZ_Wing		(3.72, 4, "or BigWings", false, BigWing.class, false) // 4 Cell ALS + bivalue
+	, UVWXYZ_Wing		(3.73, 5, "or BigWings", false, BigWing.class, false) // 5 Cell ALS + bivalue
+	, TUVWXYZ_Wing		(3.74, 6, "or BigWings", false, BigWing.class, false) // 6 Cell ALS + bivalue
+	, STUVWXYZ_Wing		(3.75, 7, "or BigWings", false, BigWing.class, false) // 7 Cell ALS + bivalue // SLOW'ish
+	, URT				(3.80, 0, "Unique Rectangles and loops", false, UniqueRectangle.class, true)
+	
 	// Nightmare
-	, BUG				(4.30, 0, "DROP (Bivalue Universal Grave) subset of Coloring. SLOW!", true, BUG.class, false, false)
-	, Coloring			(4.31, 0, "KEEP (BUG++ and faster). The only Multi-Coloring.", false, Coloring.class, false, true)
-	, XColoring			(4.32, 0, "KEEP (Extended Coloring) Simple-Coloring++", false, XColoring.class, false, true)
-	, Medusa3D			(4.33, 0, "DROP (3D Medusa Coloring) colors cell-values (not just cells)", true, Medusa3D.class, false, false)
-	, GEM				(4.34, 0, "KEEP (Graded Equivalence Marks) Medusa++", false, GEM.class, false, true)
-	, NakedQuad			(4.40, 4, NakedSet.class, true)
-	, HiddenQuad		(4.41, 4, HiddenSet.class, true)
-	, NakedPent			(4.50, 5, "Degenerate", true, NakedSet.class, true, false)	// DEGENERATE
-	, HiddenPent			(4.51, 5, "Degenerate", true, HiddenSet.class, true, false)	// DEGENERATE
-	, BigWings			(4.61, 0, "or individual S/T/U/V/WXYZ-Wing", false, BigWings.class, false, true) // All BigWing: slower (sigh), but faster over-all (yeah).
-	, WXYZ_Wing			(4.61, 3, "or BigWings", false, BigWing.class, true, false)	 // 3 Cell ALS + bivalue
-	, VWXYZ_Wing		(4.62, 4, "or BigWings", false, BigWing.class, true, false)	 // 4 Cell ALS + bivalue
-	, UVWXYZ_Wing		(4.63, 5, "or BigWings", false, BigWing.class, true, false)	 // 5 Cell ALS + bivalue
-	, TUVWXYZ_Wing		(4.64, 6, "or BigWings", false, BigWing.class, true, false)	 // 6 Cell ALS + bivalue
-	, STUVWXYZ_Wing		(4.65, 7, "or BigWings", false, BigWing.class, true, false) // 7 Cell ALS + bivalue // SLOW'ish
-	, URT				(4.70, 0, "Unique Rectangles and loops", false, UniqueRectangle.class, false, true)
-	, FinnedSwampfish	(4.80, 2, ComplexFisherman.class, true)	// with Sashimi
-	, FinnedSwordfish	(4.81, 3, ComplexFisherman.class, true)
-	, FinnedJellyfish	(4.82, 4, null, false, ComplexFisherman.class, true, false)
-	, ALS_XZ			(4.90, 0, AlsXz.class, false)			// 2 ALSs in a Chain
-	, ALS_Wing			(4.91, 0, AlsWing.class, false)		// 3 ALSs in a Chain
-	, ALS_Chain			(4.92, 0, AlsChain.class, false)	// 4+ ALSs in a Chain
-	, DeathBlossom		(4.93, 0, DeathBlossom.class, false) // ALS for each value of stem cell
-	, SueDeCoq			(4.94, 0, SueDeCoq.class, false)	// Almost ALSs // SLOW'ish
+	, FinnedSwampfish	(4.0, 2, ComplexFisherman.class, true)	// with Sashimi
+	, FinnedSwordfish	(4.1, 3, ComplexFisherman.class, true)
+	, FinnedJellyfish	(4.2, 4, null, false, ComplexFisherman.class, false)
+	, ALS_XZ			(4.3, 0, AlsXz.class, false)		 // 2 ALSs in a Chain
+	, ALS_Wing			(4.4, 0, AlsWing.class, false)		 // 3 ALSs in a Chain
+	, ALS_Chain			(4.5, 0, AlsChain.class, false)	 // 4+ ALSs in a Chain
+	, DeathBlossom		(4.6, 0, DeathBlossom.class, false) // ALS for each stem.maybe
+	, SueDeCoq			(4.7, 0, SueDeCoq.class, false)	 // AALSs // a bit slow
+	, FrankenSwampfish	(5.0, 2, null, false, ComplexFisherman.class, false)	// OK
+	, FrankenSwordfish	(5.1, 3, null, false, ComplexFisherman.class, false)	// OK
+	, FrankenJellyfish	(5.2, 4, null, false, ComplexFisherman.class, false)	// SLOW
+	// Mutants are too slow to be allowed: 1,764 seconds for just 20 hints.
+	, KrakenSwampfish	(5.3, 2, null, false, KrakenFisherman.class, false)		 // OK
+	, MutantSwampfish	(5.4, 2, "Degenerate", true, ComplexFisherman.class, false) // NONE
+	, KrakenSwordfish	(5.5, 3, "30 seconds", false, KrakenFisherman.class, false) // SLOW'ish
+	, MutantSwordfish	(5.6, 3, "2 minutes", false, ComplexFisherman.class, false) // SLOW
+	, KrakenJellyfish	(5.8, 4, "9 minutes", true, KrakenFisherman.class, false)	 // TOO SLOW
+	, MutantJellyfish	(5.9, 4, "20 minutes", true, ComplexFisherman.class, false) // TOO SLOW
 
 	// Diabolical
-	, FrankenSwampfish	(5.00, 2, null, false, ComplexFisherman.class, true, false)	// OK
-	, FrankenSwordfish	(5.01, 3, null, false, ComplexFisherman.class, true, false)	// OK
-	, FrankenJellyfish	(5.02, 4, null, false, ComplexFisherman.class, true, false)	// SLOW
-	// Mutants are too slow to be allowed: 1,764 seconds for just 20 hints.
-	, KrakenSwampfish	(5.10, 2, null, false, KrakenFisherman.class, true, false)			// OK
-	, MutantSwampfish	(5.11, 2, "Degenerate", true, ComplexFisherman.class, true, false)	// NONE
-	, KrakenSwordfish	(5.20, 3, "30 seconds", false, KrakenFisherman.class, true, false)	// SLOW'ish
-	, MutantSwordfish	(5.21, 3, "2 minutes", false, ComplexFisherman.class, true, false)	// SLOW
-	, KrakenJellyfish	(5.30, 4, "9 minutes", true, KrakenFisherman.class, true, false)	// TOO SLOW
-	, MutantJellyfish	(5.31, 4, "20 minutes", true, ComplexFisherman.class, true, false)	// TOO SLOW
-	, AlignedPair		(6.1, 2, false)	// OK
-	, AlignedTriple		(6.2, 3, false)	// OK
-	, AlignedQuad		(6.3, 4, false)	// OK
-	, AlignedPent		(6.4, 5, "1 minute correct", false, false)	// SLOW
-	, AlignedHex		(6.5, 6, "3 minutes correct", false, false) // SLOW
-	, AlignedSept		(6.6, 7, "6 minutes correct", true, false)	// VRY SLOW
-	, AlignedOct			(6.7, 8, "19 minutes correct", true, false)	// TOO SLOW
-	, AlignedNona		(6.8, 9, "3 hours correct", true, false) // SEA ANCHOR
-	, AlignedDec			(6.9,10, "6 hours correct", true, false) // DEAD DOG
+	// new-school A234E
+	, AlignedPair		(6.0, 2, AlignedExclusion.class, false)	// OK
+	, AlignedTriple		(6.1, 3, AlignedExclusion.class, false)	// a bit slow
+	, AlignedQuad		(6.2, 4, AlignedExclusion.class, false)	// a bit slow
+	// old-school A5678910E (The _2H class is the "registered" implementation)
+	, AlignedPent		(6.3, 5, "1 minute correct", false, Aligned5Exclusion_2H.class, false)	// SLOW
+	, AlignedHex		(6.4, 6, "3 minutes correct", false, Aligned6Exclusion_2H.class, false) // SLOW
+	, AlignedSept		(6.5, 7, "6 minutes correct", true, Aligned7Exclusion_2H.class, false)	// VERY SLOW
+	, AlignedOct			(6.6, 8, "19 minutes correct", true, Aligned8Exclusion_2H.class, false)	// TOO SLOW
+	, AlignedNona		(6.7, 9, "3 hours correct", true, Aligned9Exclusion_2H.class, false)    // DEAD SLOW
+	, AlignedDec			(6.8,10, "6 hours correct", true, Aligned10Exclusion_2H.class, false)   // CONSERVATIVE
 	// chains			 diff     Multi,Dynam,Nishi,want
 	, UnaryChain		( 7.0, 0, false,false,false,true) // OK
-	, NishioChain		( 7.5, 0, false,true ,true ,true) // TAD SLOW
+	, NishioChain		( 7.5, 0, false,true ,true ,true) // a bit slow
 	, MultipleChain		( 8.0, 0, true ,false,false,true) // OK
 	, DynamicChain		( 8.5, 0, true ,true ,false,true) // OK
 
@@ -184,17 +193,14 @@ public enum Tech {
 	, NestedPlus			(11.0, 5, true ,true ,false,false) // TOO SLOW !BUGS!
 	;
 
-	public static interface TechFilter {
-		boolean accept(Tech t);
-	}
-	public static EnumSet<Tech> where(EnumSet<Tech> techs, TechFilter f) {
+	public static EnumSet<Tech> where(EnumSet<Tech> techs, IFilter<Tech> f) {
 		final EnumSet<Tech> result = EnumSet.noneOf(Tech.class);
 		for ( Tech t : techs )
 			if ( f.accept(t) )
 				result.add(t);
 		return result;
 	}
-	public static EnumSet<Tech> where(TechFilter f) {
+	public static EnumSet<Tech> where(IFilter<Tech> f) {
 		return where(EnumSet.allOf(Tech.class), f);
 	}
 	public static EnumSet<Tech> allHinters() {
@@ -209,6 +215,21 @@ public enum Tech {
 			sb.append(tech.name());
 		}
 		return sb.toString();
+	}
+
+	public static Tech[] array(List<Tech> techs) {
+		final Tech[] result = new Tech[techs.size()];
+		int cnt = 0;
+		for ( Tech tech : techs )
+			result[cnt++] = tech;
+		return result;
+	}
+
+	public static List<Tech> list(Tech[] techs) {
+		final List<Tech> result = new ArrayList<>(techs.length);
+		for ( Tech tech : techs )
+			result.add(tech);
+		return result;
 	}
 
 	/**
@@ -259,12 +280,11 @@ public enum Tech {
 	// they are all allways false for the "normal" (non-Chainer) Techniques.
 	public final boolean isChainer; // true if we used the Chainer constructor.
 	public final boolean isNested; // true if name().startsWith("Nested")
-	public final boolean isMultiple; // search cell.maybes.size>2 and region.indexesOf[v].size>2
+	public final boolean isMultiple; // search cell.maybesSize>2 and region.indexesOf[v].size>2
 	public final boolean isDynamic; // combine effects of previous calculations
 	public final boolean isNishio; // an assumption has both effect && !effect
 
 	public final String className; // the name of the class which implements this Tech, where known at compile time.
-	public final boolean passTech; // does his constructor take the Tech? If it has a degree then pass the Tech.
 
 	/**
 	 * Constructor: By default the tool-tip is used as a warning, because that
@@ -286,8 +306,7 @@ public enum Tech {
 	 *  in the Registry.
 	 */
 	private Tech(double difficulty, int degree, String tip, boolean warning
-			, Class<? extends IHinter> clazz, boolean passTech
-			, boolean defaultWanted) {
+			, Class<? extends IHinter> clazz, boolean defaultWanted) {
 		this.difficulty = difficulty;
 		this.degree = degree;
 		this.isDirect = name().startsWith("Direct");
@@ -296,7 +315,6 @@ public enum Tech {
 			this.className = null;
 		else
 			this.className = clazz.getName();
-		this.passTech = passTech;
 		this.defaultWanted = defaultWanted;
 
 		this.isChainer = false;
@@ -311,22 +329,22 @@ public enum Tech {
 
 	// basic
 	private Tech(double difficulty, int degree) {
-		this(difficulty, degree, null, false, null, false, true);
+		this(difficulty, degree, null, false, null, true);
 	}
 
 	// basic + className, passTech
-	private Tech(double difficulty, int degree, Class<? extends IHinter> clazz, boolean passTech) {
-		this(difficulty, degree, null, false, clazz, passTech, true);
+	private Tech(double difficulty, int degree, Class<? extends IHinter> clazz) {
+		this(difficulty, degree, null, false, clazz, true);
+	}
+
+	// basic + className, passTech
+	private Tech(double difficulty, int degree, Class<? extends IHinter> clazz, boolean defaultWanted) {
+		this(difficulty, degree, null, false, clazz, defaultWanted);
 	}
 
 	// basic + defaultWanted
 	private Tech(double difficulty, int degree, boolean defaultWanted) {
-		this(difficulty, degree, null, false, null, false, defaultWanted);
-	}
-
-	// all - className, passTech
-	private Tech(double difficulty, int degree, String tip, boolean warning, boolean defaultWanted) {
-		this(difficulty, degree, tip, warning, null, false, defaultWanted);
+		this(difficulty, degree, null, false, null, defaultWanted);
 	}
 
 	// Chainer
@@ -337,7 +355,6 @@ public enum Tech {
 		this.isDirect = false;
 		this.isAligned = false;
 		this.className = null;
-		this.passTech = false;
 		this.defaultWanted = defaultWanted;
 
 		this.isChainer = true;

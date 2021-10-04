@@ -7,11 +7,11 @@
 package diuf.sudoku.gui;
 
 import diuf.sudoku.Build;
-import static diuf.sudoku.Settings.*;
-
 import diuf.sudoku.Grid;
 import diuf.sudoku.PuzzleID;
+import diuf.sudoku.Run;
 import diuf.sudoku.Settings;
+import static diuf.sudoku.Settings.*;
 import diuf.sudoku.Tech;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
@@ -47,13 +47,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.regex.Pattern;
 import javax.swing.*;
-import static javax.swing.JOptionPane.ERROR_MESSAGE;
-import static javax.swing.JOptionPane.PLAIN_MESSAGE;
-import static javax.swing.JOptionPane.YES_NO_OPTION;
-import static javax.swing.JOptionPane.YES_OPTION;
-import static javax.swing.JOptionPane.showConfirmDialog;
-import static javax.swing.JOptionPane.showInputDialog;
-import static javax.swing.JOptionPane.showMessageDialog;
+import static javax.swing.JOptionPane.*;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.event.*;
 import javax.swing.filechooser.FileFilter;
@@ -91,7 +85,7 @@ import javax.swing.tree.*;
  * </ul>
  */
 @SuppressWarnings("Convert2Lambda") // I prefer to treat all warnings as errors, and replacing inner classes with lambda expressions is more trouble than it's worth (in my humble opinion), so this warning message should ONLY apply to new projects, not existing code-bases, but Netbeans authors lack the intelligence to see that.
-final class SudokuFrame extends JFrame implements IAsker {
+public final class SudokuFrame extends JFrame implements IAsker {
 
 	private static final long serialVersionUID = 8247189707924329043L;
 
@@ -160,7 +154,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	 * The directory which the open-file and save-file dialogs start in.
 	 */
 	File defaultDirectory;
-	
+
 	public final boolean logHints = true;
 	public final boolean printHints = true;
 
@@ -252,7 +246,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		hintsTree.setEnabled(false);
 		hintsTree.setModel(new DefaultTreeModel(root));
 		// Dis/enable the Filter checkbox and menu item.
-		chkFilterHints.setSelected(THE_SETTINGS.get(Settings.isFilteringHints));
+		chkFilterHints.setSelected(THE_SETTINGS.isFilteringHints());
 		chkFilterHints.setEnabled(true);
 		mitFilterHints.setSelected(chkFilterHints.isSelected());
 		mitFilterHints.setEnabled(chkFilterHints.isEnabled());
@@ -273,8 +267,9 @@ final class SudokuFrame extends JFrame implements IAsker {
 	 * Repaints the SudokuGridPanel with the currHint.
 	 */
 	private void repaintHint() {
-		final AHint h = currHint; // h for Hint
-		SudokuGridPanel p = gridPanel; // p for panel
+		repaintHint(currHint, gridPanel, viewNum);
+	}
+	private static void repaintHint(final AHint h, final SudokuGridPanel p, final int viewNum) {
 		p.clearSelection(true);
 		if ( h == null ) { // clear it
 			p.setResult(null);
@@ -362,8 +357,10 @@ final class SudokuFrame extends JFrame implements IAsker {
 
 	/**
 	 * Displays the given hint.
+	 * @param hint
+	 * @param isApplyEnabled
 	 */
-	void setCurrentHint(AHint hint, boolean isApplyEnabled) {
+	public void setCurrentHint(AHint hint, boolean isApplyEnabled) {
 		this.currHint = hint;
 		btnApplyHint.setEnabled(isApplyEnabled);
 		mitApplyHint.setEnabled(isApplyEnabled);
@@ -481,24 +478,23 @@ final class SudokuFrame extends JFrame implements IAsker {
 			menuItem.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					if (!menuItem.isSelected()) {
+					if ( !menuItem.isSelected() )
 						return;
-					}
-					String lafClassName = menuItem.getName();
+					String laf = menuItem.getName();
 					try {
-						UIManager.setLookAndFeel(lafClassName);
-						THE_SETTINGS.setLookAndFeelClassName(lafClassName);
+						THE_SETTINGS.setLookAndFeelClassName(laf);
+						UIManager.setLookAndFeel(laf);
 						SwingUtilities.updateComponentTreeUI(SudokuFrame.this);
 						// recreate the renderer to reload the correct icons
 						hintsTree.setCellRenderer(new HintsTreeCellRenderer());
 						SudokuFrame.this.repaint();
 						GenerateDialog gd = generateDialog;
-						if (gd != null && gd.isVisible()) {
+						if ( gd != null && gd.isVisible() ) {
 							SwingUtilities.updateComponentTreeUI(gd);
 							gd.pack();
 							gd.repaint();
 						}
-					} catch (ClassNotFoundException | IllegalAccessException | InstantiationException | UnsupportedLookAndFeelException ex) {
+					} catch (Exception ex) {
 						displayError(ex);
 					}
 				}
@@ -507,7 +503,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	private JPanel getJContentPane() {
-		if (contentPane == null) {
+		if ( contentPane == null ) {
 			contentPane = new JPanel(new BorderLayout());
 			contentPane.add(getNorthPanel(), BorderLayout.NORTH);
 			contentPane.add(getHintDetailPanel(), BorderLayout.CENTER);
@@ -548,8 +544,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 	 */
 	private void removeHintsAndDisableHinter(Tech deadTech) {
 		// disable the hinter; which is re-enabled by loading a puzzle
-		IHinter hinter = engine.solver.findWantedHinter(deadTech);
-		if (hinter != null) {
+		IHinter hinter = engine.solver.getWantedHinter(deadTech);
+		if ( hinter != null ) {
 			hinter.setIsEnabled(false);
 		}
 		// remove the hints
@@ -663,7 +659,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 
 	private void applySelectedHintsAndGetNextHint(boolean wantMore, boolean wantSolution) {
 		try {
-			if ( engine.getGrid().isFull() ) {
+			if ( engine.getGrid().numSet > 80 ) {
 				setCurrentHint(engine.solver.SOLVED_HINT, false);
 			} else {
 				engine.applySelectedHints(); // throws UnsolvableException
@@ -712,6 +708,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		} catch (InterruptedException eaten) {
 		}
 		System.err.println();
+		System.err.flush();
 		ex.printStackTrace(System.err);
 		System.err.println();
 		System.err.flush();
@@ -719,6 +716,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		StringWriter sw = new StringWriter();
 		PrintWriter pw = new PrintWriter(sw);
 		ex.printStackTrace(pw);
+		pw.flush();
 		String html = "<html><body><font color=\"red\"><pre>"
 				+ sw.toString()
 				+ "</pre></font></body></html>";
@@ -1109,7 +1107,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			chkFilterHints = new JCheckBox("Filter hints");
 			chkFilterHints.setMnemonic(KeyEvent.VK_I);
 			chkFilterHints.setToolTipText("Filter hints with similar outcome");
-			chkFilterHints.setSelected(THE_SETTINGS.get(Settings.isFilteringHints));
+			chkFilterHints.setSelected(THE_SETTINGS.isFilteringHints());
 			chkFilterHints.setEnabled(false);
 			chkFilterHints.addItemListener(new ItemListener() {
 				@Override
@@ -1215,7 +1213,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 				public void actionPerformed(ActionEvent e) {
 					GenerateDialog dialog = generateDialog;
 					if (dialog == null) {
-						dialog = new GenerateDialog(SudokuFrame.this, engine);
+						dialog = GenerateDialog.getInstance();
 						dialog.pack();
 						// top-right
 						dialog.setLocation(getToolkit().getScreenSize().width
@@ -1849,7 +1847,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		if (mitAnalyseVerbose != null)
 			return mitAnalyseVerbose;
 		mitAnalyseVerbose = newJMenuItem("Analyse (verbose)", KeyEvent.VK_J
-			, "Summarise the bastard, logging hints (verbose)");
+			, "Summarise the Sudoku, logging hints (verbose)");
 		mitAnalyseVerbose.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -1862,8 +1860,8 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private JMenuItem getMitAnalyseTiming() {
 		if (mitAnalyseTiming != null)
 			return mitAnalyseTiming;
-		mitAnalyseTiming = newJMenuItem("Analyse (timing)", KeyEvent.VK_J
-			, "Summarise the bastard, logging hints (VERY verbose)");
+		mitAnalyseTiming = newJMenuItem("Analyse (very verbose)", KeyEvent.VK_K
+			, "Summarise the Sudoku, logging hinter timings (very verbose)");
 		mitAnalyseTiming.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -1873,11 +1871,14 @@ final class SudokuFrame extends JFrame implements IAsker {
 		return mitAnalyseTiming;
 	}
 
-	private static enum Logging{ NORMAL, HINTS, HINTERS;
-		private static Logging of(final int mod) {
+	private static enum Logging{
+		  NORMAL
+		, HINTS
+		, HINTERS;
+		static Logging of(final int modifier) {
 			// upside down: HINTERS implies HINTS which implies NORMAL.
-			if((mod & ALT_MASK) != 0) return HINTERS; // plus timings of each hinter (timings)
-			if((mod & SHIFT_MASK) !=0) return HINTS; // plus log the hints used during solve (verbose)
+			if((modifier & ALT_MASK) != 0) return HINTERS; // plus timings of each hinter (timings)
+			if((modifier & SHIFT_MASK) !=0) return HINTS; // plus log the hints used during solve (verbose)
 			return NORMAL; // just the analyse summary ("normal" output)
 		}
 	}
@@ -1893,6 +1894,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 					long start = System.nanoTime();
 					boolean myLogHints = logging != Logging.NORMAL;
 					boolean myLogHinters = logging == Logging.HINTERS;
+					Run.stopGenerate = false;
 					engine.analysePuzzle(myLogHints, myLogHinters);
 					Log.teef("Analyse took %,d ns\n", System.nanoTime() - start);
 					hintsTreeRequestFocus();
@@ -1900,16 +1902,15 @@ final class SudokuFrame extends JFrame implements IAsker {
 					displayError(ex);
 				}
 			}
-
 		};
-		final Thread backgroundAnalyser = new Thread(analyser, "Analyser");
-		backgroundAnalyser.setDaemon(true);
+		final Thread analyserThread = new Thread(analyser, "Analyser");
+		analyserThread.setDaemon(true);
 		// invokeLater should allow it to repaint BEFORE starting the analyse.
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
 				try {
-					backgroundAnalyser.start();
+					analyserThread.start();
 				} catch (UnsolvableException ex) {
 					displayError(ex);
 				}
@@ -1950,7 +1951,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 			mitFilterHints = newJCheckBoxMenuItem(
 					  "Filter hints with repeat effects"
 					, KeyEvent.VK_F, getChkFilterHints().getToolTipText()
-					, Settings.isFilteringHints, false, false);
+					, Settings.isFilteringHints, false, false, true);
 			mitFilterHints.addItemListener(new ItemListener() {
 				@Override
 				public void itemStateChanged(ItemEvent e) {
@@ -1967,7 +1968,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		if (mitShowMaybes == null) {
 			mitShowMaybes = newJCheckBoxMenuItem("Show maybes", KeyEvent.VK_C
 					, "Display each cells potential values in small digits"
-					, Settings.isShowingMaybes, true, true);
+					, Settings.isShowingMaybes, true, true, true);
 		}
 		return mitShowMaybes;
 	}
@@ -1976,7 +1977,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		if (mitGreenFlash == null) {
 			mitGreenFlash = newJCheckBoxMenuItem("Green flash", KeyEvent.VK_G
 					, "Flash green when the puzzle solves with singles"
-					, Settings.isGreenFlash, true, true);
+					, Settings.isGreenFlash, true, true, true);
 		}
 		return mitGreenFlash;
 	}
@@ -2014,9 +2015,9 @@ final class SudokuFrame extends JFrame implements IAsker {
 			mitHacky = newJCheckBoxMenuItem("Hack top1465"
 					, KeyEvent.VK_H
 					, "<html><body>"
-					 +"used top1465 in Aligned*Exclusion for faster solve"
+					 +"Use hacks in Aligned*Exclusion for a faster solve of top1465 only"
 					 +"</body></html>"
-					, Settings.isHacky, true, true);
+					, Settings.isHacky, true, true, false);
 		}
 		return mitHacky;
 	}
@@ -2057,7 +2058,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		if (mitAntialiasing == null) {
 			mitAntialiasing = newJCheckBoxMenuItem("high quality renDering"
 					, KeyEvent.VK_D, "Use slower high quality rendering"
-					, Settings.isAntialiasing, true, true);
+					, Settings.isAntialiasing, true, true, true);
 		}
 		return mitAntialiasing;
 	}
@@ -2066,7 +2067,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		if (mitSaveSettings == null) {
 			mitSaveSettings = newJMenuItem("Save the settings"
 					, KeyEvent.VK_ASTERISK
-					, "Persist the settings in the registry");
+					, "Persist the settings, so it's all the same next time");
 			mitSaveSettings.addActionListener(new java.awt.event.ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
@@ -2074,7 +2075,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 				}
 			});
 		}
-		return mitSelectTechniques;
+		return mitSaveSettings;
 	}
 
 	// ============================= HELP MENU =============================
@@ -2095,7 +2096,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 		if (mitShowWelcome == null) {
 			mitShowWelcome = newJMenuItem("Show welcome message"
 					, KeyEvent.VK_W
-					, "Display that big long help message");
+					, "Display that big long welcome message");
 			mitShowWelcome.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
@@ -2109,7 +2110,7 @@ final class SudokuFrame extends JFrame implements IAsker {
 	private JMenuItem getMitAbout() {
 		if (mitAbout == null) {
 			mitAbout = newJMenuItem("About", KeyEvent.VK_A
-					, "Get information about the Sudoku Explainer application");
+					, "Sudoku Explainer application version number");
 			mitAbout.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
@@ -2147,28 +2148,22 @@ final class SudokuFrame extends JFrame implements IAsker {
 
 	private JCheckBoxMenuItem newJCheckBoxMenuItem(String text, int mnemonic
 			, String toolTipText, String settingName, boolean isEnabled
-			, boolean addStandardListener) {
+			, boolean wantStandardListener, boolean defualtSetting) {
 		JCheckBoxMenuItem item = new JCheckBoxMenuItem(text);
 		item.setMnemonic(mnemonic);
 		item.setToolTipText(toolTipText);
-		item.setSelected(THE_SETTINGS.get(settingName));
+		item.setSelected(THE_SETTINGS.getBoolean(settingName, defualtSetting));
 		item.setEnabled(isEnabled);
-		if (addStandardListener) {
-			addBooleanSettingListener(item, settingName);
+		if ( wantStandardListener ) {
+			item.addItemListener(new ItemListener() {
+				@Override
+				public void itemStateChanged(ItemEvent e) {
+					THE_SETTINGS.setBoolean(settingName, item.isSelected());
+					repaint();
+				}
+			});
 		}
 		return item;
-	}
-
-	// addItemListener for a standard boolean setting
-	private void addBooleanSettingListener(final JCheckBoxMenuItem mit
-			, final String settingName) {
-		mit.addItemListener(new ItemListener() {
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				THE_SETTINGS.set(settingName, mit.isSelected());
-				repaint();
-			}
-		});
 	}
 
 	private JButton newJButton(String text, int mnemonic, String toolTipText) {

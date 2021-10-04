@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.AHint;
@@ -116,7 +117,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 	private final Idx idx01 = new Idx(); // = idx0 & idx1
 
 	public Aligned2Exclusion() {
-		super(Tech.AlignedPair, null, IO.A2E_HITS);
+		super(Tech.AlignedPair, IO.A2E_HITS);
 		assert tech.isAligned;
 		assert degree == 2;
 	}
@@ -192,7 +193,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 			return false; // no hints for this puzzle/hintNumber
 
 		// The populateCandidatesAndExcluders fields: a candidate Cell has
-		// maybes.size>1 and >0 excluders (siblings) with maybes.size==2
+		// maybesSize>1 and >0 excluders (siblings) with maybesSize==2
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = new Cell[NUM_CANDIDATES];
 		final int numCandidates;
@@ -207,7 +208,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 
 		// the excluder cells common to c0 and c1
 		final Cell[] cmnExcls = COMMON_EXCLUDERS_ARRAY;
-		// the common-excluder-cells.maybes.bits. This set differs from the
+		// the common-excluder-cells.maybes. This set differs from the
 		// common-excluder-cells in that supersets and disjuncts are removed.
 		final int[] cmnExclBits = COMMON_EXCLUDERS_BITS;
 
@@ -230,7 +231,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 		// allowedValuesBitsets concurrent with the cells virtual array
 		int avb0, avb1;
 
-		// the maybes.bits of the cells in the aligned set.
+		// the maybes of the cells in the aligned set.
 		int c0b, c1b;
 
 		// ceb0 is short for CommonExcluder(cells.maybes.)Bits[0]
@@ -263,7 +264,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 				// idx() returns it's cached array. Don't ____ with idx0!
 				idx0 = excluders[(c0=cells[0]=candidates[i0]).i].idx();
 				if(hitMe && c0!=hitCells[0]) continue;
-				c0b = c0.maybes.bits;
+				c0b = c0.maybes;
 				// for each subsequent candidate cell, to make-up the pair.
 				for ( int i1=i0+1; i1<numCandidates; ++i1 ) {
 					// set the common excluders index (idx01) to intersection/s
@@ -275,7 +276,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 
 					c1 = cells[1] = candidates[i1];
 					if(hitMe && c1!=hitCells[1]) continue;
-					c1b = c1.maybes.bits;
+					c1b = c1.maybes;
 
 					// read common excluder cells from grid at idx01
 					// Aligned Pair Exclusion only possible with >= 2 cmnExcls.
@@ -487,7 +488,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 	 * The notCovers method differs from supers covers method (used in A4+E) in
 	 * that it's return value is "pre-negated" (which is confusing as hell) and
 	 * also in that here we just: {@code cmnExclBits[i] == combo},<br>
-	 * ie the each common excluder cells maybes.bits == combo,<br>
+	 * ie the each common excluder cells maybes == combo,<br>
 	 * where in A3+E we resort to the old {@code (cmnExclBits[i] & ~combo) == 0}
 	 * trick to see if combo is a superset of the common excluder cells maybes.
 	 * <p>
@@ -522,16 +523,16 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 		int sv0, combo, i;
 
 		// Foreach distinct combination of 3 potential values of (c0,c1,c2)
-		for ( int v0 : c0.maybes ) { // even an iterator is fast enough here
+		for ( int v0 : VALUESES[c0.maybes] ) {
 			sv0 = VSHFT[v0];
-			for ( int v1 : c1.maybes ) {
+			for ( int v1 : VALUESES[c1.maybes] ) {
 				if ( v1==v0 && !c1.notSees[c0.i] ) {
 					map.put(new HashA(v0,v1,0),null);
 					continue;
 				}
 				combo = sv0 | VSHFT[v1];
 				for ( i=0; i<numCmnExcls; ++i )
-					if ( (cmnExcls[i].maybes.bits & ~combo) == 0 ) {
+					if ( (cmnExcls[i].maybes & ~combo) == 0 ) {
 						map.put(new HashA(v0,v1), cmnExcls[i]);
 						break; // we want only the first excluder of each combo
 					}

@@ -4,7 +4,6 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
@@ -58,22 +57,22 @@ public class BigWing extends AHinter {
 	 * @return do all ALS cells which maybe value see the YZ cell?
 	 */
 	private static boolean isWing(final int cand, Cell yz, Cell[] als) {
-		if ( true ) { // @check true
+//		if ( true ) { // @check true
 			for ( Cell c : als )
-				if ( (c.maybes.bits & cand)!=0 && yz.notSees[c.i] )
+				if ( (c.maybes & cand)!=0 && yz.notSees[c.i] )
 					return false;
 			return true;
-		} else { // debug version: check yz shares both values with ALS
-			boolean any = false;
-			for ( Cell c : als )
-				if ( (c.maybes.bits & cand) != 0 ) {
-					any = true;
-					if ( yz.notSees[c.i] )
-						return false;
-				}
-			assert any : "any should allways be true because we pretest that: VSIZE[cands[i] & (b=yz.maybes.bits)] == 2";
-			return any;
-		}
+//		} else { // debug version: check yz shares both values with ALS
+//			boolean any = false;
+//			for ( Cell c : als )
+//				if ( (c.maybes & cand) != 0 ) {
+//					any = true;
+//					if ( yz.notSees[c.i] )
+//						return false;
+//				}
+//			assert any : "any should allways be true because we pretest that: VSIZE[cands[i] & (b=yz.maybes)] == 2";
+//			return any;
+//		}
 	}
 
 	/**
@@ -96,7 +95,7 @@ public class BigWing extends AHinter {
 		final int sv = VSHFT[v]; //shiftedValue
 		VICTIMS.set(candidates[v]);
 		for ( Cell c : als )
-			if ( (c.maybes.bits & sv) != 0 )
+			if ( (c.maybes & sv) != 0 )
 				VICTIMS.and(BUDDIES[c.i]);
 		if ( isStrong ) // buddy of ALL cells which maybe v, including yz
 			VICTIMS.and(BUDDIES[yz.i]);
@@ -133,7 +132,7 @@ public class BigWing extends AHinter {
 	// ---- set and cleared by findHints ----
 	// accu.isSingle() ie is only one hint sought
 	private boolean onlyOne;
-	// indices of cells in grid with maybes.size==2
+	// indices of cells in grid with maybesSize==2
 	private Idx bivalues;
 	// indices of cells in grid with value==0
 	private Idx empties;
@@ -165,27 +164,27 @@ public class BigWing extends AHinter {
 		try {
 			this.grid = grid;
 			this.accu = accu;
-			if ( true ) { // @check true
+//			if ( true ) { // @check true
 				// CACHED for speed
 				bivalues = grid.getBivalue();
-				candidates = grid.getIdxs();
+				candidates = grid.idxs;
 				empties = grid.getEmpties();
-			} else {
-				// UNCACHED for debugging (to reveal a caching issue)
-				bivalues = grid.idx(new Idx(), c->{return c.maybes.size==2;});
-				// WARNING: hard-resets the contents of cached idxs
-				candidates = grid.getIdxsImpl();
-				empties = grid.idx(new Idx(), c->{return c.value==0;});
-			}
+//			} else {
+//				// UNCACHED for debugging (to reveal a caching issue)
+//				bivalues = grid.idx(new Idx(), c->{return c.size==2;});
+//				// WARNING: hard-resets the contents of cached idxs
+//				candidates = grid.getIdxsImpl();
+//				empties = grid.idx(new Idx(), c->{return c.value==0;});
+//			}
 			onlyOne = accu.isSingle();
 			// indices of cells with size 2..4 for WXYZ.degree==3
 			sets[0] = empties.where(grid.cells, (c) -> {
-				return c.maybes.size>1 && c.maybes.size<degreePlus2;
+				return c.size>1 && c.size<degreePlus2;
 			});
 			// foreach first-cell-in-an-ALS
 			for ( Cell c : sets[0].cells(grid, new Cell[sets[0].size()]) ) {
 				als[0] = c; // the first cell in the almost locked set
-				cands[0] = c.maybes.bits; // the initial cands
+				cands[0] = c.maybes; // the initial cands
 				// check for enough cells (we need degree cells for an ALS)
 				// sets[0] contains only cells with <= degree+1 maybes, so
 				// there's no need to recheck for it here.
@@ -227,20 +226,20 @@ public class BigWing extends AHinter {
 			als[i] = c;
 			if ( i < degreeMinus1 ) { // incomplete ALS
 				// if existing + this cell together have <= degree+1 maybes
-				if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] < degreePlus2
+				if ( VSIZE[cands[i]=cands[i-1]|c.maybes] < degreePlus2
 				  // need degree cells to form an ALS, this is the (i+1)'th
 				  && sets[i+1].setAndMin(sets[i], LATER_BUDS[c.i], degreeMinus1-i)
 				  && (result|=recurse(i+1)) && onlyOne )
 					return result;
 			// degree cells with degree+1 maybes is an Almost Locked Set
-			} else if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] == degreePlus1 ) {
+			} else if ( VSIZE[cands[i]=cands[i-1]|c.maybes] == degreePlus1 ) {
 				yzs.set(BUDDIES[als[0].i]);
 				for ( j=1; j<degree; ++j )
 					yzs.or(BUDDIES[als[j].i]);
 				yzs.removeAll(als);
 				if ( yzs.and(bivalues).any() )
 					for ( Cell yz : yzs.cells(grid, new Cell[yzs.size()]) )
-						if ( VSIZE[cands[i] & (b=yz.maybes.bits)] == 2
+						if ( VSIZE[cands[i] & (b=yz.maybes)] == 2
 						  && ( (xWing=isWing(VSHFT[x=VFIRST[b]], yz, als))
 							 | (zWing=isWing(VSHFT[z=VFIRST[b & ~VSHFT[x]]], yz, als)) )
 						) {
@@ -268,7 +267,7 @@ public class BigWing extends AHinter {
 							if ( !theReds.isEmpty() ) {
 								// FOUND a BigWing on x and possibly z
 								final Pots oranges = new Pots(als, x);
-								oranges.put(yz, new Values(x));
+								oranges.put(yz, VSHFT[x]);
 								final AHint hint = new BigWingHint(this
 										, theReds.copyAndClear(), yz, x, z
 										, both, cands[i], als, oranges);

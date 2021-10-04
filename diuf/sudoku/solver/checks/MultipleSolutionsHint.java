@@ -10,6 +10,7 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AWarningHint;
 import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -18,7 +19,7 @@ import diuf.sudoku.utils.Html;
 
 /**
  * A hint that shows two different solutions of an invalid Sudoku.
- * @see diuf.sudoku.solver.checks.RecursiveAnalyser
+ * @see diuf.sudoku.solver.checks.SingleSolution
  */
 public final class MultipleSolutionsHint extends AWarningHint implements IPretendHint {
 
@@ -43,7 +44,7 @@ public final class MultipleSolutionsHint extends AWarningHint implements IPreten
 			solution2.copyTo(grid);
 		// Clear all potentials
 		for ( Cell cell : grid.cells )
-			cell.maybes.clear();
+			cell.clearMaybes();
 		for (int i=0; i<27; ++i)  for (int v=1; v<10; ++v)
 			grid.regions[i].indexesOf[v].clear();
 		return (81-17) * 10;
@@ -54,7 +55,7 @@ public final class MultipleSolutionsHint extends AWarningHint implements IPreten
 		Pots result = new Pots(81, 1F);
 		final Grid sol; if(viewNum==0) sol=solution1; else sol=solution2;
 		for ( Cell c : grid.cells )
-			result.put(c, new Values(sol.cells[c.i].value));
+			result.put(c, VSHFT[sol.cells[c.i].value]);
 		lastViewNum = viewNum;
 		return result;
 	}

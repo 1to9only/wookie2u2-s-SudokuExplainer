@@ -129,7 +129,7 @@ public class KrakenFishHint extends AHint  {
 	}
 
 	/**
-	 * Used by getLinks (a copy-paste from AChainer rather than make AChainer
+	 * Used by getLinks (a copy-paste from ChainerBase rather than make ChainerBase
 	 * visible outside of the package just to make this static method visible
 	 * to me, or move this method to a FishTools class, ie I should create a
 	 * new FishTools class, but find myself currently unable to do so coz my

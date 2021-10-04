@@ -19,6 +19,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import diuf.sudoku.utils.Permutations;
 
@@ -49,9 +50,6 @@ public final class BasicFisherman extends AHinter {
 		this.thePA = new int[degree];
 	}
 
-	// the IAccumulator to which I add any hints found
-	private IAccumulator accu;
-
 	/**
 	 * Search the grid for Swamp/Sword/Jellyfish hints which I add to accu.
 	 * @param grid to be searched
@@ -59,23 +57,22 @@ public final class BasicFisherman extends AHinter {
 	 * @return any hints found?
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
-		this.accu = accu;
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
+		assert grid != null;
+		assert accu != null;
 		boolean result = false;
 		try {
 			if ( accu.isSingle() ) // short-circuiting boolean-or || operator
-				result = search(grid.rows, grid.cols)
-					|| search(grid.cols, grid.rows);
+				result = search(grid.rows, grid.cols, accu)
+					  || search(grid.cols, grid.rows, accu);
 			else // unusual non-short-circuiting bitwise-or | operator
-				result = search(grid.rows, grid.cols)
-					 | search(grid.cols, grid.rows);
+				result = search(grid.rows, grid.cols, accu)
+					   | search(grid.cols, grid.rows, accu);
 		} catch ( UnsolvableException ex ) {
 			// catch UE to print grid with MIA region which can't exist! Me no
 			// comprende what's going on, yet. Repeat for more info.
 			StdErr.carp("BasicFisherman drowned!", ex, grid);
 			throw ex;
-		} finally {
-			this.accu = null;
 		}
 		return result;
 	}
@@ -105,7 +102,8 @@ public final class BasicFisherman extends AHinter {
 	 * @param covers grid.cols or grid.rows
 	 * @return any hints found?
 	 */
-	private boolean search(final ARegion[] bases, final ARegion[] covers) {
+	private boolean search(final ARegion[] bases, final ARegion[] covers
+			, final IAccumulator accu) {
 		// ANSI-C style variables, for performance
 		// INDEXES[vs]: an array of indexes in the vs bitset; brings reference
 		// onto stack from heap, I think: not sure about this coz it depends on
@@ -166,12 +164,20 @@ public final class BasicFisherman extends AHinter {
 							if ( (pink=covers[indexes[i]].indexesOf[v].bits & ~baseBits) != 0 ) {
 								if ( reds == null )
 									reds = new Pots();
-								reds.addAll(covers[indexes[i]], pink, v);
+								reds.addAll(covers[indexes[i]].cells, pink, v);
 							}
 						// there's nothing to remove at least 95% of the time.
 						if ( reds != null ) {
 							// create the hint and add it to the IAccumulator
 							result = true;
+//if ( accu == null )
+//	Debug.breakpoint();
+//if ( reds == null )
+//	Debug.breakpoint();
+//if ( bases == null )
+//	Debug.breakpoint();
+//if ( covers == null )
+//	Debug.breakpoint();
 							if ( accu.add(createHint(v, reds, bases, baseBits, covers, vs)) )
 								return result;
 							reds = null; // clean-up for next time
@@ -191,7 +197,7 @@ public final class BasicFisherman extends AHinter {
 		// highlighted (green) pots = v's in covers and bases (the corners).
 		final Pots greens = new Pots(degree*degree, 1F);
 		for ( int i : INDEXES[baseBits] )
-			greens.addAll(bases[i], coverBits, v);
+			greens.addAll(bases[i].cells, coverBits, v);
 		// build and return the new hint
 		return new BasicFishHint(this, reds, v, greens, EMPTY_STRING
 				, Regions.list(degree, bases, baseBits)

@@ -16,7 +16,6 @@ import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSIZE;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
@@ -381,8 +380,6 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 
 //	protected final Counter uselessCnt = new Counter("disuselessenate");
 
-	protected final IInterruptMonitor interruptMonitor;
-
 	protected final long[] counts = new long[12];
 	protected final int[] hintCounts = new int[12];
 	protected final String classNameOnly = MyClass.nameOnly(this);
@@ -415,9 +412,8 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 //	protected final Counter sumCnt = new Counter("sumCnt");
 //	protected final Counter prangCnt = new Counter("prangRate");
 
-	public AAlignedSetExclusionBase(Tech tech, IInterruptMonitor im, File hitFile) {
+	public AAlignedSetExclusionBase(Tech tech, File hitFile) {
 		super(tech);
-		this.interruptMonitor = im;
 		assert tech.isAligned;
 		// 2 and 3 were original
 		// 4 was incquisitiveness
@@ -530,15 +526,6 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	public abstract boolean findHints(Grid grid, IAccumulator accu);
 
 	/**
-	 * Subclasses should call isInterrupted() often enough, but not too often
-	 * to exit early if the calling LogicalSolver has been interrupted.
-	 * @return true if the hinter should exit early returning false.
-	 */
-	protected boolean isInterrupted() {
-		return interruptMonitor!=null && interruptMonitor.isInterrupted();
-	}
-
-	/**
 	 * Populates candidates and excluders arrays, and return numCandidates.
 	 * A "candidate" is a cell which can participate in an exclusion set, and
 	 * an "excluder set" is the qualified siblings of that candidate cell.
@@ -546,7 +533,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * "sparse array" that's coincident with Grid.cells (ie index is Cell.i).
 	 * <p>
 	 * Finds cells (candidates) which have at least 2 maybes and have at least 1
-	 * sibling (excluder) with maybes.size between 2 and $degree (inclusive).
+	 * sibling (excluder) with maybesSize between 2 and $degree (inclusive).
 	 * @param candidates {@code Cell[]} to (re)populate
 	 * @param excluders {@code CellSet[81]} to (re)populate. Simultaneous
 	 * @param grid {@code Grid} to examine
@@ -573,12 +560,12 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		// build the excluder-sibling-cells-set of each candidate cell
 		// foreach cell in grid which has more than one potential value
 		CELL_LOOP: for ( Cell cell : grid.cells ) {
-			if ( cell.maybes.size > 1 ) {
-				// find cells excluders: ie siblings with maybes.size 2..5
+			if ( cell.size > 1 ) {
+				// find cells excluders: ie siblings with maybesSize 2..5
 				for ( Cell sib : cell.siblings ) { // 81*20=1620
-					// sib is an excluder if it has maybes.size 2..degree
+					// sib is an excluder if it has maybesSize 2..degree
 					// optimise: do the < first because it's more deterministic.
-					if ( (card=sib.maybes.size)<degreePlus1 && card>1 ) {
+					if ( (card=sib.size)<degreePlus1 && card>1 ) {
 						if ( set == null )
 							set = new CellSet(); //slow constructor, O(1) contains
 						set.add(sib);
@@ -603,7 +590,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * Populates the candidateCellsArray and the cellsExcluders.
 	 * <p>
 	 * Finds Cells (candidates) which have atleast 2 maybes and have atleast 2
-	 * siblings (excluders) with maybes.size between 2 and $degree (inclusive).
+	 * siblings (excluders) with maybesSize between 2 and $degree (inclusive).
 	 * This method differs from above populateCandidatesAndExcluders just in the
 	 * minimum number of required excluders. A4+E all require atleast two common
 	 * excluder cells to perform exclusion on (otherwise they produce irrelevant
@@ -639,13 +626,13 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		// foreach cell in grid which has more than one potential value
 		int numCandidates = 0;
 		CELL_LOOP: for ( Cell cell : grid.cells ) {
-			if ( cell.maybes.size > 1 ) {
+			if ( cell.size > 1 ) {
 				firstExcluder = null;
-				// find cells excluders: ie siblings with maybes.size 2..5
+				// find cells excluders: ie siblings with maybesSize 2..5
 				for ( Cell sib : cell.siblings ) { // 81*20=1620
-					// sib is an excluder if it has maybes.size 2..degree
+					// sib is an excluder if it has maybesSize 2..degree
 					// optimise: do the < first because it's more deterministic.
-					if ( (card=sib.maybes.size)>1 && card<degreePlus1 ) {
+					if ( (card=sib.size)>1 && card<degreePlus1 ) {
 						if ( firstExcluder == null )
 							firstExcluder = sib;
 						else if ( exclsSet == null ) {
@@ -669,34 +656,26 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		return numCandidates;
 	}
 
-	// return the bitwise-or of all cells.maybes.bits
+	// return the bitwise-or of all cells.maybes
 	protected static int allMaybesBits(Cell... cells) {
 		int all = 0;
 		for ( Cell cell : cells )
-			all |= cell.maybes.bits;
+			all |= cell.maybes;
 		return all;
 	}
 
 //not used
-//	// return a new array of the maybes.bits of each cell
+//	// return a new array of the maybes of each cell
 //	protected static int[] getMaybesesNew(Cell[] cells) {
 //		final int n = cells.length;
 //		int[] maybeses = new int[n];
 //		for ( int i=0; i<n; ++i )
-//			maybeses[i] = cells[i].maybes.bits;
+//			maybeses[i] = cells[i].maybes;
 //		return maybeses;
 //	}
 
-	// return a new array of the maybes.bits of each cell
-	protected static int totalMaybesSize(Cell[] cells) {
-		int ttl = 0;
-		for ( int i=0,n=cells.length; i<n; ++i )
-			ttl += cells[i].maybes.size;
-		return ttl;
-	}
-
 	/**
-	 * The static subsets method reads the common-excluder-cells.maybes.bits
+	 * The static subsets method reads the common-excluder-cells.maybes
 	 * into an int array, suppressing each excluder which is a superset of any
 	 * other/s; so for example if one common excluder maybe 12 and another maybe
 	 * 125 then the output (cmnExclBits) will contain just the 12, because 125
@@ -725,12 +704,12 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	protected static int subsets(int[] cmnExclBits, Cell[] cmnExcls, int numCmnExcls) {
 		int i, candidate, j;
 		// add the first common excluder cells maybes bits to cmnExclBits array
-		cmnExclBits[0] = cmnExcls[0].maybes.bits;
+		cmnExclBits[0] = cmnExcls[0].maybes;
 		int numCmnExclBits = 1; // number of elements in the output (modified) cmnExclBits array
 		// foreach subsequent common excluder cell (note the 1)
 		OUTER_LOOP: for ( i=1; i<numCmnExcls; ++i ) {
 			// get candidate for election into da house of common excluder bits.
-			candidate = cmnExcls[i].maybes.bits;
+			candidate = cmnExcls[i].maybes;
 			// foreach existing common excluder bits element
 			for ( j=0; j<numCmnExclBits; ++j ) {
 				// if this candidate equals da existing cmnExclBits then discard
@@ -800,11 +779,11 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * man, I only measure the performance of my code in nanoseconds (reread
 	 * this comment in 30 years time, it'll grow on you), so I can grock it.
 	 *
-	 * @param cmnExclBits int[] input/output the maybes.bits of the common
+	 * @param cmnExclBits int[] input/output the maybes of the common
 	 * excluder cells.
 	 * @param numCmnExclBits int input the number of common excluder bits in the
 	 * array.
-	 * @param allMaybesBits int input the maybes.bits of each cell in the
+	 * @param allMaybesBits int input the maybes of each cell in the
 	 * aligned set. Just bitwise-or them together or use allMaybesBits(). Turns
 	 * out it's MUCH faster to have one long or'ism than several smaller ones.
 	 * @return the new numCmnExclBits, which may be reduced from the input
@@ -894,10 +873,10 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 //	 * </pre>
 //	 * @param cmnExclBits the common excluder (maybes) bits array
 //	 * @param numCmnExclBits the number of elements in the cmnExclBits array
-//	 * @param allMaybesBits all the maybes.bits of all the cells in the
+//	 * @param allMaybesBits all the maybes of all the cells in the
 //	 * aligned set agglomerated into one bitset.<br>
-//	 * eg: {@code c0b|c1b|c2b|(c3b=c3.maybes.bits)}
-//	 * @param maybeses the potential values (ie .maybes.bits) of the cells in
+//	 * eg: {@code c0b|c1b|c2b|(c3b=c3.maybes)}
+//	 * @param maybeses the potential values (ie .maybes) of the cells in
 //	 * the aligned set
 //	 * @return the new (possibly reduced) numCmnExclBits; and also the contents
 //	 * of the cmnExclBits array is modified to remove any which cover nada.
@@ -910,7 +889,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 //		int i = 0;
 //		MAIN_LOOP: while ( i < n ) {
 //			// if the common excluder contains a value that is not all in the
-//			// aglomerate of all cells maybes.bits then the common excluder is
+//			// aglomerate of all cells maybes then the common excluder is
 //			// history (as per the old disdisjunct method).
 //			if ( ((ceb=cmnExclBits[i]) & ~allMaybesBits) != 0 ) {
 //				// remove cmnExclBits[i] and decrement n
@@ -919,7 +898,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 //				--n;
 //			} else {
 //				// else if the common excluder won't cover a single combination
-//				// of the maybes.bits of the cells in the aligned set then the
+//				// of the maybes of the cells in the aligned set then the
 //				// common excluder is history (my NEW "do it faster" itch).
 //				for ( int m=0,M=maybeses.length; m<M; ++m )
 //					for ( int collision : SVS[ceb & maybeses[m]] )
@@ -977,13 +956,13 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * <p>
 	 * The static covers method is the implementation of Aligned Set Exclusions
 	 * (2) Common Excluders rule: Does the combo (eg (sv0|sv1|sv2|sv3)) cover
-     * (ie is a superset of) any cmnExclBits element (ie the maybes.bits of any
+     * (ie is a superset of) any cmnExclBits element (ie the maybes of any
      * common-excluder-cell)?
 	 * <p>
 	 * The name "covers" is just the informal "this set covers this other one",
      * meaning that this combo is a superset of any element of cmnExclBits.
 	 * And by "is a superset of" we mean does this combo contain ALL of any
-	 * common-excluders-cells.maybes.bits? (nb: there may be left-over combo).
+	 * common-excluders-cells.maybes? (nb: there may be left-over combo).
 	 * <p>
      * Called by the getHints method of each of my subclasses. This method is
 	 * totally hammered, as in Billions with a B:<pre>
@@ -994,7 +973,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * </pre>
 	 * NB: Testing has shown that calling a method in the loop is actually
 	 * FASTER than doing it all in-line, contrary to previous experiences.
-	 * @param cmnExclBits the .maybes.bits of the common excluders cells.
+	 * @param cmnExclBits the .maybes of the common excluders cells.
 	 * @param numCmnExclBits the number of cmnExclBits elements, ie the number
 	 * of elements actually in the cmnExclBits array which is fixed size rather
 	 * than build a single-use-array for each combo, to minimise garbage and GC.
@@ -1029,7 +1008,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		// foreach candidate cell in this aligned set
 		for ( i=0,n=cells.length; i<n; ++i )
 			// does cell have any maybes that are not allowed at this position?
-			if ( (bits=(cells[i].maybes.bits & ~avbs[i])) != 0 )
+			if ( (bits=(cells[i].maybes & ~avbs[i])) != 0 )
 				// foreach cell maybe that is not allowed
 				for ( int v : VALUESES[bits] )
 					// Yeah, 'v' can be excluded from 'cell'
@@ -1054,16 +1033,16 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		Cell ci, cj;
 		for ( int i=0,m=n-1; i<m; ++i ) { // for each cell except the last
 			ci = cells[i];
-			mbs += ci.maybes.size;
+			mbs += ci.size;
 			for ( int j=i+1; j<n; ++j ) { // for each subsequent cell
 				cj = cells[j];
 				if ( !ci.notSees[cj.i] ) {
 					++sib;
-					col += VSIZE[ci.maybes.bits & cj.maybes.bits];
+					col += VSIZE[ci.maybes & cj.maybes];
 				}
 			}
 		}
-		totalMaybesSize = mbs + cells[n-1].maybes.size;
+		totalMaybesSize = mbs + cells[n-1].size;
 		siblingsCount = sib;
 		return col;
 	}
@@ -1080,7 +1059,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	protected static int countHits(int[] cmnExclBits, int numCmnExclBits, Cell[] cells) {
 		int bits, i, hitCnt = 0;
 		for ( Cell cell : cells ) {
-			bits = cell.maybes.bits;
+			bits = cell.maybes;
 			for ( i=0; i<numCmnExclBits; ++i )
 				hitCnt += VSIZE[cmnExclBits[i] & bits];
 		}
@@ -1088,7 +1067,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	}
 
 	/**
-	 * Sort n cells by maybes.size ASCENDING. Smaller cells to the left.
+	 * Sort n cells by maybesSize ASCENDING. Smaller cells to the left.
 	 * @param cells
 	 * @param n
 	 */
@@ -1100,7 +1079,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 			any = false;
 			for ( k=1; k<i; ++k ) // the left cell INCLUSIVE
 				// if previous (j=k-1) is larger than current (k) then swapem
-				if ( cells[j=k-1].maybes.size > cells[k].maybes.size ) {
+				if ( cells[j=k-1].size > cells[k].size ) {
 					tmp = cells[j];
 					cells[j] = cells[k];
 					cells[k] = tmp;
@@ -1171,7 +1150,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		 * </ul>
 		 * To make the most useful cells the leftmost.
 		 * @param cells the cells in the aligned set.
-		 * @param cmnExclBits common excluder bits: the maybes.bits of the
+		 * @param cmnExclBits common excluder bits: the maybes of the
 		 * common excluder cells, with any subsets and disjuncts removed (not
 		 * that matters here).
 		 * @param numCmnExclBits number of common excluder bits
@@ -1189,14 +1168,14 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 			MyArrays.clear(myScores);
 			// calculate my values and set my fields, especially scores[]
 			for ( int i=0; i<m; ++i ) { // foreach cell, except the last
-				bits = (a=cells[i]).maybes.bits;
+				bits = (a=cells[i]).maybes;
 				aIsNotSiblingOf = a.notSees;
 				ai = a.i;
 				for ( j=m; j>i; --j ) { // foreach subsequent cell (backwards, coz it's faster)
 					if ( !aIsNotSiblingOf[(b=cells[j]).i] ) {
 //						++sibCnt;
 						// score = 4 for each value that a & b have in common
-						score = VSIZE[bits & b.maybes.bits] << 2;
+						score = VSIZE[bits & b.maybes] << 2;
 						// add score to both a & b, because each sibling
 						// relationship is counted only once.
 						myScores[ai] += score;
@@ -1207,13 +1186,13 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 			for ( Cell cell : cells ) {
 				// add 1 for each maybe
 				// I'm not real sure about this. To filter I think we should
-				// leave out the maybes.size, but to sort I think we should
+				// leave out the maybesSize, but to sort I think we should
 				// leave it in, so we either have two scores or we make the
 				// best of it with a single score, and I suspect that sorting
 				// is more potent than filtering, so sorting has precedence.
-				score = myScores[cell.i] + cell.maybes.size;
+				score = myScores[cell.i] + cell.size;
 				// add 2 for each collision with cmnExclBits
-				bits = cell.maybes.bits;
+				bits = cell.maybes;
 				for ( int i=0; i<numCmnExclBits; ++i )
 					score += VSIZE[bits & cmnExclBits[i]] << 1;
 				// set my local variables
@@ -1322,7 +1301,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		 */
 		@Override
 		public Cell put(HashA key, Cell value) {
-			if ( !AlignedExclusionHint.isRelevant(cells, redPots, key.array) )
+			if ( !AlignedExclusionHint.isRelevent(cells, redPots, key.array) )
 				return null;
 			return super.put(key, value);
 		}
@@ -1383,7 +1362,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		 * <p>
 		 * By "current state" I mean we must recheck each set of cells each
 		 * time any of the maybes in any of those cells is removed, so all we
-		 * do is total the maybes.bits (a bitset), which is a bit cheeky but
+		 * do is total the maybes (a bitset), which is a bit cheeky but
 		 * works because maybes are only ever removed from the cells (ie they
 		 * are never added back-in) so a total of the maybes is sufficient to
 		 * workout if a maybe has been removed from any of the cells in this
@@ -1408,7 +1387,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 				// left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24 and
 				// cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.
 				hc = (hc<<shift) ^ cell.hashCode;
-				mb += cell.maybes.bits;
+				mb += cell.maybes;
 			}
 			this.hc = hc;
 			this.mb = mb;
@@ -1483,7 +1462,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 				// left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24
 				// and cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.
 				hc = (hc<<shift) ^ cell.hashCode;
-				mb += cell.maybes.bits;
+				mb += cell.maybes;
 			}
 			this.hc = hc;
 			this.mb = mb;

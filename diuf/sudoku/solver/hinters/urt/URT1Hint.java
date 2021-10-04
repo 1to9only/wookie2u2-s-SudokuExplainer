@@ -8,7 +8,7 @@ package diuf.sudoku.solver.hinters.urt;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
@@ -26,7 +26,7 @@ public final class URT1Hint extends AURTHint {
 
 	@Override
 	public Pots getReds(int viewNum) {
-		return new Pots(target, new Values(v1, v2));
+		return new Pots(target, VSHFT[v1]|VSHFT[v2], false);
 	}
 
 	@Override

@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.utils;
 
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.Collection;
 import java.util.Iterator;
@@ -75,24 +76,24 @@ public final class Frmt {
 
 	// just cast it to Whatever in your Formatter and IFilter impl's.
 
-	public static String csv(String prefix, Object[] a, IFormatter<Object> ts) {
+	public static <T> String csv(String prefix, T[] a, IFormatter<T> ts) {
 		if(a==null) return EMPTY_STRING;
 		MY_SB.setLength(0);
 		MY_SB.append(prefix);
 		return appendTo(MY_SB, a, ts, COMMA_SP, COMMA_SP).toString();
 	}
-	public static String csv(Object[] a, IFormatter<Object> ts) {
+	public static <T> String csv(T[] a, IFormatter<T> ts) {
 		return Frmt.frmt(a, ts, COMMA_SP, COMMA_SP);
 	}
-	public static String frmt(Object[] a, IFormatter<Object> ts, String sep, String lastSep) {
+	public static <T> String frmt(T[] a, IFormatter<T> ts, String sep, String lastSep) {
 		if(a==null) return EMPTY_STRING;
 		MY_SB.setLength(0);
 		return appendTo(MY_SB, a, ts, sep, lastSep).toString();
 	}
-	public static StringBuilder appendTo(StringBuilder sb, Object[] a, IFormatter<Object> ts, String sep, String lastSep) {
+	public static <T> StringBuilder appendTo(StringBuilder sb, T[] a, IFormatter<T> ts, String sep, String lastSep) {
 		final int m = a.length - 1; // m is n-1; n is the population count.
 		int i = 0;
-		for ( Object e : a ) {
+		for ( T e : a ) {
 			if ( ++i > 1 )
 				sb.append(i<m ? sep : lastSep);
 			sb.append(ts.format(e));
@@ -100,20 +101,16 @@ public final class Frmt {
 		return sb;
 	}
 
-	public static void csv(PrintStream out, Object[] a, IFilter<Object> filter
-			, IFormatter<Object> formatter) {
-		Frmt.csv(out, a, filter, formatter, COMMA_SP, COMMA_SP);
-	}
-	public static void csv(PrintStream out, Object[] a, IFilter<Object> filter
-			, IFormatter<Object> formatter, String sep, String lastSep) {
+	public static <T> void appendTo(Appendable sb, T[] a, IFilter<T> filter
+			, IFormatter<T> formatter, String sep, String lastSep) throws IOException {
 		final int m = a.length - 1; // m is n-1; n is the population count.
 		int i = 0;
-		for ( Object e : a )
+		for ( T e : a )
 			if ( filter.accept(e) ) {
 				if ( ++i > 1 )
-					out.append(i<m ? sep : lastSep);
-				out.append(formatter.format(e));
-			}
+					sb.append(i<m ? sep : lastSep);
+			sb.append(formatter.format(e));
+		}
 	}
 
 	// ======================== Collection IFormatter =========================

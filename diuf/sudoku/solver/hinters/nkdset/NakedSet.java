@@ -21,7 +21,7 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.chain.ChainersHintsAccumulator;
+import diuf.sudoku.solver.hinters.chain.ChainerHacu;
 import diuf.sudoku.utils.Permutations;
 import diuf.sudoku.utils.MyArrays;
 import java.util.List;
@@ -69,15 +69,15 @@ public final class NakedSet extends AHinter
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
+		Pots reds = null; // the removable (red) potential values
 		Cell sib; // sibling
 		int[] ia; // indexes of cells in this region EXCEPT naked set cells
 		int i // the ubiquitous index
 		  , n // number of candidate cells in this region
-		  , card // cardinality: cell.maybes.size
-		  , cands // maybes.bits of cells in this naked set
+		  , card // cardinality: cell.maybesSize
+		  , cands // maybes of cells in this naked set
 		  , nkdSet // indexes in this region of cells in this naked set
 		  , nn; // ia.length: number of cells in region EXCEPT nkdSetCells
-		boolean any; // were any eliminations added?
 		final int degreePlus1 = this.degreePlus1;
 		final int degree = this.degree;
 		final int degreeMinus1 = degree - 1;
@@ -88,7 +88,7 @@ public final class NakedSet extends AHinter
 		// presume that no hint will be found
 		boolean result = false;
 		// chainer never uses direct mode
-		assert !tech.isDirect || !(accu instanceof ChainersHintsAccumulator);
+		assert !tech.isDirect || !(accu instanceof ChainerHacu);
 		// foreach region in the grid // 27 = 9*box, 9*row, 9*col
 		for ( ARegion r : grid.regions ) {
 			// if this region has an "extra" empty cell to remove maybes from
@@ -96,7 +96,7 @@ public final class NakedSet extends AHinter
 				// candidates := region.cells with 2..$degree maybes
 				n = 0; // number of candidate cells
 				for ( Cell cell : r.cells )
-					if ( (card=cell.maybes.size)>1 && card<degreePlus1 )
+					if ( (card=cell.size)>1 && card<degreePlus1 )
 						candi[n++] = cell;
 				// need 2 cells for Pair, 3 for Triple, 4 for Quad
 				if ( n > degreeMinus1 ) {
@@ -106,7 +106,7 @@ public final class NakedSet extends AHinter
 						// are there $degree maybes in this $degree cells?
 						cands = 0;
 						for ( i=0; i<degree; ++i )
-							cands |= candi[perm[i]].maybes.bits;
+							cands |= candi[perm[i]].maybes;
 						if ( VSIZE[cands] == degree ) {
 							// Naked Set found, but does it remove any maybes?
 							// build bitset of indexes of naked set in region
@@ -129,12 +129,13 @@ public final class NakedSet extends AHinter
 							} else {
 								// NORMAL MODE: 96+% remove no maybes
 								// foreach cell (sib) in the region except the-naked-set-cells
-								for ( any=false,ia=INDEXES[VALL & ~nkdSet],nn=ia.length,i=0; i<nn; ++i )
-									if ( ((sib=r.cells[ia[i]]).maybes.bits & cands) != 0 ) {
-										redPots.put(sib, sib.maybes.intersectBits(cands));
-										any = true;
+								for ( ia=INDEXES[VALL & ~nkdSet],nn=ia.length,i=0; i<nn; ++i )
+									if ( (r.cells[ia[i]].maybes & cands) != 0 ) {
+										if(reds==null) reds=new Pots();
+										sib = r.cells[ia[i]];
+										reds.put(sib, sib.maybes & cands);
 									}
-								if ( any ) {
+								if ( reds != null ) {
 									// ----------------------------------------
 									// Performance isn't a problem here down
 									// ----------------------------------------
@@ -142,7 +143,7 @@ public final class NakedSet extends AHinter
 									final List<Cell> nkdSetCells = r.atNewArrayList(nkdSet);
 									final List<ARegion> regions;
 									if ( r instanceof Grid.Box )
-										regions = claimFromOtherCommonRegion(r, nkdSetCells, cands, redPots);
+										regions = claimFromOtherCommonRegion(r, nkdSetCells, cands, reds);
 									else
 										regions = Regions.list(r);
 									// Build the hint
@@ -151,10 +152,11 @@ public final class NakedSet extends AHinter
 											, nkdSetCells
 											, new Values(cands, degree, false)
 											, new Pots(nkdSetCells, cands, false)
-											, redPots.copyAndClear()
+											, reds
 											, regions
 									);
 									result = true;
+									reds = null;
 									if ( accu.add(hint) )
 										return result;
 								}
@@ -166,7 +168,6 @@ public final class NakedSet extends AHinter
 		}
 		return result;
 	}
-	private final Pots redPots = new Pots(); // removable (red) Cell=>Values
 	//</NO_WRAP>
 
 	// Find additional pointing/claiming eliminations.
@@ -201,13 +202,10 @@ public final class NakedSet extends AHinter
 	 */
 	private static boolean claimFrom(final List<Cell> victims, final int cands, final Pots reds) {
 		boolean any = false;
-		int redBits;
+		int values;
 		for ( Cell c : victims )
-			if ( (redBits=c.maybes.bits & cands) != 0 ) {
-				// note that reds can't already contain these cells
-				reds.put(c, new Values(redBits, true));
-				any = true;
-			}
+			if ( (values=c.maybes & cands) != 0 )
+				any |= reds.put(c, values) == null;
 		return any;
 	}
 
@@ -219,15 +217,15 @@ public final class NakedSet extends AHinter
 		// foreach cell in the region EXCEPT the cells in this naked set
 		for ( int i : INDEXES[VALL & ~nkdSet] )
 			// skip if sib doesn't have $degreePlus1 maybes
-			if ( (sib=r.cells[i]).maybes.size == degreePlus1
+			if ( (sib=r.cells[i]).size == degreePlus1
 			  // if sib has the nkdSetValues plus ONE other
-			  && VSIZE[redBits=sib.maybes.bits & ~cands] == 1 )
+			  && VSIZE[redBits=sib.maybes & ~cands] == 1 )
 				// then we can create the hint and add it to the accumulator
 				return createNakedSetDirectHint(r
-					, sib					// cellToSet
+					, sib				// cellToSet
 					, VFIRST[redBits]	// valueToSet
-					, nkdSet				// nkdSetIdxBits
-					, cands					// nkdSetValsBits
+					, nkdSet			// nkdSetIdxBits
+					, cands				// nkdSetValsBits
 				);
 		return null;
 	}
@@ -243,8 +241,8 @@ public final class NakedSet extends AHinter
 		Cell sib;  int redBits; // bitset of values to remove from sib
 		for ( int i : INDEXES[VALL & ~nkdSet] )
 			// if sib maybe any of the naked set values
-			if ( (redBits=(sib=r.cells[i]).maybes.bits & cands) != 0 )
-				reds.put(sib, new Values(redBits, false));
+			if ( (redBits=(sib=r.cells[i]).maybes & cands) != 0 )
+				reds.put(sib, redBits);
 		assert !reds.isEmpty();
 		// claim the NakedSet values from the other common region (if any)
 		List<Cell> ndkSetCells = r.atNewArrayList(nkdSet);
@@ -253,7 +251,7 @@ public final class NakedSet extends AHinter
 			claimFrom(ocr.otherThan(ndkSetCells), cands, reds);
 		Pots oranges = new Pots();
 		for ( Cell cell : ndkSetCells )
-			oranges.put(cell, new Values(cell.maybes));
+			oranges.put(cell, cell.maybes);
 		// build the hint
 		return new NakedSetDirectHint(this, cellToSet, valueToSet, ndkSetCells
 			, new Values(cands, degree, false) // nkdSetValues

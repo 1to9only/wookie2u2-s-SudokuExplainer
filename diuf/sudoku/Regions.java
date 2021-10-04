@@ -68,13 +68,25 @@ public final class Regions {
 	}
 
 	// I give up. Wear a varargs call. This method is non-performant!
-	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion... regions) {
-		ArrayList<ARegion> result = new ArrayList<>(4+regions.length);
+	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion r5) {
+		ArrayList<ARegion> result = new ArrayList<>(5);
 		result.add(r1);
 		result.add(r2);
 		result.add(r3);
 		result.add(r4);
-		for ( ARegion r : regions )
+		result.add(r5);
+		return result;
+	}
+
+	// I give up. Wear a varargs call. This method is non-performant!
+	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion r5, ARegion... extraRegions) {
+		ArrayList<ARegion> result = new ArrayList<>(4+extraRegions.length);
+		result.add(r1);
+		result.add(r2);
+		result.add(r3);
+		result.add(r4);
+		result.add(r5);
+		for ( ARegion r : extraRegions )
 			result.add(r);
 		return result;
 	}
@@ -88,8 +100,8 @@ public final class Regions {
 		return result;
 	}
 
-	public static ArrayList<ARegion> list(int size, ARegion[] regions, int bits) {
-		return list(size, regions, INDEXES[bits]);
+	public static ArrayList<ARegion> list(int size, ARegion[] regions, int indexes) {
+		return list(size, regions, INDEXES[indexes]);
 	}
 
 	public static ArrayList<ARegion> list(int size, ARegion[] regions, int[] indexes) {
@@ -107,20 +119,6 @@ public final class Regions {
 	public static List<ARegion> clear(List<ARegion> c) {
 		c.clear();
 		return c;
-	}
-
-	/**
-	 * Repopulate the given idx with the 'bits' cells in regions.
-	 *
-	 * @param regions
-	 * @param bits
-	 * @param idx the result Idx
-	 */
-	public static void select(ARegion[] regions, int bits, final Idx idx) {
-		idx.clear();
-		for ( int i=0; i<9; ++i )
-			if ( (bits & ISHFT[i]) != 0 )
-				idx.or(regions[i].idx);
 	}
 
 	/**
@@ -157,15 +155,15 @@ public final class Regions {
 		return null;
 	}
 
-	public static String typeName(List<ARegion> rs) {
-		if ( rs!=null && rs.size()>0 && rs.get(0)!=null )
-			return rs.get(0).typeName;
+	public static String typeName(List<ARegion> regions) {
+		if ( regions!=null && regions.size()>0 && regions.get(0)!=null )
+			return regions.get(0).typeName;
 		return "";
 	}
 
-	public static int typeMask(List<ARegion> rs) {
+	public static int typeMask(List<ARegion> regions) {
 		int mask = 0;
-		for ( ARegion r : rs )
+		for ( ARegion r : regions )
 			switch (r.typeIndex) {
 			case Grid.BOX: mask |= 1; break;
 			case Grid.ROW: mask |= 2; break;
@@ -179,13 +177,13 @@ public final class Regions {
 		, "box/col", "row/col", "box/row/col"
 	};
 
-	public static String typeNames(List<ARegion> rs) {
-		return TYPE_NAMES[typeMask(rs)];
+	public static String typeNames(List<ARegion> regions) {
+		return TYPE_NAMES[typeMask(regions)];
 	}
 
-	public static String ids(List<ARegion> rs) {
-		StringBuilder sb = new StringBuilder(rs.size() * 6);
-		for ( ARegion r : rs)
+	public static String ids(List<ARegion> regions) {
+		StringBuilder sb = new StringBuilder(regions.size() * 6);
+		for ( ARegion r : regions)
 			sb.append(' ').append(r.id);
 		return sb.toString();
 	}
@@ -224,19 +222,19 @@ public final class Regions {
 		return result;
 	}
 
-//	// only used for debugging
-//	public static String usedString(boolean[] used, Grid grid) {
-//		String s = "";
-//		boolean first = true;
-//		for ( ARegion r : used(used, grid) ) {
-//			if ( first )
-//				first = false;
-//			else
-//				s += ", ";
-//			s += r.id;
-//		}
-//		return s;
-//	}
+	// used only for debugging
+	public static String usedString(boolean[] used, Grid grid) {
+		String s = "";
+		boolean first = true;
+		for ( ARegion r : used(used, grid) ) {
+			if ( first )
+				first = false;
+			else
+				s += ", ";
+			s += r.id;
+		}
+		return s;
+	}
 
 	/**
 	 * Region ID's, for when you don't HAVE a bloody Grid!
@@ -248,12 +246,19 @@ public final class Regions {
 	};
 
 	public static int index(String rid) {
-		switch ( rid.charAt(0) ) {
-		case 'b': return  0 + (rid.charAt(4)-'1'); // "box 8"
-		case 'r': return  9 + (rid.charAt(4)-'1'); // "row 1"
-		case 'c': return 18 + (rid.charAt(4)-'A'); // "col C"
+		switch ( rid.substring(0, 4) ) {
+		case "box ":
+			return 0 + (rid.charAt(4)-'1'); // "box 8"
+		case "row ":
+			return 9 + (rid.charAt(4)-'1'); // "row 1"
+		case "col ":
+			char c = rid.charAt(4);
+			if ( c<'A' || c>'I' )
+				throw new IllegalArgumentException("Bad column letter in rid: "+rid);
+			return 18 + (c-'A'); // "col C"
+		default:
+			throw new IllegalArgumentException("Bad region type in rid: "+rid);
 		}
-		throw new IllegalArgumentException("Bad rid: "+rid);
 	}
 
 	// only used for debugging
@@ -284,14 +289,6 @@ public final class Regions {
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	// an array of the type of each of the 27 regions to look-up
-	// NB: SE is (box, row, col) whereas HoDoKu is (row, col, box)
-	public static final int[] REGION_TYPE = {
-		  BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX
-		, ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW
-		, COL, COL, COL, COL, COL, COL, COL, COL, COL
-	};
-
 	// a left-shifted mask for each of the 3 types of regions
 	public static final int BOX_MASK = 0x1;
 	public static final int ROW_MASK = 0x2;
@@ -300,6 +297,14 @@ public final class Regions {
 	public static final int ROW_COL_MASK = ROW_MASK | COL_MASK;
 	// an array of the mask of each region type to look-up
 	public static final int[] REGION_TYPE_MASK = {BOX_MASK, ROW_MASK, COL_MASK};
+
+	// an array of the type of each of the 27 regions to look-up
+	// NB: SE is (box, row, col) whereas HoDoKu is (row, col, box)
+	public static final int[] REGION_TYPE = {
+		  BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX, BOX
+		, ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW, ROW
+		, COL, COL, COL, COL, COL, COL, COL, COL, COL
+	};
 
 	// Returns a mask containing the types of the used regions
 	// See: BOX_MASK, ROW_MASK, COL_MASK
@@ -464,11 +469,12 @@ public final class Regions {
 		if (a.x == b.x) {
 			result[cnt++] = a.col;
 		}
-		if (a.boxId == b.boxId) {
+		if (a.boxIndex == b.boxIndex) {
 			result[cnt++] = a.box;
 		}
 		return cnt;
 	}
+
 //not used
 //	/**
 //	 * A null-safe common(Cell, Cell, ARegion) ignoring a==b;

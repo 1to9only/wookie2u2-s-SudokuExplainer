@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
+import diuf.sudoku.Run;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -45,7 +46,6 @@ public abstract class ADirectHint extends AHint  {
 
 	// caches
 	private int numElims;
-	private String ts;
 
 	/**
 	 * Create a new hint.
@@ -105,6 +105,8 @@ public abstract class ADirectHint extends AHint  {
 	 */
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {
+		if ( Run.type==Run.Type.Batch && !isAutosolving )
+			return cell.set(value);
 		return cell.set(value, 0, isAutosolving, SB) * 10; // throws UnsolvableException
 	}
 
@@ -128,15 +130,15 @@ public abstract class ADirectHint extends AHint  {
 
 	@Override
 	public Pots getGreens(int viewNum) {
-		return new Pots(cell, new Values(value));
+		return new Pots(cell, value);
 	}
 
 	@Override
 	public Pots getReds(int viewNum) {
-		int bits = cell.maybes.bits & ~VSHFT[value];
-		if ( bits == 0  )
+		final int values = cell.maybes & ~VSHFT[value];
+		if ( values == 0  )
 			return null;
-		return new Pots(cell, new Values(bits, false));
+		return new Pots(cell, values, false);
 	}
 
 	/** @param o Object other

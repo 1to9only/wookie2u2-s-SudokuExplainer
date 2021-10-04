@@ -148,16 +148,17 @@ public final class BidirectionalCycleHint extends AChainingHint {
 	protected String getNameMiddle() {
 		if ( isYChain ) {
 			if ( isXChain )
-				return "XY Cycle";
-			return "Y Cycle";
+				return "XY";
+			return "Y";
 		}
 		assert isXChain;
+		// NB: We're NOT calling the nasty getNestedAquaCells()
 		if ( getAquaCells(0).size() == 4 )
-			return "Swamp Cycle";
-		return "X Cycle";
+			return "Swamp";
+		return "X";
 	}
 	@Override
-	protected String getNameSuffix() { return EMPTY_STRING; }
+	protected String getNameSuffix() { return "Cycle"; }
 
 	@Override
 	public String toStringImpl() {

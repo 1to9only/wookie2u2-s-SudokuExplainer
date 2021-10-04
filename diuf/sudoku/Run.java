@@ -47,6 +47,11 @@ public final class Run {
 	 * LogicalSolverTester. Sigh.
 	 */
 	public static Type type = Type.TestCase;
+	
+	/**
+	 * Has {@link diuf.sudoku.gen.Generator#generate} been stopped by the user.
+	 */
+	public static volatile boolean stopGenerate = false;
 
 // templates are useless because everything passes!
 //	/** The instance of templates referenced by everyone. This attribute is in

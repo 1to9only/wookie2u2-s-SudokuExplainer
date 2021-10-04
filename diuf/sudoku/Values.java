@@ -9,8 +9,8 @@ package diuf.sudoku;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.utils.Frmt;
 import java.util.Iterator;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
-import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.utils.Frmt.*;
+import java.util.Collection;
 
 /**
  * A 1-based (nonstandard) java.util.BitSet'ish set of the values 1..9.
@@ -93,22 +93,22 @@ public final class Values implements Iterable<Integer> {
 	/**
 	 * An array of jagged-arrays of all the possible maybes, as left-shifted
 	 * bitset values.
-	 * First index is 0..511, ie your maybes.bits. The second index depends
-	 * on the number of maybes, which is always between 0 and 9.
+	 * First index is your maybes, which is a bitset, ie 0..511.
+	 * The second index depends on the number of maybes, between 0 and 9.
 	 * <p>
 	 * The <b>old-school</b> method skips unset bits:
 	 * <pre>{@code
-	 *    final int bits = c0.maybes.bits; // cache it coz it's hammered
+	 *    final int bits = c0.maybes; // cache it coz it's hammered
 	 *    for ( int sv=1; sv<=bits; sv<<=1 ) // shiftedValue
 	 *        if ( (bits & sv) != 0 )
 	 *            // process c0's potential value
 	 * }</pre>
-	 * becomes the <b>new-school</b> method using Values.SHIFTED:
+	 * becomes the <b>new-school</b> method using Values.VSHIFTED:
 	 * <pre>{@code {@code
 	 *   // NB: Testing says the new-school method is about }<b>25% faster.</b><br>{@code
-	 *   int[][] SVS = Values.SHIFTED; // a local reference for speed
+	 *   final int[][] VSS = Values.VSHIFTED; // a local reference for speed
 	 *   ....
-	 *   for ( int sv : SVS[c0.maybes.bits] ) // shiftedValue
+	 *   for ( int sv : VSS[c0.maybes] ) // shiftedValue
 	 *       // process c0's potential value
 	 * }}</pre>
 	 * <p>
@@ -123,26 +123,26 @@ public final class Values implements Iterable<Integer> {
 	 * values new-school, just to reduce collisions. Big Sigh.
 	 * <p>
 	 * <b>contents:</b><pre>{@code
-	 *   SVS[  0] = {} // an empty array
-	 *   SVS[  1] = {1}
-	 *   SVS[  2] = {2}
-	 *   SVS[  3] = {2,1}
-	 *   SVS[  4] = {4}
-	 *   SVS[  5] = {4,1}
-	 *   SVS[  6] = {4,2}
-	 *   SVS[  7] = {4,2,1}
-	 *   SVS[  8] = {8}
-	 *   SVS[  9] = {8,1}
-	 *   SVS[ 10] = {8,2}
-	 *   SVS[ 11] = {8,2,1}
-	 *   SVS[ 12] = {8,4}
-	 *   SVS[ 13] = {8,4,1}
-	 *   SVS[ 14] = {8,4,2}
-	 *   SVS[ 15] = {8,4,2,1}
-	 *   SVS[ 16] = {16}
-	 *   SVS[ 17] = {16,1}
+	 *   VSS[  0] = {} // an empty array
+	 *   VSS[  1] = {1}
+	 *   VSS[  2] = {2}
+	 *   VSS[  3] = {2,1}
+	 *   VSS[  4] = {4}
+	 *   VSS[  5] = {4,1}
+	 *   VSS[  6] = {4,2}
+	 *   VSS[  7] = {4,2,1}
+	 *   VSS[  8] = {8}
+	 *   VSS[  9] = {8,1}
+	 *   VSS[ 10] = {8,2}
+	 *   VSS[ 11] = {8,2,1}
+	 *   VSS[ 12] = {8,4}
+	 *   VSS[ 13] = {8,4,1}
+	 *   VSS[ 14] = {8,4,2}
+	 *   VSS[ 15] = {8,4,2,1}
+	 *   VSS[ 16] = {16}
+	 *   VSS[ 17] = {16,1}
 	 *   ... and so on up to ...
-	 *   SVS[511] = {256,128,64,32,16,8,4,2,1} ie {9,8,7,6,5,4,3,2,1}
+	 *   VSS[511] = {256,128,64,32,16,8,4,2,1} ie {9,8,7,6,5,4,3,2,1}
 	 * }</pre>
 	 */
 	public static final int[][] VSHIFTED = new int[512][];
@@ -151,38 +151,46 @@ public final class Values implements Iterable<Integer> {
 			VSHIFTED[i] = Values.toShiftedArrayNew(i);
 	}
 
-	/** An array of jagged-arrays of the values (unshifted) that are packed
-	 * into the first index as a bitset (ie your cell.maybes.bits).
+	/**
+	 * An array of jagged-arrays of the values (unshifted) that are packed
+	 * into the first index as a bitset (ie your cell.maybes).
 	 * <p>
+	 * <pre>{@code {@code
+	 *   // NB: Testing says the new-school method is about }<b>25% faster.</b><br>{@code
+	 *   final int[][] VS = Values.VALUESES; // a local reference for speed
+	 *   ....
+	 *   for ( int v : VS[c0.maybes] ) // value
+	 *       // process c0's potential value
+	 * }}</pre>
 	 * <b>contents:</b><pre>{@code
-	 *   SVS[  0] = {} // an empty array
-	 *   SVS[  1] = {1}
-	 *   SVS[  2] = {2}
-	 *   SVS[  3] = {2,1}
-	 *   SVS[  4] = {3}
-	 *   SVS[  5] = {3,1}
-	 *   SVS[  6] = {3,2}
-	 *   SVS[  7] = {3,2,1}
-	 *   SVS[  8] = {4}
-	 *   SVS[  9] = {4,1}
-	 *   SVS[ 10] = {4,2}
-	 *   SVS[ 11] = {4,2,1}
-	 *   SVS[ 12] = {4,3}
-	 *   SVS[ 13] = {4,3,1}
-	 *   SVS[ 14] = {4,3,2}
-	 *   SVS[ 15] = {4,3,2,1}
-	 *   SVS[ 16] = {5}
-	 *   SVS[ 17] = {5,1}
+	 *   VS[  0] = {} // an empty array
+	 *   VS[  1] = {1}
+	 *   VS[  2] = {2}
+	 *   VS[  3] = {2,1}
+	 *   VS[  4] = {3}
+	 *   VS[  5] = {3,1}
+	 *   VS[  6] = {3,2}
+	 *   VS[  7] = {3,2,1}
+	 *   VS[  8] = {4}
+	 *   VS[  9] = {4,1}
+	 *   VS[ 10] = {4,2}
+	 *   VS[ 11] = {4,2,1}
+	 *   VS[ 12] = {4,3}
+	 *   VS[ 13] = {4,3,1}
+	 *   VS[ 14] = {4,3,2}
+	 *   VS[ 15] = {4,3,2,1}
+	 *   VS[ 16] = {5}
+	 *   VS[ 17] = {5,1}
 	 *   ... and so on up to ...
-	 *   SVS[511] = {9,8,7,6,5,4,3,2,1}
+	 *   VS[511] = {9,8,7,6,5,4,3,2,1}
 	 * }</pre>
 	 */
 	public static final int[][] VALUESES = new int[512][];
 	/** The number of elements in this element of the SHIFTED/VALUESES array:
 	 * <pre>{@code
-	 *   assert SIZE[c.maybes.bits] == VALUESES[c.maybes.bits].length;
-	 *   assert SIZE[c.maybes.bits] == SHIFTED[c.maybes.bits].length;
-	 *   assert SIZE[c.maybes.bits] == Integer.bitCount(c.maybes.bits);
+	 *   assert SIZE[c.maybes] == VALUESES[c.maybes].length;
+	 *   assert SIZE[c.maybes] == SHIFTED[c.maybes].length;
+	 *   assert SIZE[c.maybes] == Integer.bitCount(c.maybes);
 	 * }</pre> */
 	public static final int[] VSIZE = new int[512];
 	static {
@@ -203,12 +211,12 @@ public final class Values implements Iterable<Integer> {
 	private static final int MAX = 10;
 
 	/** The number of all values: 9 */
-	public static final int ALL_SIZE = MAX-1;
+	public static final int VALL_SIZE = MAX-1;
 
 	// Note that ALL_BITS also works for Indexes. It's just 9 (1) bits,
 	// regardless of whether those bits represent 1..9 or 0..8.
 	/** The bits of all values (1,2,3,4,5,6,7,8,9) == 111,111,111 == 511 */
-	public static final int VALL = (1<<ALL_SIZE)-1;
+	public static final int VALL = (1<<VALL_SIZE)-1;
 
 	/** An array of shifted bitset-values (faster than 1&lt;&lt;v-1) with a
 	 * representation of 0 (which isn't a value) but makes SHFT[1] the shifted
@@ -223,27 +231,27 @@ public final class Values implements Iterable<Integer> {
 	}
 
 	/**
-	 * Returns a new Values containing the 'degree' values which are common
-	 * to all of these 'valueses', else null. Returns null if any 'valueses'
-	 * has size less than 2.
+	 * Returns a bitset containing the 'degree' values that are common to all
+	 * of these 'valueses', else 0. Also returns 0 if any 'valueses' has size
+	 * less than 2.
 	 *
 	 * @param valueses {@code Values[]}
 	 * @param degree the maximum size of a "common" values
 	 * @return the common Values (a new instance), else null
 	 */
-	public static Values common(Values[] valueses, int degree) {
+	public static int common(int[] valueses, int degree) {
 		int bits = 0;
-		for ( Values values : valueses )
-			if ( values.size<2 || VSIZE[bits|=values.bits]>degree )
-				return null;
+		for ( int values : valueses )
+			if ( VSIZE[values]<2 || VSIZE[bits|=values]>degree )
+				return 0;
 		if ( VSIZE[bits] == degree )
-			return new Values(bits, degree, false);
-		return null;
+			return bits;
+		return 0;
 	}
 
 	/** Creates a new filled (1,2,3,4,5,6,7,8,9) Values Set. */
 	static Values all() {
-		return new Values(VALL, ALL_SIZE, false);
+		return new Values(VALL, VALL_SIZE, false);
 	}
 	/** Creates a new empty () Values Set. */
 	static Values none() {
@@ -260,14 +268,40 @@ public final class Values implements Iterable<Integer> {
 	 * @return a new array of the values in bits.
 	 */
 	public static int[] arrayOf(int bits) {
+		final int[] result = new int[VSIZE[bits]];
 		int cnt = 0;
-		int[] array = new int[VSIZE[bits]];
 		for ( int v : VALUESES[bits] )
-			array[cnt++] = v;
+			result[cnt++] = v;
 		// null terminate the array (if length > size)
-		if ( cnt < array.length )
-			array[cnt] = 0;
-		return array;
+		if ( cnt < result.length )
+			result[cnt] = 0;
+		return result;
+	}
+
+	public static int parse(String s) {
+		int result = 0;
+		for ( int i=0,n=s.length(); i<n; ++i )
+			result |= VSHFT[s.charAt(i)-'0']; // set value bit
+		return result;
+	}
+
+	// for test-cases
+	public static int bitset(int a) { return VSHFT[a]; }
+	public static int bitset(int a, int b) { return VSHFT[a] | VSHFT[b]; }
+	public static int bitset(int a, int b, int c) { return VSHFT[a] | VSHFT[b] | VSHFT[c]; }
+	public static int bitset(int a, int b, int c, int d) { return VSHFT[a] | VSHFT[b] | VSHFT[c] | VSHFT[d]; }
+//	public static int bitset(int a, int b, int c, int d, int... others) {
+//		int bitset = VSHFT[a] | VSHFT[b] | VSHFT[c] | VSHFT[d];
+//		for ( int o : others )
+//			bitset |= VSHFT[o];
+//		return bitset;
+//	}
+
+	public static int bitset(int[] values) {
+		int result = 0;
+		for ( int i=0,n=values.length; i<n; ++i )
+			result |= VSHFT[values[i]]; // set value bit
+		return result;
 	}
 
 	// ------------------------------ attributes ------------------------------
@@ -307,10 +341,7 @@ public final class Values implements Iterable<Integer> {
 	/** Constructs a new Values Set containing the given values.
 	 * @param values {@code int[]} an int array of the values to set. */
 	public Values(int[] values) {
-		int bits = 0;
-		for ( int i=0,n=values.length; i<n; ++i )
-			bits |= VSHFT[values[i]]; // set value bit
-		this.size = VSIZE[this.bits=bits];
+		this.size = VSIZE[bits = bitset(values)];
 	}
 
 	/** Constructs a new Values containing the given bits. Size is calculated,
@@ -382,7 +413,7 @@ public final class Values implements Iterable<Integer> {
 	/** Sets all values (ie indexes) in this Values. */
 	public void fill() {
 		bits = VALL; //111,111,111
-		size = ALL_SIZE; //9
+		size = VALL_SIZE; //9
 	}
 
 	/** Clears all values (ie indexes) from this Values. */
@@ -482,10 +513,9 @@ public final class Values implements Iterable<Integer> {
 	 * <p>String format is raw digits. EG: "1569"
 	 * @param s digits to set. */
 	public void set(String s) {
-		final int n = size = s.length();
+		size = s.length();
 		bits = 0;
-		// NB: charAt(i) is faster than s.toCharArray() for small strings
-		for ( int i=0; i<n; ++i )
+		for ( int i=0; i<size; ++i )
 			bits |= VSHFT[s.charAt(i)-'0'];
 	}
 
@@ -592,13 +622,16 @@ public final class Values implements Iterable<Integer> {
 		return new Values(bits | a.bits | b.bits, false);
 	}
 
-	/** Create a new Values containing the values in this Values Set
+	/**
+	 * Create a new Values containing the values in this Values Set
 	 * or in the given Values 'a', minus v1, minus v2.
 	 * <p>ie: {@code new Values(this).add(a).clear(v1).clear(v2)}
+	 *
 	 * @param a {@code Values} to add.
 	 * @param v1 to clear.
 	 * @param v2 to clear.
-	 * @return a new Values. */
+	 * @return a new Values.
+	 */
 	public Values plusClear(Values a, int v1, int v2) {
 		return new Values((bits | a.bits) & ~VSHFT[v1] & ~VSHFT[v2], false);
 	}
@@ -854,6 +887,28 @@ public final class Values implements Iterable<Integer> {
 		return SB.toString();
 	}
 
+	public static String or(int bits) { return toString(bits, COMMA_SP, OR); }
+	public static String and(int bits) { return toString(bits, COMMA_SP, AND); }
+	public static String csv(int bits) { return toString(bits, COMMA_SP, COMMA_SP); }
+	public static String ssv(int bits) { return toString(bits, SPACE, SPACE); }
+	public static String plain(int bits) { return toString(bits, EMPTY_STRING, EMPTY_STRING); }
+
+	public static String and(Collection<Integer> c) {
+		if(c==null) return NULL_ST;
+		SB.setLength(0);
+		final int m = c.size() - 1;
+		int i = 0;
+		for ( Integer value : c ) {
+			if ( ++i > 1 )
+				if ( i<m )
+					SB.append(COMMA_SP);
+				else
+					SB.append(AND);
+			SB.append(Integer.toString(value));
+		}
+		return SB.toString();
+	}
+
 	/**
 	 * A fancy (with field separators) toString for displaying Values in hints.
 	 * @param bits
@@ -865,16 +920,16 @@ public final class Values implements Iterable<Integer> {
 		if ( bits == 0 )
 			return MINUS;
 		SB.setLength(0);
-		final int[] array = VALUESES[bits];
-		final int n = array.length;
+		final int[] values = VALUESES[bits];
+		final int n = values.length;
 		int i = 0; // a 1 based index
-		for ( int e : array ) {
+		for ( int v : values ) {
 			if ( ++i > 1 )
 				if ( i < n )
 					SB.append(sep);
 				else
 					SB.append(lastSep);
-			SB.append(e);
+			SB.append(v);
 		}
 		return SB.toString();
 	}
@@ -895,16 +950,6 @@ public final class Values implements Iterable<Integer> {
 				SB.append(v);
 		}
 		return SB.toString();
-	}
-
-	/**
-	 * Format bits into Comma Separated Values list: "1, 2, 3"
-	 * @param bits your Values.bits (called maybes, bitset, or just bits) to
-	 *  format
-	 * @return 7 => "1, 2, 3"
-	 */
-	public static String csv(int bits) {
-		return toString(bits, Frmt.COMMA_SP, Frmt.COMMA_SP);
 	}
 
 	/**

@@ -65,7 +65,7 @@ class NonHinters {
 	 * <p>
 	 * By "current state" I mean we must recheck each set of cells each
 	 * time any of the maybes in any of those cells is removed, so all we
-	 * do is total the maybes.bits (a bitset), which is a bit cheeky but
+	 * do is total the maybes (a bitset), which is a bit cheeky but
 	 * works because maybes are only ever removed from the cells (ie they
 	 * are never added back-in) so a total of the maybes is sufficient to
 	 * workout if a maybe has been removed from any of the cells in this
@@ -83,7 +83,7 @@ class NonHinters {
 	 *
 	 * @param cellStack the CellStackEntry array
 	 * @param degree the number of cells (2..10) in an aligned set
-	 * @param numExcls the number of excluder-cells whose maybes.bits are 
+	 * @param numExcls the number of excluder-cells whose maybes are 
 	 * currently in the AlignedExclusion.EXCLUDERS_MAYBES array.
 	 * @return should we skip searching the cells in the given stack
 	 */
@@ -94,12 +94,12 @@ class NonHinters {
 		// the cellStack always contains atleast 2 cells; it is NEVER empty!
 		Cell c = cellStack[0].cell;
 		long hc = c.hashCode; // hashCode
-		long mb = c.maybes.bits; // totalMaybes
+		long mb = c.maybes; // totalMaybes
 		for ( int i=1; i<degree; ++i ) {
 			c = cellStack[i].cell;
 			// NOTE: shift is set by my constructor; it varies for $degree
 			hc = (hc<<shift) ^ c.hashCode;
-			mb += c.maybes.bits;
+			mb += c.maybes;
 		}
 		// if the number of excluders has changed, or any of there maybes
 		// have changed, then we will re-examine this aligned-set.

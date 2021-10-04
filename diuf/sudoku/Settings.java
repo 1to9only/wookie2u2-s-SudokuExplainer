@@ -6,26 +6,161 @@
  */
 package diuf.sudoku;
 
+import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import static diuf.sudoku.utils.Frmt.PERIOD;
+import diuf.sudoku.utils.Log;
+import diuf.sudoku.utils.MyPreferences;
 import diuf.sudoku.utils.MyStrings;
 import java.awt.Rectangle;
-import java.io.ByteArrayOutputStream;
-import java.util.Arrays;
+import java.io.File;
 import java.util.Date;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.prefs.BackingStoreException;
-import java.util.prefs.Preferences;
 
 
 /**
- * THE_SETTINGS is the singleton instance of application settings.
- * Stored in: HKEY_CURRENT_USER\Software\JavaSoft\Prefs\diuf\sudoku
+ * THE_SETTINGS is the singleton instance of Sudoku Explainer's Settings.
+ * <p>
+ * Stored in: HOME\
  */
 public final class Settings implements Cloneable {
+
+	/**
+	 * DEFAULT_DEFAULT_SETTINGS is contents of the default IO.SETTINGS file.
+	 * <p>
+	 * When Sudoku Explainer is distributed as "just the .jar file" (which is
+	 * not how it's designed to be distributed) it runs despite not having a
+	 * Settings-file, because it creates it's own (presuming file is writable)
+	 * and continues anyway; failing that it resorts to the default-setting for
+	 * each setting as it's gotten from Settings; so <b>WARNING</b> there are
+	 * multiple levels of defaults, so to change a default-setting you need to
+	 * change it here and everywhere that setting is gotten from Settings,
+	 * which I admit is an un-dry pain-in-the-ass, but there you have it.
+	 */
+	private static final String DEFAULT_DEFAULT_SETTINGS = // @check up-to-date
+"isFilteringHints=true\n" +
+"isAntialiasing=true\n" +
+"isShowingMaybes=true\n" +
+"isHacky=false\n" +
+"isGreenFlash=false\n" +
+"isa4ehacked=false\n" +
+"isa5ehacked=false\n" +
+"isa6ehacked=false\n" +
+"isa7ehacked=false\n" +
+"isa8ehacked=false\n" +
+"isa9ehacked=false\n" +
+"isa10ehacked=false\n" +
+"lookAndFeelClassName=#NONE#\n" +
+"Analysis=true\n" +
+"TooFewClues=false\n" +
+"TooFewValues=false\n" +
+"SingleSolution=false\n" +
+"NoMissingMaybes=false\n" +
+"NoDoubleValues=false\n" +
+"NoHomelessValues=false\n" +
+"LonelySingle=false\n" +
+"NakedSingle=true\n" +
+"HiddenSingle=true\n" +
+"Locking=true\n" +
+"LockingGeneralised=false\n" +
+"DirectNakedPair=false\n" +
+"DirectHiddenPair=false\n" +
+"DirectNakedTriple=false\n" +
+"DirectHiddenTriple=false\n" +
+"NakedPair=true\n" +
+"HiddenPair=true\n" +
+"NakedTriple=true\n" +
+"HiddenTriple=true\n" +
+"Swampfish=true\n" +
+"TwoStringKite=true\n" +
+"XY_Wing=true\n" +
+"XYZ_Wing=true\n" +
+"W_Wing=false\n" +
+"Swordfish=true\n" +
+"Skyscraper=true\n" +
+"EmptyRectangle=true\n" +
+"Jellyfish=false\n" +
+"BUG=false\n" +
+"Coloring=true\n" +
+"XColoring=true\n" +
+"Medusa3D=false\n" +
+"GEM=true\n" +
+"NakedQuad=true\n" +
+"HiddenQuad=true\n" +
+"NakedPent=false\n" +
+"HiddenPent=false\n" +
+"BigWings=true\n" +
+"WXYZ_Wing=false\n" +
+"VWXYZ_Wing=false\n" +
+"UVWXYZ_Wing=false\n" +
+"TUVWXYZ_Wing=false\n" +
+"STUVWXYZ_Wing=false\n" +
+"URT=true\n" +
+"FinnedSwampfish=true\n" +
+"FinnedSwordfish=true\n" +
+"FinnedJellyfish=false\n" +
+"ALS_XZ=true\n" +
+"ALS_Wing=true\n" +
+"ALS_Chain=true\n" +
+"DeathBlossom=true\n" +
+"SueDeCoq=false\n" +
+"FrankenSwampfish=false\n" +
+"FrankenSwordfish=false\n" +
+"FrankenJellyfish=false\n" +
+"KrakenSwampfish=false\n" +
+"MutantSwampfish=false\n" +
+"KrakenSwordfish=false\n" +
+"MutantSwordfish=false\n" +
+"KrakenJellyfish=false\n" +
+"MutantJellyfish=false\n" +
+"AlignedPair=false\n" +
+"AlignedTriple=false\n" +
+"AlignedQuad=false\n" +
+"AlignedPent=false\n" +
+"AlignedHex=false\n" +
+"AlignedSept=false\n" +
+"AlignedOct=false\n" +
+"AlignedNona=false\n" +
+"AlignedDec=false\n" +
+"UnaryChain=true\n" +
+"NishioChain=true\n" +
+"MultipleChain=true\n" +
+"DynamicChain=true\n" +
+"DynamicPlus=true\n" +
+"NestedUnary=true\n" +
+"NestedMultiple=false\n" +
+"NestedDynamic=false\n" +
+"NestedPlus=false\n" +
+"mod=-2147483647\n" +
+"x=0\n" +
+"y=0\n" +
+"width=1024\n" +
+"height=1024\n";
+
+	// open MyPreferences(file), which is NEVER null but may be empty.
+	private static MyPreferences open(File file) {
+		// if the file doesn't exist save the default default settings to it
+		if ( !file.exists() ) {
+			try {
+				IO.save(DEFAULT_DEFAULT_SETTINGS, file);
+			} catch (Exception ex) {
+				// nb: can't use Log here, coz it uses Settings (chicken/egg)
+				System.err.println("Settings.open: failed to create: "+file);
+				ex.printStackTrace(System.err);
+			}
+		}
+		// load the file, returning an empty Map if load fails for ANY reason
+		return new MyPreferences(file);
+	}
+
+	// modCount needs to be never 0
+	private static int skip0(int value) {
+		if ( value == 0 )
+			return 1;
+		return value;
+	}
 
 	/**
 	 * The boolean setting name Strings are public so that here is THE name of
@@ -66,7 +201,7 @@ public final class Settings implements Cloneable {
 
 	public static final EnumSet<Tech> ALL_TECHS = EnumSet.allOf(Tech.class);
 
-	public static final Settings THE_SETTINGS = new Settings(); // this is a Singleton
+	public static final Settings THE_SETTINGS = new Settings(IO.SETTINGS); // this is a Singleton
 
 	// DATE and TIME formats for the project.
 	// eg: 2019-10-03.07-34-17 meaning that it's thirty-four minutes past seven
@@ -101,94 +236,85 @@ public final class Settings implements Cloneable {
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ instance stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	private final Preferences preferences;
-	private final Map<String, Boolean> booleans = new HashMap<>(16, 0.75F);
+	private final MyPreferences prefs;
 
-	private String lookAndFeelClassName = null;
+	// full class-name of the preferred LookAndFeel
+	// enhanced rendering is more important than laf
+	private String laf = "#NONE#";
+
 	// wantedTechs starts life as an empty EnumSet of Tech's
 	private EnumSet<Tech> wantedTechs = EnumSet.noneOf(Tech.class);
 
-	private int modCount; // defaults to 0 automagically
 	private static final String MODIFICATION_COUNT_KEY_NAME = "mod";
 
-	private Settings() {
-		// glom onto the Preferences for the application
-		preferences = Preferences.userNodeForPackage(Settings.class);
+	// modification count
+	private int modCount = Integer.MIN_VALUE; // default only
+
+	private Settings(File file) {
+		// NEVER null, but empty if load fails
+		prefs = open(file); // a Map<String,String>
 		load();
-		xml = this.toXml();
 	}
 
 	public Rectangle getBounds() {
 		return new Rectangle(
-			  preferences.getInt("x",0)
-			, preferences.getInt("y",0)
-			, preferences.getInt("width",3000)
-			, preferences.getInt("height",1080)
+			  prefs.getInt("x", 0)
+			, prefs.getInt("y", 0)
+			, prefs.getInt("width", 3080)
+			, prefs.getInt("height", 1080)
 		);
 	}
 
 	public void setBounds(Rectangle bounds) {
-		if ( preferences != null )
-			try {
-				preferences.putInt("x", bounds.x);
-				preferences.putInt("y", bounds.y);
-				preferences.putInt("width", bounds.width);
-				preferences.putInt("height", bounds.height);
-				preferences.flush();
-			} catch (BackingStoreException ex) {
-				StdErr.whinge(ex);
-			}
+		if ( prefs == null )
+			return;
+		try {
+			prefs.putInt("x", bounds.x);
+			prefs.putInt("y", bounds.y);
+			prefs.putInt("width", bounds.width);
+			prefs.putInt("height", bounds.height);
+			prefs.flush();
+		} catch (BackingStoreException ex) {
+			StdErr.whinge(Log.me()+" BackingStoreException", ex);
+		}
 	}
 
-	public boolean get(String name) {
-		return get(name, false); // the default default is false.
+	public boolean getBoolean(String name) {
+		return getBoolean(name, false); // the default default is false.
 	}
 	// this get method (with defualt) is currently only used by the set method.
-	public boolean get(String name, boolean defualt) {
-		Boolean r = booleans.get(name);
-		if ( r == null )
-			return defualt;
-		return r.booleanValue();
+	public boolean getBoolean(String name, boolean defualt) {
+		return prefs.getBoolean(name, defualt);
 	}
+
 	// if the registry entry does not exist yet we return value, as well as set
 	// the registry entry to value; which is a bit odd, but it works for me.
-	public boolean set(String name, boolean value) {
-		boolean pre = get(name, value);
-		this.booleans.put(name, value);
+	public boolean setBoolean(String name, boolean value) {
+		boolean pre = getBoolean(name, value);
+		prefs.putBoolean(name, value);
 		return pre;
 	}
 
-	public boolean getBoolean(String name, boolean defualt) {
-		try {
-			return preferences.getBoolean(name, defualt);
-		} catch (Exception ex) {
-			StdErr.carp("preferences.getBoolean("+name+", "+defualt+") failed", ex);
-			return false; // you can't get here!
-		}
-	}
+	/** @return THE_SETTINGS.get(Settings.isFilteringHints) */
+	public boolean isFilteringHints() { return getBoolean(isFilteringHints); }
+	public boolean isFilteringHints(boolean defualt) { return getBoolean(isFilteringHints, defualt); }
+	public boolean setIsFilteringHints(boolean b) { return setBoolean(isFilteringHints, b); }
 
 	public int getInt(String name, int defualt) {
-		try {
-			return preferences.getInt(name, defualt);
-		} catch (Throwable eaten) {
-			return defualt;
-		}
+		return prefs.getInt(name, defualt);
 	}
 	public void putInt(String name, int value) {
-		try {
-			preferences.putInt(name, value);
-		} catch (Throwable eaten) {
-			// Do nothing
-		}
+		++modCount;
+		prefs.putInt(name, value);
 	}
 
 	public String getLookAndFeelClassName() {
-		return lookAndFeelClassName;
+		return laf = prefs.get("laf", laf);
 	}
-	public String setLookAndFeelClassName(String lookAndFeelClassName) {
-		String pre = this.lookAndFeelClassName;
-		this.lookAndFeelClassName = lookAndFeelClassName;
-		return pre;
+	// returns the now PREVIOUS setting
+	public String setLookAndFeelClassName(String laf) {
+		++modCount;
+		return prefs.put("laf", laf);
 	}
 
 	public int getWantedTechsSize() {
@@ -198,6 +324,7 @@ public final class Settings implements Cloneable {
 		return EnumSet.copyOf(wantedTechs);
 	}
 	public EnumSet<Tech> setWantedTechs(EnumSet<Tech> techs) {
+		++modCount;
 		EnumSet<Tech> pre = EnumSet.copyOf(wantedTechs);
 		wantedTechs = techs;
 		return pre;
@@ -206,24 +333,23 @@ public final class Settings implements Cloneable {
 		wantedTechs = techs;
 	}
 
-	public boolean allWanted(Tech... rules) {
-		for ( Tech r : rules )
-			if ( !this.wantedTechs.contains(r) )
+	public boolean allWanted(Tech[] techs) {
+		for ( Tech tech : techs ) {
+			if ( !this.wantedTechs.contains(tech) ) {
+				System.out.println("MIA: "+tech);
 				return false;
+			}				
+		}
 		return true;
 	}
 
-	public boolean anyWanted(Tech... rules) {
-		for ( Tech r : rules )
-			if ( this.wantedTechs.contains(r) )
+	public boolean anyWanted(Tech[] techs) {
+		for ( Tech tech : techs ) {
+			if ( this.wantedTechs.contains(tech) ) {
 				return true;
-		return false;
-	}
-
-	public boolean anyWanted(List<Tech> rules) {
-		for ( Tech r : rules )
-			if ( this.wantedTechs.contains(r) )
-				return true;
+			}
+		}
+		System.out.println("MIA: Any of "+Tech.names(techs));
 		return false;
 	}
 
@@ -247,28 +373,20 @@ public final class Settings implements Cloneable {
 	}
 
 	private void load() {
-		if ( preferences == null )
+		if ( prefs == null )
 			throw new NullPointerException("preferences are null!");
 		try {
-			for ( String fieldName : BOOLEAN_FIELD_NAMES )
-				booleans.put(fieldName, preferences.getBoolean(fieldName, true));
-			lookAndFeelClassName = preferences.get("lookAndFeelClassName", lookAndFeelClassName);
+			laf = prefs.get("lookAndFeelClassName", laf);
 			wantedTechs.clear();
 			for ( Tech t : ALL_TECHS )
-				if ( preferences.getBoolean(t.name(), t.defaultWanted) )
+				if ( prefs.getBoolean(t.name(), t.defaultWanted) )
 					wantedTechs.add(t);
 			// get modCount skipping 0, the default value for ints.
-			modCount = skip0(preferences.getInt(MODIFICATION_COUNT_KEY_NAME, Integer.MIN_VALUE));
+			modCount = prefs.getInt(MODIFICATION_COUNT_KEY_NAME, modCount);
 //			System.out.println("Settings.load: modCount="+modCount);
 		} catch (SecurityException ex) {
 			// Maybe we are running from an applet. Do nothing
 		}
-	}
-
-	private static int skip0(int value) {
-		if ( value == 0 )
-			return 1;
-		return value;
 	}
 
 	public void save() {
@@ -279,24 +397,22 @@ public final class Settings implements Cloneable {
 			new Throwable().printStackTrace(System.out);
 			java.awt.Toolkit.getDefaultToolkit().beep();
 		}
-		if ( preferences == null )
+		if ( prefs == null )
 			throw new NullPointerException("preferences are null!");
 		try {
 			for ( String fieldName : BOOLEAN_FIELD_NAMES )
-				preferences.putBoolean(fieldName, get(fieldName)); // defaults to false!
-			if ( lookAndFeelClassName != null )
-				preferences.put("lookAndFeelClassName", lookAndFeelClassName);
+				prefs.putBoolean(fieldName, getBoolean(fieldName)); // defaults to false!
+			if ( laf != null )
+				prefs.put("lookAndFeelClassName", laf);
 			for ( Tech t : ALL_TECHS )
-				preferences.putBoolean(t.name(), wantedTechs.contains(t));
+				prefs.putBoolean(t.name(), wantedTechs.contains(t));
 //			// increment and store the modification count
-			preferences.putInt(MODIFICATION_COUNT_KEY_NAME, ++modCount);
+			prefs.putInt(MODIFICATION_COUNT_KEY_NAME, skip0(++modCount));
 			try {
-				preferences.flush();
+				prefs.flush();
 			} catch (BackingStoreException ex) {
-				StdErr.whinge(ex);
+				StdErr.whinge(Log.me()+" BackingStoreException", ex);
 			}
-			// update the xml which backs equals, hashCode and clone
-			xml = this.toXml();
 		} catch (SecurityException ex) {
 			// Maybe we are running from an applet. Do nothing
 		}
@@ -304,21 +420,6 @@ public final class Settings implements Cloneable {
 
 	public void close() {
 //		save();
-	}
-
-	/**
-	 * Returns a byte array containing the XML of my preferences.
-	 * @return byte[] of preferences XML
-	 */
-	public byte[] toXml() {
-		try {
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			preferences.exportSubtree(baos);
-			return baos.toByteArray();
-		} catch (Exception ex) {
-			StdErr.carp("Settings.equals "+ex.getClass().getSimpleName(), ex);
-			return null; // you can't get here
-		}
 	}
 
 	/**
@@ -334,18 +435,39 @@ public final class Settings implements Cloneable {
 			&& (obj instanceof Settings)
 			&& equals((Settings)obj);
 	}
+
 	/**
 	 * Does the given Settings contain the same Preferences as this Settings?
 	 * <p>
-	 * WARN: other is presumed to be NOT null!
+	 * nb: I was preferences.equals(other.preferences) but it produced results
+	 * that I'm too thick to understand, so I DIY. This I understand. The old
+	 * version was diff'ing XML that I'm too lazy to produce just for equals.
 	 * <p>
-	 * NOTE: equals compares the Preferences only, so if any settings are (in
-	 * future) persisted elsewhere, then you'll also need to compare them here.
+	 * This method is now not AFAIK used, atleast LogicalSolverFactor.recreate
+	 * no-longer relies upon it; it just recreates the bastard coz it was told
+	 * to, and if it's the same as the old one then tough, which may be a waste
+	 * but at-least it's a SIMPLE waste. sigh.
+	 *
 	 * @param other the other Settings to compare this to.
-	 * @return java.util.Arrays.equals(xml, other.xml);
+	 * @return {@code preferences.equals(other.preferences)} delegating down to
+	 * AbstractCollection equals
 	 */
 	public boolean equals(Settings other) {
-		return Arrays.equals(xml, other.xml);
+		if ( other == this )
+			return true;
+		if ( other == null )
+			return false;
+		// are they different versions?
+		if ( other.modCount != modCount )
+			return false;
+		final MyPreferences me = prefs; // NEVER null but may be empty!
+		final MyPreferences op = other.prefs; // NEVER null but may be empty!
+		if ( me.size() != op.size() )
+			return false;
+		for ( Map.Entry<String,String> e : me.entrySet() )
+			if ( !e.getValue().equals(op.get(e.getKey())) )
+				return false;
+		return true;
 	}
 
 	/**
@@ -367,13 +489,8 @@ public final class Settings implements Cloneable {
 	@Override
 	public Object clone() throws CloneNotSupportedException {
 		Settings copy = (Settings)super.clone();
-//Debugger indicates that these are already copied (but how?)
-//		copy.lookAndFeelClassName = this.lookAndFeelClassName;
-//		copy.wantedTechs = EnumSet.copyOf(wantedTechs);
-//		copy.xml = copy.toXml();
 		return copy;
 	}
-	byte[] xml;
 
 	// --------------------- FOR LogicalAnalyserTest ONLY ---------------------
 
@@ -392,41 +509,41 @@ public final class Settings implements Cloneable {
 	 * @param newWantedTechs
 	 */
 	public void checkPoint(final EnumSet<Tech> newWantedTechs, final boolean[] newHacked) {
-		checkPointHacked = new boolean[] {
+		preAeHacked = new boolean[] {
 			// set returns the previous value of this setting
-			  set(isa4ehacked, newHacked[0])
-			, set(isa5ehacked, newHacked[1])
-			, set(isa6ehacked, newHacked[2])
-			, set(isa7ehacked, newHacked[3])
-			, set(isa8ehacked, newHacked[4])
-			, set(isa9ehacked, newHacked[5])
-			, set(isa10ehacked, newHacked[6])
+			  setBoolean(isa4ehacked, newHacked[0])
+			, setBoolean(isa5ehacked, newHacked[1])
+			, setBoolean(isa6ehacked, newHacked[2])
+			, setBoolean(isa7ehacked, newHacked[3])
+			, setBoolean(isa8ehacked, newHacked[4])
+			, setBoolean(isa9ehacked, newHacked[5])
+			, setBoolean(isa10ehacked, newHacked[6])
 		};
-		checkPointWanted = wantedTechs.clone();
+		preWantedTechs = wantedTechs.clone();
 		wantedTechs = newWantedTechs;
-		checkPointed = true;
+		isCheckPointed = true;
 	}
-	private boolean[] checkPointHacked; // pre image
-	private EnumSet<Tech> checkPointWanted; // pre image
-	private boolean checkPointed; // has a pre image been taken
+	private boolean[] preAeHacked; // pre image
+	private EnumSet<Tech> preWantedTechs; // pre image
+	private boolean isCheckPointed; // has a pre image been taken
 	/**
 	 * For LogicalAnalyserTest: Revert settings to the previous savePoint.
 	 */
 	public void revert() {
-		if ( !checkPointed )
+		if ( !isCheckPointed )
 			throw new IllegalStateException("No checkPoint to revert to!");
-		set(isa4ehacked, checkPointHacked[0]);
-		set(isa5ehacked, checkPointHacked[1]);
-		set(isa6ehacked, checkPointHacked[2]);
-		set(isa7ehacked, checkPointHacked[3]);
-		set(isa8ehacked, checkPointHacked[4]);
-		set(isa9ehacked, checkPointHacked[5]);
-		set(isa10ehacked, checkPointHacked[6]);
-		wantedTechs = checkPointWanted;
+		setBoolean(isa4ehacked, preAeHacked[0]);
+		setBoolean(isa5ehacked, preAeHacked[1]);
+		setBoolean(isa6ehacked, preAeHacked[2]);
+		setBoolean(isa7ehacked, preAeHacked[3]);
+		setBoolean(isa8ehacked, preAeHacked[4]);
+		setBoolean(isa9ehacked, preAeHacked[5]);
+		setBoolean(isa10ehacked, preAeHacked[6]);
+		wantedTechs = preWantedTechs;
 		// savePoint and revert are single use
-		checkPointWanted = null;
-		checkPointHacked = null;
-		checkPointed = false;
+		preWantedTechs = null;
+		preAeHacked = null;
+		isCheckPointed = false;
 	}
 
 }

@@ -134,7 +134,7 @@ public final class RegionReductionHint extends AChainingHint {
 
 	@Override
 	public String toHtmlImpl() {
-		String filename = ((AChainer)hinter).isDynamic
+		String filename = ((ChainerBase)hinter).isDynamic
 				? "RegionReductionHintDynamic.html"
 				: "RegionReductionHintStatic.html";
 		String html = Html.load(this, filename);

@@ -4,25 +4,23 @@
  * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
-package diuf.sudoku.solver.hinters;
+package diuf.sudoku.solver.hinters.chain;
 
 import diuf.sudoku.solver.AHint;
 import java.util.TreeSet;
 
 /**
- * A TreeSet of hints whose add ignores nulls, ordered by score (the number
- * of eliminations of each hint) DESCENDING, so that the most "effective"
- * hint is always first in the "list".
+ * HintCacheSorted returns the hint with the highest-score (total number of
+ * eliminations, with each cell-value set counting as 10) first.
  * <p>
- * Note this class was exhumed from AChainer for use also in HdkFisherman, and
- * in future anybody else who declares themselves to be a bit slow Redge (it's
- * under the bonnet son) and so wants to cache his hints rather than repeatedly
- * search to find the same bloody hints.
+ * NOTE WELL: I extend a TreeSet, which stores only elements that are distinct
+ * according to it's Comparator, so the {@link AHint#BY_SCORE_DESC} Comparator
+ * now includes hint.toString to retain distinct hints.
  */
-public final class HintsList extends TreeSet<AHint> {
-	private static final long serialVersionUID = 12424061398L;
+public final class HintCacheSorted extends TreeSet<AHint> implements HintCache {
+	private static final long serialVersionUID = 12424061401L;
 
-	public HintsList() {
+	public HintCacheSorted() {
 		super(AHint.BY_SCORE_DESC);
 	}
 
@@ -42,6 +40,7 @@ public final class HintsList extends TreeSet<AHint> {
 	 * effective hint available, if any, each time I'm called.
 	 * @return 
 	 */
+	@Override
 	public AHint getFirst() {
 		if ( super.size() > 0 ) {
 			AHint cached;
@@ -51,7 +50,7 @@ public final class HintsList extends TreeSet<AHint> {
 				// otherwise throw away this "gone off" hint.
 				if ( cached.redPots.anyCurrent()
 				  // for completeness only (None of the hinters which currently
-				  // use the HintsList set cell values)
+				  // use the HintCache set cell values)
 				  || cached.cell!=null && cached.cell.value==0 ) {
 					return cached;
 				}

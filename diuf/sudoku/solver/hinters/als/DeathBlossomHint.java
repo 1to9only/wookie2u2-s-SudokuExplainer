@@ -59,7 +59,7 @@ public class DeathBlossomHint extends AHint  {
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
 		Collection<Link> result = new LinkedList<>();
-		for ( int v : VALUESES[stem.maybes.bits] )
+		for ( int v : VALUESES[stem.maybes] )
 			for ( Cell c : alssByValue[v].cells )
 				if ( c.maybe(v) )
 					result.add(new Link(stem, v, c, v));
@@ -85,10 +85,10 @@ public class DeathBlossomHint extends AHint  {
 	// produce a line per ALS in this DB, that's colored to match the grid.
 	private String coloredAlss() {
 		int v;
-		final int n = stem.maybes.size;
+		final int n = stem.size;
 		final StringBuilder sb = new StringBuilder(64*n);
 		// get each als by it's value
-		final int[] values = VALUESES[stem.maybes.bits];
+		final int[] values = VALUESES[stem.maybes];
 		for ( int i=0; i<n; ++i ) {
 			v = values[i];
 			if ( i > 0 )

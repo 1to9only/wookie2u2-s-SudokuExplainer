@@ -115,6 +115,7 @@ public final class RecursiveSolverTester {
 				Log.log = new PrintStream(new BufferedOutputStream(new FileOutputStream(new File(args[1]))));
 			} catch (FileNotFoundException ex) {
 				System.err.println(Log.me()+": Buffered output file failed to open");
+				System.err.flush();
 				ex.printStackTrace(System.err);
 				System.exit(3);
 			}

@@ -10,6 +10,8 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.hinters.als.Als;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.MINUS;
@@ -84,7 +86,7 @@ public class HintValidator {
 	public static final boolean KRAKEN_FISHERMAN_USES = false; // @check false
 
 	/**
-	 * Does AChainer (for Nested hints only) use HintValidator?
+	 * Does ChainerBase (for Nested hints only) use HintValidator?
 	 */
 	public static final boolean CHAINER_USES = false; // @check false
 
@@ -164,8 +166,8 @@ public class HintValidator {
 		final int[] solutionValues = grid.getSolutionValues();
 		invalidity = EMPTY_STRING;
 		Cell cell;
-		for ( java.util.Map.Entry<Cell,Values> e : redPots.entrySet() )
-			if ( e.getValue().contains(solutionValues[(cell=e.getKey()).i]) )
+		for ( java.util.Map.Entry<Cell,Integer> e : redPots.entrySet() )
+			if ( (e.getValue() & VSHFT[solutionValues[(cell=e.getKey()).i]]) != 0 )
 				// note the leading space before first
 				invalidity += SPACE+cell.id+MINUS+solutionValues[cell.i];
 		return invalidity.isEmpty();
@@ -198,12 +200,12 @@ public class HintValidator {
 		invalidity = EMPTY_STRING;
 		final int[] solutionValues = grid.getSolutionValues();
 		// note the leading space before the first invalidity
-		for ( Entry<Cell,Values> e : setPots.entrySet()) {
+		for ( Entry<Cell,Integer> e : setPots.entrySet()) {
 			final Cell cell = e.getKey();
-			final Values values = e.getValue();
-			if (values.size != 1) {
-				invalidity += SPACE+cell.id+PLUS+values.toString()+" is not one value!";
-			} else if (!values.contains(solutionValues[cell.i])) {
+			final Integer values = e.getValue();
+			if (VSIZE[values] != 1) {
+				invalidity += SPACE+cell.id+PLUS+Values.toString(values)+" is not one value!";
+			} else if ( (values & VSHFT[solutionValues[cell.i]]) == 0 ) {
 				invalidity += SPACE+cell.id+PLUS+values.toString()+NOT_EQUALS+solutionValues[cell.i];
 			}
 		}

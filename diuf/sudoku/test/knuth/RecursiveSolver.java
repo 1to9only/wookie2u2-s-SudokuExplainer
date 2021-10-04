@@ -11,8 +11,8 @@ import static diuf.sudoku.utils.Debug.*;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
@@ -22,6 +22,7 @@ import diuf.sudoku.solver.hinters.hdnset.HiddenSet;
 import diuf.sudoku.solver.hinters.single.HiddenSingle;
 import diuf.sudoku.solver.hinters.single.NakedSingle;
 import diuf.sudoku.solver.hinters.lock.Locking;
+import diuf.sudoku.solver.hinters.lock.LockingSpeedMode;
 import java.util.EnumMap;
 
 
@@ -31,10 +32,10 @@ import java.util.EnumMap;
  * <p>
  * RecursiveSolver is currently <u>only</u> in RecursiveSolverTester. It is not
  * used in the rest of Sudoku Explainer, hence the separate test.knuth package.
- * The RecursiveAnalyser is used in the rest of SE. It does basically the same
+ * The SingleSolution is used in the rest of SE. It does basically the same
  * stuff, with cheese. This is the stripped-out racing version: sans cheese,
  * special sauce, pickles, and any other s__t you can think of.
- * RecursiveAnalyser is about functionality, but knuth.RecursiveSolver is all
+ * SingleSolution is about functionality, but knuth.RecursiveSolver is all
  * about speed. I'm all about speed. Did I mention that I quite like speed. Not
  * that kind ya dumbass. REAL speed. The kind you discover by working at it.
  * <p>
@@ -75,26 +76,28 @@ public final class RecursiveSolver {
 
 	// hinters that are fast: basic Sudoku solving logic. */
 	private final Timer[] fourQuickFoxes;
-	// Locking must be reset before each solve
-	private final Locking locking;
 
-	HintsApplicumulator apcu = new HintsApplicumulator(false, true);
+	// The apcu is used by locking to apply hints immediately.
+	HintsApplicumulator apcu = new HintsApplicumulator(false);
+
+	// Locking must be reset before each solve
+	private final LockingSpeedMode locking;
 
 	/**
 	 * Constructor.
 	 */
 	public RecursiveSolver() {
-		locking = new Locking(apcu);
 		fourQuickFoxes = new Timer[] {
 			  new Timer(new HiddenSingle())
 			, new Timer(new NakedSingle())
 			, new Timer(new HiddenSet(Tech.HiddenPair))
-			, new Timer(locking)
+			, new Timer(locking = new LockingSpeedMode(apcu))
 		};
 	}
 
 	/**
 	 * Solve the given Sudoku puzzle recursively, ie ASAP.
+	 *
 	 * @param grid Grid to solve.
 	 * @param isNoisy is very verbose
 	 * @return true if it can be solved, else false.
@@ -124,8 +127,8 @@ public final class RecursiveSolver {
 //				result = "unsolvableA: "+g.invalidity;
 				return false;
 			}
-			// Here's the supraknuthian bit.
-			if ( solveLogically(g, isNoisy, depth) ) { // throws UnsolvableException
+			// This is the only supraknuthian part.
+			if ( solveLogically(g) ) { // throws UnsolvableException
 //				result = "solved";
 				return true;
 			}
@@ -136,7 +139,8 @@ public final class RecursiveSolver {
 			// 99.9% of cellToGuess's have 2 maybes. 1 could have 3, one day.
 			Cell cellToGuess = getCellToGuess(g);
 			// nb: we need a new array at each level in recursion
-			int[] valuesToGuess = cellToGuess.maybes.toArrayNew();
+//			int[] valuesToGuess = Values.toArrayNew(cellToGuess.maybes);
+			int[] valuesToGuess = VALUESES[cellToGuess.maybes];
 			String backup = g.toString();
 			for ( int i=0,n=valuesToGuess.length,m=n-1; i<n; ++i ) {
 				int valueToGuess = valuesToGuess[i];
@@ -145,7 +149,7 @@ public final class RecursiveSolver {
 //				indentf('=',depth, "%d guess %s = %d%s", depth, cellToGuess, valueToGuess, NL);
 				try {
 					cellToGuess.set(valueToGuess, 0, true, null); // throws UnsolvableException  // use hardcoded true in case Grid.AUTOSOLVE is currently false
-					if ( g.isFull() ) {
+					if ( g.numSet > 80 ) {
 //						result = "solverated";
 						return true;
 					}
@@ -166,12 +170,12 @@ public final class RecursiveSolver {
 	}
 
 	/**
-	 * Try to solve the puzzle with the Four Quick Foxes (fast hinters). There
-	 * is only enough logic to solve really basic Sudoku puzzles; and for the
+	 * Try to solve the puzzle with the Four Quick Foxes (fast hinters).
+	 * There is only enough logic to solve easy Sudoku puzzles. For the
 	 * remainder we guess cell values, which is frightfully bloody fast.
 	 */
-	private boolean solveLogically(Grid grid, boolean isNoisy, int depth) { // throws UnsolvableException
-		SingleHintsAccumulator accu = new SingleHintsAccumulator();
+	private boolean solveLogically(Grid grid) { // throws UnsolvableException
+		final SingleHintsAccumulator accu = new SingleHintsAccumulator();
 		AHint hint;
 		for ( Timer fox : fourQuickFoxes ) {
 			if ( fox.findHints(grid, accu)
@@ -194,7 +198,7 @@ public final class RecursiveSolver {
 				// which is fine, because the puzzle is broken (or more likely
 				// RecursiveSolver is broken).
 				fox.timing.elims += hint.applyQuitely(true, grid);
-			if ( grid.isFull() )
+			if ( grid.numSet > 80 )
 				return true;
 		}
 		return false;
@@ -203,15 +207,15 @@ public final class RecursiveSolver {
 	// Look for the cell with the least number of potentials.
 	// Seems to give the best results (in term of speed) empirically
 	private Cell getCellToGuess(Grid grid) {
+		int card;
 		Cell leastCell = null;
-		int leastCardinality = 10;
-		int cardinality;
+		int minCard = 10;
 		for ( Cell cell : grid.cells )
 			if ( cell.value == 0
-			  && (cardinality=cell.maybes.size) < leastCardinality ) {
-				if ( cardinality == 0 )
+			  && (card=cell.size) < minCard ) {
+				if ( card == 0 )
 					throw new UnsolvableException(""+cell.id+" zero maybes");
-				leastCardinality = cardinality;
+				minCard = card;
 				leastCell = cell;
 			}
 		// next cell

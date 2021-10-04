@@ -129,7 +129,7 @@ public class TwoStringKite extends AHinter {
 						  // get the y=row of the colPair
 						  // and the x=col of the rowPair
 						  // and examine the cell at there intersection
-						  && ((victim=cells[colPair[1].y*9 + rowPair[1].x]).maybes.bits & sv) != 0
+						  && ((victim=cells[colPair[1].y*9 + rowPair[1].x]).maybes & sv) != 0
 						) {
 							// FOUND TwoStringKite!
 							final AHint hint = createHint(rowPair, colPair, victim, v);

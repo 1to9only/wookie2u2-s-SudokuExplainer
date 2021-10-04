@@ -83,7 +83,8 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 		return new Indexes(0); // int bits
 	}
 
-	/** "Unpacks" the given bits into an array of the index of each set (1)
+	/**
+	 * "Unpacks" the given bits into an array of the index of each set (1)
 	 * bit in the given bits.<br>
 	 * For example: given binary {@code 1101} we return {@code {0,2,3}}.
 	 * <p>
@@ -97,7 +98,8 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * smacked out of you by a girl. Har hjaa!
 	 *
 	 * @param bits to be unpacked
-	 * @return given binary {@code 1101} we return {@code {0,2,3}}. */
+	 * @return given binary {@code 1101} we return {@code {0,2,3}}.
+	 */
 	static int[] toValuesArrayNew(int bits) {
 		final int n = Integer.bitCount(bits);
 		final int[] array = new int[n];
@@ -109,11 +111,14 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 		return array;
 	}
 
-	/** "Unpacks" the given bitset into an array of the outright value of each
+	/**
+	 * "Unpacks" the given bitset into an array of the outright value of each
 	 * set (1) bit in the given bitset.
 	 * For example: given binary {@code 1101} we return {@code {1,4,8}}.
+	 * 
 	 * @param bitset to be unpacked
-	 * @return given binary {@code 1101} we return {@code {1,4,8}}. */
+	 * @return given binary {@code 1101} we return {@code {1,4,8}}.
+	 */
 	public static int[] toShiftedArray(int bitset) {
 		final int n = Integer.bitCount(bitset);
 		int[] result = new int[n];

@@ -27,7 +27,7 @@ import static diuf.sudoku.utils.Frmt.ON;
  */
 public class TwoStringKiteHint extends AHint  {
 
-	private final int redValue;
+	private final int redValue; // the value to remove
 	private final Cell[] rowPair;
 	private final Cell[] colPair;
 	public TwoStringKiteHint(AHinter hinter, int value, List<ARegion> bases
@@ -43,7 +43,7 @@ public class TwoStringKiteHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += ON+Frmu.and(new Values(greens.values()));
+			s += ON+Integer.toString(redValue);
 		return s;
 	}
 
@@ -59,16 +59,16 @@ public class TwoStringKiteHint extends AHint  {
 	public String toHtmlImpl() {
 		Cell redCell = redPots.firstKey();
 		return Html.produce(this, "TwoStringKiteHint.html"
-				, Integer.toString(redValue)	//{0}
-				, covers.get(0).id				// 1
-				, covers.get(1).id				// 2
-				, bases.get(0).id				// 3
-				, redCell.id					// 4
-				, rowPair[0].id					// 5
-				, rowPair[1].id					// 6
-				, colPair[0].id					// 7
-				, colPair[1].id					// 8
-				, redPots.toString()			// 9
+			, Integer.toString(redValue)	//{0}
+			, covers.get(0).id				// 1
+			, covers.get(1).id				// 2
+			, bases.get(0).id				// 3
+			, redCell.id					// 4
+			, rowPair[0].id					// 5
+			, rowPair[1].id					// 6
+			, colPair[0].id					// 7
+			, colPair[1].id					// 8
+			, redPots.toString()			// 9
 		);
 	}
 

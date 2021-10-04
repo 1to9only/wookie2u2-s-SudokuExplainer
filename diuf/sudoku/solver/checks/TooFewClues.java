@@ -24,14 +24,14 @@ public final class TooFewClues extends AWarningHinter {
 		if ( grid.enoughClues )
 			return false;
 		// Does this puzzle have atleast 17 clues?
-		final int count = grid.countFilledCells();
-		if ( count > 16 ) {
+		final int clues = grid.numSet;
+		if ( clues > 16 ) {
 			grid.enoughClues = true;
 			return false;
 		}
 		accu.add(new WarningHint(this
-				, "Number of clues "+count+" is less than 17"
-				, "TooFewClues.html", count));
+				, "Number of clues "+clues+" is less than 17"
+				, "TooFewClues.html", clues));
 		return true;
 	}
 

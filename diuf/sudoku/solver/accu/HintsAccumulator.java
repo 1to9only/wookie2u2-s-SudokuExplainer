@@ -106,6 +106,11 @@ public final class HintsAccumulator implements IAccumulator {
 			list.remove(h);
 	}
 
+	@Override
+	public List<? extends AHint> getList() {
+		return list;
+	}
+
 	// --------------------------------- cheat --------------------------------
 
 	public static interface HintVisitor {

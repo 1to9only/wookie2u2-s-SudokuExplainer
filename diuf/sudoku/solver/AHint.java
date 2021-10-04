@@ -14,17 +14,10 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
 import diuf.sudoku.Grid.Single;
-import diuf.sudoku.Values;
-import diuf.sudoku.gui.Print;
-import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.als.Als;
 import diuf.sudoku.utils.Debug;
-import diuf.sudoku.utils.Frmt;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.NULL_ST;
-import static diuf.sudoku.utils.Frmt.PLUS;
-import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,7 +27,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 
 /**
  * Abstract Hint is a base for ALL types of hints in Sudoku Explainer.
@@ -48,6 +40,27 @@ import java.util.Set;
  */
 public abstract class AHint implements Comparable<AHint> {
 
+	/** Formerly Used by getHints, see BY_SCORE_DESC_AND_INDICE. */
+	public static final Comparator<AHint> BY_SCORE_DESC
+			= (AHint h1, AHint h2) -> {
+		// short circuit
+		if ( h1 == h2 )
+			return 0;
+		// order by score descending (NumElims can take a wee while to workout)
+		int ret;
+		if ( (ret=h2.getNumElims() - h1.getNumElims()) != 0 )
+			return ret;
+		// then by toString
+		return h1.toString().compareTo(h2.toString()); // random
+	};
+
+	/**
+	 * Should {@link #applyNoisily} also print the hint HTML. This is a static
+	 * field to avoid adding a parameter to apply, which is painful.
+	 * <p>
+	 * This "feature" is ONLY used by LogicalSolverTester, and currently only
+	 * when one puzzle is solved, in order to find test-cases in the details.
+	 */
 	public static boolean printHintHtml;
 
 	/**
@@ -80,7 +93,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	protected static final boolean IS_CACHING_HTML = true; // @check true
 
-	protected static final String NL = diuf.sudoku.utils.Frmt.NL; // @check true
+	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
 	public static final int DIRECT=0, WARNING=1, INDIRECT=2, AGGREGATE=3, MULTI=4;
 
@@ -91,6 +104,23 @@ public abstract class AHint implements Comparable<AHint> {
 	protected static final String[] NUMBER_NAMES = new String[] {
 		"two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"
 	};
+
+	// this method recovers from NUMBER_NAMES is used all over the shop so
+	// I do NOT want to modify it's values, but BigWings, being ALS based,
+	// can also find XYZ_Wing's and does so occassionally, especially when
+	// you Shft-F5, so I need a way of going under the bar, and this is it.
+	protected String numberName(int i) {
+		if ( i>-1 && i<NUMBER_NAMES.length )
+			return NUMBER_NAMES[i];
+		switch (i) {
+		case -1: return "one";
+		case -2: return "zero";
+		case -3: return "minus one";
+		case 9: return "eleven";
+		case 10: return "twelve";
+		default: return i<0 ? "minus shazbut" : "shazbut";
+		}
+	}
 
 	public static final int CHARS_PER_HINT = 80; // per toString (approximate)
 
@@ -106,14 +136,14 @@ public abstract class AHint implements Comparable<AHint> {
 	public final List<ARegion> bases; // regions to paint blue
 	public final List<ARegion> covers; // regions to paint green
 
-	/** set to true when HintValidator#isValid finds eliminations of one-or-more
-	 * potential value/s that are in the solution, before toString is called. */
+	/** set true when HintValidator#isValid finds elimination of this cells
+	 * solution value, before toString is called. */
 	public boolean isInvalid;
 	/** HintValidator.report sets hint.invalidity = the WHOLE Logged line. */
 	public String invalidity;
 
-	/** sb is a weird variable specifically for the HintsApplicumulator and
-	 * AHint.apply->Cell.set. It's ugly but it's nicest way I can think of. */
+	/** SB is a weird variable specifically for the HintsApplicumulator and
+	 * AHint.apply->Cell.set. It's ugly but the cleanest way I can think of. */
 	public StringBuilder SB;
 
 	// for direct hints
@@ -156,64 +186,6 @@ public abstract class AHint implements Comparable<AHint> {
 		this.covers = covers;
 	}
 
-//	void logHint() {
-//		System.out.println();
-//		if ( GrabBag.grid != null ) {
-//			System.out.format("%d/%s\n", hintNumber, GrabBag.grid.source);
-//			System.out.println(GrabBag.grid);
-//		}
-//		long now = System.nanoTime();
-//		System.out.format("%,15d\t%s\n", now-GrabBag.time, toFullString());
-//		GrabBag.time = now;
-//	}
-
-	/**
-	 * getGrid() gets the grid which contains the cell-to-set, or the first
-	 * redPots; or first greens, oranges, blues, bases, or covers; else null.
-	 * <p>
-	 * I'm overridden by "multi" hints with setPots.
-	 *
-	 * @return the grid of this hint.
-	 */
-	public Grid getGrid() {
-		if ( cell != null )
-			return cell.getGrid();
-		if ( redPots!=null && !redPots.isEmpty() )
-			return redPots.firstKey().getGrid();
-		if ( greens!=null && !greens.isEmpty() )
-			return greens.firstKey().getGrid();
-		if ( oranges!=null && !oranges.isEmpty() )
-			return oranges.firstKey().getGrid();
-		if ( blues!=null && !blues.isEmpty() )
-			return blues.firstKey().getGrid();
-		if ( bases!=null && !bases.isEmpty() )
-			return bases.get(0).getGrid();
-		if ( covers!=null && !covers.isEmpty() )
-			return covers.get(0).getGrid();
-		// I Give up.
-		return null;
-	}
-
-	/**
-	 * Apply this hint to its grid. This wrapper gets the grid from the hint.
-	 * It's slower, so should only be used when you don't have the grid!
-	 *
-	 * @param isAutosolving true (Grid.AUTOSOLVE) makes Cell.set find and set
-	 * subsequent NakedSingles and HiddenSingles; and also makes me find and
-	 * set any NakedSingles caused by removing the redPots. I haven't tackled
-	 * subsequent hidden singles, and I don't think I will, coz I dunno HOW.
-	 * @param isNoisy true to print details of this hint, including grid.
-	 * @return the score: numCellsSet*10 + numMaybesRemoved
-	 * @throws UnsolvableException on the odd occasion
-	 */
-	public final int apply(boolean isAutosolving, boolean isNoisy) {
-		final Grid grid = getGrid();
-		// for speed, NEVER log when autosolving (not real sure about this)
-		if ( isAutosolving || !isNoisy )
-			return applyQuitely(isAutosolving, grid);
-		return applyNoisily(isAutosolving, grid);
-	}
-
 	public final int applyNoisily(final boolean isAutosolving, final Grid grid) {
 		Print.grid(Log.log, grid); // the grid this hint was found in
 		final int result = applyImpl(isAutosolving, grid);
@@ -254,42 +226,36 @@ public abstract class AHint implements Comparable<AHint> {
 		int myNumElims = 0;
 		try {
 			if ( cell != null ) {
-				// returns number of cells set (may be >1 when isAutosolving)
-				// nb: occassionally throws UnsolvableException
-				myNumElims += 10 * cell.set(value, 0, isAutosolving, SB);
+				if ( !isAutosolving && SB==null ) {
+					myNumElims += 10 * cell.set(value);
+				} else {
+					myNumElims += 10 * cell.set(value, 0, isAutosolving, SB);
+				}
 			}
 			if ( redPots!=null && !redPots.isEmpty() ) {
+				Cell c; int pinkos;
 				if ( isAutosolving ) {
-					int pink; // a bitset of removable values
-					Deque<Single> singles = null;
-					boolean reuse = false;
-					try {
-						if ( grid != null ) {
-							singles = grid.getSinglesQueue();
-							reuse = true;
-						} else
-							singles = new LinkedList<>(); // slower
-						for ( Map.Entry<Cell,Values> e : redPots.entrySet() ) {
-							final Cell c = e.getKey();
-							final Values v = e.getValue();
-							if ( (pink=c.maybes.bits & v.bits) != 0 )
-								myNumElims += c.canNotBeBits(pink, singles);
+					final Deque<Single> singles;
+					if ( grid != null ) {
+						singles = grid.getSinglesQueue();
+					} else {
+						singles = new LinkedList<>(); // slower
+					}
+					for ( Map.Entry<Cell,Integer> e : redPots.entrySet() ) {
+						if ( (pinkos=(c=e.getKey()).maybes & e.getValue()) != 0 ) {
+							myNumElims += c.canNotBeBits(pinkos, singles);
 						}
-						for ( Single s; (s=singles.poll()) != null; )
-							if ( s.cell.value == 0 ) // skip already set
-								myNumElims += 10 * s.cell.set(s.value, 0, true, SB);
-					} catch ( Exception ex ) {
-						if ( reuse ) // clean-up for next time
-							singles.clear();
-						throw ex;
+					}
+					for ( Single s; (s=singles.poll()) != null; ) {
+						if ( s.cell.value == 0 ) { // skip already set
+							myNumElims += 10 * s.cell.set(s.value, 0, true, SB);
+						}
 					}
 				} else {
-					int pink;
-					for ( Map.Entry<Cell,Values> e : redPots.entrySet() ) {
-						final Cell c = e.getKey();
-						final Values v = e.getValue();
-						if ( (pink=c.maybes.bits & v.bits) != 0 )
-							myNumElims += c.canNotBeBits(pink);
+					for ( Map.Entry<Cell,Integer> e : redPots.entrySet() ) {
+						if ( (pinkos=(c=e.getKey()).maybes & e.getValue()) != 0 ) {
+							myNumElims += c.canNotBeBits(pinkos);
+						}
 					}
 				}
 			}
@@ -298,29 +264,38 @@ public abstract class AHint implements Comparable<AHint> {
 			// We guess cell values so break puzzle, but they are important
 			// elsewhere. Don't like slow reflection filter, but what else?
 			// NB: should whinge if depth==0 (top level) but how to?
-			if ( !Debug.isMethodNameInTheCallStack(10, "recursiveSolve", "generate") )
-				StdErr.whinge("Error applying: "+this.toFullString(), ex);
+			if ( !Debug.isMethodNameInTheCallStack(64, new String[]{"recursiveSolve", "generate"}) )
+				Log.teeTrace("Error applying: "+this.toFullString(), ex);
 			throw ex;
 		}
 		return myNumElims;
 	}
 
-	/** Implementors override this one to return a subtype of AHinter.
-	 * @return the Hinter which discovered this hint. */
+	/**
+	 * Implementors override this one to return a subtype of AHinter.
+	 *
+	 * @return the Hinter which discovered this hint.
+	 */
 	public AHinter getHinter() {
 		return hinter;
 	}
 
-	/** Implementors override this one, the result of which is cached by
+	/**
+	 * Implementors override this one, the result of which is cached by
 	 * getHintTypeName.
-	 * @return the name of the Hinter that discovered this hint. */
+	 *
+	 * @return the name of the Hinter that discovered this hint.
+	 */
 	protected String getHintTypeNameImpl() {
 		return hinter.toString();
 	}
 
-	/** @return the name of the Hinter which discovered this hint.<p>
+	/**
+	 * @return the name of the Hinter which discovered this hint.
+	 * <p>
 	 * EG: "Naked Single", "Hidden Single", "Naked Pair", "Swampfish",
-	 * "Ultra-Right-Wing Square Dance Dissociation (with twin aardvarks)". */
+	 * "Ultra-Right-Wing Square Dance Dissociation (with twin aardvarks)".
+	 */
 	public final String getHintTypeName() {
 		if ( hintTypeName == null )
 			hintTypeName = getHintTypeNameImpl();
@@ -413,19 +388,30 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * GEM requires a separate difficulty-rating specifically for the total
-	 * difficulty of a puzzle, because it set's lots of cell-values, which
-	 * need to be taken into account.
+	 * difficulty of a puzzle, because it set's lots of cell-values that must
+	 * be included, else GEM reports a puzzle as "much easier", which it isn't,
+	 * it's the <u>same</u> bloody puzzle, so the total bloody difficulty must
+	 * be reported consistently.
+	 * <p>
+	 * The downside is that no-upper-bound makes GEM report itself to be harder
+	 * than NestedPlus chaining. GEM is pretty tricky, but it's not even in the
+	 * same galaxy as Nested-bloody-anything, and you can't have it both ways!
+	 * Oh wait, yes you can: you just need a difficulty-rating specific to the
+	 * total difficulty, ergo this method.
 	 *
-	 * @return
+	 * @return the difficulty of this hint specifically for the calculation of
+	 *  the total difficulty of a puzzle, including a bonus for each cell-value
+	 *  set.
 	 */
 	public double getDifficultyTotal() {
 		return getDifficulty();
 	}
 
 	public int getNumElims() {
-		if(numElims != 0) return numElims;
-		if(cell != null) numElims = 10;
-		if(redPots != null) numElims += redPots.totalSize();
+		if ( numElims == 0 ) {
+			if(cell != null) numElims = 10;
+			if(redPots != null) numElims += redPots.totalSize();
+		}
 		return numElims;
 	}
 	private int numElims;
@@ -437,8 +423,10 @@ public abstract class AHint implements Comparable<AHint> {
 		return 1;
 	}
 
-	/** @return the result cell, causing the maybe to be displayed in a slightly
-	 * larger bold font, to distinguish it from a plethora of also-rans. */
+	/**
+	 * @return the result cell, causing the maybe to be displayed in a slightly
+	 * larger bold font, to distinguish it from a plethora of also-rans.
+	 */
 	public Result getResult() {
 		if ( cell == null )
 			return null;
@@ -447,6 +435,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * Get the cells to be highlighted with an aqua background.
+	 *
 	 * @param viewNum 1..128
 	 * @return A Set of the selected Cells.
 	 */
@@ -458,6 +447,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * Get the cells to be highlighted with a pink background.
+	 *
 	 * @param viewNum 1..128
 	 * @return A Set of the pink (highlighted) Cells.
 	 */
@@ -467,6 +457,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * Get the cell to be highlighted with a green background.
+	 *
 	 * @param viewNum 1..128
 	 * @return A Set of the green (highlighted) Cells.
 	 */
@@ -476,6 +467,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * Get the cell to be highlighted with an orange background.
+	 *
 	 * @param viewNum 1..128
 	 * @return A Set of the orange (highlighted) Cells.
 	 */
@@ -485,6 +477,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * Get the cell to be highlighted with a blue background.
+	 *
 	 * @param viewNum 1..128
 	 * @return A Set of the blue (highlighted) Cells.
 	 */
@@ -494,6 +487,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * Get the cell to be highlighted with a yellow background.
+	 *
 	 * @param viewNum 1..128
 	 * @return A Set of the yellow (highlighted) Cells.
 	 */
@@ -501,32 +495,44 @@ public abstract class AHint implements Comparable<AHint> {
 		return null;
 	}
 
-	/** Get the green (to set) Cell=&gt;Values.
-	 * <p>NOTE: formerly green+red=orange. Now oranges are separate!
+	/**
+	 * Get the green (to set) Cell=&gt;Values.
+	 * <p>
+	 * NOTE: formerly green+red=orange. Now oranges are separate!
+	 *
 	 * @param viewNum the view number, zero-based.
 	 * @return the green Pots, else <tt>null</tt> */
 	public Pots getGreens(int viewNum) {
 		return greens;
 	}
 
-	/** Get the red (eliminated) Cell=&gt;Values.
+	/**
+	 * Get the red (eliminated) Cell=&gt;Values.
+	 *
 	 * @param viewNum the view number, zero-based
-	 * @return the red Pots, else <tt>null</tt> */
+	 * @return the red Pots, else <tt>null</tt>
+	 */
 	public Pots getReds(int viewNum) {
 		return redPots;
 	}
 
-	/** Get the orange (highlighted) Cell=&gt;Values.
+	/**
+	 * Get the orange (highlighted) Cell=&gt;Values.
+	 *
 	 * @param viewNum the view number, zero-based
-	 * @return the red Pots, else <tt>null</tt> */
+	 * @return the red Pots, else <tt>null</tt>
+	 */
 	public Pots getOranges(int viewNum) {
 		return oranges;
 	}
 
-	/** Get the blue (fins, et al) Cell=&gt;Values.
+	/**
+	 * Get the blue (fins, et al) Cell=&gt;Values.
+	 *
 	 * @param grid the current Grid.
 	 * @param viewNum the view number, zero-based
-	 * @return the red Pots, else <tt>null</tt> */
+	 * @return the red Pots, else <tt>null</tt>
+	 */
 	public Pots getBlues(Grid grid, int viewNum) {
 		return blues;
 	}
@@ -545,6 +551,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/**
 	 * Get the regions to be highlighted with a pink border.
+	 *
 	 * @return
 	 */
 	public List<ARegion> getPinkRegions() {
@@ -554,6 +561,7 @@ public abstract class AHint implements Comparable<AHint> {
 	/**
 	 * Get the ALS's which contain both regions and cells to highlight in
 	 * blue, green, aqua, ...tba...
+	 *
 	 * @return {@code Collection<Als>}
 	 */
 	public Collection<Als> getAlss() {
@@ -563,6 +571,7 @@ public abstract class AHint implements Comparable<AHint> {
 	/**
 	 * Get the links - the brown arrow from a potential value to his effected
 	 * potential value in a chain.
+	 *
 	 * @param viewNum the view number, zero-based.
 	 * @return the links to draw, or <tt>null</tt> if none.
 	 */
@@ -591,22 +600,28 @@ public abstract class AHint implements Comparable<AHint> {
 	 * Any subsequent views reuse the existing HTML, because HTML generation
 	 * can be slow for Nested hints, especially for NestedPlus (like 10 secs,
 	 * then swings HTML parser takes like 15 secs to parse the result).
-	 * <p>Use the {@link diuf.sudoku.utils.Html} class to load and format your
-	 *  HTML document, and the {@link diuf.sudoku.utils.Frmt} class to format
-	 *  data-types into human readable lists, numbers, etc. Don't start from
-	 *  scratch, copy/paste toHtmlImpl from a likely (close) IHinter.
-	 * <p>For a simple example see
-	 *  {@link diuf.sudoku.solver.hinters.single.HiddenSingleHint}.
-	 * <p>For the full-monty see
-	 *  {@link diuf.sudoku.solver.hinters.chain.BinaryChainHint}
-	 *  which includes the call to {@code super.appendNestedChainsHtml(...)}.
+	 * <p>
+	 * Use the {@link diuf.sudoku.utils.Html} class to load and format your
+	 * HTML document, and the {@link diuf.sudoku.utils.Frmt} class to format
+	 * data-types into human readable lists, numbers, etc. Don't start from
+	 * scratch, copy/paste toHtmlImpl from a likely (close) IHinter.
+	 * <p>
+	 * For a simple example see
+	 * {@link diuf.sudoku.solver.hinters.single.HiddenSingleHint}.
+	 * <p>
+	 * For the full-monty see
+	 * {@link diuf.sudoku.solver.hinters.chain.BinaryChainHint}
+	 * which includes the call to {@code super.appendNestedChainsHtml(...)}.
 	 *
 	 * @return A HTML explanation of this hint.
 	 */
 	protected abstract String toHtmlImpl();
 
-	/** Caches the result of toHtmlImpl.
-	 * @return an HTML explanation of this hint */
+	/**
+	 * Caches the result of toHtmlImpl.
+	 *
+	 * @return an HTML explanation of this hint
+	 */
 	public final String toHtml() {
 		if ( html==null || !IS_CACHING_HTML )
 			html = toHtmlImpl();
@@ -660,7 +675,7 @@ public abstract class AHint implements Comparable<AHint> {
 		if(fullString!=null) return fullString;
 		final String cv; if(cell==null) cv=EMPTY_STRING; else cv=cell.id+PLUS+value;
 		final String rp; if(redPots==null) rp=EMPTY_STRING; else rp=redPots.toString();
-		final String sep; if(cv.isEmpty()||rp.isEmpty()) sep=EMPTY_STRING; else sep=SPACE;
+		final String sep; if(cv==EMPTY_STRING||rp==EMPTY_STRING) sep=EMPTY_STRING; else sep=SPACE;
 		return fullString = toString()+" ("+cv+sep+rp+")";
 	}
 	private String fullString; // toFullStrings cache
@@ -751,18 +766,9 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 	private int hashCode; // hashCode
 
-	/** Formerly Used by getHints, see BY_SCORE_DESC_AND_INDICE. */
-	public static final Comparator<AHint> BY_SCORE_DESC
-			= (AHint h1, AHint h2) -> {
-		// short circuit
-		if ( h1 == h2 )
-			return 0;
-		// order by score descending (NumElims can take a wee while to workout)
-		return h2.getNumElims() - h1.getNumElims();
-	};
-
-	// this does not add elims to a set cell, so that the comparator then
-	// orders two hints which both set a cell value by there toStrings
+	/**
+	 * @return the score (number of eliminations) for this hint
+	 */
 	protected int getScore() {
 		if(score != 0) return score;
 		if(cell != null) score = 10;
@@ -771,7 +777,9 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 	private int score;
 
-	// getIndice returns the indice of the first cell (topest/leftest)
+	/**
+	 * @return the indice of the first cell (topest/leftest)
+	 */
 	private int getIndice() {
 		if(indice != -1) return indice;
 		if(cell != null) indice = cell.i;
@@ -831,6 +839,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * a single step; every other hint type either sets a single cell, or just
 	 * removes some maybes, or even sometimes both, but this prick has to go
 	 * and set multiple cells, stuffing-up all the existing plumbing.
+	 *
 	 * @return
 	 */
 	public Pots getResults() {

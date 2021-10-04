@@ -6,6 +6,8 @@
  */
 package diuf.sudoku.solver.accu;
 
+import diuf.sudoku.Hints;
+import diuf.sudoku.Grid;
 import diuf.sudoku.solver.AHint;
 import java.util.Collection;
 import java.util.List;
@@ -85,6 +87,13 @@ public final class SingleHintsAccumulator implements IAccumulator {
 	@Override
 	public void removeAll(List<AHint> toRemove) {
 		// a no-op
+	}
+
+	@Override
+	public List<? extends AHint> getList() {
+		if ( theHint == null )
+			return null;
+		return Hints.list(theHint);
 	}
 
 }

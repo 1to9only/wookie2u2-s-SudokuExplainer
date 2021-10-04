@@ -14,8 +14,6 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.utils.Debug;
-
 
 /**
  * HiddenSingle implements the Hidden Single solving technique. A "hidden

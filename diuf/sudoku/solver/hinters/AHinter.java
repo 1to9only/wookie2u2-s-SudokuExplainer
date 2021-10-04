@@ -6,11 +6,11 @@
  */
 package diuf.sudoku.solver.hinters;
 
+import diuf.sudoku.solver.InterruptException;
 import diuf.sudoku.Grid;
+import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
-import java.util.Comparator;
 import diuf.sudoku.solver.accu.IAccumulator;
-import java.util.Objects;
 
 
 /**
@@ -42,18 +42,6 @@ public abstract class AHinter implements IHinter {
 	 * won't call this hinter. */
 	public boolean isEnabled = true;
 
-	/** Is this hinter active? If {@code !isActive()} then getHints
-	 * won't call this hinter. Note that active is much finer grained (much more
-	 * on/off) than enabled.
-	 * <p>In order to actually be used a hinter must first be wanted by the
-	 * user, then in -REDO mode only those that contributed to solving this
-	 * puzzle in the "keeper" run are enabled ONCE at the start of the solve
-	 * process. Only enabled hinters are considered for activation. Some
-	 * hinters are de/activated by hintNumber. So the user does wanted, then
-	 * we do enabled once at the top of each solve, and then we de/activate
-	 * on the fly. Clear as bloody mud, right? */
-	protected boolean isActive = true;
-
 	/**
 	 * The index of this hinter in the wantedHinters array.
 	 * <p>
@@ -65,19 +53,10 @@ public abstract class AHinter implements IHinter {
 	 * Redge (It's under the bonnet son).
 	 */
 	public int index;
-	@Override
-	public int getIndex() {
-		return index;
-	}
-	@Override
-	public void setIndex(int i) {
-		index = i;
-	}
 
 	/**
 	 * Constructor.
-	 * @param tech The {@code Tech} (SudokuSolvingTechnique) that you're
-	 * implementing.
+	 * @param tech that this hinter implements.
 	 */
 	public AHinter(Tech tech) {
 		this.tech = tech;
@@ -86,33 +65,22 @@ public abstract class AHinter implements IHinter {
 	}
 
 	@Override
-	public Tech getTech() {
-		return tech;
-	}
+	public Tech getTech() { return tech; }
 
 	@Override
-	public boolean isEnabled() {
-		return isEnabled;
-	}
+	public boolean isEnabled() { return isEnabled; }
 	@Override
-	public void setIsEnabled(boolean isEnabled) {
-		this.isEnabled = isEnabled;
-	}
+	public void setIsEnabled(boolean isEnabled) { this.isEnabled = isEnabled; }
 
-	/**
-	 * All implementations are expected to be active by default. Note that the
-	 * isActive field is protected, so that my subtypes can define there own
-	 * setIsActive methodology, using whatever mechanism/logic suits them.
-	 * <p>
-	 * Note that implementors are not required to "action" isActive in there
-	 * getHints method... that's done for you in the LogicalSolver, because I
-	 * don't trust you/me/us/anyone to consistently get s__t like that right.
-	 *
-	 * @return is this hinter active, or are we having a little lie down?
-	 */
 	@Override
-	public boolean isActive() {
-		return isActive;
+	public int getIndex() { return index; }
+	@Override
+	public void setIndex(int i) { index = i; }
+
+	protected final void interrupt() {
+		if ( Run.stopGenerate ) {
+			throw new InterruptException();
+		}
 	}
 
 	/**

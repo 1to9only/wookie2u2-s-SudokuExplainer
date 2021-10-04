@@ -14,14 +14,16 @@ import java.util.Comparator;
 
 /**
  * I've abstracted the essentials of AHinter out to an interface IHinter, to
- * break the dependency on AHinter.
- * <p>All hinters directly or indirectly implement IHinter, which specifies
- * the getHints method, and half-a-dozen ancillary methods.
- * <p>AHinter (the abstract hinter class) now implements IHinter directly
- * Note that active has been moved up from INumberedHinter, so that all hinters
- * are now activatable; it's just that many of them don't have a method of
- * deactivation, which you can implement however you like.
- * <p>All the collections and arrays in LogicalSolver are now of IHinter's.
+ * remove the dependency on AHinter, so that I know longer know-or-care what
+ * the implementation is, so long as it implements IHinter it's a hinter.
+ * <p>
+ * All hinters directly or indirectly implement IHinter, which primarily just
+ * specifies the getHints method, plus half-a-dozen ancillary methods.
+ * <p>
+ * AHinter (the abstract hinter) now implements IHinter directly.
+ * <p>
+ * All LogicalSolver's collections and arrays are now of IHinter.
+ *
  * @author Keith Corlett 2019 OCT
  */
 public interface IHinter {
@@ -36,27 +38,6 @@ public interface IHinter {
 			return a.getIndex() - b.getIndex(); // ASCENDING
 		}
 	};
-
-//not_used
-//	/**
-//	 * order by difficulty, toString().
-//	 */
-//	public static final Comparator<IHinter> BY_DIFFICULTY = new Comparator<IHinter>() {
-//		@Override
-//		public int compare(IHinter a, IHinter b) {
-//			if ( Objects.equals(a, b) ) // Currently a==b. May be overridden in future
-//				return 0;
-//			double da = a.getDifficulty();
-//			double db = b.getDifficulty();
-//			if ( da < db )
-//				return -1;
-//			if ( da > db )
-//				return 1;
-//			// WARNING: toString can be "a bit slow Redge"
-//			// See: toString
-//			return a.toString().compareTo(b.toString());
-//		}
-//	};
 
 	/** just shorthand to make code fit on one line. */
 	public final boolean T=true, F=false;
@@ -84,10 +65,18 @@ public interface IHinter {
 	public boolean isEnabled();
 	public void setIsEnabled(boolean isEnabled);
 
-	public boolean isActive();
-
 	public int getDegree(); // the size of the fish, et al
 
 	public int getIndex(); // my index in the wantedHinters array
 	public void setIndex(int i);
+
+	/**
+	 * Each IHinter MUST override toString() to produce the hinter-name.
+	 * @return the name of this hinter, which is usually the tech.name(), but
+	 *  Aligned*Exclusion return class-name so user sees "hacked" v "correct".
+	 *  Other hinters might also get-creative in future. sigh.
+	 */
+	@Override
+	public String toString();
+
 }

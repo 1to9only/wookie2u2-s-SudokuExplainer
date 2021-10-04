@@ -15,8 +15,6 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.gen.IInterruptMonitor;
-import diuf.sudoku.solver.hinters.HintsList;
 import diuf.sudoku.utils.MyLinkedFifoQueue;
 import diuf.sudoku.utils.IMyPollSet;
 import java.util.Deque;
@@ -35,7 +33,7 @@ import java.util.Arrays;
  * <p>
  * KRC 2019-11-01 I've split the Chainer class into two subtypes: UnaryChainer
  * and MultipleChainer; leaving the shared methods (like offToOns and onToOffs)
- * in an abstract AChainer class. I've done this to distinguish between the two
+ * in an abstract ChainerBase class. I've done this to distinguish between the two
  * mostly disjunct techniques. Focus makes the code easier to grock, despite
  * its multi-level-ness making it actually more complex.
  * <p>
@@ -44,7 +42,7 @@ import java.util.Arrays;
  * methods; which sounds like inheritance to me. I find this design easier to
  * follow, but it's still a bitch!
  */
-public final class UnaryChainer extends AChainer {
+public final class ChainerUnary extends ChainerBase {
 
 	// faster to create array once and clear-and-reuse it, even when only
 	// creating hint (ie not too often). The GC isnt very smart. This array
@@ -66,13 +64,13 @@ public final class UnaryChainer extends AChainer {
 	 * dynamic chaining techniques are now implemented in the MultipleChainer
 	 * class.
 	 * @param isImbedded true ONLY if this is an imbedded (nested) Chainer.
-	 * true prevents the superclass AChainer from caching my hints.
+	 * true prevents the superclass ChainerBase from caching my hints.
 	 */
-	UnaryChainer(boolean isImbedded, IInterruptMonitor im) {
-		super(Tech.UnaryChain, isImbedded, im);
+	ChainerUnary(boolean isImbedded) {
+		super(Tech.UnaryChain, isImbedded);
 	}
-	public UnaryChainer() {
-		this(false, null); // not imbedded
+	public ChainerUnary() {
+		this(false); // not imbedded
 	}
 
 	@Override
@@ -82,24 +80,24 @@ public final class UnaryChainer extends AChainer {
 	}
 
 	// called by supers getHints method to find the hints in this grid
-	// and add them to the HintsList.
+	// and add them to the HintCache.
 	@Override
-	protected void findChainHints(Grid grid, HintsList hints) {
+	protected void findChainHints(Grid grid, HintCache hints) {
 		// double-check my Tech.UnaryChain setup:
 		// !isMultiple && !isDynamic (which implies !isNishio && degree==0)
 		assert !isMultiple;
 		assert !isDynamic;
 		assert !isNishio;
 		assert degree == 0;
-		//                       X, Y
 		// xLoops: Cycles with X-Links (Coloring / Fishy).
 		findUnaryChainsAndCycles(T, F, grid, hints);
-		if ( !interrupted() )
+		//                       X, Y
 		// yLoops: Cycles with Y-Links (rare as rocking horse s__t).
 		findUnaryChainsAndCycles(F, T, grid, hints);
-		if ( !interrupted() )
+		//                       X, Y
 		// xyLoops: Cycles with both X and Y Links.
 		findUnaryChainsAndCycles(T, T, grid, hints);
+		//                       X, Y
 	}
 
 	/**
@@ -126,10 +124,10 @@ public final class UnaryChainer extends AChainer {
 	 * values of this cell get "off"ed?); and
 	 * makes offToOns(...) seek naked singles (ie if there are only 2 potential
 	 * values for this cell then the other value gets "on"ed).
-	 * @param hints the HintsList to populate.
+	 * @param hints the HintCache to populate.
 	 */
 	private void findUnaryChainsAndCycles(boolean isXChain, boolean isYChain
-			, Grid grid, HintsList hints) {
+			, Grid grid, HintCache hints) {
 		// NB: either isXChain or isYChain, or both, but not neither.
 		assert isXChain || isYChain;
 		final IFilter<Cell> filter = ucacCellFilter(isXChain);
@@ -140,26 +138,26 @@ public final class UnaryChainer extends AChainer {
 //		final IMyPollSet<Ass> effects = new MyLinkedHashSet<>(32, 1F);
 		final IMyPollSet<Ass> effects = new LinkedMatrixAssSet();
 		for ( Cell cell : grid.cells ) {
-			// filter: X/XYChain max 64, YChain much < 64 (maybes.size==2)
+			// filter: X/XYChain max 64, YChain much < 64 (maybesSize==2)
 			// and also skip naked/hidden single not yet applied
 			if ( filter.accept(cell) && !cell.skip )
-				for ( int v : VALUESES[cell.maybes.bits] ) // 64*9 = 576
+				for ( int v : VALUESES[cell.maybes] ) // 64*9 = 576
 					doUnaryChainAndCycle(
 						  new Ass(cell, v, true)
 						, onToOn, onToOff
 						, isXChain, isYChain
 						, effects, hints
 					);
-			if ( interrupted() )
-				return;
+			interrupt();
 		}
 	}
 
 	/**
-	 * Create unary chains and cycles cell filter: returns the appropriate
+	 * unary chains and cycles cell filter: returns the appropriate
 	 * {@code Filter<Cell>} for the given isXChain. When isXChain is true we
-	 * examine cells which have 2-or-more maybes, and when false (ie we're
-	 * hunting Y-cycles only) we examine cells which have exactly 2 maybes.
+	 * examine cells which have 2-or-more maybes, and when false (ie we seek
+	 * Y-cycles only) we examine cells which have exactly 2 maybes.
+	 * <p>
 	 * NB: Y-cycles are as rare as rocking-horse-s__t (a dozen in top1465)
 	 * but we must still code for them, as efficiently as possible.
 	 * 
@@ -172,14 +170,14 @@ public final class UnaryChainer extends AChainer {
 			return new IFilter<Cell>() {
 				@Override
 				public boolean accept(Cell cell) {
-					return cell.maybes.size > 1;
+					return cell.size > 1;
 				}
 			};
 		// Y-cycles start from cells with exactly two maybes.
 		return new IFilter<Cell>() {
 			@Override
 			public boolean accept(Cell cell) {
-				return cell.maybes.size == 2;
+				return cell.size == 2;
 			}
 		};
 	}
@@ -196,11 +194,11 @@ public final class UnaryChainer extends AChainer {
 	 * @param onToOff {@code IAssSet} to populate with the "Off" assumptions
 	 *  that are caused by anOn (the initial assumption).
 	 * @param isXChain Do other possible positions for this value get "off"ed?
-	 *  <br>Note that {@code assert isXChain || anOn.cell.maybes.size==2}.
+	 *  <br>Note that {@code assert isXChain || anOn.cell.maybesSize==2}.
 	 * @param isYChain Do other potential values of this cell get "off"ed?
 	 * @param effects {@code IMyPollSet<Ass>} populated by find OnToOff and
 	 *  OffToOn. Only used internally, ie not by the caller.
-	 * @param hints the HintsList which I will populate with
+	 * @param hints the HintCache which I will populate with
 	 *  BidirectionalCycleHint's and UnaryChainHint's.
 	 */
 	private void doUnaryChainAndCycle(
@@ -208,10 +206,10 @@ public final class UnaryChainer extends AChainer {
 		, IAssSet onToOn, IAssSet onToOff
 		, boolean isXChain, boolean isYChain
 		, IMyPollSet<Ass> effects
-		, HintsList hints
+		, HintCache hints
 	) {
 		// Y Cycles can only start if cell has 2 maybes
-		assert isXChain || anOn.cell.maybes.size==2;
+		assert isXChain || anOn.cell.size==2;
 		final List<Ass> cycles = new LinkedList<>();
 		if ( doCycle(anOn, onToOn, onToOff, isXChain, isYChain, effects, cycles) )
 			for ( Ass dstOn : cycles ) // Bidirectional Cycle found
@@ -267,7 +265,8 @@ public final class UnaryChainer extends AChainer {
 		, List<Ass> cycles
 	) {
 		assert toOn.isEmpty() && toOff.isEmpty();
-		assert dcQ.size==0; // the doCycleQueue
+		dcQ.clear();
+//		assert dcQ.size==0; // the doCycleQueue
 		final int initialOnHC = initialOnAss.hashCode;
 		int cycleLength=0, ancestorsHC; // ancestorsHashCode
 		Ass a, e; // an assumption and it's effect
@@ -428,7 +427,7 @@ public final class UnaryChainer extends AChainer {
 				cancel = cancelOff;
 			sv = VSHFT[a.value];
 			for ( Cell sib : a.cell.siblings )
-				if ( (sib.maybes.bits & sv)!=0 && !isInChain[sib.i] )
+				if ( (sib.maybes & sv)!=0 && !isInChain[sib.i] )
 					cancel.add(new Ass(sib, a.value, false));
 		}
 		// remove all cells from cancelOn that are NOT in cancelOff

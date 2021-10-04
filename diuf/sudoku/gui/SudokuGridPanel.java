@@ -17,14 +17,11 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Result;
 import diuf.sudoku.Settings;
 import static diuf.sudoku.Settings.THE_SETTINGS;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VFIRST;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.als.Als;
-import static diuf.sudoku.utils.Frmt.DIGITS;
-import static diuf.sudoku.utils.Frmt.LETTERS;
-import static diuf.sudoku.utils.Frmt.LOWERCASE_LETTERS;
-import static diuf.sudoku.utils.Frmt.MINUS;
-import static diuf.sudoku.utils.Frmt.PLUS;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -67,7 +64,7 @@ import javax.swing.SwingUtilities;
  * @see diuf.sudoku.gui.SudokuFrame
  * @see diuf.sudoku.gui.SudokuExplainer
  */
-class SudokuGridPanel extends JPanel {
+public class SudokuGridPanel extends JPanel {
 
 	private static final long serialVersionUID = 3709127163156966626L;
 
@@ -309,14 +306,14 @@ class SudokuGridPanel extends JPanel {
 							e.consume();
 						} else if ( cell.value != 0 ) {
 							// Do nothing
-						} else if ( cell.maybes.size == 1 ) {
-							engine.setTheCellsValue(cell, cell.maybes.first());
+						} else if ( cell.size == 1 ) {
+							engine.setTheCellsValue(cell, VFIRST[cell.maybes]);
 						} else {
 							int value = getMaybeAt(e.getX(), e.getY());
 							if ( value != 0 ) {
 								if ( btn==BUTTON1 && mod==0 ) { // plain left click
 									// cell.value := the value that was clicked-on
-									if ( cell.maybes.contains(value) )
+									if ( (cell.maybes & VSHFT[value]) != 0 )
 										engine.setTheCellsValue(cell, value);
 // Annoying when you're navigating around the grid with the mouse.
 // Not annoying when you're trying to set a cells value and miss.
@@ -786,7 +783,7 @@ class SudokuGridPanel extends JPanel {
 	}
 
 	private void initGraphics(Graphics2D g2) {
-		if (THE_SETTINGS.get(Settings.isAntialiasing)) {
+		if (THE_SETTINGS.getBoolean(Settings.isAntialiasing)) {
 			g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 			g2.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
 			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
@@ -947,7 +944,7 @@ class SudokuGridPanel extends JPanel {
 					g.fillRect(cell.x*COS+2, cell.y*COS+2, COS-4, COS-4);
 					// paint the foreground
 					g.setColor(ALS_COLORS[i]);
-					for ( int v : VALUESES[cell.maybes.bits] )
+					for ( int v : VALUESES[cell.maybes] )
 						drawStringCentered3D(g, DIGITS[v]
 							, cell.x*COS + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
 							, cell.y*COS + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
@@ -1000,12 +997,12 @@ class SudokuGridPanel extends JPanel {
 			color = POTS_COLORS[i];
 			if ( (pots=COLOR_POTS[i]) != null ) {
 				assert !pots.isEmpty() : "empty pots denied, for speed!";
-				for ( java.util.Map.Entry<Cell,Values> e : pots.entrySet() ) {
+				for ( java.util.Map.Entry<Cell,Integer> e : pots.entrySet() ) {
 					cellsMaybesColor = MAYBES_COLORS[e.getKey().i];
 					//nb: INDEXES[i] is VALUES[i] with one removed from each v,
 					//to cater for a one-based-value in a zero-based-array.
 					//Just beware that the returned v is acually vMinus1!
-					for ( int vMinus1 : INDEXES[e.getValue().bits] )
+					for ( int vMinus1 : INDEXES[e.getValue()] )
 						cellsMaybesColor[vMinus1] = color;
 				}
 			}
@@ -1033,9 +1030,9 @@ class SudokuGridPanel extends JPanel {
 	 * @param g The Graphics to paint on.
 	 */
 	private void paintCellValues(Graphics g) {
-		final boolean isShowingMaybes = THE_SETTINGS.get(Settings.isShowingMaybes);
+		final boolean isShowingMaybes = THE_SETTINGS.getBoolean(Settings.isShowingMaybes);
 		initMaybesColors(); // sets MAYBES_COLORS
-		Values values;
+		Integer values;
 		int x,y, cx,cy, i;
 		boolean isHighlighted;
 		for ( Cell cell : grid.cells ) {
@@ -1047,20 +1044,22 @@ class SudokuGridPanel extends JPanel {
 				drawStringCentered(g, DIGITS[cell.value], cx, cy, bigFont);
 			} else {
 				// Paint potentials
-				for ( int v : VALUESES[cell.maybes.bits] ) {
+				for ( int v : VALUESES[cell.maybes] ) {
 					i = v - 1;
 					cx = x*COS + CELL_PAD + (i%3)*CISo3 + CISo6;
 					cy = y*COS + CELL_PAD + (i/3)*CISo3 + CISo6;
 					isHighlighted = setMaybeColor(g, cell.i, v-1);
 					if ( result!=null && result.equals(cell, v) )
 						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont3);
-					else if ( results!=null && (values=results.get(cell))!=null
-						   && values.contains(v) ) {
+					else if ( results != null
+						   && (values=results.get(cell)) != null
+						   && (values & VSHFT[v]) != 0
+					) {
 						g.setColor(resultColor()); // result ON's green/blue
 						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont3);
-					} else if ( isHighlighted )
+					} else if ( isHighlighted ) {
 						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont2);
-					else if (isShowingMaybes) { // g.color is set to gray
+					} else if (isShowingMaybes) { // g.color is set to gray
 						drawStringCentered(g, DIGITS[v], cx,cy, smallFont1);
 					}
 				}

@@ -9,9 +9,10 @@ package diuf.sudoku.solver.hinters.urt;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedHashSet;
@@ -20,13 +21,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.SPACE;
 
 
 /**
@@ -76,7 +70,7 @@ public abstract class AURTHint extends AHint  {
 		if ( greenPots == null ) {
 			Pots pots = new Pots(loop.size(), 1F);
 			for ( Cell c : loop )
-				pots.put(c, new Values(v1, v2)); // orange
+				pots.put(c, VSHFT[v1]|VSHFT[v2]); // orange
 			pots.removeAll(redPots);
 			greenPots = pots;
 		}

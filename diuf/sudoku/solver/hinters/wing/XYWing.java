@@ -11,7 +11,6 @@ import diuf.sudoku.Grid;
 import static diuf.sudoku.Grid.BUDDIES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
@@ -79,9 +78,9 @@ public final class XYWing extends AHinter {
 		  , yzi // index in xzs of the yz indice
 		  , yz // indice of yz
 		  , xz // indice of xz
-		  , xyb // xy.maybes.bits
-		  , xzb //  xz.maybes.bits
-		  , yzb //  yz.maybes.bits
+		  , xyb // xy.maybes
+		  , xzb //  xz.maybes
+		  , yzb //  yz.maybes
 		  , zCand // bitset of the z-value, to remove from victims
 		  , n // number of victim cells
 		  , i; // the ubiqitious index
@@ -95,7 +94,7 @@ public final class XYWing extends AHinter {
 		final Idx victims = this.victims; // indices of victim cells
 		final int[] victim = this.victim; // indices of victims
 		final Pots redPots = this.redPots; // removable (red) Cell=>Values
-		// array of each cells maybes.bits, for speed.
+		// array of each cells maybes, for speed.
 		final int[] maybes = grid.maybes(); // CACHED!
 		// indices of bivalue cells
 		final Idx bivi = grid.getBivalue(); // CACHED! // first use in solve!
@@ -105,7 +104,7 @@ public final class XYWing extends AHinter {
 		if ( isXYZ ) // XYZ-Wing: trivi array
 			// nb: hijack xyBivBuds rather than create a new temp Idx
 			xys = grid.idx(xyBivBuds, (cell) -> {
-				return cell.maybes.size == 3; // XY=2, XYZ=3
+				return cell.size == 3; // XY=2, XYZ=3
 			}).toArrayNew();
 		else // XY-Wing: bivi array
 			xys = bivi.toArrayNew();
@@ -127,7 +126,7 @@ public final class XYWing extends AHinter {
 							  && VSIZE[xyb & xzb & yzb] == interSize // XY=0 or XYZ=1
 							  // and xz and yz have 1 common value
 							  // therefore xz and yz cannot be the same cell
-							  && VSIZE[zCand=xzb & yzb] == 1 ) { 
+							  && VSIZE[zCand=xzb & yzb] == 1 ) {
 							    // XY/Z found, but does it remove any maybes?
 								// find victims: siblings of both xz and yz
 								//               (and xy in XYZ-Wing).
@@ -144,7 +143,7 @@ public final class XYWing extends AHinter {
 									// get removable (red) Cell=>Values.
 									for ( any=false,i=0,n=victims.toArrayN(victim); i<n; ++i )
 										if ( (maybes[victim[i]] & zCand) != 0 ) {
-											redPots.put(grid.cells[victim[i]], new Values(zCand, false));
+											redPots.put(grid.cells[victim[i]], zCand);
 											any = true;
 										}
 									// XY_Wing  pass 524/76,591 skip 99.32%

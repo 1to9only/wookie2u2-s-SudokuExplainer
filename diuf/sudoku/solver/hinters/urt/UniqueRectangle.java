@@ -123,13 +123,14 @@ public final class UniqueRectangle extends AHinter
 		extraCells.clear();
 		startCell = null;
 		candidates = null;
+		Cells.cleanCasA();
 	}
 
 	@Override // IHinter via AHintNumberActivatableHinter
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		// get the indices of each potential value 1..9 in this grid ONCE, and
 		// stash it in a field for reference later.
-		this.candidates = grid.getIdxs();
+		this.candidates = grid.idxs;
 		boolean result = false;
 		try {
 			ArrayList<AURTHint> list = getHintsList(grid);
@@ -155,9 +156,9 @@ public final class UniqueRectangle extends AHinter
 		this.hintsSet.clear();
 		int v1, v2;
 		for ( Cell cell : grid.cells ) {
-			if ( cell.maybes.size == 2 ) {
-				v1 = cell.maybes.first();
-				v2 = cell.maybes.next(v1+1);
+			if ( cell.size == 2 ) {
+				v1 = VFIRST[cell.maybes];
+				v2 = VFIRST[cell.maybes & ~VSHFT[v1]];
 //				assert v1>=1&&v1<=9;
 //				assert v2>=1&&v2<=9;
 //				assert v2>v1;
@@ -165,7 +166,7 @@ public final class UniqueRectangle extends AHinter
 				workLoop.clear();
 				MyArrays.clear(isInWorkLoop);
 				this.startCell = cell;
-				this.v1v2 = cell.maybes.bits;
+				this.v1v2 = cell.maybes;
 				// starting at startCell, find all loops of cells that maybe v1 and
 				// v2 in the grid, which have atmost 2 extra (not v1 or v2) values.
 				// nb: this.startCell is a field, which does NOT change when
@@ -191,7 +192,7 @@ public final class UniqueRectangle extends AHinter
 						// nb: all cells in loop maybe v1 and v2
 						extraCells.clear();
 						for ( Cell c : loop )
-							if ( c.maybes.size > 2 )
+							if ( c.size > 2 )
 								extraCells.add(c);
 						final int numExtraCells = extraCells.size();
 						// the type of URT possible depends mainly on numExtraCells
@@ -202,7 +203,7 @@ public final class UniqueRectangle extends AHinter
 							// Type 2 or 3 or 4 is possible
 							Cell c1=extraCells.get(0), c2=extraCells.get(1);
 							// a bitset of the extra values
-							final int extraValsBits = (c1.maybes.bits | c2.maybes.bits)
+							final int extraValsBits = (c1.maybes | c2.maybes)
 												& ~VSHFT[v1] & ~VSHFT[v2];
 							// the number of extra values
 							final int numExtraValues = VSIZE[extraValsBits];
@@ -218,12 +219,11 @@ public final class UniqueRectangle extends AHinter
 							if ( false ) {
 								// retained for debug, switch me on again if you get a
 								// sniff of more than 1 extraValues: Ooohhh Betty!
-								Values extraValues = new Values();
+								int extraValues = 0;
 								for ( Cell c : extraCells )
-									extraValues.add(c.maybes);
-								extraValues.remove(v1);
-								extraValues.remove(v2);
-								assert extraValues.size == 1;
+									extraValues |= c.maybes;
+								extraValues &= ~VSHFT[v1] & ~VSHFT[v2];
+								assert VSIZE[extraValues] == 1;
 							}
 							hintsSet.add(createType2OrHiddenHint(grid, v1, v2, loop));
 						} else {
@@ -301,7 +301,7 @@ public final class UniqueRectangle extends AHinter
 		workLoop.add(currCell);
 		isInWorkLoop[currCell.i] = true;
 		int rti, ci;  // regionTypeIndex, cellIndex
-		ARegion rgn;  Cell cell;  Values maybes;
+		ARegion rgn;  Cell cell;  int maybes;
 		// presume that no loops will be found
 		boolean result = false;
 		for ( rti=0; rti<3; ++rti ) { // box, row, col
@@ -314,11 +314,11 @@ public final class UniqueRectangle extends AHinter
 							result = loops.add(new ArrayList<>(workLoop));
 					// skip if cell may NOT be both v1 and v2
 					//           or is already in workLoop
-					} else if ( ((maybes=cell.maybes).bits & v1v2) == v1v2
+					} else if ( ((maybes=cell.maybes) & v1v2) == v1v2
 							 && !isInWorkLoop[cell.i]
 					) {
 						// nb: MUTATE my local extraVals: build-it-up as we go
-						extraVals = extraVals | maybes.bits & ~v1v2;
+						extraVals = extraVals | maybes & ~v1v2;
 						// we can continue searching if:
 						// * The cell has exactly the two values of the loop,
 						//   ie no extra values; or
@@ -326,12 +326,12 @@ public final class UniqueRectangle extends AHinter
 						//   of cells with extra values (2) is not exceeded; or
 						// * The cell has 1 extra value, same as all previous
 						//   cells with an extra value (for type 2 only)
-						if ( maybes.size==2 || numXs>0 || VSIZE[extraVals]==1
+						if ( VSIZE[maybes]==2 || numXs>0 || VSIZE[extraVals]==1
 						  // * Hidden Unique Rectangles only (no loops):
 						  //   ~ x & y are 1 or more vals
 						  || (workLoop.size()<4 && VSIZE[extraVals]>0) )
 							result |= recurseLoops(cell, rgn.typeIndex, extraVals
-									, maybes.size>2 ? numXs-1 : numXs);
+									, VSIZE[maybes]>2 ? numXs-1 : numXs);
 					} // fi
 			} // next cell in region
 		} // next region of currCell
@@ -384,7 +384,7 @@ public final class UniqueRectangle extends AHinter
 
 	private AURTHint createType1Hint(int v1, int v2, ArrayList<Cell> loop) {
 		Cell theRescueCell = extraCells.get(0);
-		Pots redPots = new Pots(theRescueCell, new Values(v1, v2));
+		Pots redPots = new Pots(theRescueCell, VSHFT[v1]|VSHFT[v2], false);
 		return new URT1Hint(this, loop, v1, v2, redPots, theRescueCell);
 	}
 
@@ -392,7 +392,7 @@ public final class UniqueRectangle extends AHinter
 		// get the extra value
 		int evs = 0; // extraValueS (a single bit in this case)
 		for ( Cell c : extraCells )
-			evs |= c.maybes.bits;
+			evs |= c.maybes;
 		// remove v1 and v2 from extraValues
 		evs &= ~VSHFT[v1];
 		evs &= ~VSHFT[v2];
@@ -411,7 +411,7 @@ public final class UniqueRectangle extends AHinter
 			if ( extraBuds.none() )
 				return null; // there's no hint here. Move along!
 			// build the removable (red) potentials
-			final Pots redPots = new Pots(theExtraValue, extraBuds.cells(grid));
+			final Pots redPots = new Pots(theExtraValue, extraBuds.cellsA(grid));
 			// cellsWithExtraValuesArray := extraCells list
 			final Cell[] cells = extraCells.toArray(new Cell[extraCells.size()]);
 			// build and return the hint
@@ -429,7 +429,7 @@ public final class UniqueRectangle extends AHinter
 			final Cell C = loop.get(3);
 			// A is a or b only, B and C require 1-or-more extra values;
 			// and D has no constraint (it's allowed 0-or-more extra values).
-			if ( B.maybes.size>2 && C.maybes.size>2 ) {
+			if ( B.size>2 && C.size>2 ) {
 				// presume this loop doesn't match the Hidden URT pattern.
 				boolean ok = false;
 				// Are B and D the only places for 'a' (v1) in a common region;
@@ -505,9 +505,9 @@ public final class UniqueRectangle extends AHinter
 			}
 		};
 		// Get the extra (not v1 or v2) values from c1 and c2.
-		final Values extraVals = c1.maybes.plusClear(c2.maybes, v1, v2);
+		final int extraVals = (c1.maybes | c2.maybes) & ~VSHFT[v1] & ~VSHFT[v2];
 		//assert extraVals.equals(new Values(c1.maybes).or(c2.maybes).clear(v1).clear(v2));
-		final int numExtraVals = extraVals.size;
+		final int numExtraVals = VSIZE[extraVals];
 		final int numRmvVals = 7 - numExtraVals; // number of removable values
 		// c1 and c2 could occupy the same box and the same (row or col), in
 		// which case we search both common regions for Naked and Hidden Sets
@@ -519,7 +519,7 @@ public final class UniqueRectangle extends AHinter
 		// look for Naked and Hidden sets.
 		for ( int n=numExtraVals; n<8; ++n ) { // setSize (a walking degree)
 			// create here with the setSize, which is OK coz we're rare.
-			Values[] maybes = new Values[n];
+			int[] maybes = new int[n];
 			// foreach region that contains both c1 and c2
 			for ( ARegion r : commonRegions ) { // 1 or 2 of them
 				// look for Naked Sets
@@ -570,8 +570,8 @@ public final class UniqueRectangle extends AHinter
 	 * @param int v2 the second value common to all cells in this URT
 	 * @param hints the {@code Collection<AURTHint>} to which we add hints.
 	 */
-	private void lookForNakedSets(int n, final Values extraVals
-			, Cell c1, Cell c2, Values[] maybes, ARegion region
+	private void lookForNakedSets(int n, final int extraVals
+			, Cell c1, Cell c2, int[] maybes, ARegion region
 			, ArrayList<Cell> loop, int v1, int v2
 			, final Collection<AURTHint> hints) {
 		// We look at each combination of $degree cells in this region which
@@ -579,15 +579,14 @@ public final class UniqueRectangle extends AHinter
 		// get the indexes of c1 and c2 in this regions cells array
 		final int idxOfC1=region.indexOf(c1), idxOfC2=region.indexOf(c2);
 		// ensure extraVals+c1+c2==fullSet or not a NakedSet with c1 and c2
-		final int baseNakedSetValuesBits = extraVals.bits & c1.maybes.bits
-				& c2.maybes.bits;
+		final int baseValues = extraVals & c1.maybes & c2.maybes;
 
 		// WARNING: We can only get away with using the cas so long as the
 		// array is NEVER retained! otherCells contents could be modified
 		// at any arbitrary time in the future. All this to reduce GC.
-		final Cell[] otherCells = Cells.array(n - 1);
+		final Cell[] otherCells = Cells.arrayA(n - 1);
 
-		Values cmnMaybes;  Cell cell;
+		int cmnMaybes;  Cell cell;
 		int i, cnt, nkdSetValuesBits;
 		// foreach possible combination of n cells amongst the 9 in the region
 		for ( int[] perm : new Permutations(9, IAS1[n]) ) {
@@ -595,7 +594,7 @@ public final class UniqueRectangle extends AHinter
 			if ( !contains1ButNot2(perm, idxOfC1, idxOfC2) )
 				continue;
 			// ensure extraVals+c1+c2==fullSet or not a NakedSet with c1 and c2
-			nkdSetValuesBits = baseNakedSetValuesBits;
+			nkdSetValuesBits = baseValues;
 			for ( i=0,cnt=0; i<n; ++i )
 				if ( perm[i] == idxOfC1 ) { // index of cell c1
 					// so use the extraValues; this is NOT an otherCell so it
@@ -605,14 +604,14 @@ public final class UniqueRectangle extends AHinter
 					// otherwise use cells maybes; this is an otherCell which
 					// contributes to nkdSetValues
 					otherCells[cnt++] = cell = region.cells[perm[i]];
-					nkdSetValuesBits |= (maybes[i]=cell.maybes).bits;
+					nkdSetValuesBits |= (maybes[i]=cell.maybes);
 				}
 			// ALL elements of otherCells are over-written every time
 			assert cnt == otherCells.length;
 			// look for $degree common potential values
 			// ensure extraVals+c1+c2==fullSet or not a NakedSet with c1 and c2
 			if ( VSIZE[nkdSetValuesBits] == n
-			  && (cmnMaybes=Values.common(maybes, n)) != null )
+			  && (cmnMaybes=Values.common(maybes, n)) != 0 )
 				// naked set found, but does it eliminate anything?
 				// note that hints.add ignores nulls
 				hints.add(createType3NakedSetHint(loop, v1, v2, extraVals
@@ -633,8 +632,8 @@ public final class UniqueRectangle extends AHinter
 	}
 
 	private AURTHint createType3NakedSetHint(List<Cell> loop, int v1, int v2
-			, Values extraVals, ARegion region, Cell c1, Cell c2
-			, Cell[] otherCells, Values nkdSetVals) {
+			, int extraVals, ARegion region, Cell c1, Cell c2
+			, Cell[] otherCells, int nkdSetVals) {
 		// Build removable potentials (as efficiently as possible)
 
 		// get an Idx for it's fast O(1) contains method.
@@ -645,16 +644,16 @@ public final class UniqueRectangle extends AHinter
 		excluded.add(c1.i);
 		excluded.add(c2.i);
 
-		Pots redPots=null;  int bits;
+		Pots reds=null;  int bits;
 		for ( Cell c : region.cells ) //other cell
-			if ( (bits=c.maybes.bits & nkdSetVals.bits) != 0
+			if ( (bits=c.maybes & nkdSetVals) != 0
 			  && !excluded.contains(c.i) ) {
-				if(redPots==null) redPots=new Pots();
-				redPots.put(c, new Values(bits, false));
+				if(reds==null) reds=new Pots();
+				reds.put(c, bits);
 			}
-		if ( redPots == null )
+		if ( reds == null )
 			return null; // no eliminations! 90+% return here
-		return new URT3NakedSetHint(this, loop, v1, v2, redPots, c1, c2
+		return new URT3NakedSetHint(this, loop, v1, v2, reds, c1, c2
 				, extraVals, region, otherCells, nkdSetVals);
 	}
 
@@ -683,14 +682,14 @@ public final class UniqueRectangle extends AHinter
 	 * @return Gimp
 	 */
 	private void lookForHiddenSets(int N, int numRmvVals, int idxOfC2
-			, final Values extraVals, Cell c1, Cell c2, ARegion r
+			, final int extraVals, Cell c1, Cell c2, ARegion r
 			, ArrayList<Cell> loop, int v1, int v2
 			, final Collection<AURTHint> hints
 	) {
 		// constants
 		final int shftIdxOfC2 = ISHFT[idxOfC2];
 		// get the removable values array := {1..9} - extraVals - v1 - v2
-		final int[] rmvVals = VALUESES[VALL & ~extraVals.bits & ~VSHFT[v1] & ~VSHFT[v2]];
+		final int[] rmvVals = VALUESES[VALL & ~extraVals & ~VSHFT[v1] & ~VSHFT[v2]];
 		// the values of the hidden set
 		final int[] hdnSetVals = IAS2[N];
 		// set sizes
@@ -720,30 +719,32 @@ public final class UniqueRectangle extends AHinter
 			if ( VSIZE[bits] == N )
 				// Hidden set found, but does it remove any maybes?
 				// nb: hints.add ignores nulls (it'll just return false)
-				hints.add( createType3HiddenSetHint(loop, v1, v2
-						, extraVals, new Values(hdnSetVals)
-						, r, c1, c2, new Indexes(bits)) );
+				hints.add( createType3HiddenSetHint(loop, v1, v2, extraVals
+						, Values.bitset(hdnSetVals), r, c1, c2, new Indexes(bits)) );
 		} // next permutation
 	}
 
-	private AURTHint createType3HiddenSetHint(List<Cell> loop
-			, int v1, int v2, Values otherValues, Values hdnSetValues
-			, ARegion r, Cell c1, Cell c2, Indexes hdnSetIdxs) {
+	private AURTHint createType3HiddenSetHint(final List<Cell> loop
+			, final int v1, final int v2, final int extraVals
+			, final int hdnSetValues, final ARegion r, final Cell c1
+			, final Cell c2, final Indexes hdnSetIdxs) {
 		// remove c1 and c2 from hdnSetIdxs
 		// nb: hdnSetIdxs is MINE (it was created in the call to me).
 		hdnSetIdxs.remove(r.indexOf(c1));
 		hdnSetIdxs.remove(r.indexOf(c2));
 		// Build the red (removeable) potential values
-		Pots redPots=null;  Cell cell;  int redBits;
+		Pots reds = null;
+		Cell cell;
+		int pink;
 		for ( int i : INDEXES[hdnSetIdxs.bits] )
-			if ( (redBits=(cell=r.cells[i]).maybes.bits & ~hdnSetValues.bits) != 0 ) {
-				if(redPots == null) redPots=new Pots();
-				redPots.put(cell, new Values(redBits, false));
+			if ( (pink=(cell=r.cells[i]).maybes & ~hdnSetValues) != 0 ) {
+				if(reds == null) reds=new Pots();
+				reds.put(cell, pink);
 			}
-		if ( redPots == null )
+		if ( reds == null )
 			return null;
-		return new URT3HiddenSetHint(this, loop, v1, v2, redPots, c1, c2
-				, otherValues, hdnSetValues, r, hdnSetIdxs);
+		return new URT3HiddenSetHint(this, loop, v1, v2, reds, c1, c2
+				, extraVals, hdnSetValues, r, hdnSetIdxs);
 	}
 
 /*
@@ -774,8 +775,10 @@ The first URT Type 4
 		// whimpering like some spineless aardvarkian wolf nippled mommas-boy.
 		//
 		ARegion r1=null, r2=null;
+		final int sv1 = VSHFT[v1];
+		final int sv2 = VSHFT[v2];
 		for ( ARegion r : c1.regions ) // c1's Box, Row, Col
-			// if region r is common to both c1 and c2 then
+			// if r is common to both c1 and c2 then
 			if ( r == c2.regions[r.typeIndex] ) {
 				// remember r if it has no v1 or v2 outside of c1 or c2.
 				// Now the oral sex: there's a mess of special code underneath
@@ -785,8 +788,8 @@ The first URT Type 4
 				// it now and it works, and if it works don't ____ with it even
 				// if it relies on a mess of "special" code. sigh.
 //++type4Cnt; // 382,984 for top1465.d5.mt
-				if(r.maybe(VSHFT[v1], cs).remove(c1, c2).isEmpty()) r1=r;
-				if(r.maybe(VSHFT[v2], cs).remove(c1, c2).isEmpty()) r2=r;
+				if(r.maybe(sv1, cs).remove(c1, c2).isEmpty()) r1=r;
+				if(r.maybe(sv2, cs).remove(c1, c2).isEmpty()) r2=r;
 			}
 		// one of the two r's must be null.
 		if ( (r1==null && r2==null) || (r1!=null && r2!=null) )
@@ -798,8 +801,8 @@ The first URT Type 4
 		int lockValue  = r1!=null ? v1 : v2;
 		int vToRemove  = r1!=null ? v2 : v1;
 		Pots redPots = new Pots();
-		redPots.put(c1, new Values(vToRemove));
-		redPots.put(c2, new Values(vToRemove));
+		redPots.put(c1, VSHFT[vToRemove]);
+		redPots.put(c2, VSHFT[vToRemove]);
 		return new URT4Hint(this, loop, lockValue, vToRemove, redPots, c1, c2
 				, region);
 	}

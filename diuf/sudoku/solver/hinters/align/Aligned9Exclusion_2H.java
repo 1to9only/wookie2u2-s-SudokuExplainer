@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -64,8 +63,8 @@ implements
 
 	private final NonHinters64 nonHinters = new NonHinters64(16*1024, 4);
 
-	public Aligned9Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor, IO.A9E_2H_HITS);
+	public Aligned9Exclusion_2H() {
+		super(IO.A9E_2H_HITS);
 	}
 
 	@Override
@@ -108,11 +107,11 @@ implements
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values for more.
+		// that are packed into your maybes 0..511. See Values for more.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate Cell
-		// has maybes.size>=2 and >1 excluders with maybes.size 2..$degree
+		// has maybesSize>=2 and >1 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -268,8 +267,7 @@ implements
 											continue;
 										cells[7] = candidates[i7];
 										if(hitMe && cells[7]!=hitCells[7]) continue;
-										if ( isInterrupted() )
-											return false;
+										interrupt();
 										for ( i8=i7+1; i8<numCandidates; ++i8 ) {
 											if ( excluders[candidates[i8].i].idx2(idx08, idx07) )
 												continue;
@@ -303,7 +301,7 @@ implements
 											// the dog____ing algorithm is faster with dodgem-cars to the left,
 											// but the above for-i-loops need a static cells array; so we copy
 											// cells to scells (sortedCells) and sort that array DESCENDING by:
-											// 4*maybesCollisions + 2*commonExcluderHits + maybes.size
+											// 4*maybesCollisions + 2*commonExcluderHits + maybesSize
 											cc.set(cells, cmnExclBits, numCmnExclBits);
 											System.arraycopy(cells, 0, scells, 0, degree);
 
@@ -316,16 +314,16 @@ implements
 											bubbleSort(scells, degree, cc);
 
 
-											// get c* + maybes.bits from sortedCells
-											c0b = (c0=scells[0]).maybes.bits;
-											c1b = (c1=scells[1]).maybes.bits;
-											c2b = (c2=scells[2]).maybes.bits;
-											c3b = (c3=scells[3]).maybes.bits;
-											c4b = (c4=scells[4]).maybes.bits;
-											c5b = (c5=scells[5]).maybes.bits;
-											c6b = (c6=scells[6]).maybes.bits;
-											c7b = (c7=scells[7]).maybes.bits;
-											c8b = (c8=scells[8]).maybes.bits;
+											// get c* + maybes from sortedCells
+											c0b = (c0=scells[0]).maybes;
+											c1b = (c1=scells[1]).maybes;
+											c2b = (c2=scells[2]).maybes;
+											c3b = (c3=scells[3]).maybes;
+											c4b = (c4=scells[4]).maybes;
+											c5b = (c5=scells[5]).maybes;
+											c6b = (c6=scells[6]).maybes;
+											c7b = (c7=scells[7]).maybes;
+											c8b = (c8=scells[8]).maybes;
 
 											// build the isNotSiblingOf cache
 											ns10 = c1.notSees[c0.i];

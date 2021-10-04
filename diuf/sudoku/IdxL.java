@@ -9,12 +9,12 @@ package diuf.sudoku;
 import diuf.sudoku.Grid.Cell;
 
 /**
- * IdxL(ockable) extends Idx to add a lock() and unlock() method which prevent
- * accidental mutation of the Idx's contents by throwing a RuntimeException
- * when a mutator is called on an IdxL that has been lock()ed.
+ * IdxL: A Lockable Idx extends Idx to add a lock() and unlock() method so that
+ * accidental mutation of an Idx throws a RuntimeException, ie when any mutator
+ * is called on an IdxL that is lock()ed.
  * <p>
  * BEWARE: IdxL MUST override ALL of Idx's mutators to call checkLock().
- * If you miss one IdxL achieves nothing!
+ * If you miss one it renders IdxL basically useless!
  * <p>
  * Back-story: IdxL separates the locking feature out of Idx, because
  * locking slows all operations on all Idx's, but locking is only ever used on
@@ -30,14 +30,43 @@ public class IdxL extends Idx implements Cloneable {
 
 	private static final long serialVersionUID = 113343L;
 
+	public static IdxL empty() {
+		return new IdxL(); // empty by default
+	}
+	public static IdxL full() {
+		return new IdxL(true); // full by design
+	}
+	public static IdxL of(Idx idx) {
+		return new IdxL(idx);
+	}
+	public static IdxL of(int[] indices) {
+		int a0=0, a1=0, a2=0;
+		for ( int i : indices )
+			if ( i < BITS_PER_ELEMENT )
+				a0 |= SHFT[i];
+			else if ( i < BITS_TWO_ELEMENTS )
+				a1 |= SHFT[i%BITS_PER_ELEMENT];
+			else
+				a2 |= SHFT[i%BITS_PER_ELEMENT];
+		return new IdxL(a0, a1, a2);
+	}
+	
 	protected boolean isLocked = false;
 
 	IdxL() {
 		super();
 	}
+	
+	IdxL(boolean isFull) {
+		super(isFull);
+	}
 
 	IdxL(Idx src) {
 		super(src);
+	}
+
+	IdxL(int a0, int a1, int a2) {
+		super(a0, a1, a2);
 	}
 
 	@Override
@@ -160,10 +189,18 @@ public class IdxL extends Idx implements Cloneable {
 		checkLock();
 		return super.clear();
 	}
+	// go around checkLock in places where you KNOW it's good to change me
+	public Idx clearOK() {
+		return super.clear();
+	}
 
 	@Override
 	public void add(int i) {
 		checkLock();
+		super.add(i);
+	}
+	// go around checkLock in places where you KNOW it's good to change me
+	void addOK(int i) {
 		super.add(i);
 	}
 
@@ -192,11 +229,21 @@ public class IdxL extends Idx implements Cloneable {
 		checkLock();
 		super.remove(i);
 	}
+	// go around checkLock in places where you KNOW it's good to change me
+	void removeOK(int i) {
+		super.remove(i);
+	}
 
 	@Override
 	public Idx and(Idx other) {
 		checkLock();
 		return super.and(other);
+	}
+
+	@Override
+	public Idx and(Idx aa, Idx bb) {
+		checkLock();
+		return super.and(aa, bb);
 	}
 
 	@Override

@@ -9,8 +9,7 @@ package diuf.sudoku.solver.checks;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
-import diuf.sudoku.gui.DummyHinter;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AWarningHint;
 import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -20,7 +19,7 @@ import java.util.Set;
 
 
 /**
- * A hint from {@link diuf.sudoku.solver.checks.RecursiveAnalyser} to view
+ * A hint from {@link diuf.sudoku.solver.checks.SingleSolution} to view
  * (and optionally apply) the solution of a Sudoku.
  */
 public final class SolutionHint extends AWarningHint implements IPretendHint {
@@ -34,14 +33,14 @@ public final class SolutionHint extends AWarningHint implements IPretendHint {
 		this.solution = solution;
 	}
 	public SolutionHint(Grid grid, Grid solution) {
-		this(new DummyHinter(), grid, solution);
+		this(new diuf.sudoku.solver.hinters.DummyHinter(), grid, solution);
 	}
 
 	@Override
 	public Pots getGreens(int viewNum) {
 		Pots result = new Pots(81, 1F);
 		for (int i=0; i<81; ++i)
-			result.put(grid.cells[i], new Values(solution.cells[i].value));
+			result.put(grid.cells[i], VSHFT[solution.cells[i].value]);
 		return result;
 	}
 
@@ -49,7 +48,7 @@ public final class SolutionHint extends AWarningHint implements IPretendHint {
 	public Set<Cell> getAquaCells(int notUsed) {
 		Set<Cell> set = new LinkedHashSet<>(64, 1F); // 81-17=64 is a powerOf2
 		for ( Cell c : grid.cells )
-			if ( c.maybes.size == 1 )
+			if ( c.size == 1 )
 				set.add(c); // hit rate to low to cache
 		return set;
 	}
@@ -66,7 +65,7 @@ public final class SolutionHint extends AWarningHint implements IPretendHint {
 
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {
-		int result = (81 - grid.countFilledCells()) * 10;
+		int result = (81 - grid.numSet) * 10;
 		solution.copyTo(grid);
 		return result;
 	}

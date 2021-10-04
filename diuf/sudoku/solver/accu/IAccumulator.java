@@ -19,7 +19,7 @@ import java.util.List;
  * (Default)HintsAccumulator to find all available hints.
  * <li>The GUI (getFirstHint) and the LogicalSolverTester use a
  * SingleHintsAccumulator to find the first available hint.
- * <li>The RecursiveAnalyser uses a SingleHintsAccumulator; and also a funky
+ * <li>The SingleSolution uses a SingleHintsAccumulator; and also a funky
  * HintsApplicumulator which applies each hint as soon as it's found allowing
  * it's hinters (HiddenSingle, NakedSingle, Locking, NakedPair,
  * HiddenPair, and Swampfish) to solve in one pass through the grid.
@@ -128,5 +128,7 @@ public interface IAccumulator {
 	 * @param toRemove 
 	 */
 	public void removeAll(List<AHint> toRemove);
+
+	public List<? extends AHint> getList();
 
 }

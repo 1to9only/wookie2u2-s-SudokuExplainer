@@ -7,7 +7,7 @@
 package diuf.sudoku.gen;
 
 /**
- * A Point is a location (a row and col) in the Grid, in a Symmetry.
+ * A Point is an x, y location (a row and col) in the Grid, in a Symmetry.
  *
  * @author Keith Corlett
  */
@@ -16,20 +16,25 @@ public final class Point {
 	public final int x;
 	public final int y;
 	public final int i;
-	public final String string;
 
 	public Point(int x, int y) {
 		this.x = x;
 		this.y = y;
 		this.i = y * 9 + x;
-		// The String constructor which doesn't take a copy of the given chars
-		// array is package private, which I find really bloody annoying. The
-		// JDK developers must trust app-developers in order to empower them.
-		this.string = new String(new char[]{(char)('0'+x), ',', (char)('0'+y)});
 	}
 
+	// NOTE that Point.toString is only used in debug
 	@Override
 	public String toString() {
-		return this.string;
+		// The String constructor which doesn't take a copy of the given chars
+		// array is package private, which I find really bloody annoying. The
+		// JDK developers should trust app-developers in order to empower them,
+		// but not trust the morons; so how can a JDK developer differentiate
+		// an app-developer from a moron? Probably by how much we abuse JDK
+		// developers, for not trusting us! But how to measure that in code?
+		if ( ts == null )
+			ts = new String(new char[]{(char)('0'+x), ',', (char)('0'+y)});
+		return ts;
 	}
+	private String ts;
 }

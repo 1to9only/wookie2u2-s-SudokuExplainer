@@ -202,7 +202,7 @@ public class MyHashMap<K,V>
 	 * the HashMap fail-fast.  (See ConcurrentModificationException).
 	 */
 	transient int modCount;
-	
+
 	/**
 	 * The value stored against the null key. Remains null until a null key
 	 * is added to this map, when it's set.
@@ -385,8 +385,10 @@ public class MyHashMap<K,V>
 		// techies: only morons put null keys in HashMaps!
 		assert key != null : "MyHashMap.make: null key denied!";
 		// first deal with null key
-		if ( key == null )
+		if ( key == null ) {
+			++modCount;
 			return putForNullKey(value)==null; // null already existed
+		}
 		K k;
 		int h = key.hashCode();
 		h ^= (h >>> 20) ^ (h >>> 12);
@@ -479,8 +481,10 @@ public class MyHashMap<K,V>
 		// because we loose the ability to detect not-found simply.
 		assert key != null : "MyHashMap.put: key is null!";
 		// first handle null key
-		if ( key == null )
+		if ( key == null ) {
+			++modCount;
 			return putForNullKey(value);
+		}
 		K k;
 		V previousValue;
 		final int hash, i;
@@ -500,20 +504,65 @@ public class MyHashMap<K,V>
 		addEntry(hash, key, value, i);
 		return null;
 	}
-	
+
+	public boolean addOnly(K key, V value) {
+		// A HashMap containing a null key or value is MUCH less useful,
+		// because we loose the ability to detect not-found simply.
+		assert key != null : "MyHashMap.put: key is null!";
+		// first handle null key
+		if ( key == null ) {
+			++modCount;
+			return putForNullKey(value) == null;
+		}
+		K k;
+		final int hash, i;
+		{ // this block just localises h
+			int h = key.hashCode();
+			h ^= (h >>> 20) ^ (h >>> 12);
+			hash = h ^ (h >>> 7) ^ (h >>> 4);
+			i = hash & mask;
+		}
+		for ( Entry<K,V> e=table[i]; e!=null; e=e.next )
+			if ( e.hash==hash && ( (k=e.key)==key || key.equals(k) ) )
+				return false;
+		++modCount;
+		addEntry(hash, key, value, i);
+		return true;
+	}
+
+	public V update(K key, V value) {
+		if ( key == null )
+			return putForNullKey(value); // does not change modcount!
+		K k;
+		V previousValue;
+		final int hash, i;
+		{ // this block just localises h
+			int h = key.hashCode();
+			h ^= (h >>> 20) ^ (h >>> 12);
+			hash = h ^ (h >>> 7) ^ (h >>> 4);
+			i = hash & mask;
+		}
+		for ( Entry<K,V> e=table[i]; e!=null; e=e.next )
+			if ( e.hash==hash && ( (k=e.key)==key || key.equals(k) ) ) {
+				previousValue = e.value;
+				e.value = value;
+				return previousValue;
+			}
+		return null;
+	}
+
 	/**
 	 * This method handles finding the existing entry with a null key, and
 	 * if one exists it's value is returned, else the proffered value is added
 	 * to the null key.
 	 *
 	 * @param value
-	 * @return 
+	 * @return
 	 */
 	private V putForNullKey(V value) {
 		if ( nullKeyValue != null )
 			return nullKeyValue;
 		nullKeyValue = value;
-		++modCount;
 		++size;
 		return null;
 	}

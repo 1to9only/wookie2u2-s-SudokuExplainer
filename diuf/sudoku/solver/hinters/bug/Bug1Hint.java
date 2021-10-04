@@ -11,13 +11,11 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
 
 
 /**
@@ -32,10 +30,10 @@ import static diuf.sudoku.utils.Frmt.COMMA_SP;
 public final class Bug1Hint extends ABugHint  {
 
 	protected final Cell bugCell;
-	protected final Values bugValues;
+	protected final int bugValues;
 
 	public Bug1Hint(AHinter hinter, Pots redPots, Cell bugCell
-			, Values bugValues) {
+			, int bugValues) {
 		super(hinter, redPots);
 		this.bugCell = bugCell;
 		this.bugValues = bugValues;
@@ -49,7 +47,7 @@ public final class Bug1Hint extends ABugHint  {
 	@Override
 	public Pots getGreens(int viewNum) {
 		if ( this.greenPots == null )
-			greenPots = new Pots(bugCell, bugValues);
+			greenPots = new Pots(bugCell, bugValues, false);
 		return greenPots;
 	}
 	private Pots greenPots;
@@ -68,11 +66,11 @@ public final class Bug1Hint extends ABugHint  {
 
 	@Override
 	public String toHtmlImpl() {
-		Values redVals = bugCell.maybes.minus(bugValues);
+		Integer redVals = bugCell.maybes & ~bugValues;
 		return Html.produce(this, "Bug1Hint.html"
-				, Frmu.and(bugValues)	// {0}
+				, Values.and(bugValues)	// {0}
 				, bugCell.id			//  1
-				, Frmu.or(bugValues)	//  2
+				, Values.or(bugValues)	//  2
 				, Frmu.values(redVals)	//  3
 		);
 	}

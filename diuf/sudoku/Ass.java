@@ -7,6 +7,8 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Values.VFIRST;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.chain.AChainingHint;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import static diuf.sudoku.utils.Frmt.PLUS;
@@ -112,11 +114,9 @@ public class Ass {
 		, Advanced(-1)			// regionTypeIndex not applicable
 		;
 		/**
-		 * An array of the Cause for a HiddenSingle in each region type,
-		 * so that we can just look it up by regionTypeIndex, rather than
-		 * calculating each on the fly.
+		 * The Cause for a HiddenSingle by regionTypeIndex (rti).
 		 */
-		public static final Cause[] CAUSE_FOR_REGION_TYPE = {
+		public static final Cause[] CAUSE_FOR = {
 			  HiddenBox
 			, HiddenRow
 			, HiddenCol
@@ -347,14 +347,14 @@ public class Ass {
 		cell.canNotBe(value);
 	}
 
+	// It may be faster to have a stack entry to eradicate multiple VFIRST[cell.maybes]
+	// I'm going sans-stack, for now, but @todo test it!
 	/** @return the other value (ie not this.value) which this.cell may be. */
 	public int otherValue() {
-		Values maybes = cell.maybes;
-		assert maybes.size == 2;
-		int otherValue = maybes.first();
-		if ( otherValue == value )
-			otherValue = maybes.next(otherValue+1);
-		return otherValue;
+		assert cell.size == 2;
+		if ( VFIRST[cell.maybes] == value )
+			return VFIRST[cell.maybes & ~VSHFT[VFIRST[cell.maybes]]];
+		return VFIRST[cell.maybes];
 	}
 
 //KEEP_4_DOC: This method no longer used but retain as documentation.

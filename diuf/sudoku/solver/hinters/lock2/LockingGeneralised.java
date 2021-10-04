@@ -5,6 +5,7 @@
  */
 package diuf.sudoku.solver.hinters.lock2;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Idx;
@@ -12,7 +13,6 @@ import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -52,46 +52,50 @@ public class LockingGeneralised extends AHinter {
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		Indexes[] rio; // region.indexesOf
-		Indexes riv; // region.indexesOf[v]
-		int v // the locking potential value 1..9
-		  , card; // card-inality: the number cells in region.indexesOf[v]
-		// indices of cells in grid which maybe each value 1..9 (cached)
-		final Idx[] candidates = grid.getIdxs();
-		// indices of cells in grid from which we can eliminate v
-		final Idx victims = this.victims;
-		// presume that no hint will be found
-		boolean result = false;
-		// foreach region in the grid
-		for ( ARegion region : grid.regions ) {
-			// dereference once, for speed (and brevity)
-			rio = region.indexesOf;
-			// foreach potential value
-			for ( v=1; v<10; ++v ) {
-				// if this region has 2..6 places for this value
-				if ( (card=(riv=rio[v]).size)>1 && card<7 ) {
-					// find victims: grid.cells which maybe v seeing all cells
-					// in region which maybe v, except those cells themselves.
-					// NOTE: cell.buds excludes this cell itself, so we and the
-					// buds of each cell which maybe v in the region, retaining
-					// only those cells that are buddies of all of these cells
-					// IN ANOTHER REGION. Simples!
-					victims.set(candidates[v]);
-					for ( int i : INDEXES[riv.bits] )
-						victims.and(region.cells[i].buds);
-					if ( victims.any() ) {
-						// FOUND a Locking
-						result = true;
-						final AHint hint = new LockingGeneralisedHint(this
-							, new Pots(victims.cells(grid), new Values(v))
-							, riv.bits, v, region);
-						if ( accu.add(hint) )
-							return result;
+		try {
+			Indexes[] rio; // region.indexesOf
+			Indexes riv; // region.indexesOf[v]
+			int v // the locking potential value 1..9
+			  , card; // card-inality: the number cells in region.indexesOf[v]
+			// indices of cells in grid which maybe each value 1..9 (cached)
+			final Idx[] candidates = grid.idxs;
+			// indices of cells in grid from which we can eliminate v
+			final Idx victims = this.victims;
+			// presume that no hint will be found
+			boolean result = false;
+			// foreach region in the grid
+			for ( ARegion region : grid.regions ) {
+				// dereference once, for speed (and brevity)
+				rio = region.indexesOf;
+				// foreach potential value
+				for ( v=1; v<10; ++v ) {
+					// if this region has 2..6 places for this value
+					if ( (card=(riv=rio[v]).size)>1 && card<7 ) {
+						// find victims: grid.cells which maybe v seeing all cells
+						// in region which maybe v, except those cells themselves.
+						// NOTE: cell.buds excludes this cell itself, so we and the
+						// buds of each cell which maybe v in the region, retaining
+						// only those cells that are buddies of all of these cells
+						// IN ANOTHER REGION. Simples!
+						victims.set(candidates[v]);
+						for ( int i : INDEXES[riv.bits] )
+							victims.and(region.cells[i].buds);
+						if ( victims.any() ) {
+							// FOUND a Locking
+							result = true;
+							final AHint hint = new LockingGeneralisedHint(this
+								, new Pots(victims.cellsA(grid), v)
+								, riv.bits, v, region);
+							if ( accu.add(hint) )
+								return result;
+						}
 					}
 				}
 			}
+			return result;
+		} finally {
+			Cells.cleanCasA();
 		}
-		return result;
 	}
 
 }

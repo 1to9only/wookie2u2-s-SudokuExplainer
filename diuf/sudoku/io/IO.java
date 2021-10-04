@@ -11,6 +11,7 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.gui.Ask;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.utils.Frmt.COMMA;
 import static diuf.sudoku.utils.Frmt.NL;
 import java.awt.Toolkit;
@@ -35,6 +36,8 @@ import java.util.Collection;
 import java.util.Set;
 import javax.swing.JComboBox;
 import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import diuf.sudoku.utils.Log;
+import java.util.Map;
 
 /**
  * Static methods to read/write Sudokus to/from files or clipboard.
@@ -86,6 +89,9 @@ public final class IO {
 	 */
 	public static final String HOME = System.getProperty("user.dir", DEFAULT_USER_DIR) + "\\";
 
+	/** The Settings for the DIUF Sudoku application. */
+	public static final File SETTINGS = new File(HOME+"DiufSudoku_Settings.txt");
+
 	/** The LogicalSolverTester usage statement is stored in this file. */
 	public static final File LOGICAL_SOLVER_TESTER_USAGE
 			= new File(HOME+"LogicalSolverTester_USAGE.txt");
@@ -105,6 +111,21 @@ public final class IO {
 	/** File in which we store AHinter performance statistics. */
 	public static final File PERFORMANCE_STATS
 			= new File(HOME+"DiufSudoku_Stats.txt");
+
+//	/** tmp directory required, so recreated if it's been removed. */
+//	public static final File tmp = new File(HOME+"tmp");
+//	static {
+//		if ( tmp.exists() && !tmp.isDirectory() )
+//			tmp.delete(); // I hope that wasn't important! sigh.
+//		if ( !tmp.exists() )
+//			tmp.mkdir();
+//	}
+//
+//	/** Prevent multiple Sudoku factory's running concurrently.
+//	 * If this directory exists then a new factory is NOT created, instead the
+//	 * request is simply ignored. */
+//	public static File FACTORY_LOCK_DIR = new File(tmp.getAbsolutePath()+"\\FACTORY_LOCK");
+
 
 // -REDO buggers-up HoDOKu somehow and I'm too lazy to even attempt to fix it!
 //	/** The VERBOSE_5_MODE logFile of a previous "keeper" run from which we
@@ -257,7 +278,7 @@ public final class IO {
 			}
 			grid.source = new PuzzleID(file, 0);
 		} catch (Exception ex) {
-			return StdErr.whinge(ex);
+			return StdErr.whinge(Log.me()+" exception", ex);
 		}
 		return true;
 	}
@@ -267,7 +288,7 @@ public final class IO {
 		for ( int x=0; x<9; ++x ) {
 			final char ch = line.charAt(x);
 			if ( ch>='1' && ch<='9' )
-				grid.cells[y*9+x].set(ch-'0', 0, false, null); // NB: x,y (ie col,row)
+				grid.cells[y*9+x].set(ch-'0'); // NB: x,y (ie col,row)
 		}
 	}
 
@@ -280,14 +301,14 @@ public final class IO {
 				if ( (cell=grid.cells[y+x]).value == 0 ) {
 					String field = fields[x];
 					for ( int i=0, n=field.length(); i<n; ++i )
-						cell.maybes.add(field.charAt(i)-'0');
+						cell.maybes |= (field.charAt(i)-'0');
 				}
 			}
 			return true;
 		}
 		// unexpected input file format
 		for ( int x=0; x<9; ++x )
-			grid.cells[y+x].maybes.fill();
+			grid.cells[y+x].maybes = VALL;
 		return false;
 	}
 
@@ -295,24 +316,23 @@ public final class IO {
 			"MagicTour (*.mt) is a multi-line format."+NL
 			+"So which line (1 based) do you want?";
 
-	private static boolean loadMT(Grid grid, File file, int lineNumberArg) {
+	private static boolean loadMT(final Grid grid, final File file, final int lineNumberArg) {
 		try {
 			final int lineCount = countLines(file);
-			final int lineNumber = lineNumberArg>0 && lineNumberArg<=lineCount
-					? lineNumberArg
-					: Ask.forInt(QUESTION, 1, lineCount);
-			try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+			final int lineNumber;
+			if ( lineNumberArg>0 && lineNumberArg<=lineCount )
+				lineNumber = lineNumberArg;
+			else
+				lineNumber = Ask.forInt(QUESTION, 1, lineCount);
+			try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
 				for ( int i=1; i<lineNumber; ++i )
 					reader.readLine();
 				String line = reader.readLine();
 				if ( line==null || line.length()<81 )
-					throw new IOException("Line number "+lineNumber+" is not"
-							+ " atleast 81 characters. Line:"+NL+line);
-				char c;
-				for ( int i=0; i<81; ++i ) {
-					c = line.charAt(i);
-					grid.cells[i].set(c>='1'&&c<='9' ? c-'0' : 0, 0, false, null);
-				}
+					throw new IOException("Line "+lineNumber+" is not atleast"
+							+ " 81 characters:"+NL+line);
+				// MT is Grid's native format.
+				grid.load(line);
 			} catch (Exception ex) {
 				StdErr.whinge("failed to loadMT from: "+lineNumber+"#"+file, ex);
 			}
@@ -320,7 +340,7 @@ public final class IO {
 			grid.source = new PuzzleID(file, lineNumber);
 			return true;
 		} catch (IOException ex) {
-			return StdErr.whinge(ex);
+			return StdErr.whinge(Log.me()+" IOException", ex);
 		}
 	}
 
@@ -411,6 +431,97 @@ public final class IO {
 	 */
 	public static ArrayList<String> slurp(File file) throws FileNotFoundException, IOException {
 		return slurp(new FileReader(file));
+	}
+
+	/**
+	 * Load the contents of the bufferedReader into the map.
+	 * Each line is presumed to contain a name=value pair.
+	 * There are no spaces around the '=' sign.
+	 * Lines that do not contain an '=' sign are ignored.
+	 * Lines that end in an '=' sign are ignored.
+	 *
+	 * @param map
+	 * @param bufferedReader
+	 * @throws java.io.IOException
+	 */
+	public static void slurp(Map<String,String> map, BufferedReader bufferedReader) throws IOException  {
+		String line;
+		int i; // indexOf('=')
+		while ( (line=bufferedReader.readLine()) != null )
+			if ( (i = line.indexOf('='))>-1 && i<=line.length() )
+				map.put(line.substring(0, i), line.substring(i+1, line.length()));
+	}
+	/**
+	 * Load the contents of the fileReader into the map.
+	 * Each line is presumed to contain a name=value pair.
+	 * There are no spaces around the '=' sign.
+	 * Lines that do not contain an '=' sign are ignored.
+	 * Lines that end in an '=' sign are ignored.
+	 *
+	 * @param map
+	 * @param fileReader
+	 * @throws java.io.IOException
+	 */
+	public static void slurp(Map<String,String> map, FileReader fileReader) throws IOException {
+		try ( BufferedReader bufferedReader = new BufferedReader(fileReader) ) {
+			slurp(map, bufferedReader);
+		}
+	}
+	/**
+	 * Load the contents of the file into the map.
+	 * Each line is presumed to contain a name=value pair.
+	 * There are no spaces around the '=' sign.
+	 * Lines that do not contain an '=' sign are ignored.
+	 * Lines that end in an '=' sign are ignored.
+	 *
+	 * @param map
+	 * @param file
+	 * @throws java.io.FileNotFoundException
+	 * @throws java.io.IOException
+	 */
+	public static void slurp(Map<String,String> map, File file) throws FileNotFoundException, IOException {
+		try ( FileReader fileReader = new FileReader(file) ) {
+			slurp(map, fileReader);
+		}
+	}
+
+
+	/**
+	 * Load the fileReader and return it all as one StringBuilder.
+	 * @param sb the StringBuilder to load into.
+	 * @param bufferedReader on the file to load.
+	 * @throws IOException it's your problem baby
+	 */
+	public static void slurpSB(StringBuilder sb, BufferedReader bufferedReader) throws IOException {
+		String line;
+		while ( (line=bufferedReader.readLine()) != null )
+			sb.append(line).append(NL);
+	}
+	/**
+	 * Load the fileReader and return it all as one StringBuilder.
+	 * @param sb the StringBuilder to load into.
+	 * @param fileReader on the file to load.
+	 * @throws java.io.FileNotFoundException when your cat refuses to go out
+	 * @throws IOException it's your problem baby
+	 */
+	public static void slurpSB(StringBuilder sb, FileReader fileReader) throws IOException{
+		try ( BufferedReader bufferedReader = new BufferedReader(fileReader) ) {
+			slurpSB(sb, bufferedReader);
+		}
+	}
+	/**
+	 * Load the file and return it all as one String.
+	 * @param file the file to load: typically a HTML file, in a test-case.
+	 * @return the contents of the file as a String.
+	 * @throws java.io.FileNotFoundException when your cat refuses to go out
+	 * @throws IOException it's your problem baby
+	 */
+	public static StringBuilder slurpSB(File file) throws FileNotFoundException, IOException {
+		StringBuilder sb = new StringBuilder((int)file.length()>>1); // 2 bytes per char
+		try ( FileReader fileReader = new FileReader(file) ) {
+			IO.slurpSB(sb, fileReader);
+		}
+		return sb;
 	}
 
 	/**
@@ -553,6 +664,17 @@ public final class IO {
 			return false;
 		}
 		return true;
+	}
+
+	public static void save(Map<String,String> map, File file) throws IOException {
+		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
+			for ( Map.Entry<String,String> e : map.entrySet() ) {
+				writer.write(e.getKey());
+				writer.write("=");
+				writer.write(e.getValue());
+				writer.newLine();
+			}
+		}
 	}
 
 	/**
@@ -725,5 +847,14 @@ public final class IO {
 		dtde.dropComplete(true);
 		return s;
 	}
+
+//	public static void makeTempDir(File dir) {
+//		dir.mkdir();
+//		dir.deleteOnExit();
+//	}
+//
+//	public static void delete(File dir) {
+//		dir.delete();
+//	}
 
 }

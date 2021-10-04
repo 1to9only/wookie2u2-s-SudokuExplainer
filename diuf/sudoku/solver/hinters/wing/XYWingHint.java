@@ -13,6 +13,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
@@ -54,16 +55,12 @@ public final class XYWingHint extends AHint implements IChildHint {
 		this.zValue = zValue;
 	}
 
-	// x() not used in LogicalSolverTester so delay-until-we-need-it.
 	private int x() {
-		// xz has two values, so: xz - z = x
-		return xz.maybes.otherThan(zValue);
+		return VFIRST[xz.maybes & ~VSHFT[zValue]];
 	}
 
-	// y() not used in LogicalSolverTester so delay-until-we-need-it.
 	private int y() {
-		// yz has two values, so: yz - z = y
-		return yz.maybes.otherThan(zValue);
+		return VFIRST[yz.maybes & ~VSHFT[zValue]];
 	}
 
 	@Override
@@ -81,9 +78,9 @@ public final class XYWingHint extends AHint implements IChildHint {
 		if ( greenPots == null ) {
 			Pots pots = new Pots();
 			// the z value is green (xy is orange)
-			pots.put(xy, new Values(zValue));
-			pots.put(xz, new Values(zValue));
-			pots.put(yz, new Values(zValue));
+			pots.put(xy, VSHFT[zValue]);
+			pots.put(xz, VSHFT[zValue]);
+			pots.put(yz, VSHFT[zValue]);
 			greenPots = pots;
 		}
 		return greenPots;
@@ -93,9 +90,9 @@ public final class XYWingHint extends AHint implements IChildHint {
 	@Override
 	public Pots getOranges(int viewNum) {
 		if ( orangePots == null ) {
-			orangePots = new Pots(xy, new Values(x(), y()));
-			orangePots.put(xz, new Values(x()));
-			orangePots.put(yz, new Values(y()));
+			orangePots = new Pots(xy, xy.maybes, false);
+			orangePots.put(xz, VSHFT[x()]);
+			orangePots.put(yz, VSHFT[y()]);
 		}
 		return orangePots;
 	}
@@ -106,10 +103,10 @@ public final class XYWingHint extends AHint implements IChildHint {
 		try {
 			if ( links == null ) {
 				links = new ArrayList<>(2);
-				int xValue = xz.maybes.minus(zValue).first();
-				links.add(new Link(xy, xValue, xz, xValue));
-				int yValue = yz.maybes.minus(zValue).first();
-				links.add(new Link(xy, yValue, yz, yValue));
+				int x = x();
+				links.add(new Link(xy, x, xz, x));
+				int y = y();
+				links.add(new Link(xy, y, yz, y));
 			}
 			return links;
 		} catch (Throwable ex) {
@@ -133,9 +130,9 @@ public final class XYWingHint extends AHint implements IChildHint {
 			, IAssSet prntOffs) {
 		final Cell[] ic = initGrid.cells; // initialCell
 		// the bitsets representing the maybes that've been removed.
-		final int rmvdXy = ic[xy.i].maybes.bits & ~xy.maybes.bits;
-		final int rmvdXz = ic[xz.i].maybes.bits & ~xz.maybes.bits;
-		final int rmvdYz = ic[yz.i].maybes.bits & ~yz.maybes.bits;
+		final int rmvdXy = ic[xy.i].maybes & ~xy.maybes;
+		final int rmvdXz = ic[xz.i].maybes & ~xz.maybes;
+		final int rmvdYz = ic[yz.i].maybes & ~yz.maybes;
 		MyLinkedList<Ass> result = new MyLinkedList<>();
 		// parents := Asses at the indexes of the removed-bits.
 		if ( rmvdXy!=0 || rmvdXz!=0 || rmvdYz!=0 ) {

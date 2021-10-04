@@ -11,6 +11,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
@@ -35,13 +36,13 @@ public class SkyscraperHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += ON+Frmu.and(new Values(greens.values()));
+			s += ON+Integer.toString(valueToRemove);
 		return s;
 	}
 
 	@Override
 	public String toStringImpl() {
-		return Frmu.getSB().append(getHintTypeName())
+		return Frmt.getSB().append(getHintTypeName())
 		  .append(COLON_SP).append(Frmu.csv(greens.keySet()))
 		  .append(ON).append(Integer.toString(valueToRemove))
 		  .toString();

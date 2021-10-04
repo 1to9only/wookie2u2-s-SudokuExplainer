@@ -33,20 +33,21 @@ public final class HiddenSetDirectHint extends AHint  {
 	private final ARegion region;
 
 	/** Used by Locking. */
-	public final Values hdnSetValues;
+	public final int hdnSetValues;
 	/** Used by Locking. */
 	public final Idx hdnSetIdx;
 
-	public HiddenSetDirectHint(AHinter hinter, Cell[] cells, Values hdnSetValues
+	public HiddenSetDirectHint(AHinter hinter, Cell[] cells, int hdnSetValues
 			, Pots orangePots, Pots redPots, ARegion region, int valueToSet
 			, Cell cellToSet) {
 		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots, null
 				, orangePots, null, Regions.list(region), null);
 		this.cells = cells;
 		this.hdnSetValues = hdnSetValues;
-		this.hdnSetIdx = Idx.of(cells);
-		this.hdnSetValuesArray = hdnSetValues.toArrayNew();
 		this.region = region;
+		/** Used by Locking. */
+		this.hdnSetValuesArray = Values.toArrayNew(hdnSetValues);
+		this.hdnSetIdx = Idx.of(cells);
 	}
 
 	@Override

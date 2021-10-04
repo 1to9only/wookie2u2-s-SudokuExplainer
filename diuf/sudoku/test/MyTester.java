@@ -23,6 +23,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.layout.Region;
 import javax.swing.*;
+//import sun.security.action.GetPropertyAction;
 //import sudoku.SudokuSet;
 
 
@@ -357,12 +358,12 @@ public final class MyTester {
 //		int cnt0 = 0;
 //		for ( int times=0; times<TIMES; ++times ) {
 //			for ( Cell cell : grid.cells ) {
-//				final int bits = cell.maybes.bits;
+//				final int bits = cell.maybes;
 //				if ( bits > 0 )
 //					for ( int sv=1; sv<=bits; sv<<=1 )
 //						if ( (bits & sv) != 0 && sv == 256 ) // ie 9
 //							for ( Cell sib : cell.siblings ) {
-//								final int sibBits = sib.maybes.bits;
+//								final int sibBits = sib.maybes;
 //								if ( sibBits > 0 )
 //									for ( int sibv=1; sibv<=sibBits; sibv<<=1 )
 //										if ( (sibBits & sibv) != 0 && sibv == 256 ) // ie 9
@@ -373,17 +374,17 @@ public final class MyTester {
 //
 //		long t1 = System.nanoTime();
 //		// shiftedValueses: an array of jagged-arrays of the shifted-values
-//		// that are packed into your maybes.bits 0..511. See field for more.
+//		// that are packed into your maybes 0..511. See field for more.
 //		final int[][] SVS = Values.SHIFTED;
 //		int cnt1 = 0;
 //		for ( int times=0; times<TIMES; ++times )
 //			for ( Cell cell : grid.cells )
-//				if ( cell.maybes.bits > 0 )
-//					for ( int sv : SVS[cell.maybes.bits] )
+//				if ( cell.maybes > 0 )
+//					for ( int sv : SVS[cell.maybes] )
 //						if ( sv == 256 ) // ie 9
 //							for ( Cell sib : cell.siblings )
-//								if ( sib.maybes.bits > 0 )
-//									for ( int sibv : SVS[sib.maybes.bits] )
+//								if ( sib.maybes > 0 )
+//									for ( int sibv : SVS[sib.maybes] )
 //										if ( sibv == 256 ) // ie 9
 //											++cnt1;
 //
@@ -757,9 +758,9 @@ public final class MyTester {
 // *    (b) use a for-i loop or a foreach loop?
 // *	for ( y=0; y<9; ++y )
 // *		X_LOOP: for ( x=0; x<9; ++x ) {
-// *			if ( (cell=grid.matrix[y][x]).maybes.size < 2 )
+// *			if ( (cell=grid.matrix[y][x]).maybesSize < 2 )
 // *				continue; // skip set cells and any naked singles
-// *			// find excluding cells (siblings with 1> maybes.size <= degree)
+// *			// find excluding cells (siblings with 1> maybesSize <= degree)
 // *			for ( Cell sib : cell.getSiblingsArray() ) // 81*20=1620
 // */
 //	// KRC2017-12-21 Performance: array iterator VERSES for-i loop
@@ -778,7 +779,7 @@ public final class MyTester {
 //
 //			// Actually do it ONCE, so all subsequents are equal no-ops:
 //			// ie: Cell.canNotBe will go through:
-//			//		if ((maybes.bits & SHFT[theValueToRemove])==0)
+//			//		if ((maybes & SHFT[theValueToRemove])==0)
 //			//			return 0; // do nothing
 //			// NB: this priming read creates the siblingsSet + siblingsArray
 //			for ( Cell sib : cell.getSiblingsArray())
@@ -2128,13 +2129,27 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //modified average took=31,683,276
 //*/
 
+//	// Q: What's the System LAF?
+//	// A: null
+// 	public static void main(String[] args) {
+// 		try {
+//			final String laf = AccessController.doPrivileged(new GetPropertyAction("swing.systemlaf"));
+//			System.out.println("swing.systemlaf="+laf);
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
 	// Q: What is Integer.MIN_VALUE
 	// A: Integer.MIN_VALUE=-2,147,483,648
  	public static void main(String[] args) {
  		try {
 			System.out.format("Integer.MIN_VALUE=%,d\n\n", Integer.MIN_VALUE);
  		} catch (Exception ex) {
+			System.out.println(Log.me()+" exception");
+			System.out.flush();
  			ex.printStackTrace(System.out);
+			System.out.flush();
  		}
  	}
 

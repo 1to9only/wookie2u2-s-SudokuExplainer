@@ -18,16 +18,13 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
 import diuf.sudoku.Ass;
 import diuf.sudoku.Regions;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.IAssSet;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
-
 
 /**
  * A LockingHint is raised by Locking <b>OR</b> the Fisherman. You can
@@ -114,9 +111,10 @@ public final class LockingHint extends AHint implements IChildHint {
 			, IAssSet prntOffs) {
 		MyLinkedList<Ass> result = null;
 		final int v = this.valueToRemove;
+		final int sv = VSHFT[v];
 		for ( Cell c : base.cells )
-			if ( initGrid.cells[c.i].maybes.contains(v)
-			  && currGrid.cells[c.i].maybes.no(v)
+			if ( (initGrid.cells[c.i].maybes & sv) != 0
+			  && (currGrid.cells[c.i].maybes & sv) == 0
 			  && !cover.contains(c) ) {
 				if(result==null) result = new MyLinkedList<>();
 				result.add(prntOffs.getAss(c, v));

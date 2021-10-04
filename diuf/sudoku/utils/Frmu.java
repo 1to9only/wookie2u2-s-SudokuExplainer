@@ -92,6 +92,8 @@ public class Frmu {
 	}
 
 	public static StringBuilder basesAndCovers(List<ARegion> bases, List<ARegion> covers) {
+		if ( bases==null || covers==null ) // Oops!
+			return basesAndCovers(getMySB(128), bases, covers);
 		return basesAndCovers(getMySB((bases.size()+covers.size())<<3), bases, covers);
 	}
 	public static StringBuilder basesAndCovers(StringBuilder sb, List<ARegion> bases, List<ARegion> covers) {
@@ -291,8 +293,8 @@ public class Frmu {
 		return sb;
 	}
 
-	public static String values(Values vs) {
-		return Frmt.plural(vs.size, "value")+SPACE+Frmu.and(vs);
+	public static String values(Integer vs) {
+		return Frmt.plural(Values.VSIZE[vs], "value")+SPACE+Values.and(vs);
 	}
 
 	public static StringBuilder getSB() {

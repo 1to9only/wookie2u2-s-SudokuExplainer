@@ -25,6 +25,7 @@
  */
 package diuf.sudoku.solver.hinters.fish;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.BOX;
@@ -43,12 +44,12 @@ import static diuf.sudoku.Regions.ROW_COL_MASK;
 import static diuf.sudoku.Regions.ROW_MASK;
 import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import diuf.sudoku.utils.Log;
@@ -219,8 +220,10 @@ public class ComplexFisherman extends AHinter
 	private final int[] bases = new int[27];
 	/** number of eligible bases. */
 	private int numBases;
-	/** is the base region at this index in the current search. */
+	/** true means base at index is in current search: boxs,rows,cols. */
 	private final boolean[] basesUsed = new boolean[27];
+	/** count the number of rows,cols,boxs used as base in current search. */
+	private final int[] usedBaseTypes = new int[3];
 	/** recursion stack for the base region search. */
 	private final BaseStackEntry[] baseStack = new BaseStackEntry[9];
 	/** indices of grid.cells which maybe v in bases;<br>
@@ -352,7 +355,9 @@ public class ComplexFisherman extends AHinter
 		this.oneOnly = accu.isSingle();
 		int pre = accu.size();
 		try {
-			final Idx[] idxs = grid.getIdxs();
+			final Idx[] idxs = grid.idxs;
+			// rebuild each region.containsValue array (dirty in generate)
+			grid.rebuildAllRegionsContainsValues();
 // templates are useless because EVERYthing passes!
 //			final Idx[]	deletables = Run.templates.getDeletables(grid);
 //			int done=0, skip=0;
@@ -378,6 +383,7 @@ public class ComplexFisherman extends AHinter
 		} finally {
 			this.grid = null;
 			this.accu = null;
+			Cells.cleanCasA();
 		}
 		return accu.size() > pre;
 	}
@@ -479,6 +485,7 @@ public class ComplexFisherman extends AHinter
 						return searchBasesResult;
 				}
 			}
+			interrupt();
 		}
 	}
 	// these fields are (logically) searchBases variables
@@ -674,8 +681,6 @@ public class ComplexFisherman extends AHinter
 	private int dlM0, dlM1, dlM2;
 	// sharks: cannabilistic eliminations
 	private int skM0, skM1, skM2;
-	// count the number of rows, cols, and boxs used as a base region
-	private final int[] usedBaseTypes = new int[3];
 	// get a mask of the region-types used as bases and covers
 	private int baseMask, coverMask;
 	// !(is a BOX used as a base)?
@@ -777,12 +782,11 @@ public class ComplexFisherman extends AHinter
 	 * @throw IllegalStateException if MIA_REDS and reds are null or empty.
 	 */
 	private AHint createHint() {
-
 		final Pots reds = new Pots(); // set-of-Cell=>Values to be eliminated
+		// problem with non-existent reds, so log issues,
+		// throw IllegalStateException if reds come-out empty.
+		final int sv = VSHFT[v]; // bitset of the Fish candidate value
 		if ( MIA_REDS ) {
-			// problem with non-existent reds, so log issues,
-			// throw IllegalStateException if reds come-out empty.
-			final int sv = VSHFT[v]; // bitset of the Fish candidate value
 			// skip if there's no deletes and no sharks.
 			if ( deletes.none() && sharks.none() ) {
 				carp("no deletes and no sharks");
@@ -791,8 +795,8 @@ public class ComplexFisherman extends AHinter
 			// check that each delete exists
 			if ( deletes.any() ) { // there may occasionally only be sharks
 				deletes.forEach(grid.cells, (cell) -> {
-					if ( (cell.maybes.bits & sv) != 0 ) {
-						reds.put(cell, new Values(v));
+					if ( (cell.maybes & sv) != 0 ) {
+						reds.put(cell, sv);
 					} else { // the "missing" delete was NOT added
 						carp("MIA delete: "+cell.toFullString()+MINUS+v);
 					}
@@ -802,8 +806,8 @@ public class ComplexFisherman extends AHinter
 			if ( sharks.any() ) { // there's usually only deletes
 				// foreach shark (cannibalistic) cell in grid.cells
 				sharks.forEach(grid.cells, (cell) -> {
-					if ( (cell.maybes.bits & sv) != 0 ) {
-						reds.put(cell, new Values(v));
+					if ( (cell.maybes & sv) != 0 ) {
+						reds.put(cell, sv);
 					} else { // the "missing" shark was NOT added
 						carp("MIA shark: "+cell.toFullString()+MINUS+v);
 					}
@@ -818,11 +822,11 @@ public class ComplexFisherman extends AHinter
 			// and then return null (no hint) if reds come-out null or empty.
 			if ( deletes.any() )
 				deletes.forEach(grid.cells
-					, (cell) -> reds.put(cell, new Values(v))
+					, (cell) -> reds.put(cell, sv)
 				);
 			if ( sharks.any() )
 				sharks.forEach(grid.cells
-					, (cell) -> reds.put(cell, new Values(v))
+					, (cell) -> reds.put(cell, sv)
 				);
 			if ( reds.isEmpty() )
 				return null; // should never happen. Never say never.
@@ -875,19 +879,18 @@ public class ComplexFisherman extends AHinter
 									 , fins.a2 & ~efM2);
 
 		// the Fish candidate as a Values
-		final Values cv = new Values(v);
 		// corners = green
-		final Pots green = new Pots(cornerIdx.cells(grid), cv);
+		final Pots green = new Pots(cornerIdx.cellsA(grid), v);
 		// exoFins = blue
-		final Pots blue = new Pots(exoFinsIdx.cells(grid), cv);
+		final Pots blue = new Pots(exoFinsIdx.cellsA(grid), v);
 		// endoFins = purple
-		final Pots purple = new Pots(endoFinsIdx.cells(grid), cv);
+		final Pots purple = new Pots(endoFinsIdx.cellsA(grid), v);
 		// sharks = yellow
 		final Pots yellow;
 		if ( sharks.none() )
 			yellow = null;
 		else {
-			yellow = new Pots(sharks.cells(grid), cv);
+			yellow = new Pots(sharks.cellsA(grid), v);
 			// paint all sharks yellow (except eliminations which stay red)!
 			if ( !yellow.isEmpty() )
 				yellow.removeFromAll(green, blue, purple);
@@ -959,12 +962,30 @@ public class ComplexFisherman extends AHinter
 		return numBases>=degree && numAllCovers>=degree;
 	}
 
+//	private String debugContainsValue(boolean[] array) {
+//		StringBuilder sb = new StringBuilder(9);
+//		for ( int v=1; v<10; ++v )
+//			if ( array[v] )
+//				sb.append(v);
+//			else
+//				sb.append("_");
+//		return sb.toString();
+//	}
+
 	private void addRegions(ARegion[] regions, boolean isBase, boolean andConverse) {
-		for ( ARegion region : regions )
+		for ( ARegion region : regions ) {
 			// ignore regions which already have the Fish candidate set.
-			// nb: containsValue is rebuilt by LogicalSolver and TestHelp.
+			// nb: call containsValue() coz the field no work in generate.
+//			boolean[] pre = region.containsValue.clone();
 			if ( !region.containsValue[v] )
 				addRegion(region, isBase, andConverse);
+//			if ( !Arrays.equals(pre, region.containsValue) ) {
+//				System.out.println("region: "+region);
+//				System.out.println("before: "+debugContainsValue(pre));
+//				System.out.println("after : "+debugContainsValue(region.containsValue));
+//				Debug.breakpoint();
+//			}
+		}
 	}
 
 	private void addRegion(ARegion region, boolean isBase, boolean andConverse) {

@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Arrays;
@@ -26,13 +27,13 @@ public final class URT3NakedSetHint extends AURTHint {
 	private final Cell c1;
 	private final Cell c2;
 	// values other than v1 and v2, the two values common to all cells in a URT
-	private final Values extraVals;
+	private final int extraVals;
 	private final ARegion region;
 	// other cells of the naked set (not c1 or c2)
 	// nb: equals requires a Set!
 	private final Set<Cell> otherCellsSet;
 	// values in the naked set
-	private final Values nkdSetVals;
+	private final int nkdSetVals;
 
 	// local degree overridding AHint.degree is required because it's too damn
 	// difficult to set the inherited one to anything other than the default
@@ -55,8 +56,8 @@ public final class URT3NakedSetHint extends AURTHint {
 	 * @param nkdSetVals
 	 */
 	public URT3NakedSetHint(UniqueRectangle hinter, List<Cell> loop
-			, int v1, int v2, Pots redPots, Cell c1, Cell c2, Values extraVals
-			, ARegion region, Cell[] otherCells, Values nkdSetVals) {
+			, int v1, int v2, Pots redPots, Cell c1, Cell c2, int extraVals
+			, ARegion region, Cell[] otherCells, int nkdSetVals) {
 		super(3, hinter, loop, v1, v2, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
@@ -64,7 +65,7 @@ public final class URT3NakedSetHint extends AURTHint {
 		this.region = region;
 		this.otherCellsSet = new LinkedHashSet<>(Arrays.asList(otherCells));
 		this.nkdSetVals = nkdSetVals;
-		this.degree = nkdSetVals.size;
+		this.degree = VSIZE[nkdSetVals];
 	}
 
 	@Override
@@ -84,7 +85,7 @@ public final class URT3NakedSetHint extends AURTHint {
 			pots.put(c1, extraVals);
 			pots.put(c2, extraVals);
 			for ( Cell c : otherCellsSet )
-				pots.upsert(c, nkdSetVals);
+				pots.upsert(c, nkdSetVals, false);
 			orangePots = pots;
 		}
 		return orangePots;
@@ -116,7 +117,7 @@ public final class URT3NakedSetHint extends AURTHint {
 		if ( this.region != other.region
 		  || this.degree != other.degree )
 			return false;
-		return this.nkdSetVals.equals(other.nkdSetVals)
+		return this.nkdSetVals == other.nkdSetVals
 			&& this.otherCellsSet.equals(other.otherCellsSet);
 	}
 
@@ -129,10 +130,10 @@ public final class URT3NakedSetHint extends AURTHint {
 			, Frmu.csv(loop)			// 3
 			, c1.id						// 4
 			, c2.id						// 5
-			, Frmu.or(extraVals)		// 6
+			, Values.or(extraVals)		// 6
 			, GROUP_NAMES[degree-2]		// 7
 			, Frmu.and(otherCellsSet)	// 8
-			, Frmu.and(nkdSetVals)	// 9
+			, Values.and(nkdSetVals)	// 9
 			, region.id					//10
 			, redPots.toString()		//11
 		);

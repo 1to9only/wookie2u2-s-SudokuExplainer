@@ -12,6 +12,7 @@ import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.checks.AWarningHinter;
 import diuf.sudoku.solver.checks.AnalysisHint;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.utils.Log;
 
 
 /**
@@ -25,7 +26,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * MUST be in the same package. The analyser calls back the LogicalSolver
  * passed to it's constructor, so analysers are ALWAYS automatic variables (not
  * fields) so that: he comes, he's used, he goes. My constructor takes the
- * logHints and logTimes settings. I'm single use, and wafer-thin!
+ * logHints and logTimes settings. I'm single use. I'm only waffer-thin!
  *
  * @see diuf.sudoku.solver.checks.AnalysisHint
  *
@@ -58,7 +59,7 @@ public final class LogicalAnalyser extends AWarningHinter {
 		// is also 0.0, which is NOT representative. Sigh.
 		super(Tech.Analysis);
 		this.solver = solver;
-		this.logHints = logHints | logTimes; // times make no sense without the hints
+		this.logHints = logHints | logTimes; // times useless without hints
 		this.logTimes = logTimes;
 		assert solver != null;
 	}
@@ -83,23 +84,26 @@ public final class LogicalAnalyser extends AWarningHinter {
 			final AHint warning = solver.validatePuzzleAndGrid(grid, false);
 			if ( warning != null )
 				return accu.add(warning);
+			final UsageMap usage = new UsageMap();
 			// nb: synchronized so that the generator thread waits for analyse
 			// (ie solve) to finish before generating a puzzle to replenish its
 			// cache. Cant run two solves concurrently coz of stateful statics.
 			// KRC 2019 OCT @strech I really should clean-up those statics with
 			// new RunContext holds all stateful objects in non-static fields.
-			final UsageMap usageMap = new UsageMap();
 			final boolean isSolved;
 			synchronized ( LogicalSolver.ANALYSE_LOCK ) {
 				// call-back the LogicalSolver that created me.
-				isSolved = solver.solve(grid, usageMap, false, false, logHints, logTimes);
+				isSolved = solver.solve(grid, usage, false, false, logHints
+						, logTimes);
 			}
 			if ( isSolved )
-				accu.add(new AnalysisHint(this, usageMap));
+				accu.add(new AnalysisHint(this, usage));
 			else
 				accu.add(solver.UNSOLVABLE_HINT);
+		} catch (InterruptException ex) {
+			return false;
 		} catch (Exception ex) {
-			StdErr.whinge(ex);
+			StdErr.whinge(Log.me()+" exception", ex);
 			accu.add(solver.UNSOLVABLE_HINT);
 		}
 		return true;

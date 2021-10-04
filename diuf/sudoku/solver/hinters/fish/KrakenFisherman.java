@@ -35,11 +35,11 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Ass;
+import diuf.sudoku.Cells;
 import static diuf.sudoku.Grid.COL;
 import static diuf.sudoku.Grid.ROW;
 import diuf.sudoku.Regions;
@@ -230,9 +230,8 @@ public class KrakenFisherman extends AHinter
 
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {
-		// I am just trying to ensure that it initialises the table for each
-		// puzzle; apparently there's a problem with Franken Swordfish and
-		// Franken Jellyfish not re-initialising the kt2Cache.
+		// initialise for each puzzle: problem with Swordfish and Jellyfish
+		// not re-initialising the kt2Cache.
 		tables.myHN = -1;
 		tables.myPid = -1L;
 	}
@@ -250,7 +249,7 @@ public class KrakenFisherman extends AHinter
 			return true;
 		// find new hints
 		this.grid = grid;
-		this.idxs = grid.getIdxs();
+		this.idxs = grid.idxs;
 		this.accu = accu;
 		this.oneOnly = accu.isSingle();
 		int pre = accu.size();
@@ -276,6 +275,7 @@ public class KrakenFisherman extends AHinter
 			this.grid = null;
 			this.idxs = null;
 			this.accu = null;
+			Cells.cleanCasA();
 		}
 		return accu.size() > pre;
 	}
@@ -307,7 +307,7 @@ public class KrakenFisherman extends AHinter
 		cB.prevIndex = -1;
 		bLevel = 1; // baseLevel: start at level 1 (0 is just a stopper)
 
-		// try all combinations of base regions
+		// foreach combo of base regions
 		for (;;) {
 			// fallback a baseLevel if no unit is available at this baseLevel
 			while ( (cB=baseStack[bLevel]).index >= numBases ) {
@@ -376,11 +376,12 @@ public class KrakenFisherman extends AHinter
 					if ( searchCovers() ) {
 						searchBasesResult = true;
 						if ( oneOnly )
-							return true;
+							return searchBasesResult;
 					}
 				}
 			}
-		} // for ever
+			interrupt();
+		} // next combo of base regions
 	}
 	// these fields are (logically) searchBases variables
 	private boolean searchBasesResult;
@@ -592,7 +593,7 @@ public class KrakenFisherman extends AHinter
 						fins.forEach((fin) -> {
 							Ass a = kt1Asses[fin];
 	//						valsToRemove.add(a.value);
-							reds.put(a.cell, new Values(a.value));
+							reds.put(a.cell, VSHFT[a.value]);
 							chains.add(a);
 						});
 						// the actual kraken hint "wraps" the causal base hint
@@ -660,7 +661,7 @@ public class KrakenFisherman extends AHinter
 									final List<Ass> chains = new LinkedList<>();
 									Idx.forEach(kfM0,kfM1,kfM2, (kf) -> {
 										Cell cell = grid.cells[kf];
-										reds.put(cell, new Values(fv2));
+										reds.put(cell, VSHFT[fv2]);
 										// kt2sets is populated by isKrakenTypeTwo
 										for ( int dk : kda )
 											chains.add(kt2sets[dk].getAss(cell, fv2));
@@ -714,8 +715,6 @@ public class KrakenFisherman extends AHinter
 	private final Idx kSharks = new Idx();
 	// kraken deletes
 	private int kDelM0,kDelM1,kDelM2;
-	// kraken fins
-	private final Idx kFins = new Idx();
 
 	// ============================ KRAKEN TYPE 1 =============================
 
@@ -1112,7 +1111,7 @@ public class KrakenFisherman extends AHinter
 			if ( a.isOn ) {
 				sx = VSHFT[x];
 				// 1. add an OFF for each other potential value of a.cell.
-				vals = VALUESES[cell.maybes.bits & ~sx];
+				vals = VALUESES[cell.maybes & ~sx];
 				for ( jj=0,JJ=vals.length; jj<JJ; ++jj ) {
 					if ( set.add(e = new Ass(cell, vals[jj], OFF, a)) ) {
 						kt2Queue.add(e);
@@ -1122,7 +1121,7 @@ public class KrakenFisherman extends AHinter
 				// 2. add an OFF for each other possible position of a.value
 				//    in each of a.cell's three regions.
 				for ( jj=0; jj<20; ++jj ) {
-					if ( ((sib=cell.siblings[jj]).maybes.bits & sx) != 0
+					if ( ((sib=cell.siblings[jj]).maybes & sx) != 0
 					  && set.add(e=new Ass(sib, x, OFF, a)) ) {
 						kt2Queue.add(e);
 						elims[x].add(sib.i);
@@ -1131,8 +1130,8 @@ public class KrakenFisherman extends AHinter
 			} else {
 				// 1. if a.cell has only two potential values then it must
 				//    be the other potential value, so add an ON to the queue.
-				if ( cell.maybes.size == 2
-				  && set.add(e=new Ass(cell, VALUESES[cell.maybes.bits & ~VSHFT[x]][0], ON, a)) )
+				if ( cell.size == 2
+				  && set.add(e=new Ass(cell, VALUESES[cell.maybes & ~VSHFT[x]][0], ON, a)) )
 					kt2Queue.add(e);
 				// 2. foreach of a.cell's 3 regions: if region has 2 places for
 				//    a.value then the other cell must be a.value, so add an ON
@@ -1184,11 +1183,12 @@ public class KrakenFisherman extends AHinter
 	private ComplexFishHint createBaseHint() {
 
 		// add the deletes (if any) and sharks (if any) to reds
+		final int sv = VSHFT[v];
 		final Pots reds = new Pots();
 		if ( deletes.any() )
-			deletes.forEach(grid.cells, (cell)->reds.put(cell, new Values(v)));
+			deletes.forEach(grid.cells, (cell)->reds.put(cell, sv));
 		if ( sharks.any() )
-			sharks.forEach(grid.cells, (cell)->reds.put(cell, new Values(v)));
+			sharks.forEach(grid.cells, (cell)->reds.put(cell, sv));
 
 		baseMask = Regions.types(basesUsed);
 		coverMask = Regions.types(coversUsed);
@@ -1230,18 +1230,16 @@ public class KrakenFisherman extends AHinter
 									 , fins.a1 & ~cB.efM1
 									 , fins.a2 & ~cB.efM2);
 
-		// the Fish candidate as a Values
-		final Values cv = new Values(v);
 		// corners = green
-		final Pots green = new Pots(cornerIdx.cells(grid), cv);
+		final Pots green = new Pots(cornerIdx.cellsA(grid), v);
 		// exoFins = blue
-		final Pots blue = new Pots(exoFinsIdx.cells(grid), cv);
+		final Pots blue = new Pots(exoFinsIdx.cellsA(grid), v);
 		// endoFins = purple
-		final Pots purple = new Pots(endoFinsIdx.cells(grid), cv);
+		final Pots purple = new Pots(endoFinsIdx.cellsA(grid), v);
 		// sharks = yellow
 		final Pots yellow;
 		if ( sharks.any() ) {
-			yellow = new Pots(sharks.cells(grid), cv);
+			yellow = new Pots(sharks.cellsA(grid), v);
 			// paint all sharks yellow (except eliminations which stay red)!
 			if ( !yellow.isEmpty() )
 				yellow.removeFromAll(green, blue, purple);
@@ -1491,10 +1489,10 @@ public class KrakenFisherman extends AHinter
 			// 1. construct all possible "moves" (skip set cells).
 			// a "move" is a direct effect.
 			for ( Cell cell : grid.cells )
-				if ( cell.maybes.bits != 0 ) {
+				if ( cell.maybes != 0 ) {
 					myOns = ons[cell.i];
 					myOffs = offs[cell.i];
-					for ( int v : VALUESES[cell.maybes.bits] ) {
+					for ( int v : VALUESES[cell.maybes] ) {
 						myOns[v] = new Eff(cell, v, ON, null);
 						myOffs[v] = new Eff(cell, v, OFF, null);
 					}
@@ -1508,7 +1506,7 @@ public class KrakenFisherman extends AHinter
 					continue; // skip set cell
 				myOns = ons[i = cell.i];
 				myOffs = offs[i];
-				bits = cell.maybes.bits;
+				bits = cell.maybes;
 				for ( int v : VALUESES[bits] ) {
 					on = myOns[v];
 					off = myOffs[v];
@@ -1520,12 +1518,12 @@ public class KrakenFisherman extends AHinter
 						on.addKid(myOffs[v2]);
 					// 2. add an OFF for each of my siblings which maybe v
 					for ( Cell sib : cell.siblings )
-						if ( (sib.maybes.bits & sv) != 0 )
+						if ( (sib.maybes & sv) != 0 )
 							on.addKid(offs[sib.i][v]);
 
 					// Assuming that value is eliminated from cell
 					// 1. if cell has two maybes, add an ON to the other maybe
-					if ( cell.maybes.size == 2 )
+					if ( cell.size == 2 )
 						off.addKid(myOns[VALUESES[bits & ~sv][0]]);
 					// 2. if any of my regions has two v's, other posi is ON
 					for ( ARegion r : cell.regions )

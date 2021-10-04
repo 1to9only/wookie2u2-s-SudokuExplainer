@@ -10,7 +10,7 @@ import static diuf.sudoku.test.TestHelpers.*;
 
 import diuf.sudoku.*;
 import static diuf.sudoku.Settings.THE_SETTINGS;
-import diuf.sudoku.gui.Print;
+import diuf.sudoku.solver.Print;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.*;
@@ -67,7 +67,7 @@ import java.util.Map.Entry;
  */
 public final class LogicalSolverTester {
 
-	private static final boolean IS_HACKY = THE_SETTINGS.get(Settings.isHacky);
+	private static final boolean IS_HACKY = THE_SETTINGS.getBoolean(Settings.isHacky);
 
 	// KRC 2021-06-20 I'm trying to find my misplaced towel
 	// When 1 puzzle is reprocessed print hint.toHtml to stdout (very verbose),
@@ -82,7 +82,12 @@ public final class LogicalSolverTester {
 	// through each puzzle as the GUI, which is quite handy coz no figuring out
 	// where they diverge. Most useful EARLY in the hint-path, like Locking.
 	// SLOWER: KRC 2021-06-28 disabled because it's slower!
-	private static final boolean DEBUG_SIAMESE_LOCKING_BUGS = false;
+	// FASTER: KRC 2021-07-12 new SiameseLocking class now it's 3 secs faster!
+	// But the number of reported locking drops coz there's increases in both
+	// NakedPairs and NakedTriples, as you'd expect because I donate my elims
+	// as "additional" eliminations to the existing NakedWhatever hint, and it
+	// takes about twice as long to run, but it's faster over-all; go figure!
+	private static final boolean DEBUG_SIAMESE_LOCKING_BUGS = true; // @check true
 
 	private static int numSolved=0, numFailed=0;
 
@@ -98,12 +103,15 @@ public final class LogicalSolverTester {
 
 	private static int carp(String msg, Throwable ex) {
 		System.err.println(msg);
+		System.err.flush();
 		ex.printStackTrace(System.err);
 		return 1;
 	}
 
-	private static int carp(Grid grid, Throwable ex, PrintStream err) {
+	private static int carp(String logger, Grid grid, Throwable ex, PrintStream err) {
+		err.println(logger+" carp");
 		err.println(grid.toString());
+		err.flush();
 		ex.printStackTrace(err);
 		return 1;
 	}
@@ -162,12 +170,12 @@ public final class LogicalSolverTester {
 			// paste the whole damn line rather than piss-about with it.
 			// WARN: NOT TESTED with any other args!
 			// WARN: Settings changes are PERMANENT!
-			THE_SETTINGS.justSetWantedTechs(parseWantedHinters(args));
+			THE_SETTINGS.setWantedTechs(parseWantedHinters(args));
 			pids = null;
 		} else {
 			pids = Frmt.toIntArray(args); // may still be null
 			// do BEFORE new LogicalSolver because new LogicalSolver ->
-			// new RecursiveAnalyser -> new HintsApplicumulator ->
+			// new SingleSolution -> new HintsApplicumulator ->
 			// if AHint.printHtml then new SB, so hint.toString() contains
 			// a list of the hints that have already been applied, the actual
 			// HTML for which is above this entry in the log because it was
@@ -233,12 +241,11 @@ public final class LogicalSolverTester {
 					if (Log.MODE >= Log.VERBOSE_5_MODE) {
 						System.out.println("<priming-solve>");
 					}
-					final Grid grid = new Grid(readALine(inputFile, 1).contents);
-					solver.prepare(grid);
-					// priming solve: isNoisy but NO logHints (unless you have a bug)!
-					// nb: manual solve coz process buggers-up the counts
+					final Grid g = new Grid(readALine(inputFile, 1).contents);
+					solver.prepare(g);
+					// priming solve: manually coz process stuffs-up counts
 					// nb: logTimes ALWAYS false for top1465 (too verbose)
-					solver.solve(grid, new UsageMap(), true, true, false, false);
+					solver.solve(g, new UsageMap(), true, true, false, false);
 					if (Log.MODE >= Log.VERBOSE_5_MODE) {
 						System.out.println("</priming-solve>");
 					}
@@ -247,8 +254,8 @@ public final class LogicalSolverTester {
 				// now the actual run
 				printHeaders(now, inputFile, logFile);
 				if (Log.MODE >= Log.VERBOSE_2_MODE) {
-					Log.teeln(solver.getWantedHinterNames("wantedHinters: "));
-					Log.teeln(solver.getUnwantedHinterNames("unwantedTechs: "));
+					Log.teeln(solver.getWantedHinterNames());
+					Log.teeln(solver.getUnwantedHinterNames());
 				}
 				UsageMap totalUsageMap = new UsageMap();
 				try ( BufferedReader reader = new BufferedReader(new FileReader(inputFile)) ) {
@@ -277,19 +284,6 @@ public final class LogicalSolverTester {
 //						Debug.breakpoint();
 					} // next line in .mt file
 				}
-
-//				// save the hinter performance stats, if they're being used.
-//				// NOTE: Prints a second usage map at end of run. So be it.
-//				List<Usage> totalUsageList = printTotalUsageMap(totalUsageMap);
-//				if ( stats ) {
-//					totalUsageList.sort(Usage.BY_NS_PER_ELIM_ASC);
-//					try ( PrintStream sout = Log.openStats() ) {
-//						sout.print("//");
-//						printHinterSummaryHeader(sout);
-//						for ( Usage u : totalUsageList )
-//							printHinterSummary(sout, u);
-//					}
-//				}
 
 				long took = System.nanoTime() - start;
 				if ( numFailed > 0 ) {
@@ -321,6 +315,8 @@ public final class LogicalSolverTester {
 			retval = 0; // it's all good
 
 		} catch (Exception ex) {
+			System.out.println(Log.me()+" exception");
+			System.out.flush();
 			ex.printStackTrace(System.out);
 			System.out.flush();
 		}
@@ -364,7 +360,7 @@ public final class LogicalSolverTester {
 				Usage u;
 				double d, maxDifficulty=0.0D, ttlDifficulty=0.0D;
 				IHinter hardestHinter=null;
-				final Usage ttl = new Usage(0, 0, 0, 0L);
+				final Usage ttl = new Usage("totals", 0, 0, 0, 0L);
 				if (Log.MODE >= Log.NORMAL_MODE) {
 					if ( procCount == 1 ) // FIRST ONLY
 						Log.tee(Print.PUZZLE_SUMMARY_HEADERS);
@@ -418,10 +414,10 @@ public final class LogicalSolverTester {
 			Log.format("\t%4.2f", 0.0);
 			Log.format("\t%s", ex);
 			Log.format(NL);
-			carp(grid, ex, Log.log);
+			carp(Log.me(), grid, ex, Log.log);
 
 			if ( Log.log != System.out )
-				carp(grid, ex, System.out);
+				carp(Log.me(), grid, ex, System.out);
 
 			return false;
 		}
@@ -509,8 +505,8 @@ public final class LogicalSolverTester {
 		out.format("%,18d", u.time);
 		out.format("\t%7d\t%,14d", u.calls, div(u.time,u.calls));
 		out.format("\t%7d\t%,14d", u.elims, div(u.time,u.elims));
-		// note that the solver field is static, just for this line
-		out.format("\t%s%s", solver.wantedHinters[u.hinterIndex], NL);
+		// nb: the hinterName field is just for this line. sigh.
+		out.format("\t%s%s", u.hinterName, NL);
 	}
 
 	private static List<Usage> printTotalUsageMap(UsageMap totalUsageMap) {
@@ -575,17 +571,8 @@ public final class LogicalSolverTester {
 	 * <p>
 	 * I'm pretty sure that *nix shells do the same thing (by default).
 	 * <p>
- Example args: {"-wantedHinters:", "NakedSingle,", "HiddenSingle,"
- , "Locking,", "NakedPair,", "HiddenPair,", "NakedTriple,"
- , "HiddenTriple,", "Swampfish,", "Swordfish,", "XY_Wing,", "XYZ_Wing,"
- , "W_Wing,", "Skyscraper,", "TwoStringKite,", "EmptyRectangle,"
- , "NakedQuad,", "Jellyfish,", "URT,", "FinnedSwampfish,"
- , "FinnedSwordfish,", "FinnedJellyfish,", "SashimiSwampfish,"
- , "SashimiSwordfish,", "SashimiJellyfish,", "ALS_XZ,", "ALS_Wing,"
- , "ALS_Chain,", "AlignedPair,", "AlignedTriple,", "AlignedQuad,"
- , "AlignedPent,", "UnaryChain,", "NishioChain,", "MultipleChain,"
- , "DynamicChain,", "DynamicPlus,", "NestedUnary,", "NestedPlus"}
- <p>
+	 * Example args: {"-wantedHinters:", "NakedSingle,", "HiddenSingle,", ...}
+	 * <p>
 	 * NOTE: The example was generated by copying the wantedHinters line of a
 	 * LogicalSolverTester .log file and pasting it here. I formatted as Java
 	 * code manually. I think I got it all right.
@@ -626,155 +613,5 @@ public final class LogicalSolverTester {
 		// oldName => newName
 		aliases.put("X-Wing", "Swampfish");
 	}
-
-// -REDO is rooted by HoDoKu. The LogicalSolver we first touch it with MUST be
-// the one that solves the puzzle, otherwise it's table entries go astray, and
-// I'm not bright enough to work-out how to fix it; so given a choice between
-// this piece of s__t and HoDoKu I'm taking HoDoKu.
-//	/**
-//	 * To setup for a -REDO run we parse the log-file into an array (indexed by
-//	 * 0-based puzzleNumber) of a Set of hintyHinters name()s, which we pass
-//	 * to the LogicalSolver to reconfigure itself around.
-//	 * @param inputLogFile File to read
-//	 * @param hintyHinters output {@code Set<String>[]} an array of a set of
-//	 * strings, that is indexed by 0-based puzzleNumber, so that we have a set
-//	 * of strings (hinter.name()s) per puzzle: each element of which startsWith
-//	 * the tech.name(), and is optionally followed by a space-separated list of
-//	 * hintNumbers at which this hinter is to be activated. If the hintNumbers
-//	 * list is missing-or-empty then we set the hinters hintNumbers to null, so
-//	 * that its activate method reverts to the firstHintNumber passed into it's
-//	 * constructor.
-//	 *
-//	 * @return success
-//	 */
-//	private static boolean parse(File inputLogFile, Set<String>[] hintyHinters) {
-//		final int NAME_BEGIN = 34; // the start of the hinter name
-//		final int NAME_END = NAME_BEGIN + 30; // length is 30
-//		String line=null, puzzleNumberD5, name;
-//		boolean found;
-//		// A Map of each wanted IHintNumberActivatableHinter
-//		// hinter.tech.name() => Set<Integer> hintNumbers
-//		Map<String,Set<Integer>> hintNumbersMap = new LinkedHashMap<>(NUM_NOMS, 0.75F);
-//		// parse logFile into the hintyHinters array.
-//		try ( SkipReader reader = new SkipReader(inputLogFile) ) {
-//			for ( int pid=1; pid<=1465; ++pid ) { // 1 based puzzleNumber
-//				puzzleNumberD5 = MyStrings.format("%5d", pid);
-//				// re/create empty hintNumbers Sets for each puzzle
-//				hintNumbersMap.clear();
-//				for ( String nhNom : getNumberedHinterNames() )
-//					hintNumbersMap.put(nhNom, new LinkedHashSet<>(32, 0.75F));
-//
-//				// skip down to the puzzle-header-line
-//				if ( !reader.skipDownToNextLineStartingWith(""+pid+"#") )
-//					throw new IOException("Not found: "+pid+"#");
-//				// now skip down to the hinter-summary-headers-line
-//				//     	        time (ns)	     average (ns)	calls	hints	elims	diff	hinter
-//				//     	         107,546	            1,707	   63	    0	    0	1.00	Naked Single
-//				// detecting any Aligned10Exclusion hints to remember hintNumber
-//				// detecting any Aligned6Exclusion hints to remember hintNumberS
-//				//   hint-details-line
-//				//  hid	      time (ns)	ce	mayb	eli	hinter                        	hint
-//				//   35	    154,194,702	29	 154	  1	Aligned Dec                   	Aligned Dec: E1, E2, E3, D4, F4, D5, E5, F5, D6, F6 (F6-3)
-//				found = false;
-//				while ( (line=reader.readLine()) != null ) {
-//					++lineNumber;
-//					//look for the next hint-summary-headers line, starts with 5 spaces \t more spaces
-//					//     	        time (ns)	     average (ns)	calls	hints	elims	diff	hinter
-//					if ( line.startsWith("     ") ) { // test "    " first, coz it's longer
-//						found = true;
-//						break;
-//					//a hint-details-line, starts with a space, unlike the puzzle-clues and puzzle-maybes lines
-//					//   35	         19,394	28	 161	  1	Point and Claim               	Pointing: A5, C5 on 5 in box 4 and row 5 (G5-5)
-//					} else if ( line.startsWith(SPACE) && line.length()>NAME_END ) {
-//						name = line.substring(NAME_BEGIN, NAME_END).trim();
-//						Set<Integer> hintNumbersSet = hintNumbersMap.get(name);
-//						if ( hintNumbersSet != null )
-//							hintNumbersSet.add(MyInteger.parse(line, 0, 5));
-//					}
-//				}
-//				if ( !found )
-//					throw new IOException("Not found: hinter-summary-headers-line");
-//
-//				// now parse each hinter-summary-line
-//				Set<String> hintyHintersSet = new HashSet<>(32, 0.75F);
-//				found = false;
-//				while ( (line=reader.readLine()) != null ) {
-//					++lineNumber;
-//					if ( line.startsWith("     ") && !line.startsWith("                                Kraken") ) {
-//						// parse the hinter-summary-line to workout if this
-//						// hinter hinted in the previous run, and if so then
-//						// add it to hintyHintersSet.
-//						found = true;
-//						String[] fields = line.split(" *\\t *");
-//						if ( !"0".equals(fields[4]) ) { // numHints
-//							name = fields[7];
-//							Set<Integer> hintNumbers = hintNumbersMap.get(name);
-//							if ( hintNumbers!=null && !hintNumbers.isEmpty() )
-//								name += asString(hintNumbers);
-//							hintyHintersSet.add(name);
-//						}
-//					} else if ( line.startsWith(puzzleNumberD5) ) {
-//						// the puzzle-summary-line (last line for this puzzle)
-//						break; // so we'll continue looking for next puzzle at
-//						       // the line after this one
-//					}
-//				}
-//				if ( !found )
-//					throw new IOException("Not found: hinter-summary-line");
-//				// store the hintyHintersSet
-//				hintyHinters[pid-1] = hintyHintersSet;
-//			}
-//			return true;
-//		} catch (Exception ex) {
-//			System.err.println("lineNumber: "+lineNumber);
-//			System.err.println("line: "+line);
-//			ex.printStackTrace(System.err);
-//			return false;
-//		}
-//	}
-//	private static final int NUM_NOMS = 64;
-//	public static long lineNumber = 0;
-//
-//	// Get the names of the wantedHinters which implement INumberedHinter,
-//	// which we only use to parse the previous logFile in -SPEED mode.
-//	// In "normal" ACCURACY mode this method is just never called.
-//	private static String[] getNumberedHinterNames() {
-//		if ( numberedHinterNames == null ) {
-//		// nb: The LS must be in Mode.ACCURACY for this to work, else most
-//		//     hinters are not wanted, so we'd miss almost all there names.
-//			String[] names = LogicalSolverFactory.get(LogicalSolver.Mode.ACCURACY, false, null)
-//						.getNumberedHinterNames();
-//			numberedHinterNames = names;
-//		}
-//		return numberedHinterNames;
-//	}
-//	private static String[] numberedHinterNames;
-//
-//	private static String asString(Set<Integer> hintNumbers) {
-//		if ( hintNumbers.isEmpty() )
-//			return EMPTY_STRING;
-//		return SPACE + Frmt.frmtIntegers(hintNumbers, SPACE, SPACE);
-//	}
-//
-//	private static class SkipReader extends BufferedReader {
-//		private SkipReader(File inputFile) throws FileNotFoundException {
-//			super(new FileReader(inputFile));
-//		}
-//		// read lines from reader until line startsWith startOfLine when I
-//		// return true, else (EOF searching) I return false.
-//		// nb: starts at the NEXT line from reader, not the current line.
-//		// nb: leaves the reader ready to read the line following the line
-//		//     which startsWith startOfLine, NOT the line itself, which is
-//		//     thrown away with all those which preceeded it.
-//		boolean skipDownToNextLineStartingWith(String startOfLine) throws IOException {
-//			String line;
-//			while ( (line=super.readLine()) != null ) {
-//				++lineNumber;
-//				if ( line.startsWith(startOfLine) )
-//					return true;
-//			}
-//			return false;
-//		}
-//	}
 
 }

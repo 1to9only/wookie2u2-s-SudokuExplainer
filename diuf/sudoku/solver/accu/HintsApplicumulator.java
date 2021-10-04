@@ -28,7 +28,7 @@ import java.util.List;
  * is currently the only place I'm used, because Locking is were I'm needed
  * most, coz Locking tends to cause Locking; far more than other hint types.
  * <p>
- * {@link diuf.sudoku.solver.checks.RecursiveAnalyser#solveLogically} builds-up
+ * {@link diuf.sudoku.solver.checks.SingleSolution#solveLogically} builds-up
  * a {@link AppliedHintsSummaryHint} with the agglomerate of all hints found
  * and applied (through me) in a run. I track the number of hints found, the
  * number of eliminations, and a StringBuilder of the line-separated
@@ -44,8 +44,6 @@ public final class HintsApplicumulator implements IAccumulator {
 	public int numElims = 0;
 	// we append each hint.toFullString() to this StringBuilder when != null
 	public final StringBuilder SB;
-	// true to Autosolve, false to stop Cell.set finding subsequent singles.
-	public final boolean isAutosolving;
 	// set me to avoid getting the grid for every single bloody hint
 	public Grid grid;
 
@@ -62,14 +60,12 @@ public final class HintsApplicumulator implements IAccumulator {
 	  * light to construct, but heavy to hold onto, coz it has a Grid.
 	  *
 	  * @param isStringy
-	  * @param isAutosolving 
 	  */
-	public HintsApplicumulator(boolean isStringy, boolean isAutosolving) {
+	public HintsApplicumulator(boolean isStringy) {
 		if ( isStringy ) // NEVER in anger
 			this.SB = new StringBuilder(512); // just a guess
 		else
 			this.SB = null;
-		this.isAutosolving = isAutosolving;
 	}
 
 	@Override
@@ -104,7 +100,8 @@ public final class HintsApplicumulator implements IAccumulator {
 			SB.append(hint.toFullString());
 		}
 		hint.SB = SB; // make Cell.set append subsequent singles (if SB!=null)
-		numElims += hint.applyQuitely(isAutosolving, grid); // don't eat exceptions!
+		// nb: HintsApplicumulator ALWAYS applies with AUTOSOLVE=true!
+		numElims += hint.applyQuitely(true, grid); // don't eat exceptions!
 		hint.SB = null;
 		++numHints; // keep count
 		return false; // false means hinter keeps searching
@@ -151,6 +148,11 @@ public final class HintsApplicumulator implements IAccumulator {
 	@Override
 	public void removeAll(List<AHint> toRemove) {
 		// a no-op
+	}
+
+	@Override
+	public List<? extends AHint> getList() {
+		throw new UnsupportedOperationException("Not supported.");
 	}
 
 }

@@ -7,17 +7,14 @@
 package diuf.sudoku.solver;
 
 // Sudoku Explainer (local) classes
-// Tip: .* import local classes, but NEVER foreigners, because
-// you can't change foreign class-names to resolve collisions.
+// Tip: .* import local classes, but NEVER foreigners.
+// You can't change foreign names to resolve collisions.
 import diuf.sudoku.*;
 import static diuf.sudoku.Settings.THE_SETTINGS;
-import diuf.sudoku.gen.*;
-import diuf.sudoku.gui.Print;
 import diuf.sudoku.io.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.checks.*;
 import diuf.sudoku.solver.hinters.*;
-import diuf.sudoku.solver.hinters.align.*;
 import diuf.sudoku.solver.hinters.align2.*;
 import diuf.sudoku.solver.hinters.chain.*;
 import diuf.sudoku.solver.hinters.fish.*;
@@ -27,13 +24,11 @@ import diuf.sudoku.solver.hinters.lock2.*;
 import diuf.sudoku.solver.hinters.nkdset.*;
 import diuf.sudoku.solver.hinters.single.*;
 import diuf.sudoku.utils.*;
-import static diuf.sudoku.utils.Frmt.NL;
-import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.*;
 import static diuf.sudoku.utils.MyStrings.BIG_BUFFER_SIZE;
 // JAPI
 import java.io.Closeable;
-import java.io.PrintStream;
-import java.lang.reflect.InvocationTargetException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -248,7 +243,6 @@ public final class LogicalSolver implements Cheeter {
 	/** If you're using BasicFisherman1 then just swap the bastard in. */
 	private final BasicFisherman swampfish = new BasicFisherman(Tech.Swampfish);
 
-	/** We locking.setSiamese in the GUI, and now in LogicalSolverTester. */
 	private final Locking locking = new Locking();
 
 	/** Hidden Pair/Triple used (cheekily) by Locking to upgrade siamese
@@ -259,20 +253,22 @@ public final class LogicalSolver implements Cheeter {
 	 * locking hints to the full HiddenSet hint, with extra eliminations. */
 	private final HiddenSet hiddenTriple = new HiddenSet(Tech.HiddenTriple);
 
-	// RecursiveAnalyser uses above basic hinters, so is constructed after.
+	/** We locking.setSiamese in the GUI, and now in LogicalSolverTester. */
+	private final SiameseLocking siameseLocking = new SiameseLocking(hiddenPair, hiddenTriple);
+
+	// SingleSolution uses the above basic hinters, so is constructed after.
 	/** Does this puzzle have 1 solution?. */
-	private final RecursiveAnalyser recursiveAnalyser
-			= new RecursiveAnalyser(this);
+	private final SingleSolution singleSolution = new SingleSolution(this);
 
 	/** The Sudoku cannot be solved (a generic message). */
-	public final AHint UNSOLVABLE_HINT = new WarningHint(recursiveAnalyser
+	public final AHint UNSOLVABLE_HINT = new WarningHint(singleSolution
 			, "Unsolvable", "NoSolution.html");
 
 	/** puzzleValidators check the puzzle obeys Sudoku rules ONCE. */
 	private final IHinter[] puzzleValidators = new IHinter[] {
 		  tooFewClues		// minimum 17 clues
 		, tooFewValues		// minimum 8 values
-		, recursiveAnalyser // single solution (brute-force solve)
+		, singleSolution	// single solution (brute-force)
 	};
 
 	/** All of the validators. */
@@ -290,11 +286,14 @@ public final class LogicalSolver implements Cheeter {
 	private final EnumSet<Tech> wantedTechs;
 
 	/**
-	 * A private list of all the wanted hinters, to which configureHinters
-	 * adds hinters; and then reads the list into the wantedHinters array,
-	 * which is used everywhere-else.
+	 * A private list of all the wanted hinters, to which the Constructor
+	 * adds hinters using the want methods. This list in then read into the
+	 * wantedHinters array, which is used everywhere-else. So I'm only a
+	 * field so that I can be accessed via the want methods. The Constructor
+	 * always leaves me null. Basically, use the wantedHinters array instead,
+	 * because arrays are faster to iterate!
 	 */
-	private final List<IHinter> wantedHintersList;
+	private List<IHinter> whList;
 
 	/**
 	 * An array of the wantedHintersList, coz it's faster to iterate arrays
@@ -321,26 +320,6 @@ public final class LogicalSolver implements Cheeter {
 	private final Set<AHint> DEAD_CATS = new MyFunkyLinkedHashSet<>(16, 0.25F);
 
 	/**
-	 * My interruptMonitor (the parent Generator) to pass to hinters so that
-	 * they can interrupt themselves when the user interrupts the Generator;
-	 * so always null except when the LogicalSolver is created by a Generator.
-	 */
-	private volatile transient IInterruptMonitor interruptMonitor = null;
-	public void setInterruptMonitor(IInterruptMonitor im) {
-		this.interruptMonitor = im;
-	}
-	public void clearInterruptMonitor() {
-		this.interruptMonitor = null;
-	}
-	/**
-	 * return has the monitor (parent Generator) been interrupted by the user.
-	 */
-	private boolean isInterrupted() {
-		final IInterruptMonitor im = this.interruptMonitor;
-		return im!=null && im.isInterrupted();
-	}
-
-	/**
 	 * singlesSolution is weird: it's set by LS.solveWithSingles and then read
 	 * back by SudokuExplainer.getTheNextHint.
 	 */
@@ -353,11 +332,13 @@ public final class LogicalSolver implements Cheeter {
 
 	/**
 	 * My clone of THE_SETTINGS, set in the constructor, and read elsewhere.
-	 * <p>
-	 * mySettings are package visible to allow the LogicalSolverFactory to see
-	 * if mySettings differ from THE_SETTINGS, and if so recreate me.
 	 */
-	final Settings mySettings;
+	private final Settings settings;
+
+	/**
+	 * This EnumMap speeds-up the findWantedHinter method, a reverse look-up.
+	 */
+	private final EnumMap<Tech,IHinter> implementations = new EnumMap<>(Tech.class);
 
 	/**
 	 * The ONLY Constructor used <u>ONLY</u> by {@link LogicalSolverFactory}
@@ -431,13 +412,8 @@ public final class LogicalSolver implements Cheeter {
 		// one-any-only-one-implementor, but s__t gets messy when/if a hinter
 		// implements multiple Tech's, wiped by an instance per Tech.
 
-		// T/F is shorthand for true/false; to make the code fit on a line.
-		final boolean T = true, F = false;
-		// im is shorthand for interruptMonitor
-		final IInterruptMonitor im = interruptMonitor;
-
 		try {
-			this.mySettings = (Settings)THE_SETTINGS.clone();
+			settings = (Settings)THE_SETTINGS.clone();
 		} catch ( CloneNotSupportedException ex ) {
 			// Wrap the clone exception in a generic runtime exception. sigh.
 			throw new RuntimeException("THE_SETTINGS.clone() failed", ex);
@@ -445,40 +421,41 @@ public final class LogicalSolver implements Cheeter {
 
 		// refetch the wantedTechniques field, in case they've changed; then my
 		// want method reads this field, rather than re-fetching it every time.
-		this.wantedTechs = mySettings.getWantedTechs();
+		wantedTechs = settings.getWantedTechs();
 
 		// the want method adds hinters to the wantedHintersList, which is
 		// then read into the wantedHinters array, for faster iteration.
-		this.wantedHintersList = new ArrayList<>(wantedTechs.size());
+		whList = new ArrayList<>(wantedTechs.size());
 
 		// empty the unwanted-techs set. Populated by want. Report at end.
-		this.unwantedHinters.clear();
+		unwantedHinters.clear();
 
 		// Direct hinters set cell values directly
 		// Easy
-		if ( Run.type == Run.Type.GUI ) // useless in batch and test-cases
+		if ( Run.type == Run.Type.GUI ) { // useless in batch and test-cases
 			want(new LonelySingle()); // lol
+		}
 		// the user can't unwant singles
-		this.wantedHintersList.add(nakedSingle); // cell has 1 maybe
-		this.wantedHintersList.add(hiddenSingle); // value has 1 place in region
+		whList.add(nakedSingle); // cell has 1 maybe
+		whList.add(hiddenSingle); // value has 1 spot in region
 		// Medium
 		if ( Run.type == Run.Type.GUI ) { // useless in batch and test-cases
-			want(Tech.DirectNakedPair); // 2 cells with only 2 maybes produces a single
-			want(Tech.DirectHiddenPair); // 2 places for 2 values in region produces a single
-			want(Tech.DirectNakedTriple); // 3 cells with only 3 maybes produces a single
-			want(Tech.DirectHiddenTriple); // 3 places for 2 values in region produces a single
+			want(Tech.DirectNakedPair); // 2 cells with 2 maybes make a single
+			want(Tech.DirectHiddenPair); // 2 places for 2 values make a single
+			want(Tech.DirectNakedTriple); // 3 cells with 3 maybes make single
+			want(Tech.DirectHiddenTriple); // 3 places for 3 values make single
 		}
 
 		// Indirect hinters remove maybes, setting cell values only indirectly
 		// Locking XOR LockingGeneralised (not neither, nor both).
-		if ( !want(locking) ) // Pointing and Claiming
-			this.wantedHintersList.add(new LockingGeneralised());
+		// nb: SiameseLocking can be swapped-in for locking, if wanted.
+		if ( !want(locking) ) { // Pointing and Claiming
+			whList.add(new LockingGeneralised());
+		}
 		// Hard
 		want(nakedPair); // 2 cells with only 2 maybes
-		// nb: Locking (cheekily) upgrades hints using hiddenPair and Triple.
 		want(hiddenPair); // same 2 places for 2 values in a region
 		want(nakedTriple); // 3 cells with only 3 maybes
-		// nb: Locking (cheekily) upgrades hints using hiddenPair and Triple.
 		want(hiddenTriple); // same 3 places for 3 values in a region
 		want(swampfish); // same 2 places in 2 rows/cols
 		want(Tech.TwoStringKite); // box and 2 biplace regions
@@ -493,11 +470,11 @@ public final class LogicalSolver implements Cheeter {
 		// Heavies are slow indirect hinters. The heavy-weigth division.
 		// Nightmare
 		want(Tech.BUG); // Bivalue Universal Grave (coloring on crutches)
-		want(Tech.Coloring); // 2 coloring sets and the only 3+ coloring sets
-		want(Tech.XColoring); // 2 coloring sets with cheese
-		want(Tech.Medusa3D); // 2 coloring sets with cheese and pickles
-		want(Tech.GEM); // 2 all beef patties, special cause, lettuce, chee...
-		want(Tech.NakedQuad); // 4 cells with only 4 maybes
+		want(Tech.Coloring);  // 2 color-sets and the only 3+ coloring sets
+		want(Tech.XColoring); // 2 color-sets with cheese
+		want(Tech.Medusa3D);  // 2 color-sets with cheese and pickles
+		want(Tech.GEM); // 2 all biff pitbulls, specy spaz, letus, cheese, ...
+		want(Tech.NakedQuad);  // 4 cells with only 4 maybes
 		want(Tech.HiddenQuad); // same 4 places for 4 values in a region
 		wantFish(Tech.Jellyfish); // same 4 places in 4 rows/cols
 		want(Tech.NakedPent);	// DEGENERATE 5 values in 5 cells
@@ -511,7 +488,7 @@ public final class LogicalSolver implements Cheeter {
 			want(Tech.STUVWXYZ_Wing); // 7 cell ALS + biv
 		}
 		want(Tech.URT); // UniqueRectangle: a rectangle of 2 values
-		want(Tech.FinnedSwampfish); // OK // now includes Sashimi's
+		want(Tech.FinnedSwampfish); // OK always includes Sashimi's
 		want(Tech.FinnedSwordfish); // OK
 		want(Tech.FinnedJellyfish); // SLOW
 		want(Tech.ALS_XZ);		 // OK	 // 2 Almost Locked Sets + bivalue
@@ -534,35 +511,35 @@ public final class LogicalSolver implements Cheeter {
 
 		// Aligned Ally: One up from Diagon Ally.
 		// align2 (new) is faster than align (old) for A234E;
-		wantAE(true, Tech.AlignedPair,   T, null);	// OK
-		wantAE(true, Tech.AlignedTriple, T, null);	// OK but a bit slow
-		wantAE(true, Tech.AlignedQuad,   F, im);	// SLOW
+		wantAE(true, Tech.AlignedPair);	// none in top1465
+		wantAE(true, Tech.AlignedTriple);	// a bit slow
+		wantAE(true, Tech.AlignedQuad);		// a bit slow
 		// align2 takes 3*A5E, 4*A6E, 5*A7E, presume so on for 8, 9, 10.
 		// The user chooses if A5+E is correct (slow) or hacked (faster).
 		// Hacked finds about a third of hints in about a tenth of time.
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedPent, T, im); // OK
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedHex,  T, im); // SLOW
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedSept, T, im);	 // TOO SLOW
+		wantAE(USE_NEW_ALIGN2, Tech.AlignedPent); // a bit slow
+		wantAE(USE_NEW_ALIGN2, Tech.AlignedHex);  // SLOW
+		wantAE(USE_NEW_ALIGN2, Tech.AlignedSept); // TOO SLOW
 		// Really large Aligned sets are too slow to be allowed
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedOct,  T, im);	 // FAR TOO SLOW
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedNona, T, im); // WAY TOO SLOW
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedDec,  T, im);	 // CONSERVATIVE
+		wantAE(USE_NEW_ALIGN2, Tech.AlignedOct);	  // FAR TOO SLOW
+		wantAE(USE_NEW_ALIGN2, Tech.AlignedNona); // WAY TOO SLOW
+		wantAE(USE_NEW_ALIGN2, Tech.AlignedDec);	  // CONSERVATIVE
 
 		// Chainers are slow, but faster than some heavies, especially A*E.
 		// single value forcing chains and bidirectional cycles.
-		want(new UnaryChainer());
+		want(new ChainerUnary());
 		// contradictory consequences of a single (bad) assumption.
-		want(new MultipleChainer(Tech.NishioChain));
+		want(new ChainerMulti(Tech.NishioChain, this));
 		// forcing chains from more than 2 values/positions.
-		want(new MultipleChainer(Tech.MultipleChain));
+		want(new ChainerMulti(Tech.MultipleChain, this));
 		// forcing chains with consequences recorded in the grid.
 		// does Unary Chains not Cycles, and Multiple Chains not Nishios.
-		want(new MultipleChainer(Tech.DynamicChain));
+		want(new ChainerMulti(Tech.DynamicChain, this));
 		// DynamicPlus is Dynamic Chaining + Four Quick Foxes (Point & Claim,
 		// Naked Pairs, Hidden Pairs, and Swampfish). It only misses on hardest
 		// puzzles, so hardcoded as safery-net, so user can't unwant it.
 		// A safety-net for all the but the hardest puzzles
-		want(new MultipleChainer(Tech.DynamicPlus, im));
+		want(new ChainerMulti(Tech.DynamicPlus, this));
 
 		// IDKFA
 		// Nested means imbedded chainers: assumptions on assumptions.
@@ -570,22 +547,23 @@ public final class LogicalSolver implements Cheeter {
 		// advanced					 // approx time per call on an i7 @ 2.9GHz
 		// NestedUnary covers the hardest Sudoku according to conceptis.com so
 		// it's a safety-net: it always hints!
-		want(new MultipleChainer(Tech.NestedUnary, im));	//  4 secs
-		want(new MultipleChainer(Tech.NestedMultiple, im));	// 10 secs
+		want(new ChainerMulti(Tech.NestedUnary, this));		//  4 secs
+		want(new ChainerMulti(Tech.NestedMultiple, this));	// 10 secs
 		// experimental
-		want(new MultipleChainer(Tech.NestedDynamic, im));	// 15 secs
+		want(new ChainerMulti(Tech.NestedDynamic, this));	// 15 secs
 		// NestedPlus is Dynamic + Dynamic + Four Quick Foxes => confusing!
 		// @bug 2020 AUG: NestedPlus PRODUCED INVALID HINTS so now uses the
 		// HintValidator to log and ignore them. NOT adequate needs fixing!
 		// I'm just ignoring this bug for now coz IT'S NEVER USED in anger.
-		want(new MultipleChainer(Tech.NestedPlus, im));		// 70 secs
+		want(new ChainerMulti(Tech.NestedPlus, this));		// 70 secs
 
-		wantedHinters = this.wantedHintersList.toArray(
-				new IHinter[wantedHintersList.size()]);
+		wantedHinters = whList.toArray(new IHinter[whList.size()]);
+		whList = null; // EVERYthing else uses the array
 		// weird: each hinter knows it's index in the wantedHinters array,
 		// so that LogicalSolverTest can log hinters in execution order.
 		for ( int i=0,n=wantedHinters.length; i<n; ++i )
 			wantedHinters[i].setIndex(i);
+		siameseLocking.index = locking.index;
 	}
 
 	/**
@@ -604,11 +582,78 @@ public final class LogicalSolver implements Cheeter {
 		final boolean result;
 		if ( result=wantedTechs.contains(tech) ) {
 			final IHinter hinter = createHinterFor(tech);
-			if ( hinter != null )
-				this.wantedHintersList.add(hinter);
-		} else
-			this.unwantedHinters.add(tech);
+			if ( hinter != null ) {
+				whList.add(hinter);
+			}
+		} else {
+			unwantedHinters.add(tech);
+		}
 		return result;
+	}
+
+	// create and return a new instance of the default implementation of tech,
+	// which is the IHinter whose full-class-name is tech.className.
+	// @throws IllegalArgumentException if tech has no hinter defined
+	//       , IllegalStateException if failed to instantiate the hinter
+	// but never returns null!
+	private IHinter createHinterFor(final Tech tech) {
+		if ( tech.className==null || tech.className.isEmpty() ) {
+			// This'll only happen to noobs, but it happens to noobs!
+			// So let's supply a nice detailed error-message, which still
+			// leaves them scratching there heads. How to!?!? How to!?!?
+			throw new IllegalArgumentException(Log.me()
+			+" cannot instantiate the class implementing Tech "+tech.name()
+			+" because its className attribute (the full-name of the"
+			+" implementing class) is null/empty. Supply the className and"
+			+" passTech in the Tech definition, or instantiate the hinter"
+			+" manually and pass that to the other want method.");
+		}
+		final IHinter hinter = createHinter(tech.className, tech);
+		if ( hinter == null ) {
+			throw new IllegalStateException(Log.me()+": "+tech.className);
+		}
+		return hinter;
+	}
+
+	/**
+	 * Return a new instance of Aligned.*Exclusion_1C.
+	 *
+	 * @param className
+	 * @param passTech
+	 * @param tech
+	 * @param passIm
+	 * @param im
+	 * @return
+	 */
+	private IHinter createHinter(String className, Tech tech) {
+		try {
+			final Class<?> clazz = Class.forName(className);
+			// find the constructor, and set passTech and passIm.
+			boolean isFirst = true, passTech=false;
+			for ( java.lang.reflect.Constructor<?> c : clazz.getConstructors() ) {
+				if ( isFirst ) {
+					// use the first constructor only
+					for ( Class<?> p : c.getParameterTypes() ) {
+						if ( p == Tech.class ) {
+							passTech = true;
+						}
+					}
+					isFirst = false;
+				} else {
+					// The contract is a want(Tech)'ed IHinter has ONE ONLY
+					// constructor, coz I'm unable to choose intelligently.
+					Log.teeln(Log.me()+": WARN: additional constructor: "+c);
+				}
+			}
+			// get and execute the appropriate constructor
+			if ( passTech ) {
+				return (IHinter)clazz.getConstructor(Tech.class).newInstance(tech);
+			}
+			return (IHinter)clazz.getConstructor().newInstance();
+		} catch (Exception ex) {
+			Log.stackTrace(Log.me()+"("+className+", "+tech+") failed!", ex);
+			return null;
+		}
 	}
 
 	/**
@@ -622,10 +667,11 @@ public final class LogicalSolver implements Cheeter {
 	private boolean want(IHinter hinter) {
 		final boolean result;
 		final Tech tech = hinter.getTech();
-		if ( result=this.wantedTechs.contains(tech) )
-			this.wantedHintersList.add(hinter);
-		else
-			this.unwantedHinters.add(tech);
+		if ( result=wantedTechs.contains(tech) ) {
+			whList.add(hinter);
+		} else {
+			unwantedHinters.add(tech);
+		}
 		return result;
 	}
 
@@ -640,84 +686,83 @@ public final class LogicalSolver implements Cheeter {
 	private boolean wantFish(Tech tech) {
 		final boolean result;
 		if ( (result=wantedTechs.contains(tech)) ) {
-			if ( USE_NEW_BASIC_FISHERMAN )
-				this.wantedHintersList.add(new BasicFisherman1(tech));
-			else
-				this.wantedHintersList.add(new BasicFisherman(tech));
-		} else
-			this.unwantedHinters.add(tech);
+			if ( USE_NEW_BASIC_FISHERMAN ) {
+				whList.add(new BasicFisherman1(tech));
+			} else {
+				whList.add(new BasicFisherman(tech));
+			}
+		} else {
+			unwantedHinters.add(tech);
+		}
 		return result;
 	}
 
 	/**
 	 * The wantAE method creates the appropriate Aligned Exclusion instance
 	 * and adds it to the wantedHintersList, if it's wanted by the user.
+	 * <p>
+	 * NOTE that all Aligned*Exclusion are NOT wanted by default (too slow)!
+	 *
 	 * @param useNewAlign2 use the new "align2" package, or the old "align"
 	 *  package; A234E are always true, and for A5678910E pass me the value
 	 *  of the USE_NEW_ALIGN2 constant.
-	 *
 	 * @param tech one of the Aligned* Tech's
 	 * @param defaultIsHacked should this Aligned Exclusion be hacked (finds
 	 *  about a third of the hints in about a tenth of the time) by default.
 	 *  This value is only used if there's no registry setting, yet.
-	 * @param im the IInterruptMonitor which enables generate to interrupt.
 	 */
-	private boolean wantAE(boolean useNewAlign2, Tech tech
-			, boolean defaultIsHacked, IInterruptMonitor im) {
+	private boolean wantAE(boolean useNewAlign2, Tech tech) {
+		assert tech.isAligned;
 		if ( useNewAlign2 ) {
-			assert tech.isAligned;
-			// AE constructor reads the "isa${degree}ehacked" Setting.
+			// new AE constructor reads the "isa${degree}ehacked" Setting.
 			// There is no more _1C/_2H version of the same class, and no
-			// more class per size, reducing "boiler-plate" significantly.
-			return want(new AlignedExclusion(tech, defaultIsHacked));
-		} else {
-			switch ( tech ) {
-				// there is no hacked version of A234E
-				case AlignedPair: return want(new Aligned2Exclusion());
-				case AlignedTriple: return want(new Aligned3Exclusion());
-				case AlignedQuad: return want(new Aligned4Exclusion(im));
-				// A5678910E are all _2H hacked or _1C correct
-				case AlignedPent:
-				case AlignedHex:
-				case AlignedSept:
-				case AlignedOct:
-				case AlignedNona:
-				case AlignedDec:
-//<OUTDENT>
-//nb: all Aligned*Exclusion are NOT wanted by default
-if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
-	try {
-		// read "isa${degree}ehacked" Setting to choose which
-		// Aligned*Exclusion (_1C or _2H) class to construct.
-		final boolean isHacked =
-				mySettings.get("isa"+tech.degree+"ehacked", defaultIsHacked);
-		final String className = "diuf.sudoku.solver.hinters.align."
-				+ "Aligned"+tech.degree+"Exclusion"+(isHacked?"_2H":"_1C");
-		final Class<?> clazz = Class.forName(className);
-		final java.lang.reflect.Constructor<?> constructor =
-			clazz.getConstructor(IInterruptMonitor.class);
-		final IHinter hinter =
-			(IHinter)constructor.newInstance(im);
-		return want(hinter);
-	} catch (ClassNotFoundException | IllegalAccessException | IllegalArgumentException | InstantiationException | NoSuchMethodException | SecurityException | InvocationTargetException ex) {
-		StdErr.exit("wantAE fubarred", ex);
-		return false;
-	}
-} else {
-	unwantedHinters.add(tech);
-	return false;
-}
-//</OUTDENT>
-				default:
-					throw new IllegalArgumentException("Unknown Aligned* tech: "+tech);
-			}
+			// more class per size, reducing "boiler-plate" significantly,
+			// But they're MUCH slower for A5E upwards, only getting worse
+			// as N increases, so I reckon new A10E correct would run for
+			// about 8 days (I haven't tried it), for something knuth does
+			// it in under a second, making one feel stupid, because I am.
+			return want(new AlignedExclusion(tech));
+		}
+		switch ( tech ) {
+			// there is no _2H hacked version of A234E
+			case AlignedPair:
+			case AlignedTriple:
+			case AlignedQuad:
+				// the registered Impl's are the old-school ones!
+				return want(tech);
+			// A5678910E are all _2H hacked or _1C correct
+			case AlignedPent:
+			case AlignedHex:
+			case AlignedSept:
+			case AlignedOct:
+			case AlignedNona:
+			case AlignedDec:
+				if ( settings.getBoolean(tech.name(), tech.defaultWanted) ) {
+					// registered Tech for A5+E are the old-school _2H ones
+					String className = tech.className; // _2H
+					// read "isa${degree}ehacked" and swap over to _1C
+					// the default isHacked for all A5+E is true!
+					if ( !settings.getBoolean("isa"+tech.degree+"ehacked", true) )
+						className = className.replaceFirst("_2H", "_1C");
+					whList.add(createHinter(className, tech));
+					return true;
+				} else {
+					unwantedHinters.add(tech);
+					return false;
+				}
+			default:
+				throw new IllegalArgumentException("Unknown Aligned* tech: "+tech);
 		}
 	}
 
 	/** LogicalSolverTester needs the option to set-up for siamese locking. */
-	public void setSiamese() { locking.setSiamese(hiddenPair, hiddenTriple); }
+	public void setSiamese() {
+		wantedHinters[locking.index] = siameseLocking;
+	}
 	/** un-set-up after siamese locking. */
-	public void clearSiamese() { locking.clearSiamese(); }
+	public void clearSiamese() {
+		wantedHinters[locking.index] = locking;
+	}
 
 	/** @return the HiddenSingle hinter to friends. */
 	public AHinter getHiddenSingle() { return hiddenSingle; }
@@ -732,44 +777,54 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	/** @return the Swampfish hinter to friends. */
 	public AHinter getSwampfish() { return swampfish; }
 
+	private static final IFormatter<IHinter> TECH_NAME = (IHinter h) ->
+			h==null ? NULL_ST : h.toString();
+
+	private static final IFilter<IHinter> ENABLED = (IHinter h)->h.isEnabled();
+
 	/**
-	 * Tester Logging Only: This method is used by LogicalSolverTester to
-	 * display the names of the "wanted" hinters to the developer.
-	 *
-	 * @param label prefix before my output, "" for none.
+	 * Logging Only: the WantedHinters in CSV format.
 	 * @return CSV of the wanted hinter.getTech().names.
 	 */
-	public final String getWantedHinterNames(String label) {
-		return Frmt.csv(label, wantedHinters, HINTER_TECH_NAME);
-	}
-	private static final IFormatter<Object> HINTER_TECH_NAME = (Object o) ->
-			o==null ? "" : ((IHinter)o).getTech().name();
-
-	public String getUnwantedHinterNames(String label) {
-		// remove the []'s from AbstractCollection toString
-		String fms = unwantedHinters.toString();
-		fms = fms.substring(1, fms.length()-1);
-		return label+fms;
+	public final String getWantedHinterNames() {
+		StringBuilder sb = new StringBuilder(512);
+		sb.append("WantedHinters: ");
+		Frmt.appendTo(sb, wantedHinters, TECH_NAME, COMMA_SP, COMMA_SP);
+		return sb.toString();
 	}
 
 	/**
-	 * Debug only: dumps wanted hinters to the given PrintStream.
-	 *
-	 * @param out PrintStream to print to.
+	 * Logging Only: the WantedEnabledHinters in CSV format.
+	 * @return CSV of the wanted enabled hinter.getTech().names.
 	 */
-	public void printWantedEnabledHinters(PrintStream out) {
-		out.print("wantedEnabledHinters: ");
-		Frmt.csv(out, wantedHinters, ENABLED, HINTER_TECH_NAME);
-		out.println();
+	public String getWantedEnabledHinterNames() {
+		try {
+			final StringBuilder sb = new StringBuilder(512);
+			sb.append("WantedEnabledHinters: ");
+			Frmt.appendTo(sb, wantedHinters, ENABLED, TECH_NAME, COMMA_SP, COMMA_SP);
+			return sb.toString();
+		} catch (IOException ex) {
+			return "WantedEnabledHinters: "+ex;
+		}
 	}
-	private static final IFilter<Object> ENABLED = (Object o) ->
-			((IHinter)o).isEnabled();
+
+	/**
+	 * Logging Only: the UnwantedHinters in CSV format.
+	 * @return CSV of the unwanted hinter.getTech().names.
+	 */
+	public String getUnwantedHinterNames() {
+		// remove "[" and "]" from toString
+		String s = unwantedHinters.toString();
+		return "UnwantedHinters: "+s.substring(1, s.length()-1);
+	}
 
 	// clean-up before the GC runs
 	public void cleanUp() {
-		for ( IHinter h : wantedHinters )
-			if ( h instanceof ICleanUp )
+		for ( IHinter h : wantedHinters ) {
+			if ( h instanceof ICleanUp ) {
 				((ICleanUp)h).cleanUp();
+			}
+		}
 	}
 
 	/**
@@ -792,14 +847,12 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	 * @return true if a hint was found, else false; always true AFAIK.
 	 */
 	public boolean getFirstHint(Grid grid, SingleHintsAccumulator accu) {
-		if ( grid.isFull() ) {
+		if ( grid.numSet > 80 ) {
 			accu.add(SOLVED_HINT);
 			return true;
 		}
-		grid.rebuildAllRegionsS__t();
 		if ( getFirstHint(validators, grid, accu, false)
 		  || getFirstHint(wantedHinters, grid, accu, false) ) {
-
 			grid.hintNumberIncrement();
 			return true;
 		}
@@ -826,8 +879,9 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	 * @param printHints should I print hints to stdout.
 	 * @return List of AHint
 	 */
-	public List<AHint> getAllHints(final Grid grid, final boolean wantMore, final boolean logHints, final boolean printHints) {
-		final boolean isFilteringHints = mySettings.getBoolean(Settings.isFilteringHints, false);
+	public List<AHint> getAllHints(final Grid grid, final boolean wantMore
+			, final boolean logHints, final boolean printHints) {
+		final boolean isFilteringHints = settings.isFilteringHints(false);
 		if (Log.MODE >= Log.VERBOSE_2_MODE) {
 			Log.println();
 			final String more; if(wantMore) more=" MORE"; else more="";
@@ -839,7 +893,7 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		final LinkedList<AHint> hints = new LinkedList<>();
 		// this doesn't appear to ever be triggered! So I guess we no longer
 		// get here when the grid is already full, but I'm leaving it.
-		if ( grid.isFull() ) {
+		if ( grid.numSet > 80 ) {
 			hints.add(SOLVED_HINT);
 			return hints; // empty if I was interrupted, or didn't find a hint
 		}
@@ -847,20 +901,20 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		// HintsAccumulator.add returns false so hinter keeps searching,
 		// adding each hint to the hints List.
 		final IAccumulator accu = new HintsAccumulator(hints);
-		// rebuild all the grid's s__t.
-		grid.rebuildAllRegionsS__t();
 		// get hints from hinters until one of them returns true (I found a
 		// hint) OR if wantMore then run all hinters. nb: DyamicPlus nearly
 		// always finds a hint. NestedUnary ALWAYS finds a hint.
 		boolean any = getFirstHint(validators, grid, accu, false);
 		if ( !any ) {
 			// tell locking to merge/upgrade any siamese hints
-			// when the GUI wantsLess (F5/Enter) and isFilteringHints
-			if ( Run.type==Run.Type.GUI && !wantMore && isFilteringHints )
+			// when the GUI wantsLess (not Shft-F5) and isFilteringHints
+			if ( Run.type==Run.Type.GUI && !wantMore && isFilteringHints ) {
 				setSiamese();
+			}
 			// run prepare AFTER validators and BEFORE wantedHinters
-			if ( !grid.isPrepared() ) // when we get first hint from this grid
+			if ( !grid.isPrepared() ) { // when we get first hint from this grid
 				prepare(grid); // prepare wanted IPreparer's to process grid
+			}
 			any = getAllHints(wantedHinters, grid, accu, !wantMore, logHints);
 			// unset doSiamese or Generate goes mental. I'm in two minds RE
 			// putting this in a finally block: safer but slower. This works.
@@ -868,7 +922,8 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		}
 		if (Log.MODE >= Log.VERBOSE_2_MODE) {
 			long took = System.nanoTime()-t0;
-			if ( any && (logHints || printHints) ) { // where there any hints (there should be)
+			// if there where any hints (there should be)
+			if ( any && (logHints || printHints) ) {
 				final AHint hint = accu.peek(); // the first hint
 				final int numElims = hint.getNumElims();
 				if(logHints)Print.gridFull(Log.log, hint, grid, numElims, took);
@@ -889,9 +944,10 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	private boolean getFirstHint(final IHinter[] hinters, final Grid grid
 			, final IAccumulator accu, final boolean logHints) {
 		for ( IHinter hinter : hinters ) {
-			if ( isInterrupted()
-			  || findHints(hinter, grid, accu, logHints) )
+			if ( hinter.isEnabled()
+			  && findHints(hinter, grid, accu, logHints) ) {
 				break;
+			}
 		}
 		return accu.hasAny();
 	}
@@ -899,48 +955,52 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	// getHints from the given hinters: if less then return when hint found as
 	// per getFirst, else getHints from all the hinters, adding them to accu,
 	// and then return "were any found?" (which'll allways be true, AFAIK).
-	// When interrupt()'ed we break-out and return normally.
 	// This method is only called by getAllHints directly, to handle wantLess.
 	// Hinters are only called then they are enabled. A Hinter is disabled if
 	// it's a very naughty boy and produces the same DEAD_CAT twice.
 	private boolean getAllHints(final IHinter[] hinters, final Grid grid
 			, final IAccumulator accu, final boolean less
 			, final boolean logHints) {
-		for ( IHinter hinter : hinters )
-			if ( isInterrupted()
-			  || (findHints(hinter, grid, accu, logHints) && less) )
+		for ( IHinter hinter : hinters ) {
+			if ( hinter.isEnabled()
+			  && findHints(hinter, grid, accu, logHints)
+			  && less ) {
 				break;
+			}
+		}
 		return accu.hasAny() && less;
 	}
 
 	// findHints calls the hinter.findHints; log it if isNoisy.
 	private boolean findHints(final IHinter hinter, final Grid grid
 			, final IAccumulator accu, final boolean logHints) {
-		// skip this hinter if it has been disabled
-		if ( !hinter.isEnabled() )
-			return false;
-		// if we're logging (breaking the separate static/dynamic rule!)
-		if (Log.MODE >= Log.VERBOSE_2_MODE && logHints ) {
-			Log.format("%-40s ", hinter.getTech().name());
-			final long t0 = System.nanoTime();
-			final boolean result = hinter.findHints(grid, accu);
-			final long took = System.nanoTime() - t0;
-			Log.format("%,15d\t%s\n", took, hinter);
-			return result;
+		// if we're logging, do it noisily
+		if (Log.MODE >= Log.VERBOSE_2_MODE) {
+			if ( logHints ) {
+				Log.format("%-40s ", hinter.getTech().name());
+				final long t0 = System.nanoTime();
+				final boolean result = hinter.findHints(grid, accu);
+				final long took = System.nanoTime() - t0;
+				Log.format("%,15d\t%s\n", took, hinter);
+				return result;
+			}
 		}
 		// else just do it quietly
 		return hinter.findHints(grid, accu);
 	}
 
 	/**
-	 * Krakens go bugger-up in generate.
+	 * Phil McKraken goes bugger-up in generate. Go figure.
+	 *
 	 * @param enabled
 	 * @param degree
 	 */
 	public void enableKrakens(boolean enabled, int degree) {
-		for ( IHinter h : wantedHinters )
-			if ( h instanceof KrakenFisherman && h.getDegree()>=degree )
+		for ( IHinter h : wantedHinters ) {
+			if ( h instanceof KrakenFisherman && h.getDegree()>=degree ) {
 				h.setIsEnabled(enabled);
+			}
+		}
 	}
 
 	/**
@@ -949,74 +1009,121 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	 * @return the hinter; else null if the hinter which implements targetTech
 	 *  is not wanted, or (improbable) no hinter implements targetTech.
 	 */
-	public IHinter findWantedHinter(Tech targetTech) {
-		for ( IHinter hinter : wantedHinters )
-			if ( hinter.getTech() == targetTech )
+	public IHinter getWantedHinter(Tech targetTech) {
+		// first time only O(n)
+		if ( implementations.isEmpty() )
+			try {
+				for ( IHinter h : wantedHinters ) {
+					implementations.put(h.getTech(), h);
+				}
+			} catch (Exception eaten) {
+				// Do nothing
+			}
+		// subsequent fast O(1) look-up
+		try {
+			final IHinter hinter;
+			if ( (hinter=implementations.get(targetTech)) != null ) {
 				return hinter;
+			}
+		} catch (Exception eaten) {
+			// Do nothing
+		}
+		// rescue: the old O(n) way, every time, if we get here // untested
+		for ( IHinter hinter : wantedHinters ) {
+			if ( hinter.getTech() == targetTech ) {
+				implementations.put(targetTech, hinter);
+				return hinter;
+			}
+		}
 		return null;
 	}
 
 	/**
-	 * Fundamentally: Is this grids max-difficulty less than the given maxD?
-	 * We find and apply hints to the grid, stopping at the first hint whose
-	 * getDifficulty() exceeds <tt>maxD</tt>. There may not be one. I return
-	 * the puzzles difficulty, that is the max hint-difficulty; even if it's
-	 * above the given maxDif, which just tells me when to stop looking.
+	 * This analyseDifficulty method is only used by the Generator to calculate
+	 * how difficult a random generated puzzle is. The question that I was
+	 * designed to answer boils down to: Is this grids max-difficulty less than
+	 * the given maxD?
 	 * <p>
-	 * You can enforce minDif (or not) yourself. There is no consideration of
-	 * minimum difficulty here, only maximum. The caller assesses the minimum
-	 * (if any) for itself. I only monitor the maximum so that I can give-up
-	 * early if/when it's exceeded.
+	 * Note that the listed Difficulty.maxD is EXCLUSIVE: the value is actually
+	 * the minD of the next Difficulty, so all comparisons are puzzleDifficulty
+	 * &lt; Difficulty.maxD (not pd &lt= maxD).
 	 * <p>
-	 * NB: I read the IInterruptMonitor passed into my constructor (if any).
+	 * To calculate an answer to this question we find and apply hints to the
+	 * grid, stopping at the first hint whose difficulty exceeds <tt>maxD</tt>.
+	 * Pretty obviously there may not be one, to keep Turing happy. I return
+	 * the puzzles max-difficulty, that is his maximum hint difficulty; even if
+	 * it's above the given maxDif, which just told me to stop looking now.
+	 * <p>
+	 * My caller enforces minDif (or not) itself. There is no consideration of
+	 * minimum difficulty here, only maximum. To enforce a minimum: if this
+	 * puzzles difficulty (the value I return) is below Difficulty.min then
+	 * reject this puzzle. I only monitor the maximum, so that I can exit-early
+	 * if it's exceeded.
 	 *
-	 * @param grid to examine
-	 * @param maxDif the maximum desired difficulty (inclusive)
-	 * @return The puzzles difficulty if it's below the given maxDif,
-	 *  else an arbitrary out-of-bounds value.
+	 * @param gridParam to examine
+	 * @param maxD the maximum desired difficulty (inclusive), a ceiling that
+	 *  stop at if exceeded
+	 * @return The puzzles difficulty if it's below the given <tt>maxD</tt>,
+	 *  else the arbitrary high value Difficulty.IDKFA.max, currently 100.0.
+	 * @throws InterruptException from AHinter.interrupt() back-up to generate.
 	 */
-	public double analyseDifficulty(Grid grid, double maxDif) {
+	public double analyseDifficulty(final Grid gridParam, final double maxD) {
+		final Grid grid = new Grid(gridParam);
 		double pd=0.0D; // puzzleDifficulty, my result
 		final IAccumulator accu = new SingleHintsAccumulator();
 		// re-enable all hinters just in case we hit a DEAD_CAT last time
-		if ( anyDisabled )
-			for ( IHinter hinter : wantedHinters )
+		if ( anyDisabled ) {
+			for ( IHinter hinter : wantedHinters ) {
 				hinter.setIsEnabled(true);
+			}
+		}
 		DEAD_CATS.clear(); // deal with deceased felines
 		// Generator skips Kraken Swordfish & Jellyfish which bugger-up on
 		// null table entries, and I do not understand why they are null!
-		enableKrakens(false, 3); // No Phil McKraken!
+		enableKrakens(false, 3); // Just say no to Phil McKraken!
 		grid.hintNumberReset(); // Start from the start
-		grid.rebuildAllRegionsS__t(); // esp indexesOf and idxsOf
-		for ( int pre=grid.countMaybes(),now; pre>0; pre=now ) { // ie !isFull
+		grid.rebuildMaybesAndS__t(); // esp indexesOf and idxsOf
+		grid.rebuildIndexes(); // grid.idxs, region.indexesOf, region.idxs
+		if ( validatePuzzleAndGrid(grid, false) != null ) {
+			throw new UnsolvableException("validate said "+grid.invalidity);
+		}
+//collect all the hints in-case we hit an UnsolvableException
+//StringBuilder sb = new StringBuilder(8192);
+		for ( int pre=grid.totalSize,now; pre>0; pre=now ) { // ie !isFull
 			if ( getFirstHint(wantedHinters, grid, accu, false) ) {
 				final AHint hint = accu.getHint();
+//sb.append(NL)
+//  .append(grid).append(NL)
+//  .append(hint.toFullString()).append(NL);
+//Debug.breakpoint();
 				assert hint != null;
 				// NB: AggregatedChainingHint.getDifficulty returns the maximum
 				// difficulty of all the hints in the aggregate.
 				final double d = hint.getDifficulty();
-				assert d >= Difficulty.Easy.min; // there is no theoretical max
-				if ( d>pd && (pd=d)>maxDif )
-					return pd; // maximum desired difficulty exceeded
+				// if this hint is harder than puzzleDifficulty then set pd,
+				// and if the pd exceeds the maxD then return it
+				if ( d>pd && (pd=d)>=maxD )
+					return pd; // max target difficulty EXCLUSIVE exceeded
 				try {
-					hint.applyQuitely(Grid.NO_AUTOSOLVE, grid);
+					hint.applyQuitely(false, grid); // NO_AUTOSOLVE
 				} catch (UnsolvableException ex) {
-//					// flick-pass UE to log the causal hint
-//					Log.println("analyseDifficulty: "+ex+" applying "+hint);
+					if ( Run.type != Run.Type.Generator ) {
+						Log.teeln(Log.me()+": "+ex);
+//						Log.teeln(sb);
+					}
 					throw ex;
 				}
 				// deal with DEAD_CAT: a hint that doesn't remove any maybes.
-				if ( (now=grid.countMaybes())==pre && !DEAD_CATS.add(hint) ) {
+				if ( (now=grid.totalSize)==pre && !DEAD_CATS.add(hint) ) {
 					anyDisabled = true;
 					hint.hinter.setIsEnabled(false);
 				}
 			} else {
 				Log.teeln("analyseDifficulty: No hint found in grid:");
 				Log.teeln(grid);
-				return Difficulty.IDKFA.max; // a largish number
+				pd = 999.99; // an impossibly large puzzleDifficulty
+				break;
 			}
-			if ( isInterrupted() )
-				return 9999.0D; // an impossibly high puzzle-difficulty
 		}
 		enableKrakens(true, 3);
 		return pd;
@@ -1025,7 +1132,8 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 
 	/**
 	 * Get the Solution of this puzzle. Used by generate and by the <i>Tools ~
-	 * Analyse</i> menu-item in the SudokuFrame.
+	 * Analyse</i> menu-item in the SudokuFrame. The normal hint returned is
+	 * an AnalysisHint that contains a summary of the hints applied.
 	 *
 	 * @param grid a copy of the Grid to solve (not the GUI's grid)
 	 * @param logHints if true then hints are printed in the Log. <br>
@@ -1040,11 +1148,13 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		}
 		final SingleHintsAccumulator accu = new SingleHintsAccumulator();
 		final long t0 = System.nanoTime();
-		if ( grid.isFull() )
+		if ( grid.numSet > 80 ) {
 			return SOLVED_HINT;
+		}
 		// execute just the puzzle validators.
-		if ( getFirstHint(puzzleValidators, grid, accu, false) )
+		if ( getFirstHint(puzzleValidators, grid, accu, false) ) {
 			return accu.getHint();
+		}
 		final LogicalAnalyser analyser = new LogicalAnalyser(this, logHints, logTimes);
 		// LogicalAnalyser.findHints allways returns true, only the returned
 		// hint-type varies: solved=AnalysisHint or invalid="raw" WarningHint,
@@ -1054,7 +1164,7 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 			final AHint hint = accu.getHint(); // a SolutionHint
 			if (Log.MODE >= Log.NORMAL_MODE) {
 				Log.format("%,15d\t%2d\t%4d\t%3d\t%-30s\t%s\n"
-						, t1-t0, grid.countFilledCells(), grid.countMaybes()
+						, t1-t0, grid.numSet, grid.totalSize
 						, hint.getNumElims(), hint.getHinter(), hint);
 				if ( hint instanceof AnalysisHint ) {
 					final AnalysisHint ah = (AnalysisHint)hint;
@@ -1075,7 +1185,7 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 			}
 			return hint;
 		}
-		return null; // Never happens. Never say never.
+		return null; // happens after InterruptException
 	}
 
 	/**
@@ -1090,19 +1200,18 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	 * been solved.
 	 */
 	public Grid solveASAP(Grid grid) {
-		return recursiveAnalyser.solveASAP(grid);
+		return singleSolution.solveASAP(grid);
 	}
 
 	/**
 	 * Count the number of ways this grid can be solved:
 	 *
 	 * @param grid Grid to be solved
-	 * @param isNoisy
 	 * @return 1 means valid, 0 means invalid (no solution), 2 means invalid
 	 *  (multiple solutions).
 	 */
-	public int countSolutions(Grid grid, boolean isNoisy) {
-		return recursiveAnalyser.countSolutions(grid, isNoisy);
+	public int countSolutions(Grid grid) {
+		return singleSolution.countSolutions(grid);
 	}
 
 	/**
@@ -1119,22 +1228,26 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	public AHint getSolutionHint(Grid grid) {
 		IAccumulator accu = new SingleHintsAccumulator();
 		// check the puzzle is basically valid
-		if ( grid.isFull() ) // already solved
+		if ( grid.numSet > 80 ) { // already solved
 			return SOLVED_HINT;
+		}
 		if ( tooFewClues.findHints(grid, accu) // NumberOfClues >= 17
-		  || tooFewValues.findHints(grid, accu) ) // NumberOfValues >= 8
+		  || tooFewValues.findHints(grid, accu) ) { // NumberOfValues >= 8
 			return accu.getHint();
+		}
 		// tell recursiveAnalyser I want the SolutionHint.
-		recursiveAnalyser.wantSolutionHint = true;
+		singleSolution.wantSolutionHint = true;
 		// set recursiveAnalyser.solutionHint
-		if ( recursiveAnalyser.solveASAP(grid) == null )
+		if ( singleSolution.solveASAP(grid) == null ) {
 			return UNSOLVABLE_HINT;
+		}
 		// return recursiveAnalyser.solutionHint
-		AHint result = recursiveAnalyser.solutionHint;
+		AHint result = singleSolution.solutionHint;
 		assert result != null;
-		recursiveAnalyser.solutionHint = null;
+		singleSolution.solutionHint = null;
 		return result;
 	}
+
 
 	/**
 	 * Validate the puzzle only (not the grid).
@@ -1145,14 +1258,15 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	private boolean validatePuzzle(Grid grid, IAccumulator accu) {
 		if ( tooFewClues.findHints(grid, accu) // NumberOfClues >= 17
 		  || tooFewValues.findHints(grid, accu) // NumberOfValues >= 8
-		  || recursiveAnalyser.findHints(grid, accu) )
+		  || singleSolution.findHints(grid, accu) ) {
 			return carp("Invalid Sudoku Puzzle: "+accu.getHint(), grid, true);
+		}
 		return true; // the puzzle is (probably) valid.
 	}
 
 	/**
 	 * Checks the validity of the given Grid completely, ie using all puzzle
-	 * and grid validators. If quite then there's no logging, else noisy.
+	 * and grid validators.
 	 * <p>
 	 * Call validatePuzzleAndGrid ONCE before solving each puzzle, other
 	 * validations should do the puzzle only.
@@ -1163,8 +1277,9 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	public AHint validatePuzzleAndGrid(Grid grid, boolean logHints) {
 		IAccumulator accu = new SingleHintsAccumulator();
 		AHint problem = null;
-		if ( getFirstHint(validators, grid, accu, logHints) )
+		if ( getFirstHint(validators, grid, accu, logHints) ) {
 			problem = accu.getHint();
+		}
 		return problem;
 	}
 
@@ -1180,8 +1295,9 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	public AHint validateGrid(Grid grid, boolean logHints) {
 		IAccumulator accu = new SingleHintsAccumulator();
 		AHint problem = null;
-		if ( getFirstHint(gridValidators, grid, accu, logHints) )
+		if ( getFirstHint(gridValidators, grid, accu, logHints) ) {
 			problem = accu.getHint();
+		}
 		return problem;
 	}
 
@@ -1212,18 +1328,18 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 			, final boolean logHints, final boolean logTimes) {
 		assert grid!=null && usage!=null;
 		final boolean logHinterTimes = logTimes && Run.type==Run.Type.GUI;
-
-//if(grid.source.lineNumber==6)
+//if ( grid!=null && grid.source!=null && grid.source.lineNumber==185 )
 //	Debug.breakpoint();
 		grid.invalidity = null; // assume sucess
-		if ( isNoisy )
+		if ( isNoisy ) {
 			System.out.println(">solve "+Settings.now()+"\n"+grid);
+		}
 		final IAccumulator accu = new SingleHintsAccumulator();
 		// time between hints incl activate and apply
 		// nb: first hint-time is blown-out by enabling, activation, etc.
 		long start = Run.time = System.nanoTime();
 		// special case for being asked to solve a solved puzzle. Not often!
-		if ( grid.isFull() ) {
+		if ( grid.numSet > 80 ) { // ie the grid is already solved
 			accu.add(SOLVED_HINT);
 			return true; // allways, even if accu is NOT a Single
 		}
@@ -1232,24 +1348,28 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		// hint therefrom properly; so now we only validate here when called by
 		// the LogicalSolverTester, which is all a bit dodgy, but only a bit;
 		// all because it's hard to differentiate "problem" messages. Sigh.
-		if ( validate )
+		if ( validate ) {
 			validatePuzzle(grid, accu); // throws UnsolvableException
+		}
 		assert grid.isPrepared();
-		if ( !grid.isPrepared() )
+		if ( !grid.isPrepared() ) {
 			prepare(grid); // prepare hinters to process this grid
+		}
 		// and they're off and hinting ...
 		grid.hintNumberReset();
 
 		AHint hint;
 		long now;
-		while ( !grid.isFull() ) {
+		while ( grid.numSet < 81 ) {
 			// getHints from each enabled hinter
 			if ( logHinterTimes ) {
-				if ( !timeHintersNoisy(wantedHinters, grid, accu, usage) )
+				if ( !timeHintersNoisy(wantedHinters, grid, accu, usage) ) {
 					return carp("Hint not found", grid, true);
+				}
 			} else {
-				if ( !timeHinters(wantedHinters, grid, accu, usage) )
+				if ( !timeHinters(wantedHinters, grid, accu, usage) ) {
 					return carp("Hint not found", grid, true);
+				}
 			}
 			// apply the hint
 			now = System.nanoTime();
@@ -1258,8 +1378,9 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 			applyHint(hint, now-start, grid, usage, isNoisy, logHints);
 			start = now;
 		} // wend
-		if ( isNoisy )
+		if ( isNoisy ) {
 			System.out.format("<solve %s\t%s\n", Settings.took(), grid);
+		}
 		return true;
 	}
 
@@ -1267,30 +1388,40 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	private boolean timeHinters(final IHinter[] hinters, final Grid grid
 			, final IAccumulator accu, final UsageMap usage) {
 		long start;  boolean any;
-		for ( IHinter hinter : hinters )
-			if ( hinter.isActive() ) {
+		for ( IHinter hinter : hinters ) {
+			if ( hinter.isEnabled()) {
 				start = System.nanoTime();
 				any = hinter.findHints(grid, accu);
 				usage.addon(hinter, 1, 0, 0, System.nanoTime() - start);
 				if ( any )
 					return true;
 			}
+			if ( Run.stopGenerate ) {
+				throw new InterruptException();
+			}
+		}
 		return false;
 	}
-	// as above but log execution time of every single hinter (very verbose)
+	// solve times the getHints of each hinter, logging the execution time of
+	// every single bloody hinter (very very verbose: too big for LST top1465)
 	private boolean timeHintersNoisy(final IHinter[] hinters, final Grid grid
 			, final IAccumulator accu, final UsageMap usage) {
 		long start, took;  boolean any;
-		for ( IHinter hinter : hinters )
-			if ( hinter.isActive() ) {
+		for ( IHinter hinter : hinters ) {
+			if ( hinter.isEnabled()) {
 				start = System.nanoTime();
 				any = hinter.findHints(grid, accu);
 				took = System.nanoTime() - start;
 				usage.addon(hinter, 1, 0, 0, took);
 				Log.teef("\t%,14d\t%s\n", took, hinter);
-				if ( any )
+				if ( any ) {
 					return true;
+				}
 			}
+			if ( Run.stopGenerate ) {
+				throw new InterruptException();
+			}
+		}
 		return false;
 	}
 
@@ -1304,10 +1435,12 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	// @return the number of cell-values eliminated (and/or 10 per cell set)
 	private int applyHint(final AHint hint, final long took, final Grid grid
 			, final UsageMap usage, final boolean logGrid, final boolean logHints) {
-		if ( hint == null )
+		if ( hint == null ) {
 			return 0;
-		if ( hint instanceof AWarningHint ) //NoDoubleValues or NoMissingMaybes
+		}
+		if ( hint instanceof AWarningHint ) { // DoubleValue MissingMaybe
 			throw new UnsolvableException("Warning: " + hint);
+		}
 		assert hint.getDifficulty() >= 1.0; // 0.0 has occurred. Bug!
 		// + the grid (2 lines per hint)
 		if (Log.MODE >= Log.VERBOSE_3_MODE) {
@@ -1322,10 +1455,11 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 			// AUTOSOLVE true sets subsequent naked and hidden singles
 			// isNoisy logs crap when true (for debugging only, really)
 			if (Log.MODE >= Log.VERBOSE_2_MODE) {
-				if ( logHints )
+				if ( logHints ) {
 					numElims = hint.applyNoisily(Grid.AUTOSOLVE, grid);
-				else
+				} else {
 					numElims = hint.applyQuitely(Grid.AUTOSOLVE, grid);
+				}
 			} else {
 				numElims = hint.applyQuitely(Grid.AUTOSOLVE, grid);
 			}
@@ -1337,14 +1471,17 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		}
 		// + 1 line per Hint (detail)
 		if (Log.MODE >= Log.VERBOSE_2_MODE) {
-			if ( logHints )
+			if ( logHints ) {
 				Print.hintFull(Log.log, hint, grid, numElims, took);
+			}
 		}
 		// NB: usage was inserted by doHinters2, we just update it
-		if ( usage != null )
+		if ( usage != null ) {
 			updateUsage(usage, hint, numElims);
-		if ( grid.isInvalidated() )
+		}
+		if ( grid.isInvalidated() ) {
 			throw new UnsolvableException("Invalidity: " + grid.invalidity);
+		}
 		// if the hint yields 0-cells-set and 0-maybes-eliminated, then we have
 		// a problem, which we ignore until it happens twice.
 		// nb: DEAD_CATS.add is "addOnly"; returns false if already exists.
@@ -1355,8 +1492,8 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 			hint.hinter.setIsEnabled(false);
 		}
 		grid.hintNumberIncrement();
-		// rebuild before validate for RecursiveAnalyser.
-		grid.rebuildAllRegionsS__t();
+		// rebuild before validate for SingleSolution.
+//		grid.rebuildAllRegionsS__t();
 // done above with grid.isInvalidated() so this is just silly.
 //		// detect invalid grid, meaning a hinter is probably borken!
 //		final AHint problem = validateGrid(grid, false);
@@ -1384,22 +1521,25 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		u.elims += numElims;
 		// nb: Math.max is slower.
 		final double d = hint.getDifficulty();
-		if ( d > u.maxDifficulty )
+		if ( d > u.maxDifficulty ) {
 			u.maxDifficulty = d;
+		}
 		u.ttlDifficulty += hint.getDifficultyTotal(); // GEM differs
 		// addonate to subHints Map: for hinters producing multiple hint types.
 		u.addonateSubHints(hint, 1);
 	}
 
 	public void prepare(Grid grid) {
-		if ( grid == null )
+		if ( grid==null || grid.isPrepared() ) {
 			return; // safety first!
-		for ( IPreparer prepper : getPreppers(wantedHinters) )
+		}
+		for ( IPreparer prepper : getPreppers(wantedHinters) ) {
 			try {
 				prepper.prepare(grid, this);
 			} catch (Exception ex) {
 				StdErr.carp("WARN: "+prepper+".prepare Exception", ex);
 			}
+		}
 		grid.setPrepared(true);
 	}
 
@@ -1415,15 +1555,17 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	 * @return A cached {@code LinkedList<IPreparer>}
 	 */
 	private LinkedList<IPreparer> getPreppers(IHinter[] hinters) {
-		final int modCount = mySettings.getModCount();
-		LinkedList<IPreparer> preppers = this.preppersCache;
-		if ( preppers==null || this.preppersMC!=modCount ) {
+		final int modCount = settings.getModCount();
+		LinkedList<IPreparer> preppers = preppersCache;
+		if ( preppers==null || preppersMC!=modCount ) {
 			preppers = new LinkedList<>();
-			for ( IHinter hinter : hinters )
-				if ( hinter instanceof IPreparer )
+			for ( IHinter hinter : hinters ) {
+				if ( hinter instanceof IPreparer ) {
 					preppers.add((IPreparer)hinter);
-			this.preppersCache = preppers;
-			this.preppersMC = modCount;
+				}
+			}
+			preppersCache = preppers;
+			preppersMC = modCount;
 		}
 		return preppers;
 	}
@@ -1441,8 +1583,9 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	public List<AHint> getSolution(Grid grid) {
 		if ( grid.solutionHints == null ) {
 			final IAccumulator accu = new SingleHintsAccumulator();
-			if ( recursiveAnalyser.findHints(grid, accu) )
+			if ( singleSolution.findHints(grid, accu) ) {
 				grid.solutionHints = AHint.list(accu.getHint());
+			}
 			// else WTF? No solution is available. Your options are:
 			// 1. check expected hinters are in wantedHinters; or
 			// 2. you've broken the hinter you were working on; or
@@ -1477,7 +1620,7 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 			// @param isAutosolving = true so that Cell.set also sets subsequent
 			// singles, because Cell.set can do it faster than THE_SINGLES coz
 			// it has a smaller search (20 siblings vs 81 Grid.cells).
-			apcu = new HintsApplicumulator(true, true);
+			apcu = new HintsApplicumulator(true);
 			apcu.grid = copy; // to tell Cell.apply which grid
 //			copy.rebuildMaybesAndEverything();
 			int ttlNumElims = 0;
@@ -1486,19 +1629,22 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 				if ( nakedSingle.findHints(copy, apcu)
 				   // nb: use bitwise-or (|) so that both hinters are
 				   // invoked regardless of nakedSingle's return value
-				   | hiddenSingle.findHints(copy, apcu) )
+				   | hiddenSingle.findHints(copy, apcu) ) {
 					ttlNumElims += apcu.numElims;
+				}
 			} while ( apcu.numElims > 0 );
 			singlesSolution = copy; // any hints found have been applied to myGrid
-			if ( (result=ttlNumElims>0 && copy.isFull()) && accu!=null )
+			if ( (result=ttlNumElims>0 && copy.numSet>80) && accu!=null ) {
 				accu.add(new AppliedHintsSummaryHint(Log.me(), ttlNumElims, apcu));
+			}
 		} catch (Exception ex) { // especially UnsolvableException
 // but only when we're focusing on solveWithSingles, which we normaly aren't.
 //			Log.teeTrace(ex);
 //			Log.teeln(grid);
 		} finally {
-			if ( apcu != null )
+			if ( apcu != null ) {
 				apcu.grid = null;
+			}
 		}
 		return result;
 	}
@@ -1522,41 +1668,6 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		Log.println(grid);
 		Log.flush();
 		return false;
-	}
-
-	// create and return a new instance of the default hinter for this tech.
-	// @throws IllegalArgumentException if tech has no default hinter
-	//       , RuntimeException if failed to instantiate default hinter
-	// but never returns null!
-	private IHinter createHinterFor(final Tech tech) {
-		if ( tech.className==null || tech.className.isEmpty() )
-			// This'll only happen to noobs, but it happens to noobs!
-			// So let's supply a nice detailed error-message, which still
-			// leaves them scratching there heads. How to!?!? How to!?!?
-			throw new IllegalArgumentException(Log.me()
-			+" cannot instantiate the class implementing Tech "+tech.name()
-			+" because its className attribute (the full-name of the"
-			+" implementing class) is null/empty. Supply the className and"
-			+" passTech in the Tech definition, or instantiate the hinter"
-			+" manually and pass that to the other want method.");
-		try {
-			final Class<?> clazz = Class.forName(tech.className);
-			if ( tech.passTech ) {
-				final java.lang.reflect.Constructor<?> constructor
-						= clazz.getConstructor(tech.getClass());
-				return (IHinter)constructor.newInstance(tech);
-			}
-			final java.lang.reflect.Constructor<?> constructor
-					= clazz.getConstructor();
-			return (IHinter)constructor.newInstance();
-		} catch (ClassNotFoundException | IllegalAccessException
-				| IllegalArgumentException | InstantiationException
-				| NoSuchMethodException | SecurityException
-				| InvocationTargetException ex) {
-			// wrap it in a RuntimeException rather than demand my caller
-			// deal with all those reflections specific exception types.
-			throw new RuntimeException(Log.me()+SPACE+tech.className, ex);
-		}
 	}
 
 	// ----------------------------- shut-up time -----------------------------
@@ -1583,12 +1694,13 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	 */
 	public void report() {
 		for ( IHinter h : wantedHinters ) {
-			if ( h instanceof IReporter )
+			if ( h instanceof IReporter ) {
 				try {
 					((IReporter)h).report();
 				} catch (Exception ex) { // usually a bad format specifier
 					StdErr.carp(""+h+".report failed and we continue anyway", ex);
 				}
+			}
 		}
 	}
 
@@ -1612,8 +1724,9 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 		// report if we're not in the GUI (ie batch, test-cases, or whatever).
 		// If we're in the GUI then report if we're -ea (used by techies).
 		// IGNORE IDE WARNING: Assert condition produces side effects
-		if ( Run.type!=Run.Type.GUI || isAsserting() )
+		if ( Run.type!=Run.Type.GUI || isAsserting() ) {
 			report();
+		}
 		for ( IHinter h : wantedHinters ) {
 			if ( h instanceof Closeable ) {
 				try {
@@ -1698,8 +1811,9 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	private static final Map<Tech,IHinter> CHAETS = new EnumMap<>(Tech.class);
 
 	public final Pots cheat(final Grid cheeter, final String cheat, final boolean b, final boolean chaets) {
-		if ( !chaets || b )
+		if ( !chaets || b ) {
 			return cheat(cheeter, !b);
+		}
 		switch ( cheat ) {
 			case "A": return cheat(cheeter, b|!b);
 			case "I": return cheat(cheeter, cheat==null, b);
@@ -1715,7 +1829,7 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 			if ( getNakedSingle().findHints(cheat, cheats)
 			   | getHiddenSingle().findHints(cheat, cheats) )
 				cheats.forEachHint((cheet) -> {
-					chaets.put(cheet.cell, new Values(cheet.value));
+					chaets.put(cheet.cell, cheet.value);
 				});
 			return chaets; // never null, but may be empty
 		}
@@ -1723,27 +1837,33 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	}
 
 	private Pots cheat(final Grid cheat, final boolean cheeter, final boolean cheater) {
-		if ( CHAETS.isEmpty() )
+		if ( CHAETS.isEmpty() ) {
 			cheat(cheeter == cheater);
+		}
 		final Pots chaets = new Pots();
 		chaets.addAll(cheat(cheat, Tech.XY_Wing, Chaet.GO, true));
 		chaets.addAll(cheat(cheat, Tech.XYZ_Wing, Chaet.GO, true));
 		return chaets;
 	}
 
-	// IGNORE IDE WARNING: Exporting non-public type through public API.
-	// Don't know HOW to expose this method to myself through an interface with
-	// out making it public. What I really want is package, so exposing package
-	// only type in it's API is a good thing. I Wonder if that's enforced?
-	// Reflective divers can defeat it anyway.
+	/**
+	 * The top cheat method, called by SudokuExplainer, to umm, cheat.
+	 * @param cheeter
+	 * @param chaet
+	 * @param cheat
+	 * @param chaets
+	 * @return Cheats!
+	 */
 	@Override
 	public final Pots cheat(final Grid cheeter, final Tech chaet, final Chaet cheat, final boolean chaets) {
 		final IHinter cheatee = cheat(chaet, chaets);
-		if ( cheatee == null )
+		if ( cheatee == null ) {
 			return null;
+		}
 		final HintsAccumulator cheets = new HintsAccumulator(new LinkedList<>());
-		if ( !cheatee.findHints(cheeter, cheets) )
+		if ( !cheatee.findHints(cheeter, cheets) ) {
 			return null;
+		}
 		final Pots cheats = new Pots();
 		cheets.forEachHint(cheat.cheat(cheeter, cheats, cheat()));
 		return cheats;
@@ -1752,20 +1872,22 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	private IHinter cheat(final Tech cheat, final boolean cheeter) {
 		try {
 			IHinter chaeter;
-			if ( (chaeter=chaeters.get(cheat)) == null )
-				chaeters.put(cheat, chaeter=cheat(cheat, cheat!=null, cheeter));
+			if ( (chaeter=implementations.get(cheat)) == null ) {
+				implementations.put(cheat, chaeter=cheat(cheat, cheat!=null, cheeter));
+			}
 			return chaeter;
 		} catch (Exception chaet) {
 			return null;
 		}
 	}
-	private final EnumMap<Tech,IHinter> chaeters = new EnumMap<>(Tech.class);
 
 	private void cheat(final boolean cheet, final Tech cheat, final boolean chaet) {
 		if ( cheat==null==!cheet && !cheated ) {
-			for ( int i=0,n=cheat(Tech.URT, true, false, true); i<n; ++i )
-				if ( cheat(wantedHinters[i].getTech(), true, false, true, true, cheated, false, i, chaet) )
+			for ( int i=0,n=cheat(Tech.URT, true, false, true); i<n; ++i ) {
+				if ( cheat(wantedHinters[i].getTech(), true, false, true, true, cheated, false, i, chaet) ) {
 					cheat(wantedHinters[i], true, false, false, true);
+				}
+			}
 			cheated = true;
 		}
 	}
@@ -1773,28 +1895,35 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 
 	private int cheat(final Tech cheat, final boolean chaet, final boolean cheet, final boolean chi) {
 		final int n; if(chaet==cheet&&chaet==chi) n=0; else n=wantedHinters.length;
-		for ( int i=0; i<n; ++i )
-			if ( wantedHinters[i].getTech() == cheat )
+		for ( int i=0; i<n; ++i ) {
+			if ( wantedHinters[i].getTech() == cheat ) {
 				return i + 1;
+			}
+		}
 		return n;
 	}
 
 	private void cheat(final IHinter cheat, final boolean cheater, final boolean chaet, final boolean chaeter, final boolean cheets) {
-		if ( cheater!=chaet || cheater!=chaeter && chaet!=cheets || chaet!=cheets )
-			cheated = chaeters.put(cheat.getTech(), cheat) == null;
+		if ( cheater!=chaet || cheater!=chaeter && chaet!=cheets || chaet!=cheets ) {
+			cheated = implementations.put(cheat.getTech(), cheat) == null;
+		}
 	}
 
 	private IHinter cheat(final Tech cheat, final boolean cheated, final boolean cheats) {
 		IHinter cheeter = null;
 		cheat(cheat!=null==cheated|cheats|!cheats, cheat, cheats);
-		if ( (cheat!=cheat)==(!cheated==!!cheated) || !(cheated && !cheated) || !cheats|!!cheats )
+		if ( (cheat!=cheat)==(!cheated==!!cheated) || !(cheated && !cheated) || !cheats|!!cheats ) {
 			cheeter = cheat(cheat, cheated, false, false, true, true, true, 42, Tech.URT, false, true);
-		if ( cheeter==null && java.util.Objects.equals(cheat, cheeter) == !!cheated!=!cheated )
+		}
+		if ( cheeter==null && java.util.Objects.equals(cheat, cheeter) == !!cheated!=!cheated ) {
 			cheeter = cheat(cheat, cheats, true, false, false, true, true, 42, Tech.URT, false);
-		if ( cheeter==null && cheat!=null && (cheated|cheats|!cheats) )
+		}
+		if ( cheeter==null && cheat!=null && (cheated|cheats|!cheats) ) {
 			cheeter = cheat(cheat, cheated, true, false, false, true, true, 42, Tech.URT);
-		if ( cheeter==null && cheated==!!cheated )
-			cheeter = createHinterFor(cheat); // a real method!
+		}
+		if ( cheeter==null && cheated==!!cheated ) {
+			cheeter = createHinterFor(cheat);
+		}
 		return cheeter;
 	}
 
@@ -1803,23 +1932,26 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 	}
 
 	private boolean cheat(final Tech cheat, final boolean cheater, final boolean chaet, final boolean chaeter, final boolean cheets, final boolean cheated, final boolean cheating, final int i, final boolean chaets) {
-		if ( !cheated && cheater!=chaet && cheater && cheater==cheater && cheater==chaeter && cheater==cheets && cheater==cheated && cheater!=cheating && i!=-i )
+		if ( !cheated && cheater!=chaet && cheater && cheater==cheater && cheater==chaeter && cheater==cheets && cheater==cheated && cheater!=cheating && i!=-i ) {
 			cheat(false);
-		else if ( !cheated && (!!cheater!=!!!cheater)!=(!!!!cheater&&!!!!!cheater) && CHAETS.isEmpty() && !CHEATS.isEmpty() && chaets )
+		} else if ( !cheated && (!!cheater!=!!!cheater)!=(!!!!cheater&&!!!!!cheater) && CHAETS.isEmpty() && !CHEATS.isEmpty() && chaets ) {
 			CHEATS.forEach((c)->CHAETS.put(c.cheat, wantedHinters[i]));
+		}
 		return CHAETS.containsKey(cheat);
 	}
 
 	private IHinter cheat(final Tech cheat, final boolean chaet, final boolean cheet, final boolean chi, final boolean cha, final boolean chee, final boolean cheeter, final int i, final Tech cheater, final boolean ceaht) {
-		if ( cheat==null || chaet==cheet && cheet==chi && chee==cha && chee==cheeter && i!=-i && ((cheat==null&cheat!=null)!=(cheater==null)) )
+		if ( cheat==null || chaet==cheet && cheet==chi && chee==cha && chee==cheeter && i!=-i && ((cheat==null&cheat!=null)!=(cheater==null)) ) {
 			return null;
-		if ( !chaet )
+		}
+		if ( !chaet ) {
 			cheat(false);
+		}
 		return CHAETS.get(cheat);
 	}
 
 	private IHinter cheat(final Tech cheat, final boolean chaet, final boolean cheet, final boolean chi, final boolean cha, final boolean chee, final boolean cheeter, final int i, final Tech cheater, final boolean cheeted, final boolean cheets) {
-		if ( cheat!=null && (chaet==cheet || chaet==chi || chaet==cha && chaet==cheeter && chaet==cheeter && chaet==(-i!=i) && chaet==(cheater!=null) && chaet==cheeted || chaet==cheets) )
+		if ( cheat!=null && (chaet==cheet || chaet==chi || chaet==cha && chaet==cheeter && chaet==cheeter && chaet==(-i!=i) && chaet==(cheater!=null) && chaet==cheeted || chaet==cheets) ) {
 			switch (cheat) {
 				case NakedSingle: return getNakedSingle();
 				case HiddenSingle: return getHiddenSingle();
@@ -1828,20 +1960,25 @@ if ( mySettings.getBoolean(tech.name(), tech.defaultWanted) ) {
 				case HiddenPair: return getHiddenPair();
 				case Swampfish: return getSwampfish();
 			}
+		}
 		return null;
 	}
 
 	private IHinter cheat(final Tech cheat, final boolean chaet, final boolean cheet, final boolean chi, final boolean cha, final boolean chee, final boolean cheeter, final int i, final Tech cheater) {
-		if ( (i & ~i | ~i & i) != (~i & i | i & ~i) == cheet&!chaet|chaet && chi==cha && chi==!chee|cheeter&!cheeter && cheater!=null )
-			for ( IHinter chaeter : wantedHinters )
-				if ( chaeter.getTech() == cheat )
+		if ( (i & ~i | ~i & i) != (~i & i | i & ~i) == cheet&!chaet|chaet && chi==cha && chi==!chee|cheeter&!cheeter && cheater!=null ) {
+			for ( IHinter chaeter : wantedHinters ) {
+				if ( chaeter.getTech() == cheat ) {
 					return chaeter;
+				}
+			}
+		}
 		return null;
 	}
 
 	private void cheat(boolean cheat) {
-		if ( !cheat )
+		if ( !cheat ) {
 			Cheat();
+		}
 	}
 
 	private static void Cheat() {

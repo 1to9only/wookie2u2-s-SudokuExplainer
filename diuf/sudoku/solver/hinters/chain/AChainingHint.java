@@ -43,6 +43,8 @@ import static diuf.sudoku.utils.Frmt.COMMA_SP;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.SPACE;
 import static diuf.sudoku.utils.Frmt.TWO_SPACES;
+import diuf.sudoku.utils.MyStrings;
+import static diuf.sudoku.utils.MyStrings.TWO_OR_MORE_SPACES;
 
 
 /**
@@ -414,7 +416,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 				cause = Cause.NakedSingle;
 			else if ( this instanceof RegionReductionHint )
 				// region.cause is HiddenBox, HiddenRow, or HiddenCol
-				cause = Cause.CAUSE_FOR_REGION_TYPE[((RegionReductionHint)this).getRegion().typeIndex];
+				cause = Cause.CAUSE_FOR[((RegionReductionHint)this).getRegion().typeIndex];
 		}
 		if ( cause != null ) {
 			final Cell c = a.cell;
@@ -423,7 +425,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 				final Cell cc = currGrid.cells[i];
 				// removed maybes = initial maybes - current maybes
 				final int rmvdBits;
-				if ( (rmvdBits=ic[i].maybes.bits & ~cc.maybes.bits) != 0 )
+				if ( (rmvdBits=ic[i].maybes & ~cc.maybes) != 0 )
 					for ( int v : VALUESES[rmvdBits] )
 						if ( (rmvdBits & VSHFT[v]) != 0 )
 							theRents.add(new Ass(cc, v, false));
@@ -438,8 +440,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 					final int sv = VSHFT[v];
 					for ( int i=0; i<9; ++i )
 						// if any (removed = initial - current) maybes
-						if ( (ic[(cc=cr.cells[i]).i].maybes.bits
-								& ~(cc.maybes.bits) & sv) != 0 )
+						if ( (ic[(cc=cr.cells[i]).i].maybes
+								& ~(cc.maybes) & sv) != 0 )
 							theRents.add(new Ass(cc, v, false));
 				}
 			}
@@ -540,7 +542,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 			if ( this instanceof CellReductionHint )
 				cause = Cause.NakedSingle;
 			else if ( this instanceof RegionReductionHint )
-				cause = Cause.CAUSE_FOR_REGION_TYPE[((RegionReductionHint)this).getRegion().typeIndex];
+				cause = Cause.CAUSE_FOR[((RegionReductionHint)this).getRegion().typeIndex];
 		}
 		if ( cause != null ) {
 			final Cell[] ic = initGrid.cells; // initial matrix
@@ -550,7 +552,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 				final Cell cc = currGrid.cells[i]; // currentCell
 				// removed = initial maybes - current maybes
 				int rmvdBits; // removedBits
-				if ( (rmvdBits=ic[i].maybes.bits & ~cc.maybes.bits) != 0 )
+				if ( (rmvdBits=ic[i].maybes & ~cc.maybes) != 0 )
 					for ( int v : VALUESES[rmvdBits] )
 						resultSet.add(prntOffs.getAss(cc, v));
 			} else { // Hidden Single
@@ -560,8 +562,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 				final int v=a.value, sv=VSHFT[v]; // shiftedValue
 				Cell cc; // currGrid's cell
 				for ( int i=0; i<9; ++i ) // removed = initial - current
-					if ( (ic[(cc=rc[i]).i].maybes.bits
-							& ~cc.maybes.bits & sv) != 0 )
+					if ( (ic[(cc=rc[i]).i].maybes
+							& ~cc.maybes & sv) != 0 )
 						resultSet.add(prntOffs.getAss(cc, v));
 			}
 		}
@@ -573,8 +575,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	}
 
 	@Override
-	public AChainer getHinter() {
-		return (AChainer)hinter;
+	public ChainerBase getHinter() {
+		return (ChainerBase)hinter;
 	}
 
 	protected abstract Ass getChainTarget(int viewNum);
@@ -679,7 +681,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	// just returns target.parents.first.first.first...
 	// base implementation moved to Chainer, where it's also used.
 	protected Ass getSource(Ass target) {
-		return AChainer.getSource(target);
+		return ChainerBase.getSource(target);
 	}
 
 	// recurseSource tries harder than getSource to locate and return the
@@ -711,21 +713,27 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 		return EMPTY_STRING;
 	}
 	protected String getNameMiddle() {
-		final AChainer c = (AChainer)hinter;
-		return c.isNishio ? "Nishio"
-			 : c.isDynamic ? (c.degree>1 ? "Nested " : "Dynamic ")
-			 : c.isMultiple ? "Multiple "
-			 : EMPTY_STRING;
+		final ChainerBase base = (ChainerBase)hinter;
+		if ( base.isNishio )
+			return "Nishio";
+		if ( base.isDynamic ) {
+			if ( base.degree > 1 )
+				return "Nested";
+			return "Dynamic";
+		}
+		if ( base.isMultiple )
+			return "Multiple";
+		return "Unknown"; // should NEVER happen
 	}
 	protected String getNameSuffix() {
 		//int degree = ((Chainer)hinter).degree;
 		switch (degree) {
-			case 0 : return " Chain";
-			case 1 : return " Plus";
-			case 2 : return " Nested (+ "+Tech.UnaryChain.name()+")";
-			case 3 : return " Nested (+ "+Tech.MultipleChain.name()+")";
-			case 4 : return " Nested (+ "+Tech.DynamicChain.name()+")";
-			case 5 : return " Nested (+ "+Tech.DynamicPlus.name()+")";
+			case 0 : return "Chain";
+			case 1 : return "Plus";
+			case 2 : return "Nested (+ "+Tech.UnaryChain.name()+")";
+			case 3 : return "Nested (+ "+Tech.MultipleChain.name()+")";
+			case 4 : return "Nested (+ "+Tech.DynamicChain.name()+")";
+			case 5 : return "Nested (+ "+Tech.DynamicPlus.name()+")";
 		}
 		throw new IllegalStateException("Bad degree="+degree);
 	}
@@ -734,8 +742,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	 * by (currently): CellReductionHint, RegionChainingHint. */
 	@Override
 	public String getHintTypeNameImpl() {
-		String s = getNamePrefix() + getNameMiddle() + getNameSuffix();
-		s = s.replaceAll(TWO_SPACES, SPACE);
+		String s = getNamePrefix()+SPACE+getNameMiddle()+SPACE+getNameSuffix();
+		s = s.replaceAll(TWO_OR_MORE_SPACES, SPACE).trim();
 		return s;
 	}
 
@@ -914,7 +922,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	private String hinterName = null;
 
 	protected String getPlusHtml() {
-		if ( ((AChainer)hinter).degree == 0 )
+		if ( ((ChainerBase)hinter).degree == 0 )
 			return EMPTY_STRING;
 		return "<p>Plus means the four quick foxes: Locking, NakedPairs," + NL
 		     + "HiddenPairs, and Swampfish are applied only when no basic" + NL
@@ -922,7 +930,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	}
 
 	protected String getNestedHtml() {
-		if ( !((AChainer)hinter).tech.isNested )
+		if ( !((ChainerBase)hinter).tech.isNested )
 			return EMPTY_STRING; // empty for "normal" hints
 		return "<p>Nested means this chainer parses its assumptions with a" + NL
 			 + "chainer that itself makes less complex assumptions, so we're" + NL

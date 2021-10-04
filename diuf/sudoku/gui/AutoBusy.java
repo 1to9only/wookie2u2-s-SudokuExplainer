@@ -134,7 +134,7 @@ for (int i = 0; i < als.length; i++) {
 	}
 }
 							} catch(Throwable ex) {
-								StdErr.whinge(ex);
+								StdErr.whinge("BusyActionListener.event.run exception", ex);
 							}
 							synchronized(db) {
 								db.isFinished = true;

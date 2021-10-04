@@ -29,7 +29,7 @@ import static diuf.sudoku.utils.Frmt.and;
  * A Siamese Locking Hint is the merger of two or three Pointing or Claiming
  * Hints from one region all into one hint, so that they're displayed as one in
  * the GUI. I'm not used in LogicalSolverTester where display is irrelevant;
- * nor am I used in the RecursiveAnalyser where speed is King (finding me is
+ * nor am I used in the SingleSolution where speed is King (finding me is
  * slow).
  *
  * @author Keith Corlett 2020 June 18

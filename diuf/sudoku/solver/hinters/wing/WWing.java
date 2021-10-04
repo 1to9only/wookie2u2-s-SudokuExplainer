@@ -31,6 +31,7 @@
  */
 package diuf.sudoku.solver.hinters.wing;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
@@ -39,9 +40,11 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.utils.Debug;
 
 
 /**
@@ -49,6 +52,13 @@ import diuf.sudoku.solver.hinters.AHinter;
  * <p>
  * A W-Wing is a pair of cells (not in a single region) with the same two
  * maybes having a strong link between them.
+ * <p>
+ * KRC 2021-07-07 //Change how WWing works: It was processing every cell in the
+ * grid in the cell-B-loop. Now both loops start with the cached Bivalue index,
+ * and cellB uses the new Idx.setExcept method to drop cellA from an Idx, then
+ * the new Idx.and(aa, bb) method to reduce it down to cell-B's with the same
+ * two maybes as cellA, which should all be more efficient; but it isn't, it's
+ * actually about 20% slower, so I'll BFIIK! I'm keeping it anyway, for now.
  */
 public final class WWing extends AHinter
 //		implements diuf.sudoku.solver.IReporter
@@ -64,32 +74,35 @@ public final class WWing extends AHinter
 //				, victPass,victCnt, emptyPass,emptyCnt);
 //	}
 
+	private void clean() {
+		Cells.cleanCasA();
+		Cells.cleanCasB();
+	}
+
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		AHint hint; // The hint, if we ever find one
 		int[] vA; // an array to read values from a Values bitset
-		int bitsA; // the cellA.maybes.bits
 		// indices of cells which maybe each value 1..9
-		final Idx[] candidates = grid.getIdxs(); // CACHED!
+		final Idx[] candidates = grid.idxs; // CACHED!
 		final Idx bud0 = this.bud0; // indices of buds of cA which maybe v0
 		final Idx bud1 = this.bud1; // indices of buds of cA which maybe v1
 		final Idx victims = this.victims; // indices of removable (red) cells
 		// presume that no hint will be found
 		boolean result = false;
-		// foreach cell in the grid
+		// foreach bivalue cell in the grid
 		for ( Cell cA : grid.cells )
-			// if cellA is bivalue
-			if ( cA.maybes.size == 2
-			  // get both potential values of cellA into the vA array
-			  // it'll never be null, only tested to have in the if statement
-			  && (vA=VALUESES[bitsA=cA.maybes.bits]) != null
+			// if cell-a has 2 maybes
+			if ( cA.size==2
+			  // and a tautology, to set vA
+			  && (vA=VALUESES[cA.maybes]) != null
 			  // and buddies of cellA which maybe v0/v1
 			  //     if either is empty then there's no W-Wing here.
 			  && bud0.setAndAny(cA.buds, candidates[vA[0]])
 			  && bud1.setAndAny(cA.buds, candidates[vA[1]]) )
 				// find a "pair" cell (with same 2 maybes)
 				for ( Cell cB : grid.cells )
-					if ( cB.maybes.bits==bitsA && cB!=cA ) {
+					if ( cB.maybes==cA.maybes && cB!=cA ) {
 						// ok, we have a pair; can anything be eliminated?
 						// find removable cells: siblings of both A and B
 						// which maybe v0 or v1
@@ -97,19 +110,24 @@ public final class WWing extends AHinter
 						  // search reds for a strong link
 						  && (hint=checkLink(grid, vA, cA, cB, victims)) != null ) {
 							result = true;
-							if ( accu.add(hint) )
+							if ( accu.add(hint) ) {
+								clean();
 								return result;
+							}
 							hint = null;
 						}
 						if ( victims.setAndAny(bud1, cB.buds)
 						  // search reds for a strong link
 						  && (hint=checkLink(grid, vA, cA, cB, victims)) != null ) {
 							result = true;
-							if ( accu.add(hint) )
+							if ( accu.add(hint) ) {
+								clean();
 								return result;
+							}
 							hint = null;
 						}
 					}
+		clean();
 		return result;
 	}
 	// buddies of cellA which maybe 0=v0, 1=v1
@@ -131,19 +149,19 @@ public final class WWing extends AHinter
 				// strong link; but does it fit?
 				wA = wB = null; // not found
 				for ( Cell c : region.cells ) {
-					if ( (c.maybes.bits & sv1)!=0 && c!=cA && c!=cB ) {
+					if ( (c.maybes & sv1)!=0 && c!=cA && c!=cB ) {
 						// If 'c' sees BOTH bivalue cells it's NOT a WWing!
 						// This is handled sneakily with the if/elseIf.
 						if ( c.sees[cA.i] ) {
 							wA = c;
 							if ( wB != null ) // W-Wing found!
 								return createHint(values, cA, cB, wA, wB
-										, victims.cells(grid));
+										, victims.cellsA(grid));
 						} else if ( c.sees[cB.i] ) {
 							wB = c;
 							if ( wA != null ) // W-Wing found!
 								return createHint(values, cA, cB, wA, wB
-										, victims.cells(grid));
+										, victims.cellsA(grid));
 						}
 					}
 				}
@@ -160,7 +178,7 @@ public final class WWing extends AHinter
 		// There MUST be a faster way!
 		final int sv0 = VSHFT[v0];
 		for ( Cell c : victimCells )
-			if ( (c.maybes.bits & sv0) == 0 )
+			if ( (c.maybes & sv0) == 0 )
 				return null;
 		// build the highlighted (green) potential values
 		final Pots greenPots = new Pots(v1, cA,cB,wA,wB);

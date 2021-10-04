@@ -9,6 +9,7 @@ package diuf.sudoku.gui;
 import diuf.sudoku.PuzzleID;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
+import diuf.sudoku.utils.Log;
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.FileReader;
@@ -54,7 +55,7 @@ class RecentFiles implements Closeable {
 						break;
 				}
 			} catch (IOException ex) {
-				StdErr.whinge(ex);
+				StdErr.whinge(Log.me()+" exception", ex);
 //				throw new RuntimeException("Unreadable "+FILE, ex);
 			}
 	}

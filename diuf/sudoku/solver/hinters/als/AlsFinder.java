@@ -79,7 +79,7 @@ class AlsFinder {
 		for ( ARegion r : grid.regions ) {
 			nakedSetIdx = nakedSetIdxs[r.index].clear();
 			if ( (n=r.emptyCellCount) > 2 ) {
-				empties = r.emptyCells(Cells.array(n));
+				empties = r.emptyCells(Cells.arrayA(n));
 				maybeses = Cells.maybesBits(empties, Idx.IAS_A[n]);
 				// do Naked Pairs seperately for speed
 				for ( int[] perm : new Permutations(n, Idx.IAS_B[2]) )
@@ -111,7 +111,7 @@ class AlsFinder {
 		int n, numCells, vs, i;
 		final Idx empties = grid.getEmpties();
 		final Cell[] gcells = grid.cells;
-		final Cell[] cas = Cells.array(64); // 81 - 17
+		final Cell[] cas = Cells.arrayA(64); // 81 - 17
 		for ( ARegion r : grid.regions ) { // 27
 			if ( tmp1.setAndMany(r.idx, empties)
 			  && tmp2.setAndNotAny(tmp1, nakedSetIdxs[r.index])
@@ -120,7 +120,7 @@ class AlsFinder {
 				for ( n=2; n<9; ++n ) { // number of cells
 					final int nPlus1 = n + 1; // number of cands
 					if ( (numCells=tmp2.cellsWhere(gcells, cas, (c) -> {
-								return c.maybes.size <= nPlus1;
+								return c.size <= nPlus1;
 					      })) > n ) {
 						maybeses = Cells.maybesBits(cas, Idx.IAS_A[numCells]);
 						for ( int[] perm : new Permutations(numCells, Idx.IAS_B[n]) ) {
@@ -143,13 +143,13 @@ class AlsFinder {
 		int n, numCells, vs, i;
 		final Idx empties = grid.getEmpties();
 		final Cell[] gcells = grid.cells;
-		final Cell[] cas = Cells.array(64); // 81 - 17 min clues
+		final Cell[] cas = Cells.arrayA(64); // 81 - 17 min clues
 		for ( ARegion r : grid.regions ) { // 27
 			if ( tmp1.setAndMany(r.idx, empties) ) {
 				for ( n=2; n<9; ++n ) { // number of cells
 					final int nPlus1 = n + 1; // number of cands
 					if ( (numCells=tmp1.cellsWhere(gcells, cas, (c) -> {
-								return c.maybes.size <= nPlus1;
+								return c.size <= nPlus1;
 					      })) > n ) {
 						maybeses = Cells.maybesBits(cas, Idx.IAS_A[numCells]);
 						for ( int[] perm : new Permutations(numCells, Idx.IAS_B[n]) ) {

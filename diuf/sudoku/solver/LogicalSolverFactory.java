@@ -6,8 +6,8 @@
  */
 package diuf.sudoku.solver;
 
-import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.io.StdErr;
+import diuf.sudoku.utils.Log;
 
 /**
  * The LogicalSolverFactory is an all-static class. It's the only way to create
@@ -29,9 +29,8 @@ public final class LogicalSolverFactory {
 	private static LogicalSolver solver;
 
 	/**
-	 * Get the current LogicalSolver if it has the given IInterruptMonitor,
-	 * else construct a new LogicalSolver with that IM, cache and return it.
-	 * Get is an MRU-cache of size 1.
+	 * Get the current LogicalSolver, else construct a new LogicalSolver and
+	 * return it; so get is an MRU cache of size 1.
 	 * <p>
 	 * Generating a new Diabolical or IDKFA puzzle takes indeterminate time,
 	 * ie bloody ages. The longest I've seen was seven minutes, but that was
@@ -70,24 +69,24 @@ public final class LogicalSolverFactory {
 	 *  the existing one.
 	 */
 	public static LogicalSolver recreate() {
-		// create a default LogicalSolver if unset (should never happen).
-		// recreate the LogicalSolver if the underlying Settings have changed.
-		if ( solver==null || !THE_SETTINGS.equals(solver.mySettings) )
-			solver = newLogicalSolver();
+//		Log.teeln("LogicalSolverFactory is recreating the LogicalSolver...");
+		solver = newLogicalSolver();
+		Log.teeln(solver.getWantedHinterNames());
+		Log.teeln(solver.getUnwantedHinterNames());
 		return solver;
 	}
 
 	// This method exists to ALWAYS update solversSettings after creating a new
 	// LogicalSolver, so that solversSettings is logically "pinned" to solver.
 	private static LogicalSolver newLogicalSolver() {
-		LogicalSolver result;
+		LogicalSolver ls;
 		try {
-			result = new LogicalSolver();
+			ls = new LogicalSolver();
 		} catch (Exception ex) {
-			StdErr.exit("WTF: new LogicalSolver() Exception!", ex);
-			result = null; // you can't get here!
+			StdErr.exit("WTF: new LogicalSolver() exception", ex);
+			ls = null; // you can't get here!
 		}
-		return result;
+		return ls;
 	}
 
 	// never used

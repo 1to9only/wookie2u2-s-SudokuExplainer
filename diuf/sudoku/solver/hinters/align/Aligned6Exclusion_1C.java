@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -66,8 +65,6 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 //  4*1024:   252,879,124,100	   4133	    61,185,367	    138	 1,832,457,421	Aligned Hex
 // 1465	  516,644,847,700	(08:36)	      352,658,599
 	private final NonHinters nonHinters = new NonHinters(8*1024, 4);
-	// What's that Skip? Why it's the skipper skipper flipper Flipper.
-	private boolean firstPass = true;
 
 //	protected final Counter cnt1col = new Counter("cnt1col");
 //	protected final Counter cnt1sib = new Counter("cnt1sib");
@@ -100,8 +97,8 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 
 //	private java.io.PrintStream myLog = open("a6e.log", standardHeader());
 
-	public Aligned6Exclusion_1C(IInterruptMonitor monitor) {
-		super(monitor, IO.A6E_1C_HITS);
+	public Aligned6Exclusion_1C() {
+		super(IO.A6E_1C_HITS);
 	}
 
 	@Override
@@ -117,16 +114,8 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 	}
 
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
-		// it's just easier to set firstPass ONCE, rather than deal with it in
-		// each of the multiple exit-points from what is now findHintsImpl.
-		boolean ret = findHintsImpl(grid, accu);
-		firstPass = false;
-		return ret;
-	}
-
 	@SuppressWarnings("fallthrough")
-	private boolean findHintsImpl(Grid grid, IAccumulator accu) {
+	public boolean findHints(Grid grid, IAccumulator accu) {
 
 		// these 4 vars are "special" for processing top1465.d5.mt faster
 		// localise hackTop1465 for speed (and to make it final).
@@ -155,11 +144,11 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values for more.
+		// that are packed into your maybes 0..511. See Values for more.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has an excluder with maybes.size 2..$degree
+		// maybesSize>=2 and has an excluder with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		// the number of candidates actually in the candidates array
@@ -197,10 +186,10 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 		// its value is removed from the maybes of each subsequent sibling cell.
 		// This is more code than "collision skipping" (as per A234E) but it is
 		// faster, because it does more of the work less often.
-		// c5b0: c5 bits version zero = maybes.bits of c5 minus v0 (the current
+		// c5b0: c5 bits version zero = maybes of c5 minus v0 (the current
 		// value of c0), presuming that c0 and c5 are siblings (ie c0 and c5 are
 		// in the same row, col, and/or box).
-		// c5b1: c5 bits version one = c5.maybes.bits & ~sv0 & ~sv1; where "& ~"
+		// c5b1: c5 bits version one = c5.maybes & ~sv0 & ~sv1; where "& ~"
 		// is how we remove a value from a bitset; and presuming that c5 is a
 		// sibling of both c0 and c1, got it?
 		int	c0b , c1b , c2b , c3b , c4b , c5b;
@@ -292,8 +281,7 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 								continue;
 							cells[4] = candidates[i4];
 							if(hitMe && cells[4]!=hitCells[4]) continue;
-							if ( isInterrupted() )
-								return false;
+							interrupt();
 							for ( i5=i4+1; i5<numCandidates; ++i5 ) {
 								if ( excluders[candidates[i5].i].idx1(idx05, idx04) )
 									continue;
@@ -312,7 +300,7 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 									if(col<4 || col>37) continue;
 //									++colCnt.pass;
 
-									// filter by total cells.maybes.size
+									// filter by total cells.maybesSize
 									mbs = totalMaybesSize; // from countCollisions
 //									mbsCnt.count(mbs);
 									if(mbs<12 || mbs>25) continue;
@@ -331,7 +319,7 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 //									++maxMbs.cnt;
 									fives = sixes = 0;
 									for ( Cell cell : cells )
-										switch ( cell.maybes.size ) {
+										switch ( cell.size ) {
 										case 6: ++sixes; //fallthrough
 										case 5: ++fives; //fallout
 										}
@@ -342,7 +330,7 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 
 								// read common excluder cells from grid at idx05
 								if ( (numCmnExcls = idx05.cellsN(grid, cmnExcls)) == 1 ) {
-									cmnExclBits[0] = cmnExcls[0].maybes.bits;
+									cmnExclBits[0] = cmnExcls[0].maybes;
 									numCmnExclBits = 1;
 								} else {
 									// performance: look at the smallest maybes first.
@@ -350,7 +338,7 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 									bubbleSort(cmnExcls, numCmnExcls);
 									// get common excluders bits, removing any supersets,
 									// eg: {12,125}=>{12} coz 125 covers 12, so 125 does nada.
-									// nb: "common excluders bits" is just the maybes.bits of
+									// nb: "common excluders bits" is just the maybes of
 									// the common excluder cells. It's faster to put them in
 									// there own array than it is to repeatedly dereference.
 									numCmnExclBits = subsets(cmnExclBits, cmnExcls, numCmnExcls);
@@ -388,19 +376,19 @@ public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 								// the dog____ing algorithm is faster with dodgem-cars to the left,
 								// but the above for-i-loops need a static cells array; so we copy
 								// cells to scells (sortedCells) and sort that array DESCENDING by:
-								// 4*maybesCollisions + 2*cmnExclHits + maybes.size
+								// 4*maybesCollisions + 2*cmnExclHits + maybesSize
 								cc.set(cells, cmnExclBits, numCmnExclBits);
 								System.arraycopy(cells, 0, scells, 0, degree);
 								//MyTimSort.small(scells, degree, cc);
 								bubbleSort(scells, degree, cc);
 
 								// get each sortedCell and it's potential values
-								c0b = (c0=scells[0]).maybes.bits;
-								c1b = (c1=scells[1]).maybes.bits;
-								c2b = (c2=scells[2]).maybes.bits;
-								c3b = (c3=scells[3]).maybes.bits;
-								c4b = (c4=scells[4]).maybes.bits;
-								c5b = (c5=scells[5]).maybes.bits;
+								c0b = (c0=scells[0]).maybes;
+								c1b = (c1=scells[1]).maybes;
+								c2b = (c2=scells[2]).maybes;
+								c3b = (c3=scells[3]).maybes;
+								c4b = (c4=scells[4]).maybes;
+								c5b = (c5=scells[5]).maybes;
 
 								// build the notSiblings cache
 								ns10 = c1.notSees[c0.i];

@@ -47,7 +47,7 @@ import java.util.List;
  */
 public class DeathBlossom extends AAlsHinter
 		implements diuf.sudoku.solver.hinters.IPreparer
-				 , diuf.sudoku.solver.hinters.ICleanUp
+//				 , diuf.sudoku.solver.hinters.ICleanUp
 {
 	// the default number of ALSs per candidate value.
 	// We seek a number covering about 90% of use-cases. Let it grow for the
@@ -156,10 +156,12 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	// clean-up after the puzzle is solved
-	@Override
+//I'm now called locally so no longer implement ICleanUp. Never wipe twice.
+//	@Override
 	public void cleanUp() {
 		clearAlssByValue();
 		db.clear();
+		Cells.cleanCasA();
 	}
 
 	/**
@@ -205,18 +207,18 @@ public class DeathBlossom extends AAlsHinter
 			// you should bump the < 4 upto < 5, until it is proven that 4 can
 			// never produce a hint, as I suspect. Sometimes I'm too efficient.
 			final Idx stems = grid.getEmptiesWhere((c) -> {
-				return c.maybes.size < 4;
+				return c.size < 4;
 			});
 			// foreach empty cell in the grid
-			for ( Cell stem : stems.cells(grid) ) {
+			for ( Cell stem : stems.cellsA(grid) ) {
 				// initialise DeathBlossom data
 				db.cands = 0; // empty
 				// the stem.maybes to assign to each ALS
-				db.freeCands = stem.maybes.bits;
+				db.freeCands = stem.maybes;
 				// each ALSs cells are added to db.idx
 				db.idx.clear();
 				// ALS's must share a common value other than stem.maybes
-				db.cmnCands = VALL & ~stem.maybes.bits;
+				db.cmnCands = VALL & ~stem.maybes;
 				// seek an ALS for each stem.maybe (each freeCand)
 				// if the DeathBlossom has any eliminations then hint
 				if ( (result|=recurse(stem)) && onlyOne )
@@ -284,7 +286,7 @@ public class DeathBlossom extends AAlsHinter
 			//   ALSs which maybe value, then eliminate value from that cell.
 			// get cells which maybe each value common to all ALSs.
 			db.clearVs();
-			for ( int v : VALUESES[stem.maybes.bits] ) // to get each ALS
+			for ( int v : VALUESES[stem.maybes] ) // to get each ALS
 				for ( int cv : VALUESES[db.cmnCands] ) // common value
 					db.vs[cv].or(db.alssByValue[v].vs[cv]);
 			// populate theReds field with removable Cell=>Values
@@ -325,8 +327,8 @@ public class DeathBlossom extends AAlsHinter
 		Pots reds = new Pots(theReds);
 		theReds.clear();
 		// build a list of the ALS's
-		List<Als> alss = new ArrayList<>(stem.maybes.size);
-		for ( int v : VALUESES[stem.maybes.bits] )
+		List<Als> alss = new ArrayList<>(stem.size);
+		for ( int v : VALUESES[stem.maybes] )
 			alss.add(db.alssByValue[v]);
 		// copy-off the ALS's by value array (which is re-used)
 		Als[] abv = db.alssByValue.clone();

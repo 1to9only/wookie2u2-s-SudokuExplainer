@@ -31,7 +31,6 @@ import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
 import static diuf.sudoku.solver.hinters.color.Words.*;
-import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
@@ -223,7 +222,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		this.grid = grid;
 		this.accu = accu;
 		this.onlyOne = accu.isSingle();
-		this.candidates = grid.getIdxs();
+		this.candidates = grid.idxs;
 		// presume that no hint will be found
 		boolean result = false;
 		try {
@@ -271,8 +270,8 @@ public class Medusa3D extends AHinter implements IPreparer
 		// foreach bivalue cell
 		// increment score of each value with 2+ conjugate pairs
 		for ( Cell c : grid.cells )
-			if ( c.maybes.size == 2 )
-				for ( int v : VALUESES[c.maybes.bits & cands] )
+			if ( c.size == 2 )
+				for ( int v : VALUESES[c.maybes & cands] )
 					++scores[v].score;
 		// order by score descending
 		Arrays.sort(scores, VALUE_SCORE_DESCENDING);
@@ -463,7 +462,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @param v the value to paint
 	 * @param cell the cell to paint, recursively
 	 * @param biCheck if true then I also paint the otherValue of each bivalue
-	 *  cell (cell.maybes.size==2) the opposite color, recursively. If false
+	 *  cell (cell.maybesSize==2) the opposite color, recursively. If false
 	 *  then skip step 3, because we already know it's a waste of time.
 	 * @param why a one-liner on why this cell-value is painted this color.
 	 * @throws OverpaintException when a cell-value is painted in both colors.
@@ -501,11 +500,11 @@ public class Medusa3D extends AHinter implements IPreparer
 			}
 		}
 		// 3. Paint the other value of this bivalue cell the opposite color
-		if ( cell.maybes.size == 2
+		if ( cell.size == 2
 		 // skip this bi-check when we're painting "the other value"
 		 && biCheck
 		 // nb: pre-check faster than needlessly building the why string!
-		 && !colors[o][otherValue=VFIRST[cell.maybes.bits & ~VSHFT[v]]].contains(cell.i)
+		 && !colors[o][otherValue=VFIRST[cell.maybes & ~VSHFT[v]]].contains(cell.i)
 		) {
 			// we want explanation in GUI and testcases
 			// NOTE: batch is a MINUTE faster for this!
@@ -722,7 +721,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		final Idx[] thisColor = colors[c];
 		for ( int v : VALUESES[colorValues[c]] )
 			thisColor[v].forEach(grid.cells, (cc) ->
-				result.insert(cc, new Values(v))
+				result.insert(cc, VSHFT[v])
 			);
 		return result;
 	}
@@ -759,7 +758,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		// (a) Both colors in a cell eliminate all other values.
 		if ( tmp1.setAndAny(all[GREEN], all[BLUE]) ) {
 			for ( int i : tmp1.toArrayA() ) {
-				if ( grid.cells[i].maybes.size > 2
+				if ( grid.cells[i].size > 2
 				  // get a bitset of all values of cells[i] that're green and blue.
 				  // There may be none, never multiple (contradictions pre-tested)
 				  // We need 1 green value and 1 blue value, to strip from pinks.
@@ -769,9 +768,9 @@ public class Medusa3D extends AHinter implements IPreparer
 				  // ensure that g and b are not equal (should NEVER be equal)
 				  && g != b
 				  // pinks is a bitset of "all other values" to be eliminated
-				  && (pinks=(cc=grid.cells[i]).maybes.bits & ~g & ~b) != 0
+				  && (pinks=(cc=grid.cells[i]).maybes & ~g & ~b) != 0
 				  // ignore already-justified eliminations (shouldn't happen here)
-				  && redPots.upsert(cc, new Values(pinks, false))
+				  && redPots.upsert(cc, pinks, false)
 				) {
 					// we want explanation in GUI and testcases
 					if ( wantWhy ) {
@@ -797,7 +796,7 @@ public class Medusa3D extends AHinter implements IPreparer
 				if ( tmp3.setAndAny(BUDDIES[ii], colors[GREEN][v])
 				  && tmp4.setAndAny(BUDDIES[ii], colors[BLUE][v])
 				  // ignore already-justified eliminations
-				  && redPots.upsert(grid.cells[ii], new Values(v))
+				  && redPots.upsert(grid.cells[ii], v)
 				) {
 					// we want explanation in GUI and testcases
 					if ( wantWhy ) {
@@ -977,7 +976,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		Pots result = new Pots();
 		for ( int v : VALUESES[colorValues[color]] )
 			colors[color][v].forEach(grid.cells, (cc) ->
-				result.upsert(cc, new Values(v))
+				result.upsert(cc, v)
 			);
 		return result;
 	}

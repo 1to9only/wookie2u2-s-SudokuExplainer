@@ -252,7 +252,7 @@ public class ComplexFishHint extends AHint  {
 			, Regions.typeNames(bases)		//  2
 			, Regions.typeNames(covers)		//  3
 			, nn							//  4 number name
-			, tag							//  5 debug message
+			, tag							//  5 used in FinnedFishHint.html
 			, redPots.toString()			//  6 eliminations
 			, blues.toString()				//  7 fins
 			, coloredHint					//  8 hint (elims)

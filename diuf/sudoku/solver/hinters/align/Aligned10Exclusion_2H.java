@@ -15,7 +15,6 @@ import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.LogicalSolver;
 
@@ -65,8 +64,8 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 
 	private final NonHinters64 nonHinters = new NonHinters64(16*1024, 4);
 
-	public Aligned10Exclusion_2H(IInterruptMonitor monitor) {
-		super(monitor, IO.A10E_2H_HITS);
+	public Aligned10Exclusion_2H() {
+		super(IO.A10E_2H_HITS);
 	}
 
 //	@Override
@@ -109,11 +108,11 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into your maybes.bits 0..511. See Values for more.
+		// that are packed into your maybes 0..511. See Values for more.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 2 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 2 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -165,8 +164,8 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 		// are siblings of this cell. This is more code than "skip collision"
 		// (as in A234E) but it's faster, because it's doing more of the work
 		// less often.
-		// So c1b0 is version-0 of c1.maybes.bits, with v0 removed if c1 is a
-		// sibling of c0, and c1b (c1.maybes.bits) contained v0 to start with.
+		// So c1b0 is version-0 of c1.maybes, with v0 removed if c1 is a
+		// sibling of c0, and c1b (c1.maybes) contained v0 to start with.
 		int c0b, c1b , c2b , c3b , c4b , c5b , c6b , c7b , c8b , c9b;
 		int		       c2b0, c3b0, c4b0, c5b0, c6b0, c7b0, c8b0, c9b0;
 		int			         c3b1, c4b1, c5b1, c6b1, c7b1, c8b1, c9b1;
@@ -277,8 +276,7 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 												continue;
 											cells[8] = candidates[i8];
 											if(hitMe && cells[8]!=hitCells[8]) continue;
-											if ( isInterrupted() )
-												return false;
+											interrupt();
 
 											for ( i9=i8+1; i9<numCandidates; ++i9 ) {
 												if ( excluders[candidates[i9].i].idx2(idx09, idx08) )
@@ -311,23 +309,23 @@ public final class Aligned10Exclusion_2H extends Aligned10ExclusionBase
 												// the dog____ing algorithm is faster with dodgem-cars to the left,
 												// but the above for-i-loops need a static cells array; so we copy
 												// cells to scells (sortedCells) and sort that array DESCENDING by:
-												// 4*maybesCollisions + 2*commonExcluderHits + maybes.size
+												// 4*maybesCollisions + 2*commonExcluderHits + maybesSize
 												cc.set(cells, cmnExclBits, numCmnExclBits);
 												System.arraycopy(cells, 0, scells, 0, degree);
 												//MyTimSort.small(scells, degree, cc);
 												bubbleSort(scells, degree, cc);
 
-												// get c* + maybes.bits from sortedCells
-												c0b = (c0=scells[0]).maybes.bits;
-												c1b = (c1=scells[1]).maybes.bits;
-												c2b = (c2=scells[2]).maybes.bits;
-												c3b = (c3=scells[3]).maybes.bits;
-												c4b = (c4=scells[4]).maybes.bits;
-												c5b = (c5=scells[5]).maybes.bits;
-												c6b = (c6=scells[6]).maybes.bits;
-												c7b = (c7=scells[7]).maybes.bits;
-												c8b = (c8=scells[8]).maybes.bits;
-												c9b = (c9=scells[9]).maybes.bits;
+												// get c* + maybes from sortedCells
+												c0b = (c0=scells[0]).maybes;
+												c1b = (c1=scells[1]).maybes;
+												c2b = (c2=scells[2]).maybes;
+												c3b = (c3=scells[3]).maybes;
+												c4b = (c4=scells[4]).maybes;
+												c5b = (c5=scells[5]).maybes;
+												c6b = (c6=scells[6]).maybes;
+												c7b = (c7=scells[7]).maybes;
+												c8b = (c8=scells[8]).maybes;
+												c9b = (c9=scells[9]).maybes;
 
 												// build the isNotSiblingOf cache
 												ns10 = c1.notSees[c0.i];

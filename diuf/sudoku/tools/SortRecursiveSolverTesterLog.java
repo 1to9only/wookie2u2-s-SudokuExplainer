@@ -9,6 +9,7 @@ package diuf.sudoku.tools;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import static diuf.sudoku.utils.Frmt.TAB;
+import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLong;
 import java.io.BufferedReader;
 import java.io.File;
@@ -54,7 +55,7 @@ public class SortRecursiveSolverTesterLog {
 			for ( String myLine : trailer )
 				System.out.println(myLine);
 		} catch (IOException ex) {
-			StdErr.whinge(ex);
+			StdErr.whinge(Log.me()+" exception", ex);
 		}
 	}
 

@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters.single;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VFIRST;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
 
@@ -51,40 +52,19 @@ public final class NakedSingle extends AHinter {
 		super(Tech.NakedSingle);
 	}
 
+	// I wish they were all this simple.
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-
-		// we always presume that no hints will be found.
 		boolean result = false;
-		// heyere's moi value: I wish they were all this simple.
 		int value;
-		for ( Cell cell : grid.cells ) {
-			if ( cell.maybes.size == 1 ) {
-				// nb: we know that cell has 1 potential value, so we can get it's
-				// first (lowest order) potential value with confidence that it
-				// will be THE cell value, unless of course it's ___ing invalid.
-				if ( (value=cell.maybes.first()) < 1 ) { // it's ___ing invalid!
-					// I'm treating the symptom here, not the disease!
-					//
-					// I shot the symptom, but I didno shoot no problem-ee
-					// I say, ha-na ha-na hmmm, dang dang dang!
-					// goes poo-cactus, in HintsApplicumulator
-					// I say, (soup-nazi) NO endless loop! (9mm) BANG BANG BANG!
-					//
-					// Q: Now who the ____ is setting bits to 0 without also setting
-					//    size to 0?
-					//    James you have a licence to kill!
-					//    Wewease da hounds!
-					//    Cockheads on starboard bow!
-					//    Suck me off Jim! (raise right eye-brow)
-					cell.maybes.clear();
-					continue;
-				}
-				result = true; // Yeah, we found at least one hint!
-				if ( accu.add(new NakedSingleHint(this, cell, value)) )
-					return result; // stop search as soon as the first hint is found
-			}
-		}
+		for ( Cell cell : grid.cells )
+			if ( cell.size == 1 )
+				if ( (value=VFIRST[cell.maybes]) > 0 ) {
+					result = true;
+					if ( accu.add(new NakedSingleHint(this, cell, value)) )
+						return result;
+				} else // invalid
+					cell.clearMaybes();
 		return result;
 	}
 

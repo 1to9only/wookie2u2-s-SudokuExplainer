@@ -16,7 +16,8 @@ public final class StdErr {
 
 	/** prints t's stackTrace to stderr and returns false. */
 	public static boolean whinge(Throwable t) {
-		waitForStdOut();
+		System.out.flush();
+		System.err.flush();
 		t.printStackTrace(System.err);
 		System.err.flush();
 		return false;
@@ -24,7 +25,8 @@ public final class StdErr {
 
 	/** prints msg to stderr and returns false. */
 	public static boolean whinge(String msg) {
-		waitForStdOut();
+		System.out.flush();
+		System.err.flush();
 		System.err.println(msg);
 		System.err.flush();
 		return false;
@@ -32,7 +34,8 @@ public final class StdErr {
 
 	/** prints msg and t's stackTrace to stderr and returns false. */
 	public static boolean whinge(String msg, Throwable t) {
-		waitForStdOut();
+		System.out.flush();
+		System.err.flush();
 		System.err.println(msg);
 		t.printStackTrace(System.err);
 		System.err.flush();
@@ -53,7 +56,8 @@ public final class StdErr {
 	 * don't understand it yet.
 	 */
 	public static boolean carp(String msg, Throwable t) {
-		waitForStdOut();
+		System.out.flush();
+		System.err.flush();
 		System.err.println(msg);
 		System.err.println(t);
 		System.err.flush();
@@ -70,7 +74,8 @@ public final class StdErr {
 	 * don't understand it yet.
 	 */
 	public static boolean carp(String msg, Throwable t, Grid g) {
-		waitForStdOut();
+		System.out.flush();
+		System.err.flush();
 		System.err.println(msg);
 		System.err.println(t);
 		System.err.println(g);
@@ -97,16 +102,6 @@ public final class StdErr {
 	public static void exit(String msg, Throwable t) {
 		whinge(msg, t);
 		System.exit(1);
-	}
-
-	// Wait for stdout so stderr doesn't interleave. This code is complete-s__t
-	// but I have no idea what I should do. The problem is that Netbeans allows
-	// stderr to interleave with stdout, so that neither is legible. When the
-	// GUI or LogicalSolverTester is run in cmd.com there's no problem.
-	private static void waitForStdOut() {
-		System.out.flush();
-// sleep doesn't help.
-//		try{Thread.sleep(50);}catch(InterruptedException eaten){}
 	}
 
 	// never used

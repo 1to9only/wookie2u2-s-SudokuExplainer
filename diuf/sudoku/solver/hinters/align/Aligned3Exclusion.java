@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.AHint;
@@ -91,7 +92,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 	private final Idx idx02 = new Idx(); // = idx01 & idx2
 
 	public Aligned3Exclusion() {
-		super(Tech.AlignedTriple, null, IO.A3E_HITS);
+		super(Tech.AlignedTriple, IO.A3E_HITS);
 		assert tech.isAligned;
 		assert degree == 3;
 	}
@@ -170,7 +171,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 			return false; // no hints for this puzzle/hintNumber
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 1 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 1 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -203,7 +204,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 		// a virtual array of the 3 cells in an aligned exclusion set.
 		Cell c0, c1, c2;
 
-		// the maybes.bits of the cells in the aligned set.
+		// the maybes of the cells in the aligned set.
 		int c0b, c1b, c2b;
 
 		// notSibling: cache of isNotSiblingOf results.
@@ -246,7 +247,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 				// get c0 and an index-into-Grid.cells of c0's excluder cells.
 				idx0 = excluders[(c0=cells[0]=candidates[i0]).i].idx();
 				if(hitMe && c0!=hitCells[0]) continue;
-				c0b = c0.maybes.bits;
+				c0b = c0.maybes;
 				for ( i1=i0+1; i1<n1; ++i1 ) {
 					// get c1 and index of excluders common to c1 and c0.
 					// A3E requires atleast 2 common excluder cells.
@@ -254,7 +255,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 						continue;
 					c1 = cells[1] = candidates[i1];
 					if(hitMe && c1!=hitCells[1]) continue;
-					c1b = c1.maybes.bits;
+					c1b = c1.maybes;
 					ns10 = c1.notSees[c0.i];
 					for ( i2=i1+1; i2<numCandidates; ++i2 ) {
 						// get c2 and index of excluders common to c0, c1, and c2.
@@ -286,7 +287,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 						// A3E requires atleast 2 common excluders.
 						// pass 7,464,472 of 16,725,495 skip 9,261,023 = 55.37%
 						if ( (numCmnExclBits = disdisjunct(cmnExclBits, numCmnExclBits
-								, c0b|c1b|(c2b=c2.maybes.bits))) < 2 )
+								, c0b|c1b|(c2b=c2.maybes))) < 2 )
 							continue;
 
 						// complete the isSiblingOf cache
@@ -505,15 +506,15 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 		int sv0, sv01, combo, i;
 
 		// Foreach distinct combination of 3 potential values of (c0,c1,c2)
-		for ( int v0 : c0.maybes ) { // anything is fast enough for a small enough n
+		for ( int v0 : VALUESES[c0.maybes] ) {
 			sv0 = VSHFT[v0];
-			for ( int v1 : c1.maybes ) {
+			for ( int v1 : VALUESES[c1.maybes] ) {
 				if ( v1==v0 && !c1.notSees[c0.i] ) {
 					map.put(new HashA(v0,v1,0),null);
 					continue;
 				}
 				sv01 = sv0 | VSHFT[v1];
-				for ( int v2 : c2.maybes ) {
+				for ( int v2 : VALUESES[c2.maybes] ) {
 					if ( v2==v0 && !c2.notSees[c0.i] ) {
 						map.put(new HashA(v0,0,v2),null);
 						continue;
@@ -523,7 +524,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 					}
 					combo = sv01 | VSHFT[v2];
 					for ( i=0; i<numCmnExcls; ++i )
-						if ( (cmnExcls[i].maybes.bits & ~combo) == 0 ) {
+						if ( (cmnExcls[i].maybes & ~combo) == 0 ) {
 							map.put(new HashA(v0,v1,v2), cmnExcls[i]);
 							break; // we want only the first excluder of each combo
 						}

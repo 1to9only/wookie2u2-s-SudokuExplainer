@@ -14,6 +14,10 @@ package diuf.sudoku.gen;
 public enum Symmetry {
 	None {
 		@Override
+		public int size() {
+			return 1;
+		}
+		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
 				new Point(x, y)
@@ -29,6 +33,10 @@ public enum Symmetry {
 		}
 	}
 	, Vertical {
+		@Override
+		public int size() {
+			return 2;
+		}
 		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
@@ -47,6 +55,10 @@ public enum Symmetry {
 	}
 	, Horizontal {
 		@Override
+		public int size() {
+			return 2;
+		}
+		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
 				new Point(x, y)
@@ -63,6 +75,10 @@ public enum Symmetry {
 		}
 	}
 	, Diagonal {
+		@Override
+		public int size() {
+			return 2;
+		}
 		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
@@ -81,6 +97,10 @@ public enum Symmetry {
 	}
 	, Antidiagonal {
 		@Override
+		public int size() {
+			return 2;
+		}
+		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
 				new Point(x, y)
@@ -98,6 +118,10 @@ public enum Symmetry {
 	}
 	, Rotate180 {
 		@Override
+		public int size() {
+			return 2;
+		}
+		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
 				new Point(x, y)
@@ -114,6 +138,10 @@ public enum Symmetry {
 		}
 	}
 	, Bidiagonal_4 {
+		@Override
+		public int size() {
+			return 4;
+		}
 		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
@@ -134,6 +162,10 @@ public enum Symmetry {
 	}
 	, Orthogonal_4 {
 		@Override
+		public int size() {
+			return 4;
+		}
+		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
 				new Point(x, y)
@@ -153,6 +185,10 @@ public enum Symmetry {
 	}
 	, Rotate90_4 {
 		@Override
+		public int size() {
+			return 4;
+		}
+		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
 				new Point(x, y)
@@ -171,6 +207,10 @@ public enum Symmetry {
 		}
 	}
 	, Full_8 {
+		@Override
+		public int size() {
+			return 4;
+		}
 		@Override
 		public Point[] getPoints(int x, int y) {
 			return new Point[] {
@@ -212,6 +252,8 @@ public enum Symmetry {
 		, Bidiagonal_4, Orthogonal_4, Rotate90_4, Full_8
 	};
 
+	public abstract int size();
+	
 	public abstract Point[] getPoints(int x, int y);
 
 	public abstract String getDescription();

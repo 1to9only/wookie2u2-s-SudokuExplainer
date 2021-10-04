@@ -11,7 +11,6 @@ import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
@@ -25,9 +24,8 @@ import java.util.Collection;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.utils.Log;
 
-
 /**
- * The ChainersHintsAccumulator is used by MultipleChainer.getHinterEffects
+ * The ChainerHintsAccumulator is used by MultipleChainer.getHinterEffects
  * which is only used when degree>0 which implies isDynamic. It translates an
  * AHint into a list of Assumptions called effects. The hints produced by all
  * of MultipleChainer hinters implement the IChildHint interface to provide me
@@ -36,22 +34,27 @@ import diuf.sudoku.utils.Log;
  * parents of) the Ass I'm creating. All the code that's specific to each type
  * of hint is in the hints class.
  */
-public final class ChainersHintsAccumulator implements IAccumulator {
+public final class ChainerHacu implements IAccumulator {
 
 	private final Grid initGrid;
 	private final Grid currGrid;
 	private final IAssSet parentOffs;
 	private final List<Ass> effects;
 
-	public ChainersHintsAccumulator(
-		  Grid initGrid
-		, Grid currGrid
-		, IAssSet parentOffs
-		, List<Ass> effects
-	) {
-		this.initGrid = initGrid;
-		this.currGrid = currGrid;
-		this.parentOffs = parentOffs;
+	/**
+	 * Constructor.
+	 *
+	 * @param ig the initial grid (without any chaining erasures)
+	 * @param cg the current grid (with chaining erasures)
+	 * @param rents the parent Ass's in which I find the parents of each Ass
+	 *  that I create, each having it's own parents, and therefore forming a
+	 *  backward-chain, where each node only knows it's parent/s.
+	 * @param effects the Ass List to which I add
+	 */
+	public ChainerHacu(Grid ig, Grid cg, IAssSet rents, List<Ass> effects) {
+		this.initGrid = ig;
+		this.currGrid = cg;
+		this.parentOffs = rents;
 		this.effects = effects;
 	}
 
@@ -69,6 +72,7 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 	public boolean add(AHint hint) {
 		if ( hint==null )
 			return false;
+		prevHint = hint;
 		if ( hint.redPots == null ) {
 			// except Summary of hint/s already applied by HintsApplicumulator
 			if ( !(hint instanceof AppliedHintsSummaryHint) )
@@ -81,6 +85,8 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 		try {
 			// all hints produced by Chains.hinters implement IChildHint,
 			// but the AHint argument type is specified by IHintsAccu.
+//			if ( !(hint instanceof IChildHint) )
+//				Debug.breakpoint();
 			IChildHint childHint = (IChildHint)hint;
 			parents = childHint.getParents(initGrid, currGrid, parentOffs);
 		} catch (UnsolvableException ignoreThisHint) {
@@ -96,12 +102,20 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 			nestedChain = (AChainingHint)hint;
 		else
 			nestedChain = null;
-		for ( java.util.Map.Entry<Cell,Values> e : redPots.entrySet() )
-			for ( int v : VALUESES[e.getValue().bits] )
+		for ( java.util.Map.Entry<Cell,Integer> e : redPots.entrySet() )
+			for ( int v : VALUESES[e.getValue()] )
 				result |= effects.add(new Ass(e.getKey(), v, false, parents
 						, Cause.Advanced, hint.toString() // explanation
 						, nestedChain));
 		return result;
+	}
+	private AHint prevHint;
+
+	@Override
+	public AHint getHint() {
+		final AHint h = prevHint;
+		prevHint = null;
+		return h;
 	}
 
 	@Override
@@ -113,13 +127,8 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public AHint getHint() {
-		return null;
-	}
-
-	@Override
 	public AHint peek() {
-		return null;
+		return prevHint;
 	}
 
 	@Override
@@ -145,6 +154,11 @@ public final class ChainersHintsAccumulator implements IAccumulator {
 	@Override
 	public void removeAll(List<AHint> toRemove) {
 		// a no-op
+	}
+
+	@Override
+	public List<? extends AHint> getList() {
+		throw new UnsupportedOperationException("Not supported.");
 	}
 
 }

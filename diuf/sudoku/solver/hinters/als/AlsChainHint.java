@@ -7,6 +7,7 @@
 package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Pots;
+import static diuf.sudoku.Values.VFIRST;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmu;
@@ -89,7 +90,7 @@ public class AlsChainHint extends AHint  {
 	@Override
 	public String toHtmlImpl() {
 		// there's only one z-value, it's the same for every cell.
-		final int z = redPots.values().iterator().next().first();
+		final int z = VFIRST[redPots.values().iterator().next()];
 		return Html.produce(this, "AlsChainHint.html"
 			, getAlssString()				//{0}
 			, Integer.toString(z)			// 1

@@ -9,8 +9,6 @@ package diuf.sudoku.utils;
 import static diuf.sudoku.utils.Frmt.PERIOD;
 import static diuf.sudoku.utils.Frmt.SPACE;
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 
 
 /**
@@ -24,7 +22,7 @@ public final class Log {
 
 //	public static final PrintStream DEV_NULL = DevNullPrintStream.out;
 
-	// Use if(Log.mode>=Log.VERBOSE_MODE) with >= and the SEARCHABLE constant. Yes, greater-than-OR-EQUALS-TOO is a tad slower dad, but fickit (that's Scottish for ____IT!; which many people find a lot less confronting, for some reason. I guesse it might be that the Scottish have lived next door to the English for so ficking long that it's no wonder they've learned to swear there ____ing-heads-right-off with an alactrity which has even been known to raise a Jewish eyebrow): machines are like a 1,000,000 times faster now than they were when I was a lad, so just fickit! Do what works. And Trump and his ____wit Jewish mates could learn something from that sentence too. There is no perfect YOU MUPPETS! Killing of the neibours because there s__t stinks doesn't make you clever it just makes you a ____ing butthole, and if you ever attempt to move in next door to me I shall wag on you most wuffly, ____ING ____KNUCKLES!
+	// Use if(Log.mode>=Log.VERBOSE_MODE) with >= and the SEARCHABLE constant. Yes, greater-than-OR-EQUALS-TOO is a tad slower dad, but fickit (that's Scottish for ____it!; which many people find a lot less confronting, for some reason. I guesse it might be that the Scottish have lived next door to the English for so ficking long that it's no wonder they've learned to swear there ____ing-heads-right-off with an alactrity which has even been known to raise a Jewish eyebrow): machines are like a 1,000,000 times faster now than they were when I was a lad, so just fickit! Do what works. There is no perfect YOU MUPPETS! Killing of the neibours because there s__t stinks doesn't make you clever it just makes you a ____ing butthole, and if you ever attempt to move in next door to me I shall wag on you most wuffly, ____ING ____KNUCKLES!
 	public static final int SILENCE_MODE   = -1; // also set Log.out = Log.DEV_NULL;
 	public static final int NORMAL_MODE    = 0;  // 1 line per puzzle (basics)
 	public static final int VERBOSE_1_MODE = 10; // + 1 line per Hinter (summary)
@@ -110,7 +108,7 @@ public final class Log {
 	// depth of the recursive call-stack, and char 'c' is a space.
 	// You could also use this to right-justify a binary number string
 	// (with '0'), or whatever.
-	// s = cell.maybes.bits.toBinaryString();
+	// s = cell.maybes.toBinaryString();
 	// indentf('0', 10-s.length(), "%s", s);
 	public static void indentf(char c, int depth, String fmt, Object... args) {
 		for (int i=0; i<depth; ++i)
@@ -152,14 +150,38 @@ public final class Log {
 			System.out.format(frmt, args);
 	}
 	public static void teeTrace(Throwable t) {
+		log.flush();
 		t.printStackTrace(log);
-		if ( log != System.out )
+		log.flush();
+		if ( log != System.out ) {
+			System.out.flush();
 			t.printStackTrace(System.out);
+			System.out.flush();
+		}
+	}
+	public static void teeTrace(String msg, Throwable t) {
+		log.println(msg);
+		log.flush();
+		t.printStackTrace(log);
+		log.flush();
+		if ( log != System.out ) {
+			System.out.println(msg);
+			System.out.flush();
+			t.printStackTrace(System.out);
+			System.out.flush();
+		}
 	}
 
 	public static void teef(final boolean l, final boolean p, final String f, final Object... args) {
 		if(l)log.format(f, args);
 		if(p)System.out.format(f, args);
+	}
+	
+	public static String simple(String className) {
+		int i = className.lastIndexOf('.');
+		if ( i == -1 )
+			return className;
+		return className.substring(i+1);
 	}
 
 	/**
@@ -169,7 +191,7 @@ public final class Log {
 	public static String me() {
 		// 0 is this method, 1 is my direct caller
 		StackTraceElement e = new Throwable().getStackTrace()[1];
-		return e.getClassName()+PERIOD+e.getMethodName();
+		return simple(e.getClassName())+PERIOD+e.getMethodName();
 	}
 
 	/**
@@ -194,17 +216,12 @@ public final class Log {
 		Log.log = out;
 	}
 
-//	// ============================= stats ==================================
-//
-//	public static PrintStream openStats() {
-//		try {
-//			IO.backup(IO.PERFORMANCE_STATS);
-//			return new PrintStream(IO.PERFORMANCE_STATS);
-//		} catch (Exception ex) {
-//			StdErr.whinge("openStats failed", ex);
-//			return null;
-//		}
-//	}
+	public static void stackTrace(String msg, Exception ex) {
+		println(msg);
+		log.flush();
+		ex.printStackTrace(log);
+		log.flush();
+	}
 
 	// =========================== constructor ================================
 

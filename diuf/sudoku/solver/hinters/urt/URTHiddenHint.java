@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
@@ -48,7 +49,7 @@ public final class URTHiddenHint extends AURTHint {
 		if ( orangePots == null ) {
 			Pots pots = new Pots(4, 1F);
 			for ( Cell c : loop )
-				pots.put(c, new Values(v1)); // v1 (a) is locked into rectangle
+				pots.put(c, VSHFT[v1]); // v1 (a) is locked into rectangle
 			orangePots = pots;
 		}
 		return orangePots;
@@ -60,7 +61,7 @@ public final class URTHiddenHint extends AURTHint {
 		if ( bluePots == null ) {
 			Pots pots = new Pots(4, 1F);
 			for ( Cell c : loop )
-				pots.put(c, new Values(v2)); // v2 (b) is value to remove
+				pots.put(c, VSHFT[v2]); // v2 (b) is value to remove
 			// remove the removable (red) pot so that it appears red
 			pots.removeAll(getReds(0));
 			bluePots = pots;

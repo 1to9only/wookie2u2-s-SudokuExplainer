@@ -12,11 +12,11 @@ import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.gen.IInterruptMonitor;
 import diuf.sudoku.io.IO;
 
 
@@ -86,8 +86,8 @@ implements
 	private final Idx idx02 = new Idx(); // = idx01 & idx2
 	private final Idx idx03 = new Idx(); // = idx02 & idx3
 
-	public Aligned4Exclusion(IInterruptMonitor im) {
-		super(Tech.AlignedQuad, im, IO.A4E_HITS);
+	public Aligned4Exclusion() {
+		super(Tech.AlignedQuad, IO.A4E_HITS);
 		assert tech.isAligned;
 		assert degree == 4;
 	}
@@ -139,11 +139,11 @@ implements
 			return false; // no hints for this puzzle/hintNumber
 
 		// shiftedValueses: an array of jagged-arrays of the shifted-values
-		// that are packed into a maybes.bits 0..511. See Values.SHIFTED.
+		// that are packed into a maybes 0..511. See Values.SHIFTED.
 		final int[][] SVS = Values.VSHIFTED;
 
 		// The populate populateCandidatesAndExcluders fields: a candidate has
-		// maybes.size>=2 and has 1 excluders with maybes.size 2..$degree
+		// maybesSize>=2 and has 1 excluders with maybesSize 2..$degree
 		// NB: Use arrays for speed. They get HAMMERED!
 		final Cell[] candidates = CANDIDATES_ARRAY;
 		final int numCandidates;
@@ -187,7 +187,7 @@ implements
 		// the set which are siblings of this cell. This is more code than just
 		// "skip collision" (as per A234E) but it is faster, because it does
 		// more of the work less often.
-		int c0b, c1b , c2b , c3b ; // c3b  = c3.maybes.bits;
+		int c0b, c1b , c2b , c3b ; // c3b  = c3.maybes;
 		int		       c2b0, c3b0; // c3b0 = s03 ? c3b  & ~sv0 : c3b;
 		int			         c3b1; // c3b1 = s13 ? c3b0 & ~sv1 : c3b0;
 		int			         c3b2; // c3b2 = s23 ? c3b1 & ~sv2 : c3b1;
@@ -208,7 +208,7 @@ implements
 		// any*: were any sub-combos allowed? is a tad faster.
 		boolean any1, any2, any3;
 
-		// commonExcluderBits[0]: the maybes.bits of the first common excluder
+		// commonExcluderBits[0]: the maybes of the first common excluder
 		int ceb0, ceb1, ceb2;
 
 		// presume that no hint will be found
@@ -240,13 +240,13 @@ implements
 			// get c0 and an index-into-Grid.cells of c0's excluders.
 			idx0 = excluders[(c0=cells[0]=candidates[i0]).i].idx();
 			if(hitMe && c0!=hitCells[0]) continue;
-			c0b = c0.maybes.bits;
+			c0b = c0.maybes;
 			for ( i1=i0+1; i1<n1; ++i1 ) {
 				// get c1 and index of excluders common to c1 and c0.
 				if ( excluders[(c1=cells[1]=candidates[i1]).i].idx1(idx01, idx0) )
 					continue;
 				if(hitMe && c1!=hitCells[1]) continue;
-				c1b = c1.maybes.bits;
+				c1b = c1.maybes;
 				ns10 = c1.notSees[c0.i];
 				for ( i2=i1+1; i2<n2; ++i2 ) {
 					// get c2 and index of excluders common to c0,c1,c2
@@ -255,11 +255,10 @@ implements
 						continue;
 					c2 = cells[2]=candidates[i2];
 					if(hitMe && c2!=hitCells[2]) continue;
-					c2b = c2.maybes.bits;
+					c2b = c2.maybes;
 					ns20 = c2.notSees[c0.i];
 					ns21 = c2.notSees[c1.i];
-					if ( isInterrupted() )
-						return false;
+					interrupt();
 					for ( i3=i2+1; i3<numCandidates; ++i3 ) {
 						// get c3 and index of excluders common to c0,c1,c2,c3
 						// skip if the index is empty (ie there are no common excluders).
@@ -270,7 +269,7 @@ implements
 
 						// read common excluder cells from grid at idx03
 						if ( (numCmnExcls = idx03.cellsN(grid, cmnExcls)) == 1 ) {
-							cmnExclBits[0] = cmnExcls[0].maybes.bits;
+							cmnExclBits[0] = cmnExcls[0].maybes;
 							numCmnExclBits = 1;
 						} else {
 							// performance enhancement: examine smaller maybes sooner.
@@ -291,10 +290,10 @@ implements
 //						// skip if there are no common excluders remaining.
 //						// 267,283,801 of 365,467,445 skip 98,183,644 = 26.87%
 //						if ( (numCmnExclBits = disdisjunct(cmnExclBits, numCmnExclBits
-//								, c0b|c1b|c2b|(c3b=c3.maybes.bits))) == 0 )
+//								, c0b|c1b|c2b|(c3b=c3.maybes))) == 0 )
 //							continue;
 
-						c3b=c3.maybes.bits;
+						c3b=c3.maybes;
 
 						// complete the isSiblingOf cache
 						ns30 = c3.notSees[c0.i];
@@ -306,7 +305,7 @@ implements
 						// reset anyLevel so no shortcircuit until avb4==c4b
 						anyLevel = degree;
 
-						// cache the first common excluder cells maybes.bits
+						// cache the first common excluder cells maybes
 						ceb0 = cmnExclBits[0];
 
 						// The dog____ing loop works-out is each combo allowed?
@@ -634,19 +633,20 @@ implements
 
 		// Foreach distinct combo of 4 potential values of our 4 cells:
 		// check if the combo "covers" the maybes of any common excluder cell,
-		// ie the combo is a superset of the excluders maybes. The excluder doesn't need ALL the combo values, it just can't have
-		// any OTHER potential values.
+		// ie the combo is a superset of the excluders maybes. The excluder
+		// doesn't need ALL the combo values, it just can't have any OTHER
+		// potential values.
 		// NB: Performance isn't a problem. This method is called maybe ?50?
 		// times in top1465, only when we're producing a hint.
-		DOG_2: for ( int v0 : c0.maybes ) { // anything is fast enough for a small enough n, even an iterator
+		DOG_2: for ( int v0 : VALUESES[c0.maybes] ) {
 			sv0 = VSHFT[v0];
-			for ( int v1 : c1.maybes ) {
+			for ( int v1 : VALUESES[c1.maybes] ) {
 				if ( v1==v0 && !c1.notSees[c0.i] ) {
 					map.put(new HashA(v0,v1,0,0), null);
 					continue;
 				}
 				sv01 = sv0 | VSHFT[v1];
-				for ( int v2 : c2.maybes ) {
+				for ( int v2 : VALUESES[c2.maybes] ) {
 					if ( v2==v0 && !c2.notSees[c0.i] ) {
 						map.put(new HashA(v0,0,v2,0), null);
 						continue;
@@ -655,7 +655,7 @@ implements
 						continue;
 					}
 					sv02 = sv01 | VSHFT[v2];
-					for ( int v3 : c3.maybes ) {
+					for ( int v3 : VALUESES[c3.maybes] ) {
 						if ( v3==v0 && !c3.notSees[c0.i] ) {
 							map.put(new HashA(v0,0,0,v3), null);
 							continue;
@@ -668,7 +668,7 @@ implements
 						}
 						combo = sv02 | VSHFT[v3];
 						for ( i=0; i<numCmnExcls; ++i )
-							if ( (cmnExcls[i].maybes.bits & ~combo) == 0 ) {
+							if ( (cmnExcls[i].maybes & ~combo) == 0 ) {
 								map.put(new HashA(v0,v1,v2,v3)
 										, cmnExcls[i]);
 								break; // we want only the first excluder of each combo

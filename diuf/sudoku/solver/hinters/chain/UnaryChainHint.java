@@ -11,14 +11,11 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
-import diuf.sudoku.utils.Frmu;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Html;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.ON;
 
 
 /**
@@ -66,15 +63,20 @@ public final class UnaryChainHint extends AChainingHint {
 	}
 
 	@Override
-	protected String getNamePrefix() { return EMPTY_STRING; }
+	protected String getNamePrefix() { return "Unary"; }
 	@Override
 	protected String getNameMiddle() {
-		if (isXChain && isYChain) return "Unary XY Chain";
-		if (isYChain) return "Unary Y Chain";
-		return "Unary X Chain";
+		if ( isXChain ) {
+			if ( isYChain )
+				return "XY";
+			return "X";
+		}
+		if ( isYChain )
+			return "Y";
+		return "#"; // should NEVER happen
 	}
 	@Override
-	protected String getNameSuffix() { return EMPTY_STRING; }
+	protected String getNameSuffix() { return "Chain"; }
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {

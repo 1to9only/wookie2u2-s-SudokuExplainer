@@ -128,12 +128,13 @@ public class XColoringHintBig extends AHint  {
 		return links;
 	}
 
-	@Override
-	public Grid getGrid() {
-		if ( setPots!=null && !setPots.isEmpty() )
-			return setPots.firstKey().getGrid();
-		return null;
-	}
+//not_used 2021-07-02
+//	@Override
+//	public Grid getGrid() {
+//		if ( setPots!=null && !setPots.isEmpty() )
+//			return setPots.firstKey().getGrid();
+//		return null;
+//	}
 
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {

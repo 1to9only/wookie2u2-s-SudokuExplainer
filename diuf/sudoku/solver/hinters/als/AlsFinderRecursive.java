@@ -115,12 +115,12 @@ final class AlsFinderRecursive extends AlsFinder {
 					sets[i].clear();
 				// indices of cells with size 2..4 for WXYZ.degree==3
 				grid.idx(sets[0], (c) -> {
-					return c.maybes.size>1 && c.maybes.size<degreePlus2;
+					return c.size>1 && c.size<degreePlus2;
 				});
 				// foreach first-cell-in-an-ALS
-				for ( Cell c : sets[0].cells(grid, Cells.array(sets[0].size())) ) {
+				for ( Cell c : sets[0].cells(grid, Cells.arrayA(sets[0].size())) ) {
 					als[0] = c; // the first cell in the almost locked set
-					cands[0] = c.maybes.bits; // the initial cands
+					cands[0] = c.maybes; // the initial cands
 					// check for enough cells (we need degree cells for an ALS)
 					// sets[0] contains only cells with <= degree+1 maybes, so
 					// there's no need to recheck for it here.
@@ -164,19 +164,19 @@ final class AlsFinderRecursive extends AlsFinder {
 	 */
 	private boolean recurse(final int i) {
 		boolean result = false;
-		for ( Cell c : sets[i].cells(grid, Cells.array(sets[i].size())) ) {
+		for ( Cell c : sets[i].cells(grid, Cells.arrayA(sets[i].size())) ) {
 			als[i] = c;
 			// if the ALS is incomplete (contains less than degree cells)
 			if ( i < degreeMinus1 ) {
 				// if existing + this cell together have <= degree+1 maybes
-				if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] < degreePlus2
+				if ( VSIZE[cands[i]=cands[i-1]|c.maybes] < degreePlus2
 				  // need degree cells to form an ALS, this is the (i+1)'th
 				  && sets[i+1].setAndMin(sets[i], LATER_BUDS[c.i], degreeMinus1-i) )
 					// move right to als[i+1], to find the next cell in the ALS
 					result |= recurse(i+1);
 			// else the ALS is complete (contains degree cells)
 			// degree cells with degree+1 maybes is an Almost Locked Set
-			} else if ( VSIZE[cands[i]=cands[i-1]|c.maybes.bits] == degreePlus1 ) {
+			} else if ( VSIZE[cands[i]=cands[i-1]|c.maybes] == degreePlus1 ) {
 //				long start = System.nanoTime();
 				// this is fastest way I found to do this, and it's compact.
 				final int n = Regions.commonN(als, degree, cmnRgns);
