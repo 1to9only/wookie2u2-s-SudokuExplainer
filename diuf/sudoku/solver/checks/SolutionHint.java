@@ -8,6 +8,7 @@ package diuf.sudoku.solver.checks;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AWarningHint;
@@ -38,8 +39,8 @@ public final class SolutionHint extends AWarningHint implements IPretendHint {
 
 	@Override
 	public Pots getGreens(int viewNum) {
-		Pots result = new Pots(81, 1F);
-		for (int i=0; i<81; ++i)
+		Pots result = new Pots(GRID_SIZE, 1F);
+		for (int i=0; i<GRID_SIZE; ++i)
 			result.put(grid.cells[i], VSHFT[solution.cells[i].value]);
 		return result;
 	}
@@ -65,8 +66,8 @@ public final class SolutionHint extends AWarningHint implements IPretendHint {
 
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {
-		int result = (81 - grid.numSet) * 10;
-		solution.copyTo(grid);
+		int result = (GRID_SIZE - grid.numSet) * 10;
+		grid.copyFrom(solution);
 		return result;
 	}
 

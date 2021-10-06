@@ -8604,7 +8604,7 @@ package diuf.sudoku.solver;
  * can generate again having stopped, and it all seems to work fairly nicely
  * except for the stuff that doesn't. sigh. We still have problems solving an
  * IDKFA (and presumably other Difficulty, it's just MUCH harder to see) while
- * actively solving the generated IDKFA, so it's better to wait for it to 
+ * actively solving the generated IDKFA, so it's better to wait for it to
  * generate the replacement before playing with the current one; which exactly
  * what I was trying to avoid. I wanted to generate a replacement "quitely" in
  * the background while leaving the user free to play with the current puzzle,
@@ -8668,6 +8668,262 @@ package diuf.sudoku.solver;
  * 2. Build 6.30.157 2021-07-20 08:51:37 is releasable. Ship ASAP!
  *    as DiufSudoku_V6_30.157.2021-07-20.7z
  * 3. Next I don't know. The story of my life really.
+ * </pre>
+ * <hr>
+ * <p>
+ * 6.30.158 2021-07-28 11:22:38 I'm building for a back-up before I change
+ * AlsChain for speed, ie rewrite RccFinder "properly" in the OO-sense.
+ * <pre>
+ * 1. io.IO.load is now gui.GridLoader.load coz it's only used in the GUI, and
+ *    asks the user questions, so it should be in gui package, so now it is.
+ *    The grid now does all the actual loading of MagicTour (.mt), and "old"
+ *    Text (.txt) formats still implemented, even-though they're deprecated.
+ *
+ *    I'll write a tool that rewrites *.txt files in-or-under a directory, and
+ *    replace the "old" Text reader with the instruction "run this tool".
+ *
+ * 2. Grid now has constants for "the facts of life": 9, 10, 17, 27, 64, 81.
+ *
+ * 3. Idx.FIRST: Tried putting the results of Integer.numberOfTrailingZeros in
+ *    a VERY large array of 134 million int's, but it's no faster. I presume
+ *    that what we gain by not calling Integer.numberOfTrailingZeros millions
+ *    of times we loose by decreased available RAM, working the GC harder, so
+ *    the GC runs all-the-time, so no, it's no faster. sigh.
+ *    I wish the bit-twiddling in Integer, Long and StrictMath (et al) was
+ *    implemented in firmware! I also wish that long math wasn't slower than
+ *    int math in Java. Paying for 7 64-bit cores and then using bloody half of
+ *    them, because it's faster, really ____ing s__ts me!
+ *
+ * 4. Grid.otherCommonRegion moved house to Regions.otherCommon. It's used only
+ *    in NakedSet. It turns-out that finding the "other" common region of 2 or
+ *    3 cells is quite a complex and therefore interesting little problem. I
+ *    vagely recall that somewhere in this system I smash the indexes of all of
+ *    a cells three constraints (ARegion.index) into bitsets. I now wonder if
+ *    that's how they should be stored; then to get the common regions you just
+ *    and-together all of the cell.ribs (RegionIndexBitS). Food for thought,
+ *    but I haven't done this because my callers aren't performance critical.
+ *    I'm called by two methods:
+ *    * NakedSet.claimFromOtherCommonRegion only to produce hint, so not often;
+ *    * and NakedSet.createNakedSetDirectHint only when producing hint and only
+ *      in the GUI when a putz wants Direct*, so I don't care.
+ *    so performance of Regions.otherCommon is NOT important! That is WHY my
+ *    Idx.FIRST idea was a dismal failure: everything I've done so far presumes
+ *    it's calling Integer.numberOfTrailingZeros, so it's always the last-thing
+ *    we do creating the hint; so my bottom-up performance seeking was stupid!
+ *
+ * 5. I refactored all the cheat methods into a new Cheats inner class to clean
+ *    it up a bit, so now it's even more of a brain-bender. There's some clever
+ *    ideas buried in all that obfuscation. It's still a pig though.
+ *
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     17,826,800 104096        171  56569        315 NakedSingle
+ *     19,350,600  47527        407  15988      1,210 HiddenSingle
+ *    143,948,600  31539      4,564  22805      6,312 Locking
+ *     80,580,500  21661      3,720   7351     10,961 NakedPair
+ *     71,238,900  19905      3,578   9893      7,200 HiddenPair
+ *    118,406,700  17794      6,654   1640     72,199 NakedTriple
+ *    107,321,700  17415      6,162   1240     86,549 HiddenTriple
+ *     55,994,600  17204      3,254    607     92,248 Swampfish
+ *     52,783,700  16971      3,110   1128     46,794 TwoStringKite
+ *     95,902,800  15843      6,053    574    167,078 XY_Wing
+ *     71,176,000  15454      4,605    281    253,295 XYZ_Wing
+ *    144,272,600  15190      9,497    372    387,829 W_Wing
+ *     67,834,000  14926      4,544    354    191,621 Skyscraper
+ *     23,748,900  14743      1,610     53    448,092 EmptyRectangle
+ *     85,934,200  14690      5,849    226    380,239 Swordfish
+ *    458,108,000  14631     31,310    367  1,248,250 Coloring
+ *  1,586,750,600  14342    110,636   1015  1,563,301 XColoring
+ *  1,924,198,000  14014    137,305 131424     14,641 GEM
+ *    146,732,600  12559     11,683     95  1,544,553 NakedQuad
+ *    116,189,000  12542      9,263     11 10,562,636 HiddenQuad
+ *  3,979,703,400  12541    317,335   2214  1,797,517 BigWings
+ *  2,005,060,100  11303    177,391    917  2,186,543 URT
+ *  1,146,024,400  10670    107,406    356  3,219,169 FinnedSwampfish
+ *  2,429,491,400  10364    234,416    308  7,887,959 FinnedSwordfish
+ * 12,408,149,800  10123  1,225,738   3936  3,152,477 ALS_XZ
+ *  8,556,138,400   7454  1,147,858   3478  2,460,074 ALS_Wing
+ * 15,103,646,400   4727  3,195,186   1090 13,856,556 ALS_Chain
+ *  3,178,422,800   3852    825,135    130 24,449,406 DeathBlossom
+ *  9,105,745,400   3737  2,436,645    920  9,897,549 UnaryChain
+ *  6,212,022,000   3334  1,863,233   4033  1,540,298 MultipleChain
+ *  3,988,134,600   1569  2,541,832   5616    710,137 DynamicChain
+ *    134,771,700      3 44,923,900     30  4,492,390 DynamicPlus
+ * 73,635,609,200
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  92,319,944,700 (01:32)  63,017,027
+ * NOTES:
+ * 1. 1:32 is same as previous.
+ * 2. Build 6.30.158 2021-07-28 11:22:38 is releasable. No rush to ship.
+ *    as DiufSudoku_V6_30.158.2021-07-28.7z
+ * 3. Next I try to speed-up AlsChain by changing RccFinder.
+ * </pre>
+ * <hr>
+ * <p>
+ * 6.30.159 2021-07-30 06:38:39 RccFinder completely OO-decomposed.
+ * <p>
+ * RccFinder is now an interface defining find, getStartIndexes, getEndIndexes.
+ * There's two abstract classes: RccFinderAbstract is "base", defining no-op
+ * getStart/EndIndexes. RccFinderAbstractIndexed extends RccFinderAbstract,
+ * furnishes starts and ends, and overrides getStart/EndIndexes to return them.
+ * <p>
+ * <pre>
+ * There are four implementations:
+ * 1. RccFinderForwardOnlyAllowOverlaps extends RccFinderAbstract
+ * 2. RccFinderForwardOnlyNoOverlaps    extends RccFinderAbstract
+ * 3. RccFinderAllAllowOverlaps			extends RccFinderAbstractIndexed
+ * 4. RccFinderAllNoOverlaps			extends RccFinderAbstractIndexed
+ * </pre>
+ * And finally the RccFinderFactory exposes a static get method that AAlsHinter
+ * now uses to get the RccFinder suitable for this Sudoku solving technique,
+ * which boils down-to the two booleans: forwardOnly and allowOverlaps.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     16,816,123 104096        161  56569        297 NakedSingle
+ *     21,018,731  47527        442  15988      1,314 HiddenSingle
+ *    149,051,243  31539      4,725  22805      6,535 Locking
+ *     80,926,821  21661      3,736   7351     11,008 NakedPair
+ *     72,153,281  19905      3,624   9893      7,293 HiddenPair
+ *    121,376,904  17794      6,821   1640     74,010 NakedTriple
+ *    109,012,883  17415      6,259   1240     87,913 HiddenTriple
+ *     57,012,733  17204      3,313    607     93,925 Swampfish
+ *     52,798,840  16971      3,111   1128     46,807 TwoStringKite
+ *     96,266,113  15843      6,076    574    167,710 XY_Wing
+ *     72,093,013  15454      4,665    281    256,558 XYZ_Wing
+ *    145,763,985  15190      9,596    372    391,838 W_Wing
+ *     71,738,822  14926      4,806    354    202,652 Skyscraper
+ *     23,784,591  14743      1,613     53    448,765 EmptyRectangle
+ *     86,092,559  14690      5,860    226    380,940 Swordfish
+ *    460,781,158  14631     31,493    367  1,255,534 Coloring
+ *  1,546,280,514  14342    107,814   1015  1,523,429 XColoring
+ *  1,928,691,007  14014    137,626 131424     14,675 GEM
+ *    145,154,993  12559     11,557     95  1,527,947 NakedQuad
+ *    117,374,906  12542      9,358     11 10,670,446 HiddenQuad
+ *  4,030,041,813  12541    321,349   2214  1,820,253 BigWings
+ *  1,957,738,567  11303    173,205    917  2,134,938 URT
+ *  1,149,839,482  10670    107,763    356  3,229,886 FinnedSwampfish
+ *  2,466,442,444  10364    237,981    308  8,007,930 FinnedSwordfish
+ * 12,490,485,410  10123  1,233,871   3936  3,173,395 ALS_XZ
+ *  8,641,239,605   7454  1,159,275   3478  2,484,542 ALS_Wing
+ * 14,259,791,105   4727  3,016,668   1090 13,082,377 ALS_Chain
+ *  3,195,190,808   3852    829,488    130 24,578,390 DeathBlossom
+ *  8,937,150,109   3737  2,391,530    920  9,714,293 UnaryChain
+ *  6,194,544,567   3334  1,857,991   4033  1,535,964 MultipleChain
+ *  4,034,196,915   1569  2,571,189   5616    718,339 DynamicChain
+ *    187,359,099      3 62,453,033     30  6,245,303 DynamicPlus
+ * 72,918,209,144
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  91,904,891,000 (01:31)  62,733,713
+ * NOTES:
+ * 1. 1:31 is a second faster than previous. I was hoping for more. sigh.
+ * 2. Build 6.30.159 2021-07-30 06:38:39 is releasable. No rush to ship.
+ *    as DiufSudoku_V6_30.159.2021-07-30.7z
+ * 3. Next I still need to speed-up RccFinder, but it's really hard.
+ * </pre>
+ * <hr>
+ * <p>
+ * 6.30.160 2021-08-11 07:10:40 build to clean-up old logs. I honestly can't
+ * recall what the hell I've done, if anything, in the past two weeks. I just
+ * need shooting. All I can recall is UniqueRectangle now keeps a Set of loops
+ * instead of a List, to save some time processing the same loop multiple times
+ * but it's only using ArrayList.contains, which is slow on a list-of-lists, so
+ * there is an opportunity for improvement here, but not much, and its quite a
+ * lot of work to replace the {@code ArrayList<ArrayList<Cell>>} with a
+ * {@code Set<Idx>} so I haven't bothered. I tried, so I know its lots of work.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     16,210,460 104096        155  56569        286 NakedSingle
+ *     18,169,254  47527        382  15988      1,136 HiddenSingle
+ *    150,451,158  31539      4,770  22805      6,597 Locking
+ *     80,705,775  21661      3,725   7351     10,978 NakedPair
+ *     70,105,710  19905      3,522   9893      7,086 HiddenPair
+ *    120,637,649  17794      6,779   1640     73,559 NakedTriple
+ *    107,758,416  17415      6,187   1240     86,901 HiddenTriple
+ *     56,040,464  17204      3,257    607     92,323 Swampfish
+ *     53,612,067  16971      3,159   1128     47,528 TwoStringKite
+ *     94,873,909  15843      5,988    574    165,285 XY_Wing
+ *     71,192,428  15454      4,606    281    253,353 XYZ_Wing
+ *    143,053,352  15190      9,417    372    384,552 W_Wing
+ *     67,693,801  14926      4,535    354    191,225 Skyscraper
+ *     22,676,593  14743      1,538     53    427,860 EmptyRectangle
+ *     84,713,889  14690      5,766    226    374,840 Swordfish
+ *    455,103,648  14631     31,105    367  1,240,064 Coloring
+ *  1,648,355,594  14342    114,932   1015  1,623,995 XColoring
+ *  1,912,660,897  14014    136,482 131424     14,553 GEM
+ *    144,378,740  12559     11,496     95  1,519,776 NakedQuad
+ *    116,769,450  12542      9,310     11 10,615,404 HiddenQuad
+ *  4,047,540,226  12541    322,744   2214  1,828,157 BigWings
+ *  1,513,917,416  11303    133,939    917  1,650,945 URT
+ *  1,207,839,019  10670    113,199    356  3,392,806 FinnedSwampfish
+ *  2,457,083,684  10364    237,078    308  7,977,544 FinnedSwordfish
+ * 12,471,037,654  10123  1,231,950   3936  3,168,454 ALS_XZ
+ *  8,724,798,978   7454  1,170,485   3478  2,508,567 ALS_Wing
+ * 14,337,455,202   4727  3,033,098   1090 13,153,628 ALS_Chain
+ *  3,237,111,313   3852    840,371    130 24,900,856 DeathBlossom
+ *  9,184,468,754   3737  2,457,711    920  9,983,118 UnaryChain
+ *  6,319,278,928   3334  1,895,404   4033  1,566,892 MultipleChain
+ *  4,121,301,382   1569  2,626,705   5616    733,849 DynamicChain
+ *    174,081,699      3 58,027,233     30  5,802,723 DynamicPlus
+ * 73,231,077,509
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  91,985,187,300 (01:31)  62,788,523
+ * NOTES:
+ * 1. 1:31 is same as last time. I was hoping for faster. sigh.
+ * 2. Build 6.30.160 2021-08-11 07:10:40 is releasable. No rush to ship.
+ *    as DiufSudoku_V6_30.160.2021-08-11.7z
+ * 3. Next I'll just keep poking around looking for something to play with.
+ *    I've given-up any hope of enspeedonating the RccFinder. It's too hard!
+ * </pre>
+ * <hr>
+ * <p>
+ * 6.30.161 2021-08-12 12:57:42 BasicFisherman1 now faster than BasicFisherman.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     15,802,813 104096        151  56569        279 NakedSingle
+ *     18,150,416  47527        381  15988      1,135 HiddenSingle
+ *    149,079,592  31539      4,726  22805      6,537 Locking
+ *     77,456,480  21661      3,575   7351     10,536 NakedPair
+ *     69,514,702  19905      3,492   9893      7,026 HiddenPair
+ *    116,519,079  17794      6,548   1640     71,048 NakedTriple
+ *    106,319,129  17415      6,105   1240     85,741 HiddenTriple
+ *     50,767,622  17204      2,950    607     83,636 Swampfish
+ *     52,125,102  16971      3,071   1128     46,210 TwoStringKite
+ *     94,391,073  15843      5,957    574    164,444 XY_Wing
+ *     70,207,196  15454      4,542    281    249,847 XYZ_Wing
+ *    134,598,671  15190      8,861    372    361,824 W_Wing
+ *     67,943,012  14926      4,551    354    191,929 Skyscraper
+ *     23,863,861  14743      1,618     53    450,261 EmptyRectangle
+ *     59,591,450  14690      4,056    226    263,678 Swordfish
+ *    456,281,918  14631     31,185    367  1,243,274 Coloring
+ *  1,493,654,487  14342    104,145   1015  1,471,580 XColoring
+ *  1,905,490,463  14014    135,970 131424     14,498 GEM
+ *    142,915,545  12559     11,379     95  1,504,374 NakedQuad
+ *    114,902,549  12542      9,161     11 10,445,686 HiddenQuad
+ *  4,009,662,584  12541    319,724   2214  1,811,049 BigWings
+ *  1,471,766,650  11303    130,210    917  1,604,979 URT
+ *  1,196,147,398  10670    112,103    356  3,359,964 FinnedSwampfish
+ *  2,456,601,760  10364    237,032    308  7,975,979 FinnedSwordfish
+ * 12,416,913,503  10123  1,226,604   3936  3,154,703 ALS_XZ
+ *  8,623,640,806   7454  1,156,914   3478  2,479,482 ALS_Wing
+ * 14,094,024,427   4727  2,981,600   1090 12,930,297 ALS_Chain
+ *  3,153,239,037   3852    818,597    130 24,255,684 DeathBlossom
+ *  8,925,656,779   3737  2,388,455    920  9,701,800 UnaryChain
+ *  5,988,962,706   3334  1,796,329   4033  1,484,989 MultipleChain
+ *  3,931,791,410   1569  2,505,921   5616    700,105 DynamicChain
+ *    140,048,400      3 46,682,800     30  4,668,280 DynamicPlus
+ * 71,628,030,620
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  90,433,194,700 (01:30)  61,729,143
+ * <pre>
+ * NOTES:
+ * 1. 1:30 is a second faster than last time. I was hoping for more. sigh.
+ * 2. Build 6.30.161 2021-08-11 11:14:41 is releasable, and there is now some
+ *    pressure to ship, just because, after this release, we can get rid of the
+ *    old BasicFisherman class, so there's really still no rush to ship, but I
+ *    need to goto the library to complete the Census, so I may as well today.
+ *    as DiufSudoku_V6_30.161.2021-08-12.7z
+ * 3. Next I really don't know. I think I'll take a couple of days off and read
+ *    my book: The Theory of Everything by Stephen Hawking. It's really quite
+ *    interesting, but he has a singularity fixation. Each to there own. sigh.
  * </pre>
  */
 final class LogicalSolverTimings {

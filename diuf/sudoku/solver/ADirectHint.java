@@ -118,7 +118,7 @@ public abstract class ADirectHint extends AHint  {
 		if(numElims!=0) return numElims;
 		int ttlElims = 0;
 		for ( ARegion r : cell.regions )
-			ttlElims += r.indexesOf[value].size;
+			ttlElims += r.ridx[value].size;
 		// + 7 = 10 for cellSet - the 3 regions (each includes me in its idxsOf)
 		return numElims = ttlElims + 7;
 	}

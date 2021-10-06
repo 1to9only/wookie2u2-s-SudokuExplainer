@@ -20,6 +20,7 @@ import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Grid.BOX_OF;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
@@ -47,7 +48,7 @@ import java.util.Set;
  * <p>
  * This implementation also includes one extension of the above specification.
  * It finds a naked single in an effected box, which leaves a naked single in
- * the source box... which I call the "10 paces" rule. Search for that.
+ * the source box... which I call the "shoot back" rule. Search for that.
  * <p>
  * Note that Medusa3D hijacks XColoring's hint types.
  *
@@ -129,7 +130,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	// the first index is GREEN=0, or BLUE=1
 	// the second index is value 1..9
 	// So colors holds the indices of GREEN 7's, or BLUE 2's, or whatever.
-	private final Idx[][] colors = new Idx[2][10];
+	private final Idx[][] colors = new Idx[2][VALUE_CEILING];
 	// all values of each color; array to swap between colors.
 	private final Idx[] all = {new Idx(), new Idx()};
 	// temporary Idxs: set, read, and forget!
@@ -165,7 +166,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		super(Tech.Medusa3D);
 		// create the colors array.
 		for ( int c=0; c<2; ++c )
-			for ( int v=1; v<10; ++v )
+			for ( int v=1; v<VALUE_CEILING; ++v )
 				colors[c][v] = new Idx();
 		// Do we need to build the steps string to go in the hint? The steps
 		// Strings take ages to build (a minute per top1465 run) and we don't
@@ -232,7 +233,7 @@ public class Medusa3D extends AHinter implements IPreparer
 			// lowest score that hints in top1465. THIS MAY BE WRONG!!!
 			for ( int v : startingValues() )
 				for ( ARegion r : grid.regions )
-					if ( r.indexesOf[v].size == 2
+					if ( r.ridx[v].size == 2
 					  && (result|=search(r, v)) && onlyOne )
 						return result;
 		} catch ( Type2Exception eaten ) {
@@ -256,15 +257,15 @@ public class Medusa3D extends AHinter implements IPreparer
 	 */
 	private int[] startingValues() {
 		// reset scores
-		final ValueScore[] scores = new ValueScore[10]; // score of values 1..9
-		for ( int i=0; i<10; ++i ) // include zero to not upset sort
+		final ValueScore[] scores = new ValueScore[VALUE_CEILING]; // score of values 1..9
+		for ( int i=0; i<VALUE_CEILING; ++i ) // include zero to not upset sort
 			scores[i] = new ValueScore(i);
 		// count conjugate pairs for each value
 		// build-up a bitset of those values that're in 2+ conjugate pairs
 		int cands = 0;
-		for ( int v=1; v<10; ++v )
+		for ( int v=1; v<VALUE_CEILING; ++v )
 			for ( ARegion r : grid.regions )
-				if ( r.indexesOf[v].size == 2
+				if ( r.ridx[v].size == 2
 				  && ++scores[v].score > 1 )
 					cands |= VSHFT[v];
 		// foreach bivalue cell
@@ -280,7 +281,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		// I have no theoretical basis for 7, it's just what works FOR ME!
 		// I'm presuming it'll work for ALL Sudoku puzzles, but it may not!
 		int n;
-		for ( n=0; n<10; ++n )
+		for ( n=0; n<VALUE_CEILING; ++n )
 			if ( scores[n].score < 7 )
 				break;
 		// then read-off the values, by score descending
@@ -324,7 +325,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		//   from that of the recently added candidate.
 		// * Continue coloring for each value until no more
 		//   candidates can be added.
-		r.at(r.indexesOf[v].bits, conjugatePair);
+		r.at(r.ridx[v].bits, conjugatePair);
 		try {
 			// Paint the cell, and all of it's ramifications (as above).
 			paint(GREEN, v, conjugatePair[0], true, "Let us assume that "
@@ -414,7 +415,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	 */
 	private void clearColors() {
 		for ( int c=0; c<2; ++c )
-			for ( int v=1; v<10; ++v )
+			for ( int v=1; v<VALUE_CEILING; ++v )
 				colors[c][v].clear();
 	}
 
@@ -471,7 +472,7 @@ public class Medusa3D extends AHinter implements IPreparer
 			throws OverpaintException {
 		// If cell-value is already painted the opposite color then throw!
 		final int o = OPPOSITE[c]; // the opposite color
-		if ( colors[o][v].contains(cell.i) )
+		if ( colors[o][v].has(cell.i) )
 			throw new OverpaintException("Cannot paint "+cell.id+MINUS+v+SPACE
 					+COLORS[c]+" when it's already "+COLORS[o]+PERIOD);
 		int otherValue; // the other value
@@ -486,9 +487,9 @@ public class Medusa3D extends AHinter implements IPreparer
 		}
 		// 2. Paint the other cell in each conjugate pair the opposite color
 		for ( ARegion r2 : cell.regions ) {
-			if ( r2.indexesOf[v].size == 2
+			if ( r2.ridx[v].size == 2
 			  // nb: pre-check faster than needlessly building the why string!
-			  && !colors[o][v].contains((otherCell=r2.otherThan(cell, v)).i)
+			  && !colors[o][v].has((otherCell=r2.otherThan(cell, v)).i)
 			) {
 				// we want explanation in GUI and testcases
 				// NOTE: batch is a MINUTE faster for this!
@@ -504,7 +505,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		 // skip this bi-check when we're painting "the other value"
 		 && biCheck
 		 // nb: pre-check faster than needlessly building the why string!
-		 && !colors[o][otherValue=VFIRST[cell.maybes & ~VSHFT[v]]].contains(cell.i)
+		 && !colors[o][otherValue=VFIRST[cell.maybes & ~VSHFT[v]]].has(cell.i)
 		) {
 			// we want explanation in GUI and testcases
 			// NOTE: batch is a MINUTE faster for this!
@@ -545,7 +546,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * SO paint cell-value-to-paint the same as the source cell-value.
 	 * </pre>
 	 * <p>
-	 * <b>The "10 paces" rule (shoot back)</b> stated completely:<pre>
+	 * The <b>"shoot back"</b> stated completely:<pre>
 	 * IF cell-v is green and that leaves one-only place in an effected box,
 	 * which in turn leaves one-only place in the source box,
 	 * THEN we can paint cell2-v green because:
@@ -597,7 +598,7 @@ public class Medusa3D extends AHinter implements IPreparer
 						  && tmp2.size() == 1
 						  // and get the cell to paint (NEVER null)
 						  && (cell2=grid.cells[tmp2.peek()]) != null
-						  // the "10 paces" rule (see method comment block).
+						  // the "shoot back" rule (see method comment block).
 						  && tmp3.setAndNot(grid.regions[BOX_OF[ci]].idxs[v]
 										  , BUDDIES[cell2.i]).size() == 1
 						  // NB: no pre-check coz buds incl this colors cells
@@ -830,7 +831,7 @@ public class Medusa3D extends AHinter implements IPreparer
 					// if cells[ii] sees a this-color value
 					if ( tmp3.setAndAny(BUDDIES[ii], colors[c][v])
 					  // and the opposite color (any value) contains ii
-					  && all[OPPOSITE[c]].contains(ii)
+					  && all[OPPOSITE[c]].has(ii)
 					  // ignore already-justified eliminations
 					  && redPots.upsert(grid.cells[ii], v)
 					) {
@@ -884,7 +885,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	private int values(final int c, final int i) {
 		int result = 0;  // NOTE: VSIZE[0] == 0
 		for ( int v : VALUESES[colorValues[c]] )
-			if ( colors[c][v].contains(i) )
+			if ( colors[c][v].has(i) )
 				result |= VSHFT[v];
 		return result;
 	}
@@ -900,7 +901,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	 */
 	private int firstValue(int o, int ii) {
 		for ( int v : VALUESES[colorValues[o]] )
-			if ( colors[o][v].contains(ii) )
+			if ( colors[o][v].has(ii) )
 				return v;
 		return 0; // NOTE: VSIZE[0] == 0
 	}

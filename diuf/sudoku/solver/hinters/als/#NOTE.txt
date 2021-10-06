@@ -27,6 +27,21 @@ Here is hobiwan's licence statement:
 ALS means Almost Locked Sets
 ============================
 
+All the hinters in this package find hints in sets of Almost Locked Sets. As
+stated above, all of these hinters are based on ideas I found elsewhere, so
+there are no (or very few) original ideas here, just my implementation of
+established techniques. As always, every effort has gone into creating an
+efficient implementation, but it is entirely possible that, given that I'm not
+very bright, these problems can be solved more efficiently, just not by me.
+Ergo: I've done my best. I hope it's adequate. It's certainly "pretty fast".
+My perception of pretty fast may be massively self-indulgent. Time will tell.
+I expect us nutters will chip-away at Sudoku for 20 or 30 years or so, and
+increasingly rarely after that: too busy watching porn. Sudoku is quite a
+challenging challenge: a nicely sized mountain for/of IQ, especially for those
+of us who are too stupid to be any good at writing Chess, let alone Go.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 2020-09-23 renamed alshdk package diuf.sudoku.solver.hinters.als because
            it's HoDoKu origin doesn't seem so important any longer.
 
@@ -42,10 +57,12 @@ times now) and failing miserably.
 2. Diuf types: are native to DIUF Sudoku Explainer (this project).
 
 3. If neither it's probably "boosted clean" out of HoDoKu, with no dependency
-   on the HoDoKu types... but you never know, so "unspecified" is probably the
-   best definition.
+   on the HoDoKu types, so "unspecified" is probably the best bet.
 
 So internally I'm all HoDoKu, but externally I'm all DIUF Sudoku Explainer.
+
+2021-08-01 All source-based type-names have been abandoned since I wrote this.
+The lasting point is that ALS's hail from HoDoKu, so all kudos is hobiwans.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -57,16 +74,16 @@ following text the hdk name is always given first, then the SE name.
 
 Hdks SudokuStepFinder is roughly equivalent to SE's LogicalSolver in that it
 exists to be an interface to all the solver/hinter classes. In hdk a step in
-solving the puzzle is called a SolutionStep or "step" and in SE's it a AHint
+solving the puzzle is called a SolutionStep or "step" and in SE it's a AHint
 or plain "hint". Classes that produce steps/hints are called Solver/Hinters.
 
 Sudoku Explainer is MUCH more "region focused" than HoDoKu, I suppose because
-the regions are designed and coded early in the development process they take
+the regions are designed and coded early in the development process they took
 on an importance which they do not necessarily deserve in my thinking about
 Sudoku problems. Regardless of why, Sudoku Explainer almost always attributes
 a hint to region/s which own or atleast contribute to a hint; and the regions
 are displayed in all hints where they're relevant. HoDoKu doesn't display
-regions in it's hints, at all. So most of the thinking isn't so "regional".
+regions in it's hints, at all. HoDoKu's thinking is far less "regional". sigh.
 
 Sudoku Explainer attempts to provide the user with a human readable explanation
 (example) and justification of (logic behind) every hint. HoDoKu just gives
@@ -92,7 +109,7 @@ SE still relies heavily on it's super-fact Chainers. But it's now adopted many
 of HoDoKu's "mid range" solving techniques to hopefully provide a much better
 answer to the question:
 
-    How can any Sudoku puzzle be solved as simply and quickly as possible?
+    How can ANY Sudoku puzzle be solved as simply and quickly as possible?
 
 ~ Keith Corlett 2020-08-04
 
@@ -104,3 +121,6 @@ required code out of HoDoKu, and put it in Sudoku Explainer. Adopting the whole
 damn project came later when I hit "complex" Fish; banged my head repeatedly on
 an unyielding wall; gave up, and just used what was in front of me instead of
 insisting on "boosting" everything (adapting hobiwans algorithms to my model).
+
+2021-08-01 the hodoku package is history, along with the reliance on the HoDoKu
+project. All of HoDoKu's solving techniques have now been "boosted" into SE.

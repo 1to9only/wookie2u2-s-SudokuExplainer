@@ -14,7 +14,6 @@ import diuf.sudoku.solver.checks.AnalysisHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.utils.Log;
 
-
 /**
  * A LogicalAnalyser is a wrapper that turns the LogicalSolver into an IHinter.
  * It solves a Sudoku puzzle (a Grid) logically, to work-out how difficult that
@@ -44,14 +43,16 @@ public final class LogicalAnalyser extends AWarningHinter {
 	/**
 	 * Note that the only constructor is package visible, and is only called by
 	 * LogicalSolver (except in the JUnit test-case, which is a bit trixie).
+	 * Please read the class comments now, then come-back and nut-out params.
 	 *
-	 * @param solver My master LogicalSolver. Not null.
+	 * @param solver My co-dependant LogicalSolver. Not null.
 	 * @param logHints if true then hints are printed in the Log. <br>
 	 *  In the GUI that's HOME/SudokuExplainer.log in my normal setup.
 	 * @param logTimes if true then EVERY single hinter execution is logged. <br>
 	 *  In the GUI that's HOME/SudokuExplainer.log in my normal setup.
-	 *  This setting is ONLY respected in the GUI! If you did this in a large
-	 *  LogicalSolverTester run the log-file would be enormous.
+	 *  This setting is ONLY respected in the GUI! If you did this in a full
+	 *  LogicalSolverTester run the log-file would be enormous, and I mean
+	 *  enormous, not merely huge.
 	 */
 	LogicalAnalyser(LogicalSolver solver, boolean logHints, boolean logTimes) {
 		// Tech.Solution isn't a real solving technique, it's the sum of all
@@ -70,7 +71,7 @@ public final class LogicalAnalyser extends AWarningHinter {
 	 * <p>
 	 * This implementation produces a single AnalysisHint (a WarningHint)
 	 * containing the difficulty rating of the Sudoku puzzle and a list of
-	 * the hints that were applied in order to solve it.
+	 * the hints (by type) that were applied in order to solve it.
 	 * <p>
 	 * If the puzzle cannot be solved (is invalid) then a "raw" WarningHint is
 	 * produced, but it's pre-validated by LogicalSolver.analyse, so it should

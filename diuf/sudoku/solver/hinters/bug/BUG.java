@@ -10,6 +10,8 @@ import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.NUM_REGIONS;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
@@ -105,29 +107,29 @@ public final class BUG extends AHinter
 		boolean firstTime = true;
 
 		this.accu = accu;
-		grid.copyTo(this.stripper); // a grid to erase maybes from
+		this.stripper.copyFrom(grid); // a grid to erase maybes from
 
 		// cleanup from the previous call
 		this.bcPots = null; // bugCellsPots
 		this.allBugValues = 0;
 		this.cmnSibsIdx.clear();
 
-		for ( ri=0; ri<27; ++ri ) { // foreach box, row, and col
+		for ( ri=0; ri<NUM_REGIONS; ++ri ) { // foreach box, row, and col
 
 			// skip any filled regions
 			if ( (region = grid.regions[ri]).emptyCellCount == 0 )
 				continue;
 
-			V_LOOP: for ( v=1; v<10; ++v ) {
+			V_LOOP: for ( v=1; v<VALUE_CEILING; ++v ) {
 
 				// skip if value is placed in region, or has 2 places
-				if ( (card=region.indexesOf[v].size)==0 || card==2 )
+				if ( (card=region.ridx[v].size)==0 || card==2 )
 					continue;
 
 				// search this region for the newBugCell: the only one which
 				// maybe value in this region and has 3+ maybes.
 				Cell newBugCell = null; // a field to save on passing it around
-				for ( int i : INDEXES[region.indexesOf[v].bits] ) {
+				for ( int i : INDEXES[region.ridx[v].bits] ) {
 					if ( region.cells[i].size > 2 ) {
 						// if there are multiple positions we can't decide
 						// which is the BUG cell, so we just leave it for
@@ -202,10 +204,10 @@ public final class BUG extends AHinter
 		// exactly 2-or-0 positions for each value, or it's not a BUG.
 		// BUG Region  pass 63 of 66 = skip 4.55%
 //++rgCnt;
-		for ( ri=0; ri<27; ++ri ) {
+		for ( ri=0; ri<NUM_REGIONS; ++ri ) {
 			region = stripper.regions[ri];
-			for ( v=1; v<10; ++v )
-				if ( (card=region.indexesOf[v].size)!=0 && card!=2 )
+			for ( v=1; v<VALUE_CEILING; ++v )
+				if ( (card=region.ridx[v].size)!=0 && card!=2 )
 					return false; // Not a BUG
 		}
 //++rgPass;
@@ -234,7 +236,7 @@ public final class BUG extends AHinter
 	}
 
 	private boolean addBug1Hint() {
-		Cell theBugCell = bcPots.firstKey();
+		Cell theBugCell = bcPots.firstCell();
 		Pots redPots = new Pots();
 		redPots.put(theBugCell, theBugCell.maybes & ~allBugValues);
 //++bug1HintCount;

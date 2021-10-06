@@ -10,6 +10,8 @@ import diuf.sudoku.Ass;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import static diuf.sudoku.Settings.THE_SETTINGS;
@@ -242,7 +244,7 @@ public final class ChainerMulti extends ChainerBase
 		if ( theInitialGrid == null )
 			theInitialGrid = new Grid();
 		if ( !isDynamic ) // (ie isMultiple) copy ONCE at top of stack
-			grid.copyTo(theInitialGrid); // used in doChains
+			theInitialGrid.copyFrom(grid); // used in doChains
 		// looks at cells/regions size > 2 and combines ramifications.
 		findMultipleOrDynamicChains(hints);
 		this.grid = null;
@@ -334,9 +336,9 @@ public final class ChainerMulti extends ChainerBase
 		// the "off" effects in this region // observed 183
 		IAssSet rgnOffs = new FunkyAssSet(256, 1F, false);
 		// the "on"  effects of each position of value in this region
-		IAssSet[] posOns = new IAssSet[9];
+		IAssSet[] posOns = new IAssSet[REGION_SIZE];
 		// the "off" effects of each position of value in this region
-		IAssSet[] posOffs = new IAssSet[9];
+		IAssSet[] posOffs = new IAssSet[REGION_SIZE];
 		// Set enforces uniqueness. Used as a queue. Hammers: add, poll, clear.
 		// An IMyPollSet<Ass> has no IAssSet.getAss because effects are both
 		// "On" and "Off", so getAss won't work.
@@ -345,9 +347,9 @@ public final class ChainerMulti extends ChainerBase
 
 		// these variables are only used by this method.
 		// the "on"  effects of each potential value of cell
-		IAssSet[] valuesOns = new IAssSet[10];
+		IAssSet[] valuesOns = new IAssSet[VALUE_CEILING];
 		// the "off" effects of each potential value of cell
-		IAssSet[] valuesOffs = new IAssSet[10];
+		IAssSet[] valuesOffs = new IAssSet[VALUE_CEILING];
 		// the "on" and "off" effects of this cell
 		IMySet<Ass> cellOns, cellOffs;
 		int card; // cardinality: count of set (1) bits in cell.maybes
@@ -669,7 +671,7 @@ public final class ChainerMulti extends ChainerBase
 			// WARN: we need a copy of idxsOf[v] (ie riv) because the doChains
 			// method erases them when isDynamic. We also want an array (riv)
 			// instead of a bitset, so that works out rather nicely.
-			if ( !( (n=(riv=INDEXES[r.indexesOf[v].bits]).length) == 2
+			if ( !( (n=(riv=INDEXES[r.ridx[v].bits]).length) == 2
 				 || (isMultiple && n>2) )
 			  // are we seeing this region for the first time?
 			  || r.cells[i=riv[0]] != cell ) // reference equals OK
@@ -826,7 +828,7 @@ public final class ChainerMulti extends ChainerBase
 		// if (isDynamic) then backup before maybes are erased from the grid,
 		// else the grid is copied ONCE at top of stack to save time.
 		if ( isDynamic )
-			grid.copyTo(theInitialGrid);
+			theInitialGrid.copyFrom(grid);
 		try {
 			Ass a, e, c; // an assumption, it's effect, and effects conjugate.
 			boolean anyOns; // did offToOns find any Ons? A performance tweak.
@@ -911,7 +913,7 @@ public final class ChainerMulti extends ChainerBase
 //			}
 		} finally {
 			if ( isDynamic ) // NB: grid is not modified when !isDynamic
-				theInitialGrid.copyTo(grid);
+				grid.copyFrom(theInitialGrid);
 			onQ.clear();
 			offQ.clear();
 //			df = null;
@@ -1070,7 +1072,7 @@ public final class ChainerMulti extends ChainerBase
 		LinkedHashMap<Integer, Ass> chains = null;
 		IMySet<Ass> effects; // the effects of r.cells[i] being v
 		Ass targetWithParents; // this Ass has parents (target is just a dolly)
-		for ( int i : region.indexesOf[value] ) // iterator is fast enough
+		for ( int i : region.ridx[value] ) // iterator is fast enough
 			// add the complete parent assumption (with ancestors) to the chain
 			if ( (effects=positionEffects[i]) != null
 			  && (targetWithParents=effects.get(target)) != null ) {
@@ -1126,7 +1128,7 @@ public final class ChainerMulti extends ChainerBase
 			, int currPlaces, ARegion region, IAssSet rents, Ass effect) {
 		// get the erased places of value in region
 		// ie in the initialGrid andNot in the currentGrid.
-		final int erasedPlaces = theInitialGrid.cells[oci].regions[rti].indexesOf[v].bits & ~currPlaces;
+		final int erasedPlaces = theInitialGrid.cells[oci].regions[rti].ridx[v].bits & ~currPlaces;
 		if ( erasedPlaces != 0 ) {
 			Ass p; // parent
 			// foreach possible position of v in the region that has been erased

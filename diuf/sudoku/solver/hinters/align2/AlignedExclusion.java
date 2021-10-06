@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters.align2;
 import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
@@ -19,7 +20,6 @@ import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.HintValidator;
-import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.MyArrays;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -28,6 +28,8 @@ import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHIFTED;
 import static diuf.sudoku.Values.VSIZE;
 import static diuf.sudoku.utils.Frmt.MINUS;
+import static diuf.sudoku.Grid.MAX_EMPTIES;
+import diuf.sudoku.utils.Log;
 
 
 /**
@@ -218,14 +220,28 @@ import static diuf.sudoku.utils.Frmt.MINUS;
  *    42,878,437,200  3841   11,163,352   2 21,439,218,600 Aligned Oct
  * And running it again overheats the CPU so everything is slower. sigh.
  * But A4E is still comparatively a LOT slower than it should be. sigh.
+ *
+ * 2021-08-06 I was just pissing about with an explanation of used excluders
+ * and I notice that, for some reason it's much faster than it was previously,
+ * so I decided to add a comment to that effect. It's faster, but there ARE
+ * now less Aligned hints, because ALS_* finds most of them.
+ *       306,924,100  3703       82,885   0              0 AlignedPair
+ *     2,315,394,500  3703      625,275   3    771,798,166 AlignedTriple
+ *     8,646,212,200  3700    2,336,814   3  2,882,070,733 AlignedQuad
  * </pre>
  *
  * @author Keith Corlett 2020-12-10 created
  */
 public class AlignedExclusion extends AHinter
-		implements diuf.sudoku.solver.hinters.IPreparer
-				 , diuf.sudoku.solver.hinters.ICleanUp
+implements diuf.sudoku.solver.hinters.IPreparer,
+		diuf.sudoku.solver.hinters.IReporter,
+		diuf.sudoku.solver.hinters.ICleanUp
 {
+	public void report() {
+		if ( tech == Tech.AlignedQuad ) {
+			Log.teeln("AlignedQuad: align2.NonHinters.cnt="+diuf.sudoku.solver.hinters.align2.NonHinters.cnt);
+		}
+	}
 //	//@check: commented out: for debugging only
 //	// "Hot" cands are the selectable ones, in the valuesStack
 //	private String hotCandsToString() {
@@ -282,10 +298,10 @@ public class AlignedExclusion extends AHinter
 		0, 0, 2*1024, 8*1024, 32*1024, 128*1024, 256*1024, 512*1024, 512*1024, 512*1024, 512*1024
 	};
 
-	// EXCLUDERS_MAYBES: excluder cells maybes; there's ONE static array
-	// shared by all instances of AlignedExclusion, via Idx#cellMaybes.
-	// package visible to be read in NonHinters#skip
-	// NOTE: This MUST be done static for LogicalAnalyserTest, apparently!
+	// EXCLUDERS_MAYBES: excluder cells maybes; there's ONE static array shared
+	// via Idx#cellMaybes by all instances of AlignedExclusion, which cannot
+	// execute concurrently. Package visible to read in NonHinters#skip. This
+	// array logically belongs to Idx, but created only when AE is referenced.
 	static final int[] EXCLUDERS_MAYBES = new int[20];
 
 	// degree - 1
@@ -305,7 +321,7 @@ public class AlignedExclusion extends AHinter
 	// the excluder cells for each candidate. To build an aligned set we seek
 	// the minimum required "common excluders" seen by all cells in the set (ie
 	// same box, row, or col).
-	private final CellSet[] exclSets = new CellSet[81]; // 1 per candidate
+	private final CellSet[] exclSets = new CellSet[GRID_SIZE];
 
 	// an array of $degree cells: rightmost is each available candidate cell,
 	// then the next-left is each available candidate cell of the current set
@@ -357,7 +373,7 @@ public class AlignedExclusion extends AHinter
 		assert tech.isAligned;
 		// my super.degree comes from the passed Tech.
 		degreeMinus1 = degree - 1;
-		candidates = new Cell[64]; // 64 = 81 - 17 minimum clues
+		candidates = new Cell[MAX_EMPTIES]; // 64 = 81 - 17
 		cStack = new CellStackEntry[degree];
 		vStack = new ValsStackEntry[degree];
 		for ( int i=0; i<degree; ++i ) {
@@ -591,16 +607,16 @@ public class AlignedExclusion extends AHinter
 					vStack[cl].set(cell);
 					if ( cl < degreeMinus1 ) {
 						// incomplete "aligned set"
-						// cStack[cl].index is already incremented to the index of
-						// my next candidate cell, so the next level starts at the
-						// next cell, ie a forward-only search.
+						// cStack[cl].index is already incremented to index of
+						// my next candidate cell, so the next level starts at
+						// the next cell, ie a forward-only search.
 						cStack[cl+1].index = cStack[cl].index;
 						// move right to the next level in the cellStack
 						++cl;
 					} else {
 						// we have a complete "aligned set"
-						// 1. ce.excluders.cellsMaybes() sets EXCLUDERS_MAYBES to
-						//    maybes of the excluder cells.
+						// 1. ce.excluders.cellsMaybes() sets EXCLUDERS_MAYBES
+						//    to maybes of the excluder cells.
 						// 2. clean removes EXCLUDERS_MAYBES which have a maybe
 						//    that is not anywhere in the aligned set;
 						//    then sort EXCLUDERS_MAYBES by size ASCENDING;
@@ -840,7 +856,7 @@ public class AlignedExclusion extends AHinter
 										cmnExcluders, cells, reds);
 								// create the hint
 								final AHint hint = new AlignedExclusionHint(this, reds
-										, cells, Frmu.ssv(cmnExcluders), map);
+										, cells, cmnExcluders, map);
 								if ( HintValidator.ALIGNED_EXCLUSION_USES ) {
 									if ( !HintValidator.isValid(grid, reds) ) {
 										hint.isInvalid = true;
@@ -1055,8 +1071,10 @@ public class AlignedExclusion extends AHinter
 	 *    the aligned set, because no combination of the potential values of
 	 *    the cells in the aligned set can ever cover (be a superset of) it,
 	 *    so it will never contribute to an exclusion, ergo it's useless.
-	 * 2. sort the remaining maybes by size ASCENDING; Note that bubbleSort is
-	 *    faster than TimSort for small (approx n&lt;12) arrays.
+	 * 2. sort the remaining maybes by size ASCENDING; because smaller sets are
+	 *    more likely to covered, and it's faster to do the more deterministic
+	 *    comparisons first. Note that bubbleSort is faster than TimSort for
+	 *    small (approx n&lt;12) arrays (mainly because it's impl'd locally).
 	 * 3. remove excluders that are a superset of (contain all values in) any
 	 *    other excluder, including any duplicates. Every set that covers 125
 	 *    also covers 12, so given 12,125 remove 125 without effecting result.
@@ -1066,12 +1084,12 @@ public class AlignedExclusion extends AHinter
 	 * @return the new (possibly reduced) number of excluder cells.
 	 */
 	private int clean(int numExcls, int minExcls) {
-		final int[] a = EXCLUDERS_MAYBES; // localise for brevity and speed
-		int i, j,J, k;
+		int i, j, k, tmp;
 		boolean any;
-		// 1. if all my values are not in the aligned set then remove me
-		j = 0; // all values in the aligned set
-		for ( i=0; i<degree; ++i )
+		// localised for both brevity and speed
+		final int[] a = EXCLUDERS_MAYBES;
+		// 1. if any of my values are not in the aligned set then remove me
+		for ( j=0,i=0; i<degree; ++i )
 			j |= cStack[i].cands;
 		final int allCands = j;
 		for ( i=0; i<numExcls; ++i )
@@ -1079,7 +1097,7 @@ public class AlignedExclusion extends AHinter
 				if ( --numExcls < minExcls )
 					return numExcls; // don't bother removing
 				// remove i: move i-and-all-to-its-right left one spot.
-				for ( j=i,J=numExcls; j<J; ++j )
+				for ( j=i; j<numExcls; ++j )
 					a[j] = a[j+1];
 				--i; // --i then ++i = i; where we moved the data down to.
 			}
@@ -1090,9 +1108,9 @@ public class AlignedExclusion extends AHinter
 				for ( j=1; j<i; ++j ) // the left cell INCLUSIVE
 					// if previous k=j-1 is larger than current j then swap
 					if ( VSIZE[a[k=j-1]] > VSIZE[a[j]] ) {
-						J = a[j];
+						tmp = a[j];
 						a[j] = a[k];
-						a[k] = J;
+						a[k] = tmp;
 						any = true;
 					}
 				if ( !any )
@@ -1105,7 +1123,7 @@ public class AlignedExclusion extends AHinter
 					if ( --numExcls < minExcls )
 						return numExcls; // don't bother removing
 					// remove j: move j-and-all-to-its-right left one spot.
-					for ( k=j,J=numExcls; k<J; ++k )
+					for ( k=j; k<numExcls; ++k )
 						a[k] = a[k+1];
 					--j; // --j then ++j = j; where I moved the data down to.
 				}

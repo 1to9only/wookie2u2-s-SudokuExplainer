@@ -10,7 +10,6 @@ import static diuf.sudoku.utils.Frmt.PERIOD;
 import static diuf.sudoku.utils.Frmt.SPACE;
 import java.io.PrintStream;
 
-
 /**
  * Log represents a simple log-file. First thing I usually do is open a
  * PrintWriter on the log-file (in the main method) and then stuff it in here.
@@ -40,35 +39,35 @@ public final class Log {
 	// Yes Really: I use the details to help find bugs.
 	public static final int MODE = VERBOSE_5_MODE; // @check VERBOSE_5_MODE
 
-	public static PrintStream log;
+	public static PrintStream out;
 
 	public static void print(String msg) {
-		log.print(msg);
+		out.print(msg);
 	}
 	public static void print(Object msg) {
-		log.print(msg);
+		out.print(msg);
 	}
 
 	public static void println() {
-		log.println();
+		out.println();
 	}
 	public static void println(Object o) {
-		log.println(o);
+		out.println(o);
 	}
 
 	public static void format(String format, Object... args) {
-		log.format(format, args);
+		out.format(format, args);
 	}
 
 	public static void flush() {
-		log.flush();
-		if ( log != System.out )
+		out.flush();
+		if ( out != System.out )
 			System.out.flush();
 	}
 
 	public static void close() {
-		if ( log != System.out )
-			log.close();
+		if ( out != System.out )
+			out.close();
 	}
 
 	public static long div(long l, long i) {
@@ -99,8 +98,8 @@ public final class Log {
 		percent("%,d of %,d = %4.2f\n", howMany, of);
 	}
 	public static void percent(String frmt, long howMany, long of) {
-		log.format(frmt, howMany, of, pct(howMany, of));
-		if ( log != System.out )
+		out.format(frmt, howMany, of, pct(howMany, of));
+		if ( out != System.out )
 			System.out.format(frmt, howMany, of, pct(howMany, of));
 	}
 
@@ -112,24 +111,24 @@ public final class Log {
 	// indentf('0', 10-s.length(), "%s", s);
 	public static void indentf(char c, int depth, String fmt, Object... args) {
 		for (int i=0; i<depth; ++i)
-			log.print(c);
-		log.format(fmt, args);
+			out.print(c);
+		out.format(fmt, args);
 	}
 
 	public static void tee(String msg) {
-		log.print(msg);
-		if ( log != System.out )
+		out.print(msg);
+		if ( out != System.out )
 			System.out.print(msg);
 	}
 	public static void teeln() {
-		log.println();
-		if ( log != System.out )
+		out.println();
+		if ( out != System.out )
 			System.out.println();
 	}
 	public static void teeln(Object... os) {
-		printAll(log, SPACE, os);
-		log.println();
-		if ( log != System.out ) {
+		printAll(out, SPACE, os);
+		out.println();
+		if ( out != System.out ) {
 			printAll(System.out, SPACE, os);
 			System.out.println();
 		}
@@ -145,26 +144,26 @@ public final class Log {
 		}
 	}
 	public static void teef(String frmt, Object... args) {
-		log.format(frmt, args);
-		if ( log != System.out )
+		out.format(frmt, args);
+		if ( out != System.out )
 			System.out.format(frmt, args);
 	}
 	public static void teeTrace(Throwable t) {
-		log.flush();
-		t.printStackTrace(log);
-		log.flush();
-		if ( log != System.out ) {
+		out.flush();
+		t.printStackTrace(out);
+		out.flush();
+		if ( out != System.out ) {
 			System.out.flush();
 			t.printStackTrace(System.out);
 			System.out.flush();
 		}
 	}
 	public static void teeTrace(String msg, Throwable t) {
-		log.println(msg);
-		log.flush();
-		t.printStackTrace(log);
-		log.flush();
-		if ( log != System.out ) {
+		out.println(msg);
+		out.flush();
+		t.printStackTrace(out);
+		out.flush();
+		if ( out != System.out ) {
 			System.out.println(msg);
 			System.out.flush();
 			t.printStackTrace(System.out);
@@ -173,10 +172,10 @@ public final class Log {
 	}
 
 	public static void teef(final boolean l, final boolean p, final String f, final Object... args) {
-		if(l)log.format(f, args);
+		if(l)out.format(f, args);
 		if(p)System.out.format(f, args);
 	}
-	
+
 	public static String simple(String className) {
 		int i = className.lastIndexOf('.');
 		if ( i == -1 )
@@ -213,14 +212,14 @@ public final class Log {
 	}
 
 	public static void initialise(PrintStream out) {
-		Log.log = out;
+		Log.out = out;
 	}
 
 	public static void stackTrace(String msg, Exception ex) {
 		println(msg);
-		log.flush();
-		ex.printStackTrace(log);
-		log.flush();
+		out.flush();
+		ex.printStackTrace(out);
+		out.flush();
 	}
 
 	// =========================== constructor ================================

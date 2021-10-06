@@ -7,8 +7,17 @@
 package diuf.sudoku;
 
 /**
- * IdxI is an Idx that is immutable post construction. Any attempt to mutate an
- * IdxI will throw an ImmutableException, so just don't, that's all.
+ * IdxI is an IdxL that is immutable post construction. Any attempt to mutate
+ * an IdxI throws an ImmutableException, so just don't, final; but please note
+ * that I am NOT final, so that you can take the Adams D but only if you really
+ * really want to.
+ * <p>
+ * The problem with people who think they know everything is that they think
+ * that they know everything. It's that thinking that is the problem, not the
+ * people. Solve the problem. Retain the people. Solving the people gets hard
+ * fast. Our government is currently undertaking a major effort to solve the
+ * people. It will not work. Advertising can't cure corona, or global warming.
+ * But I'm a leader. ____off ya twit!
  *
  * @author Keith Corlett 2020-07-13
  */
@@ -31,7 +40,7 @@ public class IdxI extends IdxL implements Cloneable {
 	IdxI() {
 		super();
 	}
-	
+
 	IdxI(boolean isFull) {
 		super(isFull);
 	}

@@ -12,6 +12,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.utils.IFilter;
 import diuf.sudoku.utils.IVisitor;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -67,6 +68,9 @@ import java.util.regex.Pattern;
  * Just pushing the cheese around on my cracker. Ye rolls yon dice and ye moves
  * yon mice. I apologise for any confusion.
  * <p>
+ * NOTE: because Idx is wholey structured around a GRID_SIZE of 81 it does not
+ * use GRID_SIZE or any of the related constants.
+ * <p>
  * <pre>
  * See: diuf.sudoku.solver.hinters.xyz.XYWing // uses Idx's
  * See: diuf.sudoku.solver.hinters.align.Aligned5Exclusion_1C // uses int[]
@@ -114,14 +118,12 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/** the value of ALL bits (ie 27 set bits) in an Idx element. */
 	public static final int ALL = (1<<BITS_PER_ELEMENT)-1;
 
-	/** the left-shifted bitset value of my index. */
+	/** the left-shifted bitset value of each possible index. */
 	public static final int[] SHFT = new int[BITS_PER_ELEMENT];
 
 	/** WORDS[9-bit-word] contains the values that are packed into that
 	 * 9-bit-word. There are 3 words per 27-bit element. */
 	public static final int[][] WORDS = new int[1<<9][]; // [0..511][see WSIZE]
-//turns-out it's always easier/faster to just read WORDS[i].length yourself
-//	public static final int[] WSIZE = new int[1<<9]; // [0..511][see WSIZE]
 
 	/** Int ArrayS used to iterate Idx's. One array-set per iteration.
 	 * There's two of them to avert collisions in imbedded loops. */
@@ -135,15 +137,15 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	public static final int[][] IAS_B = new int[IAS_LENGTH][];
 
 	static {
-		for ( int i=0; i<BITS_PER_ELEMENT; ++i )
+		for ( int i=0; i<BITS_PER_ELEMENT; ++i ) {
 			SHFT[i] = 1<<i;
+		}
 		for ( int i=0; i<IAS_LENGTH; ++i ) {
 			IAS_A[i] = new int[i];
 			IAS_B[i] = new int[i];
 		}
 		for ( int i=0; i<WORDS.length; ++i ) {
 			WORDS[i] = Indexes.toValuesArrayNew(i);
-//			WSIZE[i] = WORDS[i].length;
 		}
 	}
 
@@ -218,6 +220,25 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	static Idx of(Idx src) {
 		return new Idx(src);
+	}
+
+	/**
+	 * Returns a new Idx of ids.
+	 * <p>
+	 * Note that this method is currently only used by test-cases, where it's
+	 * pretty central, so if this fails then many test-cases will fail.
+	 *
+	 * @param ids an array of cell-id's to add to the new Idx. Note that the
+	 *  format of each cell-id must match the current Grid.ID_SCHEME, which is
+	 *  currently Chess, so A1..I9
+	 * @return a new Idx containing the indices of the cells in the given
+	 *  array of cell-ids.
+	 */
+	static Idx of(String[] ids) {
+		final Idx result = new Idx();
+		for ( String id : ids )
+			result.add(Grid.indice(id));
+		return result;
 	}
 
 	/**
@@ -481,17 +502,19 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Constructs a new Idx with the given bitset 'values' as a0, a1, a2.
+	 * Constructs a new Idx containing the given 'bitsets': a0, a1, a2.
 	 * <p>
-	 * This method is currently only used by IO.loadIdxs, where it's exactly
-	 * what is required.
+	 * This constructor is currently only used by LinkedMatrixCellSet, of which
+	 * there are two: in align and align2, because one day, hopefully, we'll be
+	 * able to eliminate the old align package and all of its boiler-plate, but
+	 * for the moment, align2 is slower. Sigh.
 	 *
-	 * @param values bitsets for my a0, a1, a2.
+	 * @param bitsets a0, a1, a2.
 	 */
-	public Idx(int[] values) {
-		a0 = values[0];
-		a1 = values[1];
-		a2 = values[2];
+	public Idx(int[] bitsets) {
+		a0 = bitsets[0];
+		a1 = bitsets[1];
+		a2 = bitsets[2];
 	}
 
 	/**
@@ -964,15 +987,6 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * The poll() method is my invention, and I'm quite proud of it.
 	 * It's intent is to be faster than while size()>0 i=get(0) remove(i).
 	 * <p>
-	 * PERFORMANCE: numberOfTrailingZeros is a heavy O(1) operation called for
-	 * each element, so will probably be outrun as the population (N) increases
-	 * by ONE SudokuSet initialise() followed by N array look-ups. I have NOT
-	 * tested this. All I can tell you is that my version of Coloring is faster
-	 * than the original, I cannot tell you why, only speculate intelligently
-	 * because several changes were made all-in-one coz (IMHO) it either works
-	 * my way or the original way; ie intermediate changes are beyond me, so I
-	 * haven't isolated the gains. I'm still proud of it.
-	 * <p>
 	 * See: {@link diuf.sudoku.solver.hinters.color.Coloring#conjugate}
 	 *
 	 * @return the first (lowest) indice which has been removed from this Set,
@@ -988,14 +1002,13 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		if ( a1 != 0 ) {
 			x = a1 & -a1;	// lowestOneBit
 			a1 &= ~x;		// remove x
-			// 27 is Idx.BITS_PER_ELEMENT
-			return 27 + Integer.numberOfTrailingZeros(x);
+			return BITS_PER_ELEMENT + Integer.numberOfTrailingZeros(x);
 		}
 		if ( a2 != 0 ) {
 			x = a2 & -a2;	// lowestOneBit
 			a2 &= ~x;		// remove x
 			// 54 is 2 * Idx.BITS_PER_ELEMENT
-			return 54 + Integer.numberOfTrailingZeros(x);
+			return BITS_TWO_ELEMENTS + Integer.numberOfTrailingZeros(x);
 		}
 		return -1; // this set is empty
 	}
@@ -1111,11 +1124,13 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/**
 	 * Does this Idx contain the given indice 'i'?
+	 * <p>
+	 * Note that I'm called "has" just for brevity, and formerly "contains".
 	 *
 	 * @param i
 	 * @return true if this Idx contains the given indice.
 	 */
-	public boolean contains(int i) {
+	public boolean has(int i) {
 		if ( i < BITS_PER_ELEMENT )
 			return (a0 & SHFT[i]) != 0;
 		else if ( i < BITS_TWO_ELEMENTS )
@@ -1127,13 +1142,15 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * When this Idx contains two indices, I return the one other than 'i'.
 	 * <p>
-	 * I don't mutate this Idx (remove then peek would mutate this Idx).
+	 * I do NOT mutate this Idx (remove then peek would mutate this Idx).
 	 * <p>
-	 * When this Idx does NOT contain two indices -> first other than i
-	 * <p>
-	 * When 'i' is not one of my indices -> first
-	 * <p>
-	 * This method is only called on an Idx containing two indices.
+	 * This method should only be called on an Idx containing two indices. This
+	 * method is untested on Idx's containing other than two indices, so it's
+	 * results should be regarded as "indeterminate", but here's what I think
+	 * it "should" return:<ul>
+	 * <li>When this Idx does NOT contain two indices -&gt; first other than i
+	 * <li>When 'i' is not one of my indices -&gt; first
+	 * </ul>
 	 *
 	 * @param i
 	 * @return the other indice in this Idx
@@ -1258,6 +1275,10 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		final boolean[] result = new boolean[81];
 		forEach((i)->result[i]=true);
 		return result;
+	}
+
+	public ArrayList<Cell> toArrayListNew() {
+		throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
 	}
 
 	// You can't use IFilter on a primitive
@@ -1453,6 +1474,10 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * You implement Visitor1 (typically with a lambda expression) in order to
 	 * call the forEach1 method, which invokes {@code v.visit(indice)} for
 	 * each indice in this Idx.
+	 * <p>
+	 * Note that I can't use the "standard" IVisitor interface here because
+	 * generics can't handle native types, and I won't wear the performance
+	 * impost of boxing and unboxing to and from an Integer.
 	 */
 	public interface Visitor1 {
 		/**
@@ -1465,8 +1490,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * forEach visits each indice in this Idx, ie invokes
-	 * {@code v.visit(indice)} for each set (1) bit (the indice) in this Idx.
+	 * forEach invokes {@code v.visit(indice)} for each indice in this Idx.
 	 *
 	 * @param v your implementation of Visitor1 does whatever with indice
 	 */
@@ -1564,7 +1588,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param subsequent Visitor1 invoked for each subsequent indice in this
 	 *  Idx
 	 */
-	public void forEach(Visitor1 first, Visitor1 subsequent) {
+	public void forEach(final Visitor1 first, final Visitor1 subsequent) {
 		Visitor1 v = first;
 		int bits, j;
 		if ( (bits=a0) != 0 )
@@ -1594,7 +1618,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @param result is repopulated with the buddies of ALL cells in this Idx.
 	 * @return result
 	 */
-	public Idx commonBuddies(Idx result) {
+	public Idx commonBuddies(final Idx result) {
 		forEach(
 			  (i) -> result.set(BUDDIES[i]) // first
 			, (i) -> result.and(BUDDIES[i]) // subsequent
@@ -1652,13 +1676,18 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Use this one with the right sized array, which is returned.
 	 *
 	 * @param grid the Grid to read
-	 * @param cells the array to populate
+	 * @param result the destination array to populate, which is presumed to
+	 *  be large enough. You can size() the idx to get an array from the CAS,
+	 *  or create a new array (if required), but if you're repeatedly getting
+	 *  cells use cellsN which returns the number of cells added for use with
+	 *  a single reusable array. Note that creating a bloody array takes longer
+	 *  than populating it. I hate Java, but I Love it too. sigh.
 	 * @return the given cells array, so create new if you must.
 	 */
-	public Cell[] cells(Grid grid, Cell[] cells) {
+	public Cell[] cells(Grid grid, Cell[] result) {
 		final Cell[] source = grid.cells;
-		forEach((count, indice) -> cells[count] = source[indice]);
-		return cells;
+		forEach((count, indice) -> result[count] = source[indice]);
+		return result;
 	}
 
 	// cellsN is hammered by Aligned*Exclusion, so we create ONE instance of
@@ -1677,29 +1706,30 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	// package visible for the test-case
 	private static final CellsNVisitor CELLS_N_VISITOR = new CellsNVisitor();
 	/**
-	 * Get the cells from the given Grid at indices in this Idx. Use this one
-	 * with a fixed-sized array, and I return the size.
+	 * Get cells in Grid at indices in this Idx, and return how many. Use this
+	 * one with a re-usable fixed-sized (atleast as large as required) array.
 	 *
 	 * @param grid the Grid to read
-	 * @param array the array to populate with cells in this Idx.
+	 * @param result the array to populate with cells in this Idx.
 	 * @return the number of indices visited, ie the size of this Idx
 	 */
-	public int cellsN(Grid grid, Cell[] array) {
+	public int cellsN(Grid grid, Cell[] result) {
 		// NOTE: I tried native but the visitor is actually FASTER!
-		final int result;
+		final int count;
 		try {
 			CELLS_N_VISITOR.src = grid.cells;
-			CELLS_N_VISITOR.dest = array;
-			result = forEach(CELLS_N_VISITOR);
+			CELLS_N_VISITOR.dest = result;
+			count = forEach(CELLS_N_VISITOR);
 		} finally {
 			// clean-up ALL Cell references, ya dummy!
 			CELLS_N_VISITOR.src = CELLS_N_VISITOR.dest = null;
 		}
-		return result;
+		return count;
 	}
 
-	// cellsMaybes is hammered by AlignedExclusion, so create ONE instance of
-	// CellsMaybesVisitor, just to be more memory efficient, that's all.
+	// cellsMaybes is hammered by AlignedExclusion, so we create ONE instance
+	// of CellsMaybesVisitor, to be memory efficient. My two fields (the grid
+	// and my maybes) are set by AlignedExclusion.prepare once per puzzle.
 	public static final class CellsMaybesVisitor implements Visitor2 {
 		public Grid grid;
 		public int[] maybes;
@@ -1708,28 +1738,36 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 			maybes[count] = grid.cells[indice].maybes;
 		}
 	}
-	public static final CellsMaybesVisitor CELLS_MAYBES_VISITOR = new CellsMaybesVisitor();
+	public static final CellsMaybesVisitor CELLS_MAYBES_VISITOR
+			= new CellsMaybesVisitor();
 	public int cellsMaybes() {
 		return forEach(CELLS_MAYBES_VISITOR);
 	}
 
 	/**
-	 * Get the cells from the given Grid at indices in this Idx.
-	 * This one returns a Grid.cas array for speed and convenience, so clone()
-	 * it to keep it (it's use or loose it Baby).
+	 * Get the cells from the given Grid at the indices in this Idx.
+	 * <p>
+	 * If you use CASA be sure clean-up with Cells.cleanCasA. Holding ONE Cell
+	 * reference keeps the whole Grid in memory.
 	 *
 	 * @param grid the grid to read cells from
-	 * @return the {@code Cell[]} from the Grid.cas (cache) so clone to keep.
+	 * @return a cached array from CASA of cells in this Idx, so clone to keep.
 	 */
 	public Cell[] cellsA(Grid grid) {
 		return cells(grid, Cells.arrayA(size()));
 	}
 
 	/**
-	 * Just like cells (above) but using a second CAS, so that you can stick
-	 * a cellsB loop inside of a cells loop. Pretty snazy.
-	 * @param grid
-	 * @return an array from Cells.CASB populated with the cells in this Idx.
+	 * Get the cells from the given Grid at the indices in this Idx.
+	 * <p>
+	 * Like cellsA but using a second CAS (CASB), so you can have a cellsB loop
+	 * inside of a cellsA loop.
+	 * <p>
+	 * If you use CASB be sure clean-up with Cells.cleanCasB. Holding ONE Cell
+	 * reference keeps the whole Grid in memory.
+	 *
+	 * @param grid the grid to read cells from
+	 * @return a cached array from CASB of cells in this Idx, so clone to keep.
 	 */
 	public Cell[] cellsB(Grid grid) {
 		return cells(grid, Cells.arrayB(size()));

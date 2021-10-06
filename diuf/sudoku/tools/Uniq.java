@@ -6,7 +6,7 @@
  */
 package diuf.sudoku.tools;
 
-import diuf.sudoku.io.IO;
+import static diuf.sudoku.io.IO.HOME;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -16,9 +16,12 @@ import java.io.FileReader;
  * @author Keith Corlett 2020 Mar 04
  */
 public class Uniq {
+
+	/** A*E stores the vital statistics of each aligned set which hints. */
+	public static final File A4E_HASHCODES = new File(HOME+"DiufSudoku_A4E_hash.txt");
+
 	public static void main(String[] args) {
-//		final File inputFile = new File(IO.HOME+"a4e.log");
-		final File inputFile = IO.A4E_HASHCODES;
+		final File inputFile = A4E_HASHCODES;
 		try ( BufferedReader reader = new BufferedReader(new FileReader(inputFile)) ) {
 			String line, prev=null;
 			while ( (line=reader.readLine()) != null ) {
@@ -30,4 +33,5 @@ public class Uniq {
 			ex.printStackTrace(System.err);
 		}
 	}
+
 }

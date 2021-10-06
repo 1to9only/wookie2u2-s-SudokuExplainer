@@ -10,6 +10,10 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.NUM_REGIONS;
+import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
@@ -72,7 +76,7 @@ import java.util.Arrays;
  */
 public class Locking extends AHinter {
 
-	// constants to determine if a boxes indexesOf[v] are all in a row.
+	// constants to determine if a boxes ridx[v] are all in a row.
 	// The best way to display the logic is in binary.
 	// NOTE: left-to-right view of right-to-left bits -> upside down!
 	protected static final int ROW1 = Integer.parseInt("000"
@@ -85,7 +89,7 @@ public class Locking extends AHinter {
 												     + "000"
 												     + "000", 2); // 448=56<<3
 
-	// constants to determine if a boxes indexesOf[v] are all in a column.
+	// constants to determine if a boxes ridx[v] are all in a column.
 	protected static final int COL1 = Integer.parseInt("001"
 												     + "001"
 												     + "001", 2); // 73
@@ -193,12 +197,12 @@ public class Locking extends AHinter {
 		// presume that no hints will be found
 		boolean result = false;
 		// for each of the 9 boxes in the grid
-		for ( i=0; i<9; ++i ) {
+		for ( i=0; i<REGION_SIZE; ++i ) {
 			// we need atleast 3 empty cells to form this pattern
 			if ( (box=grid.boxs[i]).emptyCellCount > 2 ) {
 				startRegion(box); // SiameseLocking
-				bio = box.indexesOf;
-				for ( v=1; v<10; ++v ) {
+				bio = box.ridx;
+				for ( v=1; v<VALUE_CEILING; ++v ) {
 					// 0 means that this value is already placed in this box;
 					// 1 is a HiddenSingle (not my bloody problem);
 					// 2 or 3 cells in a box could all be in a row or col; but
@@ -218,7 +222,7 @@ public class Locking extends AHinter {
 							line = grid.cols[box.left + offset];    // therefore line is the col at box.left + offset
 						// all v's in the box are also in the line, so if the
 						// line also has other locations for v it's a Pointing
-						if ( line!=null && line.indexesOf[v].size > card ) {
+						if ( line!=null && line.ridx[v].size > card ) {
 							// get the 2-or-3 cells in this line which maybe v
 							// nb: when we get here we're ALWAYS hinting, so it
 							// is OK to create the cells array, which we need.
@@ -274,14 +278,14 @@ public class Locking extends AHinter {
 		  , cnt; // count: the retval from maybe, which always equals card
 		// presume that no hints will be found
 		boolean result = false;
-		// for each row (9..17) and column (18..26) in the grid
-		for ( i=9; i<27; ++i ) {
+		// for each row (9..17) and col (18..26) in the grid
+		for ( i=REGION_SIZE; i<NUM_REGIONS; ++i ) {
 			// we need atleast 3 empty cells to form this pattern
 			if ( (line=grid.regions[i]).emptyCellCount > 2 ) {
-				rio = line.indexesOf;
+				rio = line.ridx;
 				crossingBoxes = line.crossingBoxs;
 				startRegion(line); // SiameseLocking
-				for ( v=1; v<10; ++v ) {
+				for ( v=1; v<VALUE_CEILING; ++v ) {
 					// 2 or 3 cells in base might all be in a box; 4 or more won't.
 					// 1 is a hidden single, 0 means v is set, so not my problem.
 					if ( (card=rio[v].size)>1 && card<4
@@ -298,7 +302,7 @@ public class Locking extends AHinter {
 						|| ((b & ROW2)==b && (offset=1)==1) // all in the second 3 cells => 1
 						|| ((b & ROW3)==b && (offset=2)==2) ) // all in the third 3 cells => 2
 					  // and there are some extra v's in the box to be removed
-					  && crossingBoxes[offset].indexesOf[v].size > card ) {
+					  && crossingBoxes[offset].ridx[v].size > card ) {
 						// Claiming found!
 						// NOTE: The bloody CAS goes recursively bad!
 						cnt = line.maybe(VSHFT[v], cells=new Cell[card]);

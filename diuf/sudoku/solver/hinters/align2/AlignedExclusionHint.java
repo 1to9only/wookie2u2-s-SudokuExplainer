@@ -6,11 +6,13 @@
  */
 package diuf.sudoku.solver.hinters.align2;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSHIFTED;
+import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
@@ -32,26 +34,26 @@ import java.util.Set;
 public final class AlignedExclusionHint extends AHint  {
 
 	private final Cell[] cells;
-	private final String cmnExcluders;
+	private final Cell[] cmnExcluders;
 	// iteration order is significant to user understanding explanation
-	private final MyLinkedHashSet<Cell> selectedCellsSet;
+	private final MyLinkedHashSet<Cell> alignedSet;
 	// iteration order is significant to user understanding explanation
 	private final LinkedHashMap<HashA, Cell> excludedCombosMap;
 
 	AlignedExclusionHint(AHinter hinter, Pots redPots, Cell[] cells
-			, String cmnExcluders
+			, Cell[] cmnExcluders
 			, LinkedHashMap<HashA, Cell> excludedCombosMap) {
 		super(hinter, redPots);
 		this.cells = cells.clone();
 		this.cmnExcluders = cmnExcluders;
 		// NB: iteration order is significant to user understanding explanation
-		this.selectedCellsSet = new MyLinkedHashSet<>(cells);
+		this.alignedSet = new MyLinkedHashSet<>(cells);
 		this.excludedCombosMap = excludedCombosMap;
 	}
 
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
-		return selectedCellsSet;
+		return alignedSet;
 	}
 
 	static boolean isRelevent(Cell[] cells, Pots reds, int[] combo) {
@@ -102,7 +104,7 @@ public final class AlignedExclusionHint extends AHint  {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for an " + getHintTypeName();
 		if ( isBig )
-			s += " at " + Frmu.csv(selectedCellsSet);
+			s += " at " + Frmu.csv(alignedSet);
 		return s;
 	}
 
@@ -122,7 +124,7 @@ public final class AlignedExclusionHint extends AHint  {
 				return 'r';
 			else
 				return (char)0; // Red or default black
-		if ( selectedCellsSet.contains(cell) )
+		if ( alignedSet.contains(cell) )
 			return 'o'; // Orange
 		return (char)0; // meaning default to black.
 	}
@@ -200,7 +202,7 @@ public final class AlignedExclusionHint extends AHint  {
 		if ( o==null || !(o instanceof AlignedExclusionHint) )
 			return false;
 		AlignedExclusionHint other = (AlignedExclusionHint)o;
-		if ( !this.selectedCellsSet.equals(other.selectedCellsSet) )
+		if ( !this.alignedSet.equals(other.alignedSet) )
 			return false;
 		return this.redPots.equals(other.redPots);
 	}
@@ -208,7 +210,7 @@ public final class AlignedExclusionHint extends AHint  {
 	@Override
 	public int hashCode() {
 		int result = redPots.hashCode();
-		for ( Cell c : selectedCellsSet )
+		for ( Cell c : alignedSet )
 			result = result<<4 ^ c.hashCode;
 		return result;
 	}
@@ -216,9 +218,58 @@ public final class AlignedExclusionHint extends AHint  {
 	@Override
 	public String toStringImpl() {
 		return Frmt.getSB().append(getHintTypeName())
-		  .append(COLON_SP).append(Frmu.csv(selectedCellsSet))
+		  .append(COLON_SP).append(Frmu.csv(alignedSet))
 		  .append(ON).append(cmnExcluders)
 		  .toString();
+	}
+
+	// returns html defining the dropped excluders and why they were dropped.
+	// If there are none I just return a full stop, to end the sentence.
+	private String droppedExcluders() {
+		int allCands = 0;
+		for ( Cell c : alignedSet) {
+			allCands |= c.maybes;
+		}
+		int cnt = 0, cands;
+		Pots dropped = null;
+		for ( Cell c : cmnExcluders ) {
+			if ( (cands=c.maybes & ~allCands) != 0 ) {
+				if ( dropped == null )
+					dropped = new Pots();
+				dropped.put(c, cands);
+				++cnt;
+			}
+		}
+		switch ( cnt ) {
+		case 0: return ".";
+		case 1: {
+			final Cell c = dropped.firstCell();
+			cands = dropped.get(c);
+			final int n = VSIZE[cands];
+			final String candS = Values.andS(cands);
+			final String these = Frmt.plural(n, "this", "these");
+			final String values = Frmt.plural(n, "value");
+			String s = ", but <g><b>"+c.id+"</b></g> maybe <b>"+candS+"</b>"
+			+" and none of the cells in the <g>aligned set</g> maybe "+these
+			+" "+values+", so this cell is useless as an excluder cell"
+			+", and is therefore disregarded.";
+			return Html.colorIn(s);
+		}
+		default: {
+			String s = ", but ";
+			final Cell[] cs = Cells.array(dropped.keySet());
+			for ( int i=0,m=cnt-1; i<cnt; ++i ) {
+				final Cell c = cs[i];
+				final String candS = Values.andS(dropped.get(c));
+				if(i>0) if(i<m) s+=", "; else s+=" and ";
+				s += "<g><b>"+c.id+"</b></g> maybe <b>"+candS+"</b>";
+			}
+			s += " and none of the cells in the <g>aligned set</g> maybe"
+			+" these values, so these cells are useless as excluder cells"
+			+", and are therefore disregarded.";
+			return Html.colorIn(s);
+		}
+		}
 	}
 
 	@Override
@@ -236,12 +287,14 @@ public final class AlignedExclusionHint extends AHint  {
 				: "AlignedExclusionHint.html";
 		return Html.produce(this, filename
 			, GROUP_NAMES[degree-2]				//{0}
-			, Frmu.and(selectedCellsSet)		// 1
+			, Frmu.and(alignedSet)				// 1
 			, excludedCombos					// 2
 			, Frmu.and(redPots.keySet())		// 3
 			, Values.csv(getRemovableValues())	// 4
 			, redPots.toString()				// 5
-			, cmnExcluders						// 6
+			, Frmu.ssv(cmnExcluders)			// 6
+			, droppedExcluders()				// 7
 		);
 	}
+
 }

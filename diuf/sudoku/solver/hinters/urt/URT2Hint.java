@@ -8,12 +8,10 @@ package diuf.sudoku.solver.hinters.urt;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.List;
-
 
 public final class URT2Hint extends AURTHint {
 
@@ -47,7 +45,7 @@ public final class URT2Hint extends AURTHint {
 			, v2					// 2
 			, Frmu.csv(loop)		// 3
 			, Frmu.or(cellsWithExtraValues)	// 4
-			, Frmu.and(cellsWithExtraValues)	// 5
+			, Frmu.and(cellsWithExtraValues) // 5
 			, valueToRemove			// 6
 			, redPots.toString()	// 7
 		);

@@ -10,8 +10,8 @@ import diuf.sudoku.solver.AHint;
 import java.util.TreeSet;
 
 /**
- * HintCacheSorted returns the hint with the highest-score (total number of
- * eliminations, with each cell-value set counting as 10) first.
+ * HintCacheSorted returns the hint with the highest-score first. The score is
+ * the total number of eliminations, with each cell-value set counting as 10.
  * <p>
  * NOTE WELL: I extend a TreeSet, which stores only elements that are distinct
  * according to it's Comparator, so the {@link AHint#BY_SCORE_DESC} Comparator

@@ -6,6 +6,7 @@
  */
 package diuf.sudoku.test.knuth;
 
+import diuf.sudoku.Backup;
 import static diuf.sudoku.utils.Debug.*;
 
 import diuf.sudoku.Grid;
@@ -21,31 +22,27 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.hdnset.HiddenSet;
 import diuf.sudoku.solver.hinters.single.HiddenSingle;
 import diuf.sudoku.solver.hinters.single.NakedSingle;
-import diuf.sudoku.solver.hinters.lock.Locking;
 import diuf.sudoku.solver.hinters.lock.LockingSpeedMode;
 import java.util.EnumMap;
 
 
 /**
- * diuf.sudoku.test.knuth.RecursiveSolver is Donald Knuth's algorithm.
- * I just added the four Quick Foxes to make it a bit faster.
+ * diuf.sudoku.test.knuth.RecursiveSolver is Donald Knuth's "brute force"
+ * algorithm. We just added the four Quick Foxes to make it a bit faster.
  * <p>
- * RecursiveSolver is currently <u>only</u> in RecursiveSolverTester. It is not
- * used in the rest of Sudoku Explainer, hence the separate test.knuth package.
- * The SingleSolution is used in the rest of SE. It does basically the same
- * stuff, with cheese. This is the stripped-out racing version: sans cheese,
- * special sauce, pickles, and any other s__t you can think of.
- * SingleSolution is about functionality, but knuth.RecursiveSolver is all
- * about speed. I'm all about speed. Did I mention that I quite like speed. Not
- * that kind ya dumbass. REAL speed. The kind you discover by working at it.
+ * RecursiveSolver is currently <u>only</u> used in RecursiveSolverTester. It
+ * is not used in the rest of Sudoku Explainer, hence the separate test.knuth
+ * package. SingleSolution is used in the rest of SE. It does basically the
+ * same stuff as me, with cheese. This is the stripped-out racing version: sans
+ * cheese, special sauce, pickles, and any other s__t that's gotten tacked-on.
+ * SingleSolution is functional, but knuth.RecursiveSolver is all about speed.
+ * I quite like speed. REAL speed. The kind you discover rather than invent.
  * <p>
  * I tried adding all sorts of hinters, but they're all SLOWER, so I took them
  * out again. The per run timings tell me what to leave in/out. You need to be
  * careful what you include: some hinters require region.idxs and such, which
  * means we need to grid.rebuildAllRegionsS__t() at the top of solveLogically,
  * and the expenses outweigh the gains. Knuth is/was a bloody genius.
- * <p>
- * It's harder to pick than a broken nose. Suck it and see.
  * <p>
  * You're Knuthing but a bampot!
  *
@@ -118,42 +115,42 @@ public final class RecursiveSolver {
 	// WARNING: DO NOT RENAME THIS METHOD! IT'S LOOKED FOR IN THE CALLSTACK
 	//          TO FILTER OUT SUPERFLOUS ERROR MESSAGES WHEN A CELLS MAYBES
 	//          GET ZEROED BECAUSE WE'RE JUST GUESSING AT A CELLS VALUE.
-	private boolean recursiveSolve(Grid g, int depth, boolean isNoisy) { // throws UnsolvableException, but only from the top-level, before any cell values have been guessed!
+	private boolean recursiveSolve(Grid grid, int depth, boolean isNoisy) { // throws UnsolvableException, but only from the top-level, before any cell values have been guessed!
 //uncomment the logging code to debug. It's faster without.
 //		indentf('>',depth, "%d %s%s", depth, "solveRecursively", NL);
 //		String result = "exhuasted"; // used in finally block
 //		try {
-			if ( g.isInvalidated() ) {
+			if ( grid.isInvalidated() ) {
 //				result = "unsolvableA: "+g.invalidity;
 				return false;
 			}
 			// This is the only supraknuthian part.
-			if ( solveLogically(g) ) { // throws UnsolvableException
+			if ( solveLogically(grid) ) { // throws UnsolvableException
 //				result = "solved";
 				return true;
 			}
-			if ( g.isInvalidated() ) {
+			if ( grid.isInvalidated() ) {
 //				result = "unsolvableB: "+g.invalidity;
 				return false;
 			}
 			// 99.9% of cellToGuess's have 2 maybes. 1 could have 3, one day.
-			Cell cellToGuess = getCellToGuess(g);
+			final Cell cellToGuess = getCellToGuess(grid);
 			// nb: we need a new array at each level in recursion
 //			int[] valuesToGuess = Values.toArrayNew(cellToGuess.maybes);
-			int[] valuesToGuess = VALUESES[cellToGuess.maybes];
-			String backup = g.toString();
+			final int[] valuesToGuess = VALUESES[cellToGuess.maybes];
+			final Backup backup = new Backup(grid);
 			for ( int i=0,n=valuesToGuess.length,m=n-1; i<n; ++i ) {
-				int valueToGuess = valuesToGuess[i];
+				final int valueToGuess = valuesToGuess[i];
 				++numGuesses; // static so total since last call to solve(Grid)
-				println(); println(g);
+				println(); println(grid);
 //				indentf('=',depth, "%d guess %s = %d%s", depth, cellToGuess, valueToGuess, NL);
 				try {
 					cellToGuess.set(valueToGuess, 0, true, null); // throws UnsolvableException  // use hardcoded true in case Grid.AUTOSOLVE is currently false
-					if ( g.numSet > 80 ) {
+					if ( grid.numSet > 80 ) {
 //						result = "solverated";
 						return true;
 					}
-					if ( recursiveSolve(g, depth+1, isNoisy) ) { // throws UnsolvableException
+					if ( recursiveSolve(grid, depth+1, isNoisy) ) { // throws UnsolvableException
 //						result = "already solved";
 						return true;
 					}
@@ -161,7 +158,7 @@ public final class RecursiveSolver {
 					// do nothing, just guess again
 				}
 				if ( i < m ) // no need to restore after the last value
-					g.restore(backup);
+					grid.restore(backup);
 			}
 			return false; // fizzled
 //		} finally {

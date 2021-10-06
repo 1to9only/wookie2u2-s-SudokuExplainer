@@ -360,7 +360,7 @@ public class Ass {
 //KEEP_4_DOC: This method no longer used but retain as documentation.
 //	/** @return the other Cell in the given region which maybe this.value. */
 //	Cell otherCellIn(ARegion region) {
-//		Indexes riv = region.indexesOf[value];
+//		Indexes riv = region.ridx[value];
 //		assert riv.size == 2;
 //		int i = riv.first();
 //		Cell otherCell = region.cells[i];

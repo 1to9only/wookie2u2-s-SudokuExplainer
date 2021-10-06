@@ -70,11 +70,12 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	}
 
 	/**
-	 * An array of the Integer.bitCount of 0..511, for speed.<br>
-	 * NOTE: that the number of bits in a bitset is the same regardless of
-	 * whether the first bit represents 0 (Indexes) or 1 (Values); hence
-	 * Indexes.ISIZE = Values.VSIZE, that is Indexes.ISIZE is just a pseudonym
-	 * for the single array, which is kept in Values.
+	 * An array of the Integer.bitCount of 0..511, for speed.
+	 * <p>
+	 * NOTE: the number of bits in a bitset is the same regardless of whether
+	 * the first bit represents 0 (Indexes) or 1 (Values); hence Indexes.ISIZE
+	 * is actually Values.VSIZE, that is Indexes.ISIZE is just a pseudonym for
+	 * the single array, which is "owned" by the Values class.
 	 */
 	public static final int[] ISIZE = Values.VSIZE;
 
@@ -89,13 +90,9 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * For example: given binary {@code 1101} we return {@code {0,2,3}}.
 	 * <p>
 	 * WARNING: This method is hijacked by Idx static initialiser, so do NOT
-	 * introduce anything (like SHFT) which assumes we know the size of the
-	 * bloody set! There are perfectly good API methods which were designed
-	 * to help us avoid having to do so, and they might be a bit slower but
-	 * they do work for all possible bits... so just don't ____ with me or
-	 * I'll send the pig around to your house to beat you most roughly; and
-	 * there's nothing more humbling than having the absolute living piss
-	 * smacked out of you by a girl. Har hjaa!
+	 * introduce anything (like SHFT) which assumes we know the set.size. There
+	 * are API methods that handle all possibilities, they're just slower, so
+	 * don't ____ with me. If you must ____ with me then test everything.
 	 *
 	 * @param bits to be unpacked
 	 * @return given binary {@code 1101} we return {@code {0,2,3}}.
@@ -114,12 +111,13 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	/**
 	 * "Unpacks" the given bitset into an array of the outright value of each
 	 * set (1) bit in the given bitset.
-	 * For example: given binary {@code 1101} we return {@code {1,4,8}}.
-	 * 
+	 * <p>
+	 * Example: given binary {@code 1101} we return {@code {1,4,8}}.
+	 *
 	 * @param bitset to be unpacked
 	 * @return given binary {@code 1101} we return {@code {1,4,8}}.
 	 */
-	public static int[] toShiftedArray(int bitset) {
+	public static int[] toShiftedArrayNew(int bitset) {
 		final int n = Integer.bitCount(bitset);
 		int[] result = new int[n];
 		int cnt = 0;
@@ -145,33 +143,45 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 		size = NUM_BITS;
 	}
 
-	/** Constructs a new Indexes Set containing the given raw 'bits'.
-	 * @param bits to set (a left-shifted bitset). */
+	/**
+	 * Constructs a new Indexes Set containing the given raw 'bits'.
+	 * 
+	 * @param bits to set (a left-shifted bitset).
+	 */
 	public Indexes(int bits) {
 		this.size = ISIZE[this.bits = bits];
 	}
 
-	/** Constructs a new Indexes Set containing the given 'indexes'.
+	/**
+	 * Constructs a new Indexes Set containing the given 'indexes'.
 	 * <p>Now only used in test-cases, for readability. Angry people use the
 	 * bits constructor.
 	 * <p>EG: {@code Indexes idxs = new Indexes(0,1,2,3,8);}
+	 * 
 	 * @param indexes {@code int...} an arguments array of "normal" (not
-	 * left-shifted) indexes. */
+	 * left-shifted) indexes.
+	 */
 	public Indexes(int... indexes) {
 		for ( int i=0,n=indexes.length; i<n; ++i )
 			bits |= ISHFT[indexes[i]]; // add idx to my bits
 		this.size = ISIZE[bits]; // safety first, in case 2 idxs weren't distinct
 	}
 
-	/** Constructs a new Indexes Set containing the digits in 's'.
-	 * @param s String of digits EG: "01238" to set. */
+	/**
+	 * Constructs a new Indexes Set containing the digits in 's'.
+	 * 
+	 * @param s String of digits EG: "01238" to set.
+	 */
 	public Indexes(String s) {
 		for ( int i=0, n=this.size=s.length(); i<n; ++i )
 			this.bits |= ISHFT[s.charAt(i)-'0'];
 	}
 
-	/** Copy-con: Constructs a new Indexes Set containing the indexes in 'src'.
-	 * @param src {@code Indexes} to copy. */
+	/**
+	 * Copy-con: Constructs a new Indexes Set containing the indexes in 'src'.
+	 * 
+	 * @param src {@code Indexes} to copy.
+	 */
 	public Indexes(Indexes src) {
 		this(src.bits);
 	}
@@ -180,9 +190,11 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	// these methods set this Indexes outright, overwritting existing.
 
-	/** Set this Indexes state to that of the 'src'; called copy to avoid any
-	 * conflict with the established set methods. */
-	void copy(Indexes src) {
+	/**
+	 * Set this Indexes state to that of the 'src'; called copyFrom to avert
+	 * conflict with the existing set methods.
+	 */
+	void copyFrom(Indexes src) {
 		this.bits = src.bits;
 		this.size = src.size;
 	}
@@ -200,12 +212,11 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	/**
 	 * Set this Indexes to the given bits, and look-up the size.
-	 * @param bits
-	 * @return this Indexes for method chaining
+	 *
+	 * @param bitset
 	 */
-	public Indexes set(int bits) {
-		this.size = ISIZE[this.bits = bits];
-		return this;
+	public void set(int bitset) {
+		this.size = ISIZE[this.bits = bitset];
 	}
 
 	/**

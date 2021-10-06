@@ -6,8 +6,13 @@
  */
 package diuf.sudoku.solver.checks;
 
+import diuf.sudoku.Backup;
 import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.BOX_EDGE;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
@@ -46,6 +51,11 @@ import java.util.Random;
  * without having to pass bloody references around everywhere.
  */
 public final class SingleSolution extends AWarningHinter {
+
+	// these are shorthand because the full names are too long
+	private static final int N = REGION_SIZE;
+	private static final int M = N - 1;
+	private static final int S = BOX_EDGE; // S for SquareRoot
 
 	/** If true && VERBOSE_3_MODE then I write stuff to Log.out */
 	private static final boolean IS_NOISY = false; // @check false
@@ -294,7 +304,7 @@ public final class SingleSolution extends AWarningHinter {
 			} else {
 				// the Sudoku is unsolvable (ie invalid)
 				// but are we just missing some maybe/s?
-				grid.copyTo(f);
+				f.copyFrom(grid);
 				// restore any missing maybes
 //				f.rebuildMaybesAndS__t();
 				// solve it again Sam. Or not. sigh.
@@ -356,7 +366,7 @@ public final class SingleSolution extends AWarningHinter {
 	 */
 	private boolean recursiveSolve(final Grid grid, final int depth
 			, final boolean isReverse, final Random rnd) {
-		assert depth < 81;
+		assert depth < GRID_SIZE;
 // generate: these are more trouble than they're worth!
 //		// hasMissingMaybes() || firstDoubledValue()!=0 || hasHomelessValues()
 //		if ( grid.isInvalidated() )
@@ -372,8 +382,8 @@ public final class SingleSolution extends AWarningHinter {
 		if ( smallestCell == null ) // grid was solved by previous set
 			return true;
 		// (3) Try each potential value for that cell
-		// we need a savePoint to revert to if/when we guess a wrong value.
-		final Grid savePoint = new Grid(grid);
+		// we need a backup to revert to if/when we guess a wrong value.
+		final Backup backup = new Backup(grid);
 		// nb: a new values array is used for each level of recursion. I tried
 		// having an array-of-arrays (max recursion depth IS bounded) with each
 		// auto-growing to be as large as required, but it was SLOWER than just
@@ -396,13 +406,13 @@ public final class SingleSolution extends AWarningHinter {
 			} catch (UnsolvableException eaten) {
 				// guessed wrong, so guess again.
 			}
-			// note that if ++i==n then this is last possible value of cell, and
+			// note that if ++i==n then this is last possible value of cell, so
 			// we don't need to restore the grid, because we're about to return
 			// false, leaving it upto our caller to guess again, or return to
 			// his caller to guess again, or return to...
 			if ( ++i == n )
 				break;
-			savePoint.copyTo(grid);
+			grid.restore(backup);
 		}
 		return false;
 	}
@@ -459,7 +469,7 @@ public final class SingleSolution extends AWarningHinter {
 	private Cell getSmallestCell(Grid grid) {
 		int card;
 		Cell leastCell = null;
-		int least = 10;
+		int least = VALUE_CEILING; // 1 more than the highest value
 		for ( Cell cell : grid.cells )
 			if ( cell.value == 0
 			  && (card=cell.size) < least ) {
@@ -482,8 +492,8 @@ public final class SingleSolution extends AWarningHinter {
 		// SLOWER! BFIIK! Upside is generating puzzle is already the fast part.
 		// Miss Sudoku is Mrs Lincoln Continental: Easy to fill. Hard to strip.
 		final int[] values = new int[least.size];
-		final int start; if(reverse) start=8;  else start=0; // INCLUSIVE
-		final int stop;  if(reverse) stop=-1;  else stop=9;  // EXCLUSIVE
+		final int start; if(reverse) start=M;  else start=0; // INCLUSIVE
+		final int stop;  if(reverse) stop=-1;  else stop=N;  // EXCLUSIVE
 		final int delta; if(reverse) delta=-1; else delta=1; // back/forwards
 		if ( rnd == null ) {
 			// populate values with the cells potential values
@@ -492,8 +502,8 @@ public final class SingleSolution extends AWarningHinter {
 					values[count++] = value;
 		} else {
 			// random generator given so combine with a random value.
-			for ( count=0,v=start,rv=rnd.nextInt(9); v!=stop; v+=delta ) {
-				value = ((v+rv) % 9) + 1;
+			for ( count=0,v=start,rv=rnd.nextInt(N); v!=stop; v+=delta ) {
+				value = ((v+rv) % N) + 1;
 				if ( (cands & VSHFT[value]) != 0 )
 					values[count++] = value;
 			}

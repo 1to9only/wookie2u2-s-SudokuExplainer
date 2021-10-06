@@ -6,6 +6,8 @@
  */
 package diuf.sudoku.gen;
 
+import static diuf.sudoku.Grid.REGION_SIZE;
+
 /**
  * A Point is an x, y location (a row and col) in the Grid, in a Symmetry.
  *
@@ -20,7 +22,7 @@ public final class Point {
 	public Point(int x, int y) {
 		this.x = x;
 		this.y = y;
-		this.i = y * 9 + x;
+		this.i = y * REGION_SIZE + x;
 	}
 
 	// NOTE that Point.toString is only used in debug

@@ -11,6 +11,8 @@ import diuf.sudoku.utils.Counter;
 import diuf.sudoku.Run;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.MAX_EMPTIES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALL;
@@ -288,7 +290,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	private static final String SUPER_NAME = "AHinter";
 
 	/** The size of the CANDIDATES_ARRAY. */
-	protected static final int NUM_CANDIDATES = 64; // array size; 81-17=64
+	protected static final int NUM_CANDIDATES = MAX_EMPTIES; // 81-17=64
 
 	/** We need only one CANDIDATES_ARRAY for ALL Aligned*Exclusion so long as
 	 * we're single threaded. If you multithread drop the static. */
@@ -296,7 +298,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 
 	/** We need only one excludersArray for ALL Aligned*Exclusion so long as
 	 * we're single threaded. If you're multi-threading kill the static! */
-	protected static final CellSet[] EXCLUDERS_ARRAY = new CellSet[81];
+	protected static final CellSet[] EXCLUDERS_ARRAY = new CellSet[GRID_SIZE];
 
 	protected static final PrintStream open(String filename, String headerLine) {
 		try {
@@ -425,7 +427,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		// 10 is masturbating with a cheese grater:
 		//    slightly ammusing, but mostly painful
 		assert degree>=2 && degree<=10;
-		if ( Log.log != null ) // BUGGER!
+		if ( Log.out != null ) // BUGGER!
 			Log.println(classNameOnly);
 		this.hits = new HitSet(hitFile);
 	}
@@ -471,8 +473,8 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	}
 
 	/**
-	 * The default implementation of the report() method for those subclasses
-	 * which choose to: implements diuf.sudoku.solver.IReporter
+	 * The default implementation of the report() method for subclasses that
+	 * choose to: implements diuf.sudoku.solver.hinters.IReporter
 	 * so that statistics are uniformly and reliably reported.
 	 */
 	public void report() {
@@ -1134,7 +1136,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		// scores field is primarily for use the compare(...) method.
 		// it's a sparse array, concurrent with Grid.cells (ie Cell.i)
 		// protected coz I can't think of good reason to deny reject() method.
-		protected final int[] scores = new int[81];
+		protected final int[] scores = new int[GRID_SIZE];
 //These fields no longer used. Delete them and associated code if you like.
 //		// protected for access by the reject() method.
 //		protected int siblingCount = 0;

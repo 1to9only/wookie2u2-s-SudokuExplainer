@@ -77,7 +77,7 @@ public final class PuzzleCache {
 
 	private static void savePuzzleCache() {
 		try {
-			// 83 is 81 + 2 for EOL for Winblows.
+			// 83 is 81 + 2 for Windows NL.
 			StringBuilder sb = new StringBuilder(83 * NUM_DIFFICULTIES);
 			for ( int i=0; i<NUM_DIFFICULTIES; ++i ) {
 				if ( PUZZLE_CACHE[i] == null )

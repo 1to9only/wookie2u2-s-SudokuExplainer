@@ -45,7 +45,6 @@ import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
 
-
 /**
  * AlsWing implements the Almost Locked Set Wing Sudoku solving technique.
  * An ALS-Wing is an ALS-Chain of three ALSs.

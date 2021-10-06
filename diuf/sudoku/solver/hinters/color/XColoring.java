@@ -37,6 +37,7 @@ import static diuf.sudoku.Grid.BUDDIES;
 import static diuf.sudoku.Grid.CELL_IDS;
 import static diuf.sudoku.Grid.CELLS_REGIONS;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
@@ -216,11 +217,11 @@ public final class XColoring extends AHinter {
 		Cell cell; // If you need this explaining you're in the wrong codebase.
 		AHint hint; // Similarly.
 		ARegion dr; // a dirty region, to be re-processed.
-		Indexes riv; // region.indexesOf[v]
+		Indexes riv; // region.ridx[v]
 		Idx colorSet // current color (C1 or C2)
 		  , otherSet; // OPPOSITE color (C2 or C1)
 		int[] ice // indice color element: 0=indice, 1=color
-		    , rivs; // VALUESES[region.indexesOf[v].bits]
+		    , rivs; // VALUESES[region.ridx[v].bits]
 		int r, w // iceQ read/write index
 		  , i // the uniquitious general purpose index
 		  , n // the number of whatevers added to the array
@@ -237,7 +238,7 @@ public final class XColoring extends AHinter {
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach value
-		VALUES: for ( int v=1; v<10; ++v ) {
+		VALUES: for ( int v=1; v<VALUE_CEILING; ++v ) {
 			final int fsv = VSHFT[v]; // for lambda expressions. sigh.
 			debug(EMPTY_STRING);
 			debug(EMPTY_STRING);
@@ -246,12 +247,12 @@ public final class XColoring extends AHinter {
 			// foreach region in the grid
 			for ( ARegion region : grid.regions ) {
 				// with 2 places for v (ie a conjugate pair in region on v)
-				if ( (riv=region.indexesOf[v]).size == 2 ) {
+				if ( (riv=region.ridx[v]).size == 2 ) {
 					// --------------------------------------------------------
 					// Step 1: Select a conjugate pair (the only two places for
 					// v in a region). Color the first C1, and second C2.
 					bothColors.set(region.idxs[v]);
-					// region.indexesOf[v] contains 2 cells: 'a' and 'b'
+					// region.ridx[v] contains 2 cells: 'a' and 'b'
 					// which we set in the 2 colorSets: green and blue
 					rivs = INDEXES[riv.bits];
 					colorSets[C1].clear().add(a = region.cells[rivs[0]].i);
@@ -282,12 +283,12 @@ public final class XColoring extends AHinter {
 					) {
 						// foreach region containing this cell
 						for ( ARegion rr : grid.cells[ice[0]].regions ) {
-							if ( rr.indexesOf[v].size == 2 ) {
+							if ( rr.ridx[v].size == 2 ) {
 								// XColoring is first use of region.idxs
 								if ( rr.idxs[v].size() != 2 )
 									recover(rr, v);
 								// and my conjugate is not colored
-								if ( !bothColors.contains(conjugate=rr.idxs[v].otherThan(ice[0])) ) {
+								if ( !bothColors.has(conjugate=rr.idxs[v].otherThan(ice[0])) ) {
 									indice = ice[0];
 									color = ice[1];
 									step(Frmt.getSB(64).append("    Step 2: ")
@@ -417,7 +418,7 @@ public final class XColoring extends AHinter {
 								for ( ARegion rgn : grid.regions )
 									// hijack xSet
 									if ( xSet.setAnd(colorBuds, rgn.idxs[v]).any()
-									  && xSet.size() == rgn.indexesOf[v].size ) {
+									  && xSet.size() == rgn.ridx[v].size ) {
 										step(Frmt.getSB(64)
 										  .append("    Step 4.3: ALL cells in ")
 										  .append(rgn.id).append(" which maybe ")
@@ -566,15 +567,15 @@ public final class XColoring extends AHinter {
 		return Integer.numberOfTrailingZeros(x);
 	}
 
-	// trouble in paradise: the indexesOf[v].size==2 but idxs[v].size()!=2
+	// trouble in paradise: the ridx[v].size==2 but idxs[v].size()!=2
 	// so for a start reindex this region, if that doesn't fix it reindex
 	// the whole bloody grid, and if that still doesn't fix it then give up.
 	private void recover(ARegion rr, int v) {
 		rr.rebuildAllS__t();
-		if ( rr.indexesOf[v].size == 2
+		if ( rr.ridx[v].size == 2
 		  && rr.idxs[v].size() != 2 ) // TROUBLE
-			grid.rebuildBloodyEverything();
-		if ( rr.indexesOf[v].size == 2
+			grid.rebuild();
+		if ( rr.ridx[v].size == 2
 		  && rr.idxs[v].size() != 2 ) // FMS.
 			StdErr.exit(Log.me()+": Unrecoverable!");
 	}

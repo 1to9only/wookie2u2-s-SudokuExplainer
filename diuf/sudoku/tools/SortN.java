@@ -7,6 +7,8 @@
 package diuf.sudoku.tools;
 
 import diuf.sudoku.io.IO;
+import static diuf.sudoku.io.IO.HOME;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 
@@ -15,10 +17,14 @@ import java.util.Comparator;
  * @author Keith Corlett 2020 Mar 04
  */
 public class SortN {
+
+	/** A*E stores the vital statistics of each aligned set which hints. */
+	public static final File A4E_HASHCODES = new File(HOME+"DiufSudoku_A4E_hash.txt");
+
 	public static void main(String[] args) {
 		ArrayList<String> lines = null;
 		try {
-			lines = IO.slurp(IO.A4E_HASHCODES);
+			lines = IO.slurp(A4E_HASHCODES);
 			lines.sort(new Comparator<String>() {
 				@Override
 				public int compare(String a, String b) {

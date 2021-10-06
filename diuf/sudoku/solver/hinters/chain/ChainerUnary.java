@@ -11,6 +11,7 @@ import diuf.sudoku.solver.hinters.LinkedMatrixAssSet;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
@@ -48,7 +49,7 @@ public final class ChainerUnary extends ChainerBase {
 	// creating hint (ie not too often). The GC isnt very smart. This array
 	// is currently only used in createBidirectionalCycleHint but could be
 	// used elsewhere, as long as the methods do not invoke each other.
-	private static final boolean[] BOOLEANS81 = new boolean[81];
+	private static final boolean[] BOOLEANS81 = new boolean[GRID_SIZE];
 	private static boolean[] booleans81() {
 		Arrays.fill(BOOLEANS81, false);
 		return BOOLEANS81;

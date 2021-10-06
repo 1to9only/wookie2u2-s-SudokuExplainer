@@ -7,6 +7,7 @@
 package diuf.sudoku.solver.hinters.align;
 
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Values.VSIZE;
 import static diuf.sudoku.utils.Frmt.NULL_ST;
@@ -102,7 +103,7 @@ public class LinkedMatrixCellSet
 	// Takes a wee while to create, something like 144 ns each in testing, but
 	// it seems to depend on how you hold your tongue. Dunno why arrays are so
 	// slow in Java. Slow to create, slow to read, slower to write. Argh! Meh!
-	public final Node[][] matrix = new Node[9][9];
+	public final Node[][] matrix = new Node[REGION_SIZE][REGION_SIZE];
 	public Node head = null;
 	public Node foot = null;
 	public int size = 0;

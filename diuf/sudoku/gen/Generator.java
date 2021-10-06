@@ -9,6 +9,8 @@ package diuf.sudoku.gen;
 import diuf.sudoku.Difficulty;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Run;
 import diuf.sudoku.gui.GenerateDialog;
 import diuf.sudoku.solver.LogicalSolver;
@@ -56,20 +58,22 @@ public final class Generator {
 	// but too many indicate that an IHinter is broken.
 	private static final int MAX_FAILURES = 256;
 
-	// N is the number of cells in a grid: 9*9 = 81.
-	private static final int N = 81;
+	// NN is the number of cells in a grid: 9*9 = 81.
+	private static final int N = REGION_SIZE;
+	private static final int NN = GRID_SIZE;
+
 	// an array of indexes 0..80 in the grid to shuffle
-	private static final int[] INDEXES = new int[N];
+	private static final int[] INDEXES = new int[NN];
 	static {
-		for ( int i=0; i<N; ++i )
+		for ( int i=0; i<NN; ++i )
 			INDEXES[i] = i;
 	}
 
 	// return an array of N indexes shuffled into pseudo-random order
 	private static int[] shuffle(final Random rnd) {
 		// shuffle once
-		for ( int i=0; i<N; ++i ) {
-			final int a = rnd.nextInt(N);
+		for ( int i=0; i<NN; ++i ) {
+			final int a = rnd.nextInt(NN);
 			final int b = otherThan(a, rnd); // random other than a
 			// swap p1 and p2
 			final int temp = INDEXES[a];
@@ -83,7 +87,7 @@ public final class Generator {
 	private static int otherThan(int avoid, Random rnd) {
 		int indice;
 		do {
-			indice = rnd.nextInt(N);
+			indice = rnd.nextInt(NN);
 		} while (indice == avoid);
 		return indice;
 	}
@@ -237,7 +241,7 @@ public final class Generator {
 		}
 		try {
 			// if generate completed (ie it was NOT stopped)
-			if ( !Run.stopGenerate ) 
+			if ( !Run.stopGenerate )
 				GenerateDialog.getInstance().generateCompleted();
 		} catch (Exception eaten) {
 			// Do nothing
@@ -248,8 +252,8 @@ public final class Generator {
 	}
 
 //	private static String debug(boolean[] rubbish) {
-//		StringBuilder sb = new StringBuilder(81);
-//		for ( int i=0; i<81; ++i )
+//		StringBuilder sb = new StringBuilder(N);
+//		for ( int i=0; i<N; ++i )
 //			if ( rubbish[i] )
 //				sb.append(i%10);
 //			else
@@ -270,13 +274,13 @@ public final class Generator {
 		final Cell[] solutionCells = solution.cells;
 		// the rubbish bin: indices of cells which when cleared don't remove
 		// anything, so it's a bit faster if we never try that trick again.
-		final boolean[] rubbish = new boolean[N];
+		final boolean[] rubbish = new boolean[NN];
 		final int floor = 18;
 		// do while wereAnyRemoved: ie: we found some cells to clear.
 		OUTER: do {
 			// select a random index 'i' (that's not rubbish) to clear
-			for ( countDown=N,i=rnd.nextInt(N); rubbish[i] && --countDown>0; )
-				i = (i+1) % N;
+			for ( countDown=NN,i=rnd.nextInt(NN); rubbish[i] && --countDown>0; )
+				i = (i+1) % NN;
 			// do while ( none removed OR all 81 have been tested )
 			anyRemoved = false;
 			do {
@@ -285,7 +289,7 @@ public final class Generator {
 				// get the random index at this i
 				idx = idxs[i];
 				// get 1,2,or4 points from the symmetry for that index.
-				points = symmetry.getPoints(idx%9, idx/9); // (x, y)
+				points = symmetry.getPoints(idx%N, idx/N); // (x, y)
 				// remove value at each point, remembering how many.
 				numZeroed = 0;
 				for ( Point p : points )
@@ -298,7 +302,7 @@ public final class Generator {
 					rubbish[i] = true;
 					// increment the index, skipping existing rubbish.
 					for(;;) {
-						i = (i+1) % N; //next indexes
+						i = (i+1) % NN; //next indexes
 						if(!rubbish[i] || --countDown<1) break;
 					}
 				} else {
@@ -316,7 +320,7 @@ public final class Generator {
 							rubbish[i] = true;
 							// increment the index, skipping existing rubbish.
 							for(;;) {
-								i = (i+1) % N; //next indexes
+								i = (i+1) % NN; //next indexes
 								if(!rubbish[i] || --countDown<1) break;
 							}
 							break;

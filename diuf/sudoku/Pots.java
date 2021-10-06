@@ -7,6 +7,7 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISIZE;
 import static diuf.sudoku.Values.VALUESES;
@@ -65,10 +66,10 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 * copy.
 	 * <p>
 	 * copyAndClear is used on redPots, when a redPots field is used to avoid
-	 * repeatedly creating a new Pots in each call when it just remains empty
-	 * in most calls, because the hinter doesn't find any eliminations. So we
-	 * create ONE redPots field, add eliminations to it, and then copy-it-off
-	 * when we create the hint.
+	 * repeatedly creating a new Pots in each invocation when it almost always
+	 * remains empty, because the hinter doesn't find any eliminations. So we
+	 * have ONE redPots field which we add eliminations to, then copy-them-off
+	 * when we create a hint. Pretty obviously, this is all about speed.
 	 *
 	 * @return a copy of this (theReds) which is then cleared
 	 */
@@ -241,7 +242,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	/**
 	 * Constructor for all maybes of all of these cells.
 	 *
-	 * @param cells 
+	 * @param cells
 	 */
 	public Pots(Cell[] cells) {
 		super(cells.length, 1F);
@@ -270,7 +271,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 * @param cells
 	 * @param n
 	 * @param values
-	 * @param dummy 
+	 * @param dummy
 	 */
 	public Pots(Cell[] cells, int n, int values, boolean dummy) {
 		this(n, 1F);
@@ -519,7 +520,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 */
 	public boolean upsert(Cell cell, int values, boolean dummy) {
 		final Integer existing;
-		if ( (existing=get(cell)) != null ) { 
+		if ( (existing=get(cell)) != null ) {
 			if ( (existing | values) == existing )
 				return false;
 			return put(cell, existing | values) != null;
@@ -604,7 +605,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 * Called by {@link diuf.sudoku.solver.hinters.fish.BasicFisherman#search}.
 	 *
 	 * @param cells the cells to eliminate from (ARegion.cells)
-	 * @param indexes a bitset of indexes into cells array (ARegion.indexesOf)
+	 * @param indexes a bitset of indexes into cells array (ARegion.ridx)
 	 * @param v a new Values(value) is created for each cell, to avert any
 	 *  future collisions.
 	 */
@@ -772,7 +773,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 		if ( n == 0 )
 			return "";
 		if ( n == 1 ) {
-			Cell cell = firstKey();
+			Cell cell = firstCell();
 			return cell.id+MINUS+Values.toString(get(cell));
 		}
 		// select "A1-49" from this
@@ -884,10 +885,10 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	/**
 	 * Translate this Pots into an array of Idx's, one per value.
 	 *
-	 * @param result Idx[10], one for each value 1..9 (0 is not referenced).
+	 * @param result Idx[VALUE_CEILING], one for each value 1..9 (0 is not referenced).
 	 */
 	public void toIdxs(Idx[] result) {
-		for ( int v=1; v<10; ++v )
+		for ( int v=1; v<VALUE_CEILING; ++v )
 			result[v].clear();
 		entrySet().forEach((e) -> {
 			int i = e.getKey().i;

@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters.single;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
@@ -56,8 +57,8 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * creates a new stackframe, pushes 'value' onto the stack, and long-jumps to
  * the start of the method: <pre>{@code
  *   public BitSet getPotentialPositions(int value) {
- *     BitSet result = new BitSet(9);
- *     for (int index = 0; index < 9; index++) {
+ *     BitSet result = new BitSet(REGION_SIZE);
+ *     for (int index = 0; index < REGION_SIZE; index++) {
  *       result.set(index, getCell(index).hasPotentialValue(value));
  *     }
  *     return result;
@@ -298,7 +299,7 @@ public final class HiddenSingle extends AHinter {
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		Indexes[] rio; // regions indexesOf [values 1..9].
+		Indexes[] rio; // regions ridx [values 1..9].
 		int v; // the value we're look at in the current region
 		Cell cell; // the only cell in region which maybe value
 		AHint hint; // the HiddenSingleHint, where applicable
@@ -307,8 +308,8 @@ public final class HiddenSingle extends AHinter {
 //if ( "box 9".equals(region.id) )
 //	Debug.breakpoint();
 			if ( region.emptyCellCount > 0 ) { // ignore filled regions
-				rio = region.indexesOf;
-				for ( v=1; v<10; ++v ) {
+				rio = region.ridx;
+				for ( v=1; v<VALUE_CEILING; ++v ) {
 					if ( rio[v].size == 1 ) { // there's 1 location for v in region
 						// create the hint
 						cell = region.cells[rio[v].first()];

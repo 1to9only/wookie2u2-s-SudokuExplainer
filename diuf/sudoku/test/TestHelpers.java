@@ -7,6 +7,7 @@
 package diuf.sudoku.test;
 
 import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.utils.Frmt.TAB;
 import diuf.sudoku.utils.MyInteger;
 import diuf.sudoku.utils.MyLong;
@@ -125,13 +126,13 @@ import java.util.List;
 
 		// only used in InputFileSorter
 		public void parse() {
-			final int NUM_FLDS = 9;
-			String[] fields = contents.trim().split(" *\\t *", NUM_FLDS);
-			if (fields.length != NUM_FLDS)
-				throw new ParseException("fields.length "+fields.length+" != "+NUM_FLDS+" in: "+contents, this.number);
+			final int N = REGION_SIZE;
+			String[] fields = contents.trim().split(" *\\t *", N);
+			if (fields.length != N)
+				throw new ParseException("fields.length "+fields.length+" != "+N+" in: "+contents, this.number);
 			index = MyInteger.parse(fields[0]);
 			solveNanos = MyLong.parse(fields[1]);
-			puzzle = fields[NUM_FLDS-1];
+			puzzle = fields[N-1];
 		}
 	}
 

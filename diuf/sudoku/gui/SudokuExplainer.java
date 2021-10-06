@@ -10,6 +10,7 @@ import static diuf.sudoku.Build.ATV;
 import static diuf.sudoku.Build.BUILT;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.GridFactory;
 import diuf.sudoku.Pots;
 import diuf.sudoku.PuzzleID;
@@ -135,7 +136,7 @@ public final class SudokuExplainer implements Closeable {
 	 */
 	public static SudokuExplainer getInstance() {
 		if ( theInstance == null ) {
-			assert Log.log != null;
+			assert Log.out != null;
 			theInstance = new SudokuExplainer();
 		}
 		return theInstance;
@@ -147,15 +148,15 @@ public final class SudokuExplainer implements Closeable {
 	private SudokuExplainer() {
 		// get mostRecent file
 		this.recentFiles = RecentFiles.getInstance();
-		final PuzzleID pid = recentFiles.mostRecent();
-		// we need a grid
+		final PuzzleID pid = recentFiles.mostRecent(); // nullable
+		// we need a grid, so we always start with an empty one.
 		grid = new Grid();
-		// load the puzzle (handles null pid)
-		final PuzzleID loaded = loadFile(pid);
-		// set the grid (may still be empty) in the frame
+		// set the frame to the empty grid
 		asker = frame = new SudokuFrame(grid, this);
 		gridPanel = frame.gridPanel;
-		// show loaded puzzle in frame
+		// load the mostRecent pid into the grid and return it's ID
+		final PuzzleID loaded = loadFile(pid); // nullable
+		// display the loaded PuzzleID in the frame's title
 		if ( loaded == null ) {
 			frame.setTitle(ATV+"    "+BUILT);
 		} else {
@@ -165,7 +166,7 @@ public final class SudokuExplainer implements Closeable {
 		// get the solver
 		Log.teeln("\nnew SudokuExplainer...");
 		solver = LogicalSolverFactory.get();
-		// nb: GUI doesn't care about the Log.MODE
+		// nb: GUI cares-not about Log.MODE
 		Log.teeln(solver.getWantedHinterNames());
 		Log.teeln(solver.getUnwantedHinterNames());
 		// time to paint
@@ -358,7 +359,7 @@ public final class SudokuExplainer implements Closeable {
 			while ( re==null || re.length()==0 ) {
 				// Note: can't use LogViewHintRegexDialog here coz he calls-back
 				// SudokuFrame.setRegex, which calls me. sigh.
-				if ( (re=Ask.forString("NONE: hint regex", re)) == null ) {
+				if ( (re=frame.askForString("NONE: hint regex", re)) == null ) {
 					return null;
 				}
 			}
@@ -469,7 +470,7 @@ public final class SudokuExplainer implements Closeable {
 			// give the user a chance to change the regex for the next call
 			// Note: can't use LogViewHintRegexDialog here coz he calls-back
 			// SudokuFrame.setRegex, which calls me. sigh.
-			return Ask.forString("EOL: hint regex", re);
+			return frame.askForString("EOL: hint regex", re);
 		} catch (Throwable ex) {
 			StdErr.whinge("logView error", ex);
 			beep();
@@ -622,7 +623,7 @@ public final class SudokuExplainer implements Closeable {
 
 	private void lastDitchRebuild() {
 		try {
-			grid.rebuildBloodyEverything();
+			grid.rebuild();
 		} catch (UnsolvableException ex) {
 			beep(); beep(); beep(); beep(); beep();
 			JOptionPane.showMessageDialog(frame, "We're screwed!"
@@ -718,7 +719,7 @@ public final class SudokuExplainer implements Closeable {
 	void setGrid(Grid grid) {
 		grid.rebuildMaybes();
 		grid.rebuildAllRegionsEmptyCellCounts();
-		grid.rebuildAllRegionsIndexsOfAllValues(); // does rebuildAllRegionsContainsValues
+		grid.rebuildAllRegionsIndexsOfAllValues(true); // does rebuildAllRegionsContainsValues
 		grid.rebuildAllRegionsIdxsOfAllValues(); // does rebuildIdxs
 		gridPanel.setGrid(this.grid = grid);
 		gridPanel.clearSelection(true);
@@ -790,7 +791,7 @@ public final class SudokuExplainer implements Closeable {
 	/** Rebuild the potential values in the grid. */
 	void resetPotentialValues() {
 		grid.rebuildMaybesAndS__t();
-		grid.rebuildIndexes();
+		grid.rebuildIndexes(false);
 		clearHints();
 	}
 
@@ -870,28 +871,37 @@ public final class SudokuExplainer implements Closeable {
 		}
 	}
 
-	/** Searches the grid for all the simplest available hint(s).
-	 * <p>Called by SudokuFrame.getAllHintsLater (Shift-F5) which runs the
-	 * search on a background thread, so it's doesn't block the EDT.
-	 * @param wantMore are more hints wanted, regardless of how "hard" they are,
-	 * or how long it takes to find them all; which in practice means a wait of
-	 * max 15 seconds on a ~2900 Mhz intel i7.
-	 * @param wantSolution
-	 * @param printHints
+	/**
+	 * Searches the grid for all the simplest available hint(s).
+	 * <p>
+	 * Called by {@link SudokuFrame#getAllHintsInBackground} (Shift-F5).
+	 *
+	 * @param wantMore are more hints wanted regardless of how hard they are,
+	 *  or how long it takes to find them all; which in practice means a wait
+	 *  of max 15 seconds on my ~2900 Mhz intel i7.
+	 * @param wantSolution if it solvesWithSingles do you want that solution?
+	 * @param logHints to the Log
+	 * @param printHints to System.out
 	 */
-	void getAllHints(final boolean wantMore, final boolean wantSolution, final boolean logHints, final boolean printHints) {
+	void getAllHints(final boolean wantMore, final boolean wantSolution
+			, final boolean logHints, final boolean printHints) {
 		try {
 			IAccumulator accu = new SingleHintsAccumulator();
 			if ( grid.numSet > 80 )
 				// it's already solved numbnuts!
 				unfilteredHints = AHint.list(solver.SOLVED_HINT);
-			else if ( wantSolution && solver.solveWithSingles(grid, accu) )
-				// hold down the Shift key to get the solution NOW!
-				unfilteredHints = AHint.list(
-						new SolutionHint(grid, solver.singlesSolution) );
-			else
+			else if ( wantSolution ) {
+				solver.singlesSolution = null; // defeat solution cache
+				if ( solver.solveWithSingles(grid, accu) ) {
+					// hold down the Shift key to get the solution NOW!
+					unfilteredHints = AHint.list(
+							new SolutionHint(grid, solver.singlesSolution) );
+				}
+			} else {
 				// find the next hint
-				unfilteredHints = solver.getAllHints(grid, wantMore, logHints, printHints);
+				unfilteredHints = solver.getAllHints(grid, wantMore, logHints
+						, printHints);
+			}
 			selectedHints.clear();
 			resetHintsFilter();
 			filterAndSortHints();
@@ -1006,7 +1016,7 @@ public final class SudokuExplainer implements Closeable {
 	 */
 	void solveStep(final boolean wantMore) {
 		applySelectedHints();
-		if ( grid.numSet < 81 )
+		if ( grid.numSet < GRID_SIZE )
 			invokeGetNextHint(wantMore, false);
 	}
 
@@ -1041,7 +1051,7 @@ public final class SudokuExplainer implements Closeable {
 			grid.hintNumberReset();
 			frame.setTitle(ATV+"    (clipboard)");
 		} catch (IOException ex) {
-			backup.copyTo(grid);
+			grid.copyFrom(backup);
 			grid.source = backup.source;
 			AHinter.hackTop1465 = grid.hackTop1465();
 			asker.carp(ex, "Paste");
@@ -1081,8 +1091,9 @@ public final class SudokuExplainer implements Closeable {
 
 	/**
 	 * Load lineNumber puzzle from the given file into the grid.
+	 *
 	 * @param file to load
-	 * @param lineNumber to load. Only used when filename.endsWith(".mt")
+	 * @param lineNumber to load. Used only when filename.endsWith(".mt")
 	 * @return String puzzleName (PuzzleID.toString())
 	 */
 	final PuzzleID loadFile(File file, int lineNumber) {
@@ -1102,16 +1113,13 @@ public final class SudokuExplainer implements Closeable {
 			clearGrid();
 			frame.clearHintDetailArea();
 		}
-		// if a puzzle is re/loaded during logView then logLines=null (to free
-		// up lots of RAM), in which case logView then reloads logLines (slow).
+		// if a puzzle is re/loaded during logView then logLines=null (release
+		// bulk RAM) in which case logView then reloads logLines (slow).
 		resetLogLines();
-		// load da fooker!
-		if ( !IO.load(grid, file, lineNumber) ) {
-			if ( backup != null )
-				backup.copyTo(grid);
-//already done
-//		} else if ( !grid.isMaybesLoaded ) { // puzzle has no maybes
-//			grid.rebuildBloodyEverything(); // so rebuild EVERYthing
+		// load the file into the grid
+		if ( !GridLoader.load((IAsker)frame, grid, file, lineNumber) 
+		  && backup != null ) {
+			grid.copyFrom(backup);
 		}
 		grid.hintNumberReset();
 		AHinter.hackTop1465 = grid.hackTop1465();
@@ -1312,7 +1320,7 @@ public final class SudokuExplainer implements Closeable {
 			return;
 		}
 		try {
-			Log.log = new PrintStream(logFile);
+			Log.out = new PrintStream(logFile);
 		} catch (Throwable t) {
 			StdErr.exit("failed to set Log.out", t);
 		}
@@ -1397,7 +1405,7 @@ public final class SudokuExplainer implements Closeable {
 	@SuppressWarnings("empty")
 	public Pots cheat(final Grid chaet, final String cheat) {
 		try {
-			if ( "A".equals(cheat) || cheatMode || (cheatMode=frame.cheat()) );
+			if ( "A".equals(cheat) || cheatMode || (cheatMode=frame.cheap()) );
 				return solver.cheat(chaet, cheat, cheat==null, cheatMode);
 		} catch (Throwable eaten) {
 // I really just don't care!

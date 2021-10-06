@@ -7,6 +7,7 @@
 package diuf.sudoku.solver.accu;
 
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.utils.IVisitor;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -113,14 +114,22 @@ public final class HintsAccumulator implements IAccumulator {
 
 	// --------------------------------- cheat --------------------------------
 
-	public static interface HintVisitor {
-		void visit(AHint h);
-	}
-	public void forEachHint(HintVisitor v) {
+	/**
+	 * Visit each hint in the hints list ONCE.
+	 * <p>
+	 * NOTE WELL: This method empties the hints list! This is desirable in 
+	 * {@link diuf.sudoku.solver.LogicalSolver.Cheats}, because when I have
+	 * processed each hint I am done with it, so we may as well poll it off,
+	 * which also has the distinct advantage of being a bit more complicated
+	 * than it actually needs to be, despite it's simplicity.
+	 *
+	 * @param v to invoke on each hint
+	 */
+	public void foreach(IVisitor<AHint> v) {
 		if ( v == null )
 			return;
 		AHint h;
-		while ( (h=getHint()) != null )
+		while ( (h=list.poll()) != null )
 			v.visit(h);
 	}
 

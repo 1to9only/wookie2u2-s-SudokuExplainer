@@ -37,7 +37,7 @@ import java.util.Set;
  * cd C:\Users\User\Documents\NetBeansProjects\DiufSudoku
  * java -Xms100m -Xmx1000m -jar dist\DiufSudoku.jar top1465.d5.mt RecursiveSolverTester.stdout.txt
  *   1465	      677,386	    992,370,784	       61,718	  16079	Took
- * 1465 puzzles in under a second is serious fast!
+ * 1465 puzzles in under a second is seriously serious fast!
  * </pre>
  * RecursiveSolverTester is all about solving Sudoku puzzles as quickly as
  * possible (as I'm able).
@@ -112,7 +112,7 @@ public final class RecursiveSolverTester {
 		}
 		if ( args.length > 1 ) {
 			try {
-				Log.log = new PrintStream(new BufferedOutputStream(new FileOutputStream(new File(args[1]))));
+				Log.out = new PrintStream(new BufferedOutputStream(new FileOutputStream(new File(args[1]))));
 			} catch (FileNotFoundException ex) {
 				System.err.println(Log.me()+": Buffered output file failed to open");
 				System.err.flush();
@@ -190,9 +190,9 @@ public final class RecursiveSolverTester {
 				}
 			}
 		} catch (Exception ex) {
-			ex.printStackTrace(Log.log);
+			ex.printStackTrace(Log.out);
 		} finally {
-			if ( Log.log != System.out ) {
+			if ( Log.out != System.out ) {
 				Log.flush();
 				Log.close();
 			}
@@ -257,7 +257,7 @@ public final class RecursiveSolverTester {
 			Log.format("%s", NL);
 			Log.format("%s%s", grid, NL);
 			Log.format("%s", NL);
-			ex.printStackTrace(Log.log);
+			ex.printStackTrace(Log.out);
 			Log.flush();
 		}
 		return result;

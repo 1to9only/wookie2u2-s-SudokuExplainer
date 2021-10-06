@@ -72,6 +72,8 @@ public final class LogicalSolverTester {
 	// KRC 2021-06-20 I'm trying to find my misplaced towel
 	// When 1 puzzle is reprocessed print hint.toHtml to stdout (very verbose),
 	// so that I can see all occurrences of misplaced towel in a puzzle.
+	// WARNING: Search KrakenFisherman for Run.Type.Batch and comment-out if
+	// you want Krakens. There may be other cases where it skips s__t in batch.
 	private static final boolean PRINT_HINT_HTML = false; // #check false
 
 	// KRC BUG 2020-08-20 888#top1465.d5.mt from hint.apply
@@ -308,7 +310,7 @@ public final class LogicalSolverTester {
 				try { solver.close(); } catch (IOException impossible) { }
 
 				System.out.flush(); // ____ing dildows
-				Log.log.flush(); // ____ing dildows
+				Log.out.flush(); // ____ing dildows
 
 			} // fi
 
@@ -380,7 +382,7 @@ public final class LogicalSolverTester {
 						ttlDifficulty += u.ttlDifficulty;
 					}
 					if (Log.MODE >= Log.VERBOSE_2_MODE) {
-						printHintDetailsLine(Log.log, u.time
+						printHintDetailsLine(Log.out, u.time
 							, u.calls, u.hints, u.elims
 							, maxDifficulty, ttlDifficulty
 							, String.valueOf(e.getKey()));
@@ -414,9 +416,9 @@ public final class LogicalSolverTester {
 			Log.format("\t%4.2f", 0.0);
 			Log.format("\t%s", ex);
 			Log.format(NL);
-			carp(Log.me(), grid, ex, Log.log);
+			carp(Log.me(), grid, ex, Log.out);
 
-			if ( Log.log != System.out )
+			if ( Log.out != System.out )
 				carp(Log.me(), grid, ex, System.out);
 
 			return false;
@@ -434,7 +436,7 @@ public final class LogicalSolverTester {
 			Log.teef("log %2d  : %s%s", Log.MODE, logFile.getAbsolutePath(), NL);
 			Log.teef("stdout  : progress only%s", NL);
 			Log.println();
-			printHintDetailsHeaders(Log.log);
+			printHintDetailsHeaders(Log.out);
 			if ( false )
 				printAlignedExclusionHeaders(System.out);
 		}
@@ -512,14 +514,14 @@ public final class LogicalSolverTester {
 	private static List<Usage> printTotalUsageMap(UsageMap totalUsageMap) {
 		if (Log.MODE >= Log.VERBOSE_1_MODE) {
 			Log.println();
-			printHinterSummaryHeader(Log.log);
+			printHinterSummaryHeader(Log.out);
 		}
 		// totalUsageMap: + 1 line per Hinter (summary) DETAIL
 		long ttlTime = 0L;
 		final List<Usage> totalUsageList = totalUsageMap.toArrayList();
 		for ( Usage u : totalUsageList ) {
 			if (Log.MODE >= Log.VERBOSE_1_MODE) {
-				printHinterSummary(Log.log, u);
+				printHinterSummary(Log.out, u);
 			}
 			ttlTime += u.time;
 		}

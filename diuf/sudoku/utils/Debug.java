@@ -11,6 +11,8 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.hinters.align.CellSet;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Pots.EMPTY;
 import static diuf.sudoku.utils.Frmt.NL;
 import java.io.PrintStream;
@@ -199,7 +201,7 @@ public final class Debug {
 	// for debugging only DON'T DELETE UNLESS YOU REALLY REALLY WANT TO
 	public static boolean dumpValuesEffectsAncestors(IAssSet[] valueEffects, Ass target) {
 		out.format("VALUE EFFECTS target=%s:%s", target, NL);
-		for ( int v=1; v<10; ++v ) {
+		for ( int v=1; v<VALUE_CEILING; ++v ) {
 			if ( valueEffects[v] != null ) {
 				out.println("VALUE: "+v);
 				if ( valueEffects[v].isEmpty() )
@@ -268,7 +270,7 @@ public final class Debug {
  				if ( isFirst )
  					isFirst = false;
  				else
- 					out.print(cell.i%9==0 ? "\n" : ", ");
+ 					out.print(cell.i%REGION_SIZE==0 ? "\n" : ", ");
  				out.format("%-6s", cell.maybes);
  			}
  			out.println();
@@ -294,9 +296,9 @@ public final class Debug {
  				if ( isFirst )
  					isFirst = false;
  				else
- 					out.print(cell.i%9==0 ? "\n" : ", ");
+ 					out.print(cell.i%REGION_SIZE==0 ? "\n" : ", ");
  				String s = Integer.toBinaryString(cell.maybes);
- 				indentf('0', 9-s.length(), "%s", s);
+ 				indentf('0', REGION_SIZE-s.length(), "%s", s);
  			}
  			out.println();
  		} catch (Exception ex) {
@@ -316,11 +318,11 @@ public final class Debug {
   	// prints all the regions indexes of all values to stdout in standard format
  	public static void dumpRegionsIndexesOfAllValues(Grid grid) {
  		try {
- 			for ( int v=1; v<10; ++v ) {
+ 			for ( int v=1; v<VALUE_CEILING; ++v ) {
  				out.println("value = "+v);
  				for ( ARegion r : grid.regions ) {
-					out.format(" %s=%-8s", r.id, r.indexesOf[v]);
- 					if ( (r.index+1)%9 == 0 )
+					out.format(" %s=%-8s", r.id, r.ridx[v]);
+ 					if ( (r.index+1)%REGION_SIZE == 0 )
  						out.println();
  				}
  				out.println();
@@ -379,13 +381,13 @@ public final class Debug {
   	// prints all the regions indexes of all values to stdout in binary-format
  	public static void dumpRegionsIndexesOfAllValuesBinary(Grid grid) {
  		try {
- 			for ( int v=1; v<10; ++v ) {
+ 			for ( int v=1; v<VALUE_CEILING; ++v ) {
  				out.println("value = "+v);
  				for ( ARegion r : grid.regions ) {
  					out.format("    %s=", r.id);
- 					String s = Integer.toBinaryString(r.indexesOf[v].bits);
- 					indentf('0', 9-s.length(), "%s", s);
- 					if ( (r.index+1)%9 == 0 )
+ 					String s = Integer.toBinaryString(r.ridx[v].bits);
+ 					indentf('0', REGION_SIZE-s.length(), "%s", s);
+ 					if ( (r.index+1)%REGION_SIZE == 0 )
  						out.println();
  				}
  				out.println();

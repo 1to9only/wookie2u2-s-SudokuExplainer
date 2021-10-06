@@ -7,6 +7,7 @@
 package diuf.sudoku.solver.hinters.urt;
 
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.NUM_REGIONS;
 import java.util.AbstractSet;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -38,7 +39,7 @@ import java.util.Set;
 class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 
 	/** the ARegions in this Set, concurrent with the regions array. */
-	public final boolean[] in = new boolean[27];
+	public final boolean[] in = new boolean[NUM_REGIONS];
 
 	/** the number of regions in this set. */
 	public int size;
@@ -111,7 +112,7 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 //		int j = -1; // before first, in case next() called before hasNext()
 //		@Override
 //		public boolean hasNext() {
-//			for ( j=i+1; j<27; ++j )
+//			for ( j=i+1; j<NUM_REGIONS; ++j )
 //				if ( in[j] )
 //					return true;
 //			return false;
@@ -121,7 +122,7 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 //			if ( j > i ) // hasNext() was called first, as per normal.
 //				return regions[i = j];
 //			// else do hasNext() and return regions[the new i]
-//			for ( j=i+1; j<27; ++j )
+//			for ( j=i+1; j<NUM_REGIONS; ++j )
 //				if ( in[j] )
 //					return regions[i = j];
 //			return null;
@@ -155,9 +156,9 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 		final boolean[] my = this.in;
 		final boolean[] his = other.in;
 		// ensure that both array lengths are 27
-		assert my.length==27 && his.length==27;
+		assert my.length==NUM_REGIONS && his.length==NUM_REGIONS;
 		// return false at the first differing content
-		for ( int i=0; i<27; ++i )
+		for ( int i=0; i<NUM_REGIONS; ++i )
 			if ( my[i] != his[i] )
 				return false;
 		// all right, I give up, they're equal!

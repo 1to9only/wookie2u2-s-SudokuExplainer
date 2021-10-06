@@ -13,6 +13,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmu;
@@ -137,7 +138,7 @@ public final class XYWingHint extends AHint implements IChildHint {
 		// parents := Asses at the indexes of the removed-bits.
 		if ( rmvdXy!=0 || rmvdXz!=0 || rmvdYz!=0 ) {
 			int v, sv; // value, shiftedValue
-			for ( v=1; v<10; ++v ) {
+			for ( v=1; v<VALUE_CEILING; ++v ) {
 				sv = VSHFT[v];
 				if((rmvdXy & sv)!=0) result.linkLast(prntOffs.getAss(xy, v));
 				if((rmvdXz & sv)!=0) result.linkLast(prntOffs.getAss(xz, v));

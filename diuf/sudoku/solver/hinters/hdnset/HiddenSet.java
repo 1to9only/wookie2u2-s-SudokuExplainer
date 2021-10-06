@@ -9,6 +9,8 @@ package diuf.sudoku.solver.hinters.hdnset;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.IFIRST;
@@ -45,7 +47,7 @@ public final class HiddenSet extends AHinter {
 	private final int[] thePA;
 
 	// values with 2..$degree possible positions in the region
-	private final int[] candidates = new int[9];
+	private final int[] candidates = new int[REGION_SIZE];
 
 	/**
 	 * Constructor.
@@ -122,11 +124,11 @@ public final class HiddenSet extends AHinter {
 			final int[] candidates = this.candidates;
 			// the number of cells in each aligned set
 			final int degree = this.degree;
-			// this regions indexesOf values 1..9
-			final Indexes[] rio = region.indexesOf;
+			// this regions ridx values 1..9
+			final Indexes[] rio = region.ridx;
 			// select the candidate values (with 2..degree places in region)
 			int n = 0; // number of candidate values
-			for ( int v=1,card; v<10; ++v ) // 27*9 = 243
+			for ( int v=1,card; v<VALUE_CEILING; ++v ) // 27*9 = 243
 				if ( (card=rio[v].size)>1 && card<degreePlus1 ) // card-inality
 					candidates[n++] = v;
 			// if there are at least degree candidate values
@@ -252,7 +254,7 @@ public final class HiddenSet extends AHinter {
 		// HiddenSingle runs BEFORE HiddenSet, so it's all good, except in
 		// Shft-F5 with filterHints off, where this produces false positives.
 		for ( int v : VALUESES[VALL & ~values] )
-			if ( VSIZE[bits=r.indexesOf[v].bits & ~indexes] == 1 )
+			if ( VSIZE[bits=r.ridx[v].bits & ~indexes] == 1 )
 				// this aligned set causes a Hidden Single
 				return new HiddenSetDirectHint(this, cells, values, greens
 						, reds, r, v, r.cells[IFIRST[bits]]);

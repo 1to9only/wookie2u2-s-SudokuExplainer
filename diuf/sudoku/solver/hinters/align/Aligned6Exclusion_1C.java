@@ -31,9 +31,10 @@ import diuf.sudoku.solver.LogicalSolver;
  */
 public final class Aligned6Exclusion_1C extends Aligned6ExclusionBase
 		implements java.io.Closeable
-//				 , diuf.sudoku.solver.IReporter
+//				 , diuf.sudoku.solver.hinters.IReporter
 				 , diuf.sudoku.solver.hinters.IPreparer
 {
+	
 	// the minimim number of candidates to permute (process).
 	private static final int MIN_CANDIDATES = 27; // <HACK/>
 

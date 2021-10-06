@@ -57,6 +57,8 @@ class TechSelectDialog extends JDialog {
 	private JButton btnCancel = null;
 	private JLabel lblExplanations = null;
 
+	// a private copy of THE_SETTINGS.wantedTechs, which I mutate, then on OK I
+	// set the whole THE_SETTINGS.wantedTechs, and save to file.
 	private EnumSet<Tech> wantedTechs;
 
 	/** Constructor. */
@@ -162,10 +164,10 @@ class TechSelectDialog extends JDialog {
 							// carp if toolTip is set and warning is true
 							if ( tech.warning && tech.tip!=null ) {
 								JOptionPane.showMessageDialog(
-								  TechSelectDialog.this
-								, tech.name()+SPACE+tech.tip
-								, "WARNING"
-								, JOptionPane.WARNING_MESSAGE
+									  TechSelectDialog.this
+									, tech.name()+SPACE+tech.tip
+									, "WARNING"
+									, JOptionPane.WARNING_MESSAGE
 								);
 							}
 							switch ( tech ) {
@@ -226,7 +228,7 @@ class TechSelectDialog extends JDialog {
 //		return false;
 //	}
 
-	// Unselect the JCheckBox for this Tech
+	// Unselect the JCheckBox and unwant this Tech
 	// return was it found and unselected
 	private boolean unselect(Tech t) {
 		final String text = t.text();
@@ -234,7 +236,10 @@ class TechSelectDialog extends JDialog {
 		for ( Component c : centerPanel.getComponents() ) {
 			if ( c instanceof JCheckBox
 			  && text.equals((chk=(JCheckBox)c).getText()) ) {
+				// chk.actionPerformed may not exist yet
 				chk.setSelected(false);
+				// so also "manually" remove the given tech
+				wantedTechs.remove(t);
 				repaint();
 				return true;
 			}
@@ -258,12 +263,13 @@ class TechSelectDialog extends JDialog {
 	private JPanel getCenterPanel() {
 		if (centerPanel == null) {
 			TitledBorder titledBorder = BorderFactory.createTitledBorder(
-					  null
-					, "Available solving techniques"
-					, TitledBorder.CENTER
-					, TitledBorder.DEFAULT_POSITION
-					, new Font("Dialog", Font.BOLD, 12)
-					, new Color(51, 51, 51));
+				  null
+				, "Available solving techniques"
+				, TitledBorder.CENTER
+				, TitledBorder.DEFAULT_POSITION
+				, new Font("Dialog", Font.BOLD, 12)
+				, new Color(51, 51, 51)
+			);
 			titledBorder.setBorder(null);
 			titledBorder.setTitle("");
 			centerPanel = new JPanel();
@@ -337,19 +343,31 @@ class TechSelectDialog extends JDialog {
 		// as do all thereafter.
 		if ( !anyWanted(Tech.DynamicPlus, Tech.NestedUnary, Tech.NestedMultiple
 				, Tech.NestedDynamic, Tech.NestedPlus)
-		  && !confirmNoSafetyNet() )
+		  && !confirmNoSafetyNet() ) {
 			return;
-		// Coloring xor BUG (you can have neither, but not both).
+		}
+		// Locking XOR LockingGeneralised, never neither, never both.
+		if ( wantedTechs.contains(Tech.Locking) ) {
+			wantedTechs.remove(Tech.LockingGeneralised);
+		} else {
+			wantedTechs.add(Tech.LockingGeneralised);
+		}
+		// Coloring XOR BUG, maybe neither, never both.
 		// Coloring finds a superset of BUG hints, and is faster.
-		// I should probably remove BUG altogether, for simplicity.
-		if ( wantedTechs.contains(Tech.Coloring) )
+		// I should probably deprecate BUG, for simplicity.
+		if ( wantedTechs.contains(Tech.Coloring) ) {
 			wantedTechs.remove(Tech.BUG);
-		// BigWings (slower, but faster overall) xor individual BigWing
-		if ( wantedTechs.contains(Tech.BigWings) )
-			for ( Tech t : BIG_WING )
+		} else if ( wantedTechs.contains(Tech.BUG) ) {
+			wantedTechs.remove(Tech.Coloring);
+		}
+		// BigWings (slower, but faster overall) XOR individual BigWing
+		if ( wantedTechs.contains(Tech.BigWings) ) {
+			for ( Tech t : BIG_WING ) {
 				wantedTechs.remove(t);
-		else if ( anyWanted(BIG_WING) )
+			}
+		} else if ( anyWanted(BIG_WING) ) {
 			wantedTechs.remove(Tech.BigWings);
+		}
 		THE_SETTINGS.justSetWantedTechs(wantedTechs);
 		THE_SETTINGS.save();
 		setVisible(false);
@@ -362,9 +380,11 @@ class TechSelectDialog extends JDialog {
 
 	// does wantedTechs.containsAny(techs)?
 	private boolean anyWanted(Tech... techs) {
-		for ( Tech t : techs )
-			if ( wantedTechs.contains(t) )
+		for ( Tech t : techs ) {
+			if ( wantedTechs.contains(t) ) {
 				return true;
+			}
+		}
 		return false;
 	}
 

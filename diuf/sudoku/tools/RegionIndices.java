@@ -8,6 +8,7 @@ package diuf.sudoku.tools;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import java.io.PrintStream;
 
 /**
@@ -25,7 +26,7 @@ public static void main(String[] args) {
 	for (ARegion r : grid.regions) {
 		if(first){first=false;out.print("\t  ");} else out.print("\t, ");
 		out.format("{%2d", r.cells[0].i);
-		for ( int i=1; i<9; ++i )
+		for ( int i=1; i<REGION_SIZE; ++i )
 			out.format(",%2d", r.cells[i].i);
 		out.println("} // "+r.id);
 	}

@@ -50,13 +50,13 @@ public class IdxL extends Idx implements Cloneable {
 				a2 |= SHFT[i%BITS_PER_ELEMENT];
 		return new IdxL(a0, a1, a2);
 	}
-	
+
 	protected boolean isLocked = false;
 
 	IdxL() {
 		super();
 	}
-	
+
 	IdxL(boolean isFull) {
 		super(isFull);
 	}
@@ -131,9 +131,9 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public Idx set(Idx src) {
+	public IdxL set(Idx src) {
 		checkLock();
-		return super.set(src);
+		return (IdxL)super.set(src);
 	}
 
 	@Override
@@ -143,15 +143,15 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public Idx set(int a0, int a1, int a2) {
+	public IdxL set(int a0, int a1, int a2) {
 		checkLock();
-		return super.set(a0, a1, a2);
+		return (IdxL)super.set(a0, a1, a2);
 	}
 
 	@Override
-	public Idx setAnd(Idx aa, Idx bb) {
+	public IdxL setAnd(Idx aa, Idx bb) {
 		checkLock();
-		return super.setAnd(aa, bb);
+		return (IdxL)super.setAnd(aa, bb);
 	}
 
 	@Override
@@ -161,21 +161,21 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public Idx setOr(Idx aa, Idx bb) {
+	public IdxL setOr(Idx aa, Idx bb) {
 		checkLock();
-		return super.setOr(aa, bb);
+		return (IdxL)super.setOr(aa, bb);
 	}
 
 	@Override
-	public Idx setAndNot(Idx aa, Idx bb) {
+	public IdxL setAndNot(Idx aa, Idx bb) {
 		checkLock();
-		return super.setAndNot(aa, bb);
+		return (IdxL)super.setAndNot(aa, bb);
 	}
 
 	@Override
-	public Idx setAndNot(Idx aa, Idx bb, Idx cc) {
+	public IdxL setAndNot(Idx aa, Idx bb, Idx cc) {
 		checkLock();
-		return super.setAndNot(aa, bb, cc);
+		return (IdxL)super.setAndNot(aa, bb, cc);
 	}
 
 	@Override
@@ -185,13 +185,13 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public Idx clear() {
+	public IdxL clear() {
 		checkLock();
-		return super.clear();
+		return (IdxL)super.clear();
 	}
 	// go around checkLock in places where you KNOW it's good to change me
-	public Idx clearOK() {
-		return super.clear();
+	public IdxL clearOK() {
+		return (IdxL)super.clear();
 	}
 
 	@Override
@@ -235,27 +235,27 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public Idx and(Idx other) {
+	public IdxL and(Idx other) {
 		checkLock();
-		return super.and(other);
+		return (IdxL)super.and(other);
 	}
 
 	@Override
-	public Idx and(Idx aa, Idx bb) {
+	public IdxL and(Idx aa, Idx bb) {
 		checkLock();
-		return super.and(aa, bb);
+		return (IdxL)super.and(aa, bb);
 	}
 
 	@Override
-	public Idx andNot(Idx other) {
+	public IdxL andNot(Idx other) {
 		checkLock();
-		return super.andNot(other);
+		return (IdxL)super.andNot(other);
 	}
 
 	@Override
-	public Idx or(Idx other) {
+	public IdxL or(Idx other) {
 		checkLock();
-		return super.or(other);
+		return (IdxL)super.or(other);
 	}
 
 	@Override

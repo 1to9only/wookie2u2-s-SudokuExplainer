@@ -50,21 +50,21 @@ Algorithm
 =========
 
 X-Colors is a single-digit technique so we focus on a single candidate in the
-grid, called the Coloring Value, or coloqually just v.
+grid, known as the Coloring Value, which I just call v, for brevity.
 
 Coloring encodes the binary nature of conjugate pairs by placing one conjugate
 in one color-set and the other conjugate in the other color-set; it doesn't
-matter which color-set you put the first conjugate in, all that matters is that
-ALL subsequent colorings are a consequence of the initial assumption.
-I belabour this point because I have just struck a reef: I added multiple
-INITIAL assumptions to a single color-set and therefore producing invalid
-hints. My bad! I'm a dill.
+matter which color-set you put the first conjugate in, as long as ALL following
+colorings are a consequence of the initial assumption, so they all line up.
+This point is belaboured because it is essential for algorithmic correctness
+that all colorings are correctly blue or green; the label matters not, but they
+MUST all be aligned.
 
 Step 1: Select a conjugate pair (the only two positions for v in a region),
      color one of them with colorA and the other with colorB.
      nb: In SE colorA is painted green, and colorB is blue.
 
-Step 2: do following until no more new cells are colored
+Step 2: do following until no more new cells are colored:
  2.1 Find a uncolored cell that conjugates with an already colored cell
      (either color A or B, it matters not).
  2.2 Color this new cell with the OPPOSITE color of its conjugate.

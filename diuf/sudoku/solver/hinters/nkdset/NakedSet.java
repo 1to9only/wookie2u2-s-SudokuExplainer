@@ -9,6 +9,7 @@ package diuf.sudoku.solver.hinters.nkdset;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
@@ -37,7 +38,7 @@ public final class NakedSet extends AHinter
 		implements diuf.sudoku.solver.hinters.ICleanUp
 {
 	private final int[] thePA; // the Permutations Array
-	private final Cell[] candidateCells = new Cell[9];
+	private final Cell[] candidateCells = new Cell[REGION_SIZE];
 
 	public NakedSet(Tech tech) {
 		super(tech);
@@ -50,7 +51,7 @@ public final class NakedSet extends AHinter
 		MyArrays.clear(candidateCells);
 	}
 
-	//<NO_WRAP>
+	//<NO_WRAP comment="wrapping makes this code LESS readable, IMHO">
 	/**
 	 * <pre>
 	 * Foreach region: find N cells which maybe only N potential values.
@@ -182,8 +183,8 @@ public final class NakedSet extends AHinter
 	// proves me wrong and I'll code for it, but Box only until then!
 	private List<ARegion> claimFromOtherCommonRegion(ARegion region
 			, List<Cell> nkdSetCellList, int cands, Pots reds) {
-		ARegion otherCR = Grid.otherCommonRegion(nkdSetCellList, region);
-		if ( otherCR != null ) { // add any elims in the otherCR to reds
+		ARegion otherCR = Regions.otherCommon(nkdSetCellList, region);
+		if ( otherCR != null ) {
 			final List<Cell> victims = otherCR.otherThan(nkdSetCellList);
 			if ( !victims.isEmpty() && claimFrom(victims, cands, reds) )
 				return Regions.list(region, otherCR);
@@ -235,21 +236,22 @@ public final class NakedSet extends AHinter
 	private AHint createNakedSetDirectHint(ARegion r, Cell cellToSet
 			, int valueToSet, int nkdSet, int cands) {
 		assert tech.isDirect;
-		// build removable (red) potentials
-		Pots reds = new Pots(9-degree, 1F);
-		// foreach cell in the region EXCEPT the naked set cells
-		Cell sib;  int redBits; // bitset of values to remove from sib
+		// build removable (red) potentials: each cell in this region EXCEPT
+		// the naked set cells which maybe any of the naked set values (cands)
+		final Pots reds = new Pots();
+		Cell sib; // the sibling cell
+		int pinkos; // bitset of values to remove from sib
 		for ( int i : INDEXES[VALL & ~nkdSet] )
 			// if sib maybe any of the naked set values
-			if ( (redBits=(sib=r.cells[i]).maybes & cands) != 0 )
-				reds.put(sib, redBits);
+			if ( (pinkos=(sib=r.cells[i]).maybes & cands) != 0 )
+				reds.put(sib, pinkos);
 		assert !reds.isEmpty();
 		// claim the NakedSet values from the other common region (if any)
-		List<Cell> ndkSetCells = r.atNewArrayList(nkdSet);
-		ARegion ocr = Grid.otherCommonRegion(ndkSetCells, r);
+		final List<Cell> ndkSetCells = r.atNewArrayList(nkdSet);
+		final ARegion ocr = Regions.otherCommon(ndkSetCells, r);
 		if ( ocr != null )
 			claimFrom(ocr.otherThan(ndkSetCells), cands, reds);
-		Pots oranges = new Pots();
+		final Pots oranges = new Pots();
 		for ( Cell cell : ndkSetCells )
 			oranges.put(cell, cell.maybes);
 		// build the hint

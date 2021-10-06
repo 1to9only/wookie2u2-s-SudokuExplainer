@@ -18,6 +18,7 @@ public interface IAsker {
 	public boolean ask(String question);
 	public String askForString(String question, String title);
 	public String askForString(String question, String title, String defualt);
+	public int askForInt(String question, int min, int max);
 	
 	public void carp(String msg, String title);
 	public void carp(Exception ex, String title);

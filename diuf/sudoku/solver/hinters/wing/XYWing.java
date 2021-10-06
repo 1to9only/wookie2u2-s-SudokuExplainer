@@ -73,73 +73,72 @@ public final class XYWing extends AHinter {
 		// All variables are pre-declared, ANSI-C style, for speed.
 		// There is no stack-frame below this, til we new XYWingHint.
 		AHint hint; // the bloody hint, if we ever find one
-		int xzi // index of the xz Cell in xzs
-		  , XZI // size of xzs
+		int xyi // index of the xz Cell in xzs
+		  , XYI // size of xzs
 		  , yzi // index in xzs of the yz indice
-		  , yz // indice of yz
-		  , xz // indice of xz
-		  , xyb // xy.maybes
-		  , xzb //  xz.maybes
-		  , yzb //  yz.maybes
+		  , yz  // indice of yz
+		  , xz  // indice of xz
+		  , xym // xy.maybes
+		  , xzm // xz.maybes
+		  , yzm // yz.maybes
 		  , zCand // bitset of the z-value, to remove from victims
-		  , n // number of victim cells
-		  , i; // the ubiqitious index
+		  , n   // number of victim cells
+		  , i;  // the ubiqitious index
 		boolean any; // were any redPots added
 		// move all heap-references onto the stack, for speed
 		final int degree = this.degree;
 		final boolean isXYZ = this.isXYZ;
-		final int interSize = this.intersectionSize;
-		final Idx xyBivBuds = this.xyBivBuds; // indices of bivalue buds of xy
-		final int[] xyBivBud = this.xyBivBud; // indices of bivalue buds of xy
-		final Idx victims = this.victims; // indices of victim cells
+		final int intersectionSize = this.intersectionSize;
+		final Idx xyBuds = this.xyBuds; // indices of buds of xy with 2 maybes
+		final int[] xyBud = this.xyBud; // indices of buds of xy with 2 maybes
+		final Idx victims = this.victims; // indices of victims
 		final int[] victim = this.victim; // indices of victims
 		final Pots redPots = this.redPots; // removable (red) Cell=>Values
 		// array of each cells maybes, for speed.
-		final int[] maybes = grid.maybes(); // CACHED!
+		final int[] maybes = grid.maybes(); // O(81)
 		// indices of bivalue cells
-		final Idx bivi = grid.getBivalue(); // CACHED! // first use in solve!
+		final Idx bivi = grid.getBivalue(); // O(81) // fills the cache
 		// indices of the xy (locus) cell
 		// nb: OK to create a new array per hinter call, just never in loop.
 		final int[] xys;
-		if ( isXYZ ) // XYZ-Wing: trivi array
+		if ( isXYZ ) // XYZ-Wing: three maybes
 			// nb: hijack xyBivBuds rather than create a new temp Idx
-			xys = grid.idx(xyBivBuds, (cell) -> {
-				return cell.size == 3; // XY=2, XYZ=3
-			}).toArrayNew();
-		else // XY-Wing: bivi array
+			xys = grid.idx((cc)->cc.size==3, xyBuds).toArrayNew();
+		else // XY-Wing: two maybes
 			xys = bivi.toArrayNew();
 		// presume failure, ie that no hint will be found
 		boolean result = false;
 		// foreach xy (the locus cell) in the grid
 		// nb: XYZWing would call xy xyz, coz it has 3 values: x, y, z
 		for ( int xy : xys ) // the locus cell
-			if ( xyBivBuds.setAndAny(BUDDIES[xy], bivi) )
+			if ( xyBuds.setAndAny(BUDDIES[xy], bivi) )
 				// foreach xz in bivalue buds of xy
-				for ( xyb=maybes[xy],xzi=0,XZI=xyBivBuds.toArrayN(xyBivBud); xzi<XZI; ++xzi )
+				for ( xym=maybes[xy],xyi=0,XYI=xyBuds.toArrayN(xyBud); xyi<XYI; ++xyi )
 					// means: xy.maybes - xz.maybes == 1 maybe (ie z)
-					if ( VSIZE[xyb & ~maybes[xz=xyBivBud[xzi]]] == 1 )
+					if ( VSIZE[xym & ~maybes[xz=xyBud[xyi]]] == 1 )
 						// foreach yz in bivalue buds of xy (again)
-						for ( xzb=maybes[xz],yzi=0; yzi<XZI; ++yzi )
-							// if these 3 cells share 3 potential values
-							if ( VSIZE[xyb | xzb | (yzb=maybes[yz=xyBivBud[yzi]])] == 3 // union
-							  // and these 3 cells have 0/1 values in common
-							  && VSIZE[xyb & xzb & yzb] == interSize // XY=0 or XYZ=1
+						for ( xzm=maybes[xz],yzi=0; yzi<XYI; ++yzi )
+							// if these 3 cells share 3 values
+							if ( VSIZE[xym | xzm | (yzm=maybes[xyBud[yzi]])] == 3 // union
+							  // and these 3 cells all have 0=XY/1=XYZ value/s
+							  && VSIZE[xym & xzm & yzm] == intersectionSize
 							  // and xz and yz have 1 common value
-							  // therefore xz and yz cannot be the same cell
-							  && VSIZE[zCand=xzb & yzb] == 1 ) {
-							    // XY/Z found, but does it remove any maybes?
+							  // hence xz and yz cannot be the same cell
+							  && VSIZE[zCand=xzm & yzm] == 1
+							) {
+							    // XY/Z_Wing found, but any victims?
 								// find victims: siblings of both xz and yz
-								//               (and xy in XYZ-Wing).
-								victims.setAnd(BUDDIES[xz], BUDDIES[yz]);
+								//               (and xy in XYZ_Wing).
+								victims.setAnd(BUDDIES[xz], BUDDIES[yz=xyBud[yzi]]);
 								if ( isXYZ ) // victims see all 3 wing cells
 									victims.and(BUDDIES[xy]);
-								else // XY-Wing just remove xy
+								else // XY_Wing just remove xy
 									victims.remove(xy);
 								if ( victims.any() ) { // XYZ skips 14.48%
 									// we are not our own victims.
-									assert !victims.contains(xz);
-									assert !victims.contains(yz);
-									assert !victims.contains(xy);
+									assert !victims.has(xz);
+									assert !victims.has(yz);
+									assert !victims.has(xy);
 									// get removable (red) Cell=>Values.
 									for ( any=false,i=0,n=victims.toArrayN(victim); i<n; ++i )
 										if ( (maybes[victim[i]] & zCand) != 0 ) {
@@ -172,10 +171,10 @@ public final class XYWing extends AHinter {
 	}
 	// it's faster to re-use a fixed array than it is to clean, allocate, and
 	// free repeatedly; especially when there's no requirement to clean it.
-	private final int[] xyBivBud = new int[20]; // 20 is max siblings
+	private final int[] xyBud = new int[20]; // 20 is max siblings
 	private final int[] victim = new int[18]; // 18 is max common siblings
 	private final Idx victims = new Idx();
-	private final Idx xyBivBuds = new Idx();
+	private final Idx xyBuds = new Idx();
 	private final Pots redPots = new Pots();
 
 }

@@ -621,6 +621,11 @@ import static diuf.sudoku.utils.Frmt.SPACE;
  * 6.30.155 2021-07-18 17:56:35 make generate actually stop. sigh.
  * 6.30.156 2021-07-19 09:25:36 I wish I could stop stopping Generate.
  * 6.30.157 2021-07-20 08:51:37 jar-only-distribution rolls it's own Settings.
+ * 6.30.158 2021-07-28 11:22:38 build before changing how AlsChain works-out
+ *			rcc.which, to enspeedonate.
+ * 6.30.159 2021-07-30 06:38:39 RccFinder completely decomposed.
+ * 6.30.160 2021-08-11 07:10:40 build to clean-up old logs.
+ * 6.30.161 2021-08-12 12:57:42 BasicFisherman1 now faster than BasicFisherman.
  * </pre>
  *
  * @author Keith Corlett 2013 - 2021
@@ -631,10 +636,10 @@ public final class Build {
 	public static final String TITLE = "DiufSudoku";
 
 	/** The VERSION number of this build. */
-	public static final String VERSION = "6.30.157";
+	public static final String VERSION = "6.30.161";
 
 	/** The BUILT date of this build. */
-	public static final String BUILT = "2021-07-20 08:51:37";
+	public static final String BUILT = "2021-08-12 12:57:42";
 
 	/** APPLICATION_TITLE_AND_VERSION is too long, so I went bush. */
 	public static final String ATV = TITLE + SPACE + VERSION;

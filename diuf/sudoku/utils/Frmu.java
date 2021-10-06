@@ -157,6 +157,12 @@ public class Frmu {
 		}
 		return sb.toString();
 	}
+	public static String toFullString(String sep, Cell[] cells) {
+		return toFullString(sep, cells.length, cells);
+	}
+	public static String toFullString(Cell[] cells) {
+		return toFullString(COMMA_SP, cells.length, cells);
+	}
 
 	/**
 	 * Currently only ever used to format watches in the debugger, where it's
@@ -182,7 +188,6 @@ public class Frmu {
 		}
 		return sb.toString();
 	}
-
 	public static String toFullString(Iterable<Cell> cells) {
 		return toFullString(COMMA_SP, cells);
 	}

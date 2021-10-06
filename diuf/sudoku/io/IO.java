@@ -6,14 +6,8 @@
  */
 package diuf.sudoku.io;
 
-import diuf.sudoku.PuzzleID;
-import diuf.sudoku.Grid;
-import diuf.sudoku.gui.Ask;
-import diuf.sudoku.utils.Frmt;
-import diuf.sudoku.Idx;
-import static diuf.sudoku.Values.VALL;
-import static diuf.sudoku.utils.Frmt.COMMA;
 import static diuf.sudoku.utils.Frmt.NL;
+import diuf.sudoku.utils.Log;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -32,12 +26,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Reader;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Set;
-import javax.swing.JComboBox;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
-import diuf.sudoku.utils.Log;
 import java.util.Map;
+import javax.swing.JComboBox;
 
 /**
  * Static methods to read/write Sudokus to/from files or clipboard.
@@ -75,8 +65,8 @@ import java.util.Map;
 public final class IO {
 
 	// The DEFAULT path to this Projects directory (my home directory).
-	private static final String DEFAULT_USER_DIR =
-			System.getProperty("user.home", "C:\\Users\\User")
+	private static final String DEFAULT_USER_DIR
+			= System.getProperty("user.home", "C:\\Users\\User")
 			+ "\\Documents\\NetBeansProjects\\DiufSudoku";
 
 	/**
@@ -87,10 +77,12 @@ public final class IO {
 	 * "installed" on the users PC. I suspect most users are also programmers,
 	 * who can sort it out any problems for themselves.
 	 */
-	public static final String HOME = System.getProperty("user.dir", DEFAULT_USER_DIR) + "\\";
+	public static final String HOME
+			= System.getProperty("user.dir", DEFAULT_USER_DIR)+"\\";
 
 	/** The Settings for the DIUF Sudoku application. */
-	public static final File SETTINGS = new File(HOME+"DiufSudoku_Settings.txt");
+	public static final File SETTINGS
+			= new File(HOME+"DiufSudoku_Settings.txt");
 
 	/** The LogicalSolverTester usage statement is stored in this file. */
 	public static final File LOGICAL_SOLVER_TESTER_USAGE
@@ -112,27 +104,9 @@ public final class IO {
 	public static final File PERFORMANCE_STATS
 			= new File(HOME+"DiufSudoku_Stats.txt");
 
-//	/** tmp directory required, so recreated if it's been removed. */
-//	public static final File tmp = new File(HOME+"tmp");
-//	static {
-//		if ( tmp.exists() && !tmp.isDirectory() )
-//			tmp.delete(); // I hope that wasn't important! sigh.
-//		if ( !tmp.exists() )
-//			tmp.mkdir();
-//	}
-//
-//	/** Prevent multiple Sudoku factory's running concurrently.
-//	 * If this directory exists then a new factory is NOT created, instead the
-//	 * request is simply ignored. */
-//	public static File FACTORY_LOCK_DIR = new File(tmp.getAbsolutePath()+"\\FACTORY_LOCK");
-
-
-// -REDO buggers-up HoDOKu somehow and I'm too lazy to even attempt to fix it!
-//	/** The VERBOSE_5_MODE logFile of a previous "keeper" run from which we
-//	 * parse the hinters to use in each subsequent -REDO run.
-//	 * mode: ACCURACY !REDO !STATS */
-//	public static final File KEEPER_LOG
-//			= new File(HOME+"top1465.d5.2020-08-06.22-21-31.keep.log");
+	/** The list of hint-regexs for SE's log-view feature. */
+	public static final File LOG_VIEW_HINT_REGEXS
+			= new File(HOME+"DiufSudoku_log_view_hint_regexs.txt");
 
 	/** A*E records which puzzles it hints on. */
 	public static final File A2E_HITS = new File(HOME+"DiufSudoku_A2E_hits.txt");
@@ -165,211 +139,18 @@ public final class IO {
 	/** A*E records which puzzles it hints on. */
 	public static final File A10E_2H_HITS = new File(HOME+"DiufSudoku_A10E_2H_hits.txt");
 
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A2E_WINDEX = new File(HOME+"DiufSudoku_A2E_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A3E_WINDEX = new File(HOME+"DiufSudoku_A3E_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A4E_WINDEX = new File(HOME+"DiufSudoku_A4E_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A5E_1C_WINDEX = new File(HOME+"DiufSudoku_A5E_1C_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A5E_2H_WINDEX = new File(HOME+"DiufSudoku_A5E_2H_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A6E_1C_WINDEX = new File(HOME+"DiufSudoku_A6E_1C_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A6E_2H_WINDEX = new File(HOME+"DiufSudoku_A6E_2H_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A7E_1C_WINDEX = new File(HOME+"DiufSudoku_A7E_1C_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A7E_2H_WINDEX = new File(HOME+"DiufSudoku_A7E_2H_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A8E_1C_WINDEX = new File(HOME+"DiufSudoku_A8E_1C_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A8E_2H_WINDEX = new File(HOME+"DiufSudoku_A8E_2H_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A9E_1C_WINDEX = new File(HOME+"DiufSudoku_A9E_1C_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A9E_2H_WINDEX = new File(HOME+"DiufSudoku_A9E_2H_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A10E_1C_WINDEX = new File(HOME+"DiufSudoku_A10E_1C_windex.txt");
-	/** A*E stores an index of the cells in each aligned set which hints. */
-	public static final File A10E_2H_WINDEX = new File(HOME+"DiufSudoku_A10E_2H_windex.txt");
-
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A2E_HASHCODES = new File(HOME+"DiufSudoku_A2E_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A3E_HASHCODES = new File(HOME+"DiufSudoku_A3E_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A4E_HASHCODES = new File(HOME+"DiufSudoku_A4E_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A5E_1C_HASHCODES = new File(HOME+"DiufSudoku_A5E_1C_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A5E_2H_HASHCODES = new File(HOME+"DiufSudoku_A5E_2H_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A6E_1C_HASHCODES = new File(HOME+"DiufSudoku_A6E_1C_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A6E_2H_HASHCODES = new File(HOME+"DiufSudoku_A6E_2H_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A7E_1C_HASHCODES = new File(HOME+"DiufSudoku_A7E_1C_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A7E_2H_HASHCODES = new File(HOME+"DiufSudoku_A7E_2H_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A8E_1C_HASHCODES = new File(HOME+"DiufSudoku_A8E_1C_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A8E_2H_HASHCODES = new File(HOME+"DiufSudoku_A8E_2H_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A9E_1C_HASHCODES = new File(HOME+"DiufSudoku_A9E_1C_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A9E_2H_HASHCODES = new File(HOME+"DiufSudoku_A9E_2H_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A10E_1C_HASHCODES = new File(HOME+"DiufSudoku_A10E_1C_hash.txt");
-	/** A*E stores the vital statistics of each aligned set which hints. */
-	public static final File A10E_2H_HASHCODES = new File(HOME+"DiufSudoku_A10E_2H_hash.txt");
-
-	/** The list of hint-regexs for SE's log-view feature. */
-	public static final File LOG_VIEW_HINT_REGEXS = new File(HOME+"DiufSudoku_log_view_hint_regexs.txt");
-
-//	private static final String SUPPORTED_DATA_FLAVOR_NAME
-//			= "java.awt.datatransfer.DataFlavor[mimetype=text/plain;representationclass=java.lang.String]";
-
 	// =========================== reading ===============================
 
-	public static boolean exists(String filename) {
-		return new File(filename).exists();
-	}
-
 	/**
-	 * Load this puzzle: ie loads lineNumber of File into this Grid.
-	 * @param grid to read into
-	 * @param file to read from
-	 * @param lineNumber of puzzle to read
-	 * @return true if it loaded, else false (and see standard error).
-	 */
-	public static boolean load(Grid grid, File file, int lineNumber) {
-		String filename = file.getName().toLowerCase();
-		if ( filename.endsWith(".txt") )
-			return loadTxt(grid, file);
-		if ( filename.endsWith(".mt") )
-			return loadMT(grid, file, lineNumber);
-		return StdErr.whinge("Unrecognised file format: "+file);
-	}
-
-	private static boolean loadTxt(Grid grid, File file) {
-		try {
-			ArrayList<String> lines = IO.slurp(file);
-			if ( lines.get(0).length() == 81 )
-				// toString format: delegate back to the grid
-				grid.load(lines); // sets grid.isMaybesLoaded internally
-			else {
-				// presume old format: 9 lines of 9 values
-				//                   + 9 lines of 9 csv'ed maybes
-				// most existing files are in this format. No plan to convert.
-				for ( int y=0; y<9; ++y ) // read cell values
-					setClues(grid, lines.get(y), y);
-				if ( lines.size() >= 18 ) {
-					grid.isMaybesLoaded = true;
-					for ( int y=0; y<9; ++y ) // read maybes
-						if ( !setMaybes(grid, lines.get(y+9), y) ) {
-							grid.isMaybesLoaded = false;
-							break; // they'll all be splattered anyway
-						}
-				}
-			}
-			grid.source = new PuzzleID(file, 0);
-		} catch (Exception ex) {
-			return StdErr.whinge(Log.me()+" exception", ex);
-		}
-		return true;
-	}
-
-	private static void setClues(Grid grid, String line, int y) {
-		//assert line.matches("[1..9]{9}");
-		for ( int x=0; x<9; ++x ) {
-			final char ch = line.charAt(x);
-			if ( ch>='1' && ch<='9' )
-				grid.cells[y*9+x].set(ch-'0'); // NB: x,y (ie col,row)
-		}
-	}
-
-	private static boolean setMaybes(Grid grid, String line, int y) {
-		y *= 9; // only used to calculate a cell indice
-		String[] fields = line.split(COMMA, 9);
-		if ( fields.length == 9 ) {
-			Grid.Cell cell;
-			for ( int x=0; x<9; ++x ) {
-				if ( (cell=grid.cells[y+x]).value == 0 ) {
-					String field = fields[x];
-					for ( int i=0, n=field.length(); i<n; ++i )
-						cell.maybes |= (field.charAt(i)-'0');
-				}
-			}
-			return true;
-		}
-		// unexpected input file format
-		for ( int x=0; x<9; ++x )
-			grid.cells[y+x].maybes = VALL;
-		return false;
-	}
-
-	private static final String QUESTION =
-			"MagicTour (*.mt) is a multi-line format."+NL
-			+"So which line (1 based) do you want?";
-
-	private static boolean loadMT(final Grid grid, final File file, final int lineNumberArg) {
-		try {
-			final int lineCount = countLines(file);
-			final int lineNumber;
-			if ( lineNumberArg>0 && lineNumberArg<=lineCount )
-				lineNumber = lineNumberArg;
-			else
-				lineNumber = Ask.forInt(QUESTION, 1, lineCount);
-			try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
-				for ( int i=1; i<lineNumber; ++i )
-					reader.readLine();
-				String line = reader.readLine();
-				if ( line==null || line.length()<81 )
-					throw new IOException("Line "+lineNumber+" is not atleast"
-							+ " 81 characters:"+NL+line);
-				// MT is Grid's native format.
-				grid.load(line);
-			} catch (Exception ex) {
-				StdErr.whinge("failed to loadMT from: "+lineNumber+"#"+file, ex);
-			}
-			grid.isMaybesLoaded = false;
-			grid.source = new PuzzleID(file, lineNumber);
-			return true;
-		} catch (IOException ex) {
-			return StdErr.whinge(Log.me()+" IOException", ex);
-		}
-	}
-
-	/**
-	 * Counts the number of lines (1 based) in the given file.
-	 * @param file to count lines of/in (I never know).
-	 * @return the 1 based number of lines in this file. WARN: maybe 0.
-	 * @throws FileNotFoundException
-	 * @throws IOException
-	 */
-	static int countLines(File file) throws FileNotFoundException, IOException {
-		int lineCount = 0;
-		try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
-			while ( reader.readLine() != null )
-				++lineCount;
-		}
-		return lineCount;
-	}
-
-	/**
-	 * Copy the given file to the given PrintStream. The most efficient way
-	 * I can think of to deal with a long usage statement is to put in in
-	 * a file which we cat the stderr when appropriate. To save some RAM.
-	 * <p>cat is a *nix command. The DOS/Windows poxivalent is type.<br>
-	 * NB: Poxivalence is best defined as "of or relating to Bill."
+	 * Copy the given file to the given PrintStream. The most efficient way I
+	 * can think of to deal with a long usage statement is to put in in a file
+	 * which we cat when appropriate. To save some RAM.
+	 * <p>
+	 * NOTE: cat is a *nix command. The DOS/Windows knock-off is type.
 	 *
-	 * @param file File to read.
-	 * @param out PrintStream to print to.
-	 * @return true means it worked; false upon error (and carp to stderr)
+	 * @param file to read
+	 * @param out to print to
+	 * @return true means it worked; false upon error (whinge to stderr)
 	 */
 	public static boolean cat(File file, PrintStream out) {
 		try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
@@ -377,25 +158,41 @@ public final class IO {
 			while ( (line=reader.readLine()) != null )
 				out.println(line);
 		} catch (IOException ex) {
-			StdErr.whinge("Failed to cat: "+file, ex);
+			StdErr.whinge(Log.me()+": IOException on "+file, ex);
 			return false;
 		}
 		return true;
 	}
 
-	/**
-	 * Read this Reader into a List into an array of Strings.
-	 * @param reader to read
-	 * @return {@code String[]} of the file contents
-	 * @throws java.io.FileNotFoundException
-	 */
-	public static String[] slurpArray(Reader reader) throws FileNotFoundException, IOException {
-		ArrayList<String> list = slurp(reader);
-		return list.toArray(new String[list.size()]);
-	}
+//not_used
+//	/**
+//	 * Read this Reader into a List into an array of Strings.
+//	 *
+//	 * @param reader to read
+//	 * @return {@code String[]} of the file contents
+//	 * @throws java.io.FileNotFoundException
+//	 */
+//	public static String[] slurpArray(Reader reader) throws FileNotFoundException, IOException {
+//		ArrayList<String> list = slurp(reader);
+//		return list.toArray(new String[list.size()]);
+//	}
+
+//not_used
+//	/**
+//	 * Read this File into an array of Strings.
+//	 *
+//	 * @param file to read
+//	 * @return {@code String[]} of the file contents
+//	 * @throws java.io.FileNotFoundException
+//	 */
+//	public static String[] slurpArray(File file) throws FileNotFoundException, IOException {
+//		ArrayList<String> list = slurp(new FileReader(file));
+//		return list.toArray(new String[list.size()]);
+//	}
 
 	/**
 	 * slurp reads text from the Reader into an ArrayList of Strings.
+	 *
 	 * @param reader to read
 	 * @return {@code ArrayList<String>} of the contents of the Reader
 	 * @throws FileNotFoundException
@@ -413,17 +210,6 @@ public final class IO {
 	}
 
 	/**
-	 * Read this File into an array of Strings.
-	 * @param file to read
-	 * @return {@code String[]} of the file contents
-	 * @throws java.io.FileNotFoundException
-	 */
-	public static String[] slurpArray(File file) throws FileNotFoundException, IOException {
-		ArrayList<String> list = slurp(new FileReader(file));
-		return list.toArray(new String[list.size()]);
-	}
-
-	/**
 	 * Read this File into an ArrayList of Strings.
 	 * @param file to read
 	 * @return {@code ArrayList<String>} of the file contents
@@ -433,36 +219,18 @@ public final class IO {
 		return slurp(new FileReader(file));
 	}
 
-	/**
-	 * Load the contents of the bufferedReader into the map.
-	 * Each line is presumed to contain a name=value pair.
-	 * There are no spaces around the '=' sign.
-	 * Lines that do not contain an '=' sign are ignored.
-	 * Lines that end in an '=' sign are ignored.
-	 *
-	 * @param map
-	 * @param bufferedReader
-	 * @throws java.io.IOException
-	 */
-	public static void slurp(Map<String,String> map, BufferedReader bufferedReader) throws IOException  {
+	// asshole
+	private static void slurp(Map<String,String> map, BufferedReader bufferedReader) throws IOException  {
 		String line;
 		int i; // indexOf('=')
-		while ( (line=bufferedReader.readLine()) != null )
-			if ( (i = line.indexOf('='))>-1 && i<=line.length() )
+		while ( (line=bufferedReader.readLine()) != null ) {
+			if ( (i = line.indexOf('='))>-1 && i<=line.length() ) {
 				map.put(line.substring(0, i), line.substring(i+1, line.length()));
+			}
+		}
 	}
-	/**
-	 * Load the contents of the fileReader into the map.
-	 * Each line is presumed to contain a name=value pair.
-	 * There are no spaces around the '=' sign.
-	 * Lines that do not contain an '=' sign are ignored.
-	 * Lines that end in an '=' sign are ignored.
-	 *
-	 * @param map
-	 * @param fileReader
-	 * @throws java.io.IOException
-	 */
-	public static void slurp(Map<String,String> map, FileReader fileReader) throws IOException {
+	// guts
+	private static void slurp(Map<String,String> map, FileReader fileReader) throws IOException {
 		try ( BufferedReader bufferedReader = new BufferedReader(fileReader) ) {
 			slurp(map, bufferedReader);
 		}
@@ -485,26 +253,14 @@ public final class IO {
 		}
 	}
 
-
-	/**
-	 * Load the fileReader and return it all as one StringBuilder.
-	 * @param sb the StringBuilder to load into.
-	 * @param bufferedReader on the file to load.
-	 * @throws IOException it's your problem baby
-	 */
-	public static void slurpSB(StringBuilder sb, BufferedReader bufferedReader) throws IOException {
+	// asshole
+	private static void slurpSB(StringBuilder sb, BufferedReader bufferedReader) throws IOException {
 		String line;
 		while ( (line=bufferedReader.readLine()) != null )
 			sb.append(line).append(NL);
 	}
-	/**
-	 * Load the fileReader and return it all as one StringBuilder.
-	 * @param sb the StringBuilder to load into.
-	 * @param fileReader on the file to load.
-	 * @throws java.io.FileNotFoundException when your cat refuses to go out
-	 * @throws IOException it's your problem baby
-	 */
-	public static void slurpSB(StringBuilder sb, FileReader fileReader) throws IOException{
+	// guts
+	private static void slurpSB(StringBuilder sb, FileReader fileReader) throws IOException{
 		try ( BufferedReader bufferedReader = new BufferedReader(fileReader) ) {
 			slurpSB(sb, bufferedReader);
 		}
@@ -524,59 +280,41 @@ public final class IO {
 		return sb;
 	}
 
-	/**
-	 * Loads filename into a new int array and returns it.
-	 * <p>
-	 * File format is: JUST 1 int per line. No commas, spaces or extraneous
-	 * crap, just digits and newlines, ie "%d\n" in 99% of cases.
-	 * @param filename the name of the file to load
-	 * @return a new {@code int[]} of the file contents.
-	 */
-	public static int[] loadIntArray(String filename) {
-		return loadIntArray(new File(filename));
-	}
-	public static int[] loadIntArray(File file) {
-		try {
-			String[] strings = IO.slurp(file).toArray(new String[0]);
-			return diuf.sudoku.utils.Frmt.toIntArray(strings);
-		} catch (IOException ex) {
-			StdErr.whinge("Failed to loadIntArray from: "+file, ex);
-			return null;
-		}
-	}
+//not_used
+//	/**
+//	 * Slurp filename into a new int array and returns it.
+//	 * <p>
+//	 * File format is: JUST 1 int per line. No commas, spaces or extraneous
+//	 * crap, just digits and newlines, ie "%d\n" in 99% of cases.
+//	 * @param file to load
+//	 * @return a new {@code int[]} of the file contents.
+//	 */
+//	public static int[] slurpIntArray(File file) {
+//		try {
+//			String[] strings = IO.slurp(file).toArray(new String[0]);
+//			return diuf.sudoku.utils.Frmt.toIntArray(strings);
+//		} catch (IOException ex) {
+//			StdErr.whinge("Failed to loadIntArray from: "+file, ex);
+//			return null;
+//		}
+//	}
 
-	/**
-	 * Load filename into this collection (nb: YOU clear c first, if necessary;
-	 * I don't so that you can load multiple files into one collection.)
-	 * @param c the {@code Collection<Integer>} to load
-	 * @param filename the name of the file to load;<br>
-	 * <b>or</b> param File file to load
-	 * @return true if it saved, else false and carps to stderr.
-	 */
-	public static boolean loadIntegers(Collection<Integer> c, String filename) {
-		return IO.loadIntegers(c, new File(filename));
-	}
-	public static boolean loadIntegers(Collection<Integer> c, File file) {
-		try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
-			String line;
-			while ( (line=reader.readLine()) != null )
-				c.add(Integer.valueOf(line));
-			return true;
-		} catch (IOException ex) {
-			StdErr.carp("failed to load Collection<Integer> from : "+file, ex);
-			return false;
-		}
-	}
-
-//	public static boolean loadIntegerArrays(Collection<int[]> c, File file) {
+//not_used
+//	/**
+//	 * Slurp filename into this collection (nb: YOU clear c first, if necessary;
+//	 * I don't so that you can load multiple files into one collection.)
+//	 * @param c the {@code Collection<Integer>} to load
+//	 * @param file to load
+//	 * @return true if it saved, else false and carps to stderr.
+//	 */
+//	public static boolean slurpIntegers(Collection<Integer> c, File file) {
 //		try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
 //			String line;
 //			while ( (line=reader.readLine()) != null )
-//				// toIntArray parses a String[] into an int[]
-//				c.add(Frmt.toIntArray(line.split(" *, *")));
+//				c.add(Integer.valueOf(line));
 //			return true;
 //		} catch (IOException ex) {
-//			StdErr.carp("failed to load Collection<int[]> from : "+file, ex);
+//			StdErr.carp("failed to load Collection<Integer> from : "+file, ex);
 //			return false;
 //		}
 //	}
@@ -587,7 +325,7 @@ public final class IO {
 	 * Save the given String to the given File.
 	 * @param s String to save
 	 * @param file to save to
-	 * @throws IOException (it's your problem baby.)
+	 * @throws IOException (it's your problem)
 	 */
 	public static void save(String s, File file) throws IOException {
 		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
@@ -596,35 +334,48 @@ public final class IO {
 	}
 
 	/**
-	 * Save the given String to the given File.
-	 * @param lines {@code Collection<String>} to save
+	 * Save lines to text-file.
+	 *
+	 * @param lines {@code Iterable<?>} to save
 	 * @param file to save to
-	 * @throws IOException (it's your problem baby.)
+	 * @throws IOException (it's your problem)
 	 */
-	public static void save(Collection<String> lines, File file) throws IOException {
+	public static void save(Iterable<?> lines, File file) throws IOException {
 		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-			for ( String line : lines ) {
-				writer.write(line);
+			for ( Object line : lines ) {
+				writer.write(String.valueOf(line));
 				writer.newLine();
 			}
 		}
 	}
+
+//not_used
+//	/**
+//	 * Save this array-of-sets-of-strings to file.
+//	 *
+//	 * @param sets {@code Set<String>[]} to save
+//	 * @param file to save to
+//	 * @throws IOException (it's your problem)
+//	 */
+//	public static void save(Set<String>[] sets, File file) throws IOException {
+//		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
+//			for ( Set<String> set : sets ) {
+//				writer.write(Frmt.csvs(set));
+//				writer.newLine();
+//			}
+//		}
+//	}
 
 	/**
-	 * Save the given array-of-sets-of-strings to the given File.
-	 * @param sets {@code Set<String>[]} to save
+	 * Save this JComboBox's contents to file, including the new item. sigh.
+	 * <p>
+	 * Saves the Items in the given JComboBox and ONE new entry that's been
+	 * typed-in, but only one, sorry. sigh.
+	 *
+	 * @param cbo the JComboBox to save
 	 * @param file to save to
-	 * @throws IOException (it's your problem baby.)
+	 * @throws IOException (it's your problem)
 	 */
-	public static void save(Set<String>[] sets, File file) throws IOException {
-		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-			for ( Set<String> set : sets ) {
-				writer.write(Frmt.csvs(set));
-				writer.newLine();
-			}
-		}
-	}
-
 	public static void save(JComboBox<String> cbo, File file) throws IOException {
 		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
 			// newbies don't appear in the items
@@ -643,29 +394,35 @@ public final class IO {
 		}
 	}
 
-	/**
-	 * Save the given array-of-int to the given filename.
-	 * @param a the array to save
-	 * @param filename the name of the file to save to;<br>
-	 * <b>or</b> param File file to save to
-	 * @return true if it saved, else false and carps to stderr.
-	 */
-	public static boolean save(int[] a, String filename) {
-		return save(a, new File(filename));
-	}
-	public static boolean save(int[] a, File file) {
-		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-			for ( int e : a ) {
-				writer.write(String.valueOf(e));
-				writer.newLine();
-			}
-		} catch (IOException ex) {
-			StdErr.whinge("failed to save int[] to : "+file, ex);
-			return false;
-		}
-		return true;
-	}
+//not_used
+//	/**
+//	 * Save the given array-of-int to the given filename.
+//	 *
+//	 * @param a the array to save
+//	 * @param file to save to
+//	 * @return true if it saved, else false and carps to stderr.
+//	 */
+//	public static boolean save(int[] a, File file) {
+//		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
+//			for ( int e : a ) {
+//				writer.write(String.valueOf(e));
+//				writer.newLine();
+//			}
+//		} catch (IOException ex) {
+//			StdErr.whinge("failed to save int[] to : "+file, ex);
+//			return false;
+//		}
+//		return true;
+//	}
 
+	/**
+	 * Save the given {@code Map<String,String> map}
+	 * to file formatted as "${key}=${value}".
+	 *
+	 * @param map to save
+	 * @param file to write
+	 * @throws IOException
+	 */
 	public static void save(Map<String,String> map, File file) throws IOException {
 		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
 			for ( Map.Entry<String,String> e : map.entrySet() ) {
@@ -677,60 +434,34 @@ public final class IO {
 		}
 	}
 
-	/**
-	 * Save these Integers to the given file/name
-	 * @param c the {@code Collection<Integer>} to save
-	 * @param filename the name of the file to save;<br>
-	 * <b>or</b> param File file to save to
-	 * @return true if it saved, else false and carps to stderr.
-	 */
-	public static boolean saveIntegers(Collection<Integer> c, String filename) {
-		return saveIntegers(c, new File(filename));
-	}
-	public static boolean saveIntegers(Collection<Integer> c, File file) {
-		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-			write(c, System.lineSeparator(), writer);
-		} catch (IOException ex) {
-			StdErr.whinge("failed to saveIntegers to : "+file, ex);
-			return false;
-		}
-		return true;
-	}
-	// Writes c to writer separated by sep's.
-	// NB: sep is always printed after each element (ie I use lineSeperator)
-	private static void write(Collection<?> c, String sep, BufferedWriter writer) throws IOException {
-		for ( Object e : c ) {
-			writer.write(String.valueOf(e));
-			writer.write(sep);
-		}
-	}
+//not_used
+//	// Writes the first 'n' elements of 'array' to 'writer' separated by 'sep'.
+//	// For Example:
+//	//   writeCsv(writer, 3, {123,324,0}, ", ")
+//	//   writes: 123, 324, 0 (with a newLine)
+//	//   and returns true.
+//	// Where as:
+//	//   writeCsv(writer, 2, {123,324,0}, ", ")
+//	//   writes: 123, 324 (with a newLine)
+//	//   and returns true.
+//	// if array is empty then an empty line is written and true is returned.
+//	// if array is null then NOTHING is written and returns false.
+//	//   This will handle a fixed-size-array with trailing nulls;
+//	public static boolean writeCsvLine(BufferedWriter writer, final int n, int[] array, String sep) throws IOException {
+//		if ( array==null )
+//			return false;
+//		if ( n > 0 ) {
+//			writer.write(String.valueOf(array[0]));
+//			for ( int i=1; i<n; ++i ) {
+//				writer.write(sep);
+//				writer.write(String.valueOf(array[i]));
+//			}
+//		}
+//		writer.newLine();
+//		return true;
+//	}
 
-	// Writes the first 'n' elements of 'array' to 'writer' separated by 'sep'.
-	// For Example:
-	//   writeCsv(writer, 3, {123,324,0}, ", ")
-	//   writes: 123, 324, 0 (with a newLine)
-	//   and returns true.
-	// Where as:
-	//   writeCsv(writer, 2, {123,324,0}, ", ")
-	//   writes: 123, 324 (with a newLine)
-	//   and returns true.
-	// if array is empty then an empty line is written and true is returned.
-	// if array is null then NOTHING is written and returns false.
-	//   This will handle a fixed-size-array with trailing nulls;
-	private static boolean writeCsvLine(BufferedWriter writer, final int n, int[] array, String sep) throws IOException {
-		if ( array==null )
-			return false;
-		if ( n > 0 ) {
-			writer.write(String.valueOf(array[0]));
-			for ( int i=1; i<n; ++i ) {
-				writer.write(sep);
-				writer.write(String.valueOf(array[i]));
-			}
-		}
-		writer.newLine();
-		return true;
-	}
-
+//not_used
 //	/**
 //	 * Saves the {@code Collection<int[]>} to 'file'. Each {@code int[]} is
 //	 * written one per line, in csv format.
@@ -756,22 +487,23 @@ public final class IO {
 //		return true;
 //	}
 
-	public static boolean saveIdxs(Collection<Idx> c, File file) {
-		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-			for ( Idx idx : c ) {
-				writer.write(idx.a0);
-				writer.write(COMMA_SP);
-				writer.write(idx.a1);
-				writer.write(COMMA_SP);
-				writer.write(idx.a2);
-				writer.newLine();
-			}
-		} catch (IOException ex) {
-			StdErr.whinge("failed to saveIdxs to : "+file, ex);
-			return false;
-		}
-		return true;
-	}
+//not_used
+//	public static boolean saveIdxs(Collection<Idx> c, File file) {
+//		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
+//			for ( Idx idx : c ) {
+//				writer.write(idx.a0);
+//				writer.write(COMMA_SP);
+//				writer.write(idx.a1);
+//				writer.write(COMMA_SP);
+//				writer.write(idx.a2);
+//				writer.newLine();
+//			}
+//		} catch (IOException ex) {
+//			StdErr.whinge("failed to saveIdxs to : "+file, ex);
+//			return false;
+//		}
+//		return true;
+//	}
 
 //	/**
 //	 * Sort these Integers numerically, then save them to filename.
@@ -787,22 +519,23 @@ public final class IO {
 //		return save(MyArrays.sort(MyArrays.unbox(c)), file);
 //	}
 
-	/**
-	 * Copy the given $file to $file.bak, if $file exists.
-	 * <p>There's an assert to stop you creating .bak.bak files accidentally.
-	 * @param file to create a .bak file of
-	 * @return the .bak File, or null if $file does not exist.
-	 * @throws IOException (it's your problem baby.)
-	 */
-	public static File backup(File file) throws IOException {
-		if ( file.exists() ) {
-			assert !file.getAbsolutePath().endsWith(".bak");
-			File bak = new File(file.getAbsolutePath()+".bak");
-			save(slurp(file), bak); // Bugger Winblows and do it manually
-			return bak;
-		}
-		return null;
-	}
+//not_used
+//	/**
+//	 * Copy the given $file to $file.bak, if $file exists.
+//	 * <p>There's an assert to stop you creating .bak.bak files accidentally.
+//	 * @param file to create a .bak file of
+//	 * @return the .bak File, or null if $file does not exist.
+//	 * @throws IOException (it's your problem)
+//	 */
+//	public static File backup(File file) throws IOException {
+//		if ( file.exists() ) {
+//			assert !file.getAbsolutePath().endsWith(".bak");
+//			File bak = new File(file.getAbsolutePath()+".bak");
+//			save(slurp(file), bak); // Bugger Winblows and do it manually
+//			return bak;
+//		}
+//		return null;
+//	}
 
 	// =========================== clipboard ===============================
 
@@ -828,33 +561,14 @@ public final class IO {
 	public static String readStringFromDropEvent(DropTargetDropEvent dtde)
 			throws UnsupportedFlavorException, IOException {
 		dtde.acceptDrop(DnDConstants.ACTION_COPY);
-//<CRAP_RAY @todo="research how to get the DataFlavour properly">
-//		DataFlavor flavor = null;
-//		for ( DataFlavor df : dtde.getCurrentDataFlavors() )
-//			if ( SUPPORTED_DATA_FLAVOR_NAME.equals(df.toString()) ) {
-//				flavor = df;
-//				break;
-//			}
-//		if ( flavor == null )
-//			throw new UnsupportedDataTypeException("transferable: "+dtde.getTransferable().toString());
-		//
-		DataFlavor flavor = dtde.getCurrentDataFlavors()[2]; // it works only when I hardcode it!
+		// it works only when I hardcode it!
+		DataFlavor flavor = dtde.getCurrentDataFlavors()[2];
 		assert "java.awt.datatransfer.DataFlavor[mimetype=text/plain;representationclass=java.lang.String]"
 				.equals(flavor.toString());
-//</CRAP_RAY>
 		Transferable transferable = dtde.getTransferable();
 		String s = (String)transferable.getTransferData(flavor);
 		dtde.dropComplete(true);
 		return s;
 	}
-
-//	public static void makeTempDir(File dir) {
-//		dir.mkdir();
-//		dir.deleteOnExit();
-//	}
-//
-//	public static void delete(File dir) {
-//		dir.delete();
-//	}
 
 }

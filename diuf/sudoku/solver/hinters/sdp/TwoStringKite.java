@@ -34,6 +34,8 @@ package diuf.sudoku.solver.hinters.sdp;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
@@ -74,8 +76,8 @@ public class TwoStringKite extends AHinter {
 		return true;
 	}
 
-	private final Cell[][] rowPairs = new Cell[9][2];
-	private final Cell[][] colPairs = new Cell[9][2];
+	private final Cell[][] rowPairs = new Cell[REGION_SIZE][2];
+	private final Cell[][] colPairs = new Cell[REGION_SIZE][2];
 
 	public TwoStringKite() {
 		super(Tech.TwoStringKite);
@@ -102,7 +104,7 @@ public class TwoStringKite extends AHinter {
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach possible value in 1..9
-		for ( int v=1; v<10; ++v ) {
+		for ( int v=1; v<VALUE_CEILING; ++v ) {
 			sv = VSHFT[v]; // lookup once to save some time, I hope
 			// get cell-pairs from rows and cols with two places for v
 			if ( (nRowPairs=pairs(grid.rows, v, rowPairs)) != 0
@@ -129,7 +131,7 @@ public class TwoStringKite extends AHinter {
 						  // get the y=row of the colPair
 						  // and the x=col of the rowPair
 						  // and examine the cell at there intersection
-						  && ((victim=cells[colPair[1].y*9 + rowPair[1].x]).maybes & sv) != 0
+						  && ((victim=cells[colPair[1].y*REGION_SIZE + rowPair[1].x]).maybes & sv) != 0
 						) {
 							// FOUND TwoStringKite!
 							final AHint hint = createHint(rowPair, colPair, victim, v);
@@ -156,8 +158,8 @@ public class TwoStringKite extends AHinter {
 	private int pairs(ARegion[] regions, int v, Cell[][] pairs) {
 		int i = 0;
 		for ( ARegion r : regions )
-			if ( r.indexesOf[v].size == 2 )
-				r.at(r.indexesOf[v].bits, pairs[i++]);
+			if ( r.ridx[v].size == 2 )
+				r.at(r.ridx[v].bits, pairs[i++]);
 		return i;
 	}
 

@@ -57,7 +57,7 @@ public class TwoStringKiteHint extends AHint  {
 
 	@Override
 	public String toHtmlImpl() {
-		Cell redCell = redPots.firstKey();
+		Cell redCell = redPots.firstCell();
 		return Html.produce(this, "TwoStringKiteHint.html"
 			, Integer.toString(redValue)	//{0}
 			, covers.get(0).id				// 1

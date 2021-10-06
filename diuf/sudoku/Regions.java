@@ -10,6 +10,8 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.BOX;
 import static diuf.sudoku.Grid.COL;
+import static diuf.sudoku.Grid.NUM_REGIONS;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Grid.ROW;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
@@ -22,6 +24,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import java.util.NoSuchElementException;
 
 
 /**
@@ -131,7 +134,7 @@ public final class Regions {
 	 */
 	public static int select(ARegion[] regions, int bits, final ARegion[] array) {
 		int n = 0;
-		for ( int i=0; i<9; ++i )
+		for ( int i=0; i<REGION_SIZE; ++i )
 			if ( (bits & ISHFT[i]) != 0 )
 				array[n++] = regions[i];
 		return n;
@@ -236,37 +239,12 @@ public final class Regions {
 		return s;
 	}
 
-	/**
-	 * Region ID's, for when you don't HAVE a bloody Grid!
-	 */
-	public static final String[] IDS = {
-		  "box 1", "box 2", "box 3", "box 4", "box 5", "box 6", "box 7", "box 8", "box 9"
-		, "row 1", "row 2", "row 3", "row 4", "row 5", "row 6", "row 7", "row 8", "row 9"
-		, "col A", "col B", "col C", "col D", "col E", "col F", "col G", "col H", "col I"
-	};
-
-	public static int index(String rid) {
-		switch ( rid.substring(0, 4) ) {
-		case "box ":
-			return 0 + (rid.charAt(4)-'1'); // "box 8"
-		case "row ":
-			return 9 + (rid.charAt(4)-'1'); // "row 1"
-		case "col ":
-			char c = rid.charAt(4);
-			if ( c<'A' || c>'I' )
-				throw new IllegalArgumentException("Bad column letter in rid: "+rid);
-			return 18 + (c-'A'); // "col C"
-		default:
-			throw new IllegalArgumentException("Bad region type in rid: "+rid);
-		}
-	}
-
 	// only used for debugging
 	// parse "row 1, row 3, row 6" into a "used" boolean array
 	public static boolean[] used(String used) {
-		boolean[] result = new boolean[27];
+		final boolean[] result = new boolean[NUM_REGIONS];
 		for ( String rid : used.split(COMMA_SP) )
-			result[index(rid)] = true;
+			result[Grid.regionIndex(rid)] = true;
 		return result;
 	}
 
@@ -343,27 +321,133 @@ public final class Regions {
 		// foreach subsequent cell in cells
 		while (it.hasNext()) {
 			cell = it.next();
-			if (box != cell.box) {
-				box = null;
-			}
-			if (row != cell.row) {
-				row = null;
-			}
-			if (col != cell.col) {
-				col = null;
-			}
+			if (box != cell.box) { box = null; }
+			if (row != cell.row) { row = null; }
+			if (col != cell.col) { col = null; }
 		}
 		// add the common regions to result
-		if (box != null) {
-			result.add(box);
-		}
-		if (row != null) {
-			result.add(row);
-		}
-		if (col != null) {
-			result.add(col);
-		}
+		if (box != null) { result.add(box); }
+		if (row != null) { result.add(row); }
+		if (col != null) { result.add(col); }
 		return result;
+	}
+
+	/**
+	 * Return a bitset containing the indexes of the regions common to all of
+	 * these cells. Expect 1, 2, or 3 of them.
+	 *
+	 * @param cells not null, and not empty. I am this method. I'm expecting a
+	 *  Set of at least two cells. If there's only one then you'll get back all
+	 *  three of it's regions (the term "common" is pretty nonsensical here,
+	 *  but it's the simplest to implement, so I go with it, for now). If cells
+	 *  contains duplicates then the result is indeterminate. Four or more
+	 *  cells can share only one common region. Also, because cells is only an
+	 *  Iterable (for universality) I do not have Collections size() method, so
+	 *  I ignore it and continue as if it's all good, in the hope that it's all
+	 *  good; so filtering-out a poorly-sized cells-set is your problem, if
+	 *  necessary. I'm hoping that it's not necessary, but at O(n) I'm a heavy
+	 *  process, so it could be faster to check {@code cells.size() < 4} before
+	 *  you call me, but if it NEVER happens it's just a waste of time; and if
+	 *  it happens very rarely (I guess 5% +/- 1%) leave it because filtering
+	 *  them out probably costs more than it saves. I'm a pretty good guesser.
+	 * @return a bitset of the indexes of common regions.
+	 * @throws NullPointerException if cells is null.
+	 * @throws NoSuchElementException if cells is empty.
+	 */
+	public static int common(Iterable<Cell> cells) {
+		Iterator<Cell> it = cells.iterator();
+		// for first cell in cells
+		Cell cell = it.next();
+		ARegion box = cell.box;
+		ARegion row = cell.row;
+		ARegion col = cell.col;
+		// foreach subsequent cell in cells
+		while (it.hasNext()) {
+			cell = it.next();
+			if (box != cell.box) { box = null; }
+			if (row != cell.row) { row = null; }
+			if (col != cell.col) { col = null; }
+		}
+		// add the common regions to result
+		int result = 0;
+		if (box != null) { result |= Idx.SHFT[box.index]; }
+		if (row != null) { result |= Idx.SHFT[row.index]; }
+		if (col != null) { result |= Idx.SHFT[col.index]; }
+		return result;
+	}
+	public static int common(Cell[] cells) {
+		// for first cell in cells
+		Cell cell = cells[0];
+		ARegion box = cell.box;
+		ARegion row = cell.row;
+		ARegion col = cell.col;
+		// foreach subsequent cell in cells
+		for ( int i=1,n=cells.length; i<n; ++i) {
+			cell = cells[i];
+			if (box != cell.box) { box = null; }
+			if (row != cell.row) { row = null; }
+			if (col != cell.col) { col = null; }
+		}
+		// add the common regions to result
+		int result = 0;
+		if (box != null) { result |= Idx.SHFT[box.index]; }
+		if (row != null) { result |= Idx.SHFT[row.index]; }
+		if (col != null) { result |= Idx.SHFT[col.index]; }
+		return result;
+	}
+
+	/**
+	 * Returns the other ARegion that is common to all cells, else null.
+	 *
+	 * @param cells the cells to find the other common region of. Two or three
+	 *  cells can have one "other" common region. Less than two cells always
+	 *  returns null because "common" is nonsensical. Four-or-more cells always
+	 *  returns null because four cells can have only one common region, so an
+	 *  "other" common region simply cannot exist.
+	 * @param region the region that these cells were found in (and you want
+	 *  there other common region, if any). Note that the "other" common region
+	 *  returned comes from {@code region.getGrid().regions}, ergo the same
+	 *  Grid that contains the given region.
+	 * @return the other ARegion common to all cells, else null meaning none.
+	 */
+	public static ARegion otherCommon(List<Cell> cells, ARegion region) {
+		ARegion ocr = null; // otherCommonRegion (the result)
+		final int n = cells.size();
+		if ( n>1 && n<4 ) {
+			final int crs = common(cells); // bitset of commonRegions indexes
+			if ( Integer.bitCount(crs) == 2 ) {
+				ocr = region.getGrid().regions[Integer.numberOfTrailingZeros(
+						crs & ~Idx.SHFT[region.index])];
+			}
+		}
+		return ocr;
+	}
+
+	/**
+	 * Returns the other ARegion that is common to all cells, else null.
+	 *
+	 * @param cells the cells to find the other common region of. Two or three
+	 *  cells can have one "other" common region. Less than two cells always
+	 *  returns null because "common" is nonsensical. Four-or-more cells always
+	 *  returns null because four cells can have only one common region, so an
+	 *  "other" common region simply cannot exist.
+	 * @param region the region that these cells were found in (and you want
+	 *  there other common region, if any). Note that the "other" common region
+	 *  returned comes from {@code region.getGrid().regions}, ergo the same
+	 *  Grid that contains the given region.
+	 * @return the other ARegion common to all cells, else null meaning none.
+	 */
+	public static ARegion otherCommon(Cell[] cells, ARegion region) {
+		ARegion ocr = null; // otherCommonRegion (the result)
+		final int n = cells.length;
+		if ( n>1 && n<4 ) {
+			final int crs = common(cells); // bitset of commonRegions indexes
+			if ( Integer.bitCount(crs) == 2 ) {
+				ocr = region.getGrid().regions[Integer.numberOfTrailingZeros(
+						crs & ~Idx.SHFT[region.index])];
+			}
+		}
+		return ocr;
 	}
 
 	/**
@@ -393,12 +477,9 @@ public final class Regions {
 				// efficiently, which I hope will prove faster overall.
 				final Cell first = cells[0], second = cells[1];
 				int cnt = 0;
-				if ( first.box == second.box )
-					result[cnt++] = first.box;
-				if ( first.row == second.row )
-					result[cnt++] = first.row;
-				if ( first.col == second.col )
-					result[cnt++] = first.row;
+				if(first.box == second.box) { result[cnt++] = first.box; }
+				if(first.row == second.row) { result[cnt++] = first.row; }
+				if(first.col == second.col) { result[cnt++] = first.row; }
 				return cnt;
 			}
 			case 1: {
@@ -439,21 +520,23 @@ public final class Regions {
 	}
 
 	/**
-	 * Return the number of regions (1 or 2) common to these two cells.
+	 * Populates result with regions (1 or 2) common to cells 'a' and 'b'
+	 * (which are distinct) and return how many.
 	 * <p>
 	 * This method is currently used only by Hidden Unique Rectangle, but is
-	 * available for use elsewhere.
+	 * available for use elsewhere. It prefers the row/col to the box as the
+	 * "reported" common region. So note the "odd" order of comparisons here:
+	 * row, col, box. So that if cells are in the same row-or-col we return it
+	 * FIRST, only then (unlike the rest of SE) do we consider the box. I have
+	 * done this because the row-or-col is colinear so I find them easier to
+	 * understand, and so, I guess, the punters will too.
 	 * <p>
-	 * Note the "odd" order of comparisons here: row, col, box. So that if a
-	 * cell is in the same row-or-col we return it FIRST, only then (unlike
-	 * the rest of SE) do we consider the box.<br>
-	 * I've done this simply because I prefer the row-or-col when explaining
-	 * unique rectangles. I think they're just "more obvious", and therefore
-	 * so likely will the punter. There's nothing wrong with a box, they're
-	 * just a bit harder to get your head around in UR-land, that's all.
+	 * There is nothing WRONG with a box (or indeed any other region type),
+	 * they're just harder to understand. This is just my humble opinion, NOT
+	 * thoroughly thought-through, with or without Da Delaware Destroyers.
 	 * <p>
-	 * WARN: If a == b then I return all three of the cells regions. If you
-	 * can't accept this then call commonRegionsSafe instead!
+	 * WARNING: If a == b then I return all three of the cells regions. If you
+	 * are fixing an AIOOBE then call commonSafe (below) instead!
 	 *
 	 * @param a the first Cell
 	 * @param b the second Cell
@@ -462,6 +545,7 @@ public final class Regions {
 	 * @return the number of commonRegions added to the result array.
 	 */
 	public static int common(final Cell a, final Cell b, final ARegion[] result) {
+		assert a != b; // techies only: see method comment
 		int cnt = 0;
 		if (a.y == b.y) {
 			result[cnt++] = a.row;
@@ -475,7 +559,7 @@ public final class Regions {
 		return cnt;
 	}
 
-//not used
+//not_used but retain for future possible use (safety first)
 //	/**
 //	 * A null-safe common(Cell, Cell, ARegion) ignoring a==b;
 //	 * returns result (truncated) even if it's not big enough.

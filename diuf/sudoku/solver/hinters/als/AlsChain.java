@@ -6,9 +6,9 @@
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * This is a copy-paste of ALL the HoDoKu code which implements ALS-XY-Chain.
- * Everything from AlsSolver to SudokuStepFinder, all fields, etc are all
- * sucked into this class. All kudos to hobiwan. The mistakes are mine. KRC.
+ * This started as a copy of ALL the HoDoKu code implementing ALS-XY-Chain.
+ * Everything from AlsSolver to SudokuStepFinder, all fields, etc are all in
+ * this class. Kudos to hobiwan. Mistakes are mine. KRC.
  * Hobiwans licence statement is reproduced below.
  *
  * Copyright (C) 2008-12  Bernhard Hobiger
@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-
 /**
  * AlsChain implements the Almost Locked Set XY-Chain Sudoku solving technique.
  * <p>
@@ -66,25 +65,27 @@ import java.util.TreeMap;
  * @author Keith Corlett 2020 May 24
  */
 public final class AlsChain extends AAlsHinter
-//implements diuf.sudoku.solver.IReporter
+//implements diuf.sudoku.solver.hinters.IReporter
 {
-// This method is out of place to keep it near it's implements line
+//// This method is out of place to be close to it's above implements line
 //	@Override
 //	public void report() {
-//		diuf.sudoku.utils.Log.teef("%s: ttlRccs=%,d\n", tech.name(), ttlRccs);
+//		diuf.sudoku.utils.Log.teef("\n%s:\n", tech.name());
+////		diuf.sudoku.utils.Log.teef("tookAlss=%,d\n", tookAlss);
+////		diuf.sudoku.utils.Log.teef("tookRccs=%,d\n", tookRccs);
+////		diuf.sudoku.utils.Log.teef("ttlRccs=%,d\n", ttlRccs);
+//		diuf.sudoku.utils.Log.teef("COUNTS=%s\n", Arrays.toString(RccFinder.COUNTS));
 //	}
-//	private long ttlRccs;
-//ALS_XZ:    ttlRccs=    8,801,276
-//ALS_Wing:  ttlRccs=    6,085,665
-//ALS_Chain: ttlRccs=3,100,592,090
+////	private long ttlRccs;
+////ALS_XZ:    ttlRccs=    8,801,276
+////ALS_Wing:  ttlRccs=    6,085,665
+////ALS_Chain: ttlRccs=3,100,592,090
 
 	/**
 	 * Is 'als' a superset or subset of any ALS in 'chain', stopping at 'n'
 	 * INCLUSIVE; ie does the given als make a loop in this chain?.
 	 * <p>
-	 * <b>NOTE WELL:</b> chain is populated upto {@code <= n};<br>
-	 * not the faster and therefore more usual {@code < n};<br>
-	 * because chain[0] is the startAls.
+	 * <b>NOTE WELL:</b> chain is populated upto {@code <= n}
 	 */
 	private static boolean loops(Als als, Als[] chain, int n) {
 		try {
@@ -111,13 +112,12 @@ public final class AlsChain extends AAlsHinter
 	/**
 	 * Constructor.
 	 * <pre>Super constructor parameters:
-	 * * tech = Tech.ALS_Chain
-	 * * allowNakedSets = false in getAlss, no Almost Locked Set may contain a
-	 *   cell in any Locked Set in the region; else invalid ALS-Chain hints, so
-	 *   KRC supressed them.
+	 * * tech = Tech.ALS_Chain is pretty self explanatory, but for the more
+	 *   cognitively challenged among you: AlsChain implements Tech.ALS_Chain.
+	 * * allowNakedSets = true in getAlss, so Almost Locked Sets contain cells
+	 *   that are in any Locked Sets in the region.
 	 * * findRCCs = true run getRccs to find the common values connecting ALSs
-	 * * allowOverlaps = false ALSs which physically overlap are not allowed to
-	 *   form an RCC; else invalid ALS-Chain hints, so KRC supressed them.
+	 * * allowOverlaps = true ALSs which physically overlap form an RCC anyway.
 	 * * forwardOnly = false so that getRccs does a full search of all possible
 	 *   combinations of ALSs, instead of the faster forwardOnly search for XZs
 	 *   and XyWings. NOTE that true is faster, but finds less hints, and I do
@@ -126,8 +126,6 @@ public final class AlsChain extends AAlsHinter
 	 * </pre>
 	 */
 	public AlsChain() {
-		// KRC 2021-06-16 17:33 try allowNakedSets=true
-		// KRC 2021-06-16 17:34 try allowOverlaps=true
 		super(Tech.ALS_Chain, true, true, true, false);
 	}
 
@@ -140,11 +138,13 @@ public final class AlsChain extends AAlsHinter
 		this.rccs = rccs;
 		this.accu = accu;
 		this.oneOnly = accu.isSingle();
+		this.starts = rccFinder.getStartIndexes();
+		this.ends = rccFinder.getEndIndexes();
 		boolean result = false;
 		try {
 			deletesMap.clear();
 			for ( int i=0; i<numAlss; ++i ) {
-				chainAlss[0] = startAls = alss[i];
+				chainAlss[0] = s = alss[i]; // s is short for the startAls
 				if ( isAlsInChain == null )
 					isAlsInChain = new boolean[MAX_ALSS];
 				else
@@ -161,6 +161,8 @@ public final class AlsChain extends AAlsHinter
 			this.alss = null;
 			this.rccs = null;
 			this.accu = null;
+			this.starts = null; // for the GC
+			this.ends = null; // for the GC
 			Cells.cleanCasA();
 		}
 		// GUI mode, so sort hints by score descending
@@ -171,13 +173,17 @@ public final class AlsChain extends AAlsHinter
 	/** all chains found so far: eliminations and number of links. */
 	private final SortedMap<String, Integer> deletesMap = new TreeMap<>();
 	/** The first ALS in the chain (needed for elimination checks). */
-	private Als startAls;
+	private Als s; // startAls
 	/** Chain search: for every ALS already contained in the chain the
 	 * respective index is true. */
 	private boolean[] isAlsInChain;
 	/** The first RC in the current chain (always is {@link #chainRccs}[0];
 	 * needed for test for eliminations, cached for performance reasons). */
 	private Rcc firstRCC = null;
+	/** The starts array contains the start index of each ALS. */
+	private int[] starts;
+	/** The ends array contains the last+1 index of each ALS. */
+	private int[] ends;
 
 	/**
 	 * Recursively search the ALS at alsIndex checking each of its RCC. If the
@@ -206,50 +212,42 @@ public final class AlsChain extends AAlsHinter
 		Idx[] avBuds, avs;
 		int rc1,rc2,rc3,rc4, i,I, als2, zMaybes;
 		boolean any;
-		final Idx tmp = this.set1; // used for various checks
-		final Idx zBuds = this.set2; // all buds of v (incl the ALSs).
-		final Pots reds = this.redPots;
-		final Pots blues = this.bluePots;
-		final Als s = this.startAls;
-		final Idx[] svBuds = s.vBuds;
-		final Idx[] svs = s.vs;
-		final Als[] chainAlss = this.chainAlss;
-		final int[] starts = RCC_FINDER.startInds;
-		final int[] ends = RCC_FINDER.endInds;
-		final Rcc[] rccs = this.rccs;
-		final Als[] alss = this.alss;
-		final boolean[] isAlsInChain = this.isAlsInChain;
-		final boolean allowOverlaps = this.allowOverlaps;
+		// dereference startAls attributes ONCE, for speed.
+		final Idx[] svBuds = s.vBuds; // common buddies of each value in ALS
+		final Idx[] svs = s.vs; // cells which maybe each value in ALS
 		// check all RCs; if none exist the loop is never entered
 		boolean firstTry = true;
 		// presume that no hint will be found
 		boolean result = false;
 //		ttlRccs += rccs.length;
-		// foreach currAls (right) in ALS's connecting with startAls (left).
-		// nb: the "map" between ALSs is stored in startIndices and endIndices.
-		// nb: index is into start/endIndices arrays, not the index of an RCC.
-		for ( i=starts[index],I=ends[index]; i<I; ++i )
+		// foreach Als a in alss that connects with the startAls s.
+		// nb: ALS a's connections := starts[a.index]..ends[a.index] (excl)
+		for ( i=starts[index], I=ends[index]; i<I; ++i )
 			// select my RC (sets rcc.which for later)
 			if ( (rcc=rccs[i]).whichRC(prevRC, firstTry)
+			  // get a = the current ALS, and check for any common buds.
+			  && s.buddies.andAny((a=alss[als2=rcc.als2]).buddies)
 			  // check ALS not already in chain
-			  && !isAlsInChain[als2=rcc.als2]
-			  // get 'a' the current ALS, and check for common buds.
-			  && s.buddies.andAny((a=alss[als2]).buddies)
+			  && !isAlsInChain[als2]
 			  // 'a' can not be a super/subset of any in chainAlss<=chainIndex
 			  // even if allowOverlaps
 			  && !loops(a, chainAlss, chainIndex)
 			) {
 				// ok, currALS can be added
-				if ( chainIndex == 0 )
+				if ( chainIndex == 0 ) {
 					firstRCC = rcc;
-				else if ( chainIndex+2 > MAX_RCCS_PER_CHAIN )
-					// give-up when chain full (currently at 5).
-					// Ive never seen a hint from more than 5, which does NOT
-					// mean they don't exist, only that I dont have any, so dey
-					// must be rare, so its not worth me looking any further.
-					// You, however, might want to bump it up to 6, or even 7.
-					// Hobiwans MAX_RCCS_PER_CHAIN=32 was overenthusiastic!
-					break;
+//not_used after release > DiufSudoku_V6_30.157.2021-07-20
+// This is now pre-tested-for (below) so I think this can NEVER happen,
+// and debugger confirms it never happens in top1465, so commented out.
+//				} else if ( chainIndex+1 > MAX_RCCS_PER_CHAIN ) {
+//					// give-up when chain full (currently at 5).
+//					// Ive never seen a hint from more than 5, which does NOT
+//					// mean they don't exist, only that I dont have any, so
+//					// theyre rare, so its not worth me looking any further.
+//					// You, however, might want to bump it up a bit!
+//					// Hobiwans MAX_RCCS_PER_CHAIN=32 was overenthusiastic!
+//					break;
+				}
 				// nb: chainAlss[0]=startALS, 1..chainIndex=currAlss INCLUSIVE
 				// nb: from here down: to continue we also decrement chainIndex
 				// otherwise da currALS stays in da chain even though it's been
@@ -261,9 +259,11 @@ public final class AlsChain extends AAlsHinter
 				// nb: 4 ALSs = 3 in the chain + the startAls, called s.
 				if ( chainIndex > 2 ) {
 					// get the four RC values from the two RCCs
+					// NB: if(firstRCC.which==3) both rc1 and rc2 are set.
+//					assert firstRCC.which>0 && firstRCC.which<4; // invariant
 					if(firstRCC.which==2) rc1=0; else rc1=firstRCC.v1;
 					if(firstRCC.which==1) rc2=0; else rc2=firstRCC.v2;
-					// nb: if firstRCC.which==3 then both rc1 and rc2 are set
+//					assert rcc.which>0 && rcc.which<4; // invariant
 					switch ( rcc.which ) { // 0=none, 1=v1, 2=v2, 3=both
 					case 1: rc3 = rcc.v1; break;
 					case 2: rc3 = rcc.v2; break;
@@ -271,9 +271,9 @@ public final class AlsChain extends AAlsHinter
 					default: rc3 = 0; break; // Never happens. Never say never.
 					}
 					rc4 = rcc.v2;
-					// The RC "none" value has been confused: it's 0 (not -1)
-					// because ~0 is 32 set bits, a no-op in below &'s
-					assert rc1!=-1 && rc2!=-1 && rc3!=-1 && rc4!=-1;
+//					// The RC "none" value has been confused: it's 0 (not -1)
+//					// because ~0 is 32 set bits, a no-op in below &'s
+//					assert rc1!=-1 && rc2!=-1 && rc3!=-1 && rc4!=-1;
 					// get maybes common to both ALSs except the RCs,
 					// and check that there's at least one.
 					if ( (zMaybes=s.maybes & a.maybes & ~VSHFT[rc1]
@@ -285,21 +285,22 @@ public final class AlsChain extends AAlsHinter
 						any = false;
 						avs = a.vs;
 						avBuds = a.vBuds;
-						for ( int z : VALUESES[zMaybes] )
+						for ( int z : VALUESES[zMaybes] ) {
 							// get cells which see all z's in both ALSs
 							if ( svBuds[z].andAny(avBuds[z]) ) {
 								// zBuds are eliminated (red)
-								zBuds.setAnd(svBuds[z], avBuds[z]).forEach(grid.cells
-									,  (c) -> reds.upsert(c, z)
+								zBuds.setAnd(svBuds[z], avBuds[z]).forEach(
+									grid.cells, (c)->reds.upsert(c, z)
 								);
-								// z's are fins (blues) (display only)
+								// display z's in both ALSs in blue (as fins)
 								tmp.setOr(svs[z], avs[z]).forEach(grid.cells
-									, (c) -> blues.upsert(c, z)
+									, (c)->blues.upsert(c, z)
 								);
 								any = true;
 							}
+						}
 						if ( any ) {
-							// FOUND an ALS-XY-Chain!
+							// FOUND an ALS-Chain!
 							if ( HintValidator.ALS_USES ) {
 								// check elims are not in the solution. sigh.
 								if ( !HintValidator.isValid(grid, reds) ) {
@@ -335,18 +336,21 @@ public final class AlsChain extends AAlsHinter
 							reds.clear();
 							blues.clear();
 							result = true;
-							if ( accu.add(hint) )
+							if ( accu.add(hint) ) {
 								return true;
+							}
 						}
 					}
 				}
 				// and onto the next level ...
 				// else no space left so stop recursing, go onto next RCC
-				if ( chainIndex+1 < MAX_RCCS_PER_CHAIN ) // MAX_RC currently 5
+				if ( chainIndex < MAX_RCCS_PER_CHAIN ) { // MAX is 5
 					result |= recurse(als2, rcc, chainIndex);
+				}
 				// go back a level (and-so-on all the way up recursive stack)
-				if ( result && oneOnly )
+				if ( result && oneOnly ) {
 					return true;
+				}
 				isAlsInChain[als2] = false;
 				chainAlss[chainIndex--] = null;
 				if ( prevRC == null ) {
@@ -356,28 +360,31 @@ public final class AlsChain extends AAlsHinter
 						// using the second RC value
 						firstTry = false;
 						--i;
-					} else
+					} else {
 						firstTry = true;
+					}
 				}
 			}
 		// next RCC
 		return result;
 	}
-	// Maximum number of RCCs in an ALS-Chain (forward-only search).
-	// * 5 is just the longest chain which produces a hint in top1465,
-	//   but it might be possible to hint from longer chains,
-	//   so this limit MAY BE WRONG!
+	// One less than the Maximum number of RCCs in an ALS-Chain (forward-only).
+	// * The one less is instead of adding one at each step, for efficiency.
+	// * 5 is the longest chain that produces a hint in top1465, but I cannot
+	//   prove it's not possible to hint from longer chains, so THIS IS WRONG!
 	// * hobiwans MAX_RCCs was 32, which I think is "way over the top".
-	private static final int MAX_RCCS_PER_CHAIN = 5;
+	private static final int MAX_RCCS_PER_CHAIN = 4;
 	// ALS's in current Chain.
 	// * chainAlss[0] is always the startAls, 1..chainIndex are currAls's
-	private final Als[] chainAlss = new Als[MAX_RCCS_PER_CHAIN];
+	private final Als[] chainAlss = new Als[MAX_RCCS_PER_CHAIN+1];
 
 	// I create these variables ONCE rather than in each recursion
-	private final Idx set1 = new Idx();
+	private final Idx tmp = new Idx();
 	// all buds of v (including the ALSs).
-	private final Idx set2 = new Idx();
-	// don't forget to copy-them-off to create a hint, then clear both!
-	private final Pots redPots=new Pots(), bluePots=new Pots();
+	private final Idx zBuds = new Idx();
+	// eliminated (red) Cell=>Values
+	private final Pots reds = new Pots();
+	// fins (blue) Cell=>Values (display only)
+	private final Pots blues = new Pots();
 
 }

@@ -31,10 +31,19 @@
 package diuf.sudoku.solver.hinters.als;
 
 /**
- * An RCC is a Restricted Common Candidate/s: one-or-two values that two ALS's
- * have in common, which all see each other (the nominative restriction);<br>
- * and optionally cannot be in the intersection of the two ALS's;<br>
- * and optionally must be more than one cell (no bivalue cells).
+ * An RCC is a Restricted Common Candidate, that is one-or-two values that two
+ * ALS's have in common, which all see each other (the nominative restriction);<br>
+ * and must not be in the overlap (if any) of the two ALS's;<br>
+ * and must be more than one cell (a bivalue cell is NOT an ALS);<br>
+ * and optionally allowOverlaps: are the two ALS's allowed to overlap;<br>
+ * and optionally forwardOnly: examine forwardOnly pairs of alss or ALL pairs.<br>
+ * <p>
+ * KRC: My version is debeanified, ergo it exposes public fields instead of
+ * public getters/setters on private fields, because the getters/setters add
+ * no value, and are, in my experience, just a bit slower: ergo it's faster
+ * to access a public field than it is to invoke a getter/setter. However, my
+ * performance-testing post debeanification was SLOWER, which I'm steadfastly
+ * ignoring the ____ out of. sigh.
  *
  * @author hobiwan, but this version has been hacked by KRC.
  */
@@ -54,7 +63,7 @@ public class Rcc implements Comparable<Rcc>, java.io.Serializable
 	/** Second RC; if {@code v2==0} als1 and als2 have only one RC value. */
 	public int v2;
 
-	/** Used in ALS-Chains: 0=none, 1=cand1, 2=cand2, 3=both. */
+	/** Used in ALS-Chains: 0=none, 1=v1, 2=v2, 3=both. */
 	public int which;
 
 	/**
@@ -72,16 +81,15 @@ public class Rcc implements Comparable<Rcc>, java.io.Serializable
 	}
 
 	/**
-	 * New propagation rules for AlsChain: When finding a link in a chain the
-	 * actual RCs of {@code p} are excluded from {@code this}, so
-	 * {@code this.which} is adjusted accordingly.
+	 * New propagation rules for AlsChain: When finding a link in a chain,
+	 * {@code this.which} is adjusted to exclude the active RC of {@code p}.
 	 * <p>
 	 * Returns: is the resulting {@code this.which} != 0,<br>
 	 * ie true meaning the chain continues,<br>
-	 * or false meaning end-of-chain.
+	 * or false meaning no more chain here, so we stop following this chain.
 	 * <p>
-	 * If a chain starts with a doubly-linked RC ({@code rc==null && v2!=0})
-	 * then one of the two RCs is chosen depending on {@code first)
+	 * If a chain starts with a doubly-linked RC ({@code p==null && v2!=0})
+	 * then one of the two RCs is chosen depending on {@code firstTry)}
 	 * (TRUE=1, FALSE=0), searching both possible links in a chain.
 	 *
 	 * @param p the Rcc of the previous link in the current chain
@@ -91,53 +99,64 @@ public class Rcc implements Comparable<Rcc>, java.io.Serializable
 	 * @return does any RC-value remain to be examined
 	 */
 	public boolean whichRC(Rcc p, boolean firstTry) {
-		// NOTE: terniaries are slow!
-		if ( v2 == 0 )
-			which = 1; // cand1 only
-		else
-			which = 3; // both
 		if ( p == null ) {
 			// start of chain: pick the RC to examine
-			if ( v2 != 0 )
-				if ( firstTry )
-					which = 1; // examine cand1
-				else
-					which = 2; // examine cand2
-		} else
-			// continueing chain: pick my RC based on prevRC.whichRC
-			switch ( p.which ) {
-				case 0: break; // whichRC is already set
-				case 1: which = check(p.v1, 0, v1, v2); break; // cand1 only
-				case 2: which = check(p.v2, 0, v1, v2); break; // cand2 only
-				case 3: which = check(p.v1, p.v2, v1, v2); break; // both cand1 and cand2
-				default: break;
+			if ( v2==0 || firstTry ) {
+				which = 1; // v1 only
+			} else {
+				// confirmed this happens in top1465, but not often
+				which = 2; // v2 only
 			}
+		} else {
+			// ongoing chain: pick my RC based on p.which
+			switch ( p.which ) {
+				case 1:
+					which = check(p.v1, 0, v1, v2); // v1 only
+					break;
+				case 2:
+					which = check(p.v2, 0, v1, v2); // v2 only
+					break;
+				case 3:
+					// confirmed this never happens in top1465
+					which = check(p.v1, p.v2, v1, v2); // both
+					break;
+				case 0: // I think 0 can NEVER happen, but just in case:
+					// confirmed this never happens in top1465
+					if ( v2 == 0 ) {
+						which = 1; // v1 only
+					} else {
+						which = 3; // both
+					}
+					break;
+			}
+		}
 		return which != 0;
 	}
 
 	/**
-	 * Suppress duplicate candidate values from the previous to the current RCC
-	 * in the chain by returning the value of the current whichRC:<br>
-	 * 0=none, 1=cand1, 2=cand2, 3=both.
+	 * Suppress duplicate candidate values from the previous to the current
+	 * RCC in the chain by returning the current which:<br>
+	 * 0=none, 1=v1, 2=v2, 3=both.
 	 * <p>
 	 * <pre>
 	 * SPEED: This is a static method. All values are passed in, especially
-	 * this.cand1 and this.cand2. Static methods are faster to invoke, ergo
-	 * Javas this-injection (unsurprisingly) slows-down each call.
+	 * this.v1 and this.v2. Static methods are faster to invoke, ergo Javas
+	 * this-injection (unsurprisingly) markedly slows-down each invocation.
 	 * I also tried:
-	 * 1. all params final. No faster.
-	 * 2. tried eliminating else's. Slower (WTF?). Revert.
-	 * 3. I had already removed the getters and setters from als1, als2, cand1,
-	 *    cand2, and whichRC to "debeanify" the Rcc class, but it's slower, but
-	 *    I'm still in two minds RE reverting ALL of these changes. sigh.
-	 * I am learning that hobiwan was pretty bloody good at writing FAST code,
-	 * even when my previous experience tell me it might be faster to do things
-	 * differently the impirical evidence keeps on telling me otherwise. I am
-	 * tempted to blame "hot box" for the losses, and try again tomorrow in the
-	 * cool of early morning. I have no air-conditioning, nor the money, nor da
-	 * inclination to contribute to planetaty destruction by using one. If it's
-	 * hot then PCs slow down. Get Over It!
+	 * 1. eliminating else's. Slower (WTF?). Revert.
+	 * 2. I already debeanified Rcc by removing gets and sets for als1, als2,
+	 *    v1, v2, and which, but it's slower, and I don't know why, but I'm
+	 *    accepting the debeanified version anyway, coz beans suck. sigh.
+	 * But jeez hobiwan was pretty bloody good at writing FAST code!
 	 * </pre>
+	 * KRC 2021-07-28 I'm tempted to try storing the bitset version of the RCC
+	 * values, as well as as the decoded plain values, so that I can just &~
+	 * the previous RC out of the current RC, and if it's not zero then they're
+	 * not the same value, but I'm still unsure what all of this actually does,
+	 * so I'm writing a big long useless nervous comment instead of getting on
+	 * with it because I'm nervous about it, which I shouldn't be, I should
+	 * just take a back-up (ie do a release) and get-on with breaking s__t, so
+	 * I can satisfy my curiousity with very little risk.
 	 *
 	 * @param p1 previous RCC first candidate
 	 * @param p2 previous RCC second candidate (may be 0)

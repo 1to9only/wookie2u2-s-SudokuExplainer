@@ -57,7 +57,7 @@ public class BigWing extends AHinter {
 	 * @return do all ALS cells which maybe value see the YZ cell?
 	 */
 	private static boolean isWing(final int cand, Cell yz, Cell[] als) {
-//		if ( true ) { // @check true
+//		if ( true ) { // #check true
 			for ( Cell c : als )
 				if ( (c.maybes & cand)!=0 && yz.notSees[c.i] )
 					return false;
@@ -164,7 +164,7 @@ public class BigWing extends AHinter {
 		try {
 			this.grid = grid;
 			this.accu = accu;
-//			if ( true ) { // @check true
+//			if ( true ) { // #check true
 				// CACHED for speed
 				bivalues = grid.getBivalue();
 				candidates = grid.idxs;

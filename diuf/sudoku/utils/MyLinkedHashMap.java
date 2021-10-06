@@ -339,12 +339,12 @@ public class MyLinkedHashMap<K,V>
 	 *
 	 * @return the first key in this map.
 	 */
-	public K firstKey() {
+	public K firstCell() {
 		return keySet().iterator().next();
 	}
 
 	/**
-	 * KRC: Returns the value of the firstKey() in this Map.
+	 * KRC: Returns the value of the firstCell() in this Map.
 	 * <p>
 	 * NOTE: currently only used by test-cases, which rely on the value of the
 	 * first key, not just the first value (Putz!) which was always the case
@@ -352,8 +352,8 @@ public class MyLinkedHashMap<K,V>
 	 *
 	 * @return the first value in this map.
 	 */
-	public V firstKeyValue() {
-		return get(firstKey());
+	public V firstValue() {
+		return get(firstCell());
 	}
 
 	/**

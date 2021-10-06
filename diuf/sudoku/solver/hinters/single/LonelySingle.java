@@ -79,9 +79,9 @@ public final class LonelySingle extends AHinter {
 				// check that my maybes ARE that value
 				assert cell.maybes == VSHFT[value];
 				// check region has one position for value (ie I'm hidden).
-				assert box.indexesOf[value].size == 1;
+				assert box.ridx[value].size == 1;
 				// check I am the regions position for value.
-				assert box.indexesOf[value].bits == ISHFT[cell.indexIn[box.typeIndex]];
+				assert box.ridx[value].bits == ISHFT[cell.indexIn[box.typeIndex]];
 				// </I am back to being me> Sigh.
 
 				// nb: [Default]HintsAccumulator.add never returns true, and

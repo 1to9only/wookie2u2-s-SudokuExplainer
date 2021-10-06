@@ -40,6 +40,7 @@ package diuf.sudoku.solver.hinters.color;
 import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
@@ -91,12 +92,12 @@ public final class Coloring extends AHinter {
 	 * colors[v][i][C1] contains indices of cells which are color-1 (blue).
 	 * colors[v][i][C2] contains indices of cells which are color-2 (green).
 	 */
-	private final Idx[][][] colors = new Idx[10][MAX_COLOR][2];
+	private final Idx[][][] colors = new Idx[VALUE_CEILING][MAX_COLOR][2];
 	/** Number of color pairs for each candidate. */
-	private final int[] numColorPairs = new int[10];
+	private final int[] numColorPairs = new int[VALUE_CEILING];
 	/** Step number of the sudoku for which coloring was calculated. -1 means
 	 * "data invalid". */
-	private final int[] hintNumbers = new int[10];
+	private final int[] hintNumbers = new int[VALUE_CEILING];
 
 	/** contains all candidates, that are part of at least one conjugate pair. */
 	private final Idx startSet = new Idx();
@@ -124,7 +125,7 @@ public final class Coloring extends AHinter {
 	public Coloring() {
 		super(Tech.Coloring);
 		// create the coloring sets
-		for ( int v=1; v<10; ++v ) {
+		for ( int v=1; v<VALUE_CEILING; ++v ) {
 			hintNumbers[v] = -1;
 			numColorPairs[v] = 0;
 			for ( int j=0; j<MAX_COLOR; ++j ) {
@@ -184,7 +185,7 @@ public final class Coloring extends AHinter {
 //if ( grid.source.lineNumber==160 && AHint.hintNumber==20 )
 //	Debug.breakpoint();
 		// foreach value: foreach color
-		for ( v=1; v<10; ++v ) {
+		for ( v=1; v<VALUE_CEILING; ++v ) {
 			// find all Simple Colors steps for v.
 			numColors = doColoring(v);
 			// now check for eliminations
@@ -239,7 +240,7 @@ public final class Coloring extends AHinter {
 			budsIdx = Grid.BUDDIES[indices[i]];
 			// foreach subsequent indice in set
 			for ( j=i+1; j<n; ++j )
-				if ( budsIdx.contains(indices[j]) )
+				if ( budsIdx.has(indices[j]) )
 					return true;
 		}
 		return false;
@@ -313,7 +314,7 @@ public final class Coloring extends AHinter {
 		// add indice of each cell in a region with 2 places for cand
 		candidateSet.forEach((i) -> {
 			for ( ARegion r : grid.cells[i].regions )
-				if ( r.indexesOf[v].size == 2 ) {
+				if ( r.ridx[v].size == 2 ) {
 					startSet.add(i);
 					break; // first region only
 				}
@@ -374,7 +375,7 @@ public final class Coloring extends AHinter {
 	 */
 	private void recurse(int indice, boolean on) {
 		// give-up if there's no conjugate, or we've already done this index
-		if ( indice==-1 || !startSet.contains(indice) )
+		if ( indice==-1 || !startSet.has(indice) )
 			return;
 		// record the color of this index
 		if ( on )
@@ -413,7 +414,7 @@ public final class Coloring extends AHinter {
 	 * @return An index, if the house has only one cell left, or -1
 	 */
 	private int conjugate(int indice, ARegion r) {
-		if ( r.indexesOf[candidate].size != 2 )
+		if ( r.ridx[candidate].size != 2 )
 			return -1; // no conjugate pair, so stop coloring.
 		// return the indice of the other cell in this conjugate pair
 		conjugateSet.setAnd(candidateSet, r.idx);
@@ -442,7 +443,7 @@ public final class Coloring extends AHinter {
 		boolean result = false;
 		// foreach value: foreach color
 		// NOTE: a->b != b->a, so check ALL combos, not just forward-only.
-		for ( v=1; v<10; ++v ) {
+		for ( v=1; v<VALUE_CEILING; ++v ) {
 			numColors = doColoring(v);
 			vSets = colors[v];
 			A_LOOP: for ( i=0; i<numColors; ++i )

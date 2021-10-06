@@ -22,7 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-
 /**
  * AURTHint (Abstract Unique Rectangle Hint) contains shared implementation of
  * the various types of Unique Rectangle and Loop Hints.
@@ -31,17 +30,14 @@ public abstract class AURTHint extends AHint  {
 
 	// Sorts the hints by difficulty, type ascending
 	public static final Comparator<AURTHint> BY_DIFFICULTY_DESC_TYPE_INDEX_ASC
-			= new Comparator<AURTHint>() {
-		@Override
-		public int compare(AURTHint h1, AURTHint h2) {
-			final double d1 = h1.getDifficulty();
-			final double d2 = h2.getDifficulty();
-			if (d1 < d2)
-				return -1;
-			if (d1 > d2)
-				return 1;
-			return h1.typeIndex - h2.typeIndex;
-		}
+			= (AURTHint h1, AURTHint h2) -> {
+		final double d1 = h1.getDifficulty();
+		final double d2 = h2.getDifficulty();
+		if (d1 < d2)
+			return -1;
+		if (d1 > d2)
+			return 1;
+		return h1.typeIndex - h2.typeIndex;
 	};
 
 	protected final List<Cell> loop;
@@ -158,7 +154,7 @@ public abstract class AURTHint extends AHint  {
 	public int hashCode() {
 		int result = 0;
 		for ( Cell c : loop )
-			result = result <<4 ^ c.hashCode();
+			result = result<<4 ^ c.hashCode;
 		return result;
 	}
 }

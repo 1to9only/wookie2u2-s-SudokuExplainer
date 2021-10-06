@@ -187,10 +187,10 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 
 	public final int applyNoisily(final boolean isAutosolving, final Grid grid) {
-		Print.grid(Log.log, grid); // the grid this hint was found in
+		Print.grid(Log.out, grid); // the grid this hint was found in
 		final int result = applyImpl(isAutosolving, grid);
 		if ( printHintHtml )
-			Print.html(Log.log, this);
+			Print.html(Log.out, this);
 		return result;
 	}
 
@@ -203,9 +203,8 @@ public abstract class AHint implements Comparable<AHint> {
 	 * <p>
 	 * This default implementation is protected, to be overridden by:<br>
 	 *   ADirectHint
-	 * , AggregatedChainingHint
-	 * , AppliedHintsSummaryHint
 	 * , AWarningHint
+	 * , AppliedHintsSummaryHint
 	 * , MultipleSolutionsHint
 	 * , SolutionHint
 	 * , XColoringHintMulti

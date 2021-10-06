@@ -145,7 +145,7 @@ public final class WWing extends AHinter
 		Cell wA, wB;
 		// foreach region with 2 possible positions for v1
 		for ( ARegion region : grid.regions ) {
-			if ( region.indexesOf[v1].size == 2 ) {
+			if ( region.ridx[v1].size == 2 ) {
 				// strong link; but does it fit?
 				wA = wB = null; // not found
 				for ( Cell c : region.cells ) {

@@ -66,7 +66,7 @@ public final class MyTester {
 //			totalA[i] = ttl;
 //			if ( i == 0 )
 //				for (int r=0; r<27; ++r)  for (int v=1; v<10; ++v)
-//					assert grid.regions[r].indexesOf[v].equals(copy.regions[r].indexesOf[v]);
+//					assert grid.regions[r].ridx[v].equals(copy.regions[r].ridx[v]);
 //		}
 //		finish = System.nanoTime();
 //		System.out.format("%9s %,9d %,15d\n", "copyTo", HOW_MANY, finish-start);
@@ -81,7 +81,7 @@ public final class MyTester {
 //			totalB[i] = ttl;
 //			if ( i == 0 )
 //				for (int r=0; r<27; ++r)  for (int v=1; v<10; ++v)
-//					assert grid.regions[r].indexesOf[v].equals(copy.regions[r].indexesOf[v]);
+//					assert grid.regions[r].ridx[v].equals(copy.regions[r].ridx[v]);
 //		}
 //		finish = System.nanoTime();
 //		System.out.format("%9s %,9d %,15d\n", "copyCon", HOW_MANY, finish-start);
@@ -203,7 +203,7 @@ public final class MyTester {
 //		for ( int times=0; times<TIMES; ++times ) {
 //			n = 0;
 //			for ( int i=0; i<9; ++i ) // 9*9 = 81
-//				if ( r1s[i].indexesOf[v].size>1 && r1s[i].indexesOf[v].size<=dd )
+//				if ( r1s[i].ridx[v].size>1 && r1s[i].ridx[v].size<=dd )
 //					candiIdxs[n++] = i;
 //		}
 //
@@ -211,7 +211,7 @@ public final class MyTester {
 //		for ( int times=0; times<TIMES; ++times ) {
 //			n = 0;
 //			for ( int i=0; i<9; ++i ) { // 9*9 = 81
-//				final int card = r1s[i].indexesOf[v].size;
+//				final int card = r1s[i].ridx[v].size;
 //				if ( card>1 && card<=dd )
 //					candiIdxs[n++] = i;
 //			}
@@ -2140,17 +2140,17 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 // 		}
 // 	}
 
-	// Q: What is Integer.MIN_VALUE
-	// A: Integer.MIN_VALUE=-2,147,483,648
- 	public static void main(String[] args) {
- 		try {
-			System.out.format("Integer.MIN_VALUE=%,d\n\n", Integer.MIN_VALUE);
- 		} catch (Exception ex) {
-			System.out.println(Log.me()+" exception");
-			System.out.flush();
- 			ex.printStackTrace(System.out);
-			System.out.flush();
- 		}
- 	}
+//	// Q: What is Integer.MIN_VALUE
+//	// A: Integer.MIN_VALUE=-2,147,483,648
+// 	public static void main(String[] args) {
+// 		try {
+//			System.out.format("Integer.MIN_VALUE=%,d\n\n", Integer.MIN_VALUE);
+// 		} catch (Exception ex) {
+//			System.out.println(Log.me()+" exception");
+//			System.out.flush();
+// 			ex.printStackTrace(System.out);
+//			System.out.flush();
+// 		}
+// 	}
 
 }

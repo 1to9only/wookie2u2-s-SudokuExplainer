@@ -6,14 +6,16 @@
  */
 package diuf.sudoku.solver.hinters.align2;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.FIRST_COL;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Values.VSIZE;
 import static diuf.sudoku.utils.Frmt.NULL_ST;
 import diuf.sudoku.utils.IMyPollSet;
 import java.util.AbstractSet;
 import java.util.Iterator;
-
 
 /**
  * A LinkedMatrixCellSet is an {@code IMyPollSet<Cell>} which extends
@@ -104,7 +106,7 @@ public class LinkedMatrixCellSet
 	// Takes a wee while to create, something like 144 ns each in testing, but
 	// it seems to depend on how you hold your tongue. Dunno why arrays are so
 	// slow in Java. Slow to create, slow to read, slower to write. Argh! Meh!
-	public final Node[][] matrix = new Node[9][9];
+	public final Node[][] matrix = new Node[REGION_SIZE][REGION_SIZE];
 	public Node head = null;
 	public Node foot = null;
 	public int size = 0;
@@ -281,10 +283,10 @@ public class LinkedMatrixCellSet
 	// ------------------------------- indexland -------------------------------
 
 	/**
-	 * Get a bitset index of the cells in this CellSet. An Idx is an array of
-	 * three 27-bit bitsets (3 * 27 = 81) containing Grid.cells indices. The
-	 * position (from the right) of each set (1) bit is a Grid.cells array
-	 * indice (Cell.i) of a cell that is present in this CellSet.
+	 * Get an Idx of the cells in this CellSet. An Idx is an array of three
+	 * 27-bit bitsets (3 * 27 = 81) containing Grid.cells indices. The position
+	 * (from the right) of each set (1) bit is a Grid.cells array indice
+	 * (Cell.i) of a cell that is present in this Set of Cells.
 	 * <p>
 	 * Idx's exist to do retainAll <b>quickly</b> in Aligned*Exclusion using
 	 * the bitwise-and binary operator: {@code 1010 & 1101 == 1000}. An Idx
@@ -295,27 +297,28 @@ public class LinkedMatrixCellSet
 	 * <p>
 	 * The {@link Idx#cells(Grid grid, Cell[] cells)} method populates an array
 	 * of Cells from an idx, and returns it. Idx also has an iterator, but it's
-	 * slower than iterating an array, so especially if you iterate repeatedly
-	 * use a re-usable array, not the iterator!
+	 * slower than an array-iterator, so, especially if you iterate repeatedly,
+	 * use a re-usable array, or the foreach method, not the bloody iterator!
 	 * <p>
 	 * idx() is O(n) even for a cache-miss, not O(81). The idx is cached. The
 	 * cache is cleared when you add or remove an item or clear this Set. The
 	 * cache is shared with the other idx*(...) methods, so its created ONCE
-	 * no matter which you call first.
+	 * no matter which you call first. Caching idx's has a huge effect on
+	 * overall performance.
 	 * <p>
 	 * idx() is O(1) for a cache hit. We rely on cache-hits to reduce runtime,
 	 * which happens in A*E, especially the larger ones, where each cell in the
 	 * set visits each excluder-set, so larger sets means a higher cache hit
-	 * rate, and it's the larger A*E's that are REALLY slow.
+	 * rate, and it's the larger (8+) A*E's that are REALLY slow.
 	 *
-	 * @return cached Idx. Do NOT ____ with its contents! You WILL be shot!
+	 * @return cached Idx. If you ____ with its contents you WILL be shot!
 	 */
 	Idx idx() {
 		if ( idx == null ) { // created once then cached (until you change set)
 			a[0]=a[1]=a[2]=0; // zero THE static array
 			for ( Node n=head; n!=null; n=n.next ) // O(size) faster than O(81)
 				a[n.cell.idxdex] |= n.cell.idxshft;  // add n.cell.i to idx
-			idx = new Idx(a);
+			idx = new Idx(a); // copy 'a' into a new Idx
 		}
 		return idx;
 	}
@@ -373,9 +376,9 @@ public class LinkedMatrixCellSet
 			only = result.a2;
 		// return does the result index contain LESS THAN 2 set (1) bits?
 		return cnt==0
-			|| ( cnt==1 && VSIZE[ only       & 511]
-				         + VSIZE[(only>>>9)  & 511]
-				         + VSIZE[(only>>>18) & 511] == 1 );
+			|| ( cnt==1 && VSIZE[ only              & 511]
+				         + VSIZE[(only>>>REGION_SIZE) & 511]
+				         + VSIZE[(only>>>FIRST_COL) & 511] == 1 );
 	}
 
 	public static interface CellVisitor {

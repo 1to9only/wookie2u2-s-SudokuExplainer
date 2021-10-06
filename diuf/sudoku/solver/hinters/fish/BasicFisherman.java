@@ -8,6 +8,8 @@ package diuf.sudoku.solver.hinters.fish;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
@@ -19,10 +21,8 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import diuf.sudoku.utils.Permutations;
-
 
 /**
  * BasicFisherman implements the basic Swampfish (nee X-Wing) (2), Swordfish (3)
@@ -34,19 +34,19 @@ import diuf.sudoku.utils.Permutations;
  * wing names. Recall that Yoda raises Lukes X-Wing from a Tatooeen swamp. When
  * I started, I wrongly thought X-Wing was a wing. Just two intelligent beings
  * on a whole planet and they still can't agree on what's important. "Confused
- * you are, hmmm." I think Swampfish is less confusing, but I could be wrong.
+ * you are, hmmm." I think Swampfish is LESS confusing, but I could be wrong.
  */
-public final class BasicFisherman extends AHinter {
+public class BasicFisherman extends AHinter {
 
 	private final int maxOccurences;
-	private final int[] baseIndexes = new int[9];
+	private final int[] baseIndexes = new int[REGION_SIZE];
 	private final int[] thePA; // the permutations array, for Permutations.
 
 	public BasicFisherman(Tech tech) {
 		super(tech);
 		// Swampfish=2, Swordfish=3, Jellyfish=4; Smellyfish=5 is degenerate!
 		assert tech==Tech.Swampfish || tech==Tech.Swordfish || tech==Tech.Jellyfish;
-		this.maxOccurences = 9 - degree*2;
+		this.maxOccurences = REGION_SIZE - degree*2;
 		this.thePA = new int[degree];
 	}
 
@@ -62,12 +62,13 @@ public final class BasicFisherman extends AHinter {
 		assert accu != null;
 		boolean result = false;
 		try {
-			if ( accu.isSingle() ) // short-circuiting boolean-or || operator
+			if ( accu.isSingle() ) { // short-circuiting boolean-or || operator
 				result = search(grid.rows, grid.cols, accu)
 					  || search(grid.cols, grid.rows, accu);
-			else // unusual non-short-circuiting bitwise-or | operator
+			} else { // unusual non-short-circuiting bitwise-or | operator
 				result = search(grid.rows, grid.cols, accu)
 					   | search(grid.cols, grid.rows, accu);
+			}
 		} catch ( UnsolvableException ex ) {
 			// catch UE to print grid with MIA region which can't exist! Me no
 			// comprende what's going on, yet. Repeat for more info.
@@ -120,7 +121,7 @@ public final class BasicFisherman extends AHinter {
 		// baseIndexes := index of each base (in bases) with 2..$degree v's
 		final int[] baseIndexes = this.baseIndexes; // an array of indexes
 		final int degree = this.degree;
-		final int[] thePA = this.thePA; // the permutations array
+		final int[] PA = this.thePA; // the permutations array
 		final int maxOccurences = this.maxOccurences + 1; // SNEEKY!
 		final int degreePlus1 = this.degreePlus1;
 		// presume that no hint will be found
@@ -128,20 +129,27 @@ public final class BasicFisherman extends AHinter {
 		// the removable (red) potential cell values
 		Pots reds = null;
 		// foreach possible value
-		for ( int v=1; v<10; ++v ) { // 9
+		for ( int v=1; v<VALUE_CEILING; ++v ) { // 9
 			// candiBits := array of indexes of bases with 2..degree v's.
 			n = 0; // number of candidate regions
-			for ( i=0; i<9; ++i ) // 9*9 = 81
-				if ( (card=bases[i].indexesOf[v].size)>1 && card<degreePlus1 )
+			for ( i=0; i<REGION_SIZE; ++i ) { // 9*9 = 81
+				if ( (card=bases[i].ridx[v].size)>1 && card<degreePlus1 ) {
 					baseIndexes[n++] = i;
+				}
+			}
 			if ( n >= degree ) { // there are sufficient bases
 				// we look for $degree positions of $v in $degree $bases;
 				// foreach possible combination of $degree bases
-				for ( int[] perm : new Permutations(n, thePA) ) { // nb thePA is an int[degree]
+				for ( int[] perm : new Permutations(n, PA) ) { // int[degree]
 					// build a bitset of indexes of v's in these bases.
-					vs = 0; // A better name might be anIntBitsetContainingTheIndicesOfCellsWhichMaybeTheFishCandidateValueInTheCurrentBases_AlsoKnownAsCoverBitsWhichIFindConfusing_AllGatheredTogetherInACaveAndGroovingWithAPict, but I like plain old vs, because it's short, so it fits on a line, and I can spell it, and the name is somewhat descriptive of it's use, as if that wasn't immediately obvious to absolutely everybody at first glance. Sigh.
-					for ( i=0; i<degree; ++i )
-						vs |= bases[baseIndexes[perm[i]]].indexesOf[v].bits;
+					// NOTE: A better name for vs might be anIntBitsetContainingTheIndicesOfCellsWhichMaybeTheFishCandidateValueInTheCurrentBases_GatheredTogetherInACaveAndGroovingWithAPict,
+					// but I prefer vs, because it's short, so I can spell it,
+					// and the name is somewhat descriptive of it's use, as if
+					// it wasn't obvious to everybody at first glance. Sigh.
+					vs = 0;
+					for ( i=0; i<degree; ++i ) {
+						vs |= bases[baseIndexes[perm[i]]].ridx[v].bits;
+					}
 					// if not degree positions for v in these degree bases
 					// then there's no basic fish here.
 //System.out.print("complete: "+v+":");
@@ -153,19 +161,23 @@ public final class BasicFisherman extends AHinter {
 						// There's degree positions for v in degree bases, but
 						// are there any elims: $v's in covers and not bases?
 						// ----------------------------------------------------
-						// build a bitset of the indexes of my bases.
+						// get a bitset of the indexes of my bases: so if rows
+						// are bases then I'm row-numbers, else I'm col-nums.
 						// NOTE: NOT done above coz the hit rate is too low.
 						baseBits = 0;
-						for ( i=0; i<degree; ++i )
+						for ( i=0; i<degree; ++i ) {
 							baseBits |= ISHFT[baseIndexes[perm[i]]];
-						// get removable (red) potentials = v's in covers and not bases
+						}
+						// get removable (red) pots = vs in covers except bases
 						indexes = INDEXES[vs];
-						for ( i=0; i<degree; ++i )
-							if ( (pink=covers[indexes[i]].indexesOf[v].bits & ~baseBits) != 0 ) {
-								if ( reds == null )
+						for ( i=0; i<degree; ++i ) {
+							if ( (pink=covers[indexes[i]].ridx[v].bits & ~baseBits) != 0 ) {
+								if ( reds == null ) {
 									reds = new Pots();
+								}
 								reds.addAll(covers[indexes[i]].cells, pink, v);
 							}
+						}
 						// there's nothing to remove at least 95% of the time.
 						if ( reds != null ) {
 							// create the hint and add it to the IAccumulator
@@ -178,8 +190,9 @@ public final class BasicFisherman extends AHinter {
 //	Debug.breakpoint();
 //if ( covers == null )
 //	Debug.breakpoint();
-							if ( accu.add(createHint(v, reds, bases, baseBits, covers, vs)) )
+							if ( accu.add(createHint(v, reds, bases, baseBits, covers, vs)) ) {
 								return result;
+							}
 							reds = null; // clean-up for next time
 						}
 					} // VSIZE filter

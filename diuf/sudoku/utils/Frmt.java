@@ -47,6 +47,9 @@ public final class Frmt {
 	public static final String[] LOWERCASE_LETTERS = new String[] {
 		"a", "b", "c", "d", "e", "f", "g", "h", "i"
 	};
+	public static final String[] NUMBERS = {
+		"1", "2", "3", "4", "5", "6", "7", "8", "9"
+	};
 
 	public static final String COLON_SP = ": ";
 	public static final String COLON_ONLY = ":";
@@ -533,7 +536,15 @@ public final class Frmt {
 	}
 
 	public static String plural(int n, String thing) {
-		return thing+(n==1?EMPTY_STRING:"s");
+		if ( n == 1 )
+			return thing;
+		return thing+"s";
+	}
+
+	public static String plural(int n, String one, String many) {
+		if ( n == 1 )
+			return one;
+		return many;
 	}
 
 	/**
@@ -556,7 +567,7 @@ public final class Frmt {
 //	// dump the Grid.containsValue array as "....5.7.."
 //	public static String indices(boolean[] containsValue) {
 //		StringBuilder sb = getSB();
-//		for ( int v=1; v<10; ++v )
+//		for ( int v=1; v<VALUE_CEILING; ++v )
 //			sb.append(DIGITS[containsValue[v] ? v : 0]);
 //		return sb.toString();
 //	}

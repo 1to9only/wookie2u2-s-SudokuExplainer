@@ -64,7 +64,7 @@ public class EmptyRectangleHint extends AHint  {
 
 	@Override
 	public String toHtmlImpl() {
-		Cell redCell = redPots.firstKey();
+		Cell redCell = redPots.firstCell();
 		final String id1, id2;
 		{ // this block just localises 'it'
 			Iterator<Cell> it = greens.keySet().iterator();

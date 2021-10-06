@@ -76,8 +76,8 @@ class BigWingsHint extends AHint  {
 	private final int degree; // the ALS cells and the yz Cell
 
 	BigWingsHint(final AHinter hinter, final Pots reds, final Cell biv
-			, final int x, final int z, final boolean both, Als als
-			, Pots oranges) {
+			, final int x, final int z, final boolean both, final Als als
+			, final Pots oranges) {
 		super(hinter, reds, null, oranges, null, null, null);
 		this.x = x;
 		this.z = z;

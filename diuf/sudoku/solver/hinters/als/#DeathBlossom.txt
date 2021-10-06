@@ -13,7 +13,8 @@ one ALS, and the other candidate is shared with the other ALS. So if both ALS's
 have a common "non-stem" candidate then it's eliminated, because all possible
 values of the stem cell eliminate it. The same logic applies to a stem cell
 with three or more possible values. Three's are rare. I've never seen four, but
-I can't say they don't exist.
+I cannot say that they cannot exist, I just don't bother looking for them
+because they are evidently VERY rare, and are quite a lot of work.
 
 The logic is: the ALS's share a "non-stem" value (the candidate to eliminate),
 and each ALS is associated with a stem-cell candidate, and an ALS can loose
@@ -29,14 +30,14 @@ cell. If the stem cell is an 8, then the ALS in the 5th row becomes a naked
 subset and also eliminates the 5 in the green cell.
 
 Note, if you haven't yet, that if all of a candidate in a set are found in a
-single other unit, you can eliminate all others of that candidate in that
-separate unit. For instance, in the example on this page, if the 8 is
+single other region, you can eliminate all others of that candidate in that
+separate region. For instance, in the example on this page, if the 8 is
 eliminated from the 5th row, then it becomes a set where all the 5's happen
 to be in the middle box. Thus, the 5 in the green cell would be eliminated.
 This concept is only noteworthy in ALS's, because in standard sets it is
 swallowed up by the simpler techniques of pointing and claiming. The naked
-subset eliminates all others of its values from the unit, and thus the
-remaining 5's in the entire unit are in the same box and become a matter of
+subset eliminates all others of its values from the region, and thus the
+remaining 5's in the entire region are in the same box and become a matter of
 claiming, which has the same end result.
 
 A death blossom usually only deals with naked ALS's, since they're generally
@@ -63,12 +64,11 @@ the cells belonging to Almost Locked Sets.
 ,2457,247,12345,135,,2358,258,18,,,249,12456,,12456,259,2569,16,,25,29,2356,356,,2359,,,,37,378,3467,,3467,48,,,,,1278,157,,157,258,,78,,237,1237,,1356,134567,245,2456,67,28,,2348,2367,36,2367,,48,,,34,,139,,13,,49,,28,,,259,,25,,89,
 
 A Death Blossom consists of a "stem" cell and an Almost Locked Set (or ALS) for
-each of the stem cell's candidates. The ALS associated with a particular
-candidate of the stem cell has that number as one of its own candidates, and
-within the ALS, every cell that has the number as a candidate can see the stem
-cell. The ALSes can't overlap; i.e., no cell can belong to more than one ALS.
-Also, there must be at least one value that is a candidate of every ALS, but
-is not a candidate of the stem cell.
+each of the stem cell's candidates. The ALS associated with a particular value
+of the stem cell has that number as one of its own candidates, and all cells in
+the ALS that maybe this value see the stem cell. The ALSs can't overlap; ie no
+cell can belong to more than one ALS. Also, there must be at least one value
+that is a candidate of every ALS, but is not a candidate of the stem cell.
 
 Once we've found a Death Blossom, if an outside cell (not in any of the ALSes
 and not the stem cell) sees every cell in the ALS's that has that value as a

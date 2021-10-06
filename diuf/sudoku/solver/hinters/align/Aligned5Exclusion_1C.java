@@ -8,6 +8,7 @@ package diuf.sudoku.solver.hinters.align;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VSHIFTED;
@@ -48,7 +49,6 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 	private static final Cell[] COMMON_EXCLUDERS_ARRAY = new Cell[NUM_CMN_EXCLS];
 	private static final int[] COMMON_EXCLUDERS_BITS = new int[NUM_CMN_EXCLS];
 
-	private static final CellSet[] EXCLUDERS_ARRAY = new CellSet[81];
 	private static final Cell[] CELLS_ARRAY = new Cell[5];
 
 	// common excluders indexes: idx02 is an index of the siblings common

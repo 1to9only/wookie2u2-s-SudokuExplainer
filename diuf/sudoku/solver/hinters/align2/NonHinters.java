@@ -36,16 +36,19 @@ class NonHinters {
 	private long hashCode; // hashCode
 	private long totalMaybes; // total maybes
 	// nb: Use a LongLongHashMap to cater for larger A*E sets, for which a 32
-	// bit hashCode is simply too small. totalMaybes is always int-sized but
-	// bugger it: LongLong it is, coz I'm too lazy to write a LongIntHashMap
-	// just for this.
+	// bit hashCode is too small. totalMaybes is int-sized but bugger it, Long
+	// Long it is, coz I'm too lazy to write a LongIntHashMap just for this.
 	private final LongLongHashMap store; // map hashCode => totalMaybes
 	private final int shift; // number of bits to left-shift hashCode
 
 	/**
 	 * Construct a new NonHinters.
 	 *
-	 * @param capacity the size of the totalMaybes LongLongHashMap.
+	 * @param capacity the size of the totalMaybes LongLongHashMap. Note that
+	 *  unlike a java.util maps this does not grow, so whatever you give me is
+	 *  all I will ever have, despite increased collisions on a too-small map.
+	 *  Measuring number of collisions would be a quite interesting exercise in
+	 *  a CS course. Doing so generically is a challenge for your professor.
 	 * @param shift the number of bits to left-shift the hashCode.<br>
 	 *  Left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24 and
 	 *  cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.<br>
@@ -94,35 +97,41 @@ class NonHinters {
 		// the cellStack always contains atleast 2 cells; it is NEVER empty!
 		Cell c = cellStack[0].cell;
 		long hc = c.hashCode; // hashCode
-		long mb = c.maybes; // totalMaybes
+		long tm = c.maybes; // totalMaybes
 		for ( int i=1; i<degree; ++i ) {
 			c = cellStack[i].cell;
 			// NOTE: shift is set by my constructor; it varies for $degree
 			hc = (hc<<shift) ^ c.hashCode;
-			mb += c.maybes;
+			tm += c.maybes;
 		}
 		// if the number of excluders has changed, or any of there maybes
 		// have changed, then we will re-examine this aligned-set.
 		for ( int i=0; i<numExcls; ++i )
-			mb += EXCLUDERS_MAYBES[i];
+			tm += EXCLUDERS_MAYBES[i];
 		this.hashCode = hc;
-		this.totalMaybes = mb;
+		this.totalMaybes = tm;
 		if ( firstPass ) {
-			// do store.get 100 times to JIT compile it then don't bother, coz
-			// they're all gonna return false anyway coz it's the first pass.
-			if ( ++cnt < 101 )
-				return store.get(hc) == mb; // ie stored mb == current mb
-			return false;
+			// do store.get 100 times accross all AE's to JIT compile it then
+			// don't bother (I always return false on first pass). Personally,
+			// I ____ing HATE java's JIT compiler. Here is precisely why. They
+			// should allow it be configured to be FAR more persistent in it's
+			// sampling of what should be compiled, or atleast give us a bloody
+			// compileAll switch, avoiding sampling all-together. We know how
+			// to wait. And far more eruditely, we know when to wait.
+			if ( ++cnt > 100 )
+				return false;
+			return store.get(hc) == tm; // ie stored mb == current mb
 		}
 		// now return is the totalMaybes unchanged since last time we saw them;
 		// else (virgin cells) then get returns NOT_FOUND (-1) which is NEVER
 		// equal to the current total maybes, so skip returns false.
-		// BFIIK: That I tried skipping get in first getHints on each puzzle,
-		// when it always returns -1 coz they're all "virgins"; but was SLOWER,
-		// I think get not JIT compiled, so all the subsequent calls slower.
-		return store.get(hc) == mb; // ie stored mb == current mb
+		// BFIIK: I tried skipping get in first getHints on each puzzle, when
+		// it always returns -1 coz they're all "virgins"; but was SLOWER, so
+		// I think get not JIT compiled, so all the subsequent calls slower, so
+		// now we have above cluster____ caused by conflicting over-achievers.
+		return store.get(hc) == tm; // ie stored tm == current tm
 	}
-	private int cnt;
+	public static int cnt;
 
 	// put is called after skip when we do NOT hint, coz either hc was not in
 	// in the map (a "virgin"), or the cells maybes have changed, so we update

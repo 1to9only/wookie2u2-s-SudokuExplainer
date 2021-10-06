@@ -26,10 +26,8 @@ import java.util.List;
  * good if things stayed that way, considering how much of a pain-in-the-ass
  * maintaining the Difficulty boundaries has turned out to be.
  * <p>
- * The only exception to the rule is {@code AggregatedChainingHint} uses
- * {@code Difficulty.IDKFA.min} to stop looking for a harder hint. Hence
  * Difficulty was exhumed to {@code diuf.sudoku} for public visibility.
- * Formerly Difficulty was an inner-class of GenerateDialog.
+ * Formerly Difficulty was an inner-class of the GenerateDialog.
  * <p>
  * <b>WARNING:</b> If you change any hints difficulty then also look at:<ul>
  *  <li>{@link diuf.sudoku.solver.LogicalSolver#LogicalSolver} to keep the

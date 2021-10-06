@@ -8,13 +8,16 @@ package diuf.sudoku.solver.checks;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.NUM_REGIONS;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AWarningHint;
 import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Html;
+import static diuf.sudoku.Grid.MAX_EMPTIES;
 
 
 /**
@@ -39,20 +42,21 @@ public final class MultipleSolutionsHint extends AWarningHint implements IPreten
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {
 		if (lastViewNum == 0)
-			solution1.copyTo(grid);
+			grid.copyFrom(solution1);
 		else
-			solution2.copyTo(grid);
+			grid.copyFrom(solution2);
 		// Clear all potentials
 		for ( Cell cell : grid.cells )
 			cell.clearMaybes();
-		for (int i=0; i<27; ++i)  for (int v=1; v<10; ++v)
-			grid.regions[i].indexesOf[v].clear();
-		return (81-17) * 10;
+		for (int i=0; i<NUM_REGIONS; ++i)
+			for (int v=1; v<VALUE_CEILING; ++v)
+				grid.regions[i].ridx[v].clear();
+		return MAX_EMPTIES * 10;
 	}
 
 	@Override
 	public Pots getGreens(int viewNum) {
-		Pots result = new Pots(81, 1F);
+		Pots result = new Pots(GRID_SIZE, 1F);
 		final Grid sol; if(viewNum==0) sol=solution1; else sol=solution2;
 		for ( Cell c : grid.cells )
 			result.put(c, VSHFT[sol.cells[c.i].value]);

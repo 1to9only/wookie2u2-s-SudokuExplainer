@@ -7,10 +7,13 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 
 /**
  * The Cells class contains static helper methods for collections of Grid.Cell.
@@ -71,6 +74,20 @@ public class Cells {
 		return result;
 	}
 
+	/**
+	 * Create a new array of cells from any sort of Collection of cells.
+	 *
+	 * @param cells
+	 * @return 
+	 */
+	public static Cell[] array(Collection<Cell> cells) {
+		Cell[] result = new Cell[cells.size()];
+		int i = 0;
+		for ( Cell c : cells )
+			result[i++] = c;
+		return result;
+	}
+
 	// ============================= Cell arrays ==============================
 
 	/**
@@ -95,8 +112,8 @@ public class Cells {
 	 * <p>
 	 * See {@link #arrayA(int)}
 	 */
-	private static final Cell[][] CASA = new Cell[82][];
-	private static final Cell[][] CASB = new Cell[82][];
+	private static final Cell[][] CASA = new Cell[GRID_SIZE+1][];
+	private static final Cell[][] CASB = new Cell[GRID_SIZE+1][];
 	static {
 		// A cell has 20 siblings. The larger arrays are late-populated upon
 		// use, except the last of 81 cells, which I presume is always used.
@@ -105,7 +122,7 @@ public class Cells {
 			CASB[i] = new Cell[i];
 		}
 		// CASA only has the 81-cell-array premade
-		CASA[81] = new Cell[81];
+		CASA[GRID_SIZE] = new Cell[GRID_SIZE];
 	}
 
 	/**
@@ -156,7 +173,7 @@ public class Cells {
 	}
 
 	public static void cleanCasA() {
-		for ( int i=0; i<81; ++i )
+		for ( int i=0; i<GRID_SIZE; ++i )
 			if ( CASA[i] != null )
 				Arrays.fill(CASA[i], null);
 	}
@@ -167,7 +184,7 @@ public class Cells {
 	}
 
 	public static void cleanCasB() {
-		for ( int i=0; i<81; ++i )
+		for ( int i=0; i<GRID_SIZE; ++i )
 			if ( CASB[i] != null )
 				Arrays.fill(CASB[i], null);
 	}
@@ -196,8 +213,8 @@ public class Cells {
 	}
 
 	/**
-	 * Extract maybes from 'cells' into 'maybes'. Done for speed, rather
-	 * than repeatedly dereferencing the bloody cell repeatedly.
+	 * Extract maybes from 'cells' into 'maybes'. Done for speed ONCE,
+	 * rather than repeatedly dereferencing the cell repeatedly.
 	 *
 	 * @param cells to read maybe.bits from
 	 * @param maybes array to set
@@ -206,7 +223,7 @@ public class Cells {
 	 *  so maybes must be exactly the right size, so that cells can be a fixed
 	 *  size array.
 	 */
-	public static int[] maybesBits(final Cell[] cells, final int[] maybes) {
+	public static int[] maybes(final Cell[] cells, final int[] maybes) {
 		for ( int i=0,n=maybes.length; i<n; ++i )
 			maybes[i] = cells[i].maybes;
 		return maybes;

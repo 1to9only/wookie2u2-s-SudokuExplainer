@@ -18,6 +18,9 @@ import java.util.Objects;
  */
 public final class PuzzleID {
 
+	// THE empty PuzzleID, which should probably be in PuzzleID. sigh.
+	public static final PuzzleID EMPTY_PUZZLE_ID = new PuzzleID(null, 0);
+
 	public final File file; // the file that contains this Sudoku puzzle
 	public final String fileName;
 	public final boolean isTop1465;

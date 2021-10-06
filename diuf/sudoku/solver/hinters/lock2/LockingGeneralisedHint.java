@@ -11,6 +11,9 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
+import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.ON;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.IAssSet;
@@ -18,15 +21,10 @@ import diuf.sudoku.utils.MyLinkedList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.IN;
-import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
 
 
 /**
- * A Generalised Locking hint
+ * A Generalised Locking hint DTO.
  */
 public class LockingGeneralisedHint extends AHint implements IChildHint {
 
@@ -40,16 +38,18 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 	/**
 	 * Constructor.
 	 *
-	 * @param hinter the instance of LockingGeneralised
+	 * @param hinter the instance of LockingGeneralised that created this hint
 	 * @param reds the removable (red) Cell=&gt;Values
-	 * @param indexes region.indexesOf[value].bits
+	 * @param cells region.atNew(region.ridx[value].bits) note that I
+	 *  store the given cell array, so you must pass me a new array
 	 * @param value the locking candidate value
-	 * @param region the region containing
+	 * @param region the region we found this hint in, ie the region we claim
+	 *  for (not the region we claim from).
 	 */
-	public LockingGeneralisedHint(AHinter hinter, Pots reds, int indexes
+	public LockingGeneralisedHint(AHinter hinter, Pots reds, Cell[] cells
 			, int value, ARegion region) {
 		super(hinter, reds);
-		this.cells = region.atNew(indexes);
+		this.cells = cells;
 		this.value = value;
 		this.region = region;
 	}
@@ -62,6 +62,11 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 	@Override
 	public List<ARegion> getBases() {
 		return Regions.list(this.region);
+	}
+
+	@Override
+	public List<ARegion> getCovers() {
+		return Regions.list(Regions.otherCommon(cells, region));
 	}
 
 	public Cell[] getSelectedCells() {
@@ -81,7 +86,7 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 	@Override
 	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid, IAssSet parentOffs) {
 		MyLinkedList<Ass> result = new MyLinkedList<>();
-		for ( int i : INDEXES[region.indexesOf[value].bits] ) {
+		for ( int i : INDEXES[region.ridx[value].bits] ) {
 			Cell cell = region.cells[i];
 			if ( initGrid.cells[cell.i].maybe(value)
 			  && !currGrid.cells[cell.i].maybe(value) )
@@ -120,7 +125,9 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 
 	@Override
 	public String toHtmlImpl() {
-		return Html.produce(this, "LockingGeneralisedHint.html"
+		return Html.produce(
+				  this
+				, "LockingGeneralisedHint.html"
 				, region.id
 				, Integer.toString(value)
 				, getHintTypeName()

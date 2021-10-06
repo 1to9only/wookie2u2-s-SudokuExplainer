@@ -8,6 +8,7 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.solver.hinters.HintValidator;
 import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.NUM_REGIONS;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.LogicalSolver;
@@ -65,7 +66,6 @@ import java.util.Arrays;
 abstract class AAlsHinter extends AHinter
 		implements diuf.sudoku.solver.hinters.IPreparer
 {
-
 	/** the size of the fixed-size alss array: 512 */
 	protected static final int MAX_ALSS = 512; // Observed 283
 
@@ -83,24 +83,8 @@ abstract class AAlsHinter extends AHinter
 	// DeathBlossom uses this to mark unused params; for self-doc'ing code.
 	protected static final boolean UNUSED = false;
 
-	/** include ALSs which overlap in my findHints method? */
-	protected final boolean allowOverlaps;
-	/** include ALSs which include cells that are part of a Naked Set? */
-	protected final boolean allowNakedSets;
-	/** should I run getRccs; false means I pass you rccs=null in findHints */
-	protected final boolean findRCCs;
-	/** should getRccs do a fast forwardOnly search, or a full search? */
-	protected final boolean forwardOnly;
-
-	// in findHints: if !allowNakedSets we call findNakedSets to set
-	// inNakedSet[region.index][cell.i]=true for each cell in a
-	// NakedPair/Triple/etc in each region;
-	// then recurseAlssNoNs ignores cell if inNakedSet[region.index][cell.i].
-	// NOTE: stripNakedSets now also calls findNakedSets to remove ALSs
-	// containing a cell in a NakedSet from the existing alsCache, for speed.
-	protected final boolean[][] inNakedSets;
-
-	/** for AlsXzTest: true uses AlsFinderRecursive, false uses AlsFinder. */
+	/** true uses AlsFinderRecursive, false uses AlsFinder.
+	 * package visible for AlsXzTest */
 	static final boolean USE_ALS_FINDER_RECURSIVE = true;
 	/** ALS_FINDER protected so that BigWings can report counts. */
 	protected static final AlsFinder ALS_FINDER;
@@ -111,8 +95,27 @@ abstract class AAlsHinter extends AHinter
 			ALS_FINDER = new AlsFinder();
 	}
 
+	// ----------------------------- instanceland -----------------------------
+
+	/** include ALSs which overlap in my findHints method? */
+	protected final boolean allowOverlaps;
+	/** include ALSs which include cells that are part of a Naked Set? */
+	protected final boolean allowNakedSets;
+	/** should I run getRccs; false means I pass you rccs=null in findHints */
+	protected final boolean findRCCs;
+	/** should getRccs do a fast forwardOnly search, or a full search? */
+	protected final boolean forwardOnly;
+
 	/** RCC_FINDER finds the Restricted Common Candidates between ALS's */
-	static final RccFinder RCC_FINDER = new RccFinder();
+	protected final RccFinder rccFinder;
+
+	// in findHints: if !allowNakedSets we call findNakedSets to set
+	// inNakedSet[region.index][cell.i]=true for each cell in a
+	// NakedPair/Triple/etc in each region;
+	// then recurseAlssNoNs ignores cell if inNakedSet[region.index][cell.i].
+	// NOTE: stripNakedSets now also calls findNakedSets to remove ALSs
+	// containing a cell in a NakedSet from the existing alsCache, for speed.
+	protected final boolean[][] inNakedSets;
 
 	/**
 	 * Construct a new abstract Almost Locked Set (ALS) hinter, whose findHints
@@ -155,10 +158,11 @@ abstract class AAlsHinter extends AHinter
 		if ( allowNakedSets )
 			this.inNakedSets = null;
 		else
-			this.inNakedSets = new boolean[27][];
+			this.inNakedSets = new boolean[NUM_REGIONS][];
 		this.findRCCs = findRCCs;
 		this.allowOverlaps = allowOverlaps;
 		this.forwardOnly = forwardOnly;
+		this.rccFinder = RccFinderFactory.get(forwardOnly, allowOverlaps);
 	}
 
 	/**
@@ -223,7 +227,7 @@ abstract class AAlsHinter extends AHinter
 		// get indices of cells which maybe each value 1..9.
 		final Idx[] candidates = grid.idxs;
 		// get the Almost Locked Sets (N cells with N+1 values between them)
-//		long start = System.nanoTime();
+//		start = System.nanoTime();
 		getAlss(grid, candidates); // repopulates alss, sets numAlss
 //		tookAlss += System.nanoTime() - start;
 
@@ -238,12 +242,14 @@ abstract class AAlsHinter extends AHinter
 		// instances of this specific pattern; raise a hint and add it to accu.
 		return findHints(grid, candidates, ALSS, numAlss, RCCS, numRccs, accu);
 	}
-//	protected long tookAlss=0L, tookRccs=0L; // reported in AlsChain
+//	/** reported in {@link AlsChain} */
+//	protected long tookAlss=0L, tookRccs=0L;
+//	private long start;
 
 	/**
-	 * getAlss starts the recursive ALS search at each cell in each region,
-	 * then computeFields of each result ALS (don't waste time computing unused
-	 * ALSs) and return them.
+	 * getAlss does the recursive ALS search at each cell in each region,
+	 * then computeFields of each result ALS (to not waste time computing
+	 * unused ALSs) and return them.
 	 * <p>
 	 * I'm only called locally, but I'm package visible for my test-case.
 	 * <p>
@@ -256,9 +262,6 @@ abstract class AAlsHinter extends AHinter
 	 *
 	 * @param grid
 	 * @param candidates
-	 * @param alss
-	 * @param nulAlss
-	 * @return the ALSs in the given grid
 	 */
 	void getAlss(Grid grid, Idx[] candidates) {
 //		final long start = System.nanoTime();
@@ -318,16 +321,12 @@ abstract class AAlsHinter extends AHinter
 	 * ALSs can overlap as long as the overlapping area doesn't contain an RC.
 	 * <p>
 	 * I'm only called locally, but I'm package visible for my test-case. sigh.
-	 *
-	 * @param alss
-	 * @return
 	 */
 	void getRccs() {
 		// if allowOverlaps or forwardOnly has changed then refetch
 		rccsDirty |= rccsAO!=allowOverlaps || rccsFO!=forwardOnly;
 		if ( RCCS==null || rccsDirty ) {
-			numRccs = RCC_FINDER.getRccs(ALSS, numAlss, RCCS, forwardOnly
-					, allowOverlaps);
+			numRccs = rccFinder.find(ALSS, numAlss, RCCS);
 			rccsDirty = false;
 			rccsAO = allowOverlaps;
 			rccsFO = forwardOnly;

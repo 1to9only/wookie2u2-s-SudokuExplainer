@@ -156,8 +156,8 @@ public class LockingSpeedMode extends Locking {
 		final Row[] rows = grid.rows;
 		final Col[] cols = grid.cols;
 		for ( int v : VALUESES[cands] )
-			if ( (card=box.indexesOf[v].size)>1 && card<4 ) {
-				final int b = box.indexesOf[v].bits;
+			if ( (card=box.ridx[v].size)>1 && card<4 ) {
+				final int b = box.ridx[v].bits;
 				if ( (b & ROW1) == b )
 					result |= pfElims(rows[box.top], box, v, card, grid);
 				else if ( (b & ROW2) == b )
@@ -189,7 +189,7 @@ public class LockingSpeedMode extends Locking {
 	private boolean pfElims(final ARegion line, final Box box
 			, final int v, final int card, final Grid grid) {
 		// if v's in line other than those in the line-box-intersection
-		if ( line.indexesOf[v].size > card ) {
+		if ( line.ridx[v].size > card ) {
 			final Cell[] cells;
 			if ( card == box.maybe(VSHFT[v], cells=new Cell[card]) ) {
 				final AHint hint = createHint(LockingType.SiamesePointing, box, line
@@ -216,12 +216,12 @@ public class LockingSpeedMode extends Locking {
 		int card, b, offset;
 		boolean result = false;
 		for ( int v : VALUESES[cands] ) {
-			if ( (card=line.indexesOf[v].size)>1 && card<4 ) {
-				b = line.indexesOf[v].bits;
+			if ( (card=line.ridx[v].size)>1 && card<4 ) {
+				b = line.ridx[v].bits;
 				if ( ( ((b & ROW1)==b && (offset=0)==0)
 					|| ((b & ROW2)==b && (offset=1)==1)
 					|| ((b & ROW3)==b && (offset=2)==2) )
-				  && line.crossingBoxs[offset].indexesOf[v].size > card ) {
+				  && line.crossingBoxs[offset].ridx[v].size > card ) {
 					if ( card == line.maybe(VSHFT[v], cells=new Cell[card]) ) {
 						final AHint hint = createHint(LockingType.SiameseClaiming, line
 								, line.crossingBoxs[offset], cells, card, v, grid);

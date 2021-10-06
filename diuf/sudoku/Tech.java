@@ -31,27 +31,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A Tech(nique) is a Sudoku Solving Technique: a place holder for a hinter.
- * This enum (a list) of Sudoku Solving Techniques. Each hinter implements a
- * Sudoku Solving Technique. Most hinters implement a single technique.
- * Some (like MultipleChainer) implement several techniques, because doing
- * them separately is harder.
+ * A Tech(nique) is a Sudoku Solving Technique: a light place-holder for a
+ * heavy implementation of this technique, ergo a hinter.
+ * <p>
+ * This enum is a set of Sudoku Solving Techniques. Most hinters implement a
+ * single Sudoku Solving Technique (I call these ones "simple" hinters), but
+ * some hinters (like MultipleChainer) implement several techniques (which I
+ * think of as "complex"), because implementing these techniques separately is
+ * harder and/or slower.
  * <p>
  * It's called Tech because the word Technique is too long and has three F's
  * a silent Q. All reasonable people hate Q's, and there smelly U-ism. It's a
  * little known fact that most people are completely unaware of there innate
  * Queue-Biff-Phobia. Jumping around in time may also cause Biff-Phobia, but
- * alternate facts are non-conjugative. Some people are allergic to quinces.
- * Need I say more.
+ * alternate facts remain non-conjugative. Some folks suffer quince allergies,
+ * other folks are allergic to quinces. Need I say more.
  * <p>
  * LogicalSolver constructor has two "want" methods. The first is "normal", it
  * takes an IHinter (an instance of a class that implements IHinter) and adds
  * it to the list if it's Tech is wanted. Simples. But the second is tricky: it
  * takes a Tech, sees if it's wanted, and if so it instantiates the registered
  * implementor (using reflections) of the Tech and adds that to the list; to
- * save creating a hinter that's not wanted. As it works-out simple hinters are
- * "want Tech"ed, but all the more complex hinters are created manually, and
- * then "want IHinter"ed. Sigh. Basically, I did this just because I can.
+ * save creating a hinter that's not wanted, and therefore won't ever be used.
+ * As it works-out "simple" hinters are "want Tech"ed, but all the more complex
+ * hinters are created manually, and then "want IHinter"ed. Sigh. Basically, I
+ * did this just because I can, and also to save creating heavy instances of
+ * classes that are then never used; So fair warning: I did this because I
+ * wanted to, and for a reason, but my reasoning is always questionable.
  * <p>
  * The constructor of each subtype of AHinter passes a Tech down-to AHinter to
  * identify the implemented Sudoku solving technique, it's degree, and base
@@ -59,20 +65,20 @@ import java.util.List;
  * <p>
  * Most hinters implement one Tech, but a few (especially Chains) implement
  * multiple Techs, so the Solver now prints both hinter-names and hint-types,
- * so you can (hopefully) find the bloody hinter. sigh.
- * <p>
- * This is pretty confusing to start with, but it works, so please don't
- * "fix" it until you really understand it (aka when you don't want to).
+ * so you can (hopefully) find the bloody hinter. Sigh. This is all pretty
+ * bloody confusing to start with, but it works, so please don't "fix" it until
+ * you understand it, ie when you're not sure you want to any longer.
  * <p>
  * <b>WARNING:</b> The TechSelectDialog displays Techs in the order they're
- *  given here. <b>DO NOT</b> re-order them to match LogicalSolver constructor,
- *  or by Difficulty, or whatever. TechSelectDialog is the key consideration.
+ * given here. <b>DO NOT</b> re-order them to match LogicalSolver constructor,
+ * or by Difficulty, et al. TechSelectDialog is the primary consideration.
+ * Also please note that this situation is not ideal, it just is what it is.
  * <p>
- * <b>WARNING:</b> If you change any hints difficulty then please look at:
+ * <b>WARNING:</b> If you change any hints difficulty then please consider:
  * <ul>
- *  <li>{@link diuf.sudoku.solver.LogicalSolver#LogicalSolver} to keep
- *   the order of wantedHinters near to that of Tech difficulty; so hinters run
- *   in increasing difficulty, to produce the simplest solution to each puzzle.
+ *  <li>{@link diuf.sudoku.solver.LogicalSolver#LogicalSolver} to keep order of
+ *   wantedHinters near to Tech.difficulty; so hinters are run in increasing
+ *   difficulty, to produce the simplest possible solution to each puzzle.
  *  <li>{@link diuf.sudoku.Tech} // for the actual difficulties
  *  <li>{@link diuf.sudoku.Difficulty} // double check the ranges
  * </ul>
@@ -103,9 +109,9 @@ public enum Tech {
 	, HiddenSingle		(1.2, 1, HiddenSingle.class, false)
 
 	// Medium
-	// NB: constructor does name().startsWith("Direct")
 	, Locking			(2.0, 1, "OR Locking Generalised", false, Locking.class, true)
 	, LockingGeneralised(2.0, 1, "OR Locking", false, LockingGeneralised.class, false)
+	// NB: constructor does name().startsWith("Direct")
 	, DirectNakedPair	(2.1, 2, NakedSet.class, true)
 	, DirectHiddenPair	(2.2, 2, HiddenSet.class, true)
 	, DirectNakedTriple	(2.3, 3, NakedSet.class, true)
@@ -116,18 +122,18 @@ public enum Tech {
 	, HiddenPair		(2.55, 2, HiddenSet.class, true)
 	, NakedTriple		(2.60, 3, NakedSet.class, true)
 	, HiddenTriple		(2.65, 3, HiddenSet.class, true)
-	, Swampfish			(2.70, 2) // Luke, Swampfish, Yoda, X-Wing.
+	, Swampfish			(2.70, 2, BasicFisherman.class, true) // Luke/Yoda == Swampfish/X-Wing
 	, TwoStringKite		(2.80, 4, TwoStringKite.class, false)
 
 	// Fiendish
 	, XY_Wing			(3.00, 2, XYWing.class, true)
 	, XYZ_Wing			(3.05, 3, XYWing.class, true)
 	, W_Wing			(3.10, 4, WWing.class, false)
-	, Swordfish			(3.20, 3)
+	, Swordfish			(3.20, 3, BasicFisherman.class, true)
 	, Skyscraper		(3.30, 4, Skyscraper.class, false)
 	, EmptyRectangle		(3.35, 4, EmptyRectangle.class, false)
-	, Jellyfish			(3.40, 4) // None in top1465 with my preferred techs
-	// FYI: Larger Fish are all DEGENERATE (comprised of simpler hints)
+	, Jellyfish			(3.40, 4, BasicFisherman.class, true) // None in top1465 with my preferred techs
+	// FYI: Larger (5+) Fish are all DEGENERATE (comprised of simpler hints)
 	, BUG				(3.50, 0, "DROP (Bivalue Universal Grave) Old and slow", true, BUG.class, false)
 	, Coloring			(3.52, 0, "KEEP BUG++ Simple-Coloring and the ONLY Multi-Coloring", false, Coloring.class, true)
 	, XColoring			(3.54, 0, "KEEP Coloring++ finds stuff that GEM misses", false, XColoring.class, true)
@@ -145,42 +151,43 @@ public enum Tech {
 	, TUVWXYZ_Wing		(3.74, 6, "or BigWings", false, BigWing.class, false) // 6 Cell ALS + bivalue
 	, STUVWXYZ_Wing		(3.75, 7, "or BigWings", false, BigWing.class, false) // 7 Cell ALS + bivalue // SLOW'ish
 	, URT				(3.80, 0, "Unique Rectangles and loops", false, UniqueRectangle.class, true)
-	
+
 	// Nightmare
 	, FinnedSwampfish	(4.0, 2, ComplexFisherman.class, true)	// with Sashimi
 	, FinnedSwordfish	(4.1, 3, ComplexFisherman.class, true)
 	, FinnedJellyfish	(4.2, 4, null, false, ComplexFisherman.class, false)
-	, ALS_XZ			(4.3, 0, AlsXz.class, false)		 // 2 ALSs in a Chain
-	, ALS_Wing			(4.4, 0, AlsWing.class, false)		 // 3 ALSs in a Chain
-	, ALS_Chain			(4.5, 0, AlsChain.class, false)	 // 4+ ALSs in a Chain
-	, DeathBlossom		(4.6, 0, DeathBlossom.class, false) // ALS for each stem.maybe
-	, SueDeCoq			(4.7, 0, SueDeCoq.class, false)	 // AALSs // a bit slow
-	, FrankenSwampfish	(5.0, 2, null, false, ComplexFisherman.class, false)	// OK
-	, FrankenSwordfish	(5.1, 3, null, false, ComplexFisherman.class, false)	// OK
-	, FrankenJellyfish	(5.2, 4, null, false, ComplexFisherman.class, false)	// SLOW
+	, ALS_XZ			(4.3, 0, AlsXz.class, false)	// 2 ALSs in a Chain
+	, ALS_Wing			(4.4, 0, AlsWing.class, false)	// 3 ALSs in a Chain
+	, ALS_Chain			(4.5, 0, AlsChain.class, false)	// 4+ ALSs in a Chain
+	, DeathBlossom		(4.6, 0, DeathBlossom.class, false) // stem.maybe->ALS
+	, SueDeCoq			(4.7, 0, SueDeCoq.class, false) // AALSs // a bit slow
+	, FrankenSwampfish	(5.0, 2, null, false, ComplexFisherman.class, false) // OK
+	, FrankenSwordfish	(5.1, 3, null, false, ComplexFisherman.class, false) // OK
+	, FrankenJellyfish	(5.2, 4, null, false, ComplexFisherman.class, false) // SLOW
 	// Mutants are too slow to be allowed: 1,764 seconds for just 20 hints.
-	, KrakenSwampfish	(5.3, 2, null, false, KrakenFisherman.class, false)		 // OK
+	, KrakenSwampfish	(5.3, 2, null, false, KrakenFisherman.class, false)  // OK
 	, MutantSwampfish	(5.4, 2, "Degenerate", true, ComplexFisherman.class, false) // NONE
 	, KrakenSwordfish	(5.5, 3, "30 seconds", false, KrakenFisherman.class, false) // SLOW'ish
 	, MutantSwordfish	(5.6, 3, "2 minutes", false, ComplexFisherman.class, false) // SLOW
-	, KrakenJellyfish	(5.8, 4, "9 minutes", true, KrakenFisherman.class, false)	 // TOO SLOW
+	, KrakenJellyfish	(5.8, 4, "9 minutes", true, KrakenFisherman.class, false)	// TOO SLOW
 	, MutantJellyfish	(5.9, 4, "20 minutes", true, ComplexFisherman.class, false) // TOO SLOW
 
 	// Diabolical
-	// new-school A234E
+	// NB: constructor does name().startsWith("Aligned")
+	// A234E are all off to new school, yeah!
 	, AlignedPair		(6.0, 2, AlignedExclusion.class, false)	// OK
-	, AlignedTriple		(6.1, 3, AlignedExclusion.class, false)	// a bit slow
+	, AlignedTriple		(6.1, 3, AlignedExclusion.class, false)	// a tad slow
 	, AlignedQuad		(6.2, 4, AlignedExclusion.class, false)	// a bit slow
-	// old-school A5678910E (The _2H class is the "registered" implementation)
+	// A5678910E old-school _2H is the "registered" implementation
 	, AlignedPent		(6.3, 5, "1 minute correct", false, Aligned5Exclusion_2H.class, false)	// SLOW
 	, AlignedHex		(6.4, 6, "3 minutes correct", false, Aligned6Exclusion_2H.class, false) // SLOW
-	, AlignedSept		(6.5, 7, "6 minutes correct", true, Aligned7Exclusion_2H.class, false)	// VERY SLOW
-	, AlignedOct			(6.6, 8, "19 minutes correct", true, Aligned8Exclusion_2H.class, false)	// TOO SLOW
-	, AlignedNona		(6.7, 9, "3 hours correct", true, Aligned9Exclusion_2H.class, false)    // DEAD SLOW
+	, AlignedSept		(6.5, 7, "6 minutes correct", true, Aligned7Exclusion_2H.class, false)	// TOO SLOW
+	, AlignedOct			(6.6, 8, "19 minutes correct", true, Aligned8Exclusion_2H.class, false)	// FAR TOO SLOW
+	, AlignedNona		(6.7, 9, "3 hours correct", true, Aligned9Exclusion_2H.class, false)    // WAY TOO SLOW
 	, AlignedDec			(6.8,10, "6 hours correct", true, Aligned10Exclusion_2H.class, false)   // CONSERVATIVE
 	// chains			 diff     Multi,Dynam,Nishi,want
 	, UnaryChain		( 7.0, 0, false,false,false,true) // OK
-	, NishioChain		( 7.5, 0, false,true ,true ,true) // a bit slow
+	, NishioChain		( 7.5, 0, false,true ,true ,true) // a tad slow
 	, MultipleChain		( 8.0, 0, true ,false,false,true) // OK
 	, DynamicChain		( 8.5, 0, true ,true ,false,true) // OK
 
@@ -190,7 +197,7 @@ public enum Tech {
 	, NestedUnary		( 9.5, 2, true ,true ,false,true)  // SLOW actual catch-all
 	, NestedMultiple		(10.0, 3, true ,true ,false,false) // SLOW
 	, NestedDynamic		(10.5, 4, true ,true ,false,false) // SLOW
-	, NestedPlus			(11.0, 5, true ,true ,false,false) // TOO SLOW !BUGS!
+	, NestedPlus			(11.0, 5, true ,true ,false,false) // TOO SLOW, BUGS!
 	;
 
 	public static EnumSet<Tech> where(EnumSet<Tech> techs, IFilter<Tech> f) {
@@ -280,7 +287,7 @@ public enum Tech {
 	// they are all allways false for the "normal" (non-Chainer) Techniques.
 	public final boolean isChainer; // true if we used the Chainer constructor.
 	public final boolean isNested; // true if name().startsWith("Nested")
-	public final boolean isMultiple; // search cell.maybesSize>2 and region.indexesOf[v].size>2
+	public final boolean isMultiple; // search cell.maybesSize>2 and region.ridx[v].size>2
 	public final boolean isDynamic; // combine effects of previous calculations
 	public final boolean isNishio; // an assumption has both effect && !effect
 

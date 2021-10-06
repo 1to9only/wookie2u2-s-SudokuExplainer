@@ -7,6 +7,7 @@
 package diuf.sudoku.solver.checks;
 
 import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.MIN_CLUES;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.accu.IAccumulator;
 
@@ -25,12 +26,12 @@ public final class TooFewClues extends AWarningHinter {
 			return false;
 		// Does this puzzle have atleast 17 clues?
 		final int clues = grid.numSet;
-		if ( clues > 16 ) {
+		if ( clues >= MIN_CLUES ) {
 			grid.enoughClues = true;
 			return false;
 		}
 		accu.add(new WarningHint(this
-				, "Number of clues "+clues+" is less than 17"
+				, "Number of clues "+clues+" is less than "+MIN_CLUES
 				, "TooFewClues.html", clues));
 		return true;
 	}

@@ -14,17 +14,24 @@ import java.util.Collection;
 
 /**
  * A 1-based (nonstandard) java.util.BitSet'ish set of the values 1..9.
+ * <p>
+ * I feel I must mention that {@code java.util.BitSet} is a bit s__t. The
+ * only reason one ever uses a BitSet is performance, and Javas expansible
+ * implementation is so non-performant that it is rendered fundamentally
+ * useless. In my humble opinion, it exists just to sell you faster hardware,
+ * and having purchased faster hardware, it'll still be faster NOT to use it!
+ * <p>
+ * Thanks to Stack Overflow for answers to many questions, including:
+ * http://stackoverflow.com/questions/1092411/java-checking-if-a-bit-is-0-or-1-in-a-long
+ * <p>
+ * This is open source LGPL software. Use/fix/adapt it. It's not my problem.
+ * <p>
+ * NOTE: That because Values is wholey structured around there being 9 values,
+ * and much of this s__t won't work for 16 values (unlike most of the code) so
+ * it does NOT use Grid.REGION_SIZE or any of the related constants. Basically
+ * if you upsize the grid (being an idiot) then you must completely rewrite the
+ * Values class, from the bottom-up.
  *
- * <p>I feel I must mention that {@code java.util.BitSet} is a bit s__t. The
- *  only reason one ever uses a BitSet is performance, and Javas expansible
- *  implementation is so non-performant that it is rendered fundamentally
- *  useless. In my humble opinion, it exists just to sell you faster hardware,
- *  and having purchased faster hardware, it'll still be faster NOT to use it!
- *
- * <p>Thanks to Stack Overflow for answers to many questions, including:
- *  http://stackoverflow.com/questions/1092411/java-checking-if-a-bit-is-0-or-1-in-a-long
- *
- * <p>This is open source LGPL software. Use/fix/adapt it. It's not my problem.
  * @author Keith Corlett 2013 Aug
  */
 public final class Values implements Iterable<Integer> {
@@ -279,10 +286,10 @@ public final class Values implements Iterable<Integer> {
 	}
 
 	public static int parse(String s) {
-		int result = 0;
+		int bitset = 0;
 		for ( int i=0,n=s.length(); i<n; ++i )
-			result |= VSHFT[s.charAt(i)-'0']; // set value bit
-		return result;
+			bitset |= VSHFT[s.charAt(i)-'0'];
+		return bitset;
 	}
 
 	// for test-cases

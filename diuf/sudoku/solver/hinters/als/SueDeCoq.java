@@ -38,6 +38,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
 import static diuf.sudoku.Grid.CELL_IDXS;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
@@ -89,9 +90,9 @@ public class SueDeCoq extends AHinter {
 	/** All indices only in box: box empties - intersection. */
 	private final Idx boxOnlyIdx = new Idx();
 	/** Stack for searching rows/cols. */
-	private final StackEntry[] lineStack = new StackEntry[9];
+	private final StackEntry[] lineStack = new StackEntry[REGION_SIZE];
 	/** Stack for searching boxs. */
-	private final StackEntry[] boxStack = new StackEntry[9];
+	private final StackEntry[] boxStack = new StackEntry[REGION_SIZE];
 	/** Cells of the current subset of the intersection. */
 	private final Idx interActIdx = new Idx();
 	/** Candidates of all cells in {@link #interActIdx}. */
@@ -115,9 +116,9 @@ public class SueDeCoq extends AHinter {
 
 	public SueDeCoq() {
 		super(Tech.SueDeCoq);
-		for ( int i=0; i<9; ++i )
+		for ( int i=0; i<REGION_SIZE; ++i )
 			lineStack[i] = new StackEntry();
-		for ( int i=0; i<9; ++i )
+		for ( int i=0; i<REGION_SIZE; ++i )
 			boxStack[i] = new StackEntry();
 	}
 

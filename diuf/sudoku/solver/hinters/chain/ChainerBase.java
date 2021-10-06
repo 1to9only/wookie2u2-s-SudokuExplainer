@@ -366,7 +366,7 @@ abstract class ChainerBase extends AHinter
 	 * @param effect
 	 * @param v value
 	 * @param region
-	 * @param currPlaces grid.region.indexesOf[value].bits
+	 * @param currPlaces grid.region.ridx[value].bits
 	 * @param oci otherCellIndice
 	 * @param rti regionTypeIndex
 	 * @param rents A set of complete parent offs, must be an IAssSet for that
@@ -425,7 +425,7 @@ abstract class ChainerBase extends AHinter
 		// foreach of the cells regions which has 2 positions for value
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
 			// skip unless there are 2 possible positions for value in region
-			if ( cell.regions[rti].indexesOf[v].size == 2 ) {
+			if ( cell.regions[rti].ridx[v].size == 2 ) {
 //				final ARegion region; // the current region which contains this cell
 //				final int places; // indexes of cells in region which maybe v (current grid)
 //				final Cell otherCell; // the other cell in this region which maybe v
@@ -437,7 +437,7 @@ abstract class ChainerBase extends AHinter
 				// HAMMERED: top1465 ACCURACY: 209,704,756 iterations
 				// BUT IT'S INCOMPREHENSIBLE, SO THIS LINE DOES:
 				// (1) region = cell.regions[rti]; // not cached above coz hit rate too low.
-				// (2) places = region.indexesOf[v].bits; // region.cells indexes of cell which maybe v
+				// (2) places = region.ridx[v].bits; // region.cells indexes of cell which maybe v
 				// (3) otherCell = region.cells[IFIRST[places & ~ISHFT[cell.indexIn[rti]]]]; // the cell at the first [places except me] in this region
 				// (4) effectOn = new Ass(otherCell, v, true, anOff, region.cause, ONLYPOS[rti]);
 				// NOTES: Created Cell.indexIn and Indexes.IFIRST arrays
@@ -449,7 +449,7 @@ abstract class ChainerBase extends AHinter
 				// individual String on the fly a total of 209,704,756 times.
 				// Array look-ups are fast. More thunk, less work, more speed!
 				final ARegion region = cell.regions[rti];
-				final int places = region.indexesOf[v].bits;
+				final int places = region.ridx[v].bits;
 				final int myIndex = cell.indexIn[rti];
 				final Cell otherCell = region.cells[IFIRST[places & ~ISHFT[myIndex]]];
 				effectOn = new Ass(otherCell, v, true, anOff, CAUSE_FOR[rti], ONLYPOS[rti]);

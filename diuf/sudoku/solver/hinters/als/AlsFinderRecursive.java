@@ -114,9 +114,7 @@ final class AlsFinderRecursive extends AlsFinder {
 				for ( int i=0; i<degree; ++i )
 					sets[i].clear();
 				// indices of cells with size 2..4 for WXYZ.degree==3
-				grid.idx(sets[0], (c) -> {
-					return c.size>1 && c.size<degreePlus2;
-				});
+				grid.idx((c) -> c.size>1 && c.size<degreePlus2, sets[0]);
 				// foreach first-cell-in-an-ALS
 				for ( Cell c : sets[0].cells(grid, Cells.arrayA(sets[0].size())) ) {
 					als[0] = c; // the first cell in the almost locked set
@@ -191,7 +189,6 @@ final class AlsFinderRecursive extends AlsFinder {
 	// AlsSet with add that ignores an ALS which contains a cell in a NakedSet
 	final class AlsSetNoNakedSets extends AlsSet {
 		private static final long serialVersionUID = 346983766784L;
-		// private constructor coz I'm only instantiated locally
 		@Override
 		public boolean add(Als als) {
 			return !als.idx.andAny(nakedSetIdxs[als.region.index])

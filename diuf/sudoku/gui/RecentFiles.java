@@ -7,6 +7,7 @@
 package diuf.sudoku.gui;
 
 import diuf.sudoku.PuzzleID;
+import static diuf.sudoku.PuzzleID.EMPTY_PUZZLE_ID;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.utils.Log;
@@ -17,9 +18,9 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 
-
 /**
- * A self-persistent List of recently accessed (opened or saved) files.
+ * A persistent List of recently used (opened or saved) files.
+ *
  * @author Keith Corlett 2017 Dec
  */
 class RecentFiles implements Closeable {
@@ -30,22 +31,27 @@ class RecentFiles implements Closeable {
 	// because large ScrollBars are bit ____in useless. Sigh.
 	private static final int MAX_SIZE = 1000;
 
+	// a List of PuzzleID's to process
 	private final ArrayList<PuzzleID> list = new ArrayList<>(MAX_SIZE);
+
+	// the array of PuzzleID's vended to the GUI
 	private final PuzzleID[] array = new PuzzleID[MAX_SIZE];
+
 	PuzzleID[] toArray() {
 		return list.toArray(array);
 	}
 
 	private static RecentFiles me;
 	public static RecentFiles getInstance() {
-		if ( me == null )
+		if ( me == null ) {
 			me = new RecentFiles();
+		}
 		return me;
 	}
 
 	/** PRIVATE Constructor: use getInstance() instead. */
 	private RecentFiles() {
-		if ( IO.RECENT_FILES.exists() ) // avert FileNotFoundException
+		if ( IO.RECENT_FILES.exists() ) {
 			try ( BufferedReader reader = new BufferedReader(new FileReader(IO.RECENT_FILES)) ) {
 				int lineCount = 0;
 				String line;
@@ -55,15 +61,16 @@ class RecentFiles implements Closeable {
 						break;
 				}
 			} catch (IOException ex) {
-				StdErr.whinge(Log.me()+" exception", ex);
-//				throw new RuntimeException("Unreadable "+FILE, ex);
+				StdErr.whinge(Log.me()+" IOException", ex);
 			}
+		}
 	}
 
 	/** @return the PuzzleID of the most recently accessed file. */
 	PuzzleID mostRecent() {
-		if ( list.isEmpty() )
+		if ( list.isEmpty() ) {
 			return null;
+		}
 		return list.get(0);
 	}
 
@@ -71,22 +78,24 @@ class RecentFiles implements Closeable {
 	 * puzzleID so that you can chain with me. Note: If the given pid is null or
 	 * empty then returns EMPTY_PUZZLE_ID; not null, as you might expect. */
 	PuzzleID add(PuzzleID pid) {
-		if ( pid==null || pid.file==null )
+		if ( pid==null || pid.file==null ) {
 			return EMPTY_PUZZLE_ID;
+		}
 		int i = list.indexOf(pid);
-		if ( i == 0 )
+		if ( i == 0 ) {
 			return pid;
+		}
 		if ( i > 0 ) { // move file to head of list
 			list.remove(pid);
 		} else { // inserting, so drop the least recently used file
-			while ( list.size() >= MAX_SIZE )
+			while ( list.size() >= MAX_SIZE ) {
 				list.remove(MAX_SIZE-1);
+			}
 		}
 		// then insert file at top of the list
 		list.add(0, pid);
 		return pid;
 	}
-	private static final PuzzleID EMPTY_PUZZLE_ID = new PuzzleID(null, 0);
 
 	/**
 	 * Saves the RecentFiles.list to IO.RECENT_FILES.
@@ -94,10 +103,6 @@ class RecentFiles implements Closeable {
 	 */
 	@Override
 	public void close() throws java.io.IOException {
-		try ( PrintWriter writer = new PrintWriter(IO.RECENT_FILES) ) {
-			for ( PuzzleID entry : list )
-				if ( entry != null )
-					writer.println(entry);
-		}
+		IO.save(list, IO.RECENT_FILES);
 	}
 }

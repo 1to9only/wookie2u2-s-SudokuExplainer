@@ -6,6 +6,8 @@
  */
 package diuf.sudoku.tools;
 
+import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.io.IO;
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,7 +39,7 @@ public class SortMtFileBySolveTimeDesc {
 	private static final File OUTPUT_MT_FILE = new File(IO.HOME+"top1465.d6.mt");
 
 	public static void main(String[] args) {
-		final Pattern puzzleSummaryLinePattern = Pattern.compile("^ *\\d+\t.*[.123456789]{81}$");
+		final Pattern puzzleSummaryLinePattern = Pattern.compile("^ *\\d+\t.*[.123456789]{"+GRID_SIZE+"}$");
 		try ( BufferedReader reader = new BufferedReader(new FileReader(INPUT_LOG_FILE))
 			; PrintWriter output = new PrintWriter(new FileWriter(OUTPUT_MT_FILE)) ) {
 			LinkedList<PuzzleLine> puzzleList = new LinkedList<>();
@@ -46,13 +48,13 @@ public class SortMtFileBySolveTimeDesc {
 				if ( line.charAt(0)==' '
 				  && puzzleSummaryLinePattern.matcher(line).matches() ) {
 					//dumpLine(line);
-					String[] fields = line.split(" *\t *",9);
+					String[] fields = line.split(" *\t *", REGION_SIZE);
 					int puzzleNumber = Integer.parseInt(fields[0].trim());
 					assert puzzleNumber>0 && puzzleNumber<10000;
 					long solveTimeNanos = Long.parseLong(fields[1].replaceAll(",", ""));
 					assert solveTimeNanos>0 && solveTimeNanos<120000000000L; // 2 minutes
 					String contents = fields[8];
-					assert contents.length() == 81;
+					assert contents.length() == GRID_SIZE;
 					puzzleList.add(new PuzzleLine(puzzleNumber, solveTimeNanos, contents));
 				}
 			}

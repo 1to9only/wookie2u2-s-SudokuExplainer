@@ -35,6 +35,7 @@ import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
@@ -167,12 +168,12 @@ public class Skyscraper extends AHinter {
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach potential value
-		for ( int v=1; v<10; ++v ) {
+		for ( int v=1; v<VALUE_CEILING; ++v ) {
             // get rows/cols with two places for v
 			n = 0; // the number of pairs collected
 			for ( ARegion r : rowsOrCols ) // grid.rows or grid.cols
-				if ( r.indexesOf[v].size == 2 )
-					r.at(r.indexesOf[v].bits, pairs[n++]);
+				if ( r.ridx[v].size == 2 )
+					r.at(r.ridx[v].bits, pairs[n++]);
 			// if we collected atleast two pairs
 			if ( n > 1 ) {
 				// examine each combination of a and b pairs (forwards-only)

@@ -10,7 +10,6 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
@@ -26,10 +25,10 @@ public final class URTHiddenHint extends AURTHint {
 	private final List<ARegion> myBases; // the B -> D edge of the rectangle
 	private final List<ARegion> myCovers; // the C -> D edge of the rectangle
 	public URTHiddenHint(UniqueRectangle hinter, List<Cell> loop
-			, int v1, int v2, Pots redPots
-			, List<ARegion> bases, List<ARegion> covers) {
+			, int l, int e // lockedInValue, eliminatableValue
+			, Pots redPots, List<ARegion> bases, List<ARegion> covers) {
 		// Type 7 is a Hidden Unique Rectangle (aka Unique Rectangle Hidden)
-		super(7, hinter, loop, v1, v2, redPots);
+		super(7, hinter, loop, l, e, redPots);
 		myBases = bases;
 		myCovers = covers;
 	}
@@ -48,8 +47,9 @@ public final class URTHiddenHint extends AURTHint {
 	public Pots getOranges(int viewNum) {
 		if ( orangePots == null ) {
 			Pots pots = new Pots(4, 1F);
-			for ( Cell c : loop )
+			for ( Cell c : loop ) {
 				pots.put(c, VSHFT[v1]); // v1 (a) is locked into rectangle
+			}
 			orangePots = pots;
 		}
 		return orangePots;
@@ -60,8 +60,9 @@ public final class URTHiddenHint extends AURTHint {
 	public Pots getBlues(Grid grid, int viewNum) {
 		if ( bluePots == null ) {
 			Pots pots = new Pots(4, 1F);
-			for ( Cell c : loop )
+			for ( Cell c : loop ) {
 				pots.put(c, VSHFT[v2]); // v2 (b) is value to remove
+			}
 			// remove the removable (red) pot so that it appears red
 			pots.removeAll(getReds(0));
 			bluePots = pots;

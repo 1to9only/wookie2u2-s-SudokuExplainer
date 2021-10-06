@@ -19,6 +19,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.IrrelevantHintException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.Ass.Cause;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Debug;
@@ -436,9 +437,9 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 				final int v = a.value;
 				Cell cc; // current cell
 				// if values possible positions have changed
-				if ( ir[cr.index].indexesOf[v].bits != cr.indexesOf[v].bits ) {
+				if ( ir[cr.index].ridx[v].bits != cr.ridx[v].bits ) {
 					final int sv = VSHFT[v];
-					for ( int i=0; i<9; ++i )
+					for ( int i=0; i<REGION_SIZE; ++i )
 						// if any (removed = initial - current) maybes
 						if ( (ic[(cc=cr.cells[i]).i].maybes
 								& ~(cc.maybes) & sv) != 0 )
@@ -561,7 +562,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 				final Cell[] rc = c.regions[cause.regionTypeIndex].cells; // cells in the region which contains c
 				final int v=a.value, sv=VSHFT[v]; // shiftedValue
 				Cell cc; // currGrid's cell
-				for ( int i=0; i<9; ++i ) // removed = initial - current
+				for ( int i=0; i<REGION_SIZE; ++i ) // removed = initial - current
 					if ( (ic[(cc=rc[i]).i].maybes
 							& ~cc.maybes & sv) != 0 )
 						resultSet.add(prntOffs.getAss(cc, v));

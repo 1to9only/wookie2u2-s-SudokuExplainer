@@ -39,7 +39,7 @@ public final class Settings implements Cloneable {
 	 * change it here and everywhere that setting is gotten from Settings,
 	 * which I admit is an un-dry pain-in-the-ass, but there you have it.
 	 */
-	private static final String DEFAULT_DEFAULT_SETTINGS = // @check up-to-date
+	private static final String DEFAULT_DEFAULT_SETTINGS = // @check updated?
 "isFilteringHints=true\n" +
 "isAntialiasing=true\n" +
 "isShowingMaybes=true\n" +
@@ -317,6 +317,9 @@ public final class Settings implements Cloneable {
 		return prefs.put("laf", laf);
 	}
 
+	public void unwant(Tech t) {
+		wantedTechs.remove(t);
+	}
 	public int getWantedTechsSize() {
 		return wantedTechs.size();
 	}

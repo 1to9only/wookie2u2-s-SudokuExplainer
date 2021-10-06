@@ -21,6 +21,7 @@ import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IHinter;
+import static diuf.sudoku.utils.Frmt.AND;
 import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.IAsker;
 import diuf.sudoku.utils.Html;
@@ -96,6 +97,23 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private static final HintNode EMPTY_HINTS_TREE
 			= new HintsTreeBuilder().build(EMPTY_HINTS_LIST);
 
+	private static final Pattern CELL_ID_PATTERN = Pattern.compile("[A-I][1-9]");
+
+	private static final DecimalFormat RATING = new DecimalFormat("#0.00");
+
+	// I suspect that 128 is bigger than the biggest hint, but now it's
+	// bounded so that it can't run away towards infinity and break s__t.
+	// If 128 proves too small then double it again. There's no problem
+	// with it being bigger (within reason) it just MUST be bounded.
+	private final static int MAX_VIEWS = 128;
+	private static final String[] VIEWS = new String[MAX_VIEWS];
+
+	static {
+		for (int i = 0; i < MAX_VIEWS; ++i) {
+			VIEWS[i] = "View " + (i + 1);
+		}
+	}
+
 	private final SudokuExplainer engine;
 	public final SudokuGridPanel gridPanel;
 
@@ -155,7 +173,13 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 */
 	File defaultDirectory;
 
+	/**
+	 * Should {@link #getAllHintsInBackground} logHints to the Log.
+	 */
 	public final boolean logHints = true;
+	/**
+	 * Should {@link #getAllHintsInBackground} printHints to System.out.
+	 */
 	public final boolean printHints = true;
 
 	/**
@@ -329,21 +353,6 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		p.repaint();
 	}
 
-	private static final DecimalFormat RATING = new DecimalFormat("#0.00");
-
-	// I suspect that 128 is bigger than the biggest hint, but now it's
-	// bounded so that it can't run away towards infinity and break s__t.
-	// If 128 proves too small then double it again. There's no problem
-	// with it being bigger (within reason) it just MUST be bounded.
-	private final static int MAX_VIEWS = 128;
-	private static final String[] VIEWS = new String[MAX_VIEWS];
-
-	static {
-		for (int i = 0; i < MAX_VIEWS; ++i) {
-			VIEWS[i] = "View " + (i + 1);
-		}
-	}
-
 	private int bounded(int vc) { // viewCount
 		if (vc < 1) {
 			vc = 1;
@@ -400,7 +409,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	// return does the warning panel need to be visible.
 	boolean refreshDisabledRulesWarning() {
 		// build the disabled-rules warning message
-		EnumSet<Tech> wanted = THE_SETTINGS.getWantedTechs();
+		final EnumSet<Tech> wanted = THE_SETTINGS.getWantedTechs();
 		// -2 for [The Solution, Single Solution]
 		final int numDisabled = Settings.ALL_TECHS.size() - 2 - wanted.size();
 		String msg = ""+numDisabled+" techniques disabled.";
@@ -467,7 +476,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					engine.whinge(ex); // full stack trace
 					firstError = false;
 				} else {
-					engine.carp("Buggered again!", ex); // a one-liner
+					engine.carp("Oops again", ex); // a one-liner
 				}
 			}
 			group.add(menuItem);
@@ -478,24 +487,24 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			menuItem.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					if ( !menuItem.isSelected() )
-						return;
-					String laf = menuItem.getName();
-					try {
-						THE_SETTINGS.setLookAndFeelClassName(laf);
-						UIManager.setLookAndFeel(laf);
-						SwingUtilities.updateComponentTreeUI(SudokuFrame.this);
-						// recreate the renderer to reload the correct icons
-						hintsTree.setCellRenderer(new HintsTreeCellRenderer());
-						SudokuFrame.this.repaint();
-						GenerateDialog gd = generateDialog;
-						if ( gd != null && gd.isVisible() ) {
-							SwingUtilities.updateComponentTreeUI(gd);
-							gd.pack();
-							gd.repaint();
+					if ( menuItem.isSelected() ) {
+						try {
+							final String laf = menuItem.getName();
+							THE_SETTINGS.setLookAndFeelClassName(laf);
+							UIManager.setLookAndFeel(laf);
+							SwingUtilities.updateComponentTreeUI(SudokuFrame.this);
+							// recreate the renderer to reload the correct icons
+							hintsTree.setCellRenderer(new HintsTreeCellRenderer());
+							SudokuFrame.this.repaint();
+							GenerateDialog gd = generateDialog;
+							if ( gd != null && gd.isVisible() ) {
+								SwingUtilities.updateComponentTreeUI(gd);
+								gd.pack();
+								gd.repaint();
+							}
+						} catch (Exception ex) {
+							displayError(ex);
 						}
-					} catch (Exception ex) {
-						displayError(ex);
 					}
 				}
 			});
@@ -637,10 +646,10 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 * @param wantMore are more hints wanted
 	 */
 	private void getAllHintsInBackground(final boolean wantMore, final boolean wantSolution) {
-		// One at a time please! I'm blocking manually with a boolean,
-		// because synchronized can't block accross threads.
-		if ( isGettingAllHints )
+		// One at a time!
+		if ( isGettingAllHints ) {
 			return;
+		}
 		isGettingAllHints = true;
 		setHintDetailArea("Searching for" + (wantMore ? " MORE" : "") + " hints...");
 		repaint();
@@ -748,8 +757,6 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		lblPuzzleRating.setText("0.00");
 	}
 
-	private static final Pattern CELL_ID_PATTERN = Pattern.compile("[A-I][1-9]");
-
 	private JEditorPane getHintDetailPane() {
 		if (hintDetailPane != null) {
 			return hintDetailPane;
@@ -772,17 +779,19 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				final int clks = e.getClickCount();
 				// right-click: copy the html-text to the clipboard
 				if ( clks==1 && (btn==BUTTON2 || btn==BUTTON3) ) {
-					if (hintDetailHtml != null)
+					if (hintDetailHtml != null) {
 						engine.copyToClipboard(hintDetailHtml);
-					else
+					} else {
 						engine.beep();
+					}
 					e.consume();
 				// double-left-click: if the selected text looks like a cell id
 				// then focus on (yellow background) that cell in the grid.
 				} else if ( clks==2 && btn==BUTTON1 ) {
 					final String id = hintDetailPane.getSelectedText();
-					if ( id.length()==2 && CELL_ID_PATTERN.matcher(id).matches() )
+					if ( id.length()==2 && CELL_ID_PATTERN.matcher(id).matches() ) {
 						gridPanel.setFocusedCellS(id);
+					}
 				}
 			}
 		});
@@ -798,7 +807,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					e.consume();
 				} else if ( keyCode == KeyEvent.VK_DELETE ) {
 					// this mess averts all possible NPE's getting deadTech.
-					// It's ugly but ultimate-safe.
+					// It's ugly but safe.
 					try {
 						final ArrayList<HintNode> nodes = getSelectedHintNodes();
 						if ( nodes!=null && !nodes.isEmpty() ) {
@@ -829,10 +838,11 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					e.consume();
 				// F3 to find next
 				} else if ( keyCode==KeyEvent.VK_F3 ) {
-					if ( target==null || target.isEmpty() || place==-1 )
+					if ( target==null || target.isEmpty() || place==-1 ) {
 						findFirst();
-					else
+					} else {
 						findNext();
+					}
 					e.consume();
 				}
 			}
@@ -1334,8 +1344,9 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			// strip prepended current directory path
 			String defDir = defaultDirectory.getAbsolutePath();
 			if (s.startsWith(defDir, 0)) {
-				s = s.substring(defDir.length() + 1); // remove default directory
-			}			// parse the rest into a PuzzleID and return it
+				s = s.substring(defDir.length() + 1);
+			}
+			// parse the rest into a PuzzleID and return it
 			return PuzzleID.parse(s);
 		} catch (Exception ex) {
 			carp(ex, "File Open");
@@ -2235,6 +2246,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 */
 	@Override
 	public String askForString(String question, String title) {
+		question = question.replaceAll("\\n", NL); // sigh
 		return showInputDialog(this, question, title, PLAIN_MESSAGE);
 	}
 
@@ -2248,11 +2260,44 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	/**
-	 * I was trying to IAsk.god but it keeps coming back as a cheat!
+	 * Ask the user for an integer between min and max.
 	 *
-	 * @return how many assbitrarianists does it take pluck a duck?
+	 * @param question the Question to ask the user
+	 * @param min the minimum value, inclusive
+	 * @param max the maximum value, inclusive. Note that max must be >= min.
+	 * @return the int from the user
 	 */
-	boolean cheat() {
+	@Override
+	public int askForInt(String question, int min, int max) {
+		assert min <= max;
+		question = question.replaceAll("\\n", NL);
+		String response = JOptionPane.showInputDialog(this, question
+			, "Please enter an integer between "+min+AND+max);
+		final String retryMessage =
+			"An integer between "+min+AND+max+" is required."+NL+question;
+		while ( true ) {
+			if ( response!=null && response.length()>0 ) {
+				int value;
+				try {
+					value = Integer.parseInt(response);
+					if ( value >= min && value <= max )
+						return value;
+				} catch (NumberFormatException ex) {
+//Irrelevant so eaten
+//					StdErr.whinge(ex);
+					Toolkit.getDefaultToolkit().beep();
+				}
+			}
+			response = JOptionPane.showInputDialog(this, retryMessage, "Try again.");
+		}
+	}
+
+	/**
+	 * I was trying to Ask.god(42) but he keeps returning "too cheap"!
+	 *
+	 * @return how many assbitrarians does it take run a real-estate scam?
+	 */
+	boolean cheap() {
 		return "IDKFA".equals("I" + askForString("assword:", "Cheat", "DKF"));
 	}
 

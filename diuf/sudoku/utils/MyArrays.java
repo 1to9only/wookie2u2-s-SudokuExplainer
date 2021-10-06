@@ -259,7 +259,7 @@ public final class MyArrays {
 //	 * @return
 //	 */
 //	public static boolean[] of(Iterable<Cell> cells) {
-//		boolean[] result = new boolean[81];
+//		boolean[] result = new boolean[GRID_SIZE];
 //		for ( Cell cell : cells )
 //			result[cell.i] = true;
 //		return result;

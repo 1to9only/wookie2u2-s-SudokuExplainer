@@ -34,11 +34,11 @@ package diuf.sudoku.solver.hinters.als;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
-import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Frmu;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -105,15 +105,15 @@ public class Als {
 	public final ARegion region;
 
 	/** The indices of cells in this ALS which maybe each value of this ALS. */
-	public final Idx[] vs = new Idx[10];
+	public final Idx[] vs = new Idx[VALUE_CEILING];
 
 	/** Cells which see all cells in this ALS which maybe each ALS value, (I
 	 * think) excepting the ALS cells themselves. Other values are null. */
-	public final Idx[] vBuds = new Idx[10];
+	public final Idx[] vBuds = new Idx[VALUE_CEILING];
 
 	/** vs union vBuds: Cells which see all cells in this ALS which maybe each
 	 * ALS value, including the ALS cells themselves. Other values are null. */
-	public final Idx[] vAll = new Idx[10];
+	public final Idx[] vAll = new Idx[VALUE_CEILING];
 
 	/** The union of the buddies of all values in this ALS. */
 	public Cell[] cells;

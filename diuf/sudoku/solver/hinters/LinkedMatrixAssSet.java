@@ -8,6 +8,8 @@ package diuf.sudoku.solver.hinters;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMyPollSet;
 import diuf.sudoku.utils.IMySet;
@@ -16,24 +18,22 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-
 /**
  * LinkedMatrixAssSet (an IAssSet) extends {@code AbstractSet<Ass>} to provide
  * high-performance contains and remove methods, at the cost of high RAM usage
  * which causes slow construction (we create a 9k array) so construct me as
  * little as possible: clear-and-reuse me instead.
  * <p>
- * Note that LinkedMatrixAssSet is always "Funky", ie add does NOT update
- * existing Ass's, it returns false; consistent with {@link FunkyAssSet}.
- * This is a pre-requisite of the getAss method which returns the Ass with
- * parents, ie the first one added. Any attempt to add a duplicate does
- * nothing, and returns false. This differs from java.util.Set implementations
- * which all replace an existing with the proffered new, and return false.
- * Ergo: It wasn't me boss! Mental!
+ * NOTE: LinkedMatrixAssSet is always "Funky", ie add does NOT update existing
+ * Ass's, it returns false; consistent with {@link FunkyAssSet}. This behaviour
+ * is a pre-requisite of the getAss method which returns the Ass with parents,
+ * ie the first one added. An attempt to add a duplicate does nothing, and
+ * returns false. This differs from java.util.Set implementations which replace
+ * any existing entry with the new, and return false, which is, IMHO, wrong!
  * <p>
  * Features are:<ul>
- * <li>contains and remove methods are fast O(1) as apposed to the slow O(1)
- *  of a {@code HashSet<Ass>} such as {@link FunkyAssSet}.</li>
+ * <li>contains and remove methods are fast O(1) as apposed to the slow O(1) of
+ *  a {@code HashSet<Ass>} such as {@link FunkyAssSet}.</li>
  * <li>a fast iterator (for an iterator, which are all slow compared to Javas
  *  array-iterator, mainly because of two methods per element).</li>
  * <li>clear is O(size) as apposed to arrays O(capacity).</li>
@@ -42,8 +42,8 @@ import java.util.NoSuchElementException;
  * </ul>
  * KRC 2020-10-23 moved LinkedMatrixAssSet from diuf.sudoku.utils coz nothing
  * with project-types (except Debug) should be in utils (to keep utils portable
- * between projects); It is now used in both chain and fish packages; so I am
- * not really sure where it belongs; so here it is, above both of them.
+ * between projects); I'm now used in both chain and fish packages; so I'm not
+ * sure where I belong, so I'm in the hinters package, above both of them.
  */
 public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 		implements IAssSet, IMyPollSet<Ass> {
@@ -67,7 +67,7 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 	private Node head = null;
 	private Node foot = null;
 	// nodes indexes: [cell.i][value]
-	private final Node[][] nodes = new Node[81][10];
+	private final Node[][] nodes = new Node[GRID_SIZE][VALUE_CEILING];
 	public int size = 0;
 
 	public LinkedMatrixAssSet() {
@@ -80,6 +80,7 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 
 	/**
 	 * Set this LinkedMatrixAssSet to a copy of the source.
+	 *
 	 * @param source to copy
 	 */
 	public void copyOf(LinkedMatrixAssSet source) {
@@ -88,12 +89,18 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 	}
 
 	/**
-	 * The copy method is protected so that it can be overridden. The copyOf
-	 * method clears this LinkedMatrixAssSet and then calls me, or whatever
-	 * you override me to be. If you want to add operations then override me
-	 * to do your pre-stuff, call me with super.copy(source);, then do your
-	 * post-stuff. If you want copyOf to append (no clear) then override copyOf
-	 * and just call me with copy(source);.
+	 * The copy method is protected so that it can be overridden. This class
+	 * is currently final simply because no subtypes are (as yet) needed, so I
+	 * thought it'd be a good idea to tell the compiler so. There's no reason
+	 * to not extends this class, that I am (as yet) aware of, so if you have
+	 * the desire just remove the final clause.
+	 * <pre>
+	 * * The copy-constructor just calls copy.
+	 * * copyOf clears this LinkedMatrixAssSet and then calls copy,
+	 *   or whatever you override copy to be.
+	 * * To make copyOf append (no clear) override copyOf to just call copy.
+	 * * To add operations override copy: do pre, super.copy, do post.
+	 * </pre>
 	 *
 	 * @param source to copy
 	 */
@@ -275,7 +282,7 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 			for ( Node n=head; n!=null; n=n.next )
 				nodes[n.ass.i][n.ass.value] = null;
 		else
-			for ( int i=0; i<81; ++i )
+			for ( int i=0; i<GRID_SIZE; ++i )
 				Arrays.fill(nodes[i], null);
 		size = 0;
 		head = foot = null;

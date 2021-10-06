@@ -43,7 +43,6 @@ import diuf.sudoku.solver.accu.IAccumulator;
 import static diuf.sudoku.utils.Frmt.AND;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 
-
 /**
  * AlsXz implements the Almost Locked Set XZ Sudoku solving technique.
  * <p>
@@ -86,9 +85,6 @@ public final class AlsXz extends AAlsHinter
 	// there may be others in future, because AlsFinderRecursive is still slow!
 	public static String alsFinderName() {
 		return ALS_FINDER.getClass().getSimpleName();
-	}
-	public static String rccFinderName() {
-		return RCC_FINDER.getClass().getSimpleName();
 	}
 
 	/**

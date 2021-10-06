@@ -8,6 +8,7 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.*;
 import diuf.sudoku.Grid.*;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VFIRST;
@@ -65,7 +66,7 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	private void clearAlssByValue() {
-		for ( int v=1; v<10; ++v )
+		for ( int v=1; v<VALUE_CEILING; ++v )
 			alssByValue[v].clear();
 	}
 
@@ -84,12 +85,12 @@ public class DeathBlossom extends AAlsHinter
 		// all cells in all ALSs in this DB.
 		final Idx idx = new Idx();
 		// ALSs by value: each ALS is associated with a maybe of the stem cell.
-		final Als[] alssByValue = new Als[10];
+		final Als[] alssByValue = new Als[VALUE_CEILING];
 		// populated in a complete DB. Cells in this DB which maybe each value.
 		// only cands are populated, other values remain null.
-		final Idx[] vs = new Idx[10];
+		final Idx[] vs = new Idx[VALUE_CEILING];
 		DeathBlossomData() {
-			for ( int v=1; v<10; ++v )
+			for ( int v=1; v<VALUE_CEILING; ++v )
 				vs[v] = new Idx();
 		}
 		void clear() {
@@ -99,13 +100,13 @@ public class DeathBlossom extends AAlsHinter
 			clearVs();
 		}
 		void clearVs() {
-			for ( int v=1; v<10; ++v )
+			for ( int v=1; v<VALUE_CEILING; ++v )
 				vs[v].clear();
 		}
 	}
 
 	// a list of all the ALSs containing each value 1..9
-	private final AlsList[] alssByValue = new AlsList[10];
+	private final AlsList[] alssByValue = new AlsList[VALUE_CEILING];
 	// The data which is the current DeathBlossom. These fields are in a class
 	// because that makes sense to me, and so clear method "zaps" the lot.
 	// Note that there's ONE DeathBlossomData per DeathBlossom instance.
@@ -145,7 +146,7 @@ public class DeathBlossom extends AAlsHinter
 	public DeathBlossom() {
 		super(Tech.DeathBlossom, false);
 		// populate array
-		for ( int v=1; v<10; ++v )
+		for ( int v=1; v<VALUE_CEILING; ++v )
 			alssByValue[v] = new AlsList();
 	}
 
@@ -249,7 +250,7 @@ public class DeathBlossom extends AAlsHinter
 			for ( Als als : alssByValue[v] ) {
 				// each ALS.cell which maybe value sees the stem
 				// vBuds[v] is buddies common to all ALS.cells which maybe v
-				if ( als.vBuds[v].contains(stem.i)
+				if ( als.vBuds[v].has(stem.i)
 				  // the ALSs can't overlap
 				  && db.idx.andNone(als.idx)
 				  // the ALSs share a common maybe other than stem.maybes
