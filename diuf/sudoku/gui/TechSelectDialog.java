@@ -8,7 +8,6 @@ package diuf.sudoku.gui;
 
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Settings.THE_SETTINGS;
-import static diuf.sudoku.utils.Frmt.SPACE;
 import diuf.sudoku.utils.Log;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -28,6 +27,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.border.TitledBorder;
+import static diuf.sudoku.utils.Frmt.SP;
 
 /**
  * A JDialog for the user to de/select which Sudoku solving Tech(niques) are
@@ -163,19 +163,18 @@ class TechSelectDialog extends JDialog {
 						if ( chk.isSelected() ) {
 							// carp if toolTip is set and warning is true
 							if ( tech.warning && tech.tip!=null ) {
-								JOptionPane.showMessageDialog(
-									  TechSelectDialog.this
-									, tech.name()+SPACE+tech.tip
+								JOptionPane.showMessageDialog(TechSelectDialog.this
+									, tech.name()+SP+tech.tip
 									, "WARNING"
 									, JOptionPane.WARNING_MESSAGE
 								);
 							}
 							switch ( tech ) {
-							// Locking xor LockingGeneralised
+							// Locking xor LockingBasic
 							case Locking:
-								unselect(Tech.LockingGeneralised);
+								unselect(Tech.LockingBasic);
 								break;
-							case LockingGeneralised:
+							case LockingBasic:
 								unselect(Tech.Locking);
 								break;
 							// BigWings is prefered to individual BigWing's.
@@ -194,6 +193,19 @@ class TechSelectDialog extends JDialog {
 							// Medusa3d is counter-productive with GEM
 							case GEM:
 								unselect(Tech.Medusa3D);
+								break;
+							// ALS_Chain_* are all mutally exclusive
+							case ALS_Chain_4:
+								unselect(Tech.alsChainTechsExcept(tech));
+								break;
+							case ALS_Chain_5:
+								unselect(Tech.alsChainTechsExcept(tech));
+								break;
+							case ALS_Chain_6:
+								unselect(Tech.alsChainTechsExcept(tech));
+								break;
+							case ALS_Chain_7:
+								unselect(Tech.alsChainTechsExcept(tech));
 								break;
 							}
 							wantedTechs.add(tech);
@@ -245,6 +257,12 @@ class TechSelectDialog extends JDialog {
 			}
 		}
 		return false;
+	}
+
+	// Unselect all of the given techs
+	private void unselect(Tech[] techs) {
+		for ( Tech tech : techs )
+			unselect(tech);
 	}
 
 	// create a new hacked JCheckBox
@@ -346,11 +364,11 @@ class TechSelectDialog extends JDialog {
 		  && !confirmNoSafetyNet() ) {
 			return;
 		}
-		// Locking XOR LockingGeneralised, never neither, never both.
+		// Locking XOR LockingBasic, never neither, never both.
 		if ( wantedTechs.contains(Tech.Locking) ) {
-			wantedTechs.remove(Tech.LockingGeneralised);
+			wantedTechs.remove(Tech.LockingBasic);
 		} else {
-			wantedTechs.add(Tech.LockingGeneralised);
+			wantedTechs.add(Tech.LockingBasic);
 		}
 		// Coloring XOR BUG, maybe neither, never both.
 		// Coloring finds a superset of BUG hints, and is faster.

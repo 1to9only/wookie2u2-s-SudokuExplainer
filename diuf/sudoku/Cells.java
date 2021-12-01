@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
 /**
  * The Cells class contains static helper methods for collections of Grid.Cell.
@@ -30,8 +29,8 @@ public class Cells {
 	 * @param cell
 	 * @return a new {@code HashSet<Cell>}
 	 */
-	public static HashSet<Cell> set(Cell cell) {
-		HashSet<Cell> result = new HashSet<>();
+	public static HashSet<Cell> set(final Cell cell) {
+		final HashSet<Cell> result = new HashSet<>();
 		result.add(cell);
 		return result;
 	}
@@ -42,8 +41,8 @@ public class Cells {
 	 * @param cells
 	 * @return a new {@code HashSet<Cell>}
 	 */
-	public static HashSet<Cell> set(Cell... cells) {
-		HashSet<Cell> result = new HashSet<>(cells.length, 1.0F);
+	public static HashSet<Cell> set(final Cell... cells) {
+		final HashSet<Cell> result = new HashSet<>(cells.length, 1.0F);
 		for ( Cell c : cells )
 			result.add(c);
 		return result;
@@ -54,12 +53,12 @@ public class Cells {
 	 * can have "plain" list method.
 	 *
 	 * @param cells
-	 * @return 
+	 * @return
 	 */
 	public static ArrayList<Cell> list(Cell[] cells) {
 		return list(cells, cells.length);
 	}
-	
+
 	/**
 	 * Create a new List from a re-usable cells array.
 	 *
@@ -67,8 +66,8 @@ public class Cells {
 	 * @param n
 	 * @return
 	 */
-	public static ArrayList<Cell> list(Cell[] cells, int n) {
-		ArrayList<Cell> result = new ArrayList<>(n);
+	public static ArrayList<Cell> list(final Cell[] cells, final int n) {
+		final ArrayList<Cell> result = new ArrayList<>(n);
 		for ( int i=0; i<n; ++i )
 			result.add(cells[i]);
 		return result;
@@ -78,10 +77,10 @@ public class Cells {
 	 * Create a new array of cells from any sort of Collection of cells.
 	 *
 	 * @param cells
-	 * @return 
+	 * @return
 	 */
-	public static Cell[] array(Collection<Cell> cells) {
-		Cell[] result = new Cell[cells.size()];
+	public static Cell[] array(final Collection<Cell> cells) {
+		final Cell[] result = new Cell[cells.size()];
 		int i = 0;
 		for ( Cell c : cells )
 			result[i++] = c;
@@ -151,7 +150,7 @@ public class Cells {
 	 * @param size the size of the cached array to retrieve
 	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
 	 */
-	public static Cell[] arrayA(int size) {
+	public static Cell[] arrayA(final int size) {
 		Cell[] cells = CASA[size];
 		// late populate CellsArrayS 21..80
 		if ( cells == null )
@@ -164,7 +163,7 @@ public class Cells {
 	 * @param size the size of the cached array to retrieve
 	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
 	 */
-	public static Cell[] arrayB(int size) {
+	public static Cell[] arrayB(final int size) {
 		Cell[] cells = CASB[size];
 		// late populate CellsArrayS 21..80
 		if ( cells == null )
@@ -178,9 +177,9 @@ public class Cells {
 				Arrays.fill(CASA[i], null);
 	}
 
-	public static void cleanCasA(int i) {
-		if ( CASA[i] != null )
-			Arrays.fill(CASA[i], null);
+	public static void cleanCasA(final int size) {
+		if ( CASA[size] != null )
+			Arrays.fill(CASA[size], null);
 	}
 
 	public static void cleanCasB() {
@@ -196,8 +195,8 @@ public class Cells {
 	 * @param n
 	 * @return
 	 */
-	public static Cell[] copy(Cell[] src, int n) {
-		Cell[] dest = new Cell[n];
+	public static Cell[] copy(final Cell[] src, final int n) {
+		final Cell[] dest = new Cell[n];
 		System.arraycopy(src, 0, dest, 0, n);
 		return dest;
 	}
@@ -207,26 +206,71 @@ public class Cells {
 	 *
 	 * @param cells
 	 */
-	public static void clear(Cell[] cells) {
+	public static void clear(final Cell[] cells) {
 		for ( int i=0,n=cells.length; i<n; ++i )
 			cells[i] = null;
 	}
 
 	/**
-	 * Extract maybes from 'cells' into 'maybes'. Done for speed ONCE,
-	 * rather than repeatedly dereferencing the cell repeatedly.
+	 * Read the {@link Cell#maybes} from 'cells' into 'result', ONCE for
+	 * speed, rather than repeatedly dereferencing the cell repeatedly.
 	 *
-	 * @param cells to read maybe.bits from
-	 * @param maybes array to set
-	 * @return maybes so that you can pass me a CAS or a new array, just so
-	 *  it's still all in one line. Note that maybes.length is how many to read
-	 *  so maybes must be exactly the right size, so that cells can be a fixed
-	 *  size array.
+	 * @param cells to read: length determines how many
+	 * @param result to repopulate
+	 * @return pass-through the given result array
 	 */
-	public static int[] maybes(final Cell[] cells, final int[] maybes) {
-		for ( int i=0,n=maybes.length; i<n; ++i )
-			maybes[i] = cells[i].maybes;
-		return maybes;
+	public static int[] maybes(final Cell[] cells, final int[] result) {
+		return maybes(cells, cells.length, result);
+	}
+
+	/**
+	 * Read the {@link Cell#maybes} from 'cells' into 'result', ONCE for
+	 * speed, rather than repeatedly dereferencing the cell repeatedly.
+	 *
+	 * @param cells to read
+	 * @param n how many cells to read
+	 * @param result to repopulate
+	 * @return pass-through the given result array
+	 */
+	public static int[] maybes(final Cell[] cells, final int n, final int[] result) {
+		for ( int i=0; i<n; ++i )
+			result[i] = cells[i].maybes;
+		return result;
+	}
+
+	/**
+	 * Read the {@link Cell#i indices} of 'cells' into 'result', ONCE for
+	 * speed, rather than repeatedly dereferencing the cell repeatedly.
+	 *
+	 * @param cells to read
+	 * @param n number of cells
+	 * @param result to repopulate
+	 * @return how many
+	 */
+	public static int indices(final Cell[] cells, final int n, final int[] result) {
+		for ( int i=0; i<n; ++i ) {
+			result[i] = cells[i].i;
+		}
+		return n;
+	}
+
+	/**
+	 * Repopulates 'result' with 'n' 'src' cells having size &lt; 'ceiling'.
+	 *
+	 * @param ceiling the maximum cell size plus one
+	 * @param src source cells
+	 * @param n number of source cells
+	 * @param result destination cells array, to repopulate
+	 * @return the number of cells in result
+	 */
+	public static int sized(final int ceiling, final Cell[] src, final int n, final Cell[] result) {
+		int cnt = 0;
+		for ( int i=0; i<n; ++i ) {
+			if ( src[i].size < ceiling ) {
+				result[cnt++] = src[i];
+			}
+		}
+		return cnt;
 	}
 
 	/**
@@ -239,12 +283,12 @@ public class Cells {
 	 * @param cells to get the common buds of
 	 * @return a new Idx of the common buds
 	 */
-	public static Idx cmnBudsNew(Iterable<Cell> cells) {
-		Iterator<Cell> it = cells.iterator();
+	public static Idx cmnBudsNew(final Cell[] cells) {
 		// it throws an NPE if cells is empty... let it!
-		final Idx result = new Idx(it.next().buds);
-		while (it.hasNext()) {
-			result.and(it.next().buds);
+		final Idx result = new Idx(cells[0].buds);
+		for ( int i=1,e=cells.length-1; ; ) {
+			result.and(cells[i].buds);
+			if(++i>e) break;
 		}
 		return result;
 	}

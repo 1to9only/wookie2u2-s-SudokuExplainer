@@ -15,74 +15,56 @@ import diuf.sudoku.utils.IMyPollSet;
 import java.util.AbstractSet;
 import java.util.Iterator;
 
-
 /**
- * A LinkedMatrixCellSet is an {@code IMyPollSet<Cell>} which extends
- * {@code java.util.Set<Cell>} with a few funky features:
- * <ul>
- * <li>Fast O(1) contains and remove methods, as apposed to ArrayLists O(n/2) or
- * HashMaps O(8ish depending on chain length, ie the collision rate produced by
- * the elements hashCode() method and the local hash method, which is all out to
- * sea).
+ * LinkedMatrixCellSet exists for speed.
+ * <p>
+ * I implement {@link ILinkedCellSet},
+ * which adds {idx, idx1, and idx2} to {@link IMyPollSet<Cell>},
+ * which adds {poll} {@code java.util.Set<Cell>}.
+ * <p>
+ * Features:<ul>
+ * <li>Fast O(1) contains and remove methods, as apposed to ArrayLists hopeless
+ * O(n/2) or HashMaps better-but-still-not-great O(8'ish).
  * <li>O(n) clear method, as apposed to HashMaps O(capacity).
- * <li>A "fast" iterator (all iterators are too slow, IMHO) with remove, which
- * does not throw ConcurrentModificationException's. <b>NOTE</b> that unlike
- * java.util.* my Iterator does <b>not</b> ever throw
- * ConcurrentModificationException, so the caller <b>must not</b> modify the set
- * (except through the iterator) whilst iteration is underway. If you're tempted
- * to do that you should probably use this set as a queue (ie the poll() method)
- * instead: mischief managed, and my Iterator is a bit faster to boot.
- * <li>Accessing {@code poll()} currently requires your reference-type be either
- * {@code IMyPollSet<Cell>} or the LinkedMatrixCellSet implementation. Almost
- * any Set can be extended to provide a simple poll() method. I really can't
- * think why it's not in the JAPI. We gain so much usefulness for so little
- * effort. I guess that most programmers are using list-as-queue where they
- * actually want set-as-queue, simply because that's all the JAPI provides. I'd
- * also guess that most of the programmers who do this don't realise it, and
- * therefore software is buggier because multiple instances of a thing may be
- * enqued and processed, with demi-kaotic results.
- * <li>NB: Everything in this class is public. The Node, the head, the foot, the
- * matrix, and the size. I operate on the premise of look, but don't touch,
- * unless you understand it (A. Einstein), or you just really really want to
- * (D. Adams). But, if you want to access my public bits then you're innately
- * bound to LinkedMatrixCellSet as your reference type, which is limiting. You
- * never get something for nothing. Speed or flexibility. Your choice.
- * <li>A {@code int[] idx()} method to get an idx (index) of the cells in this
- * Set as an array of 3 times 27-bit bitsets = 81 cells. Also the idx1 and idx2
- * methods get the intersection of this Set and another, returning does the
- * result contain less than 1 (or 2) cells: being a fast O(1) "&=" bit-twiddle
- * retainAll, instead of hammering the ____ing ____ out of my nice fast O(1)
- * contains method. Sigh.
+ * <li>Fast iterator (all iterators are too slow, IMHO) with remove, which does
+ * not (unlike java.util.*) throw ConcurrentModificationException, so my caller
+ * <b>MUST NOT</b> modify the set (except through the iterator) while iteration
+ * is underway. If you're tempted then use poll instead, that's what it's for.
+ * <li>Using {@code poll()} currently requires your reference-type be either
+ * {@code IMyPollSet<Cell>} or this LinkedMatrixCellSet implementation. <br>
+ * Almost any Set can be extended to provide a simple poll() method. I can't
+ * think why it's not in the JAPI. We gain much utility for little trouble. I
+ * guess that most programmers are using list-as-queue where they actually want
+ * set-as-queue because that's all the JAPI provides. I also guess most hackers
+ * who do this don't realise they've done it, hence software is buggier because
+ * multiple instances are vended, yielding chaotic results.
+ * <li>All my fields are public {node, head, foot, matrix, and size} on the
+ * premise of look, but don't touch, unless you understand it (Einstein A.), or
+ * you just really want to (Adams D.). But, accessing fields requires you bind
+ * to LinkedMatrixCellSet. Still, ya kana have aught for nix. So, you can have
+ * speed or implementation-independence. Your choice.
+ * <li>The {@code int[] idx()} method gets an idx (index) of the cells in this
+ * Set as three by 27-bit bitsets, for 81 cells. Also the idx1 and idx2 methods
+ * get the intersection of this Set and another, returning does result contain
+ * less than 1 (or 2) cells: yielding a fast O(1) "&=" bit-twiddle retainAll,
+ * instead of hammering the ____ing s__t out of my fast O(1) contains method,
+ * which is inherently O(n). sigh.
  * <li>The downside is high memory usage and therefore a slow constructor. So
- * use me where you need idx's or a fast contains/remove implementation and
- * you can get away with clearing instead of reconstructing. Basically, I'm at
- * my best as a field, which you clear, fill, and then read; repeatedly.
+ * use me where you need idx's or a fast contains/remove implementation and you
+ * can get away with clearing instead of reconstructing. Basically, I'm at my
+ * best as a field, which you clear, fill, and then read; repeatedly.
  * </ul>
+ * I was an inner class of Aligned3Exclusion which mysteriously ran 20 seconds
+ * slower, and IIRC inner classes are optimised differently, so I was promoted
+ * to an outer-class; that's only (currently) used in A*E. Slowness solved. In
+ * fact I'm now 113.45 secs faster than HashSet over top1465.
  * <p>
- * This used-to-be an inner class in AlignedTripleExclusion which mysteriously
- * ran 20 seconds slower, and IIRC inner classes are optimised differently, so
- * I "promoted it" to an outer-class; that's only (currently) used in
- * Aligned*Exclusion. The mysterious slow-down went away, in fact it was
- * 113.45 seconds faster than HashSet for top1465. You could still extend a
- * {@code HashSet<Cell>} instead of me (if you think I have bugs); you'd just
- * have to work-out how to do the poll and idx/1/2 methods.
- * <p>
- * Aligned*Exclusion is NOT used in LogicalSolver.SPEED mode, BUT asat May 2018
- * I've sped-up everything to the point that I'm (mostly) using ACCURACY mode in
- * LogicalSolverTester coz it's "fast enough" and it picks-up all the heavies
- * and chains; except that Aligned*Exclusion is/are still too slow, so I mostly
- * deselect them in the Options Solving Techniques dialog.<br>
- * See: {@code HKEY_CURRENT_USER\Software\JavaSoft\Prefs\diuf\sudoku}
- * <p>
- * So this is a part of the push to the ultimate fast accurate analysis of any
- * Sudoku puzzle. It's a challenge.
- * <p>
- * This is free, open source software: use, re-use, enhance, adapt, steal, or
- * just steal some ideas. The only rule is "It's NOT my ____ing problem!".
+ * If you suspect I have bugs then drop-in LinkedHashCellSet instead.
+ * If results differ there's a good chance I have a bug.
  */
 public class LinkedMatrixCellSet
 		extends AbstractSet<Cell>
-		implements IMyPollSet<Cell>
+		implements ILinkedCellSet
 {
 	// a node in a doubly-linked list of Cells
 	public static final class Node {
@@ -100,9 +82,15 @@ public class LinkedMatrixCellSet
 		}
 	}
 
-	// Takes a wee while to create, something like 144 ns each in testing, but
-	// it seems to depend on how you hold your tongue. Dunno why arrays are so
-	// slow in Java. Slow to create, slow to read, slower to write. Argh! Meh!
+	// The 3 bitsets of the Idx we build. It's a bit faster to re-use a single
+	// array than it is to repeatedly create on the fly. Array creation in Java
+	// seems VERY slow, and I know not why. I build several billion Idx's, so
+	// any efficiency is time-significant, and this one's simple to boot.
+	private static final int[] ARRAY = new int[3];
+
+	private Idx idx;
+
+	// NB: This array is a bit slow to create.
 	public final Node[][] matrix = new Node[REGION_SIZE][REGION_SIZE];
 	public Node head = null;
 	public Node foot = null;
@@ -268,79 +256,74 @@ public class LinkedMatrixCellSet
 		};
 	}
 
-	// ------------------------------- indexland -------------------------------
+	// ------------------------------- indexland ------------------------------
 
 	/**
-	 * Get an index of this CellSet. Ie get an array of 3 * 27-bit bitsets
-	 * containing the Grid.cells indexes of each cell in this CellSet. The
-	 * position (from the right) of each set (1) bit is a Grid.cells array
-	 * index (Cell.i) of a cell that is present in this CellSet.
+	 * Get a cached Idx of this CellSet. Ie get an Idx containing the indice
+	 * of each cell in this CellSet.
 	 * <p>
-	 * The returned index is an array of 3 ints, with 27 bits used in each,
-	 * for the 81 cells in the Grid.
+	 * The returned Idx is fundamentally just an array of 3 ints, with 27 bits
+	 * used in each, to represent the 81 cells in a Grid. The position of each
+	 * set (1) bit represents a cell/indice that is present in this Set.
 	 * <p>
-	 * The {@link Grid#at(Cell[] result, int[] idx)} method populates an
-	 * array of Cells from an index, and returns the count.
-	 * <p>
-	 * Idx's exist for Aligned*Exclusion. idx1 &amp; idx2 <b>quickly</b> do
-	 * {@code retainAll} on {@code CellSet}s with the bitwise-and operator:
-	 * {@code 1010 & 1101 == 1000} which is seriously bulls__t quick compared
-	 * to the alternative.
+	 * Idx's exist for A*E to implement a <u>fast</u> {@code retainAll} on
+	 * {@code CellSet}s using bitwise-and: {@code 1010 & 1101 == 1000}.
 	 * <p>
 	 * This method is O(n) even for a cache-miss, not O(81), and it turns
 	 * retainAll which was O(n) calls of my fast 0(1) contains(Cell) method
-	 * into <b>ONE</b> fast O(1) "&" operation. I'm well proud of this.
+	 * into <u>ONE</u> fast O(1) "&" operation. I'm a bit proud of this.
 	 * <p>
-	 * <b>Villainious Laughenating Wobblybonks Batman!</b>
-	 * <p>
-	 * NB: The idx is cached internally. The cache is cleared when you add or
+	 * NOTE: The idx is cached internally. The cache is cleared when you add or
 	 * remove an item, or clear this Set. Trixily I share the idx cache with
 	 * the other idx*(...) methods, so its read ONCE no matter which you call.
 	 * <p>
-	 * NB: This method is fast O(1) for a cache hit. We rely on cache-hits per
-	 * set to reduce runtime, which happens in A*E, especially the larger ones,
-	 * where each cell in the set visits each excluder-set, so larger sets
-	 * means a higher hit rate, and it's the larger ones that are slow.
+	 * NOTE: This method is fast O(1) for a cache hit. I rely on cache-hits per
+	 * set to reduce runtime, which happens in A*E, especially the big ones,
+	 * where each cell visits each excluder-set, so bigger sets means a higher
+	 * cache-hit-rate, and it's the big ones that're slow.
 	 *
 	 * @return cached int[3] * 27 used bits = 81 cells. Do NOT ____ with the
 	 * arrays contents! You WILL be shot!
 	 */
-	Idx idx() {
-		if ( idx == null ) { // created once then cached (until you change set)
-			a[0]=a[1]=a[2]=0; // zero THE static array
+	@Override
+	public Idx idx() {
+		if ( idx == null ) { // cache until this set changes, which nulls idx
+			ARRAY[0]=ARRAY[1]=ARRAY[2]=0; // zero THE static array
 			for ( Node n=head; n!=null; n=n.next ) // O(size) faster than O(81)
-				a[n.cell.idxdex] |= n.cell.idxshft;  // add n.cell.i to idx
-			idx = new Idx(a);
+				ARRAY[n.cell.idxdex] |= n.cell.idxshft;  // add n.cell.i to idx
+			idx = new Idx(ARRAY);
 		}
 		return idx;
 	}
-	private Idx idx;
-	private static final int[] a = new int[3];
 
 	/**
 	 * This is shorthand for Aligned*Exclusion to call {@link #idx()} and set
-	 * the result to the intersection of my index and given other index, ie:
+	 * the 'result' to the intersection of me and the 'other' index, ie:
 	 * <pre>{@code
 	 *	result[0] = mine[0] & other[0];
 	 *	result[1] = mine[1] & other[1];
 	 *	result[2] = mine[2] & other[2];
 	 * }</pre>
-	 * and return is the result empty, ie contains zero set (1) bits.
+	 * returning is the result empty, ie contains zero set (1) bits.
 	 * <p>
 	 * It's implemented this way rather than repeat the intersection code many
 	 * times in the various A*E implementation classes. It's also faster.
 	 * <p>
-	 * Trixily I share the cache with the other idx*(...) methods, so it is
+	 * Trickily I share the cache with the other idx*(...) methods, so it is
 	 * read ONCE (unless you modify this Set).
+	 * <p>
+	 * Implementing idx1 and idx2 here ONCE saves repeating tricky code many
+	 * times.
 	 *
-	 * @param result Idx the result index to be set
 	 * @param other Idx the other index to bitwise-and (&amp;) with mine
+	 * @param result Idx the result index to be set
 	 * @return is the result empty, ie contains zero set (1) bits. This odd
 	 *  return value is exactly what we want in A*E. Implementing it here ONCE
 	 *  saves us repeating a pretty tricky line of code hundreds of times.
 	 */
-	boolean idx1(final Idx result, final Idx other) {
-		final Idx x = idx();
+	@Override
+	public boolean idx1(final Idx other, final Idx result) {
+		final Idx x = idx(); // get my idx (cached)
 		// return result isEmpty
 		return (result.a0 = x.a0 & other.a0) == 0
 			 & (result.a1 = x.a1 & other.a1) == 0
@@ -348,40 +331,34 @@ public class LinkedMatrixCellSet
 	}
 
 	/**
-	 * Another shorthand for Aligned*Exclusion which calls {@code idx()} sets
-	 * the result to {@code idx &amp; other} and returns: Does result contain
-	 * LESS THAN two values?
-	 * @param result int[3] the result index to set
+	 * Shorthand for Aligned*Exclusion which calls {@code idx()} sets result
+	 * to {@code idx &amp; other} and returns: Does result contain LESS THAN
+	 * two indices?
+	 * <p>
+	 * Implementing idx1 and idx2 here ONCE saves repeating tricky code many
+	 * times.
+	 *
 	 * @param other int[3] the other index to "and" with this one
+	 * @param result int[3] the result index to set
 	 * @return does the result index contain LESS THAN two values? This odd
-	 * return value is exactly what's required in A*E. Implementing it here
-	 * ONCE saves repeating some pretty tricky code hundreds of times.
+	 * return value is exactly what's required in A*E.
 	 */
-	boolean idx2(final Idx result, final Idx other) {
-		final Idx x = idx();
-		int cnt=0, only=0; // the only element that's non-zero
+	@Override
+	public boolean idx2(final Idx other, final Idx result) {
+		int cnt = 0 // the number of elements that're non-zero
+		  , only = 0; // the only element that's non-zero
+		final Idx x = idx(); // get my idx (cached)
 		if ( (result.a0=x.a0 & other.a0)>0 && ++cnt==1 )
 			only = result.a0;
 		if ( (result.a1=x.a1 & other.a1)>0 && ++cnt==1 )
 			only = result.a1;
 		if ( (result.a2=x.a2 & other.a2)>0 && ++cnt==1 )
 			only = result.a2;
-		// return does the result index contain LESS THAN 2 set (1) bits?
+		// return does result contain < 2 set bits?
 		return cnt==0
-			|| (cnt==1 && VSIZE[ only       & 511]
-				        + VSIZE[(only>>>9)  & 511]
-				        + VSIZE[(only>>>18) & 511] == 1);
+			|| (cnt==1 && VSIZE[ only       & 511] // 511 is 9 1's
+			            + VSIZE[(only>>>9)  & 511]
+			            + VSIZE[(only>>>18) & 511] == 1);
 	}
 
-	public static interface CellVisitor {
-		public boolean visit(Cell c);
-	}
-
-	// nb: myForEach to avert collision with Iterable forEach
-	public boolean myForEach(CellVisitor v) {
-		for ( Node n=head; n!=null; n=n.next )
-			if ( v.visit(n.cell) )
-				return true;
-		return false;
-	}
 }

@@ -12,16 +12,15 @@ import diuf.sudoku.solver.accu.IAccumulator;
 
 
 /**
- * Check that all empty cells have some potential values remaining.
+ * Check that each empty cell has atleast one potential value remaining.
  * <p>
- * Note that the grid now has the hasMissingMaybes method which implements the
- * actual examination of the grid, so all this class need do is wrap that into
- * an implementation of IHinter.
+ * {@link Grid#hasMissingMaybes} implements the examination, which I present as
+ * an IHinter.
  */
 public final class NoMissingMaybes extends AWarningHinter {
 
 	public NoMissingMaybes() {
-		super(Tech.NoMissingMaybes);
+		super(Tech.MissingMaybes);
 	}
 
 	@Override

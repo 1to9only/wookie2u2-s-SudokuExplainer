@@ -56,7 +56,7 @@ public final class Settings implements Cloneable {
 "Analysis=true\n" +
 "TooFewClues=false\n" +
 "TooFewValues=false\n" +
-"SingleSolution=false\n" +
+"OneSolution=false\n" +
 "NoMissingMaybes=false\n" +
 "NoDoubleValues=false\n" +
 "NoHomelessValues=false\n" +
@@ -64,7 +64,7 @@ public final class Settings implements Cloneable {
 "NakedSingle=true\n" +
 "HiddenSingle=true\n" +
 "Locking=true\n" +
-"LockingGeneralised=false\n" +
+"LockingBasic=false\n" +
 "DirectNakedPair=false\n" +
 "DirectHiddenPair=false\n" +
 "DirectNakedTriple=false\n" +
@@ -341,7 +341,7 @@ public final class Settings implements Cloneable {
 			if ( !this.wantedTechs.contains(tech) ) {
 				System.out.println("MIA: "+tech);
 				return false;
-			}				
+			}
 		}
 		return true;
 	}

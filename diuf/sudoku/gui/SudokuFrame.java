@@ -8,7 +8,8 @@ package diuf.sudoku.gui;
 
 import diuf.sudoku.Build;
 import diuf.sudoku.Grid;
-import diuf.sudoku.PuzzleID;
+import diuf.sudoku.GridClipboard;
+import diuf.sudoku.SourceID;
 import diuf.sudoku.Run;
 import diuf.sudoku.Settings;
 import static diuf.sudoku.Settings.*;
@@ -156,7 +157,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private JMenu optionsMenu, mitLookAndFeel; // a sub-menu under optionsMenu
 	private JMenuItem mitSelectTechniques, mitSaveSettings;
 	private JCheckBoxMenuItem mitFilterHints, mitShowMaybes, mitGreenFlash
-		, mitAntialiasing, mitHacky, mitGodMode;
+		, mitAntialiasing, mitHacky, mitGod;
 	// Help
 	private JMenu helpMenu;
 	private JMenuItem mitShowWelcome, mitAbout;
@@ -223,7 +224,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			@Override
 			public void drop(DropTargetDropEvent dtde) {
 				try {
-					String stringData = IO.readStringFromDropEvent(dtde);
+					String stringData = GridClipboard.read(dtde);
 					//System.out.println("SudokuFrame.drop: plain/text;java.lang.String:\n"+stringData);
 					engine.loadStringIntoGrid(stringData);
 					gridPanel.repaint();
@@ -301,7 +302,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			p.setResultColor(-1); // meaning none
 			p.setAquaBGCells(null);
 			p.setPinkBGCells(null);
-			p.setPinkRegions(null);
+			p.setPinkos(null);
 			p.setRedBGCells(null);
 			p.setGreenBGCells(null);
 			p.setOrangeBGCells(null);
@@ -326,7 +327,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			p.setResultColor(h.getResultColor());
 			p.setAquaBGCells(h.getAquaCells(viewNum)); // null OK
 			p.setPinkBGCells(h.getPinkCells(viewNum)); // null OK
-			p.setPinkRegions(h.getPinkRegions()); // null OK
+			p.setPinkos(h.getPinkos()); // null OK
 			if ( h instanceof AWarningHint )
 				p.setRedBGCells(((AWarningHint) h).getRedCells());
 			p.setGreenBGCells(h.getGreenCells(viewNum)); // null OK
@@ -669,7 +670,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private void applySelectedHintsAndGetNextHint(boolean wantMore, boolean wantSolution) {
 		try {
 			if ( engine.getGrid().numSet > 80 ) {
-				setCurrentHint(engine.solver.SOLVED_HINT, false);
+				setCurrentHint(engine.solver.solvedHint, false);
 			} else {
 				engine.applySelectedHints(); // throws UnsolvableException
 				getAllHintsInBackground(wantMore, wantSolution);
@@ -790,7 +791,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				} else if ( clks==2 && btn==BUTTON1 ) {
 					final String id = hintDetailPane.getSelectedText();
 					if ( id.length()==2 && CELL_ID_PATTERN.matcher(id).matches() ) {
-						gridPanel.setFocusedCellS(id);
+						gridPanel.setFocusedCellById(id);
 					}
 				}
 			}
@@ -1009,6 +1010,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private JPanel getViewSelectionPanel() {
 		if (viewSelectPanel == null) {
 			viewSelectPanel = new JPanel(new FlowLayout());
+			// nb: cheatName remains "" until cheats are authorised
+			viewSelectPanel.add(getLblCheatName());
 			viewSelectPanel.add(getCmbViewSelector());
 		}
 		return viewSelectPanel;
@@ -1283,11 +1286,11 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		try {
 			File selectedFile = chooseFile(new PuzzleFileFilter());
 			if (selectedFile != null) {
-				// handle PuzzleID special case, for example:
+				// handle SourceID special case, for example:
 				// 347#C:\\Users\\User\\Documents\\NetBeansProjects\\DiufSudoku\\top1465.d5.mt
 				// without the escaped backslashes, obviously.
-				PuzzleID pid = selectedFile.exists()
-						? new PuzzleID(selectedFile, 0)
+				SourceID pid = selectedFile.exists()
+						? new SourceID(selectedFile, 0)
 						: extractPuzzleID(selectedFile.toString());
 				setTitle(Build.ATV + "   " + engine.loadFile(pid));
 			}
@@ -1329,14 +1332,14 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				: null;
 	}
 
-	// Extract a PuzzleID from the selectedFile.toString().
+	// Extract a SourceID from the selectedFile.toString().
 	// This is required because Swing prepends the current directory to whatever
 	// the user typed, because that absolutely MUST be a file name, right?
 	// So we remove the preceeding current-directory-path, and parse the rest
-	// of the string as a PuzzleID, and return it.
-	private PuzzleID extractPuzzleID(String s) {
+	// of the string as a SourceID, and return it.
+	private SourceID extractPuzzleID(String s) {
 		try {
-			// no hash means there's definately no PuzzleID here
+			// no hash means there's definately no SourceID here
 			if (s.indexOf('#') < 0) { // ie -1 meaning not found
 				carp("'#' not found in:" + NL + s, "File Open");
 				return null;
@@ -1346,8 +1349,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			if (s.startsWith(defDir, 0)) {
 				s = s.substring(defDir.length() + 1);
 			}
-			// parse the rest into a PuzzleID and return it
-			return PuzzleID.parse(s);
+			// parse the rest into a SourceID and return it
+			return SourceID.parse(s);
 		} catch (Exception ex) {
 			carp(ex, "File Open");
 			return null;
@@ -1369,7 +1372,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					try {
-						PuzzleID pid = engine.reloadFile();
+						SourceID pid = engine.reloadFile();
 						setTitle(Build.ATV + (pid != null ? "    " + pid : ""));
 						repaint();
 					} catch (AccessControlException ex) {
@@ -1390,7 +1393,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				public void actionPerformed(ActionEvent e) {
 					try {
 						// there is no "next" without a source for "this"
-						PuzzleID src = engine.getGrid().source;
+						SourceID src = engine.getGrid().source;
 						if (src == null) {
 							return;
 						}
@@ -1404,7 +1407,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 						}
 						// load the next puzzle
 						String filename = src.file.getName().toLowerCase();
-						PuzzleID pid;
+						SourceID pid;
 						if (filename.endsWith(".mt")) {
 							clearHintDetailArea();
 							pid = engine.loadNextPuzzle();
@@ -1948,7 +1951,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			optionsMenu.add(getMitGreenFlash());
 			optionsMenu.add(getMitSelectTechniques());
 			optionsMenu.add(getMitHacky());
-			optionsMenu.add(getMitGodMode());
+			optionsMenu.add(getMitGod());
 			optionsMenu.addSeparator();
 			optionsMenu.add(getMitLookAndFeel());
 			optionsMenu.add(getMitAntiAliasing());
@@ -2033,24 +2036,24 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		return mitHacky;
 	}
 
-	private JCheckBoxMenuItem getMitGodMode() {
-		if (mitGodMode == null) {
+	private JCheckBoxMenuItem getMitGod() {
+		if (mitGod == null) {
 			JCheckBoxMenuItem item = new JCheckBoxMenuItem("God Mode");
 			item.setMnemonic(KeyEvent.VK_D);
 			item.setToolTipText("for lazy bastards, like me");
 			item.setEnabled(true);
-			item.setSelected(engine.godMode);
-			mitGodMode = item;
-			mitGodMode.addItemListener(new ItemListener() {
+			item.setSelected(engine.god);
+			mitGod = item;
+			mitGod.addItemListener(new ItemListener() {
 				@Override
 				public void itemStateChanged(ItemEvent e) {
-					// God does NOT persist in your Settings. A shame really.
-					engine.godMode = mitGodMode.isSelected() && god();
-					engine.cheatMode = engine.godMode;
+					// god is non-persistant. A shame really.
+					// cok vs god decomposes into non-determinism.
+					engine.cheater = engine.god = mitGod.isSelected() && god();
 				}
 			});
 		}
-		return mitGodMode;
+		return mitGod;
 	}
 
 	boolean god() {
@@ -2293,11 +2296,11 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	/**
-	 * I was trying to Ask.god(42) but he keeps returning "too cheap"!
+	 * I was trying to Ask.god(42) but he just throws a NullPointerException!
 	 *
 	 * @return how many assbitrarians does it take run a real-estate scam?
 	 */
-	boolean cheap() {
+	boolean cheat() {
 		return "IDKFA".equals("I" + askForString("assword:", "Cheat", "DKF"));
 	}
 
@@ -2320,5 +2323,17 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		}
 		showMessageDialog(this, message, title, ERROR_MESSAGE);
 	}
+
+	// ================================ CHEAT =================================
+
+	// this method is package visible to be called by SudokuGridPanel,
+	// which sets my text to the cheat-name in it's mouse-over event
+	JLabel getLblCheatName() {
+		if ( lblCheatName == null ) {
+			lblCheatName = new JLabel();
+		}
+		return lblCheatName;
+	}
+	private JLabel lblCheatName;
 
 }

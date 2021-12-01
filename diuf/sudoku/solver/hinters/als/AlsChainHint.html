@@ -1,16 +1,16 @@
 <html>
 <body>
 <h2>HoDoKu ALS-Chain</h2>
-<p>
-The Chain of Almost Locked Sets (ALSs):
-<pre>{0}</pre> share the Restricted Common Candidates (RCCs) such that they push
-each other along the chain resulting in the z value (<b>{1}</b>) being in either
+This chain of Almost Locked Sets (ALSs) are aligned:
+<pre>{0}</pre>They share the Restricted Common Candidates (RCCs), such that each
+pushes a value along the chain, so the z value (<b>{1}</b>) must be in either
 the first or the last ALS.
 <p>
-Hence values common to the first and last ALS can be removed from other cells
-which see all occurrences of that value in both the first and last ALS.
+Hence the z-value/s can be removed from other cells that see all occurrences of
+that value in both the first and last ALS.
 <p>
 Therefore <r>we can remove <b>{4}</b></r>. 
+<!--debugMessage-->{3}
 <p>
 <hr>
 <p>
@@ -20,18 +20,19 @@ The logic is: each pair of ALSs in the chain (A-B, B-C, etc) share a common
 restricted (see below) candidate. If an ALS looses one of it's values then it
 becomes a Locked Set. An ALS may loose ONLY ONE value because it must retain a
 value for each of it's cells, in order for the Sudoku to remain valid.
-So when we chain ALSs on there RCCs, we know that each RCC will be in this ALS
-or that ALS; so another value in the receiving ALS is "pushed" into the next ALS
-in the chain, and so on around the chain; so they all fall-down like dominoes
-IN EITHER DIRECTION; so given a "loop" of ALSs meeting back at the first and
-last ALS, we can remove all values common to the first and last ALS from any
-cells outside of both ALSs which see all occurrences of that value in both of
-these two ALSs, including those in the other ALSs in the chain.
+So when we chain ALSs on there RC-values, we know that each RCC will be in this
+ALS or that ALS; so another value in the receiving ALS is "pushed" into the next
+ALS in the chain, and so on around the chain. They all fall-down like dominoes
+IN EITHER DIRECTION; so given a "loop" of ALSs where the last ALS loops back to
+the first ALS, we can remove all values common to the first and last ALS from
+any cells outside of both ALSs which see all occurrences of that value in both
+of these two ALSs, including those in the other ALSs in the chain.
+<p>
+Basically, try setting any elimination to its value. The puzzle goes invalid
+immediately, or very shortly thereafter.
 <p>
 All occurrences of a "restricted" candidate in both ALSs see each other, so that
 this value must be one ALS or the other. In ALS-Chains only it also implies that
 the value does not appear in the physical overlap, if any, of the two ALSs.
-<p>
-<!--debugMessage-->{3}
 </body>
 </html>

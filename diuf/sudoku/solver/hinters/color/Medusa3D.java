@@ -20,6 +20,9 @@ import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Grid.BOX_OF;
+import static diuf.sudoku.Grid.CELL_IDS;
+import static diuf.sudoku.Grid.COL_OF;
+import static diuf.sudoku.Grid.ROW_OF;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VFIRST;
@@ -30,7 +33,7 @@ import diuf.sudoku.solver.hinters.IPreparer;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.solver.hinters.Validator;
 import static diuf.sudoku.solver.hinters.color.Words.*;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
@@ -115,12 +118,16 @@ public class Medusa3D extends AHinter implements IPreparer
 
 	// The grid we're processing is a field so there's no need to pass around.
 	private Grid grid;
+	// The cells of the grid we're processing
+	private Cell[] cells;
+	// The regions of the grid we're processing
+	private ARegion[] regions;
 	// the accumulator
 	private IAccumulator accu;
 	// accu.isSingle()
 	private boolean onlyOne;
 	// indices of cells in grid which maybe each value 1..9
-	private Idx[] candidates;
+	private Idx[] idxs;
 
 	// A conjugatePair is the ONLY two cells in a region which maybe value
 	private final Cell[] conjugatePair = new Cell[2];
@@ -165,9 +172,11 @@ public class Medusa3D extends AHinter implements IPreparer
 	public Medusa3D() {
 		super(Tech.Medusa3D);
 		// create the colors array.
-		for ( int c=0; c<2; ++c )
-			for ( int v=1; v<VALUE_CEILING; ++v )
+		for ( int c=0; c<2; ++c ) {
+			for ( int v=1; v<VALUE_CEILING; ++v ) {
 				colors[c][v] = new Idx();
+			}
+		}
 		// Do we need to build the steps string to go in the hint? The steps
 		// Strings take ages to build (a minute per top1465 run) and we don't
 		// use it in the batch, only in the GUI and testcases. See the paint
@@ -213,17 +222,20 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @return were any hint/s found?
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
-		// DEAD_CAT disables a hinter DURING solve (which only does disabled
-		// BEFORE kick-off) so each hinter that's ever gone DEAD_CAT checks
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
+		// deadCat disables a hinter DURING solve (which only does disabled
+		// BEFORE kick-off) so each hinter that's ever gone deadCat checks
 		// isEnabled itself. I'm re-enabled by the prepare method, so I'm down
 		// for this puzzle only. I'll get you next time Batman.
-		if ( !isEnabled )
+		if ( !isEnabled ) {
 			return false;
+		}
 		this.grid = grid;
+		this.cells = grid.cells;
+		this.regions = grid.regions;
 		this.accu = accu;
 		this.onlyOne = accu.isSingle();
-		this.candidates = grid.idxs;
+		this.idxs = grid.idxs;
 		// presume that no hint will be found
 		boolean result = false;
 		try {
@@ -231,18 +243,23 @@ public class Medusa3D extends AHinter implements IPreparer
 			//         order by num conjugates + num bivalues DESCENDING.
 			// WARNING: startingValues filters to score >= 7 coz that's the
 			// lowest score that hints in top1465. THIS MAY BE WRONG!!!
-			for ( int v : startingValues() )
-				for ( ARegion r : grid.regions )
+			for ( int v : startingValues() ) {
+				for ( ARegion r : regions ) {
 					if ( r.ridx[v].size == 2
-					  && (result|=search(r, v)) && onlyOne )
+					  && (result|=search(r, v)) && onlyOne ) {
 						return result;
+					}
+				}
+			}
 		} catch ( Type2Exception eaten ) {
 			// ONLY thrown after a Type 2 hint is added to accu
 			result = true;
 		} finally {
 			this.grid = null;
+			this.cells = null;
+			this.regions = null;
 			this.accu = null;
-			this.candidates = null;
+			this.idxs = null;
 			this.cause = null;
 			this.region = null;
 		}
@@ -258,22 +275,29 @@ public class Medusa3D extends AHinter implements IPreparer
 	private int[] startingValues() {
 		// reset scores
 		final ValueScore[] scores = new ValueScore[VALUE_CEILING]; // score of values 1..9
-		for ( int i=0; i<VALUE_CEILING; ++i ) // include zero to not upset sort
+		for ( int i=0; i<VALUE_CEILING; ++i ) { // include 0 to not upset sort
 			scores[i] = new ValueScore(i);
+		}
 		// count conjugate pairs for each value
 		// build-up a bitset of those values that're in 2+ conjugate pairs
 		int cands = 0;
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			for ( ARegion r : grid.regions )
+		for ( int v=1; v<VALUE_CEILING; ++v ) {
+			for ( ARegion r : regions ) {
 				if ( r.ridx[v].size == 2
-				  && ++scores[v].score > 1 )
+				  && ++scores[v].score > 1 ) {
 					cands |= VSHFT[v];
+				}
+			}
+		}
 		// foreach bivalue cell
 		// increment score of each value with 2+ conjugate pairs
-		for ( Cell c : grid.cells )
-			if ( c.size == 2 )
-				for ( int v : VALUESES[c.maybes & cands] )
+		for ( Cell c : cells ) {
+			if ( c.size == 2 ) {
+				for ( int v : VALUESES[c.maybes & cands] ) {
 					++scores[v].score;
+				}
+			}
+		}
 		// order by score descending
 		Arrays.sort(scores, VALUE_SCORE_DESCENDING);
 		// count scores with a score of atleast 7. The minimum-possible minimum
@@ -281,13 +305,16 @@ public class Medusa3D extends AHinter implements IPreparer
 		// I have no theoretical basis for 7, it's just what works FOR ME!
 		// I'm presuming it'll work for ALL Sudoku puzzles, but it may not!
 		int n;
-		for ( n=0; n<VALUE_CEILING; ++n )
-			if ( scores[n].score < 7 )
+		for ( n=0; n<VALUE_CEILING; ++n ) {
+			if ( scores[n].score < 7 ) {
 				break;
+			}
+		}
 		// then read-off the values, by score descending
 		final int[] array = new int[n];
-		for ( int i=0; i<n; ++i )
+		for ( int i=0; i<n; ++i ) {
 			array[i] = scores[i].value;
+		}
 		return array;
 	}
 
@@ -299,7 +326,7 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @param v the value to search for
 	 * @return were any hint/s found; noting only one Type 2 is ever found.
 	 */
-	private boolean search(ARegion r, int v) {
+	private boolean search(final ARegion r, final int v) {
 		AHint hint;
 		int subtype;
 		// presume that no hint will be found
@@ -332,8 +359,9 @@ public class Medusa3D extends AHinter implements IPreparer
 				+conjugatePair[0].id+MINUS+v+IS+CCOLORS[GREEN]+NL);
 			// Paint any "strong" hidden singles.
 			paintMonoBoxs();
-//			if ( steps.length() > STEPS_SIZE )
+//			if ( steps.length() > STEPS_SIZE ) {
 //				System.out.println("WARN: Meduda3dColoring: OVERSIZE steps="+steps.length());
+//			}
 		} catch ( OverpaintException ex ) {
 			// a cell was painted both colors, ergo my implementation is wrong.
 			// Don't get your knickers in a twist. It'd be nice if it didn't
@@ -360,26 +388,31 @@ public class Medusa3D extends AHinter implements IPreparer
 				if ( (subtype=contradictions(c)) != 0
 				  // presuming opposite color isn't rooted too
 				  && (hint=createHintMulti(v, subtype)) != null ) {
-					if ( HintValidator.MEDUSA_COLORING_USES ) {
-						if ( !HintValidator.isValidSetPots(grid, hint.getResults()) ) {
+					// validate the hint
+					if ( Validator.MEDUSA_COLORING_VALIDATES ) {
+						if ( !Validator.isValidSetPots(grid, hint.getResults()) ) {
 							hint.isInvalid = true;
-							HintValidator.reportSetPots(tech.name()+"Multi", grid
-								, HintValidator.invalidity, hint.toFullString());
-							if ( Run.type != Run.Type.GUI )
+							Validator.reportSetPots(tech.name()+"Multi", grid
+								, Validator.invalidity, hint.toFullString());
+							if ( Run.type != Run.Type.GUI ) {
 								hint = null;
+							}
 						}
 					}
 					if ( hint != null ) {
 						result = true;
-//						if ( n < minContradiction )
+//						if ( n < minContradiction ) {
 //							minContradiction = n;
-						if ( accu.add(hint) )
+//						}
+						if ( accu.add(hint) ) {
 							return result;
+						}
 						hint = null;
 						// Same Type 2 from many conjugate-pairs
 						// simplest way to handle this is throw an exception
-						if ( subtype == 2 )
+						if ( subtype == 2 ) {
 							throw TYPE_2_EXCEPTION;
+						}
 					}
 				}
 			}
@@ -389,20 +422,23 @@ public class Medusa3D extends AHinter implements IPreparer
 			//     then it can be eliminated.
 			if ( subtype==0 && (subtype=eliminations())!=0 ) {
 				hint = createHint(v, subtype);
-				if ( HintValidator.MEDUSA_COLORING_USES ) {
-					if ( !HintValidator.isValid(grid, hint.getReds(0)) ) {
+				if ( Validator.MEDUSA_COLORING_VALIDATES ) {
+					if ( !Validator.isValid(grid, hint.getReds(0)) ) {
 						hint.isInvalid = true;
-						HintValidator.report(tech.name(), grid, hint.toFullString());
-						if ( Run.type != Run.Type.GUI )
+						Validator.report(tech.name(), grid, hint.toFullString());
+						if ( Run.type != Run.Type.GUI ) {
 							hint = null;
+						}
 					}
 				}
 				if ( hint != null ) {
 					result = true;
-//					if ( n < minElimination )
+//					if ( n < minElimination ) {
 //						minElimination = n;
-					if ( accu.add(hint) )
+//					}
+					if ( accu.add(hint) ) {
 						return result;
+					}
 					hint = null;
 				}
 			}
@@ -414,9 +450,11 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * Clear all the Idx's in the colors array (both colors, all values).
 	 */
 	private void clearColors() {
-		for ( int c=0; c<2; ++c )
-			for ( int v=1; v<VALUE_CEILING; ++v )
+		for ( int c=0; c<2; ++c ) {
+			for ( int v=1; v<VALUE_CEILING; ++v ) {
 				colors[c][v].clear();
+			}
+		}
 	}
 
 	/**
@@ -468,13 +506,14 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @param why a one-liner on why this cell-value is painted this color.
 	 * @throws OverpaintException when a cell-value is painted in both colors.
 	 */
-	private void paint(int c, int v, Cell cell, boolean biCheck, String why)
-			throws OverpaintException {
+	private void paint(final int c, final int v, final Cell cell
+			, final boolean biCheck, String why) throws OverpaintException {
 		// If cell-value is already painted the opposite color then throw!
 		final int o = OPPOSITE[c]; // the opposite color
-		if ( colors[o][v].has(cell.i) )
-			throw new OverpaintException("Cannot paint "+cell.id+MINUS+v+SPACE
+		if ( colors[o][v].has(cell.i) ) {
+			throw new OverpaintException("Cannot paint "+cell.id+MINUS+v+SP
 					+COLORS[c]+" when it's already "+COLORS[o]+PERIOD);
+		}
 		int otherValue; // the other value
 		Cell otherCell; // the other cell
 		// 1. Paint the given cell-value this color
@@ -493,9 +532,10 @@ public class Medusa3D extends AHinter implements IPreparer
 			) {
 				// we want explanation in GUI and testcases
 				// NOTE: batch is a MINUTE faster for this!
-				if ( wantWhy )
+				if ( wantWhy ) {
 					why = CON[c]+cell.id+MINUS+v+COFF[c]+CONJUGATE_IN+r2.id
 						+IS+CON[o]+otherCell.id+MINUS+v+COFF[o]+NL;
+				}
 				// paint otherCell-v the opposite color, recursively.
 				paint(o, v, otherCell, true, why);
 			}
@@ -510,9 +550,10 @@ public class Medusa3D extends AHinter implements IPreparer
 			// we want explanation in GUI and testcases
 			// NOTE: batch is a MINUTE faster for this!
 			// NOTE: terniaries are slow!
-			if ( wantWhy )
+			if ( wantWhy ) {
 				why = CON[c]+cell.id+MINUS+v+COFF[c]+ONLY_OTHER_VALUE_IS
 					+CON[o]+cell.id+MINUS+otherValue+COFF[o]+NL;
+			}
 			// paint cell-otherValue the opposite color, recursively,
 			// but skip the bi-check.
 			paint(o, otherValue, cell, false, why);
@@ -588,33 +629,34 @@ public class Medusa3D extends AHinter implements IPreparer
 				for ( int ci : thisColor[v].toArrayA() ) { //source cell indice
 					// foreach of the four boxes effected by this source cell.
 					// See EFFECTED_BOXS for a definition there-of.
-					// i is the index in grid.regions of the effected box
+					// i is the index in regions of the effected box
 					for ( int i : INDEXES[EFFECTED_BOXS[BOX_OF[ci]]] ) {
 						// if there's only one v remaining in the effected box,
 						// excluding this colors cells + there buddies.
 					    // NOTE: the buds method has an internal cache.
-						if ( tmp2.setAndNot(grid.regions[i].idxs[v]
+						if ( tmp2.setAndNot(regions[i].idxs[v]
 										  , thisColor[v].plusBuds()).any()
 						  && tmp2.size() == 1
 						  // and get the cell to paint (NEVER null)
-						  && (cell2=grid.cells[tmp2.peek()]) != null
+						  && (cell2=cells[tmp2.peek()]) != null
 						  // the "shoot back" rule (see method comment block).
-						  && tmp3.setAndNot(grid.regions[BOX_OF[ci]].idxs[v]
+						  && tmp3.setAndNot(regions[BOX_OF[ci]].idxs[v]
 										  , BUDDIES[cell2.i]).size() == 1
 						  // NB: no pre-check coz buds incl this colors cells
 						) {
-							cell = grid.cells[ci]; // the source cell
-							box = grid.regions[i]; // the effected box
+							cell = cells[ci]; // the source cell
+							box = regions[i]; // the effected box
 //// F1-3 leaves B3 only 3 in box 1, which leaves F1 only 3 in box 2, so B3-3
 //if ( v==3 && "F1".equals(cell.id) && "B3".equals(cell2.id) )
 //	Debug.breakpoint();
 							// we want explanation in GUI and testcases
-							if ( wantWhy )
+							if ( wantWhy ) {
 								why = CON[c]+cell.id+MINUS+v+COFF[c]+LEAVES
 								+cell2.id+ONLY+v+IN+box.id
 								+", which leaves "
 								+cell.id+ONLY+v+IN+cell.box.id
 								+COMMA_SO+CON[c]+cell2.id+MINUS+v+COFF[c]+NL;
+							}
 							paint(c, v, cell2, false, why);
 						}
 					}
@@ -638,50 +680,54 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * 3 meaning Type 3: two values in cell are same color.<br>
 	 * 0 meaning none.
 	 */
-	private int contradictions(int c) {
+	private int contradictions(final int c) {
 		Cell cell; // cell with contradictory values
 		final Idx[] thisColor = colors[c];
 		final int o = OPPOSITE[c]; // the opposite color
-
 		// If two+ green v's in a region then green is invalid.
 		// NB: Type 2 is as rare as rocking horse s__t.
 		// NB: for now we just ASSUME that colors[goodColor] are "good", but
 		//     we double-check that when we're building the setPots for the
 		//     XColoringHintMulti, otherwise could get (rare) invalid hints.
-		for ( ARegion r : grid.regions )
-			for ( int v : VALUESES[colorValues[c]] )
+		for ( ARegion r : regions ) {
+			for ( int v : VALUESES[colorValues[c]] ) {
 				if ( tmp1.setAndMany(thisColor[v], r.idxs[v]) ) {
 					region = r;
 					cause = tmp1.toCellSet(grid);
 					goodColor = o;
 					// we want explanation in GUI and testcases
-					if ( wantWhy )
+					if ( wantWhy ) {
 						steps.append(NL).append(CONTRADICTION_LABEL).append(NL)
 						.append(KON).append(r.id).append(KOFF).append(HAS).append(MULTIPLE)
-						.append(CON[c]).append(COLORS[c]).append(SPACE).append(v)
+						.append(CON[c]).append(COLORS[c]).append(SP).append(v)
 						.append(APOSTROPHE_S).append(COFF[c])
 						.append(", which is invalid, so ").append(CCOLORS[o])
 						.append(MUST_BE_TRUE).append(NL);
+					}
 					return 2;
 				}
-
+			}
+		}
 		// If two+ values in cell are green then green is invalid.
-		for ( int v1 : VALUESES[colorValues[c]] )
+		for ( int v1 : VALUESES[colorValues[c]] ) {
 			// foreach colorValue EXCEPT v1
-			for ( int v2 : VALUESES[colorValues[c] & ~VSHFT[v1]] )
+			for ( int v2 : VALUESES[colorValues[c] & ~VSHFT[v1]] ) {
 				if ( tmp1.setAndAny(thisColor[v1], thisColor[v2]) ) {
-					cell = grid.cells[tmp1.peek()];
+					cell = cells[tmp1.peek()];
 					cause = Cells.set(cell);
 					// we want explanation in GUI and testcases
-					if ( wantWhy )
+					if ( wantWhy ) {
 						steps.append(NL).append(CONTRADICTION_LABEL).append(NL)
 						  .append(KON).append(cell.id).append(KOFF).append(HAS)
-						  .append(CON[c]).append(COLORS[c]).append(SPACE)
+						  .append(CON[c]).append(COLORS[c]).append(SP)
 						  .append(v1).append(AND).append(v2).append(COFF[c])
 						  .append(", which is invalid, so ").append(CCOLORS[o])
 						  .append(MUST_BE_TRUE).append(NL);
+					}
 					return 3;
 				}
+			}
+		}
 		return 0;
 	}
 
@@ -692,15 +738,15 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @param subtype the subtype of the hint to create.
 	 * @return a new XColoringHintMulti
 	 */
-	private AHint createHintMulti(int value, int subtype) {
-		final Pots setPots; // the cell-values to be set
+	private AHint createHintMulti(final int value, final int subtype) {
+		final Pots toSet; // the cell-values to be set
 		try {
-			setPots = squishSetPots(goodColor);
+			toSet = squishSetPots(goodColor);
 		} catch ( Pots.IToldHimWeveAlreadyGotOneException ex ) {
 			return null; // attempted to set 1 cell to 2 values.
 		}
 		AHint hint = new XColoringHintBig(this, value, subtype, null
-			, cause, goodColor, steps.toString(), setPots, squish(GREEN)
+			, cause, goodColor, steps.toString(), toSet, squish(GREEN)
 			, squish(BLUE), links, null, region);
 		cause = null;
 		region = null;
@@ -717,13 +763,12 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @throws Pots.IToldHimWeveAlreadyGotOneException when second value added
 	 *  to a cell.
 	 */
-	private Pots squishSetPots(int c) throws Pots.IToldHimWeveAlreadyGotOneException {
+	private Pots squishSetPots(final int c) throws Pots.IToldHimWeveAlreadyGotOneException {
 		final Pots result = new Pots();
 		final Idx[] thisColor = colors[c];
-		for ( int v : VALUESES[colorValues[c]] )
-			thisColor[v].forEach(grid.cells, (cc) ->
-				result.insert(cc, VSHFT[v])
-			);
+		for ( int v : VALUESES[colorValues[c]] ) {
+			thisColor[v].forEach(cells, (cc)->result.insert(cc, VSHFT[v])); // throws
+		}
 		return result;
 	}
 
@@ -753,13 +798,14 @@ public class Medusa3D extends AHinter implements IPreparer
 		  , pinks	// bitset of "all other values" to eliminate
 		  , c		// color: the current color: GREEN or BLUE
 		  , o;		// opposite: the other color: BLUE or GREEN
-		int subtype = 0; // presume none
-		boolean first = true; // is this the first elimination
-
+		// presume none
+		int subtype = 0;
+		// is this the first elimination
+		boolean first = true;
 		// (a) Both colors in a cell eliminate all other values.
 		if ( tmp1.setAndAny(all[GREEN], all[BLUE]) ) {
 			for ( int i : tmp1.toArrayA() ) {
-				if ( grid.cells[i].size > 2
+				if ( cells[i].size > 2
 				  // get a bitset of all values of cells[i] that're green and blue.
 				  // There may be none, never multiple (contradictions pre-tested)
 				  // We need 1 green value and 1 blue value, to strip from pinks.
@@ -769,7 +815,7 @@ public class Medusa3D extends AHinter implements IPreparer
 				  // ensure that g and b are not equal (should NEVER be equal)
 				  && g != b
 				  // pinks is a bitset of "all other values" to be eliminated
-				  && (pinks=(cc=grid.cells[i]).maybes & ~g & ~b) != 0
+				  && (pinks=(cc=cells[i]).maybes & ~g & ~b) != 0
 				  // ignore already-justified eliminations (shouldn't happen here)
 				  && redPots.upsert(cc, pinks, false)
 				) {
@@ -789,71 +835,70 @@ public class Medusa3D extends AHinter implements IPreparer
 				}
 			}
 		}
-
 		// (b) An uncolored v sees both colored v's.
 		for ( int v : VALUESES[paintedValues] ) {
 			tmp1.setOr(colors[GREEN][v], colors[BLUE][v]);
-			for ( int ii : tmp2.setAndNot(candidates[v], tmp1).toArrayA() ) {
+			for ( int ii : tmp2.setAndNot(idxs[v], tmp1).toArrayA() ) {
 				if ( tmp3.setAndAny(BUDDIES[ii], colors[GREEN][v])
 				  && tmp4.setAndAny(BUDDIES[ii], colors[BLUE][v])
 				  // ignore already-justified eliminations
-				  && redPots.upsert(grid.cells[ii], v)
+				  && redPots.upsert(cells[ii], v)
 				) {
 					// we want explanation in GUI and testcases
 					if ( wantWhy ) {
-						cc = grid.cells[ii];
-						Cell gc = closest(tmp3, cc);
-						Cell bc = closest(tmp4, cc);
+						int gc = closest(tmp3, COL_OF[ii], ROW_OF[ii]);
+						int bc = closest(tmp4, COL_OF[ii], ROW_OF[ii]);
 						if ( first ) {
 							first = false;
 							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 						}
-						steps.append(cc.id).append(MINUS).append(v).append(SEES_BOTH)
-						  .append(GON).append(gc.id).append(MINUS).append(v).append(GOFF).append(AND)
-						  .append(BON).append(bc.id).append(MINUS).append(v).append(BOFF)
-						  .append(COMMA_SO).append(cc.id).append(CANT_BE)
+						steps.append(CELL_IDS[ii]).append(MINUS).append(v).append(SEES_BOTH)
+						  .append(GON).append(CELL_IDS[gc]).append(MINUS).append(v).append(GOFF).append(AND)
+						  .append(BON).append(CELL_IDS[bc]).append(MINUS).append(v).append(BOFF)
+						  .append(COMMA_SO).append(CELL_IDS[ii]).append(CANT_BE)
 						  .append(RON).append(v).append(ROFF).append(PERIOD).append(NL);
-						if ( links == null )
+						if ( links == null ) {
 							links = new LinkedList<>();
-						links.add(new Link(cc, v, gc, v));
-						links.add(new Link(cc, v, bc, v));
+						}
+						links.add(new Link(ii, v, gc, v));
+						links.add(new Link(ii, v, bc, v));
 					}
 					subtype |= 2;
 				}
 			}
 		}
-
 		// (c) An uncolored v sees a green, and has some other blue value.
 		for ( int v : VALUESES[paintedValues] ) {
 			tmp1.setOr(colors[GREEN][v], colors[BLUE][v]);
-			for ( int ii : tmp2.setAndNot(candidates[v], tmp1).toArrayA() ) {
+			for ( int ii : tmp2.setAndNot(idxs[v], tmp1).toArrayA() ) {
 				for ( c=0; c<2; ++c ) {
 					// if cells[ii] sees a this-color value
 					if ( tmp3.setAndAny(BUDDIES[ii], colors[c][v])
 					  // and the opposite color (any value) contains ii
 					  && all[OPPOSITE[c]].has(ii)
 					  // ignore already-justified eliminations
-					  && redPots.upsert(grid.cells[ii], v)
+					  && redPots.upsert(cells[ii], v)
 					) {
 						// we want explanation in GUI and testcases
 						if ( wantWhy ) {
-							cc = grid.cells[ii];
+							cc = cells[ii];
 							o = OPPOSITE[c];
-							Cell sibling = closest(tmp3, cc);
+							int sibling = closest(tmp3, COL_OF[ii], ROW_OF[ii]);
 							int otherV = firstValue(o, ii);
 							if ( first ) {
 								first = false;
 								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 							}
-							steps.append(cc.id).append(SPACE).append(SEES).append(CON[c])
-							  .append(sibling.id).append(MINUS).append(v)
+							steps.append(CELL_IDS[ii]).append(SP).append(SEES).append(CON[c])
+							  .append(CELL_IDS[sibling]).append(MINUS).append(v)
 							  .append(COFF[c]).append(AND_HAS)
 							  .append(CON[o]).append(otherV).append(COFF[o])
 							  .append(", so it can't be ").append(RON).append(v).append(ROFF)
 							  .append(PERIOD).append(NL);
-							if ( links == null )
+							if ( links == null ) {
 								links = new LinkedList<>();
-							links.add(new Link(cc, v, sibling, v));
+							}
+							links.add(new Link(ii, v, sibling, v));
 						}
 						subtype |= 4;
 					}
@@ -870,8 +915,9 @@ public class Medusa3D extends AHinter implements IPreparer
 	 */
 	private int squash(final int c, final Idx result) {
 		result.clear();
-		for ( int v : VALUESES[colorValues[c]] )
+		for ( int v : VALUESES[colorValues[c]] ) {
 			result.or(colors[c][v]);
+		}
 		return result.size();
 	}
 
@@ -884,14 +930,16 @@ public class Medusa3D extends AHinter implements IPreparer
 	 */
 	private int values(final int c, final int i) {
 		int result = 0;  // NOTE: VSIZE[0] == 0
-		for ( int v : VALUESES[colorValues[c]] )
-			if ( colors[c][v].has(i) )
+		for ( int v : VALUESES[colorValues[c]] ) {
+			if ( colors[c][v].has(i) ) {
 				result |= VSHFT[v];
+			}
+		}
 		return result;
 	}
 
 	/**
-	 * Return the first value in colors[o][*] which contains(ii).
+	 * Return the first value in colors[o][*] which has(ii).
 	 * <p>
 	 * NOTE: We can't use FIRST_VALUE because not-found must return 0.
 	 *
@@ -899,10 +947,12 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @param ii the cell index
 	 * @return the first value of ii that's painted the opposite color
 	 */
-	private int firstValue(int o, int ii) {
-		for ( int v : VALUESES[colorValues[o]] )
-			if ( colors[o][v].has(ii) )
+	private int firstValue(final int o, final int ii) {
+		for ( int v : VALUESES[colorValues[o]] ) {
+			if ( colors[o][v].has(ii) ) {
 				return v;
+			}
+		}
 		return 0; // NOTE: VSIZE[0] == 0
 	}
 
@@ -915,28 +965,28 @@ public class Medusa3D extends AHinter implements IPreparer
 	 *
 	 * @param idx {@code tmp3.setAndAny(BUDDIES[ii], colors[c][v])} the buddies
 	 * of the target cell which are painted this color.
-	 * @param target {@code cc = grid.cells[ii]} the target bloody cell.
-	 * @return the closest cell (or null if I'm rooted)
+	 * @param target {@code cc = cells[ii]} the target bloody cell.
+	 * @return the indice of the closest cell (or -1 if I'm rooted)
 	 */
-	private Cell closest(Idx idx, Cell target) {
-		Cell closest = null;
+	private int closest(final Idx idx, final int cx, final int cy) {
+		int closest = -1;
 		int minD = Integer.MAX_VALUE; // the distance to the closest cell
 		for ( int i : idx.toArrayB() ) {
-			final Cell c = grid.cells[i];
-			final int y = Math.abs(c.y - target.y);
-			final int x = Math.abs(c.x - target.x);
+			final int y = Math.abs(ROW_OF[i] - cy);
+			final int x = Math.abs(COL_OF[i] - cx);
 			final int distance;
-			if ( y==0 )
+			if ( y==0 ) {
 				distance = x;
-			else if (x==0)
+			} else if (x==0) {
 				distance = y;
-			else // Pythons theorum: da square of ye hippopotamus = da sum of
+			} else { // Pythons theorum: square of ye hippopotamus = da sum of
 				// da squares of yon two sides, except in ye gannetorium where
 				// it remains indeterminate; mainly because of da bloody smell.
 				distance = (int)Math.sqrt((double)(x*x + y*y));
+			}
 			if ( distance < minD ) {
 				minD = distance;
-				closest = grid.cells[i];
+				closest = i;
 			}
 		}
 		return closest;
@@ -954,12 +1004,12 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @param subtype no longer used!
 	 * @return a new XColoringHint (for eliminations)
 	 */
-	private AHint createHint(int value, int subtype) {
+	private AHint createHint(final int value, final int subtype) {
 		final Idx[] colorSet = null;
-		// finks: links from cells which found this hint, if any. sigh.
-		final LinkedList<Link> finks = links==null ? null : new LinkedList<>(links);
+		// cinks: links from cells which found this hint, if any. sigh.
+		final LinkedList<Link> cinks = links==null ? null : new LinkedList<>(links);
 		AHint hint = new XColoringHint(this, value, new Pots(redPots)
-			, squish(GREEN), squish(BLUE), colorSet, steps.toString(), finks);
+			, squish(GREEN), squish(BLUE), colorSet, steps.toString(), cinks);
 		// don't hold cell references past there use-by date; so we copy-off
 		// the fields when we create the hint (above) then clear the bastards.
 		redPots.clear();
@@ -973,12 +1023,10 @@ public class Medusa3D extends AHinter implements IPreparer
 	 * @param color the color to squish
 	 * @return a new Pots of Cell=>value's in all values of colors[color].
 	 */
-	private Pots squish(int color) {
-		Pots result = new Pots();
+	private Pots squish(final int color) {
+		final Pots result = new Pots();
 		for ( int v : VALUESES[colorValues[color]] )
-			colors[color][v].forEach(grid.cells, (cc) ->
-				result.upsert(cc, v)
-			);
+			result.upsertAll(colors[color][v], grid, v);
 		return result;
 	}
 

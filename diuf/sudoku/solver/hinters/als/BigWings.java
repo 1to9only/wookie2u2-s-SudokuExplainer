@@ -6,21 +6,18 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import static diuf.sudoku.Grid.BUDDIES;
 import diuf.sudoku.Grid.Cell;
-import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.Idx.IDX_SHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import static diuf.sudoku.Values.VFIRST;
-import java.util.Arrays;
 
 /**
  * BigWings implements WXYZ_Wing, VWXYZ_Wing, UVWXYZ_Wing, TUVWXYZ_Wing and
@@ -29,28 +26,26 @@ import java.util.Arrays;
  * als.BigWings is a rewrite of wing.BigWing, to eradicate BitIdx's (which was
  * a {@code Set<Cell>} backed by a BitSet, and BitSet's are slow), and use the
  * cached alss array that's available by transplanting me into the als package
- * to extend AAlsHinter, so I can share the cached alss.
+ * to extend AAlsHinter, so I can share the cached ALSs.
  * <p>
- * So my defining feature is: BigWing recurses to find it's own ALS's (faster)
- * where-as I use cached alss-array from AAlsHinter, which is faster over-all
- * presuming that you're also using AlsXz, AlsWing, and/or AlsChain, but
- * unfortunately caching the alss is the slow-part, so BigWings is slower than
- * all BigWing combined, but still faster over-all (presuming that ...).
+ * So my defining feature is: I use cached alss-array from AAlsHinter where-as
+ * BigWing recurses to find it's own ALSs (faster). Using the cache is faster
+ * over-all presuming that you're also using AlsXz, AlsWing, and/or AlsChain,
+ * but unfortunately caching the ALSs is the slow-part, so BigWings is slower
+ * than all BigWing combined, but still faster over-all (presuming that ...).
  * <p>
- * And because I don't find my own ALS's there size doesn't matter. It's more
+ * And because I don't find my own ALSs there size doesn't matter. It's more
  * code to limit each hinter to one ALS-size, so I've removed the distinction
  * by introducing Tech.BigWings which I now implement, instead of running 5
  * instances of me, each limited to a degree.
  * <p>
  * BigWings (this or individual) finds all AlignedPair, and all bar one-or-two
  * AlignedTriple and AlignedQuad, plus many other hints besides; and all-this
- * is MUCH faster than my aligned debacle. I'm a bit chuffed about it!
+ * is MUCH faster than my aligned debacle. I'm pretty chuffed about it!
  * <p>
- * <b>NOTE WELL</b> individual BigWing are faster, but BigWings faster overall
- * coz most of it's time is building ALS cache shared with AlsXz and AlsWing.
- * I've done my best but BigWing is still faster. sigh.
- * <b>NOTE WELL</b> This really is a frightfully smarty-pants piece of code.
- * If you think you can do it faster then my only advise is: Bring It!
+ * <b>NOTE</b> individual BigWing's are faster, but BigWings is faster overall
+ * because most of my time is spent building the ALS cache shared with AlsXz,
+ * AlsWing, etc. I've done my best to make it as fast as possible. sigh.
  * <pre>
  * KRC 2021-06-02 And FMS it's actually slower than the old BigWing hinter!
  * BEFORE: independant S/T/U/V/WXYZ-Wing hinters
@@ -94,42 +89,66 @@ import java.util.Arrays;
  * RccFinder class, which is now "fully-optimised" until I think of something
  * else to ____around with. The hunter, endlessly seeking.
  *
- * KRC 2021-06-17 13:55 Replaced isWing o(als.size) method with a call to vBuds
+ * KRC 2021-06-17 13:55 Replaced isWing O(als.size) method with a call to vBuds
  * contains O(1), which is about half a second faster over top1465. Gee wow.
  * </pre>
  *
  * @author Keith Corlett 2021-06-02
  */
 public class BigWings extends AAlsHinter
-//implements diuf.sudoku.solver.IReporter
+//		implements diuf.sudoku.solver.hinters.IReporter
 {
-//	// method out-of-place to comment/uncomment with above implements line
 //	@Override
 //	public void report() {
-//		diuf.sudoku.utils.Log.teef("\n%s: count=%s\n", this.getClass().getSimpleName(), java.util.Arrays.toString(count));
 //		diuf.sudoku.utils.Log.teef("\n%s: getAlssTime=%,d\n", this.getClass().getSimpleName(), getAlssTime);
 //		//ALS_FINDER.took declared in AlsFinder, set in AlsFinderRecursive only
 //		diuf.sudoku.utils.Log.teef("\n%s: ALS_FINDER.took=%,d\n", this.getClass().getSimpleName(), ALS_FINDER.took);
+//		diuf.sudoku.utils.Log.teeln(tech.name()+": COUNT="+java.util.Arrays.toString(COUNT));
 //	}
-//	private final long[] count = new long[2];
+//	private final long[] COUNT = new long[6];
+	// BigWings: COUNT=[2790999, 39496849, 17510250, 1088613, 546616, 546449]
 
-	// Note that making elim static forces grid, candidates, VICTIMS, and REDS
-	// to be static, which is OK because only one instance of BigWings exists
-	// at any one time. If you're multi-threading then make elim "non-static"
-	// and de-staticise it's fields; either that or synchronise it, which would
-	// be wasteful. This is fast for how things are now: single-threaded (ST),
-	// which I wish it wasn't, but there it is: It's fast ST, unless we multi
-	// thread (MT) EVERYthing. Early-on I decided solving was an ST process,
-	// which meant hinters could and did presume ST which was just plain silly,
-	// and now I'm stuck with it, coz MTing it all would require too much work,
-	// so I'm mentally welded-onto ST, but you need not be. sigh.
-	// @param alsVs is NEVER null, coz ALS must contain v for us to elim.
-	//  If you're dealing with an NPE then:
-	//  1. elim'ing a value that isn't in the ALS is wrong.
-	//  2. pretest alsVs to avoid invoking elim pointlessly.
-	private static boolean elim(final boolean isStrong, final int v
+	/**
+	 * eliminate looks for eliminations in the BigWing formed by the ALS-cells
+	 * and the xz-cell (called biv).
+	 * <p>
+	 * If isStrong then seek strong elims: ALS-cells and biv all see each elim;
+	 * else seek week elims: ALS-cells only see each elim, precluding the biv.
+	 * <p>
+	 * <pre>
+	 * alsVs param is NEVER null, coz ALS must contain v for us to elim.
+	 * If you're dealing with an NPE then:
+	 * 1. elim'ing a value that isn't in the ALS is wrong.
+	 * 2. pretest alsVs to avoid invoking elim pointlessly.
+	 * </pre>
+	 * <p>
+	 * NB: I made eliminate static for speed, because Javas this-injection is
+	 * a bit slow, which makes grid, candidates, VICTIMS, and REDS static,
+	 * which is OK because only one instance of BigWings exists at a time. But
+	 * if you're multi-threading then de-staticise eliminate and it's fields;
+	 * either that or synchronise it, which will be slower.
+	 * This is fast for how things are now: single-threaded (ST), which I wish
+	 * it wasn't, but it is: It's fast ST, unless we multithread (MT) it all,
+	 * and early-on I decided solve was an ST process, so hinters presume ST,
+	 * which was silly, and now I'm stuck with it, coz MTing everything takes
+	 * too much work, so I'm mentally welded to ST, but you need not be.
+	 *
+	 * @param isStrong do we seek strong (or week) eliminations: strong means
+	 *  all cells in the ALS and the biv (bivalue cell, aka xz-cell) see each
+	 *  elimination (ie all cells in the ALS and the biv which maybe v see
+	 *  (same box, row, or col) the cell from which we are eliminating);
+	 *  else false means only the ALS-cells see each elimination, and the biv
+	 *  is precluded (ie we cannot eliminate from the xz-cell)
+	 * @param v the value to eliminate, if possible
+	 * @param alsVs is NEVER null, coz ALS must contain v for us to elim.
+	 * @param biv the bivalue cell, aka the xz-cell after it's two possible
+	 *  values, called x and z. sigh.
+	 * @return are there any eliminations, which have been added to REDS: the
+	 *  removable (red) potentials, as displayed in the hint
+	 */
+	private static boolean eliminate(final boolean isStrong, final int v
 			, final Idx alsVs, final Cell biv) {
-		VICTIMS.set(candidates[v]);
+		VICTIMS.set(idxs[v]);
 		alsVs.forEach((i)->VICTIMS.and(BUDDIES[i]));
 		if ( isStrong ) { // buds of ALL wing cells, including the biv
 			VICTIMS.and(biv.buds);
@@ -139,14 +158,17 @@ public class BigWings extends AAlsHinter
 		if ( VICTIMS.none() ) {
 			return false;
 		}
-		VICTIMS.forEach(cells, (cell)->REDS.upsert(cell, v));
+		REDS.upsertAll(VICTIMS, grid, v);
 		return true;
 	}
 
+	// maybes of all bivalue cells in the grid, coincident with biva
+	private static final int[] MAYBES = new int[64]; // 64=81-17
+
 	// these are static only because elim is static, to reduce stackwork.
 	// If you think you can do it "cleaner" then performance test it.
-	private static Cell[] cells; // grid.cells!
-	private static Idx[] candidates;
+	private static Grid grid;
+	private static Idx[] idxs; // grid.idxs
 	private static final Idx VICTIMS = new Idx();
 	private static final Pots REDS = new Pots();
 
@@ -157,104 +179,139 @@ public class BigWings extends AAlsHinter
 
 	// NOTE that this "custom" findHints is called by AAlsHinter.findHints
 	@Override
-	protected boolean findHints(Grid grid, Idx[] candidates, Als[] alss
-			, int numAlss, Rcc[] rccs, int numRccs, IAccumulator accu) {
+	protected boolean findHints(final Grid grid
+			, final Als[] alss, final int numAlss
+			, final Rcc[] rccs, final int numRccs
+			, final IAccumulator accu) {
 		// ANSI-C style: ALL variables are predeclared, so no more stackwork!
 		Als als; // the Almost Locked Set: N cells sharing N+1 maybes
 		Cell biv; // the bivalue cell to complete the Wing pattern
-		int[] ws; // values to weak eliminate: als.maybes ^ biv.maybes
+		int[] ws; // values to weak eliminate: als.maybes XOR biv.maybes
+		Idx[] avb; // als.vBuds: common buddies of v's in this ALS
+		Idx vb; // als.vBuds[v] where v is the x or z value
 		int i // the als index
-		  , j // the bivalue cell index
+		  , m // als.maybes: a bitset of the values in this ALS
+		  , j // the current index in biva/MAYBES
+		  , b // the bivalue cell indice in Grid
 		  , x // the primary (mandatory) link value
 		  , z // the secondary (optional) link value
-		  , w // weak value index, hijacked as a tmp to limit stacksize.
+		  , w // weak value index
+			  // also hijacked as a biv.maybes to limit the stack-size
 		  , W; // number of weak values (ws.length)
+			   // also hijacked as a tmp to limit the stack-size
 		boolean xWing // do all x's in the als see the biv?
 		  , zWing // do all z's in the als see the biv?
 		  , both // xWing & zWing, ie is this wing double-linked?
 		  , zStrong // are there any strong eliminations on z?
 		  , xStrong // are there any strong eliminations on x?
 		  , weak; // are there any weak elims (from the ALS only)?
+		final Cell[] cells = grid.cells;
 		// presume that no hints will be found
 		boolean result = false;
-		// just use the 81-Cell array from the CAS. I don't know the maximum
-		// bivalue cells in a grid, I guess 81-17-1=63 must cover it, so just
-		// use 81 coz the array already exists and is not otherwise used here.
-		final Cell[] bivs = Cells.arrayA(GRID_SIZE); // use the cached array
 		try {
 			// these fields are static to make elim static, to not pass this,
 			// for speed. They are ALL cleared in the finally block.
-			BigWings.cells = grid.cells;
-			BigWings.candidates = candidates;
-			// get Idx of cells with maybesSize == 2
-			final Idx bivi = grid.getBivalue(); // cached
-			// get an array of bivalue cells ONCE, instead of foreach ALS
-			final int numBivs = bivi.cellsN(grid, bivs);
-			// we're iterating bivs for each ALS, so it's faster to get indices
-			// ONCE, instead of deref Cell.i for every ALS. An array look-up is
-			// a tad faster than field.dereferencing (I wonder why).
+			BigWings.grid = grid;
+			BigWings.idxs = grid.idxs;
+			// get Idx of bivalue cells (ie cells with size == 2)
+			final Idx bivi = grid.getBivalue(); 
+			// get bivalue indices ONCE (not foreach ALS)
+			// coincident with MAYBES
 			final int[] biva = bivi.toArrayA();
+			// get bivalue maybes ONCE (not foreach ALS)
+			int numBivs = bivi.maybes(cells, MAYBES);
+			// Oh FFS! Something is SERIOUSLY screwy with lambdas + Generator!
+			// NONE of this should EVER happen, but if it does (again).
+			if(numBivs==0) return false;
+			while ( MAYBES[numBivs-1] == 0 ) {
+				if(--numBivs==0) return false;
+			}
+			assert MAYBES[numBivs-1] != 0;
 			// foreach ALS (Almost Locked Set: N cells sharing N+1 maybes)
 			for ( i=0; i<numAlss; ++i ) {
+//				++COUNT[0]; // 2,790,999
 				// foreach bivalue cell
-				for ( als=alss[i],j=0; j<numBivs; ++j ) {
-					// if this bivalue cell shares both it's values with da ALS
-					if ( VSIZE[(w=bivs[j].maybes) & als.maybes] == 2
-					  // and get x and z values from biv.maybes (above w)
-					  // and all x's in the ALS see the bivalue cell
-					  //  or all z's in the ALS see the bivalue cell
-					  && ( (xWing=als.vBuds[x=VFIRST[w]].has(biva[j]))
-						 | (zWing=als.vBuds[z=VFIRST[w & ~VSHFT[x]]].has(biva[j])) )
-					) {
-						if ( !xWing ) { // ie zWing only
-							// x is the primary link
-							w = x;
-							x = z;
-							z = w;
-						}
-						// This ALS+biv form a BigWing; but any eliminations?
-						// seek strong elims on z
-						zStrong = elim(true, z, als.vs[z], biv=bivs[j]);
-						// if both x and z are linked
-						if ( both = xWing & zWing ) {
-							// seek strong elims on x
-							xStrong = elim(true, x, als.vs[x], biv);
-							// seek weak elims on each alsMaybes XOR bivMaybes
-							weak = false;
-							for ( ws=VALUESES[als.maybes ^ biv.maybes],w=0,W=ws.length; w<W; ++w ) {
-								weak |= elim(false, ws[w], als.vs[ws[w]], biv);
+				for ( m=(als=alss[i]).maybes,avb=als.vBuds,j=0; j<numBivs; ++j ) {
+//					++COUNT[1]; // 39,496,849
+					// if this biv shares both it's values with the ALS
+//					if ( (m & (w=MAYBES[j])) == w ) {
+// test w!=0 for Generator, which I do NOT understand!
+// Java TROUBLE with getting the index instead the array value when you inline,
+// so more reliable to just do it the old fashioned. I built a cubby, shed,
+// house, hotel, bridge, and a whole city... then I built a cubby. I quite like
+// cubbies. They remind me of the last time I felt safe.
+					w = MAYBES[j];
+					if ( w!=0 && (m & w)==w ) {
+//						++COUNT[2]; // 17,510,250
+					    // read x value from biv.maybes (the lower one)
+						// calculate xWing = als.vBuds[x].has(b=biva[j])
+						// NB: There's TROUBLE with inlining VFIRST for speed,
+						// so it's more reliable do it the old fashioned way.
+						x = VFIRST[w]; // Generator AIOOBE, before split line.
+						vb = avb[x];
+						if ((b=biva[j])<27) W=vb.a0; else if(b<54) W=vb.a1; else W=vb.a2;
+						xWing = (W & IDX_SHFT[b%27]) != 0;
+					    // read z value from biv.maybes (the higher one)
+						// calculate zWing = als.vBuds[z].has(b)
+						// inlined for speed
+						z = w & ~VSHFT[x];
+						z = VFIRST[z];
+						vb = avb[z];
+						if (b<27) W=vb.a0; else if(b<54) W=vb.a1; else W=vb.a2;
+						zWing = (W & IDX_SHFT[b%27]) != 0;
+						// if either-or-both x and z values are linked to ALS
+						if ( xWing | zWing ) {
+//							++COUNT[3]; // 1,088,613
+							if ( !xWing ) { // ie zWing only
+								// z is the primary link
+								W = x;
+								x = z;
+								z = W;
 							}
-							// if this wing has no weak-links
-							if ( !weak ) {
-								// it's double linked only if xStrong & zStrong
-								both = xStrong & zStrong;
-								// no z's means z is now x (the primary link).
-								// which looks wrong, but is correct!
-								if ( !zStrong ) {
-									// x is the primary link
-									w = x;
-									x = z;
-									z = w;
+							// This ALS+biv form a BigWing; but any eliminations?
+							// seek strong elims on z
+							zStrong = eliminate(T, z, als.vs[z], biv=cells[b]);
+							// if both x and z are linked
+							if ( both = xWing & zWing ) {
+//								++COUNT[4]; // 546,616
+								// seek strong elims on x
+								xStrong = eliminate(T, x, als.vs[x], biv);
+								// seek weak elims on each alsMaybes XOR bivMaybes
+								weak = false;
+								for ( ws=VALUESES[m^w],w=0,W=ws.length; w<W; ++w ) {
+									weak |= eliminate(F, ws[w], als.vs[ws[w]], biv);
+								}
+								// if this wing has no weak-links
+								if ( !weak ) {
+//									++COUNT[5]; // 546,449
+									// it's double linked only if xStrong & zStrong
+									both = xStrong & zStrong;
+									// no z's means z is now x (the primary link).
+									// which looks wrong, but is correct!
+									if ( !zStrong ) {
+										// x is the primary link
+										W = x;
+										x = z;
+										z = W;
+									}
 								}
 							}
-						}
-						if ( !REDS.isEmpty() ) {
-							// FOUND a BigWing on x and possibly z
-							final AHint hint = createHint(als, x, z, both, biv);
-							result = true;
-							if ( accu.add(hint) ) {
-								return result;
+							if ( !REDS.isEmpty() ) {
+								// FOUND a BigWing on x and possibly z
+								final AHint hint = createHint(als, x, z, both, biv);
+								result = true;
+								if ( accu.add(hint) ) {
+									return result;
+								}
 							}
 						}
 					}
 				}
 			}
 		} finally {
-			// Cells.cleanCasA(); ONLY the array I used
-			Arrays.fill(bivs, null);
 			// clean-up the statics
-			BigWings.cells = null; // grid.cells: do NOT clear!
-			BigWings.candidates = null;
+			BigWings.grid = null; // grid.cells: do NOT clear!
+			BigWings.idxs = null;
 			// just in case we blew a gasket
 			BigWings.REDS.clear();
 		}
@@ -263,11 +320,12 @@ public class BigWings extends AAlsHinter
 
 	private AHint createHint(final Als als, final int x, final int z
 			, final boolean both, final Cell biv) {
-		final Pots oranges = new Pots(als.cells, x);
+		final Cell[] alsCells = als.idx.cells(grid.cells);
+		final Pots oranges = new Pots(alsCells, x);
 		oranges.put(biv, VSHFT[x]);
 		// NOTE: x and z are reversed, so IDKFA! It's nuts: You sort it out!
-		return new BigWingsHint(this, REDS.copyAndClear()
-				, biv, z, x, both, als, oranges);
+		return new BigWingsHint(this, REDS.copyAndClear(), biv
+				, z, x, both, als, alsCells, oranges);
 	}
 
 }

@@ -6,6 +6,9 @@
  */
 package diuf.sudoku.utils;
 
+import static diuf.sudoku.utils.Frmt.NL;
+import java.io.PrintStream;
+
 
 /**
  * An Arrays helper utility class instead of repeating ourselves.
@@ -502,5 +505,32 @@ public final class MyArrays {
 //		}
 //		return sb.toString();
 //	}
+	
+	/**
+	 * Returns is any element in 'a' true?
+	 *
+	 * @param a to examine
+	 * @return Is any element in 'a' true?
+	 */
+	public static boolean any(final boolean[] a) {
+		for ( boolean b : a )
+			if ( b )
+				return true;
+		return false;
+	}
+
+	public static void hitRate(PrintStream out, int[][] hit, int[][] cnt) {
+		for ( int i=0,I=hit.length; i<I; ++i ) {
+			out.format("%3d: ", i);
+			final int J = hit[i].length;
+			if ( J > 0 ) {
+				out.format("%7.3f", ((double)hit[i][0]/cnt[i][0])*100);
+				for ( int j=1; j<J; ++j ) {
+					out.format(", %7.3f", ((double)hit[i][j]/cnt[i][j])*100);
+				}
+			}
+			out.append(NL);
+		}
+	}
 
 }

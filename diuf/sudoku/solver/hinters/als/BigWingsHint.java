@@ -15,11 +15,10 @@ import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyMath;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
-
 
 /**
  * The DTO for a BigWings (S/T/U/V/WXYZ-Wing) hint.
@@ -67,27 +66,25 @@ class BigWingsHint extends AHint  {
 	private final boolean both; // ergo isDoubleLinked on both x and z
 	private final Cell[] all; // the ALS cells and the yz Cell
 
-	// This one's WIERD: normally hint.degree is hinter.degree but this time
-	// I'm finding hints of ALL degree's in one pass, because I'm parsing a
-	// cache of ALS's so it costs me nothing to do them all in one, where-as
-	// doing them by degree involves processing the same ALSs 5 times for the
-	// same result, so ____ it, I'm overriding my parents degree field so that
-	// I can just set it to the number of cells in my ALS.
-	private final int degree; // the ALS cells and the yz Cell
+	// use a local size in-place of the "normal" degree
+	private final int size; // the ALS cells and the yz Cell
 
 	BigWingsHint(final AHinter hinter, final Pots reds, final Cell biv
 			, final int x, final int z, final boolean both, final Als als
-			, final Pots oranges) {
+			, final Cell[] alsCells, final Pots oranges) {
 		super(hinter, reds, null, oranges, null, null, null);
 		this.x = x;
 		this.z = z;
 		this.both = both;
 		this.biv = biv;
 		this.wingValues = VALUESES[als.maybes ^ biv.maybes];
-		this.degree = MyMath.max(als.cells.length, 2); // if it's not atleast two cells then just pretend that it it's atleast two cells, rather than breaking everything. sigh.
-//		if ( degree<3 || degree>7 )
+		// if it's not atleast two cells then just pretend that it it's atleast
+		// two cells, rather than breaking everything. sigh.
+		this.size = MyMath.max(als.idx.size(), 2);
+//		if ( degree<3 || degree>7 ) {
 //			Log.teeln("WARN: "+Log.me()+": degree "+degree+" not in 3..7");
-		this.alsCells = als.cells.clone(); // copy reused array
+//		}
+		this.alsCells = alsCells; // copy reused array
 		// all cells = als cells + the biv cell
 		final int n = alsCells.length;
 		this.all = new Cell[n+1];
@@ -108,34 +105,47 @@ class BigWingsHint extends AHint  {
 	@Override
 	public Pots getGreens(int viewNum) {
 		Pots result = new Pots();
-		if ( both ) // all green
-			for ( Cell c : all )
+		if ( both ) { // all green
+			for ( Cell c : all ) {
 				result.put(c, c.maybes);
-		else // x green
-			for ( Cell c : all )
-				if ( c.maybe(x) )
+			}
+		} else { // x green
+			for ( Cell c : all ) {
+				if ( c.maybe(x) ) {
 					result.put(c, VSHFT[x]);
+				}
+			}
+		}
 		return result;
 	}
 
-	private void addLinks(Collection<Link> result, int v) {
-		for ( Cell c : alsCells )
-			if ( c.maybe(v) )
+	private void link(final int v, final Collection<Link> result) {
+		for ( Cell c : alsCells ) {
+			if ( c.maybe(v) ) {
 				result.add(new Link(biv, v, c, v));
+			}
+		}
 	}
 
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
 		try {
 			final int n = both ? alsCells.length*2 : alsCells.length;
-			final Collection<Link> result = new ArrayList<>(n);
-			addLinks(result, z);
-			if ( both )
-				addLinks(result, x);
+			final Collection<Link> result = new LinkedHashSet<>(n);
+			// biv -z-> alsCells
+			link(z, result);
+			// if I'm doubleLinked, then biv -x-> alsCells
+			if ( both ) {
+				link(x, result);
+			}
+			// too many links occlude the hint.
+			if ( result.size() > 24 ) {
+				result.clear();
+			}
 			return result;
 		} catch (Throwable ex) {
 			// I'm only ever called in the GUI, so just log it.
-			Log.println("ABigWingHint.getLinks: "+ ex);
+			Log.println(Log.me()+": "+ ex);
 			return null;
 		}
 	}
@@ -144,21 +154,22 @@ class BigWingsHint extends AHint  {
 	protected String getHintTypeNameImpl() {
 		// note the - 2 allows XY_Wing, which is NOT a "big" wing, but they're
 		// in ALSs already, so it's faster/easier to finds-em than filter-em.
-		return HINT_TYPE_NAMES[degree-2];
+		return HINT_TYPE_NAMES[size-2];
 	}
 
 	@Override
 	public double getDifficulty() {
 		// note the - 2 allows XY_Wing, which is NOT a "big" wing, but they're
 		// in ALSs already, so it's faster/easier to finds-em than filter-em.
-		return DIFFICULTIES[degree-2];
+		return DIFFICULTIES[size-2];
 	}
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a "+getHintTypeName();
-		if ( isBig )
+		if ( isBig ) {
 			s += ON+Frmt.csv(wingValues)+AND+"<b>"+z+"</b>";
+		}
 		return s;
 	}
 
@@ -168,8 +179,9 @@ class BigWingsHint extends AHint  {
 		sb.append(getHintTypeName()).append(COLON_SP)
 		  .append(Frmu.ssv(alsCells)).append(AND).append(biv.id)
 		  .append(ON).append(x);
-		if ( both )
+		if ( both ) {
 			sb.append(AND).append(z);
+		}
 		return sb.toString();
 	}
 
@@ -186,32 +198,30 @@ class BigWingsHint extends AHint  {
 	public int hashCode() {
 		// use the Cell.hashCode field instead of calling hashCode()
 		int hc = 0;
-		for ( Cell c : all )
+		for ( Cell c : all ) {
 			hc ^= c.hashCode;
+		}
 		return hc;
 	}
 
 	@Override
 	public String toHtmlImpl() {
-		// double-linked wings have there own explanation for more eliminations
-		String filename = both ? "BigWingsHintDL.html" : "BigWingsHint.html";
-		// avoid AIOB exceptions
-		String numWingCells = numberName(degree-1); // 7
-		String numAlsCells  = numberName(degree-2); // 8
-		String numOneShort  = numberName(degree-3); // 9
+		// double-linked wings are called rings, so display BigRingsHint.html
+		// providing a more specific explanation.
+		String filename = both ? "BigRingsHint.html" : "BigWingsHint.html";
 		return Html.produce(hinter, filename
-			, Frmu.csv(alsCells)		//{0}
-			, Frmu.and(alsCells)		// 1
-			, biv.id					// 2
-			, x							// 3 primary
-			, z							// 4 secondary
-			, redPots.toString()		// 5
-			, Integer.toString(degree)	// 6
-			, numWingCells				// 7
-			, numAlsCells				// 8
-			, numOneShort				// 9
-			, getHintTypeName()			// 10
-			// double-linked wings are called rings (used in BigWingHintDL)
+			, Frmu.csv(alsCells)	 //{0}
+			, Frmu.and(alsCells)	 // 1
+			, biv.id				 // 2
+			, x						 // 3 primary
+			, z						 // 4 secondary
+			, reds.toString()		 // 5
+			, Integer.toString(size) // 6
+			, numberName(size-1)	 // 7 numWingCells
+			, numberName(size-2)	 // 8 numAlsCells
+			, numberName(size-3)	 // 9 numOneShort
+			, getHintTypeName()		 // 10
+			// double-linked wings are called rings (used in BigRingsHint only)
 			, hinter.tech.name().replaceFirst("Wing", "Ring") // 11
 		);
 	}

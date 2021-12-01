@@ -8,14 +8,6 @@ package diuf.sudoku.io;
 
 import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.Log;
-import java.awt.Toolkit;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.StringSelection;
-import java.awt.datatransfer.Transferable;
-import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.dnd.DnDConstants;
-import java.awt.dnd.DropTargetDropEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -24,6 +16,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Map;
@@ -162,6 +155,21 @@ public final class IO {
 			return false;
 		}
 		return true;
+	}
+
+	/**
+	 * Count the number of lines in 'file'.
+	 *
+	 * @param file to count
+	 * @return number of lines
+	 */
+	public static int count(File file) throws IOException {
+		int count = 0;
+		try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
+			while ( reader.readLine() != null )
+				++count;
+		}
+		return count;
 	}
 
 //not_used
@@ -537,38 +545,50 @@ public final class IO {
 //		return null;
 //	}
 
-	// =========================== clipboard ===============================
+
+//	// DEBUG
+//	public static void save(final long[][] COUNTS, final String filename) throws FileNotFoundException {
+//		try {
+//			save(COUNTS, new PrintWriter(filename));
+//		} catch (FileNotFoundException ex) {
+//			Log.teeln(Log.me()+": "+ex);
+//		}
+//	}
+//	public static void save(final long[][] COUNTS, final PrintWriter out) {
+//		final int I = COUNTS.length;
+//		final int J = COUNTS[0].length;
+//		for ( int i=0; i<I; ++i ) {
+//			for ( int j=0; j<J; ++j ) {
+//				long cnt = COUNTS[i][j];
+//				if ( cnt > 0 ) {
+//					out.print(i);
+//					out.print('\t');
+//					out.print(j);
+//					out.print('\t');
+//					out.println(COUNTS[i][j]);
+//				}
+//			}
+//		}
+//	}
 
 	/**
-	 * Copies the given String to Systems clipboard.
-	 * @param s string to copy to clipboard
+	 * Save an array of any type of Object, one line per element,
+	 * relying on there toString methods for formatting.
+	 *
+	 * @param array
+	 * @param file
+	 * @return 
 	 */
-	public static void copyToClipboard(String s) {
-		StringSelection ss = new StringSelection(s);
-		Toolkit tk = Toolkit.getDefaultToolkit();
-		Clipboard clipboard = tk.getSystemClipboard();
-		clipboard.setContents(ss, ss);
-	}
-
-	/**
-	 * Reads the String content of the drop event and returns it.
-	 * @param dtde the {@code DropTargetDropEvent} received by
-	 *  {@code DropTargetAdapter.drop}
-	 * @return java.lang.String contents of the drop event.
-	 * @throws UnsupportedFlavorException
-	 * @throws IOException
-	 */
-	public static String readStringFromDropEvent(DropTargetDropEvent dtde)
-			throws UnsupportedFlavorException, IOException {
-		dtde.acceptDrop(DnDConstants.ACTION_COPY);
-		// it works only when I hardcode it!
-		DataFlavor flavor = dtde.getCurrentDataFlavors()[2];
-		assert "java.awt.datatransfer.DataFlavor[mimetype=text/plain;representationclass=java.lang.String]"
-				.equals(flavor.toString());
-		Transferable transferable = dtde.getTransferable();
-		String s = (String)transferable.getTransferData(flavor);
-		dtde.dropComplete(true);
-		return s;
+	public static boolean save(Object[] array, File file) {
+		try ( PrintWriter writer = new PrintWriter(file) ) {
+			for ( Object e : array ) {
+				writer.println(e);
+			}
+			return true;
+		} catch (IOException ex) {
+			Log.teeln(Log.me()+": "+ex);
+			return false;
+		}
 	}
 
 }

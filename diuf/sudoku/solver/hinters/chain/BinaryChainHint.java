@@ -60,7 +60,7 @@ public final class BinaryChainHint extends AChainingHint {
 
 	@Override
 	public Pots getFlatReds(int viewNum) {
-		return super.getFlatReds(viewNum).upsertAll(redPots); //Orangonate
+		return super.getFlatReds(viewNum).upsertAll(reds); //Orangonate
 	}
 
 	@Override

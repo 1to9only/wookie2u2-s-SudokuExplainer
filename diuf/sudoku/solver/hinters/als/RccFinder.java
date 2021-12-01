@@ -7,35 +7,36 @@
 package diuf.sudoku.solver.hinters.als;
 
 /**
- * An implementation of RccFinder finds RCC's (Restricted Common Candidates)
- * in pairs of given alss and stores them in the given rccs array, returning
- * how many.
- * <p>
- * RccFinder is now an interface defining find, getStartIndexes, getEndIndexes.
- * There's two abstract classes:
- * RccFinderAbstract is the "base", defining no-op getStart/EndIndexes.
- * RccFinderAbstractIndexed extends RccFinderAbstract to define the starts and
- * ends arrays, and overrides getStart/EndIndexes to return them.
+ * An implementation of this RccFinder interface finds RCC's (Restricted Common
+ * Candidates) in pairs of given alss and stores them in the given rccs array,
+ * returning how many. RCC-finding is decomposed to optimise for performance.
  * <pre>
+ * RccFinder is now an interface defining find, getStartIndexes, getEndIndexes.
+ * There are two abstract classes (partial implementations):
+ * 1. RccFinderAbstract is the "base", defining no-op getStart/EndIndexes.
+ * 2. RccFinderAbstractIndexed extends RccFinderAbstract to define the starts
+ *    and ends arrays, and overrides getStart/EndIndexes to return them.
  * There are four implementations:
  * 1. RccFinderForwardOnlyAllowOverlaps extends RccFinderAbstract
  * 2. RccFinderForwardOnlyNoOverlaps    extends RccFinderAbstract
  * 3. RccFinderAllAllowOverlaps			extends RccFinderAbstractIndexed
  * 4. RccFinderAllNoOverlaps			extends RccFinderAbstractIndexed
+ * There is one factory:
+ * 1. RccFinderFactory exposes a static get method that AAlsHinter uses to get
+ *    the RccFinder suitable for this Sudoku solving technique, which boils
+ *    down to the two booleans: forwardOnly and allowOverlaps.
  * </pre>
- * And finally the RccFinderFactory exposes a static get method that AAlsHinter
- * uses to get the RccFinder suitable for this Sudoku solving technique, which
- * boils-down-to the two booleans: forwardOnly and allowOverlaps.
- * <p>
  * All RccFinder-classes are called RccFinder* to keep-em-together.
  * <p>
- * This cluster____ of complexity is a performance measure. I hope it's a bit
- * faster to work-out which RccFinder we need ONCE, rather than working-out
- * which actual getRcc's method to execute every time we getRccs, but rccs are
- * cached, so I doubt this'll make much difference, but it's arguably cleaner,
- * so I'm doing it anyway. It's certainly more classes, and now the whole thing
- * may feel overwhelmingly complex to newbs, but it's simple enough really.
- * sigh.
+ * This cluster____ of complexity is a performance measure. I hope it's faster
+ * to work-out which RccFinder we need ONCE, rather than deciding which getRccs
+ * to call every time we getRccs, but rccs are cached, so I doubt this'll make
+ * any difference, but it's arguably cleaner, so I've done it anyway. All this
+ * decomposition allows me to write code that's highly specific to each flavour
+ * of RCC-finding, so that each is as fast as possible at it's specific job.
+ * It's certainly more classes, so the whole thing looks terribly complex to a
+ * newbie, but it's simple enough really. However, we're screwed if we ever
+ * need to change how RCCs are found. sigh.
  *
  * @author Keith Corlett 2021-07-29.
  */
@@ -44,6 +45,10 @@ public interface RccFinder {
 	/**
 	 * Search the given alss for Restricted Common Candidates, storing each
 	 * in the given rccs array and return how many.
+	 * <p>
+	 * Finding RCC's is inherently a heavy process at worst-case O(numAlss *
+	 * numAlss), so each implementation is as fast as possible, which is still
+	 * too slow.
 	 * <p>
 	 * If the size of the passed rccs is exceeded then a WARN: is printed to
 	 * both the Log and to stdout. Please ignore these messages from generate,
@@ -62,8 +67,8 @@ public interface RccFinder {
 	public int find(final Als[] alss, final int numAlss, final Rcc[] rccs);
 
 	/**
-	 * Returns the starts array: the RCC-index of the first RCC for the ALS at
-	 * each ALS-index.
+	 * Returns the starts array: the RCC-index of the first RCC related to the
+	 * source-ALS at this ALS-index.
 	 * <p>
 	 * Note that currently only AlsChain uses the start and end indexes, and
 	 * it currently uses RccFinderAllAllowOverlaps, and all other RccFinder's
@@ -71,18 +76,18 @@ public interface RccFinder {
 	 *
 	 * @return an array if the first RCC-index foreach ALS.
 	 */
-	public int[] getStartIndexes();
+	public int[] getStarts();
 
 	/**
-	 * Returns the ends array: one more than the last RCC-index for this ALS,
-	 * ergo an exclusive boundary line.
+	 * Returns the ends array: the last RCC-index for this source-ALS, ergo an 
+	 * INCLUSIVE boundary for source-ALS.
 	 * <p>
-	 * Note that currently only AlsChain uses the start and end indexes, and
-	 * it currently uses RccFinderAllAllowOverlaps, and all other RccFinder's
-	 * (for which starts and ends are irrelevant) just return null.
+	 * Note that currently only AlsChain uses the start and end indexes, and it
+	 * currently uses RccFinderAllAllowOverlaps, and all other RccFinder's (for
+	 * which starts and ends are irrelevant) just return null.
 	 *
 	 * @return an array of the last RCC-index + 1 foreach ALS.
 	 */
-	public int[] getEndIndexes();
+	public int[] getEnds();
 
 }

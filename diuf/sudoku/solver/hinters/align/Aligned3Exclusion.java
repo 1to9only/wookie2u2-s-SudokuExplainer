@@ -164,7 +164,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 		// get an array of the Cells at which we hinted last time;
 		// otherwise we skip this call to getHints
 		final Cell[] hitCells = useHits // only true when AHinter.hackTop1465
-				? hits.getHitCells(gsl, hintNum, degree, grid)
+				? hits.cells(gsl, hintNum, degree, grid)
 				: null;
 		final boolean hitMe = hitCells != null;
 		if ( useHits && !hitMe )
@@ -251,7 +251,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 				for ( i1=i0+1; i1<n1; ++i1 ) {
 					// get c1 and index of excluders common to c1 and c0.
 					// A3E requires atleast 2 common excluder cells.
-					if ( excluders[candidates[i1].i].idx2(idx01, idx0) )
+					if ( excluders[candidates[i1].i].idx2(idx0, idx01) )
 						continue;
 					c1 = cells[1] = candidates[i1];
 					if(hitMe && c1!=hitCells[1]) continue;
@@ -260,7 +260,7 @@ public final class Aligned3Exclusion extends AAlignedSetExclusionBase
 					for ( i2=i1+1; i2<numCandidates; ++i2 ) {
 						// get c2 and index of excluders common to c0, c1, and c2.
 						// A3E requires atleast 2 common excluder cells.
-						if ( excluders[candidates[i2].i].idx2(idx02, idx01) )
+						if ( excluders[candidates[i2].i].idx2(idx01, idx02) )
 							continue;
 						c2 = cells[2] = candidates[i2];
 						if(hitMe && c2!=hitCells[2]) continue;

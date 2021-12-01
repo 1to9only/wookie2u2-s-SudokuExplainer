@@ -28,20 +28,20 @@ abstract class RccFinderAbstractIndexed extends RccFinderAbstract {
     protected final int[] starts = new int[MAX_ALSS];
 
     /**
-	 * The index of the last RCC + 1 in {@code rccs} for each {@code alss}.
-	 * My index is the alss.index, and I contain last rccs.index+1 (EXCLUSIVE),
-	 * so starts and ends map from alss.index to the rccs of this ALS.
+	 * The index of the last RCC in {@code rccs} for each {@code alss} + 1.
+	 * My index is the alss.index, and I contain the last rccs.index, so that
+	 * starts..ends (EXCLUSIVE) maps from alss.index to the rccs of this ALS.
 	 * starts and ends are populated by getRccs and used by AlsChain only.
 	 */
     protected final int[] ends = new int[MAX_ALSS];
 
 	@Override
-	public int[] getStartIndexes() {
+	public int[] getStarts() {
 		return starts;
 	}
 
 	@Override
-	public int[] getEndIndexes() {
+	public int[] getEnds() {
 		return ends;
 	}
 

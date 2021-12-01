@@ -14,15 +14,15 @@ import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.accu.IAccumulator;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 /**
- * Valid Sudokus have 8 or 9 distinct clue values. If at least two
- * values do not appear in the grid then produce a warning message.
+ * A valid Sudoku can omit only one value. If more than one value does not
+ * appear in the grid then produce a warning hint.
  */
-public final class TooFewValues extends AWarningHinter {
+public final class InsufficientValues extends AWarningHinter {
 
-	public TooFewValues() {
+	public InsufficientValues() {
 		super(Tech.TooFewValues);
 	}
 
@@ -30,29 +30,27 @@ public final class TooFewValues extends AWarningHinter {
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		if ( grid.enoughValues )
 			return false;
-		// Does this puzzle contain atleast 8 distinct values?
-		int seen = 0;
+		int cands = 0;
 		for ( Cell cell : grid.cells )
-			seen |= VSHFT[cell.value]; // 0 safe!
-		int numValues = Integer.bitCount(seen);
-		final boolean result = numValues < REGION_SIZE-1;
-		if ( result ) {
-			// Two or more values are missing
-			StringBuilder sb = new StringBuilder((REGION_SIZE-numValues)*3);
+			cands |= VSHFT[cell.value]; // cell.value 0 is a no-op
+		int count = Integer.bitCount(VALL & ~cands);
+		if ( count > 1 ) {
+			final StringBuilder sb = new StringBuilder((REGION_SIZE-count)*3);
 			int cnt = 0;
-			for ( int v : VALUESES[VALL & ~seen] ) {
+			for ( int v : VALUESES[VALL & ~cands] ) {
 				if ( ++cnt > 1 )
-					sb.append(COMMA_SP);
+					sb.append(CSP);
 				sb.append(v);
 			}
 			accu.add(new WarningHint(this
-					, "Distinct values "+numValues+" is less than "+(REGION_SIZE-1)
+					, "More than one value is missing"
 					, "TooFewValues.html", sb.toString())
 			);
+			return true;
 		} else {
 			grid.enoughValues = true;
+			return false;
 		}
-		return result;
 	}
 
 }

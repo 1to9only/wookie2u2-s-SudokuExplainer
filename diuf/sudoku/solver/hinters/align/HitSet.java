@@ -172,33 +172,34 @@ public final class HitSet {
 		return (gsl<<9) ^ hintNum;
 	}
 
-	private String[] getCellIds(int gsl, int hintNum) {
-		//Schlemeil the Painter: it'd be faster to retain the iterator, because
-		// we expect requests to occurr in the same order as the hits appear in
-		// the set, because it's a linked set which is saved/retrieved in order.
-		for ( Hit hit : set )
-			if ( hit.gsl==gsl && hit.hintNum==hintNum )
+	private String[] ids(int gsl, int hintNum) {
+		// NOTE: it'd be faster to retain iterator coz requests occurr in same
+		// order as hits appear in linked set (natural order).
+		for ( Hit hit : set ) {
+			if ( hit.gsl==gsl && hit.hintNum==hintNum ) {
 				return hit.cellIds;
+			}
+		}
 		return null;
 	}
 
-	Cell[] getHitCells(int gsl, int hintNum, int degree, Grid grid) {
-		if ( gsl<1 || hintNum<1 )
+	Cell[] cells(int gsl, int hintNum, int degree, Grid grid) {
+		if ( gsl<1 || hintNum<1 ) {
 			return null;
-		assert gsl > 0;
-		assert hintNum > 0;
-		// first we quickly check if there are any, rather than creating
-		// arrays and using iterators and s__t when it's not required.
-		if ( Arrays.binarySearch(any, hash(gsl, hintNum)) < 0 )
+		}
+		// quickly check if there are any
+		if ( Arrays.binarySearch(any, hash(gsl, hintNum)) < 0 ) {
 			return null;
-		String[] cellIds; // cellId's of cells in the aligned set
-		if ( (cellIds = getCellIds(gsl, hintNum)) == null )
+		}
+		final String[] ids; // cell.id's in the aligned set
+		if ( (ids=ids(gsl, hintNum)) == null ) {
 			return null;
-		Cell[] hitCells = new Cell[degree];
+		}
+		final Cell[] cells = new Cell[degree];
 		int cnt = 0;
-		for ( String cellId : cellIds )
-			hitCells[cnt++] = grid.get(cellId);
-		return hitCells;
+		for ( String id : ids )
+			cells[cnt++] = grid.get(id);
+		return cells;
 	}
 
 	void add(int gsl, int hintNumber, Cell[] cells) {
@@ -243,35 +244,24 @@ public final class HitSet {
 		@Override
 		public int hashCode() {
 			int col = (cellIds[0].charAt(0)-'A');
-			int row = (cellIds[0].charAt(1)-'0'); // zero
-			//row,col,hintNum,gsl
+			int row = (cellIds[0].charAt(1)-'0');
+			// row, col, hintNum, gsl
 			return (((row<<4)|col)<<8)	// 8 bits
-				 | ((hintNum&8)<<4)		// 4 bits
-				 | (gsl&8);				// 4 bits
+				 ^ ((hintNum&8)<<4)		// 4 bits
+				 ^ (gsl&8);				// 4 bits
 		}
 
 		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (getClass() != obj.getClass()) {
-				return false;
-			}
-			final Hit other = (Hit) obj;
-			if (this.gsl != other.gsl) {
-				return false;
-			}
-			if (this.hintNum != other.hintNum) {
-				return false;
-			}
-			if (!Arrays.deepEquals(this.cellIds, other.cellIds)) {
-				return false;
-			}
-			return true;
+		public boolean equals(Object o) {
+			return this == o
+				|| ( o instanceof Hit
+				  && equals((Hit) o) );
+		}
+
+		public boolean equals(Hit that) {
+			return gsl == that.gsl
+				&& hintNum == that.hintNum
+				&& Arrays.deepEquals(this.cellIds, that.cellIds);
 		}
 
 		/**
@@ -297,18 +287,18 @@ public final class HitSet {
 
 		@Override
 		public int compareTo(Hit o) {
-			int gslC = Integer.compare(gsl, o.gsl);
-			if ( gslC != 0 )
-				return gslC;
-			int hintNumC = Integer.compare(hintNum, o.hintNum);
-			if ( hintNumC != 0 )
-				return hintNumC;
+			int ret;
+			if ( (ret=Integer.compare(gsl, o.gsl)) != 0 ) {
+				return ret;
+			}
+			if ( (ret=Integer.compare(hintNum, o.hintNum)) != 0 ) {
+				return ret;
+			}
 			assert cellIds.length == o.cellIds.length;
-			int idC;
 			for ( int i=0,n=cellIds.length; i<n; ++i ) {
-				idC = cellIds[i].compareTo(o.cellIds[i]);
-				if ( idC != 0 )
-					return idC;
+				if ( (ret=cellIds[i].compareTo(o.cellIds[i])) != 0 ) {
+					return ret;
+				}
 			}
 			return 0;
 		}

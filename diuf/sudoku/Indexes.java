@@ -29,7 +29,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	// ---------------- static stuff ----------------
 
-	/** The value returned by various methods meaning "Not found". */
+	/** The value returned by various methods meaning "Not found": -1. */
 	private static final int NONE = -1;
 
 	/** get last() a tad faster than numberOfLeadingZeros on my box. */

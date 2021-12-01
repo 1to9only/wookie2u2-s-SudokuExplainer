@@ -47,7 +47,7 @@ public final class URT2Hint extends AURTHint {
 			, Frmu.or(cellsWithExtraValues)	// 4
 			, Frmu.and(cellsWithExtraValues) // 5
 			, valueToRemove			// 6
-			, redPots.toString()	// 7
+			, reds.toString()	// 7
 		);
 	}
 }

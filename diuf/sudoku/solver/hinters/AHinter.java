@@ -14,8 +14,11 @@ import diuf.sudoku.solver.accu.IAccumulator;
 
 
 /**
- * AHinter (Abstract Hinter) is the base-type for all classes which produce
- * AHints (Abstract Hints) through the getHints method.
+ * AHinter (the abstract Hinter) is the base-type for all classes whose
+ * implementation of the getHints method produces AHint's (the abstract hint).
+ * I supply default implementations of many ancillary methods, leaving getHints
+ * upto my sub-classes. Each hinter extends AHinter (eventually) to implement
+ * one-or-more Sudoku Solving Technique's, which is called a {@link Tech}.
  *
  * @author Keith Corlett 2018 Jan - previously it was an ugly interface tree.
  */
@@ -24,22 +27,44 @@ public abstract class AHinter implements IHinter {
 	/** System.lineSeparator() by any other name is a rose. */
 	protected static final String NL = diuf.sudoku.utils.Frmt.NL;
 
-	/** The Solving Technique which this {@code AHinter} implements. */
+	/**
+	 * The Sudoku Solving Technique that this {@code AHinter} implements.
+	 * <p>
+	 * Note that a hinter may implement several techniques, but it's presumed
+	 * that each <u>instance</u> of that hinter implements a single Tech.
+	 */
 	public final Tech tech;
 
 	/** Are we solving KRC's Sudoku puzzles: top1465.d5.mt. */
 	public static boolean hackTop1465 = false;
 
-	/** The degree (the number of cells, or Chainer level) of this AHinter.
-	 * <p>For example: HiddenPairs=2, NakedTriples=3.
-	 * <p><b>WARN:</b> Hackily overwritten in {@code UniqueRectangle}. */
+	/**
+	 * The degree is the "magnitude" of this hinter. That "magnitude" could be
+	 * the number of cells in the set, like HiddenPair/Triple/Quad/Pent, or it
+	 * could be the "insanity level" as in ChainerMulti. Tech's that are
+	 * implemented in there own hinter have a degree of 0; hence hinters that
+	 * implement one-only Tech end-up with a degree of 0.
+	 * <p>
+	 * <b>WARN:</b> Hackily overwritten in {@code UniqueRectangle}.
+	 */
 	public final int degree;
 
 	/** The degree + 1 */
 	public final int degreePlus1;
 
-	/** Is this hinter enabled? If {@code !getIsEnabled()} then getHints
-	 * won't call this hinter. */
+	/** The degree - 1 */
+	public final int degreeMinus1;
+
+	/**
+	 * Is this hinter enabled?
+	 * <pre>
+	 * If {@code hinter.isEnabled()} then
+	 *   {@link diuf.sudoku.solver.LogicalSolver#solve} (et al) calls {@code hinter.getHints}
+	 * else
+	 *   skip this <u>putz</u>!
+	 * endif
+	 * </pre>
+	 */
 	public boolean isEnabled = true;
 
 	/**
@@ -62,20 +87,31 @@ public abstract class AHinter implements IHinter {
 		this.tech = tech;
 		this.degree = tech.degree;
 		this.degreePlus1 = degree + 1;
+		this.degreeMinus1 = degree - 1;
 	}
 
 	@Override
-	public Tech getTech() { return tech; }
+	public Tech getTech() {
+		return tech;
+	}
 
 	@Override
-	public boolean isEnabled() { return isEnabled; }
+	public boolean isEnabled() {
+		return isEnabled;
+	}
 	@Override
-	public void setIsEnabled(boolean isEnabled) { this.isEnabled = isEnabled; }
+	public void setIsEnabled(boolean isEnabled) {
+		this.isEnabled = isEnabled;
+	}
 
 	@Override
-	public int getIndex() { return index; }
+	public int getIndex() {
+		return index;
+	}
 	@Override
-	public void setIndex(int i) { index = i; }
+	public void setIndex(int i) {
+		index = i;
+	}
 
 	protected final void interrupt() {
 		if ( Run.stopGenerate ) {
@@ -84,30 +120,7 @@ public abstract class AHinter implements IHinter {
 	}
 
 	/**
-	 * Find hints in the grid using a Sudoku Solving Technique (ie each AHinter
-	 * implements a Tech), and add them to the given IAccumulator.
-	 * <p>
-	 * Note that {@link IAccumulator#add} returns true only if we should stop
-	 * the search immediately and return, so this hint can be applied to the
-	 * grid; then the LogicalSolver starts-over from the top of the
-	 * wantedHinters list to find the simplest possible hint at each stage, and
-	 * thereby the simplest possible solution to the Sudoku. Note that this
-	 * probably won't be the shortest possible solution, just the simplest
-	 * possible. Finding the simplest and shortest possible solution is a whole
-	 * can of worms that I have thus-far resolutely refused to open.
-	 * <p>
-	 * Note also that the LogicalSolvers wantedHinters list is sorted by
-	 * complexity ASCENDING, so the simplest available hint is found and
-	 * applied at each step.
-	 * <p>
-	 * Alternately if the given {@link IAccumulator#add} returns false then the
-	 * AHinter continues searching the grid, adding any subsequent hints to the
-	 * accumulator; eventually returning "Were any hints found?" The GUI goes
-	 * this way when you Shift-F5 to find MORE hints.
-	 *
-	 * @param grid the Sudoku {@code Grid} to search.
-	 * @param accu the {@code IAccumulator} to which I will add hints.
-	 * @return true if this hinter found a/any hint/s.
+	 * {@inheritDoc}
 	 */
 	@Override
 	abstract public boolean findHints(Grid grid, IAccumulator accu);

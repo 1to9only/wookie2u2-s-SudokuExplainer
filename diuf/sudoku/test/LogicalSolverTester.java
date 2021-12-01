@@ -31,42 +31,41 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-
 /**
- * Runs {@link LogicalSolver#solve} on each puzzle in a MagicTour file.
+ * LogicalSolverTester (aka "the batch") runs {@link LogicalSolver#solve} for
+ * each puzzle in a MagicTour file.
  * <p>
- * The current setup solves <tt>top1465.d5.mt</tt> in from 3 about minutes to
- * well over a day. It's totally dependant on which hinters you select in the
- * GUI using (Options Menu ~ Solving techniques).
+ * The current setup solves <tt>top1465.d5.mt</tt> in about 90 seconds,
+ * depending on wanted hinters: GUI ~ Options ~ Solving techniques.
  * <p>
- * Some hinters are faster than others. My chainers are pretty damn fast, and
- * reliably find hints.
+ * Some hinters are faster than others. My chainers are pretty damn fast.
+ * Best avoid Aligned*Exclusion, Jellyfish, Krakens, and Mutants.
+ * The rest are all "fast enough" no matter what you do with them.
  * <p>
- * Recommended Hinter Selection:<ul>
+ * My Recommended Hinter Selection:<ul>
  * <li>All hinters should be selected by default, so just unselect stuff in
- * this list. Ergo: Select everything that's not mentioned here!
+ * this list. Ergo: Select everything, then untick this s__t!
  * <li>The Naked Single and Hidden Single hinters are permanently selected coz
  *  it just doesn't make any sense to try to solve a Sudoku without them.
- * <li>Use Coloring OR BUG (Bivalue Universal Grave). Coloring is faster and
- *  finds a superset of BUG's hints, so I recommend Coloring; else BUG.
- * <li>There are no Naked Pent, or Hidden Pent in top1465 (they're degenerate).
- * <li>Mutant Swampfish produces no hints in top1465. sigh.<br>
- *  Mutant Swordfish is too slow (about 3 seconds per hint, IIRC).<br>
- *  Mutant Jellyfish is like watching the grass grow.
- * <li>Aligned Oct takes about 15 seconds per hint (IIRC) even hacked.
- * <li>Aligned Nona and Aligned Dec are both REALLY slow, so slow that they
- *  should probably be made unavailable to non-techies.
- * <li>Kraken Jellyfish are too slow. I don't routinely use ANY Krakens because
- *  I have an "intellectual objection" to combining Chaining with Fish, where
- *  Chaining alone is simpler and therefore faster. Just my humble opinion.
- * <li>Dynamic Plus fails to find hints ONLY in the very hardest puzzles, so
- *  it's permanently selected, as is Nested Plus, as a "catch all".
+ * <li>Drop BUG (Bivalue Universal Grave) and Medusa3D (counter-productive).
+ * <li>Drop Naked and Hidden Pent (degenerate).
+ * <li>Use BigWings instead of the individual S/T/U/V/WXYZ_Wing hinters (the
+ *  individuals are actually faster, but BigWings is faster overall because it
+ *  primes the ALS cache that's used later in AlsXz, AlsWing, and AlsChain).
+ * <li>Drop all JellyFish (too slow, except basic Jellyfish which finds naught)
+ * <li>Drop all Krakens (too slow)
+ * <li>Drop all Mutants (too slow)
+ * <li><i>Kraken and Mutant Jellyfish are like watching grass grow!</i>
+ * <li>Drop all Aligned*Exclusion (too slow)
+ * <li>Want DynamicPlus (sane) and/or NestedUnary (prof) to solve all puzzles.
  * </ul>
  *
- * @author Keith Corlett (loosely based on Juillerat's original class).
+ * @author Keith Corlett: based on Juillerat. I doubt 50 chars remain, but the
+ *  basic structure does, and that's the hard part, so credit where it's due.
  */
 public final class LogicalSolverTester {
 
+	// Assholometer: Should we hack the s__t out of s__t to make s__t faster?
 	private static final boolean IS_HACKY = THE_SETTINGS.getBoolean(Settings.isHacky);
 
 	// KRC 2021-06-20 I'm trying to find my misplaced towel
@@ -76,20 +75,10 @@ public final class LogicalSolverTester {
 	// you want Krakens. There may be other cases where it skips s__t in batch.
 	private static final boolean PRINT_HINT_HTML = false; // #check false
 
-	// KRC BUG 2020-08-20 888#top1465.d5.mt from hint.apply
-	// DEBUG_SIAMESE_LOCKING_BUG=true makes LogicalSolverTester behave as per
-	// the GUI to find a puzzle which trips over any mergeSiameseHints bug,
-	// which previously wasn't bulk tested, only tripped-over in the GUI.
-	// Also makes LogicalSolverTester follow (approximately) the same hint-path
-	// through each puzzle as the GUI, which is quite handy coz no figuring out
-	// where they diverge. Most useful EARLY in the hint-path, like Locking.
-	// SLOWER: KRC 2021-06-28 disabled because it's slower!
-	// FASTER: KRC 2021-07-12 new SiameseLocking class now it's 3 secs faster!
-	// But the number of reported locking drops coz there's increases in both
-	// NakedPairs and NakedTriples, as you'd expect because I donate my elims
-	// as "additional" eliminations to the existing NakedWhatever hint, and it
-	// takes about twice as long to run, but it's faster over-all; go figure!
-	private static final boolean DEBUG_SIAMESE_LOCKING_BUGS = true; // @check true
+	// KRC 2020-08-20 888#top1465.d5.mt siamese bug: SIAMESE_LOCKING=true makes
+	// LogicalSolverTester behave like GUI, to find SiameseLocking test-cases.
+	// Note that Locking must be wanted (not LockingGen) for siamese to work.
+	private static final boolean SIAMESE_LOCKING = false; // @check false
 
 	private static int numSolved=0, numFailed=0;
 
@@ -163,28 +152,21 @@ public final class LogicalSolverTester {
 
 		// remaining args are either -wantedHinters or pids (puzzle numbers)
 		final int[] pids;
-		if ( args.length == 0 )
+		if ( args.length == 0 ) {
 			pids = null;
-		else if ( args[0].startsWith("-wantedHinters") ) {
-			// "-wantedHinters:" MUST be the last arg, ie ALL following args
-			// are the names of the wanted hinters, in a comma-space seperated
-			// list... ie exactly as they appear in the log, so you can copy-
-			// paste the whole damn line rather than piss-about with it.
-			// WARN: NOT TESTED with any other args!
-			// WARN: Settings changes are PERMANENT!
+		} else if ( args[0].startsWith("-wantedHinters") ) {
 			THE_SETTINGS.setWantedTechs(parseWantedHinters(args));
 			pids = null;
 		} else {
 			pids = Frmt.toIntArray(args); // may still be null
 			// do BEFORE new LogicalSolver because new LogicalSolver ->
-			// new SingleSolution -> new HintsApplicumulator ->
-			// if AHint.printHtml then new SB, so hint.toString() contains
-			// a list of the hints that have already been applied, the actual
-			// HTML for which is above this entry in the log because it was
-			// printed as each hint was applied, so this is just a summary.
+			// new BruteForce -> new HintsApplicumulator ->
+			// if AHint.printHintHtml then new SB, so SummaryHint.toString()
+			// contains a list of the hints that have already been applied.
 			if ( PRINT_HINT_HTML ) {
-				if ( pids!=null && pids.length==1 )
-					AHint.printHintHtml = true; // this is REALLY verbose
+				if ( pids!=null && pids.length==1 ) {
+					AHint.printHintHtml = true; // this is insanely verbose
+				}
 			}
 		}
 
@@ -208,12 +190,9 @@ public final class LogicalSolverTester {
 			// nb: LogicalSolver's want method (et al) write to Log.out
 			solver = LogicalSolverFactory.get();
 
-			// KRC BUG 2020-08-20 Find the mergeSiameseHints bug.
-			// DEBUG_SIAMESE_LOCKING_BUGS makes LogicalSolverTester behave
-			// as-per the GUI to find a puzzle which hits the siamese bug.
-			if ( DEBUG_SIAMESE_LOCKING_BUGS ) {
-				// also made mergeSiameseHints handle SingleHintsAccumulator
-				// as well as it's intended [Default]HintsAccumulator.
+			// KRC 2020-08-20 find and fix SiameseLocking bug. Make the batch
+			// behave like the GUI, to find test-cases for SiameseLocking.
+			if ( SIAMESE_LOCKING ) {
 				solver.setSiamese();
 				if (Log.MODE >= Log.VERBOSE_5_MODE) {
 					Log.teeln("logicalSolver.locking.setSiamese!");
@@ -229,7 +208,7 @@ public final class LogicalSolverTester {
 //					if ( redo )
 //						logicalSolver.reconfigureToUse(hintyHinters[pid-1]);
 					System.out.println("processing pid "+pid+" ...");
-					final boolean logIt = pids.length==1;
+					final boolean logIt = false && pids.length==1;
 					process(readALine(inputFile, pid), totalUsageMap, logIt, logIt); // ONE exception
 					// print running-total usages (for A*E monitoring)
 					printTotalUsageMap(totalUsageMap);
@@ -246,8 +225,8 @@ public final class LogicalSolverTester {
 					final Grid g = new Grid(readALine(inputFile, 1).contents);
 					solver.prepare(g);
 					// priming solve: manually coz process stuffs-up counts
-					// nb: logTimes ALWAYS false for top1465 (too verbose)
-					solver.solve(g, new UsageMap(), true, true, false, false);
+					boolean pogHints = false; // set true if solve is broken
+					solver.solve(g, new UsageMap(), true, true, pogHints, false);
 					if (Log.MODE >= Log.VERBOSE_5_MODE) {
 						System.out.println("</priming-solve>");
 					}
@@ -256,8 +235,8 @@ public final class LogicalSolverTester {
 				// now the actual run
 				printHeaders(now, inputFile, logFile);
 				if (Log.MODE >= Log.VERBOSE_2_MODE) {
-					Log.teeln(solver.getWantedHinterNames());
-					Log.teeln(solver.getUnwantedHinterNames());
+					Log.teeln(solver.getWanteds());
+					Log.teeln(solver.getUnwanteds());
 				}
 				UsageMap totalUsageMap = new UsageMap();
 				try ( BufferedReader reader = new BufferedReader(new FileReader(inputFile)) ) {
@@ -332,25 +311,26 @@ public final class LogicalSolverTester {
 			, final boolean logHints, final boolean logTimes) {
 		if ( logHints ) {
 			++procCount;
-			// this is the puzzle-header-line for when we're logging a line per hint
+			// puzzle-header-line for when we're logging a line per hint
 			if (Log.MODE >= Log.VERBOSE_2_MODE) {
 				Log.println();
 				Log.println(line.toString()); // $pid#$absolutePath\t$contents
 			}
 		}
 		final Grid grid = new Grid(line.contents);
-		grid.source = new PuzzleID(line.file, line.number);
+		grid.source = new SourceID(line.file, line.number);
 
 		long took = 0L;
 		long start = System.nanoTime();
 		try {
 
-			// prepare the preppers (I like them with dead horse. lols.)
+			// prepare any preppers
 			solver.prepare(grid);
 
 			// solve the puzzle!
 			final UsageMap usageMap = new UsageMap(); // Hinter usages
-			boolean isSolved = solver.solve(grid, usageMap, true, false, logHints, logTimes);
+			boolean isSolved = solver.solve(grid, usageMap, true, false
+					, logHints, logTimes);
 			if ( logHints )
 				ttlTook += took = System.nanoTime() - start;
 			if ( !isSolved )

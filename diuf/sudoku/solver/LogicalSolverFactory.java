@@ -10,9 +10,9 @@ import diuf.sudoku.io.StdErr;
 import diuf.sudoku.utils.Log;
 
 /**
- * The LogicalSolverFactory is an all-static class. It's the only way to create
- * a LogicalSolver (outside of this package). It's a way of ensuring that there
- * is ONE LogicalSolver in existence at any one time, recreating it as required.
+ * The LogicalSolverFactory is the only way to create a LogicalSolver (outside
+ * of this package). I'm trying to ensure that there is ONE LogicalSolver in
+ * existence at any one time, recreating it as required.
  * <p>
  * Why? well LogicalSolver.solve relies upon "stateful" static fields, so if
  * two of them run simultaneously there is mahem, so we ensure that there is
@@ -21,6 +21,8 @@ import diuf.sudoku.utils.Log;
  * If I ever figure-out how to get rid of those stateful static fields (like
  * the Naked/Hidden singles queues in AHint.apply, for instance) then we can
  * get rid of this Factory too, I think.
+ * <p>
+ * Everything in this implementation is static.
  *
  * @author Keith Corlett 2020 Apr 18
  */
@@ -31,21 +33,6 @@ public final class LogicalSolverFactory {
 	/**
 	 * Get the current LogicalSolver, else construct a new LogicalSolver and
 	 * return it; so get is an MRU cache of size 1.
-	 * <p>
-	 * Generating a new Diabolical or IDKFA puzzle takes indeterminate time,
-	 * ie bloody ages. The longest I've seen was seven minutes, but that was
-	 * pretty unlucky. And I noticed that all IDKFA's use no mirroring to strip
-	 * the grid, so now only NONE is used with IDKFA, so if it ever takes seven
-	 * minutes again you've been unlucky. IDKFA generates take a few minutes.
-	 * Patience is a virtue.
-	 * <p>
-	 * But I am completely unvirtuous, so I cache generated puzzles. My hope is
-	 * that Mr User will solve each puzzle generated, giving adequate time to
-	 * generate a replacement in the background. Mr Thick will sit there and
-	 * press the generate button repeatedly, killing and restarting generate.
-	 * Intelligence is a virtue too, in theory, bit it's just another problem
-	 * in practice. But this is a Sudoku puzzle solver, which isn't the least
-	 * bit practical, so I feel safe, despite my lack of intelligence. sigh.
 	 *
 	 * @return the current cached LogicalSolver, which may be existing or a
 	 *  new one, depending on if the Earth fundamentally moved for you.
@@ -71,22 +58,22 @@ public final class LogicalSolverFactory {
 	public static LogicalSolver recreate() {
 //		Log.teeln("LogicalSolverFactory is recreating the LogicalSolver...");
 		solver = newLogicalSolver();
-		Log.teeln(solver.getWantedHinterNames());
-		Log.teeln(solver.getUnwantedHinterNames());
+		Log.teeln(solver.getWanteds());
+		Log.teeln(solver.getUnwanteds());
 		return solver;
 	}
 
 	// This method exists to ALWAYS update solversSettings after creating a new
 	// LogicalSolver, so that solversSettings is logically "pinned" to solver.
 	private static LogicalSolver newLogicalSolver() {
-		LogicalSolver ls;
+		LogicalSolver solver;
 		try {
-			ls = new LogicalSolver();
+			solver = new LogicalSolverBuilder().build();
 		} catch (Exception ex) {
 			StdErr.exit("WTF: new LogicalSolver() exception", ex);
-			ls = null; // you can't get here!
+			solver = null; // you can't get here!
 		}
-		return ls;
+		return solver;
 	}
 
 	// never used

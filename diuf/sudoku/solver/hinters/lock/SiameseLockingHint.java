@@ -29,7 +29,7 @@ import static diuf.sudoku.utils.Frmt.and;
  * A Siamese Locking Hint is the merger of two or three Pointing or Claiming
  * Hints from one region all into one hint, so that they're displayed as one in
  * the GUI. I'm not used in LogicalSolverTester where display is irrelevant;
- * nor am I used in the SingleSolution where speed is King (finding me is
+ * nor am I used in the BruteForce where speed is King (finding me is
  * slow).
  *
  * @author Keith Corlett 2020 June 18
@@ -61,9 +61,9 @@ public class SiameseLockingHint extends AHint  {
 			cellSet.addAll(pfh.cellSet);
 			idx.or(pfh.idx());
 			greenPots.upsertAll(pfh.greens);
-			redPots.upsertAll(pfh.redPots);
+			reds.upsertAll(pfh.reds);
 		}
-		valuesToRemove = Values.andS(maybesToRemove = maybes);
+		valuesToRemove = Values.andString(maybesToRemove = maybes);
 		base = hints[0].base;
 		cover = hints[0].cover;
 	}
@@ -129,7 +129,7 @@ public class SiameseLockingHint extends AHint  {
 				, valuesToRemove		//  1
 				, base.typeName			//  2
 				, cover.typeName		//  3
-				, redPots.toString()	//  4
+				, reds.toString()	//  4
 				// {5} debugMessage hijacked to explain the Siamese concept.
 				, "<p>"+NL+"<u>Explanation</u>"+NL+"<p>"+NL
 				  +"Note that \"Siamese\" hints are an agglomeration of two distinct hints."+NL

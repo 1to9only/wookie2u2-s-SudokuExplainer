@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 
 /**
@@ -83,7 +83,7 @@ public final class Bug4Hint extends ABugHint  {
 	public String toStringImpl() {
 		return Frmu.getSB().append(getHintTypeName())
 		  .append(COLON_SP).append(bugCell1.id)
-		  .append(COMMA_SP).append(bugCell2.id)
+		  .append(CSP).append(bugCell2.id)
 		  .append(ON).append(valueToRemove)
 		  .toString();
 	}
@@ -91,15 +91,13 @@ public final class Bug4Hint extends ABugHint  {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "Bug4Hint.html"
-			, Values.and(allExtraValues)		// {0}
-			, Frmu.and(bugCell1, bugCell2)		//  1
-			, Frmu.or(bugCell1, bugCell2)		//  2
-			, Values.or(allExtraValues)			//  3
-			, Integer.toString(valueToRemove)	//  4
-			, region.id							//  5
-//WTF!
-//			, Values.and(redPots.values())		//  6
-			, Values.and(allExtraValues)		//  6
+			, Values.andString(allExtraValues)	//{0}
+			, Frmu.and(bugCell1, bugCell2)		// 1
+			, Frmu.or(bugCell1, bugCell2)		// 2
+			, Values.orString(allExtraValues)	// 3
+			, Integer.toString(valueToRemove)	// 4
+			, region.id							// 5
+			, Values.andString(allExtraValues)	// 6
 		);
 	}
 }

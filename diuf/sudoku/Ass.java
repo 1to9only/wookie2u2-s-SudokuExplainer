@@ -347,13 +347,12 @@ public class Ass {
 		cell.canNotBe(value);
 	}
 
-	// It may be faster to have a stack entry to eradicate multiple VFIRST[cell.maybes]
-	// I'm going sans-stack, for now, but @todo test it!
 	/** @return the other value (ie not this.value) which this.cell may be. */
 	public int otherValue() {
 		assert cell.size == 2;
-		if ( VFIRST[cell.maybes] == value )
+		if ( VFIRST[cell.maybes] == value ) {
 			return VFIRST[cell.maybes & ~VSHFT[VFIRST[cell.maybes]]];
+		}
 		return VFIRST[cell.maybes];
 	}
 

@@ -6,8 +6,8 @@
  */
 package diuf.sudoku.gui;
 
-import diuf.sudoku.PuzzleID;
-import static diuf.sudoku.PuzzleID.EMPTY_PUZZLE_ID;
+import diuf.sudoku.SourceID;
+import static diuf.sudoku.SourceID.EMPTY_PUZZLE_ID;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.utils.Log;
@@ -31,13 +31,13 @@ class RecentFiles implements Closeable {
 	// because large ScrollBars are bit ____in useless. Sigh.
 	private static final int MAX_SIZE = 1000;
 
-	// a List of PuzzleID's to process
-	private final ArrayList<PuzzleID> list = new ArrayList<>(MAX_SIZE);
+	// a List of SourceID's to process
+	private final ArrayList<SourceID> list = new ArrayList<>(MAX_SIZE);
 
-	// the array of PuzzleID's vended to the GUI
-	private final PuzzleID[] array = new PuzzleID[MAX_SIZE];
+	// the array of SourceID's vended to the GUI
+	private final SourceID[] array = new SourceID[MAX_SIZE];
 
-	PuzzleID[] toArray() {
+	SourceID[] toArray() {
 		return list.toArray(array);
 	}
 
@@ -56,7 +56,7 @@ class RecentFiles implements Closeable {
 				int lineCount = 0;
 				String line;
 				while ( (line=reader.readLine()) != null ) {
-					list.add(PuzzleID.parse(line));
+					list.add(SourceID.parse(line));
 					if ( ++lineCount >= MAX_SIZE )
 						break;
 				}
@@ -66,18 +66,18 @@ class RecentFiles implements Closeable {
 		}
 	}
 
-	/** @return the PuzzleID of the most recently accessed file. */
-	PuzzleID mostRecent() {
+	/** @return the SourceID of the most recently accessed file. */
+	SourceID mostRecent() {
 		if ( list.isEmpty() ) {
 			return null;
 		}
 		return list.get(0);
 	}
 
-	/** Make this PuzzleID the most recently accessed file, returning the given
+	/** Make this SourceID the most recently accessed file, returning the given
 	 * puzzleID so that you can chain with me. Note: If the given pid is null or
 	 * empty then returns EMPTY_PUZZLE_ID; not null, as you might expect. */
-	PuzzleID add(PuzzleID pid) {
+	SourceID add(SourceID pid) {
 		if ( pid==null || pid.file==null ) {
 			return EMPTY_PUZZLE_ID;
 		}

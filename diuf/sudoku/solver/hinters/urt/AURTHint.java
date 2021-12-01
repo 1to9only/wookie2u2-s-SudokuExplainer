@@ -67,7 +67,7 @@ public abstract class AURTHint extends AHint  {
 			Pots pots = new Pots(loop.size(), 1F);
 			for ( Cell c : loop )
 				pots.put(c, VSHFT[v1]|VSHFT[v2]); // orange
-			pots.removeAll(redPots);
+			pots.removeAll(reds);
 			greenPots = pots;
 		}
 		return greenPots;
@@ -118,7 +118,7 @@ public abstract class AURTHint extends AHint  {
 			return "Unique Rectangle Hidden";
 		return "Unique "
 				+ (loopSize==4 ? "Rectangle" : "Loop")
-				+ (loopSize>6 ? SPACE+loopSize : EMPTY_STRING)
+				+ (loopSize>6 ? SP+loopSize : EMPTY_STRING)
 				+ " type " + typeIndex;
 	}
 

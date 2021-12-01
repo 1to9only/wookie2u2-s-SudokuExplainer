@@ -14,8 +14,15 @@ import java.util.Collection;
 
 /**
  * CellSet facilitates an easy swap between LinkedMatrixCellSet and any other
- * implementation of {@code Set<Cell>}. I use LinkedMatrixCellSet for it's Idx
- * methods, which you will need to add to alternatives to make them work here.
+ * implementation of {@code Set<Cell>}, such as LinkedHashCellSet, which is
+ * slower (built for correctness, not speed, as an alternative for testing).
+ * <p>
+ * I currently use LinkedMatrixCellSet for it's Idx methods, which you will
+ * need to add to alternatives to make them work here.
+ * <p>
+ * I implement advanced constructors for A*E.
+ * <p>
+ * I implement toFullString for debugging.
  *
  * @author Keith Corlett
  */

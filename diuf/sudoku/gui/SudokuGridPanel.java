@@ -8,10 +8,11 @@ package diuf.sudoku.gui;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import static diuf.sudoku.Grid.BOX_EDGE;
-import diuf.sudoku.Grid.Bounds;
+import static diuf.sudoku.Grid.COL_OF;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.FIRST_COL;
 import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.NUM_REGIONS;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
@@ -52,6 +53,8 @@ import java.util.Map;
 import java.util.Set;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import static diuf.sudoku.Grid.ROW_OF;
+import static diuf.sudoku.Grid.SQRT;
 
 
 /**
@@ -72,9 +75,9 @@ public class SudokuGridPanel extends JPanel {
 
 	private static final long serialVersionUID = 3709127163156966626L;
 
-	private static final int N = REGION_SIZE;
-	private static final int M = N - 1;
-	private static final int S = BOX_EDGE; // S for SquareRoot
+	private static final int N = REGION_SIZE; // 9 = num cells in region
+	private static final int M = N - 1;		  // 8 = last cell index
+	private static final int R = SQRT;		  // 3 = squareroot of REGION_SIZE
 
 	// a cache of orangified colors.
 	// No idea how big it should be, but 16 is big enough to start growing
@@ -88,6 +91,8 @@ public class SudokuGridPanel extends JPanel {
 	private static final Color COLOR_BROWN	= new Color(150, 75, 0);
 	private static final Color COLOR_DARK_BLUE = Color.BLUE.darker();
 	private static final Color COLOR_LEGEND	= new Color(0, 32, 64);
+	private static final Color COLOR_LIGHT_BLUE	= new Color(216, 230, 255);
+
 	// the aqua (bluey green) foreground color
 	private static final Color COLOR_AQUA = new Color(192, 255, 255);
 	// the dark aqua foreground color
@@ -108,6 +113,10 @@ public class SudokuGridPanel extends JPanel {
 	private static final Color COLOR_YELLOW_BG = new Color(255, 255, 75, 24);
 	// the brown cell background color
 	private static final Color COLOR_BROWN_BG = new Color(204, 51, 0, 12);
+	// the purple cell background color
+	private static final Color COLOR_PURPLE_BG = new Color(255, 204, 255, 153);
+	// the light blue cell background color
+	private static final Color COLOR_LIGHT_BLUE_BG = new Color(216, 230, 255, 24);
 	// a dark orange.
 	private static final Color COLOR_ORANGY_BLACK = orangy(Color.BLACK);
 
@@ -124,6 +133,8 @@ public class SudokuGridPanel extends JPanel {
 			, COLOR_AQUA_DARK
 			, COLOR_YELLOW_DARK
 			, COLOR_BROWN
+			, COLOR_PURPLE
+			, COLOR_LIGHT_BLUE
 	};
 	// ALS region bacground colors
 	private static final Color[] ALS_BG_COLORS = {
@@ -132,6 +143,8 @@ public class SudokuGridPanel extends JPanel {
 			, COLOR_AQUA_BG
 			, COLOR_YELLOW_BG
 			, COLOR_BROWN_BG
+			, COLOR_PURPLE_BG
+			, COLOR_LIGHT_BLUE_BG
 	};
 
 	// COLOR_POTS are in reverse order of importance because the last color set
@@ -169,12 +182,21 @@ public class SudokuGridPanel extends JPanel {
 	private static final int[] X_POINTS = new int[NUM_POINTS];
 	private static final int[] Y_POINTS = new int[NUM_POINTS];
 
-	private final ArrayList<Line> paintedLines = new ArrayList<>(64); // just a guess
+	// LOWTERS is short for LOWERCASE_LETTERS, which are the column labels
+	// from left-to-right, in lower-case, mapped to the right-mouse-button.
+	private static final String[] LOWTERS = new String[] {
+		"a", "b", "c", "d", "e", "f", "g", "h", "i"
+	};
+
+	/** The rectangle around each region, in cells. */
+	private final Bounds[] bounds = new Bounds[NUM_REGIONS];
+
+	private final ArrayList<Line> paintedLines = new ArrayList<>(64); //guess
 
 	private final String FONT_NAME = "Verdana";
 
 	private int COS = 64; // CELL_OUTER_SIZE // was 45, also a lettuce.
-	private int CIS = 58; // CELL_INNER_SIZE // was 39
+	private int CIS = 58; // CELL_INNER_SIZE // was 39, also a sibling?
 	private int CISo2 = CIS / 2;
 	private int CISo3 = CIS / 3;
 	private int CISo6 = CIS / 6;
@@ -206,19 +228,20 @@ public class SudokuGridPanel extends JPanel {
 
 	private Set<Cell> auqaBGCells;
 	private Set<Cell> pinkBGCells;
-	private Collection<ARegion> pinkRegions;
+	private Collection<ARegion> pinkos;
 	private Set<Cell> redBGCells;
 	private Set<Cell> greenBGCells;
 	private Set<Cell> orangeBGCells;
 	private Set<Cell> blueBGCells;
 	private Set<Cell> yellowBGCells;
-	private Result result;
-	// cells to be set: Cell=>Values containing a single value
+	// the cell-value to paint larger
+	private Result theResult;
+	// cells potential-values to paint larger
 	private Pots results;
 	private int resultColor;
 	private Collection<ARegion> bases;
 	private Collection<ARegion> covers;
-	private Collection<Als> alss;
+	private Als[] alss;
 	private Collection<Link> links;
 	private Idx[][] supers;
 	private Idx[][] subs;
@@ -231,13 +254,25 @@ public class SudokuGridPanel extends JPanel {
 
 	private Color fillBGColor = Color.WHITE;
 
+	// y-axis (vertical) legend coordinates
+	private int yAxisX;
+	private final int[] yAxisY = new int[REGION_SIZE];
+
+	// x-axis (horizontal) legend coordinates
+	private final int[] xAxisX = new int[REGION_SIZE];
+	private int xAxisY;
+
+	// save multipling everything by COS all the time
+	private final int[] byCOS = new int[VALUE_CEILING];
+
+	// save multipling everything by COS all the time
+	private final int[] positions = new int[REGION_SIZE];
+
 	SudokuGridPanel(Grid grid, SudokuExplainer engine, SudokuFrame frame) {
 		super();
 		this.grid = grid;		// input
 		this.engine = engine;	// process
 		this.frame = frame;		// output
-		if ( getToolkit().getScreenSize().height < 1080 ) // was 750
-			rescaleDown();
 		initialise();
 		super.setOpaque(false);
 		smallFont1 = new Font(FONT_NAME, Font.PLAIN, FONT_SIZE_1);
@@ -270,10 +305,63 @@ public class SudokuGridPanel extends JPanel {
 	}
 
 	private int rescale(int value) {
-		return (int)(value * 0.66666666666666); //(int)(value * 2 / 3.0);
+		return (int)(value * 0.66666666666666);
+	}
+
+	private void createByCOS() {
+		// save multipling everything by COS all the time
+		for ( int i=0; i<VALUE_CEILING; ++i) {
+			byCOS[i] = i * COS;
+		}
+	}
+
+	private void createPositions() {
+		for ( int i=0; i<REGION_SIZE; ++i) {
+			positions[i] = byCOS[i] + CELL_PAD + CISo6;
+		}
+	}
+
+	// we need calculate the positions of the legends ONCE, so that every time
+	// we repaint we can just look-up the x and y of the x-axis legend and the
+	// y-axis legend, to save CPU-time.
+	// positionLegends uses COS, so run positionLegends AFTER rescaleDown!
+	private void createLegendPositions() {
+		// y-axis legend coordinates
+		yAxisX = H_GAP / 2;
+		for ( int i=0; i<REGION_SIZE; ++i ) {
+			yAxisY[i] = V_GAP + byCOS[i] + COS/2;
+		}
+		// x-axis legend coordinates
+		for ( int i=0; i<REGION_SIZE; ++i ) {
+			xAxisX[i] = H_GAP + byCOS[i] + COS/2;
+		}
+		xAxisY = V_GAP + byCOS[N] + H_GAP/2;
+	}
+
+	// we need calculate the coordinates of the bounds of each region ONCE, so
+	// that every time we repaint we need not multiply the cell-coordinates by
+	// COS, to save CPU-time.
+	// the Bounds constructor uses COS, so run createBounds AFTER rescaleDown!
+	private void createBounds() {
+		for ( int i=0; i<REGION_SIZE; ++i ) {
+			bounds[i] = new Bounds(i%R*R, i/R*R, R, R);		// box
+			bounds[i+REGION_SIZE] = new Bounds(0, i, N, 1);	// row
+			bounds[i+FIRST_COL] = new Bounds(i, 0, 1, N);	// col
+		}
 	}
 
 	private void initialise() {
+
+		// reduce the cell-size if necessary
+		if ( getToolkit().getScreenSize().height < 1080 ) { // was 750
+			rescaleDown();
+		}
+		// these all use cell-size (et al) so must be run AFTER rescaleDown
+		createByCOS();
+		createPositions();
+		createLegendPositions();
+		createBounds();
+
 		this.addMouseListener(new MouseAdapter() {
 
 			@Override
@@ -290,15 +378,10 @@ public class SudokuGridPanel extends JPanel {
 					Cell cell = getCellAt(e.getX(), e.getY());
 					if ( cell != null ) {
 						boolean suppressSelect = false;
-//int onmask = SHIFT_DOWN_MASK | BUTTON1_DOWN_MASK;
-//int offmask = CTRL_DOWN_MASK;
-//if ((event.getModifiersEx() & (onmask | offmask)) == onmask) {
-//	// is shift-only-left-click (not Ctrl-shift-left-click or anything)
-//}
-						int mod = e.getModifiersEx();
-						boolean alt = (mod & ALT_DOWN_MASK) == ALT_DOWN_MASK;
-						int cnt = e.getClickCount();
-						int btn = e.getButton();
+						final int mod = e.getModifiersEx();
+						final boolean alt = (mod & ALT_DOWN_MASK) == ALT_DOWN_MASK;
+						final int cnt = e.getClickCount();
+						final int btn = e.getButton();
 						if ( alt ) {
 							if ( cnt == 2 ) {
 								greenBGCells = new HashSet<>();
@@ -317,12 +400,12 @@ public class SudokuGridPanel extends JPanel {
 						} else if ( cell.size == 1 ) {
 							engine.setTheCellsValue(cell, VFIRST[cell.maybes]);
 						} else {
-							int value = getMaybeAt(e.getX(), e.getY());
-							if ( value != 0 ) {
+							int v = getMaybeAt(e.getX(), e.getY());
+							if ( v != 0 ) {
 								if ( btn==BUTTON1 && mod==0 ) { // plain left click
 									// cell.value := the value that was clicked-on
-									if ( (cell.maybes & VSHFT[value]) != 0 )
-										engine.setTheCellsValue(cell, value);
+									if ( (cell.maybes & VSHFT[v]) != 0 )
+										engine.setTheCellsValue(cell, v);
 // Annoying when you're navigating around the grid with the mouse.
 // Not annoying when you're trying to set a cells value and miss.
 // There's more navigating than there is setting-and-missing, so it's out!
@@ -330,7 +413,7 @@ public class SudokuGridPanel extends JPanel {
 //										engine.beep();
 								} else {
 									// just remove/restore the maybe value
-									engine.maybeTyped(cell, value);
+									engine.maybeTyped(cell, v);
 									repaintCell(cell);
 								}
 							}
@@ -353,14 +436,14 @@ public class SudokuGridPanel extends JPanel {
 					} else if ( e.getButton() == BUTTON1 ) { // left button
 						final int i = (e.getX()-H_GAP) / COS;
 						if ( i>-1 && i<LETTERS.length ) {
-							setGreenPots(engine.cheat(grid, LETTERS[i]));
+							setGreenPots(engine.cheat(LETTERS[i], grid));
 							e.consume();
 							repaint();
 						}
 					} else { // right/middle button
 						final int i = (e.getX()-H_GAP) / COS;
-						if ( i>-1 && i<LOWERCASE_LETTERS.length ) {
-							setGreenPots(engine.cheat(grid, LOWERCASE_LETTERS[i]));
+						if ( i>-1 && i<LOWTERS.length ) {
+							setGreenPots(engine.cheat(LOWTERS[i], grid));
 							e.consume();
 							repaint();
 						}
@@ -374,7 +457,7 @@ public class SudokuGridPanel extends JPanel {
 					if ( v>0 && v<VALUE_CEILING ) {
 						if ( e.getButton() == BUTTON1 ) // left
 							setGreenPots(grid.getCandidatePots(v));
-						else if ( v<REGION_SIZE || engine.cheatMode ) // right or middle
+						else if ( v<REGION_SIZE || engine.cheater ) //right/mid
 							setGreenPots(grid.getMaybesSizePots(v));
 						else
 							engine.beep();
@@ -400,7 +483,23 @@ public class SudokuGridPanel extends JPanel {
 		this.addMouseMotionListener(new MouseMotionAdapter() {
 			@Override
 			public void mouseMoved(MouseEvent e) {
-				setFocusedCell(getCellAt(e.getX(), e.getY()));
+				// first get the cell over which the mouse is located
+				final Cell c = getCellAt(e.getX(), e.getY());
+				// the default cheatName is "" to clear it when cheats aren't
+				// enabled or the mouse is elsewhere over the grid
+				String cheatName = "";
+				// if c is null then we might be below the grid, so
+				if ( c == null ) {
+					// if cheats are authorised and we are below the grid then
+					if ( engine.cheater && e.getY()>BELOW_GRID ) {
+						// fetch the name of this cheat
+						cheatName = engine.cheatName(e.getX() / COS);
+					}
+				} else { // paint cell over which mouse is located yellow
+					setFocusedCell(c);
+				}
+				// display the cheatName (if any) next to the view combo
+				frame.getLblCheatName().setText(cheatName);
 			}
 		});
 
@@ -489,7 +588,7 @@ public class SudokuGridPanel extends JPanel {
 				}
 			}
 		});
-	} // end initialise() method.
+	}
 
 	private void toggleGreen(Cell cell) {
 		// if it's in green then it's not in blue
@@ -513,32 +612,35 @@ public class SudokuGridPanel extends JPanel {
 
 	// returns the Cell which is at the given x,y.
 	private Cell getCellAt(int x, int y) {
-		int cx = (x - H_GAP) / COS;
+		final int cx = (x - H_GAP) / COS;
 		if(cx<0||cx>8) return null;
-		int cy = (y - V_GAP) / COS;
+		final int cy = (y - V_GAP) / COS;
 		if(cy<0||cy>8) return null;
 		return grid.cells[cy*N+cx];
 	}
 
-	// returns the potential value that is at (or should be at) the given x,y.
+	private boolean in(final int i, final int min, final int ceiling) {
+		return i>=min && i<ceiling;
+	}
+
+	// returns the potential value that is at (or should be at) the given x,y;
+	// converting a screen-mouse-click into a cells potential value
 	private int getMaybeAt(int x, int y) {
-		// Get cell's top-left corner, or left-top corner in an xy world.
-		int cx = (x - H_GAP) / COS;
-		int cy = (y - V_GAP) / COS;
+		// get cell's top-left corner
+		final int cx = (x - H_GAP) / COS;
+		final int cy = (y - V_GAP) / COS;
 		if ( cx<0||cx>8 || cy<0||cy>8 )
 			return 0;
-		Cell cell = grid.cells[cy*N+cx]; // dip back into yx world. Confusing!
-		if ( cell == null )
-			return 0;
-		// Substract cell's corner // yep, flip again. My brain hurts already!
-		x = x - cx*COS - H_GAP;
-		y = y - cy*COS - V_GAP;
-		// Get the maybe
-		int mx = (x - CELL_PAD) / CISo3;
-		int my = (y - CELL_PAD) / CISo3;
+		assert in(cy*N+cx, 0, 81);
+		// substract cell's top-left corner
+		x = x - byCOS[cx] - H_GAP;
+		y = y - byCOS[cy] - V_GAP;
+		// get the maybe from position in cell
+		final int mx = (x - CELL_PAD) / CISo3;
+		final int my = (y - CELL_PAD) / CISo3;
 		if ( mx<0||mx>2 || my<0||my>2 )
 			return 0;
-		return my*3 + mx + 1; // finally something an idjit like me understands!
+		return my*3 + mx + 1; // the potential value
 	}
 
 	/** @return the grid. */
@@ -563,8 +665,8 @@ public class SudokuGridPanel extends JPanel {
 	}
 
 	/** Set the regions to be outlined in pink. */
-	void setPinkRegions(Collection<ARegion> pinkRegions) {
-		this.pinkRegions = pinkRegions;
+	void setPinkos(Collection<ARegion> pinkRegions) {
+		this.pinkos = pinkRegions;
 	}
 
 	/** Set the red cell backgrounds. */
@@ -594,10 +696,10 @@ public class SudokuGridPanel extends JPanel {
 
 	/** Set the result: a cell value to paint larger. */
 	void setResult(Result result) {
-		this.result = result;
+		this.theResult = result;
 	}
 
-	/** Set the results: cell values to paint larger. */
+	/** Set results: cell potential values to paint larger. */
 	void setResults(Pots results) {
 		this.results = results;
 	}
@@ -663,7 +765,7 @@ public class SudokuGridPanel extends JPanel {
 	}
 
 	/** Set the brown potentials. Implemented for Coloring hints. */
-	void setAlss(Collection<Als> alss) {
+	void setAlss(Als[] alss) {
 		this.alss = alss;
 	}
 
@@ -694,24 +796,26 @@ public class SudokuGridPanel extends JPanel {
 
 	private void repaintCell(Cell cell) {
 		if ( cell != null )
-			repaint(cell.x*COS+H_GAP, cell.y*COS+V_GAP, COS, COS);
+			repaint(byCOS[cell.x]+H_GAP, byCOS[cell.y]+V_GAP, COS, COS);
 	}
 
-	public void setFocusedCellS(String id) {
-		if ( id == null )
+	// FYI: called setFocusedCellById because setFocusedCell(null)
+	//      is a compiler error when setFocusedCell is overloaded
+	public void setFocusedCellById(String id) {
+		if ( id == null ) // nb: id is never empty
 			setFocusedCell(null);
 		else
 			setFocusedCell(grid.get(id));
 	}
 
 	private void setFocusedCell(Cell cell) {
-		repaintCell(this.focusedCell);
+		repaintCell(this.focusedCell); // clear existing
 		this.focusedCell = cell;
 		repaintCell(this.focusedCell);
 	}
 
 	private void setSelectedCell(Cell cell) {
-		repaintCell(this.selectedCell);
+		repaintCell(this.selectedCell); // clear existing
 		this.selectedCell = cell;
 		repaintCell(this.selectedCell);
 	}
@@ -728,38 +832,43 @@ public class SudokuGridPanel extends JPanel {
 		return getPreferredSize();
 	}
 
-	private void drawStringCentered(Graphics g, String s, int x, int y) {
-		Rectangle2D rect = g.getFontMetrics().getStringBounds(s, g);
-		double px = x - rect.getWidth() / 2;
-		double py = y - rect.getHeight() / 2 - rect.getY();
-		g.drawString(s, (int)(px + 0.5), (int)(py + 0.5));
+	private static void drawStringCentered(final Graphics g, final String s, final int x, final int y) {
+		final Rectangle2D r = g.getFontMetrics().getStringBounds(s, g);
+		final double px = x - r.getWidth()/2 + 0.5;
+		final double py = y - r.getHeight()/2 - r.getY() + 0.5;
+		g.drawString(s, (int)px, (int)py);
 	}
 
-	private void drawStringCentered(Graphics g, String s, int x, int y, Font f) {
+	private static void drawStringCentered(final Graphics g, final String s, final int x, final int y, final Font f) {
 		g.setFont(f);
-		drawStringCentered(g, s, x,y);
+		drawStringCentered(g, s, x, y);
 	}
 
-	private void drawStringCentered3D(Graphics g, String s, int x, int y, Font f) {
+	private static void drawStringCentered(final Graphics g, final String s, final int x, final int y, final Color c) {
+		g.setColor(c);
+		drawStringCentered(g, s, x, y);
+	}
+
+	private static void drawStringCentered3D(final Graphics g, final String s, final int x, final int y, final Font f) {
 		g.setFont(f);
-		Color color = g.getColor();
-		g.setColor(Color.black);  drawStringCentered(g, s, x,   y+1);
-		g.setColor(Color.yellow); drawStringCentered(g, s, x-1, y);
-		g.setColor(color);        drawStringCentered(g, s, x,   y);
+		final Color theGivenColor = g.getColor();
+		drawStringCentered(g, s, x,   y+1, Color.black);
+		drawStringCentered(g, s, x-1, y,   Color.yellow);
+		drawStringCentered(g, s, x,   y,   theGivenColor);
 	}
 
 	private static Color orangy(Color col) {
-		Color orangyCol = ORANGY_COLOR_CACHE.get(col);
-		if ( orangyCol != null )
-			return orangyCol;
-		orangyCol = new Color(
+		Color orangy = ORANGY_COLOR_CACHE.get(col);
+		if ( orangy != null )
+			return orangy;
+		orangy = new Color(
 			// my orange = (255, 185, 0) that's (R, G, B)
 			  (col.getRed()   + 255) / 2
 			, (col.getGreen() + 185) / 2
 			, (col.getBlue()  +   0) / 2
 		);
-		ORANGY_COLOR_CACHE.put(col, orangyCol);
-		return orangyCol;
+		ORANGY_COLOR_CACHE.put(col, orangy);
+		return orangy;
 	}
 
 	/** Paint this JPanel. */
@@ -767,8 +876,8 @@ public class SudokuGridPanel extends JPanel {
 	protected void paintComponent(Graphics g) {
 		Graphics2D g2 = (Graphics2D)g;
 		initGraphics(g2);
-		paintLegends(g); // Wally wasn't happy.
-		AffineTransform oldTransform = g2.getTransform();
+		paintLegends(g);
+		AffineTransform preTrans = g2.getTransform();
 		AffineTransform translate = AffineTransform.getTranslateInstance(
 				H_GAP, V_GAP);
 		g2.transform(translate);
@@ -782,16 +891,16 @@ public class SudokuGridPanel extends JPanel {
 			// paint regions for non-ALS's
 			paintRegions(g, covers, COLOR_COVER_BORDER, COLOR_COVER_BG);
 			paintRegions(g, bases, COLOR_BASE_BORDER, COLOR_BASE_BG);
-			paintRegions(g, pinkRegions, COLOR_PINK, null);
+			paintRegions(g, pinkos, COLOR_PINK, null);
 		}
-		paintCellValues(g);
+		paintCell(g);
 		paintSuperAndSubMarkers(g);
 		paintLinks(g);
-		g2.setTransform(oldTransform);
+		g2.setTransform(preTrans);
 	}
 
 	private void initGraphics(Graphics2D g2) {
-		if (THE_SETTINGS.getBoolean(Settings.isAntialiasing)) {
+		if ( THE_SETTINGS.getBoolean(Settings.isAntialiasing) ) {
 			g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 			g2.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
 			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
@@ -816,15 +925,9 @@ public class SudokuGridPanel extends JPanel {
 		g.setColor(COLOR_LEGEND);
 		for ( int i=0; i<REGION_SIZE; ++i ) {
 			// y-axis legend (vertical = row labels: 1..9)
-			drawStringCentered(g, DIGITS[i+1]
-					, H_GAP/2					// x
-					, V_GAP + COS*i + COS/2		// y
-			);
+			drawStringCentered(g, DIGITS[i+1], yAxisX, yAxisY[i]);
 			// x-axis legend (horizontal = column labels: A..I)
-			drawStringCentered(g, LETTERS[i]
-					, H_GAP + i*COS + COS/2		// x
-					, V_GAP + COS*N + H_GAP/2	// y
-			);
+			drawStringCentered(g, LETTERS[i], xAxisX[i], xAxisY);
 		}
 	}
 
@@ -859,28 +962,28 @@ public class SudokuGridPanel extends JPanel {
 
 	private void paintSelectionAndFocus(Graphics g) {
 		for ( Cell cell : grid.cells ) {
-			Color col = fillBGColor;
+			Color c = fillBGColor;
 			if ( cell == selectedCell )
-				col = Color.ORANGE;
+				c = Color.ORANGE;
 			else if ( cell == focusedCell )
-				col = Color.YELLOW;
+				c = Color.YELLOW;
 			else if ( auqaBGCells!=null && auqaBGCells.contains(cell) )
-				col = COLOR_AQUA;
+				c = COLOR_AQUA;
 			else if ( pinkBGCells!=null && pinkBGCells.contains(cell) )
-				col = COLOR_PINK;
+				c = COLOR_PINK;
 			else if ( redBGCells!=null && redBGCells.contains(cell) )
-				col = Color.RED;
+				c = Color.RED;
 			else if ( blueBGCells!=null && blueBGCells.contains(cell) )
-				col = COLOR_BLUE_BG;
+				c = COLOR_BLUE_BG;
 			else if ( greenBGCells!=null && greenBGCells.contains(cell) )
-				col = COLOR_GREEN_BG;
+				c = COLOR_GREEN_BG;
 			else if ( orangeBGCells!=null && orangeBGCells.contains(cell) )
-				col = COLOR_ORANGE_BG;
+				c = COLOR_ORANGE_BG;
 			else if ( yellowBGCells!=null && yellowBGCells.contains(cell) )
-				col = COLOR_YELLOW_BG;
-			g.setColor(col);
-			g.fillRect(cell.x*COS, cell.y*COS, COS, COS);
-		} // next x, y
+				c = COLOR_YELLOW_BG;
+			g.setColor(c);
+			g.fillRect(byCOS[cell.x], byCOS[cell.y], COS, COS);
+		}
 	}
 
 	private void paintGrid(Graphics g) {
@@ -894,8 +997,8 @@ public class SudokuGridPanel extends JPanel {
 				g.setColor(COLOR_DARK_BLUE);
 			}
 			offset = lineWidth / 2;
-			g.fillRect(i*COS-offset, 0-offset, lineWidth, MY_SIZE+lineWidth);
-			g.fillRect(0-offset, i*COS-offset, MY_SIZE+lineWidth, lineWidth);
+			g.fillRect(byCOS[i]-offset, 0-offset, lineWidth, MY_SIZE+lineWidth);
+			g.fillRect(0-offset, byCOS[i]-offset, MY_SIZE+lineWidth, lineWidth);
 		}
 	}
 
@@ -905,29 +1008,20 @@ public class SudokuGridPanel extends JPanel {
 			, final Color borderColor
 			, final Color backgroundColor // null means no shading
 	) {
-		if ( regions == null )
-			return;
-		for ( ARegion region : regions ) {
-			if ( region == null )
-				continue;
-			// nb: having the region know it's bounds is a bit hacky coz I've
-			// injected a presentation concern into the model. If it s__ts you
-			// then rip the bound attribute out of region and create a
-			// {@code private static final Bounds[] BOUNDS} array here and
-			// populate with the Bounds constructor currently imbedded in the
-			// Box, Row, and Col constructors. I won't coz it works. Bounds
-			// is STILL an attribite of the region, even if only presentation.
-			// Best of both worlds is a method, with cache, to avoid creating
-			// new EVERY TIME we paint the bastard, which is where I started.
-			Bounds b = region.bounds; // here's one I prepared earlier
-			g.setColor(borderColor); // blue or green
-			for ( int s=-2; s<3; s++ ) // 5 times: -2, -1, 0, 1, 2
-				g.drawRect(b.x*COS+s, b.y*COS+s, b.w*COS-s*2, b.h*COS-s*2);
-			if ( backgroundColor != null ) {
-				g.setColor(backgroundColor); // blue or green shading (alpha)
-				g.fillRect(b.x*COS+3, b.y*COS+3, b.w*COS-6, b.h*COS-6);
+		if ( regions != null ) {
+			for ( ARegion region : regions ) {
+				if ( region == null )
+					continue;
+				final Bounds b = bounds[region.index];
+				g.setColor(borderColor); // solid color
+				for ( int s=-2; s<3; s++ ) // 5 times: -2, -1, 0, 1, 2
+					g.drawRect(b.x+s, b.y+s, b.w-s*2, b.h-s*2);
+				if ( backgroundColor != null ) {
+					g.setColor(backgroundColor); // shading (alpha)
+					g.fillRect(b.x+3, b.y+3, b.w-6, b.h-6);
+				}
 			}
-		} // next region
+		}
 	}
 
 	/**
@@ -937,30 +1031,27 @@ public class SudokuGridPanel extends JPanel {
 	 * @param g
 	 * @param alss
 	 */
-	private void paintAlss(final Graphics g, Collection<Als> alss) {
+	private void paintAlss(final Graphics g, Als[] alss) {
 		// If you're seeing this then add another ALS_COLORS and ALS_BG_COLORS.
-		if ( alss.size() > ALS_COLORS.length )
-			Log.println("WARN: paintAlss: more ALS's than colors!");
+		if ( alss.length > ALS_COLORS.length )
+			Log.println("WARN: paintAlss: more alss than ALS_COLORS!");
 		int i = 0; // the color index
-		for ( Als a : alss ) {
-			if ( a != null ) { // the last als may be null. sigh.
+		for ( Als als : alss ) {
+			if ( als != null ) { // the last als may be null. sigh.
 				// null backgroundColor: I paint backgrounds of my cells.
-				paintRegions(g, a.regions(), ALS_COLORS[i], null);
-				for ( Cell cell : a.cells ) {
+				paintRegions(g, als.regions(), ALS_COLORS[i], null);
+				for ( Cell cell : als.idx.cells(grid.cells) ) {
 					// paint the cell background
 					g.setColor(ALS_BG_COLORS[i]);
-					g.fillRect(cell.x*COS+2, cell.y*COS+2, COS-4, COS-4);
+					g.fillRect(byCOS[cell.x]+2, byCOS[cell.y]+2, COS-4, COS-4);
 					// paint the foreground
 					g.setColor(ALS_COLORS[i]);
-					for ( int v : VALUESES[cell.maybes] )
-						drawStringCentered3D(g, DIGITS[v]
-							, cell.x*COS + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
-							, cell.y*COS + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
-							, smallFont2
-						);
+					for ( int v : VALUESES[cell.maybes] ) {
+						paintMaybe3D(g, cell, v, smallFont2);
+					}
 				}
-				// prevent AIOOBE if there's ever more ALS's than there are colors,
-				// by making the color index wrap around to zero. If you see two
+				// prevent AIOOBE if there's ever more alss than ALS_COLORS by
+				// making the color index wrap around to zero. If you see two
 				// blue ALSs then add another ALS_COLORS and ALS_BG_COLORS.
 				i = (i+1) % ALS_COLORS.length;
 			}
@@ -1034,56 +1125,86 @@ public class SudokuGridPanel extends JPanel {
 		}
 	}
 
+	// paint the non-zero value of this cell.
+	// paint* methods are instance wrappers for the static draw methods.
+	// paint* exist to encapsulate the math that works-out the x and y.
+	// It now also encapsulates working-out color for the un/selected cell.
+	private void paintCellValue(final Graphics g, final Cell c) {
+		g.setColor(c==selectedCell ? Color.BLACK : COLOR_ORANGY_BLACK);
+		drawStringCentered(g, DIGITS[c.value]
+				, byCOS[c.x] + CELL_PAD + CISo2
+				, byCOS[c.y] + CELL_PAD + CISo2
+				, bigFont);
+	}
+
+	// paint a 3D (highlighted) cell-maybe in the current color using 'font'.
+	// paint* methods are instance wrappers for the static draw methods.
+	// paint* exist to encapsulate the math that works-out the x and y.
+	private void paintMaybe3D(final Graphics g, final Cell c, final int v, final Font font) {
+		drawStringCentered3D(g, DIGITS[v]
+			, byCOS[c.x] + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
+			, byCOS[c.y] + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
+			, font
+		);
+	}
+
+	// paint a "plain" cell-maybe in the current color.
+	// paint* methods are instance wrappers for the static draw methods.
+	// paint* exist to encapsulate the math that works-out the x and y.
+	private void paintMaybe(final Graphics g, final Cell c, final int v) {
+		drawStringCentered(g, DIGITS[v]
+			, byCOS[c.x] + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
+			, byCOS[c.y] + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
+			, smallFont1
+		);
+	}
+
 	/**
-	 * Paint each Cells value, or its maybes (potential values).
+	 * Paint each Cells value, or its maybes (potential values) in forground.
+	 * Note that I do NOT clear the cell before I paint it, ergo I overwrite
+	 * the pre-existing background.
+	 *
 	 * @param g The Graphics to paint on.
 	 */
-	private void paintCellValues(Graphics g) {
-		final boolean isShowingMaybes = THE_SETTINGS.getBoolean(Settings.isShowingMaybes);
-		initMaybesColors(); // sets MAYBES_COLORS
+	private void paintCell(Graphics g) {
 		Integer values;
-		int x,y, cx,cy, i;
 		boolean isHighlighted;
+		final boolean show = THE_SETTINGS.getBoolean(Settings.isShowingMaybes);
+		initMaybesColors(); // sets MAYBES_COLORS
 		for ( Cell cell : grid.cells ) {
-			x = cell.x;  y = cell.y;
 			if ( cell.value != 0 ) {
-				cx = x*COS + CELL_PAD + CISo2;
-				cy = y*COS + CELL_PAD + CISo2;
-				g.setColor(cell==selectedCell?Color.BLACK:COLOR_ORANGY_BLACK);
-				drawStringCentered(g, DIGITS[cell.value], cx, cy, bigFont);
+				paintCellValue(g, cell);
 			} else {
-				// Paint potentials
 				for ( int v : VALUESES[cell.maybes] ) {
-					i = v - 1;
-					cx = x*COS + CELL_PAD + (i%3)*CISo3 + CISo6;
-					cy = y*COS + CELL_PAD + (i/3)*CISo3 + CISo6;
 					isHighlighted = setMaybeColor(g, cell.i, v-1);
-					if ( result!=null && result.equals(cell, v) )
-						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont3);
+					if ( theResult!=null && theResult.equals(cell, v) )
+						paintMaybe3D(g, cell, v, smallFont3); // larger font
 					else if ( results != null
 						   && (values=results.get(cell)) != null
-						   && (values & VSHFT[v]) != 0
-					) {
+						   && (values & VSHFT[v]) != 0 ) {
 						g.setColor(resultColor()); // result ON's green/blue
-						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont3);
+						paintMaybe3D(g, cell, v, smallFont3); // larger font
 					} else if ( isHighlighted ) {
-						drawStringCentered3D(g, DIGITS[v], cx,cy, smallFont2);
-					} else if (isShowingMaybes) { // g.color is set to gray
-						drawStringCentered(g, DIGITS[v], cx,cy, smallFont1);
+						paintMaybe3D(g, cell, v, smallFont2);
+					} else if (show) { // g.color is gray
+						paintMaybe(g, cell, v);
 					}
 				}
 			}
-		} // next x, y
+		}
 	}
 
 	// Super and Sub marker colors
 	private static final Color[] SS_COLORS = {COLOR_GREEN, COLOR_BLUE};
 
+	// paint supers and subs, if any
+	// I overwrite whatevers in the background, so you can paint me over the
+	// cell's maybes produced by paintCell
 	private void paintSuperAndSubMarkers(Graphics g) {
 		if ( supers==null || subs==null )
 			return;
 		g.setFont(smallFont2);
-		for ( int c=0; c<2; ++c ) {
+		for ( int c=0; c<2; ++c ) { // GREEN, BLUE
 			g.setColor(SS_COLORS[c]);
 			for ( int v=1; v<VALUE_CEILING; ++v ) {
 				if ( subs[c][v].any() )
@@ -1103,12 +1224,10 @@ public class SudokuGridPanel extends JPanel {
 	// draw String s centered on v in each cell in idx
 	private void paintMarkers(Graphics g, int v, Idx idx, String s, int offset) {
 		final int u = v - 1;
-		for ( int i : idx.toArrayB() )
-			// x,y are the centre point to paint at (I expected top left)
-			drawStringCentered(g, s
-					, i%N*COS + CELL_PAD + (u%S)*CISo3 + CISo6 + offset // horizontal
-					, i/N*COS + CELL_PAD + (u/S)*CISo3 + CISo6 // vertical
-			);
+		final int xo = CELL_PAD + (u%R)*CISo3 + CISo6 + offset; // xOffset
+		final int yo = CELL_PAD + (u/R)*CISo3 + CISo6; // yOffset
+		// note: x,y are the centre point to paint at (not the top-left)
+		idx.forEach((i)->drawStringCentered(g, s, byCOS[i%N]+xo, byCOS[i/N]+yo));
 	}
 
 	private Color resultColor() {
@@ -1124,29 +1243,30 @@ public class SudokuGridPanel extends JPanel {
 		public Line(int sx, int sy, int ex, int ey) {
 			this.sx=sx; this.sy=sy; this.ex=ex; this.ey=ey;
 		}
-		private int distanceUnscaled(int px, int py) {
-			// Vectorial product, without normalization by length
-			return (px - sx) * (ey - sy) - (py - sy) * (ex - sx);
+		// vectorial product, without normalization by length
+		private int distanceUnscaled(int x, int y) {
+			return (x - sx)*(ey - sy) - (y - sy)*(ex - sx);
 		}
 		private boolean intervalOverlaps(int s1, int e1, int s2, int e2) {
-			if (s1 > e1) { // Swap
+			if (s1 > e1) { // swap
 				s1 ^= e1;
 				e1 = s1^e1;
 				s1 ^= e1;
 			}
-			if (s2 > e2) { // Swap
+			if (s2 > e2) { // swap
 				s2 ^= e2;
 				e2 = s2^e2;
 				s2 ^= e2;
 			}
 			return s1 < e2 && e1 > s2;
 		}
-		private boolean overlaps(Line other) {
-			if ( distanceUnscaled(other.sx, other.sy) == 0
-			  && distanceUnscaled(other.ex, other.ey) == 0 ) {
-				// Both lines are on the same right
-				return intervalOverlaps(this.sx, this.ex, other.sx, other.ex)
-					|| intervalOverlaps(this.sy, this.ey, other.sy, other.ey);
+		// basically, if there MBR's overlap then test for overlap
+		private boolean overlaps(Line o) {
+			if ( distanceUnscaled(o.sx, o.sy) == 0
+			  && distanceUnscaled(o.ex, o.ey) == 0 ) {
+				// both lines are on the same right
+				return intervalOverlaps(sx, ex, o.sx, o.ex)
+					|| intervalOverlaps(sy, ey, o.sy, o.ey);
 			}
 			return false;
 		}
@@ -1183,15 +1303,17 @@ public class SudokuGridPanel extends JPanel {
 
 	// sets (mutates) 'p' to the position of cell.value
 	// NB: doing it this way we only need create 2 points, less G = less GC.
-	private void position(Cell cell, int value, DblPoint p) {
-		double x = cell.x * COS + CELL_PAD + CISo6;
-		double y = cell.y * COS + CELL_PAD + CISo6;
-		if (value > 0) {
-			p.x = x + ((value - 1) % 3) * CISo3;
-			p.y = y + ((value - 1) / 3) * CISo3;
+	// NB: mutates DblPoint's state, only the reference is final.
+	private void position(final int i, final int v, final DblPoint p) {
+		final int x = COL_OF[i];
+		final int y = ROW_OF[i];
+		if ( v > 0 ) {
+			final int u = v - 1;
+			p.x = positions[x] + u%3*CISo3;
+			p.y = positions[y] + u/3*CISo3;
 		} else {
-			p.x = x + CISo3;
-			p.y = y + CISo3;
+			p.x = positions[x] + CISo3;
+			p.y = positions[y] + CISo3;
 		}
 	}
 
@@ -1200,44 +1322,42 @@ public class SudokuGridPanel extends JPanel {
 			return;
 		g.setColor(Color.orange);
 		DblPoint s=new DblPoint(), e=new DblPoint(); // s=source, e=end
-		Line line;
+		Line myLine;
 		// s=shift, u=unit, m=move, l=left, r=right
-		// I'm pretty sure the computer doesn't actually need a couple of these
-		// variables, but I'm a human being, and a piss-poor mathematician at
-		// that, so I do, so I'm keeping them.
+		// nb: pretty sure we don't actually need a couple of these variables,
+		// but I'm a human being who is a poor mathematician, so I do, so I'm
+		// keeping them, even if they're not actually required.
 		double sx,sy, length, ux,uy, mx,my, lx,ly, rx,ry;
-		int overlapCount;
+		int overlaps; // number of already painted lines I cross
 		for ( Link link : links ) {
-			position(link.srcCell, link.srcValue, s); // get the starting point
-			position(link.endCell, link.endValue, e); // get the ending point
-			// Get unity vector
+			position(link.srcIndice, link.srcValue, s); // source point
+			position(link.endIndice, link.endValue, e); // end point
+			// get unit vector
 			sx = e.x - s.x; // shiftX = end.x - start.x
 			sy = e.y - s.y; // shiftY = end.y - start.y
-			// the length of the hippopotamus equals the square root of the
-			// sum of the square of the other two side.
+			// PYTHONS RULE: the length of the hippopotamus equals the square
+			// root of the sum of the square of the other two sides. Ya can't
+			// fool me mate! Hippopotami are round. I means they're da roundest
+			// animal around, on ground. And then I shot'im.
 			length = Math.sqrt( sx*sx + sy*sy );
 			ux = sx / length; // the amount we move horizontaly per unit
 			uy = sy / length; // the amount we move vertically per unit
-
-			// Build line object
-			line = new Line((int)s.x, (int)s.y, (int)e.x, (int)e.y);
-
-			// Count number of overlapping lines
-			overlapCount = 0;
-			for ( Line other : paintedLines )
-				if ( line.overlaps(other) )
-					++overlapCount;
-
-			// Move the line perpendicularly to go away from overlapping lines
-			mx = uy * ((overlapCount+1)/2) * LINK_OFFSET; // horizontally
-			my = ux * ((overlapCount+1)/2) * LINK_OFFSET; // vertically
-			if (overlapCount % 2 == 0)
+			// build my Line, and count number of overlapping lines
+			myLine = new Line((int)s.x, (int)s.y, (int)e.x, (int)e.y);
+			overlaps = 0;
+			for ( Line paintedLine : paintedLines )
+				if ( myLine.overlaps(paintedLine) )
+					++overlaps;
+			// move the line perpendicularly to go away from overlapping lines
+			mx = uy * ((overlaps+1)/2) * LINK_OFFSET; // horizontally
+			my = ux * ((overlaps+1)/2) * LINK_OFFSET; // vertically
+			if (overlaps % 2 == 0)
 				mx = -mx; // negate the x to move by
 			else
 				my = -my; // negate the y to move by
 			// suppress arrows on short links, coz there ain't room for em.
 			if ( length >= (CIS>>1) ) { // length >= CELL_INNER_SIZE/2
-				// Truncate end points (move of "middle" of potential value)
+				// truncate end points (move of "middle" of potential value)
 				if (link.srcValue > 0) {
 					s.x += ux * CISo6; // startX += unitX * (CELL_INNER_SIZE/6)
 					s.y += uy * CISo6;
@@ -1260,9 +1380,9 @@ public class SudokuGridPanel extends JPanel {
 					Y_POINTS[2] = (int)(ly + my);
 					g.fillPolygon(X_POINTS, Y_POINTS, NUM_POINTS);
 				}
-				paintedLines.add(line);
+				paintedLines.add(myLine);
 			}
-			// Draw the line
+			// draw the Line
 			g.drawLine(
 					  (int)(s.x + mx)
 					, (int)(s.y + my)
@@ -1271,6 +1391,40 @@ public class SudokuGridPanel extends JPanel {
 			);
 		} // next link
 		paintedLines.clear(); // let gc cleanup the Lines but keep the container
+	}
+
+	/**
+	 * The (x (left), y (top), width, height) of a region, in cells.
+	 * <p>
+	 * Inputs are in cells, values stored and in screen-coordinates, to save
+	 * repeatedly multiplying by the cell outer size (COS).
+	 * <p>
+	 * The Bounds class is only used in {@link #paintRegions}, it's just a way
+	 * of calculating ONCE and storing the outline of each ARegion.
+	 */
+	private final class Bounds {
+		public final int x, y, w, h;
+		public Bounds(final int x, final int y, final int w, final int h) {
+			this.x = byCOS[x];
+			this.y = byCOS[y];
+			this.w = byCOS[w];
+			this.h = byCOS[h];
+		}
+		@Override
+		public boolean equals(Object o) {
+			return o!=null && (o instanceof Bounds) && equals((Bounds)o);
+		}
+		@Override
+		public int hashCode() {
+			return (w<<12) ^ (h<<10) ^ (x<<5) ^ y ;
+		}
+		public boolean equals(final Bounds o) {
+			return x==o.x && y==o.y && w==o.w && h==o.h;
+		}
+		@Override
+		public String toString() {
+			return "x="+x+", y="+y+", w="+w+", h="+h;
+		}
 	}
 
 }

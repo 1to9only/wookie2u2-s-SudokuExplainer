@@ -19,8 +19,8 @@ import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
 import static diuf.sudoku.utils.Frmt.and;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 
 /**
@@ -224,7 +224,7 @@ public class ComplexFishHint extends AHint  {
 	}
 
 	String squeeze() {
-		return toStringImpl()+" ("+redPots+")"; // NO CACHING!
+		return toStringImpl()+" ("+reds+")"; // NO CACHING!
 	}
 
 	@Override
@@ -253,7 +253,7 @@ public class ComplexFishHint extends AHint  {
 			, Regions.typeNames(covers)		//  3
 			, nn							//  4 number name
 			, tag							//  5 used in FinnedFishHint.html
-			, redPots.toString()			//  6 eliminations
+			, reds.toString()			//  6 eliminations
 			, blues.toString()				//  7 fins
 			, coloredHint					//  8 hint (elims)
 			, blues.size()==1?"has":"have"	//  9

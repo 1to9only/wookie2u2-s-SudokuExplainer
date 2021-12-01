@@ -8,6 +8,7 @@ package diuf.sudoku.solver.accu;
 
 import diuf.sudoku.solver.AHint;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -53,7 +54,7 @@ public abstract class AAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean hasAny() {
+	public boolean any() {
 		return false;
 	}
 
@@ -67,7 +68,7 @@ public abstract class AAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void sort() {
+	public void sort(Comparator<AHint> comparator) {
 	}
 
 	@Override

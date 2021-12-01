@@ -55,7 +55,7 @@ public class SkyscraperHint extends AHint  {
 				, bases.get(0).id			//  1
 				, bases.get(1).id			//  2
 				, covers.get(0).typeName	//  3
-				, redPots.toString()		//  4
+				, reds.toString()		//  4
 		);
 	}
 

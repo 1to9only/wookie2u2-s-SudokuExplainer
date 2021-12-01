@@ -35,18 +35,14 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import diuf.sudoku.solver.hinters.IChildHint;
+import static diuf.sudoku.utils.Frmt.AND;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.MyStrings.TWO_OR_MORE_SPACES;
+import static diuf.sudoku.utils.Frmt.CSP;
+import static diuf.sudoku.utils.Frmt.SP;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.HashMap;
-import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.SPACE;
-import static diuf.sudoku.utils.Frmt.TWO_SPACES;
-import diuf.sudoku.utils.MyStrings;
-import static diuf.sudoku.utils.MyStrings.TWO_OR_MORE_SPACES;
-
 
 /**
  * Chaining hint. A chaining hint is any hint resulting from a chain of implications.
@@ -743,8 +739,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	 * by (currently): CellReductionHint, RegionChainingHint. */
 	@Override
 	public String getHintTypeNameImpl() {
-		String s = getNamePrefix()+SPACE+getNameMiddle()+SPACE+getNameSuffix();
-		s = s.replaceAll(TWO_OR_MORE_SPACES, SPACE).trim();
+		String s = getNamePrefix()+SP+getNameMiddle()+SP+getNameSuffix();
+		s = s.replaceAll(TWO_OR_MORE_SPACES, SP).trim();
 		return s;
 	}
 
@@ -780,7 +776,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 		// First add parent chains (DFS)
 		if ( a.parents!=null && a.parents.size>0 )
 			for ( Ass p : a.parents )
-				recurseChainHtml(p, ancestors, htmlLines, path+=SPACE+p);
+				recurseChainHtml(p, ancestors, htmlLines, path+=SP+p);
 		//System.out.println(path);
 		// NB: When we get back from the recursive call the 'parents' List will
 		// contain all a's parent assumptions. Remember that it's the one list
@@ -804,7 +800,7 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 				final int pi = ancestors.indexOf(p); // parentsIndex
 				if ( i < last ) // if this is not the first parent processed
 					if ( i > 0 )
-						line.append(COMMA_SP);
+						line.append(CSP);
 					else
 						line.append(AND); // last when i==0
 				line.append(p.weak());

@@ -47,89 +47,88 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * KRC Hash table based implementation of the <tt>MyMap</tt> interface,
- * which extends java.util.Map adding the "make" method which gets-else-puts
- * an element (more) atomically. I also eradicated terniaries, because they are
- * slower, so they should be avoided in ALL low-level code, such as the
- * collections framework.
- *
- * <p>This implementation is not intended for "general use".
- *
- * <p>This implementation provides all of the optional map operations, and
- * permits <tt>null</tt> values and the <tt>null</tt> key. (The <tt>HashMap</tt>
- * class is roughly equivalent to <tt>Hashtable</tt>, except that it is
- * unsynchronized and permits nulls.)  This class makes no guarantees as to
- * the order of the map; in particular, it does not guarantee that the order
- * will remain constant over time.
- *
- * <p>This implementation provides constant-time performance for the basic
- * operations (<tt>get</tt> and <tt>put</tt>), assuming the hash function
- * disperses the elements properly among the buckets.  Iteration over
- * collection views requires time proportional to the "capacity" of the
- * <tt>HashMap</tt> instance (the number of buckets) plus its size (the number
- * of key-value mappings).  Thus, it's very important not to set the initial
- * capacity too high (or the load factor too low) if iteration performance is
- * important.
- *
- * <p>An instance of <tt>HashMap</tt> has two parameters that affect its
- * performance: <i>initial capacity</i> and <i>load factor</i>.  The
- * <i>capacity</i> is the number of buckets in the hash table, and the initial
- * capacity is simply the capacity at the time the hash table is created.  The
- * <i>load factor</i> is a measure of how full the hash table is allowed to
- * get before its capacity is automatically increased.  When the number of
- * entries in the hash table exceeds the product of the load factor and the
- * current capacity, the hash table is <i>rehashed</i> (that is, internal data
- * structures are rebuilt) so that the hash table has approximately twice the
- * number of buckets.
- *
- * <p>As a general rule, the default load factor (.75) offers a good tradeoff
- * between time and space costs.  Higher values decrease the space overhead
- * but increase the lookup cost (reflected in most of the operations of the
+ * MyHashMap is hashtable based implementation of the <tt>MyMap</tt> interface,
+ * which extends java.util.Map to add the "visit" method. I also eradicated
+ * ternaries, coz they're slower, so they should be avoided in low-level code,
+ * such as collections.
+ * <p>
+ * This implementation is not intended for "general use". If what you need is
+ * a standard HashMap then you should use the standard java.util.HashMap. Note
+ * that this implementation started as a copy of Java 1.7's java.util.HashMap.
+ * I'm now using Java 1.8 whose HashMap is faster than this.
+ * <p>
+ * This implementation provides all of the optional map operations, and permits
+ * <tt>null</tt> values and the <tt>null</tt> key. The <tt>HashMap</tt> class
+ * is roughly equivalent to <tt>Hashtable</tt>, except that it's unsynchronised
+ * and permits nulls. This class does not guarantee the order of the map; in
+ * particular, it does not guarantee that the order remains constant over time.
+ * <p>
+ * This implementation provides constant-time performance for the basic ops
+ * (<tt>get</tt> and <tt>put</tt>), assuming the hash function disperses the
+ * elements properly among the buckets. Iteration over collection views takes
+ * time proportional to the "capacity" of the <tt>HashMap</tt> instance (the
+ * number of buckets) plus its size (the number of key-value mappings). Thus,
+ * it's very important not to set the initial capacity too high (or the load
+ * factor too low) if iteration performance is important.
+ * <p>
+ * An instance of <tt>HashMap</tt> has two parameters affecting performance:
+ * <i>initial capacity</i> and <i>load factor</i>. The <i>capacity</i> is the
+ * number of buckets in the hash table, and the initial capacity is simply the
+ * capacity at the time the hash table is created. The <i>load factor</i> is a
+ * measure of how full the hash table is allowed to get before its capacity is
+ * automatically increased. When the number of entries in the hashtable exceeds
+ * the product of the load factor and the current capacity, the hashtable is
+ * <i>rehashed</i> (that is, internal data structures are rebuilt) so that the
+ * hashtable has approximately twice the number of buckets.
+ * <p>
+ * As a general rule, the default load factor (.75) yields a good compromise
+ * between space and time. Higher values decrease the space overhead but
+ * increase the lookup cost (reflected in most of the operations of the
  * <tt>HashMap</tt> class, including <tt>get</tt> and <tt>put</tt>).  The
  * expected number of entries in the map and its load factor should be taken
- * into account when setting its initial capacity, so as to minimize the
- * number of rehash operations.  If the initial capacity is greater
- * than the maximum number of entries divided by the load factor, no
- * rehash operations will ever occur.
- *
- * <p>If many mappings are to be stored in a <tt>HashMap</tt> instance,
- * creating it with a sufficiently large capacity will allow the mappings to
- * be stored more efficiently than letting it perform automatic rehashing as
- * needed to grow the table.
- *
- * <p><strong>Note that this implementation is not synchronized.</strong>
- * If multiple threads access a hash map concurrently, and at least one of
- * the threads modifies the map structurally, it <i>must</i> be
- * synchronized externally.  (A structural modification is any operation
- * that adds or deletes one or more mappings; merely changing the value
- * associated with a key that an instance already contains is not a
- * structural modification.)  This is typically accomplished by
- * synchronizing on some object that naturally encapsulates the map.
- *
+ * into account when setting its initial capacity, so as to minimize the number
+ * of rehash operations. If the initial capacity is greater than the maximum
+ * number of entries divided by the load factor, no rehash operations will ever
+ * occur.
+ * <p>
+ * If many mappings are to be stored in a <tt>HashMap</tt> instance, creating
+ * it with a sufficiently large capacity will allow the mappings to be stored
+ * more efficiently than letting it perform automatic rehashing as needed to
+ * grow the table.
+ * <p>
+ * <strong>Note that this implementation is not synchronized.</strong>
+ * If multiple threads access a hash map concurrently, and at least one of the
+ * threads modifies the map structurally, it <i>must</i> be synchronized
+ * externally. A structural modification is any operation that adds or deletes
+ * one or more mappings; merely changing the value associated with a key that
+ * an instance already contains is not a structural modification. This is
+ * typically accomplished by synchronizing on some object that naturally
+ * encapsulates the map.
+ * <p>
  * If no such object exists, the map should be "wrapped" using the
  * {@link Collections#synchronizedMap Collections.synchronizedMap}
  * method.  This is best done at creation time, to prevent accidental
  * unsynchronized access to the map:<pre>
  *   Map m = Collections.synchronizedMap(new HashMap(...));</pre>
- *
- * <p>The iterators returned by all of this class's "collection view methods"
+ * <p>
+ * The iterators returned by all of this class's "collection view methods"
  * are <i>fail-fast</i>: if the map is structurally modified at any time after
  * the iterator is created, in any way except through the iterator's own
  * <tt>remove</tt> method, the iterator will throw a
- * {@link ConcurrentModificationException}.  Thus, in the face of concurrent
+ * {@link ConcurrentModificationException}. Thus, in the face of concurrent
  * modification, the iterator fails quickly and cleanly, rather than risking
  * arbitrary, non-deterministic behavior at an undetermined time in the
  * future.
- *
- * <p>Note that the fail-fast behavior of an iterator cannot be guaranteed
- * as it is, generally speaking, impossible to make any hard guarantees in the
+ * <p>
+ * Note that the fail-fast behavior of an iterator cannot be guaranteed as it
+ * is, generally speaking, impossible to make any hard guarantees in the
  * presence of unsynchronized concurrent modification.  Fail-fast iterators
  * throw <tt>ConcurrentModificationException</tt> on a best-effort basis.
  * Therefore, it would be wrong to write a program that depended on this
  * exception for its correctness: <i>the fail-fast behavior of iterators
  * should be used only to detect bugs.</i>
- *
- * <p>This class is a member of the
+ * <p>
+ * This class is a member of the
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
@@ -364,17 +363,18 @@ public class MyHashMap<K,V>
 	}
 
 	/**
-	 * Visit is get-else-put: It either finds the given key and returns false,
-	 * or (key doesn't already exist) it puts the given key and value and
-	 * returns true, which is useful in Set where value is irrelevant.
+	 * Visit does a get-else-put, ie an addOnly operation, with no update: It
+	 * either finds the given key and returns false, or (if key doesn't already
+	 * exist) it puts the given key and value and returns true, which is very
+	 * useful in a Set where the associated value is irrelevant.
 	 * <p>
-	 * The visit method is a bit faster than if get()==null then put() because
-	 * it: calculates hash, finds table-entry, and searches the list ONCE. This
-	 * is also more atomic (an oxymoron), by which I mean that there's reduced
-	 * probability of another thread getting in-between get and put. If you're
-	 * using this Map across multiple threads then you had still better
-	 * synchronise operations externally. Anyway, this takes about half the
-	 * time as a get then a put.
+	 * A call to <tt>visit</tt> takes a bit more than half of the time of a
+	 * <tt>get</tt> then a <tt>put</tt> because it: calculates hash, finds the
+	 * entry, and searches the linked-list ONCE; which is also more atomic (an
+	 * oxymoron), by which I mean that there is a greatly reduced probability
+	 * of another thread getting in-between the get and the put, but if you are
+	 * using this Map across multiple threads then reliability still requires
+	 * you to synchronise operations on it externally (see class comments).
 	 *
 	 * @param key
 	 * @param value
@@ -382,8 +382,8 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public boolean visit(K key, V value) {
-		// techies: only morons put null keys in HashMaps!
-		assert key != null : "MyHashMap.make: null key denied!";
+		// real techies do not put null keys in HashMaps!
+		assert key != null : Log.me()+": null key denied!";
 		// first deal with null key
 		if ( key == null ) {
 			++modCount;
@@ -394,7 +394,7 @@ public class MyHashMap<K,V>
 		h ^= (h >>> 20) ^ (h >>> 12);
 		final int hash = h ^ (h >>> 7) ^ (h >>> 4);
 		final int i = hash & mask;
-		for ( Entry<K,V> e=table[hash & mask]; e!=null; e=e.next )
+		for ( Entry<K,V> e=table[i]; e!=null; e=e.next )
 			if ( e.hash==hash && ((k=e.key)==key || key.equals(k)) )
 				return false; // it already existed
 		// not found, so put it
@@ -618,10 +618,8 @@ public class MyHashMap<K,V>
 	 *        is irrelevant).
 	 */
 	void resize(int newCapacity) {
-		// breakpoint here to find HashMaps that're created too small.
-		Entry[] oldTable = table;
-		int oldCapacity = oldTable.length;
-		if (oldCapacity == MAXIMUM_CAPACITY) {
+		final Entry[] theTable = table;
+		if ( theTable.length == MAXIMUM_CAPACITY ) {
 			threshold = Integer.MAX_VALUE;
 			return;
 		}
@@ -634,23 +632,22 @@ public class MyHashMap<K,V>
 	 * Transfers all entries from current table to newTable.
 	 */
 	Entry[] transfer(Entry[] newTable) {
-		Entry[] src = table;
-		// recall length is a power of 2, so length-1 is 1111111, or whatever.
-		final int newMask = newTable.length - 1;
 		Entry<K,V> e, next;
 		int i;
-		for ( int j=0,n=src.length; j<n; ++j )
+		final Entry[] src = table;
+		// length is a power of 2, so length-1 is all 1's.
+		final int newMask = newTable.length - 1;
+		for ( int j=0,n=src.length; j<n; ++j ) {
 			if ( (e=src[j]) != null ) {
-				src[j] = null;
+				src[j] = null; // make GC easier
 				do {
 					next = e.next;
-//					i = indexFor(e.hash, newCapacity);
-					i = e.hash & newMask;
-					e.next = newTable[i];
+					e.next = newTable[i = e.hash & newMask];
 					newTable[i] = e;
 					e = next;
-				} while (e != null);
+				} while ( e != null );
 			}
+		}
 		return newTable;
 	}
 
@@ -941,16 +938,15 @@ public class MyHashMap<K,V>
 	}
 
 	/**
-	 * Adds a new entry with the specified key, value and hash code to
-	 * the specified bucket.  It is the responsibility of this
-	 * method to resize the table if appropriate.
-	 *
-	 * Subclass overrides this to alter the behavior of put method.
+	 * Adds a new entry with the given key, value and hash to the given bucket
+	 * of my table; and also resizes the table if it's now too small.
+	 * <p>
+	 * Subclasses override this to alter the behaviour of the put method.
 	 */
 	void addEntry(int hash, K key, V value, int bucketIndex) {
 		Entry<K,V> e = table[bucketIndex];
 		table[bucketIndex] = new Entry<>(hash, key, value, e);
-		if (++size > threshold)
+		if ( ++size > threshold )
 			resize(2 * table.length);
 	}
 

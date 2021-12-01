@@ -74,14 +74,14 @@ public final class GenerateDialog extends JDialog {
 	// Generate button. This only matters the first time a machine loads the
 	// generate form, and most users will poke-around-a-bit before pressing
 	// generate for the first time, so I'm relying on that time to pre-cache,
-	// which'll probably work for everything except IDKFA which can take upto
-	// like 10 minutes to generate. Let's hope they don't go big first.
+	// which'll probably work for everything except IDKFA, which should take
+	// upto around 3 minutes to generate. I hope nobody goes big first fast,
+	// but if they do then they'll just have to wait for generate. sigh.
 	static {
 		PuzzleCache.staticInitialiser();
 	}
 
-	// Techs we want the user to want. These are really for speed, not actually
-	// required for safety.
+	// Techs the user must want, for speed. Generate is too slow without these.
 	private static final Tech[] SPEED_TECHS = new Tech[] {
 			  Tech.NakedSingle
 			, Tech.HiddenSingle
@@ -91,8 +91,12 @@ public final class GenerateDialog extends JDialog {
 			, Tech.Swampfish // aka X-Wing, but I prefer a fish related name.
 	};
 
-	// One of these techs is required as a safety net. DynamicPlus only misses
-	// on the very hardest puzzles, but all the Nested hinters ALWAYS hint.
+	// Atleast one of these techs is required as a safety-net. DynamicPlus may
+	// miss on the hardest puzzles, but all the Nested hinters ALWAYS hint.
+	// DynamicPlus is a holey safety-net. Your risk-appetite is your affair.
+	// Remember that safety-nets aren't called-upon until they're called-upon.
+	// NestedUnary takes about four times as long to ALWAYS hint, but good luck
+	// getting the bastard to run at all (with a sane Tech selection).
 	private static final Tech[] SAFETY_NETS = new Tech[] {
 			  Tech.DynamicPlus
 			, Tech.NestedUnary
@@ -233,14 +237,16 @@ Tech.names(SAFETY_NETS) + "\n" +
 		btnGenerate.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if ( generatorThreads.isEmpty() ) {
-					// a symmetry is required
+				if ( !generatorThreads.isEmpty() ) {
+					stopGeneratorThread();
+				} else {
+					// check that a symmetry is selected
 					if ( selectedSyms.isEmpty() ) {
 						carp("Generate", "Select at least one symmetry");
 						return;
 					}
-					// check the "safe" (faster) techs are wanted
-					// and that a catch-all is wanted
+					// check the "speed" techs are wanted
+					// and that a "safety-net" is wanted
 					if ( !checkTechs() && !userOverridesTechs() )
 						return;
 					// check that atleast one Tech of this difficulty is wanted
@@ -254,8 +260,6 @@ Tech.names(SAFETY_NETS) + "\n" +
 					}
 					// start a new generatorThread
 					startNewGeneratorThread();
-				} else {
-					stopGeneratorThread();
 				}
 			}
 		});
@@ -330,7 +334,7 @@ Tech.names(SAFETY_NETS) + "\n" +
 			public void actionPerformed(ActionEvent e) {
 				difficulty = (Difficulty)cboDifficulty.getSelectedItem();
 				lblDescription.setText(difficulty.html);
-				setSelectedSymmetries(difficulty);
+				selectSymmetries(difficulty);
 			}
 		});
 		difficultyPanel.add(cboDifficulty);
@@ -406,7 +410,8 @@ Tech.names(SAFETY_NETS) + "\n" +
 		pack();
 	}
 
-	private void setSelectedSymmetries(Difficulty diff) {
+	// setSelected on those chkSymmetries appropriate for the given Difficulty.
+	private void selectSymmetries(Difficulty diff) {
 		switch(diff) {
 		case Easy:
 		case Medium:
@@ -419,12 +424,14 @@ Tech.names(SAFETY_NETS) + "\n" +
 			selectedSyms.remove(Symmetry.Full_8); // basically impossible
 			break;
 		case Diabolical:
+			// basically impossible with 4 or 8
 			selectedSyms.clear();
-			selectedSyms.addAll(Arrays.asList(Symmetry.SMALLS)); // basically impossible with 4 or 8
+			selectedSyms.addAll(Arrays.asList(Symmetry.SMALLS));
 			break;
 		case IDKFA:
+			// basically impossible with anything but none
 			selectedSyms.clear();
-			selectedSyms.add(Symmetry.None); // basically impossible with anything but none
+			selectedSyms.add(Symmetry.None);
 		}
 		// refresh the selected symetries check boxes
 		for ( int i=0,n=chkSymmetries.length; i<n; ++i )
@@ -472,7 +479,7 @@ Tech.names(SAFETY_NETS) + "\n" +
 				, JOptionPane.ERROR_MESSAGE);
 	}
 
-	public void setGeneratorThread(Thread gt) {
+	public void addGeneratorThread(Thread gt) {
 		generatorThreads.add(gt);
 	}
 
@@ -498,7 +505,8 @@ Tech.names(SAFETY_NETS) + "\n" +
 			try {
 				buttonSaysStop(); // change btnGenerate label to "Stop"
 				// fetch a puzzle from the cache
-				final Grid puzzle = Generator.getInstance().cachedGenerate(syms, diff, isExact);
+				final Generator gen = Generator.getInstance();
+				final Grid puzzle = gen.cachedGenerate(syms, diff, isExact);
 				// display the puzzle in the GUI on the AWT thread
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override

@@ -1,36 +1,30 @@
 <html>
 <body>
 <h2>HoDoKu ALS-Wing</h2>
-<pre>The three Almost Locked Sets:
-ALS A: <b1>{0}</b1>
-ALS B: <b2>{1}</b2>
-ALS C: <b3>{2}</b3>
-share the common values x, y and z such that:
-                A
-               / \
-             <b>x</b>={4} <b>z</b>={6}
-             /     \
-            C--<b>y</b>={5}--B
+These three Almost Locked Sets are aligned:<pre>
+    (a) <b1>{0}</b1>
+    (b) <b2>{1}</b2>
+    (c) <b3>{2}</b3>
 </pre>
 Therefore <r>we can remove <b>{3}</b></r>.
+{4}<!-- debugMessage -->
 <p>
 <hr>
 <p>
 <u>Explanation</u>
 <p>
-The logic is: if <b>z</b> is not in ALS A, then ALS A contains <b>x</b> because
-only one digit can be removed from an ALS. That means that ALS C has <b>y</b>
-and thus ALS B has <b>z</b>. The other way round works as well: If ALS B does
-not contain <b>z</b> then ALS A must. Hence <b>z</b> can be eliminated from any
-external cells seeing all z's in both ALS A and ALS B.
-<p>
-Note that <b>x</b> and <b>y</b> may not be the same digit.
+The logic is: if <b>z</b> is not in ALS-A, then ALS-A contains <b>x</b> (because
+only one digit can be removed from an ALS), hence ALS-B has <b>y</b> so ALS-C
+must have <b>z</b>. The other way round works as well, so no matter which way
+the cards fall, either ALS-A or ALS-C contains <b>z</b>, eliminating <b>z</b>
+from external cells that see all z's in both ALS-A and ALS-C. Pretty fancy.
 <p>
 The restriction in Restricted Common Candidate is that all instances of the
-value in both ALSs must see each other (be in the same box, row, or col).<br>
+value in both ALSs see each other (be in the same box, row, or col).<br>
 <p>
 An ALS-Wing is an ALS-Chain of length 3. ALS-Wings are handled separately
-because they are processed differently, primarily in ALS-Chains the RCCs are
-excluded from the physical overlap, if any, of the two ALSs.
+because they are processed differently: primarily in ALS-Chains an RC-value is
+excluded from the physical overlap, if any, of the two ALSs, where-as ALS-Wings
+still work when the overlap contains the RC-value, so it's allowed.
 </body>
 </html>

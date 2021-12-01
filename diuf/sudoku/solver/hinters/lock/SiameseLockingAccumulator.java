@@ -11,6 +11,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -18,12 +19,12 @@ import java.util.List;
  * Locking hints. Hints are considered "Siamese" if there's multiple hints on
  * different values in the same "slot" (the intersection of a row-or-col and a
  * box in the grid). I take the hints from the base Locking class, and callback
- * SiameseLocking at the end of each region, giving him a chance to merge
+ * SiameseLocking at the end of each region, to give him a chance to merge
  * "siamese" hints into a single hint, and/or upgrade the bastards to HiddenSet
- * hints, whichever produces the most eliminations.
+ * hints, whichever produces more eliminations.
  * <p>
- * I'm only a thin wrapper around an ArrayList of LockingHint. I callback the
- * SiameseLocking that injected my into Locking for all the tricky stuff.
+ * I'm only a thin wrapper around an ArrayList of LockingHint. All the tricky
+ * stuff is delegated back to the SiameseLocking which injects me into Locking.
  *
  * @author Keith Corlett 2021-07-12.
  */
@@ -69,7 +70,7 @@ public class SiameseLockingAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean hasAny() {
+	public boolean any() {
 		return !list.isEmpty();
 	}
 
@@ -84,7 +85,7 @@ public class SiameseLockingAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void sort() {
+	public void sort(Comparator<AHint> comparator) {
 		throw new UnsupportedOperationException("Not supported.");
 	}
 

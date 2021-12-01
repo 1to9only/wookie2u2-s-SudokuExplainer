@@ -7,10 +7,12 @@
 package diuf.sudoku.gui;
 
 import diuf.sudoku.Grid;
+import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.GRID_SIZE;
 import static diuf.sudoku.Grid.REGION_SIZE;
-import diuf.sudoku.PuzzleID;
+import diuf.sudoku.SourceID;
 import static diuf.sudoku.Values.VALL;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import static diuf.sudoku.utils.Frmt.COMMA;
@@ -136,7 +138,7 @@ class GridLoader {
 					StdErr.whinge("MagicTourFormat.load failed: "+lineNumber+"#"+file, ex);
 				}
 				grid.isMaybesLoaded = false;
-				grid.source = new PuzzleID(file, lineNumber);
+				grid.source = new SourceID(file, lineNumber);
 				return true;
 			} catch (IOException ex) {
 				return StdErr.whinge(Log.me()+" IOException", ex);
@@ -197,7 +199,7 @@ class GridLoader {
 						}
 					}
 				}
-				grid.source = new PuzzleID(file, 0);
+				grid.source = new SourceID(file, 0);
 			} catch (Exception ex) {
 				return StdErr.whinge(Log.me()+" exception", ex);
 			}
@@ -215,25 +217,27 @@ class GridLoader {
 		}
 
 		private static boolean setMaybes(Grid grid, String line, int y) {
-			final int start = y * REGION_SIZE; // only used to calculate a cell indice
 			final String[] fields = line.split(COMMA, REGION_SIZE);
-			if ( fields.length == REGION_SIZE ) {
-				Grid.Cell cell;
-				for ( int x=0; x<REGION_SIZE; ++x ) {
-					if ( (cell=grid.cells[start+x]).value == 0 ) {
-						String field = fields[x];
-						for ( int i=0, n=field.length(); i<n; ++i ) {
-							cell.maybes |= (field.charAt(i)-'0');
-						}
-					}
+			if ( fields.length != REGION_SIZE ) { // unexpected format
+				for ( int x=0,i; x<REGION_SIZE; ++x ) {
+					grid.maybes[i=y+x] = grid.cells[i].maybes = VALL;
 				}
-				return true;
+				return false;
 			}
-			// unexpected input file format
+			Cell cell;
+			String field;
+			int m, i, n;
+			final int start = y * REGION_SIZE; // partial cell indice
+			final Cell[] cells = grid.cells;
 			for ( int x=0; x<REGION_SIZE; ++x ) {
-				grid.cells[y+x].maybes = VALL;
+				if ( (cell=cells[start+x]).value == 0 ) {
+					for ( m=i=0,field=fields[x],n=field.length(); i<n; ++i ) {
+						m |= VSHFT[field.charAt(i) - '0'];
+					}
+					grid.maybes[cell.i] = cell.maybes = m;
+				}
 			}
-			return false;
+			return true;
 		}
 
 	}

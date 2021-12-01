@@ -7,14 +7,19 @@
 package diuf.sudoku.utils;
 
 import static diuf.sudoku.utils.Frmt.PERIOD;
-import static diuf.sudoku.utils.Frmt.SPACE;
 import java.io.PrintStream;
+import static diuf.sudoku.utils.Frmt.SP;
 
 /**
  * Log represents a simple log-file. First thing I usually do is open a
  * PrintWriter on the log-file (in the main method) and then stuff it in here.
  * <p>
  * A simple log-file is preferable to a complex architectural framework.
+ * <p>
+ * KRC 2021-10-05 out is now nullable, for the test-cases, where it often just
+ * remains null, because I don't want logging from the test-cases, so whenever
+ * out is referenced we first check out != null. Simple, but verbose. sigh.
+ * 
  * @author Keith Corlett 2013
  */
 public final class Log {
@@ -42,32 +47,46 @@ public final class Log {
 	public static PrintStream out;
 
 	public static void print(String msg) {
-		out.print(msg);
+		if ( out != null ) {
+			out.print(msg);
+		}
 	}
 	public static void print(Object msg) {
-		out.print(msg);
+		if ( out != null ) {
+			out.print(msg);
+		}
 	}
 
 	public static void println() {
-		out.println();
+		if ( out != null ) {
+			out.println();
+		}
 	}
 	public static void println(Object o) {
-		out.println(o);
+		if ( out != null ) {
+			out.println(o);
+		}
 	}
 
 	public static void format(String format, Object... args) {
-		out.format(format, args);
+		if ( out != null ) {
+			out.format(format, args);
+		}
 	}
 
 	public static void flush() {
-		out.flush();
-		if ( out != System.out )
+		if ( out != null ) {
+			out.flush();
+		}
+		if ( out != System.out ) {
 			System.out.flush();
+		}
 	}
 
 	public static void close() {
-		if ( out != System.out )
+		if ( out != System.out ) {
 			out.close();
+		}
 	}
 
 	public static long div(long l, long i) {
@@ -87,6 +106,7 @@ public final class Log {
 	public static String tabs(int howMany) {
 		return TABS.substring(0, howMany);
 	}
+
 	private static final String TABS
 			= "\t\t\t\t\t\t\t\t\t\t"
 			+ "\t\t\t\t\t\t\t\t\t\t"
@@ -97,10 +117,14 @@ public final class Log {
 	public static void percent(long howMany, long of) {
 		percent("%,d of %,d = %4.2f\n", howMany, of);
 	}
+
 	public static void percent(String frmt, long howMany, long of) {
-		out.format(frmt, howMany, of, pct(howMany, of));
-		if ( out != System.out )
+		if ( out != null ) {
+			out.format(frmt, howMany, of, pct(howMany, of));
+		}
+		if ( out != System.out ) {
 			System.out.format(frmt, howMany, of, pct(howMany, of));
+		}
 	}
 
 	// this is used in recursive algorithms, where depth is a product of the
@@ -110,29 +134,52 @@ public final class Log {
 	// s = cell.maybes.toBinaryString();
 	// indentf('0', 10-s.length(), "%s", s);
 	public static void indentf(char c, int depth, String fmt, Object... args) {
-		for (int i=0; i<depth; ++i)
-			out.print(c);
-		out.format(fmt, args);
+		if ( out != null ) {
+			for ( int i=0; i<depth; ++i ) {
+				out.print(c);
+			}
+			out.format(fmt, args);
+		}
 	}
 
 	public static void tee(String msg) {
-		out.print(msg);
-		if ( out != System.out )
-			System.out.print(msg);
-	}
-	public static void teeln() {
-		out.println();
-		if ( out != System.out )
-			System.out.println();
-	}
-	public static void teeln(Object... os) {
-		printAll(out, SPACE, os);
-		out.println();
+		if ( out != null ) {
+			out.print(msg);
+		}
 		if ( out != System.out ) {
-			printAll(System.out, SPACE, os);
+			System.out.print(msg);
+		}
+	}
+
+	public static void teeln() {
+		if ( out != null ) {
+			out.println();
+		}
+		if ( out != System.out ) {
 			System.out.println();
 		}
 	}
+
+	public static void teeln(String msg) {
+		if ( out != null ) {
+			out.println(msg);
+		}
+		if ( out != System.out ) {
+			System.out.println(msg);
+		}
+	}
+	
+	public static void teeln(Object... os) {
+		if ( out != null ) {
+			printAll(out, SP, os);
+			out.println();
+		}
+		if ( out != System.out ) {
+			printAll(System.out, SP, os);
+			System.out.println();
+		}
+	}
+
 	public static void printAll(PrintStream out, String sep, Object... objects) {
 		final int n = objects==null ? 0 : objects.length;
 		if ( n > 0 ) {
@@ -143,43 +190,48 @@ public final class Log {
 			}
 		}
 	}
+
 	public static void teef(String frmt, Object... args) {
-		out.format(frmt, args);
-		if ( out != System.out )
-			System.out.format(frmt, args);
-	}
-	public static void teeTrace(Throwable t) {
-		out.flush();
-		t.printStackTrace(out);
-		out.flush();
+		if ( out != null ) {
+			out.format(frmt, args);
+		}
 		if ( out != System.out ) {
-			System.out.flush();
-			t.printStackTrace(System.out);
-			System.out.flush();
+			System.out.format(frmt, args);
 		}
 	}
-	public static void teeTrace(String msg, Throwable t) {
-		out.println(msg);
-		out.flush();
-		t.printStackTrace(out);
-		out.flush();
+
+	public static void teeTrace(Throwable t) {
+		if ( out != null ) {
+			out.flush();
+			t.printStackTrace(out);
+			out.flush();
+		}
 		if ( out != System.out ) {
-			System.out.println(msg);
 			System.out.flush();
 			t.printStackTrace(System.out);
 			System.out.flush();
 		}
 	}
 
+	public static void teeTrace(String msg, Throwable t) {
+		tee(msg);
+		teeTrace(t);
+	}
+
 	public static void teef(final boolean l, final boolean p, final String f, final Object... args) {
-		if(l)out.format(f, args);
-		if(p)System.out.format(f, args);
+		if ( out != null ) {
+			if(l)out.format(f, args);
+		}
+		if ( System.out != out ) {
+			if(p)System.out.format(f, args);
+		}
 	}
 
 	public static String simple(String className) {
 		int i = className.lastIndexOf('.');
-		if ( i == -1 )
+		if ( i == -1 ) {
 			return className;
+		}
 		return className.substring(i+1);
 	}
 
@@ -217,9 +269,11 @@ public final class Log {
 
 	public static void stackTrace(String msg, Exception ex) {
 		println(msg);
-		out.flush();
-		ex.printStackTrace(out);
-		out.flush();
+		if ( out != null ) {
+			out.flush();
+			ex.printStackTrace(out);
+			out.flush();
+		}
 	}
 
 	// =========================== constructor ================================

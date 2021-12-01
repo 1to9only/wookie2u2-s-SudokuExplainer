@@ -84,7 +84,7 @@ public class KrakenFishHint extends AHint  {
 	private void cleanPots() {
 		// add the cause hints eliminations (if any) to mine
 		// and if it's a red then it's a RED only!
-		redPots.addAll(cause.redPots).removeFromAll(getGreens(0), getOranges(0)
+		reds.addAll(cause.reds).removeFromAll(getGreens(0), getOranges(0)
 					, getBlues(null, 0), getPurples(), getYellows());
 	}
 
@@ -243,7 +243,7 @@ public class KrakenFishHint extends AHint  {
 			, getHintTypeName()		// {0}
 			, coloredHint			//  1
 			, chainsString			//  2
-			, redPots.toString()	//  3
+			, reds.toString()	//  3
 		);
 	}
 

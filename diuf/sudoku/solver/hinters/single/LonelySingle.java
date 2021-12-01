@@ -17,7 +17,6 @@ import diuf.sudoku.solver.accu.HintsAccumulator;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 
-
 /**
  * LonelySingle implements the Naked Hidden Single Sudoku solving technique,
  * ie naked singles that are the only unset Cell in a Box.
@@ -34,66 +33,60 @@ public final class LonelySingle extends AHinter {
 
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-
-		// It's faster to de-activate me instead of relying on this check!
-		//
-		// I only work in the GUI! ie when passed a (Default)HintsAccumulator.
-		// Other than that we rely on the NakedSingle hinter, which finds all
-		// my hints, it just does so in a different order. I find the topest-
-		// leftest (by box) LONELY NakedSingle first, that's all.
-		// Ergo: I'm complete waste of time if you don't care about the order
-		// that NakedSingles are filled-in in. In in... there's an out there.
-		if ( !(accu instanceof HintsAccumulator) )
-			return false;
-
-		ARegion box;
-		Cell cell;
-		int value;
 		// presume that no hints will be found.
 		boolean result = false;
-		// Note that loneliness is only considered in Boxs, not rows/cols; and
-		// not for the last box, which is left unfilled so that isFull has less
-		// cells to look-at, and is therefore a few nanoseconds faster.
-		//
-		// If we search rows and cols as well the resulting order of solve is
-		// confusing to me (as the user), so I presume it'll be confusing to
-		// other users; or more likely most of them will just never think about
-		// it, ie accept that it is how it is, despite it being confusing, and
-		// so never complain. I complain, therefore I fix it. Sigh.
-		for ( int i=0; i<8; ++i  )
-			// hint if there is 1 empty cell remaining in this region
-			if ( (box=grid.boxs[i]).emptyCellCount == 1 ) {
-				// the cell is the first (and only) empty cell in this region
-				// the value is it's first (and only) potential value
-				value = VFIRST[(cell=box.firstEmptyCell()).maybes];
+		// It's faster to de-activate me instead of relying on this check. I
+		// only work in the GUI, ie when passed a HintsAccumulator. Else we
+		// rely on the NakedSingle hinter, which finds all my hints, it just
+		// does so in a different order. I find the topest-leftest (by box)
+		// LONELY NakedSingle first, that's all. Ergo: I'm a waste of time
+		// unless you care about the order in which NakedSingles are found,
+		// which means only in the GUI, as determined by the accu type.
+		if ( accu instanceof HintsAccumulator ) {
+			ARegion box;
+			Cell cell;
+			int value;
+			// Note that loneliness is only considered in Boxs, not rows/cols; and
+			// not for the last box, which is left unfilled so that isFull has less
+			// cells to look-at, and is therefore a few nanoseconds faster. sigh.
+			//
+			// If we search rows and cols as well the resulting order of solve is
+			// confusing to me, and I presume it'll be confusing to the users; or
+			// more likely most of them will just never think about it, ie accept
+			// that it is how it is, despite it being confusing, and not complain.
+			// I complain, and therefore I just fixed it.
+			for ( int i=0; i<8; ++i  ) {
+				// hint if there is 1 empty cell remaining in this region
+				if ( (box=grid.boxs[i]).emptyCellCount == 1 ) {
+					// the cell is the first (and only) empty cell in region
+					// the value is it's first (and only) potential value
+					value = VFIRST[(cell=box.firstEmptyCell()).maybes];
 
-				// late-validate the code (like Cell.set) that updates maybes
-				// when the Grid changes. Better late than never. It's REALLY
-				// hard to find the line that buggers-up the maybes! If that
-				// happens try putting validation code into a method to call
-				// after each update (like Grid.iAmInMyRegionsIndexesOf).
-				//
-				// <I am the Cell> Be the Cell. Humina humina humina.
-				// check I have one potential value (ie I'm naked).
-				assert cell.size == 1;
-				// check that my maybes ARE that value
-				assert cell.maybes == VSHFT[value];
-				// check region has one position for value (ie I'm hidden).
-				assert box.ridx[value].size == 1;
-				// check I am the regions position for value.
-				assert box.ridx[value].bits == ISHFT[cell.indexIn[box.typeIndex]];
-				// </I am back to being me> Sigh.
+					// late-validate the code (like Cell.set) that updates maybes
+					// when the Grid changes. Better late than never. It's REALLY
+					// hard to find the line that buggers-up the maybes! If that
+					// happens try putting validation code into a method to call
+					// after each update (like Grid.iAmInMyRegionsIndexesOf).
+					//
+					// <I am the Cell> Be the Cell. Humina humina humina.
+					// check I have one potential value (ie I'm naked).
+					assert cell.size == 1;
+					// check that my maybes ARE that value
+					assert cell.maybes == VSHFT[value];
+					// check region has one position for value (ie I'm hidden).
+					assert box.ridx[value].size == 1;
+					// check I am the regions position for value.
+					assert box.ridx[value].bits == ISHFT[cell.indexIn[box.typeIndex]];
+					// </I am back to being me> Sigh.
 
-				// nb: [Default]HintsAccumulator.add never returns true, and
-				// LonelySingle is used only in the GUI, so don't bother with
-				// the usual exit-early upon first hint.
-				// nb: The hints-type-name is hinter.tech.name() where hinter
-				// is NakedSingle or LonelySingle, so only one hint-type is
-				// required (NakedSingleHint). It just reports itself as two
-				// different types, that's all. Confused yet? Read it again.
-				accu.add(new LonelySingleHint(this, cell, value));
-				result = true; // We found at least one hint
+					// nb: HintsAccumulator.add always returns false, and
+					// LonelySingle is used only in the GUI, so don't bother
+					// with the usual exit-early upon first hint.
+					accu.add(new LonelySingleHint(this, cell, value));
+					result = true; // We found at least one hint
+				}
 			}
+		}
 		return result;
 	}
 

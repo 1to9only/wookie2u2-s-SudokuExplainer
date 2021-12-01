@@ -16,30 +16,28 @@ import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.accu.AppliedHintsSummaryHint;
+import diuf.sudoku.solver.accu.SummaryHint;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
 import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyHashMap;
 import diuf.sudoku.utils.MyLinkedHashMap;
 
 /**
- * Locking for SpeedMode is unusual is that it extends the Locking hinter (the
- * only sub-typed actual hinter) to apply hints directly to the grid using the
- * apcu (a HintsApplicumulator) provided to my Constructor.
+ * LockingSpeedMode is unusual is that it extends the Locking hinter to apply
+ * each hint to the grid immediately using the apcu (a HintsApplicumulator)
+ * provided to my constructor.
  * <p>
- * LockingSM was exhumed from Locking because Locking was too complex, so I
- * moved the complications into a subclass to reduce the overall complexity,
- * or to at-least keep Locking as simple as possible.
+ * This class was exhumed from Locking because Locking was too complex, so I
+ * refactored the complications into subclasses to reduce Locking complexity,
+ * and thereby hopefully make it all a bit easier to follow.
  * <p>
  * Johnny come lately: the whole "speed mode" thing was added after the fact.
  * It's only an accomplice to puzzle murder, for more speed, by applying hints
  * directly to the grid, so that one pass through the grid finds all available
  * hints, and then each "dirty" region is reprocessed, so that we no-longer
  * reprocess the whole grid repeatedly, on the off-chance that a dirty region
- * now contains another Locking hint.
+ * now contains another Locking hint. Repeating: this is just a bit faster.
  *
  * @author Keith Corlett 2021-07-11
  */
@@ -52,18 +50,18 @@ public class LockingSpeedMode extends Locking {
 	private final RegionQueue dirtyRegions;
 
 	/**
-	 * The Locking "speed mode" Constructor. Used only by SingleSolution,
-	 * ie RecursiveSolver, passing a HintsApplicumulator, so that my getHints
-	 * applies it's hints the directly grid; so that any subsequent hints can
-	 * also be found in ONE pass through the Grid, then I add an
-	 * AppliedHintsSummaryHint (numElims = total elims)
-	 * to the "normal" HintsAccumulator passed into findHints.
+	 * The Locking "speed mode" Constructor. Used only by BruteForce, ie
+	 * the RecursiveSolver, passing a HintsApplicumulator, so that my getHints
+	 * applies hints directly to the grid; so that subsequent hints are also
+	 * found by ONE pass through the Grid, which is a bit faster, then I add a
+	 * SummaryHint with {@code numElims = total elims} to the "normal"
+	 * HintsAccumulator that is passed to findHints.
 	 * <p>
-	 * The notable bit is that the Grid mutates WHILE I'm searching it, and it
-	 * all still works anyway, which is pretty cool. In my humble opinion,
-	 * ConcurrentModificationException is how a real programmer pronounces
-	 * soft-cock; because it is most often thrown unnecessarily, rather than
-	 * the programmer stretching there mind as to how it could be avoided.
+	 * The interesting part is that the Grid mutates WHILE I'm searching it,
+	 * and it all works anyway, which is pretty cool. In my humble opinion,
+	 * ConcurrentModificationException is programmereese for bloody-soft-cock,
+	 * coz it's most often thrown unnecessarily, rather than the programmer
+	 * stretching (we're a conservative bunch) to work-out how to avoid it.
 	 *
 	 * @param apcu HintsApplicumulator
 	 */
@@ -72,10 +70,10 @@ public class LockingSpeedMode extends Locking {
 		assert apcu != null;
 		this.apcu = apcu;
 		this.dirtyRegions = new RegionQueue();
-//		// speedMode is only for use by SingleSolution.
+//		// speedMode is only for use by BruteForce.
 //		// asserts are for techies (who java -ea) and this is a constructor,
 //		// so not performance critical, but using Debug like this is a hack.
-//		assert Debug.isClassNameInTheCallStack(7, "SingleSolution");
+//		assert Debug.isClassNameInTheCallStack(7, "BruteForce");
 	}
 
 	/**
@@ -93,19 +91,18 @@ public class LockingSpeedMode extends Locking {
 	/**
 	 * <b>CAUTION:</b> Seriously Weird S__t!
 	 * <p>
-	 * LockingSpeedMode exists in SingleSolution only! This LockingSM was
-	 * created by SingleSolution with a HintsApplicumulator to apply all point
-	 * and claim hints in one pass through the grid, because it's a bit quicker
-	 * that way.
+	 * LockingSpeedMode is created by BruteForce with a HintsApplicumulator
+	 * to apply all Locking hints in 1 pass through the grid, coz it's faster.
+	 * Weirdly, I extend the existing Locking hinter.
 	 * <p>
 	 * I do an exhaustive search, so that when a maybe is removed from a region
-	 * that's already been searched we search it again. It's a bit slower here,
-	 * but this exhaustive-search is faster overall, because it doesn't miss a
-	 * hint that leaves recursiveSolve guessing a cell value that can already
-	 * be proven invalid, and therefore should have been removed already.
+	 * that's already been searched we search the modified region again. It's a
+	 * bit slower here, but this exhaustive-search is faster overall, because
+	 * it doesn't miss a hint that leaves recursiveSolve guessing a cell value
+	 * that can already be proven invalid, and therefore should've been
+	 * eliminated already already. Sheesh!
 	 * <p>
-	 * Then we accu.add an AppliedHintsSummaryHint and return have any hints
-	 * been applied.
+	 * Then we accu.add a SummaryHint and return have any hints been applied.
 	 *
 	 * @param grid
 	 * @param accu
@@ -113,29 +110,28 @@ public class LockingSpeedMode extends Locking {
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		ARegion dirtyRegion;
+		ARegion dr; // dirtyRegion
 		dirtyRegions.clear(); // Bog roll!
 		final int preElims = apcu.numElims;
 		// note the bitwise-or operator (|) so they're both executed.
 		final boolean result = pointing(grid, apcu)
 							 | claiming(grid, apcu);
 		if ( result ) {
-			// Second pass of the regions.
-			// NB: I've never found anything in a third pass, so now it's just
-			// an if (was a while loop), and we're only re-processing the dirty
-			// regions, not doing all regions twice, for speed.
+			// re-process the dirty regions (not all regions twice, for speed).
 			MyHashMap.Entry<ARegion,Integer> e;
-			while ( (e=dirtyRegions.poll()) != null ) // wax
-				if ( (dirtyRegion=e.getKey()) instanceof Box ) // on
-					pointFrom((Box)dirtyRegion, e.getValue(), grid);
-				else // Row or Col // off
-					claimFrom(dirtyRegion, e.getValue(), grid);
+			while ( (e=dirtyRegions.poll()) != null ) {
+				if ( (dr=e.getKey()) instanceof Box ) {
+					pointFrom((Box)dr, e.getValue(), grid);
+				} else { // Row or Col
+					claimFrom(dr, e.getValue(), grid);
+				}
+			}
 		}
 		final int myElims = apcu.numElims - preElims;
 		if ( myElims > 0 ) {
-			final AHint hint = new AppliedHintsSummaryHint(Log.me(), myElims, apcu);
-			if ( accu.add(hint) )
+			if ( accu.add(new SummaryHint(Log.me(), myElims, apcu)) ) {
 				return true;
+			}
 		}
 		return result;
 	}
@@ -144,40 +140,38 @@ public class LockingSpeedMode extends Locking {
 	 * Search this box for Pointing hints on 'cands'.
 	 *
 	 * @param box
-	 * @param rows
-	 * @param cols
 	 * @param cands
 	 * @param grid
 	 * @return
 	 */
 	private boolean pointFrom(final Box box, final int cands, final Grid grid) {
 		int card;
-		boolean result = false;
 		final Row[] rows = grid.rows;
 		final Col[] cols = grid.cols;
+		boolean result = false;
 		for ( int v : VALUESES[cands] )
 			if ( (card=box.ridx[v].size)>1 && card<4 ) {
 				final int b = box.ridx[v].bits;
 				if ( (b & ROW1) == b )
-					result |= pfElims(rows[box.top], box, v, card, grid);
+					result |= pfElim(rows[box.top], box, v, card, grid);
 				else if ( (b & ROW2) == b )
-					result |= pfElims(rows[box.top + 1], box, v, card, grid);
+					result |= pfElim(rows[box.top + 1], box, v, card, grid);
 				else if ( (b & ROW3) == b )
-					result |= pfElims(rows[box.top + 2], box, v, card, grid);
+					result |= pfElim(rows[box.top + 2], box, v, card, grid);
 				else if ( (b & COL1) == b )
-					result |= pfElims(cols[box.left], box, v, card, grid);
+					result |= pfElim(cols[box.left], box, v, card, grid);
 				else if ( (b & COL2) == b )
-					result |= pfElims(cols[box.left + 1], box, v, card, grid);
+					result |= pfElim(cols[box.left + 1], box, v, card, grid);
 				else if ( (b & COL3) == b )
-					result |= pfElims(cols[box.left + 2], box, v, card, grid);
+					result |= pfElim(cols[box.left + 2], box, v, card, grid);
 			}
 		return result;
 	}
 
 	/**
-	 * pfElims is called ONLY by above pointFrom, to handle it's eliminations,
-	 * instead of farnarkelling my way around repeating the same code several
-	 * times. Note that I add all my hints to the apcu.
+	 * pfElim is called ONLY by above pointFrom, to do it's eliminations,
+	 * instead of hacking my way around repeating the same code repeatedly.
+	 * Note that I add my hints to the apcu.
 	 *
 	 * @param line is a row or a col
 	 * @param box is the Box
@@ -186,14 +180,14 @@ public class LockingSpeedMode extends Locking {
 	 * @param grid currently only used for error messages.
 	 * @return
 	 */
-	private boolean pfElims(final ARegion line, final Box box
-			, final int v, final int card, final Grid grid) {
+	private boolean pfElim(final ARegion line, final Box box, final int v
+			, final int card, final Grid grid) {
 		// if v's in line other than those in the line-box-intersection
 		if ( line.ridx[v].size > card ) {
 			final Cell[] cells;
 			if ( card == box.maybe(VSHFT[v], cells=new Cell[card]) ) {
-				final AHint hint = createHint(LockingType.SiamesePointing, box, line
-						, cells, card, v, grid);
+				final AHint hint = createHint(LockType.SiamesePointing
+						, box, line, cells, card, v, grid);
 				if ( hint != null ) {
 					apcu.add(hint);
 					return true;
@@ -218,17 +212,19 @@ public class LockingSpeedMode extends Locking {
 		for ( int v : VALUESES[cands] ) {
 			if ( (card=line.ridx[v].size)>1 && card<4 ) {
 				b = line.ridx[v].bits;
+				// note that ROW* also applies to cols (they're badly named).
 				if ( ( ((b & ROW1)==b && (offset=0)==0)
 					|| ((b & ROW2)==b && (offset=1)==1)
 					|| ((b & ROW3)==b && (offset=2)==2) )
-				  && line.crossingBoxs[offset].ridx[v].size > card ) {
-					if ( card == line.maybe(VSHFT[v], cells=new Cell[card]) ) {
-						final AHint hint = createHint(LockingType.SiameseClaiming, line
-								, line.crossingBoxs[offset], cells, card, v, grid);
-						if ( hint != null ) {
-							result |= true; // never say never!
-							apcu.add(hint);
-						}
+				  && line.crossingBoxs[offset].ridx[v].size > card
+				  && card == line.maybe(VSHFT[v], cells=new Cell[card])
+				) {
+					final AHint hint = createHint(LockType.SiameseClaiming
+							, line, line.crossingBoxs[offset], cells, card
+							, v, grid);
+					if ( hint != null ) {
+						result |= true; // never say never!
+						apcu.add(hint);
 					}
 				}
 			}
@@ -255,8 +251,7 @@ public class LockingSpeedMode extends Locking {
 	 */
 	private static class RegionQueue extends MyLinkedHashMap<ARegion, Integer> {
 		private static final long serialVersionUID = 1459048958903L;
-		// add's new cell.maybes to any existing ones for this cell,
-		// retaining maybes BEFORE any eliminations are made.
+		// add's new cell.maybes to any existing ones for this cell.
 		void add(Iterable<Cell> cells) {
 			Integer existing;
 			for ( Cell cell : cells )

@@ -18,8 +18,8 @@ import static diuf.sudoku.utils.Frmt.NL;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.List;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
-import static diuf.sudoku.utils.Frmt.TWO_SPACES;
+import static diuf.sudoku.utils.Frmt.CSP;
+import static diuf.sudoku.utils.Frmt.SP2;
 
 /**
  * Static utility methods for debugging.
@@ -118,7 +118,7 @@ public final class Debug {
 	public static ARegion[] parse(String csv, Grid grid) {
 		if ( csv==null || csv.length()<5 )
 			return new ARegion[0]; // an empty array
-		String[] ids = csv.split(COMMA_SP);
+		String[] ids = csv.split(CSP);
 		ARegion[] regions = new ARegion[ids.length];
 		int i = 0;
 		for ( String id : ids )
@@ -174,9 +174,12 @@ public final class Debug {
 		out.format(fmt, args);
 	}
 
+	public static String indent(int howMany) {
+		return repeat(' ', howMany);
+	}
+
 	public static String repeat(char c, int howMany) {
 		final StringBuilder sb = new StringBuilder(howMany);
-		sb.setLength(0);
 		for ( int i=0; i<howMany; ++i )
 			sb.append(c);
 		return sb.toString();
@@ -186,13 +189,13 @@ public final class Debug {
 		out.println();
 		out.println("dumpAncestors:");
 		for ( Ass a : targets )
-			recursivelyDumpAncestors(TWO_SPACES, a);
+			recursivelyDumpAncestors(SP2, a);
 		out.println();
 	}
 	public static void recursivelyDumpAncestors(String spaces, Ass a) {
 		out.format("%s%s cause=%s; explanation=%s nestedChain=%s\n"
 				, spaces, a, a.cause, a.explanation, a.nestedChain);
-		spaces += TWO_SPACES;
+		spaces += SP2;
 		if ( a.hasParents() ) // fast enough for Debug
 			for ( Ass p : a.parents )
 				recursivelyDumpAncestors(spaces, p);
@@ -211,14 +214,14 @@ public final class Debug {
 					for ( Ass a : valueEffects[v] ) {
 						if ( a == target ) { // we want THE instance
 							found = true;
-							recursivelyDumpAncestors(TWO_SPACES, a);
+							recursivelyDumpAncestors(SP2, a);
 							break;
 						}
 					}
 					if ( !found ) { // NB: it'll probably go through here
 						out.println("target "+target+" not found in:");
 						for ( Ass a : valueEffects[v] )
-							recursivelyDumpAncestors(TWO_SPACES, a);
+							recursivelyDumpAncestors(SP2, a);
 					}
 				}
 				out.println();
@@ -440,6 +443,12 @@ public final class Debug {
 //     box 1=000001010    box 2=000101111    box 3=000000000    box 4=011000011    box 5=011000110    box 6=000000000    box 7=000000000    box 8=000101000    box 9=000000000
 //     row 1=000111010    row 2=000101001    row 3=000000000    row 4=000110011    row 5=000000000    row 6=000011011    row 7=000000000    row 8=000101000    row 9=000000000
 //     col A=000101010    col B=000101001    col C=000000000    col D=010100011    col E=000101001    col F=010001011    col G=000000000    col H=000000000    col I=000000000
+
+	public static void dump(String label, Iterable<?> c) {
+		System.out.println(label);
+		for ( Object e : c )
+			System.out.println(e);
+	}
 
 	private Debug() {} // never used
 }

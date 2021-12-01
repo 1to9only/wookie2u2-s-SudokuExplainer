@@ -36,7 +36,9 @@ import static diuf.sudoku.utils.Frmt.IN;
  */
 public final class NakedSetHint extends AHint implements IChildHint {
 
-	private final List<Cell> nkdSetCellList;
+	// the cells in the naked set
+	private final List<Cell> nkdSetCells;
+	// a string of the region.id's of the bases (the regions we searched)
 	private final String regionIds;
 
 	/* Used by Locking. */
@@ -44,24 +46,20 @@ public final class NakedSetHint extends AHint implements IChildHint {
 	/* Used by Locking. */
 	public final Idx nkdSetIdx;
 
-	public NakedSetHint(AHinter hinter
-			, List<Cell> nkdSetCellList
-			, Values nkdSetValues
-			, Pots greenPots
-			, Pots redPots
-			, List<ARegion> bases
-	) {
+	public NakedSetHint(AHinter hinter, List<Cell> nkdSetCells
+			, Values nkdSetValues, Pots greenPots, Pots redPots
+			, List<ARegion> bases) {
 		super(hinter, redPots, greenPots, null, null, bases, null);
-		this.nkdSetCellList = nkdSetCellList;
+		this.nkdSetCells = nkdSetCells;
 		this.nkdSetValues = nkdSetValues;
 		assert super.degree == nkdSetValues.size;
 		this.regionIds = Frmu.and(bases);
-		this.nkdSetIdx = Idx.of(nkdSetCellList);
+		this.nkdSetIdx = Idx.of(nkdSetCells);
 	}
 
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
-		return new MyLinkedHashSet<>(nkdSetCellList); // 16, 0.75F
+		return new MyLinkedHashSet<>(nkdSetCells); // 16, 0.75F
 	}
 
 	@Override
@@ -71,19 +69,22 @@ public final class NakedSetHint extends AHint implements IChildHint {
 		final Cell[] initGridCells = initGrid.cells;
 		MyLinkedList<Ass> result = new MyLinkedList<>(); // the result
 		int rmvdBits;
-		for ( Cell c : nkdSetCellList )
+		for ( Cell c : nkdSetCells ) {
 			// removed := initial cell maybes minus nakedSetValues (may be 0)
-			if ( (rmvdBits=initGridCells[c.i].maybes & ~bits) != 0 )
-				for ( int v : VALUESES[rmvdBits] )
+			if ( (rmvdBits=initGridCells[c.i].maybes & ~bits) != 0 ) {
+				for ( int v : VALUESES[rmvdBits] ) {
 					// my parent Ass must be applied before I am applicable
 					result.add(parentOffs.getAss(c, v));
+				}
+			}
+		}
 		return result;
 	}
 
 	@Override
 	public String toStringImpl() {
 		return Frmu.getSB(64).append(getHintTypeName()).append(COLON_SP)
-		  .append(Frmu.csv(nkdSetCellList)).append(COLON_SP)
+		  .append(Frmu.csv(nkdSetCells)).append(COLON_SP)
 		  .append(Frmu.csv(nkdSetValues)).append(IN).append(regionIds)
 		  .toString();
 	}
@@ -91,12 +92,12 @@ public final class NakedSetHint extends AHint implements IChildHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "NakedSetHint.html"
-				, NUMBER_NAMES[degree-2]	// {0}
-				, Frmu.and(nkdSetCellList)//  1
-				, Frmu.and(nkdSetValues)	//  2
-				, regionIds					//  3
-				, getHintTypeName()			//  4
-				, redPots.toString()		//  5
+			, NUMBER_NAMES[degree-2]	// {0}
+			, Frmu.and(nkdSetCells)	//  1
+			, Frmu.and(nkdSetValues)	//  2
+			, regionIds					//  3
+			, getHintTypeName()			//  4
+			, reds.toString()		//  5
 		);
 	}
 }

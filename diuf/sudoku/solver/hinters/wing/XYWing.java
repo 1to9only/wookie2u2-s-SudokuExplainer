@@ -21,8 +21,8 @@ import static diuf.sudoku.Values.VFIRST;
 /**
  * XYWing implements both the XY-Wing and XYZ-Wing Sudoku solving techniques.
  * <p>
- * I found the XY/Z techniques near impossible to get my head around, so
- * here's an <b>explanation</b> for those who come after me.
+ * I found the XY/Z techniques difficult to follow, so here's an
+ * <b>explanation</b> for those who come after me.
  * <p>
  * In XYZ-land <b>x</b>, <b>y</b>, and <b>z</b> are potential cell values
  * (ie maybes) not matrix (grid) coordinates, so:<pre>
@@ -36,24 +36,23 @@ import static diuf.sudoku.Values.VFIRST;
  * also has two siblings (xz and yz) which also have 2 potential values. The
  * Cell xy (locus) shares the value x with xz, and the value y with yz; and
  * the two sibling Cells xz and yz also have a second value (z) in common.
- * Cell xy must be either x or y, so either xz or yz must contain the value z,
+ * Cell xy must be either x or y, hence either xz or yz contains the value z,
  * therefore siblings of both xz and yz cannot be z. A "sibling" is a cell in
  * the same box, row, or col (and excludes the cell itself, so 20 cells).
  * <p>
- * In an <b>XYZ-Wing</b> the "locus" xyz cell has 3 potential values (x, y,
- * and z), so one of the three cells (xyz, xz, or yz) must contain the value z,
+ * In an <b>XYZ-Wing</b> the "locus" xyz cell has 3 potential values (x, y, and
+ * z) so one of the three cells (xyz, xz, or yz) must contain the value z,
  * therefore any siblings of all three cells cannot be z.
- * The Cell xyz is just called xy because it can't have two names in the same
- * code, which is shared with XY-Wings; and xy is distinct, just not complete,
- * and therefore only demi-descriptive... but it works, so don't ____ with it.
+ * The Cell xyz is called xy because that's exactly what it is in XY-Wing-land,
+ * but this code also handles XYZ-Wings, but a variable cannot have two names,
+ * so xy is distinctive and still demi-descriptive in the XYZ-Wing context, so
+ * just don't ____ with it. sigh.
  * <p>
  * Confused yet? Read it again, and again; then look at the code.
  * <pre>
- * KRC 2021-07-10 Smell no Cell: Swap cell arrays for int arrays, for speed.
- * To be clear, everything now uses indice-of-cell where it previously used the
- * Cell itself. I hope this will be faster.
- * I also removed createHint method, sticking it's contents back into findHints
- * so that there is NO stack-frame below findHints.
+ * KRC 2021-07-10 Smell no Cell: Use indices instead of cells, for speed.
+ * Everything uses indice-of-cell where it previously used the Cell itself.
+ * Also moved createHint back into findHints so that there is NO stack-frame.
  * </pre>
  */
 public final class XYWing extends AHinter {
@@ -73,8 +72,8 @@ public final class XYWing extends AHinter {
 		// All variables are pre-declared, ANSI-C style, for speed.
 		// There is no stack-frame below this, til we new XYWingHint.
 		AHint hint; // the bloody hint, if we ever find one
-		int xyi // index of the xz Cell in xzs
-		  , XYI // size of xzs
+		int xzi // index of the xz Cell in xzs
+		  , N // size of xzs (bivalue buddies of xy)
 		  , yzi // index in xzs of the yz indice
 		  , yz  // indice of yz
 		  , xz  // indice of xz
@@ -89,23 +88,24 @@ public final class XYWing extends AHinter {
 		final int degree = this.degree;
 		final boolean isXYZ = this.isXYZ;
 		final int intersectionSize = this.intersectionSize;
-		final Idx xyBuds = this.xyBuds; // indices of buds of xy with 2 maybes
-		final int[] xyBud = this.xyBud; // indices of buds of xy with 2 maybes
+		final Idx xyBuds = this.xyBuds; // an Idx of bivalue buddies of xy
+		final int[] xyBud = this.xyBud; // array of bivalue buddies of xy
 		final Idx victims = this.victims; // indices of victims
 		final int[] victim = this.victim; // indices of victims
-		final Pots redPots = this.redPots; // removable (red) Cell=>Values
+		final Pots reds = this.reds; // removable (red) Cell=>Values
 		// array of each cells maybes, for speed.
-		final int[] maybes = grid.maybes(); // O(81)
+		final int[] maybes = grid.maybes;
 		// indices of bivalue cells
-		final Idx bivi = grid.getBivalue(); // O(81) // fills the cache
+		final Idx bivi = grid.getBivalue(); // O(81) cache load
 		// indices of the xy (locus) cell
 		// nb: OK to create a new array per hinter call, just never in loop.
 		final int[] xys;
-		if ( isXYZ ) // XYZ-Wing: three maybes
-			// nb: hijack xyBivBuds rather than create a new temp Idx
-			xys = grid.idx((cc)->cc.size==3, xyBuds).toArrayNew();
-		else // XY-Wing: two maybes
+		if ( isXYZ ) { // XYZ-Wing: three maybes
+			// nb: hijack xyBuds rather than create a new temp Idx
+			xys = grid.idx((c)->c.size==3, xyBuds).toArrayNew();
+		} else { // XY-Wing: two maybes
 			xys = bivi.toArrayNew();
+		}
 		// presume failure, ie that no hint will be found
 		boolean result = false;
 		// foreach xy (the locus cell) in the grid
@@ -113,11 +113,11 @@ public final class XYWing extends AHinter {
 		for ( int xy : xys ) // the locus cell
 			if ( xyBuds.setAndAny(BUDDIES[xy], bivi) )
 				// foreach xz in bivalue buds of xy
-				for ( xym=maybes[xy],xyi=0,XYI=xyBuds.toArrayN(xyBud); xyi<XYI; ++xyi )
+				for ( xym=maybes[xy],xzi=0,N=xyBuds.toArrayN(xyBud); xzi<N; ++xzi )
 					// means: xy.maybes - xz.maybes == 1 maybe (ie z)
-					if ( VSIZE[xym & ~maybes[xz=xyBud[xyi]]] == 1 )
+					if ( VSIZE[xym & ~maybes[xz=xyBud[xzi]]] == 1 )
 						// foreach yz in bivalue buds of xy (again)
-						for ( xzm=maybes[xz],yzi=0; yzi<XYI; ++yzi )
+						for ( xzm=maybes[xz],yzi=0; yzi<N; ++yzi )
 							// if these 3 cells share 3 values
 							if ( VSIZE[xym | xzm | (yzm=maybes[xyBud[yzi]])] == 3 // union
 							  // and these 3 cells all have 0=XY/1=XYZ value/s
@@ -135,14 +135,14 @@ public final class XYWing extends AHinter {
 								else // XY_Wing just remove xy
 									victims.remove(xy);
 								if ( victims.any() ) { // XYZ skips 14.48%
-									// we are not our own victims.
+									// one is not ones own victim.
 									assert !victims.has(xz);
 									assert !victims.has(yz);
 									assert !victims.has(xy);
 									// get removable (red) Cell=>Values.
 									for ( any=false,i=0,n=victims.toArrayN(victim); i<n; ++i )
 										if ( (maybes[victim[i]] & zCand) != 0 ) {
-											redPots.put(grid.cells[victim[i]], zCand);
+											reds.put(grid.cells[victim[i]], zCand);
 											any = true;
 										}
 									// XY_Wing  pass 524/76,591 skip 99.32%
@@ -153,7 +153,7 @@ public final class XYWing extends AHinter {
 										// ------------------------------------
 										// create and return the hint
 										hint = new XYWingHint(this
-												, redPots.copyAndClear()
+												, reds.copyAndClear()
 												, isXYZ
 												, grid.cells[xy]
 												, grid.cells[xz]
@@ -175,6 +175,6 @@ public final class XYWing extends AHinter {
 	private final int[] victim = new int[18]; // 18 is max common siblings
 	private final Idx victims = new Idx();
 	private final Idx xyBuds = new Idx();
-	private final Pots redPots = new Pots();
+	private final Pots reds = new Pots();
 
 }

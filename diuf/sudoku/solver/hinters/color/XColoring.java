@@ -39,18 +39,20 @@ import static diuf.sudoku.Grid.CELLS_REGIONS;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.Idx.IDX_SHFT;
 import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.solver.hinters.Validator;
 import diuf.sudoku.utils.Frmt;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.Arrays;
@@ -58,8 +60,9 @@ import java.util.Collection;
 import java.util.LinkedList;
 import static diuf.sudoku.utils.Frmt.IN;
 import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.SPACE;
 import diuf.sudoku.utils.Log;
+import static diuf.sudoku.utils.Frmt.SP;
+import java.util.LinkedHashSet;
 
 /**
  * XColoring implements the Extended Coloring Sudoku solving technique.
@@ -117,7 +120,7 @@ import diuf.sudoku.utils.Log;
 public final class XColoring extends AHinter {
 
 	/** The first and second colors. */
-	private static final int C1 = 0, C2 = 1;
+	private static final int C1=0, C2=1;
 
 	// the iceQ size and mask
 	private static final int Q_SIZE = 32;			// must be a power of 2
@@ -125,6 +128,11 @@ public final class XColoring extends AHinter {
 
 	// the opposite color
 	private static final int[] OPPOSITE = {1, 0};
+
+	// color names
+	private static final String GREEN="green", BLUE="blue";
+	private static final String[] CC = {GREEN, BLUE}; // this color
+	private static final String[] OC = {BLUE, GREEN}; // opposite color
 
 	// ============================== debug stuff =============================
 
@@ -152,7 +160,7 @@ public final class XColoring extends AHinter {
 	// we reuse this ONE array to read the cells in an Idx
 	private final Cell[] cells = new Cell[81];
 	// we reuse this Pots rather than create one every time when we miss 99%.
-	private final Pots redPots = new Pots();
+	private final Pots reds = new Pots();
 	// we reuse this Pots rather than create one every time when we miss 99%.
 	private final Pots setPots = new Pots();
 	// we reuse this Pots rather than create one every time when we miss 99%.
@@ -164,11 +172,6 @@ public final class XColoring extends AHinter {
 	// It's part of the hint-HTML.
 	private final StringBuilder steps = new StringBuilder(1024);
 
-	private static final String green = "green";
-	private static final String blue = "blue";
-	private static final String[] cc = {green, blue};
-	private static final String[] oc = {blue, green};
-
 	public XColoring() {
 		super(Tech.XColoring);
 	}
@@ -176,8 +179,9 @@ public final class XColoring extends AHinter {
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		// each hinter must enabled/disable itself to do it on the fly.
-		if ( !isEnabled )
+		if ( !isEnabled ) {
 			return false;
+		}
 		this.grid = grid;
 		this.candidates = grid.idxs;
 		this.accu = accu;
@@ -285,17 +289,18 @@ public final class XColoring extends AHinter {
 						for ( ARegion rr : grid.cells[ice[0]].regions ) {
 							if ( rr.ridx[v].size == 2 ) {
 								// XColoring is first use of region.idxs
-								if ( rr.idxs[v].size() != 2 )
+								if ( rr.idxs[v].size() != 2 ) {
 									recover(rr, v);
+								}
 								// and my conjugate is not colored
 								if ( !bothColors.has(conjugate=rr.idxs[v].otherThan(ice[0])) ) {
 									indice = ice[0];
 									color = ice[1];
 									step(Frmt.getSB(64).append("    Step 2: ")
 									  .append(CELL_IDS[indice]).append(" (")
-									  .append(cc[color]).append(") =conjugate=> ")
+									  .append(CC[color]).append(") =conjugate=> ")
 									  .append(CELL_IDS[conjugate]).append(" (")
-									  .append(oc[color]).append(") in ")
+									  .append(OC[color]).append(") in ")
 									  .append(rr.id).toString());
 									// color it the OPPOSITE color
 									oppositeColor = OPPOSITE[color];
@@ -339,7 +344,7 @@ public final class XColoring extends AHinter {
 									  .append(CELL_IDS[indice])
 									  .append(" is the only place for ")
 									  .append(v).append(IN).append(rgn.id)
-									  .append(", so it's ").append(cc[c])
+									  .append(", so it's ").append(CC[c])
 									  .toString());
 									colorSet.or(xSet);
 									bothColors.or(xSet);
@@ -348,7 +353,7 @@ public final class XColoring extends AHinter {
 									dirtyRegions |= CELLS_REGIONS[indice];
 								}
 								// No need to reprocess this region
-								dirtyRegions &= ~Idx.SHFT[rgn.index];
+								dirtyRegions &= ~IDX_SHFT[rgn.index];
 							}
 							// now reprocess the dirty regions, adding any new
 							// ones to the queue, until the queue is empty.
@@ -363,14 +368,14 @@ public final class XColoring extends AHinter {
 									indice = xSet.peek();
 									bothBuds.or(xSet).or(BUDDIES[indice]);
 									// reprocess my regions, except this one
-									dirtyRegions |= CELLS_REGIONS[indice] & ~Idx.SHFT[dr.index];
+									dirtyRegions |= CELLS_REGIONS[indice] & ~IDX_SHFT[dr.index];
 								}
 							}
 						}
 						// the type of hint created
 						subtype = 0;
 						// clear EVERY time. sigh.
-						redPots.clear(); // Type 1 only
+						reds.clear(); // Type 1 only
 						setPots.clear(); // Type 2 and Type 3
 						resultColor = 0; // color to paint the setPots
 						links.clear(); // Type 3 only
@@ -384,25 +389,24 @@ public final class XColoring extends AHinter {
 							o = OPPOSITE[c];
 							colorSet = colorSets[c];
 							otherSet = colorSets[o];
-							for ( ARegion rgn : grid.regions )
+							for ( ARegion rgn : grid.regions ) {
 								// nb: I'm hijacking xSet
 								if ( xSet.setAndMany(colorSet, rgn.idx) ) {
 									step(Frmt.getSB(64)
 									  .append("    Step 4.2: Multiple cells {")
 									  .append(xSet.ids()).append("} in ")
-									  .append(rgn.id).append(" are ").append(cc[c])
+									  .append(rgn.id).append(" are ").append(CC[c])
 									  .append(", which is invalid, so the ")
-									  .append(oc[c]).append(" set {")
+									  .append(OC[c]).append(" set {")
 									  .append(otherSet.ids())
 									  .append("} must be true, ie ").append(v)
 									  .toString());
-									otherSet.forEach(grid.cells, (cc) ->
-										setPots.put(cc, fsv)
-									);
+									setPots.upsertAll(otherSet, grid, v);
 									resultColor = o;
 									subtype = 2; // Type 2
 									break COLOR; // first only
 								}
+							}
 						}
 						if ( subtype == 0 ) {
 							// 4.3 If ALL cells in region which maybe v see
@@ -424,21 +428,18 @@ public final class XColoring extends AHinter {
 										  .append(rgn.id).append(" which maybe ")
 										  .append(v).append(" {")
 										  .append(rgn.idxs[v].ids())
-										  .append("} see a ").append(cc[c])
-										  .append(SPACE).append(v)
+										  .append("} see a ").append(CC[c])
+										  .append(SP).append(v)
 										  .append(", which is invalid, so the ")
-										  .append(oc[c]).append(" set {")
+										  .append(OC[c]).append(" set {")
 										  .append(otherSet.ids())
 										  .append("} must be true, ie ")
 										  .append(v).toString());
-										otherSet.forEach(grid.cells, (cc) ->
-											setPots.put(cc, fsv)
-										);
+										setPots.upsertAll(otherSet, grid, v);
 										for ( int x : xSet.toArrayA() ) {
-											Cell src = grid.cells[x];
-											Cell dest = grid.cells[tmp.setAnd(colorSet, BUDDIES[x]).poll()];
-											oranges.put(src, fsv);
-											links.add(new Link(src, v, dest, v));
+											int dest = tmp.setAnd(colorSet, BUDDIES[x]).poll();
+											oranges.put(grid.cells[x], fsv);
+											links.add(new Link(x, v, dest, v));
 										}
 										resultColor = o;
 										subtype = 3;
@@ -455,12 +456,12 @@ public final class XColoring extends AHinter {
 								for ( i=0; i<n; ++i ) {
 									cell = cells[i];
 									// if cell sees both GREEN and BLUE
-									if ( cell.buds.andAny(colorSets[C1])
-									  && cell.buds.andAny(colorSets[C2]) ) {
+									if ( cell.buds.intersects(colorSets[C1])
+									  && cell.buds.intersects(colorSets[C2]) ) {
 										step("    Step 4.1: cell "+cell.id+" sees"
 											+" BOTH green={"+tmp.setAnd(cell.buds, colorSets[C1]).ids()+"}"
 											+" and blue={"+tmp.setAnd(cell.buds, colorSets[C2]).ids()+"}");
-										redPots.put(cell, fsv);
+										reds.put(cell, fsv);
 										subtype = 1; // Type 1 (type not reported)
 									}
 								}
@@ -490,36 +491,30 @@ public final class XColoring extends AHinter {
 								setPots.clear();
 								links.clear();
 								oranges.clear();
-								if ( HintValidator.XCOLORING_USES ) {
-									if ( !HintValidator.isValidSetPots(grid, setPots) ) {
+								if ( Validator.XCOLORING_VALIDATES ) {
+									if ( !Validator.isValidSetPots(grid, setPots) ) {
 										hint.isInvalid = true;
-										HintValidator.reportSetPots(tech.name()+"Multi", grid, HintValidator.invalidity, hint.toFullString());
-										hint.invalidity = HintValidator.prevMessage;
-										if ( Run.type != Run.Type.GUI )
+										Validator.reportSetPots(tech.name()+"Multi", grid, Validator.invalidity, hint.toFullString());
+										hint.invalidity = Validator.prevMessage;
+										if ( Run.type != Run.Type.GUI ) {
 											ok = false;
+										}
 									}
 								}
 							// Type 1: Eliminations are common.
 							} else {
-								hint = new XColoringHint(this, v
-									, new Pots(redPots)
-									, new Pots(colorSets[0].cellsA(grid), v)
-									, new Pots(colorSets[1].cellsA(grid), v)
-									, new Idx[]{new Idx(colorSets[0]), new Idx(colorSets[1])}
-									, steps.toString() // coloring steps which built this hint
-									, null // links
-								);
+								hint = createHintType1(v);
 								// clear fields
-								redPots.clear();
 								steps.setLength(0);
-								if ( HintValidator.XCOLORING_USES ) {
-									if ( !HintValidator.isValid(grid, redPots) ) {
+								if ( Validator.XCOLORING_VALIDATES ) {
+									if ( !Validator.isValid(grid, reds) ) {
 										hint.isInvalid = true;
-										HintValidator.report(tech.name(), grid, hint.toFullString());
-										hint.invalidity = HintValidator.prevMessage;
+										Validator.report(tech.name(), grid, hint.toFullString());
+										hint.invalidity = Validator.prevMessage;
 										// Show in GUI, hide in batch/testcases
-										if ( Run.type != Run.Type.GUI )
+										if ( Run.type != Run.Type.GUI ) {
 											ok = false;
+										}
 									}
 								}
 							}
@@ -527,8 +522,9 @@ public final class XColoring extends AHinter {
 							if ( ok ) {
 								debug("    ADDING hint: "+hint.toFullString());
 								result = true;
-								if ( accu.add(hint) )
+								if ( accu.add(hint) ) {
 									return result;
+								}
 							}
 							// Skip rest of v coz all hints are same, AFAIK
 							continue VALUES; // even if not OK
@@ -570,14 +566,38 @@ public final class XColoring extends AHinter {
 	// trouble in paradise: the ridx[v].size==2 but idxs[v].size()!=2
 	// so for a start reindex this region, if that doesn't fix it reindex
 	// the whole bloody grid, and if that still doesn't fix it then give up.
-	private void recover(ARegion rr, int v) {
-		rr.rebuildAllS__t();
-		if ( rr.ridx[v].size == 2
-		  && rr.idxs[v].size() != 2 ) // TROUBLE
+	private void recover(final ARegion r, final int v) {
+		r.rebuildAllS__t();
+		if ( r.ridx[v].size == 2
+		  && r.idxs[v].size() != 2 ) { // TROUBLE
 			grid.rebuild();
-		if ( rr.ridx[v].size == 2
-		  && rr.idxs[v].size() != 2 ) // FMS.
+		}
+		if ( r.ridx[v].size == 2
+		  && r.idxs[v].size() != 2 ) { // FMS.
 			StdErr.exit(Log.me()+": Unrecoverable!");
+		}
+	}
+	
+	// create an eliminations hint
+	private XColoringHint createHintType1(final int v) {
+		final Pots greens = new Pots(colorSets[0].cellsA(grid), v);
+		final Pots blues = new Pots(colorSets[1].cellsA(grid), v);
+		final Pots[] potss = new Pots[] {greens, blues};
+		final Collection<Link> myLinks = new LinkedHashSet<>();
+		reds.entrySet().forEach((e) -> {
+			final int d = e.getKey().i;
+			final int zs = e.getValue();
+			for ( Pots pots : potss )
+				for ( int z : VALUESES[zs] ) 
+					pots.keySet().stream()
+						.filter((s)->s.sees[d])
+						.forEach((s)->myLinks.add(new Link(s.i, z, d, z)));
+		});
+		final Idx[] myColorSets = new Idx[] {
+			new Idx(colorSets[0]), new Idx(colorSets[1])
+		};
+		return new XColoringHint(this, v, reds.copyAndClear()
+			, greens, blues, myColorSets, steps.toString(), myLinks);
 	}
 
 }

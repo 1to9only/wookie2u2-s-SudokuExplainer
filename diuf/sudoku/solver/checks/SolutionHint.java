@@ -18,9 +18,8 @@ import diuf.sudoku.utils.Html;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-
 /**
- * A hint from {@link diuf.sudoku.solver.checks.SingleSolution} to view
+ * A hint from {@link diuf.sudoku.solver.checks.BruteForce} to view
  * (and optionally apply) the solution of a Sudoku.
  */
 public final class SolutionHint extends AWarningHint implements IPretendHint {
@@ -39,7 +38,7 @@ public final class SolutionHint extends AWarningHint implements IPretendHint {
 
 	@Override
 	public Pots getGreens(int viewNum) {
-		Pots result = new Pots(GRID_SIZE, 1F);
+		final Pots result = new Pots(GRID_SIZE, 1F);
 		for (int i=0; i<GRID_SIZE; ++i)
 			result.put(grid.cells[i], VSHFT[solution.cells[i].value]);
 		return result;
@@ -47,7 +46,7 @@ public final class SolutionHint extends AWarningHint implements IPretendHint {
 
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
-		Set<Cell> set = new LinkedHashSet<>(64, 1F); // 81-17=64 is a powerOf2
+		final Set<Cell> set = new LinkedHashSet<>(64, 1F); // 81-17=64 is a powerOf2
 		for ( Cell c : grid.cells )
 			if ( c.size == 1 )
 				set.add(c); // hit rate to low to cache
@@ -66,9 +65,9 @@ public final class SolutionHint extends AWarningHint implements IPretendHint {
 
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {
-		int result = (GRID_SIZE - grid.numSet) * 10;
+		final int score = (GRID_SIZE - grid.numSet) * 10;
 		grid.copyFrom(solution);
-		return result;
+		return score;
 	}
 
 }

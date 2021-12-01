@@ -70,7 +70,7 @@ public final class BidirectionalCycleHint extends AChainingHint {
 
 	@Override
 	public Pots getReds(int viewNum) {
-		return super.getFlatReds(viewNum).putAll2(redPots); // Orangonate
+		return super.getFlatReds(viewNum).putAll2(reds); // Orangonate
 	}
 
 //	// AFAIK there are no oranges in BidirectionCycleHints but I it's safer to
@@ -184,7 +184,7 @@ public final class BidirectionalCycleHint extends AChainingHint {
 			, swamp							// 2
 			, getChainHtml(dstOn)			// 3
 			, getChainHtml(dstOff)			// 4
-			, redPots.toString()			// 5
+			, reds.toString()			// 5
 		);
 	}
 

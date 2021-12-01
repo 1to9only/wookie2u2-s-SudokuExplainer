@@ -36,7 +36,7 @@ import java.util.Set;
  * Supports types 1 to 4.
  */
 public final class BUG extends AHinter
-		implements diuf.sudoku.solver.hinters.ICleanUp
+		implements diuf.sudoku.solver.hinters.IAfter
 //				 , diuf.sudoku.solver.IReporter
 {
 
@@ -72,11 +72,11 @@ public final class BUG extends AHinter
 	}
 
 	@Override
-	public void cleanUp() {
+	public void after() {
 		accu = null;
 		bcPots = null;
-		cmnSibsIdx.clear();
 		Cells.cleanCasA();
+		Cells.cleanCasB();
 	}
 
 //	@Override
@@ -101,13 +101,13 @@ public final class BUG extends AHinter
 	// observed 51 calls in one analyse
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		boolean result = false;
 		ARegion region;
 		int card, ri, v;
 		boolean firstTime = true;
+		boolean result = false;
 
 		this.accu = accu;
-		this.stripper.copyFrom(grid); // a grid to erase maybes from
+		this.stripper.copyFrom(grid); // I erase maybes from stripper
 
 		// cleanup from the previous call
 		this.bcPots = null; // bugCellsPots
@@ -142,11 +142,12 @@ public final class BUG extends AHinter
 //++bcCnt;
 				// BUG BugCell pass 45,309 of 46,421 = skip 2.40%
 				if ( newBugCell == null )
-					// no cell has more than two potential values.
+					// no cell has more than two potential values,
+					// which I think is a REAL BUG, but I'm stupid.
 					return false; // not a BUG
 //++bcPass;
 
-				// Good: a new BUG cell has been found
+				// a new BUG cell has been found
 
 				// so we map newBugCell => value in bugCellsPots
 				if ( bcPots == null )
@@ -158,7 +159,7 @@ public final class BUG extends AHinter
 
 				// "strip" value off our bon-nommed grid
 				try {
-					Cell sc = stripper.cells[newBugCell.i];
+					final Cell sc = stripper.cells[newBugCell.i];
 					if ( (sc.maybes & VSHFT[v]) != 0 )
 						sc.canNotBe(v); // throws UnsolvableException
 				} catch (UnsolvableException ex) { // should never happen
@@ -197,7 +198,7 @@ public final class BUG extends AHinter
 //++p2Cnt;
 		for ( Cell sc : stripper.cells )
 			if ( sc.value==0 && sc.size!=2 )
-				return false; // Not a BUG // 6,213 top1465
+				return false; // Not a BUG
 //++p2Pass;
 
 		// when the BUG value(s) have been removed, each region will have
@@ -212,24 +213,22 @@ public final class BUG extends AHinter
 		}
 //++rgPass;
 
-		// Hooray: A BUG has been found !!!!
-
-		// What type? Add the appropriate hint-type to accu
+		// potential BUG found, but what type?
 		final int numBugCells = bcPots.size();
 		if ( numBugCells == 1 ) {
-			// Yeah, potential BUG type-1 pattern found
+			// potential BUG type-1 found
 			result = addBug1Hint();
 		} else if ( VSIZE[allBugValues] == 1 ) {
-			// Yeah, potential BUG type-2 or type-4 pattern found
+			// potential BUG type-2 or type-4 found
 			result = addBug2Hint(grid);
 			if ( numBugCells == 2 )
-				// Yeah, Potential BUG type-4 pattern found
+				// potential BUG type-4 found
 				result |= addBug4Hint();
 		} else if ( !cmnSibsIdx.none() ) {
 			if ( numBugCells == 2 )
-				// Yeah, Potential BUG type-4 pattern found
+				// potential BUG type-4 found
 				result = addBug4Hint();
-			// Yeah, potential BUG type-3 pattern found
+			// potential BUG type-3 found
 			result |= addBug3Hint(grid);
 		}
 		return result;
@@ -251,18 +250,20 @@ public final class BUG extends AHinter
 		assert VSIZE[allBugValues] == 1;
 		int v = VFIRST[allBugValues]; // theBugValue
 		final int sv = VSHFT[v];
-		Pots redPots = null;
-		for ( Cell sib : cmnSibsIdx.cellsA(grid) )
-			if ( (sib.maybes & sv) != 0 ) {
-				if ( redPots == null )
-					redPots = new Pots();
-				redPots.put(sib, sv);
+		final Cell[] cells = grid.cells;
+		final int[] maybes = grid.maybes;
+		Pots reds = null;
+		for ( int i : cmnSibsIdx.toArrayA() )
+			if ( (maybes[i] & sv) != 0 ) {
+				if ( reds == null )
+					reds = new Pots();
+				reds.put(cells[i], sv);
 			}
-		if ( redPots == null )
+		if ( reds == null )
 			return false;
 		// Create hint
 //++bug2HintCount;
-		accu.add(new Bug2Hint(this, redPots, bcPots.keySet(), v));
+		accu.add(new Bug2Hint(this, reds, bcPots.keySet(), v));
 		return true;
 	}
 
@@ -272,96 +273,95 @@ public final class BUG extends AHinter
 	 * this method is down to {@code if(nakedSet==null) continue;}
 	 * <p>Using the test data:<pre>
 	 * 356#C:\Users\User\Documents\NetBeansProjects\DiufSudoku\top1465.d5.mt
-	 * C:\Users\User\Documents\SodukuPuzzles\Test\BUG-Type-3-ish.txt
+	 * C:\Users\User\Documents\SudokuPuzzles\Test\BUG-Type-3-ish.txt
 	 * </pre>>
 	 * @param grid the Grid to produce the hint for.
 	 */
 	private boolean addBug3Hint(Grid grid) {
-		boolean result = false;
 		assert !cmnSibsIdx.none();
 		assert bcPots.size()!=1 && VSIZE[allBugValues]!=1;
-		// common cells list
-		ArrayList<Cell> ccsList = new ArrayList<>(cmnSibsIdx.size());
 		ARegion cmnRgn;
+		// common cells list
+		final ArrayList<Cell> ccsList = new ArrayList<>(cmnSibsIdx.size());
+		boolean result = false;
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
 			// Look for a region of this type that is shared by all BUG cells
-			if ( (cmnRgn=Regions.common(bcPots.keySet(), rti)) == null )
-				continue;
-			// A common region of type rti has been found.
-			// Gather other cells of this region from the grid.
-			ccsList.clear();
-			for ( Cell c : cmnSibsIdx.cellsA(grid) )
-				if ( c.regions[rti] == cmnRgn )
-					ccsList.add(c);
-			// how many common cells are there
-			final int n = ccsList.size();
-			// common cells array
-//			Cell[] ccsArray = ccsList.toArray(new Cell[n]);
-			Cell[] ccsArray = ccsList.toArray(Cells.arrayA(n));
-			// foreach dd (degree) between (greater of 2 or n) and 6
-			for ( int dd=Math.max(2, n); dd<7; ++dd ) {
-				final int cc = dd - 1; // degreeMinusOne (cc is dd-1, right?)
-				// NB: create these once per degree, not per permutation
-				int[] potentialValueses = new int[dd];
-				Cell[] nakedCells = Cells.arrayA(cc); // something borrowed!
-				int otherCmnValues;
-				// foreach possible combination of the missing $degree-1 cells
-				P_LOOP: for ( int[] perm : new Permutations(n, IAS[cc]) ) {
-					// NB: no need to clear potentials or nakedCells arrays coz
-					//     they're completely overwritten before they are read
-					otherCmnValues = 0;
-					for ( int i=0; i<cc; ++i ) {
-						// Fill array of missing naked cells
-						nakedCells[i] = ccsArray[perm[i]];
-						// Fill potential values array
-						potentialValueses[i] = nakedCells[i].maybes;
-						// Gather union of potentials
-						if ( VSIZE[otherCmnValues|=potentialValueses[i]] > dd )
-							continue P_LOOP;
-					}
-					// Ensure that all values of the naked set are covered by non-bug cells
-					if ( VSIZE[otherCmnValues] != dd ) // size may still be LESS than dd
-						continue;
+			if ( (cmnRgn=Regions.common(bcPots.keySet(), rti)) != null ) {
+				// A common region of type rti has been found.
+				// Gather common sibs in this region from the grid.
+				ccsList.clear();
+				for ( Cell c : cmnSibsIdx.cellsA(grid) )
+					if ( c.regions[rti] == cmnRgn )
+						ccsList.add(c);
+				// how many common cells are there
+				final int n = ccsList.size();
+				// common cells array
+				Cell[] ccsArray = ccsList.toArray(Cells.arrayA(n));
+				// foreach dd (degree) between (greater of 2 or n) and 6
+				for ( int dd=Math.max(2, n); dd<7; ++dd ) {
+					final int cc = dd - 1; // degreeMinusOne (cc is dd-1, right?)
+					// NB: create these once per degree, not per permutation
+					int[] potentialValueses = new int[dd];
+					Cell[] nakedCells = Cells.arrayB(cc); // something borrowed!
+					int otherCmnValues;
+					// foreach possible combination of the missing $degree-1 cells
+					P_LOOP: for ( int[] perm : new Permutations(n, IAS[cc]) ) {
+						// NB: no need to clear potentials or nakedCells arrays coz
+						//     they're completely overwritten before they are read
+						otherCmnValues = 0;
+						for ( int i=0; i<cc; ++i ) {
+							// Fill array of missing naked cells
+							nakedCells[i] = ccsArray[perm[i]];
+							// Fill potential values array
+							potentialValueses[i] = nakedCells[i].maybes;
+							// Gather union of potentials
+							if ( VSIZE[otherCmnValues|=potentialValueses[i]] > dd )
+								continue P_LOOP;
+						}
+						// Ensure that all values of the naked set are covered by non-bug cells
+						if ( VSIZE[otherCmnValues] != dd ) // size may still be LESS than dd
+							continue;
 
-					// ------------------------------------------
-					// From here down performance is NOT an issue
-					// ------------------------------------------
+						// ------------------------------------------
+						// From here down performance is NOT an issue
+						// ------------------------------------------
 
-					// Get potentials for bug cells
-					potentialValueses[cc] = allBugValues;
-					// Search for a naked set
-					int nakedSetValues = Values.common(potentialValueses, dd);
-					if ( nakedSetValues == 0 )
-						continue;
+						// Get potentials for bug cells
+						potentialValueses[cc] = allBugValues;
+						// Search for a naked set
+						int nakedSetCands = Values.common(potentialValueses, dd);
+						if ( nakedSetCands == 0 )
+							continue;
 
-					// -----------------------
-					// UNTESTED From here down
-					// -----------------------
+						// -----------------------
+						// UNTESTED From here down
+						// -----------------------
 
-					// One of bcPots.keySet() forms a naked set with nakedCells[]
-					// Look for cells not part of the naked set, sharing the region
-					Set<Cell> redCells = new HashSet<>(ccsList);
-					for ( Cell c : nakedCells )
-						redCells.remove(c); // exclude cells of the naked set
-					redCells.removeAll(bcPots.keySet()); // exclude bug cells
-					if ( redCells.isEmpty() )
-						continue;
-					// Ok, some cells in a common region. Look for removable potentials
-					Pots redPots = new Pots();
-					int redBits;
-					for ( Cell cell : redCells )
-						if ( (redBits=cell.maybes & nakedSetValues) != 0 )
-							redPots.put(cell, redBits);
-					if ( !redPots.isEmpty() ) {
-//++bug3HintCount;
-						result = true;
-						if ( accu.add(new Bug3Hint(this, redPots, nakedCells
-								, bcPots, allBugValues, nakedSetValues
-								, cmnRgn)) )
-							return true;
-					}
-				} // next Permutation
-			} // next degree [2..6]
+						// One of bcPots.keySet() forms a naked set with nakedCells[]
+						// Look for cells not part of the naked set, sharing the region
+						Set<Cell> redCells = new HashSet<>(ccsList);
+						for ( Cell c : nakedCells )
+							redCells.remove(c); // exclude cells of the naked set
+						redCells.removeAll(bcPots.keySet()); // exclude bug cells
+						if ( redCells.isEmpty() )
+							continue;
+						// Ok, some cells in a common region. Look for removable potentials
+						Pots redPots = new Pots();
+						int pinkos;
+						for ( Cell cell : redCells )
+							if ( (pinkos=cell.maybes & nakedSetCands) != 0 )
+								redPots.put(cell, pinkos);
+						if ( !redPots.isEmpty() ) {
+	//++bug3HintCount;
+							result = true;
+							if ( accu.add(new Bug3Hint(this, redPots, nakedCells
+									, bcPots, allBugValues, nakedSetCands
+									, cmnRgn)) )
+								return true;
+						}
+					} // next Permutation
+				} // next degree [2..6]
+			}
 		} // next regionType
 		return result;
 	}

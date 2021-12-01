@@ -7,8 +7,8 @@
 package diuf.sudoku.solver.accu;
 
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.utils.IVisitor;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -24,6 +24,11 @@ public final class HintsAccumulator implements IAccumulator {
 
 	private final LinkedList<AHint> list;
 
+	/**
+	 * Constructor.
+	 * @param list The reference-type LinkedList is required because I use the
+	 *  poll method in addition to the List interface
+	 */
 	public HintsAccumulator(LinkedList<AHint> list) {
 		this.list = list;
 	}
@@ -86,7 +91,7 @@ public final class HintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean hasAny() {
+	public boolean any() {
 		return list.size() > 0;
 	}
 
@@ -96,9 +101,11 @@ public final class HintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void sort() {
-		// sort hints by score (number of eliminations) descending
-		list.sort(AHint.BY_SCORE_DESC);
+	public void sort(Comparator<AHint> comparator) {
+		if ( comparator == null ) {
+			comparator = AHint.BY_SCORE_DESC;
+		}
+		list.sort(comparator);
 	}
 
 	@Override
@@ -110,27 +117,6 @@ public final class HintsAccumulator implements IAccumulator {
 	@Override
 	public List<? extends AHint> getList() {
 		return list;
-	}
-
-	// --------------------------------- cheat --------------------------------
-
-	/**
-	 * Visit each hint in the hints list ONCE.
-	 * <p>
-	 * NOTE WELL: This method empties the hints list! This is desirable in 
-	 * {@link diuf.sudoku.solver.LogicalSolver.Cheats}, because when I have
-	 * processed each hint I am done with it, so we may as well poll it off,
-	 * which also has the distinct advantage of being a bit more complicated
-	 * than it actually needs to be, despite it's simplicity.
-	 *
-	 * @param v to invoke on each hint
-	 */
-	public void foreach(IVisitor<AHint> v) {
-		if ( v == null )
-			return;
-		AHint h;
-		while ( (h=list.poll()) != null )
-			v.visit(h);
 	}
 
 }

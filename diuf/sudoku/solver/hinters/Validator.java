@@ -17,108 +17,90 @@ import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import static diuf.sudoku.utils.Frmt.NOT_EQUALS;
 import static diuf.sudoku.utils.Frmt.PLUS;
-import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.SP;
 import diuf.sudoku.utils.Log;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
 /**
- * HintValidator exposes static helper methods to validate a hint against the
- * Sudoku solution calculated (once) with brute force. It's a way to debug a
+ * Validator exposes static methods that validate a reds against the Sudoku
+ * solution that is calculated ONCE using brute force. It's a way to debug a
  * hinter, by logging all invalid hints, to work-out what's causing them, to
- * make them go away. HintValidator should NOT be part of a production system,
- * so make sure you've turned me off in each release. It's part of the release
- * procedure: Check they're all false!
+ * make them go away. Validator should NOT be part of a production system, so
+ * the release procedure checks that *_VALIDATES are all false.
  * <p>
- * All of this class is a nasty hack. It makes no sense to rely on the solution
- * to the puzzle in order to solve the puzzle. BUT because we can solve quickly
- * (thanks to Donald Knuth), we do so, to validate stuff that troubles us at the
- * moment; but ONLY those that trouble us at the moment. And then we check
- * they're all false BEFORE we release! Did I mention that you should check
- * false when you release? Well, you should check false when you release.
+ * Validator is a nasty hack. Using the solution to find the solution is crazy.
+ * But thanks to Donald Knuth we can solve quickly, so we do so, to validate
+ * stuff that troubles us at the moment; but ONLY those that trouble us, and
+ * only at the moment. And then we check they are all false BEFORE we release!
+ * Did I mention that you should check false when you release? You check that
+ * *_VALIDATES are all false in a release, because relying on the solution to
+ * find the solution is crazy! If you tell c__ts stuff three times they MIGHT
+ * actually listen to you, or not. sigh.
  *
  * @author Keith Corlett 2020-07-14
  */
-public class HintValidator {
+public class Validator {
 
 	// My callers use the below switches to determine whether or not they call
 	// the isValid method. Each user has a public static final (compile-time)
 	// switch. It's done this way to make it easy to rip me out; and easy to
 	// find any usages before each release, and switch them off.
 	//
-	// HintValidator is not kosha so should NOT be used in a release! It would
-	// be best if HintValidator did not exist, but it does, but I am still
-	// determined not to rely upon this crutch in a release. It is poor form
-	// to use brute-force (the solution) to calculate the solution. I would
-	// rather not solve the puzzle than rely on HintValidator to solve it.
+	// Validator is not kosha so should NOT be used in a release! It would be
+	// best if Validator did not exist, but it does, but I am still determined
+	// not to rely upon this crutch in production. Using brute-force (solution)
+	// is poor form when calculating the solution. I would rather not solve a
+	// puzzle than rely on Validator to solve it.
 	//
-	// What HintValidator is useful for is telling me where I stuffed-up; it
-	// can log all invalid hints, and not apply them, to reveal the pattern of
-	// buggered hints, so that hopefully I can see it, and disembuggernate it.
-	/**
-	 * Does HdkColoring use HintValidator.isValid?
-	 */
-	public static final boolean COLORING_USES = false; // @check false
+	// What Validator is useful for is telling me where I stuffed-up; it logs
+	// invalid hints, and suppresses apply, to reveal the pattern of bad hints,
+	// so that hopefully I can fix them.
 
 	/**
-	 * Do AlsXyWing and AlsXyChain use HintValidator?
+	 * Does XColoring use Validator?
 	 */
-	public static final boolean ALS_USES = false; // @check false
+	public static final boolean XCOLORING_VALIDATES = false; // @check false
 
 	/**
-	 * Does DeathBlossom use HintValidator?
+	 * Does MedusaColoring use Validator?
 	 */
-	public static final boolean DEATH_BLOSSOM_USES = false; // @check false
+	public static final boolean MEDUSA_COLORING_VALIDATES = false; // @check false
 
 	/**
-	 * Does AlignedExclusion use HintValidator?
+	 * Does GEM (GradedEquivalenceMarks) use Validator?
 	 */
-	public static final boolean ALIGNED_EXCLUSION_USES = false; // @check false
+	public static final boolean GEM_VALIDATES = false; // @check false
 
 	/**
-	 * Does ComplexFisherman (for Franken and Mutant only) use HintValidator?
+	 * Does DeathBlossom use Validator?
 	 */
-	public static final boolean COMPLEX_FISHERMAN_USES = false; // @check false
+	public static final boolean DEATH_BLOSSOM_VALIDATES = false; // @check false
 
 	/**
-	 * Does KrakenFisherman use HintValidator?
+	 * Do AlsWing and AlsChain use Validator?
 	 */
-	public static final boolean KRAKEN_FISHERMAN_USES = false; // @check false
+	public static final boolean ALS_VALIDATES = false; // @check false
 
 	/**
-	 * Does ChainerBase (for Nested hints only) use HintValidator?
+	 * Does ComplexFisherman (for Franken and Mutant only) use Validator?
 	 */
-	public static final boolean CHAINER_USES = false; // @check false
+	public static final boolean COMPLEX_FISHERMAN_VALIDATES = false; // @check false
 
 	/**
-	 * Does XColoring use HintValidator?
+	 * Does KrakenFisherman use Validator?
 	 */
-	public static final boolean XCOLORING_USES = false; // @check false
+	public static final boolean KRAKEN_FISHERMAN_VALIDATES = false; // @check false
 
 	/**
-	 * Does MedusaColoring use HintValidator?
+	 * Does AlignedExclusion use Validator?
 	 */
-	public static final boolean MEDUSA_COLORING_USES = false; // @check false
+	public static final boolean ALIGNED_EXCLUSION_VALIDATES = false; // @check false
 
 	/**
-	 * Does GEM (GradedEquivalenceMarks) use HintValidator?
+	 * Does ChainerBase (for Nested hints only) use Validator?
 	 */
-	public static final boolean GEM_USES = false; // @check false
-
-	/**
-	 * Does any class use HintValidator?
-	 */
-	public static final boolean ANY_USES = false
-			| COLORING_USES
-			| ALS_USES
-			| DEATH_BLOSSOM_USES
-			| ALIGNED_EXCLUSION_USES
-			| COMPLEX_FISHERMAN_USES
-			| KRAKEN_FISHERMAN_USES
-			| CHAINER_USES
-			| XCOLORING_USES
-			| MEDUSA_COLORING_USES
-			| GEM_USES;
+	public static final boolean CHAINER_VALIDATES = false; // @check false
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// these fields are input for the valid method.
@@ -150,12 +132,11 @@ public class HintValidator {
 	 * NOT intended to ever be used in a production system. It's only a stop-
 	 * gap measure for debugging during development.
 	 * <p>
-	 * NOTE: It's up to each of my callers to check it's *_USES setting BEFORE
-	 * calling isValid. To use isValid in a new class just add a new *_USES
-	 * static final boolean setting to this HintValidator class, and add that to
-	 * the ANY_USES calculation. This just to keeps all my s__t together, so
-	 * it's easier to throw me away if/when we're ever finished with all these
-	 * dodgy bloody hints.
+	 * NOTE: It's up to each of my callers to check it's *_VALIDATES setting
+	 * BEFORE calling isValid. To use isValid in a new class just add a new
+	 * static final boolean WHATEVER_VALIDATES setting to the Validator class.
+	 * This just to keeps all my s__t together, so that it's easier to throw
+	 * away the Validator if/when we're ever done with all these dodgy hints.
 	 *
 	 * @param grid that we're solving
 	 * @param redPots the hints eliminations to be validated
@@ -163,13 +144,16 @@ public class HintValidator {
 	 */
 	public static boolean isValid(Grid grid, Pots redPots) {
 		// presume that the hint (ie redPots) is valid;
-		final int[] solutionValues = grid.getSolutionValues();
+		final int[] solution = grid.getSolution();
 		invalidity = EMPTY_STRING;
 		Cell cell;
-		for ( java.util.Map.Entry<Cell,Integer> e : redPots.entrySet() )
-			if ( (e.getValue() & VSHFT[solutionValues[(cell=e.getKey()).i]]) != 0 )
-				// note the leading space before first
-				invalidity += SPACE+cell.id+MINUS+solutionValues[cell.i];
+		for ( java.util.Map.Entry<Cell,Integer> e : redPots.entrySet() ) {
+			// if red-cell-values contains the value of this cell in solution
+			if ( (e.getValue() & VSHFT[solution[(cell=e.getKey()).i]]) != 0 ) {
+				// note the leading space before first: odd but works ok
+				invalidity += SP+cell.id+MINUS+solution[cell.i];
+			}
+		}
 		return invalidity.isEmpty();
 	}
 
@@ -182,10 +166,11 @@ public class HintValidator {
 	// for use when invalid returns true: log s__t in a standard way.
 	// return was it reported, or swallowed as a repeat?
 	public static boolean report(String reporterName, Grid grid, String badness) {
-		if (INVALIDITIES.putIfAbsent(invalidity, PRESENT) == null) {
+		if ( INVALIDITIES.putIfAbsent(invalidity, PRESENT) == null ) {
 			Log.teef("%s\n", grid);
 			// NOTE: invalidity contains a leading space
-			Log.teef(prevMessage = String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness));
+			prevMessage = String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);
+			Log.teeln(prevMessage);
 			return true;
 		}
 		return false;
@@ -198,15 +183,15 @@ public class HintValidator {
 
 	public static boolean isValidSetPots(Grid grid, Pots setPots) {
 		invalidity = EMPTY_STRING;
-		final int[] solutionValues = grid.getSolutionValues();
+		final int[] solution = grid.getSolution();
 		// note the leading space before the first invalidity
 		for ( Entry<Cell,Integer> e : setPots.entrySet()) {
 			final Cell cell = e.getKey();
 			final Integer values = e.getValue();
 			if (VSIZE[values] != 1) {
-				invalidity += SPACE+cell.id+PLUS+Values.toString(values)+" is not one value!";
-			} else if ( (values & VSHFT[solutionValues[cell.i]]) == 0 ) {
-				invalidity += SPACE+cell.id+PLUS+values.toString()+NOT_EQUALS+solutionValues[cell.i];
+				invalidity += SP+cell.id+PLUS+Values.toString(values)+" is not one value!";
+			} else if ( (values & VSHFT[solution[cell.i]]) == 0 ) {
+				invalidity += SP+cell.id+PLUS+values.toString()+NOT_EQUALS+solution[cell.i];
 			}
 		}
 		return invalidity.isEmpty();

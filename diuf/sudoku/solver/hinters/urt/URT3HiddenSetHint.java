@@ -102,18 +102,18 @@ public final class URT3HiddenSetHint extends AURTHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "URT3HiddenSetHint.html"
-				, getTypeName()			// {0}
-				, v1					//  1
-				, v2					//  2
-				, Frmu.csv(loop)		//  3
-				, c1.id					//  4
-				, c2.id					//  5
-				, Values.or(extraValues)//  6
-				, GROUP_NAMES[VSIZE[hdnSetValues]-2] // 7
-				, Frmu.and(region.atNew(hdnSetIdxsArray)) // 8
-				, Values.and(hdnSetValues)//  9
-				, region.id				// 10
-				, redPots.toString()	// 11
+				, getTypeName()								//{0}
+				, v1										// 1
+				, v2										// 2
+				, Frmu.csv(loop)							// 3
+				, c1.id										// 4
+				, c2.id										// 5
+				, Values.orString(extraValues)				// 6
+				, GROUP_NAMES[VSIZE[hdnSetValues]-2]		// 7
+				, Frmu.and(region.atNew(hdnSetIdxsArray))	// 8
+				, Values.andString(hdnSetValues)			// 9
+				, region.id									//10
+				, reds.toString()							//11
 		);
 	}
 }

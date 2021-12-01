@@ -22,9 +22,9 @@ import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import static diuf.sudoku.utils.Frmt.PLUS;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 /**
  * XColoringHintBig is the DTO for Type 2 and Type 3 Extended Coloring hints.
@@ -88,7 +88,7 @@ public class XColoringHintBig extends AHint  {
 	}
 
 	@Override
-	public List<ARegion> getPinkRegions() {
+	public List<ARegion> getPinkos() {
 		return Regions.list(region);
 	}
 
@@ -150,7 +150,7 @@ public class XColoringHintBig extends AHint  {
 	protected String toStringImpl() {
 		return Frmt.getSB().append(getHintTypeName())
 		  .append(COLON_SP).append(greenCellIds)
-		  .append(COMMA_SP).append(blueCellIds)
+		  .append(CSP).append(blueCellIds)
 		  .append(ON).append(v)
 		  .toString();
 	}

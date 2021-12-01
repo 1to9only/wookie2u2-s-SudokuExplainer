@@ -8,7 +8,6 @@ package diuf.sudoku.solver.checks;
 
 import diuf.sudoku.Backup;
 import diuf.sudoku.Grid;
-import static diuf.sudoku.Grid.BOX_EDGE;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.GRID_SIZE;
 import static diuf.sudoku.Grid.REGION_SIZE;
@@ -16,46 +15,40 @@ import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
 import diuf.sudoku.solver.accu.SingleHintsAccumulator;
-import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.fish.BasicFisherman;
-import diuf.sudoku.solver.hinters.hdnset.HiddenSet;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.solver.hinters.lock.LockingSpeedMode;
-import diuf.sudoku.solver.hinters.single.HiddenSingle;
-import diuf.sudoku.solver.hinters.nkdset.NakedSet;
-import diuf.sudoku.solver.hinters.single.NakedSingle;
-import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.Log;
+import java.util.Map;
 import java.util.Random;
 
 /**
- * SingleSolution implements the Brute Force Sudoku solving technique.
- * It determines: Does this Sudoku have one-and-only-one solution? The Brute
- * Force technique recursively guesses cell values, because it's FAST! We solve
- * the puzzle twice, once 'forwards' (smallest possible) and once 'backwards'
- * (largest possible) and if those two solutions are the same then the puzzle
- * has "a unique solution", ie one-and-only-one possible solution, ie the given
- * grid (ie puzzle) is valid. If the given grid is invalid then we add a
- * WarningHint (or subtype thereof) to the IAccumulator.
+ * BruteForce implements the OneSolution Sudoku solving technique, which
+ * determines: Does this Sudoku have one-and-only-one solution.
  * <p>
- * The handling of the solution grid (presuming there is one) is determined by
- * the SolutionMode passed into my constructor. Basically, we solve the puzzle
- * twice to validate it, so we don't want to wait for it to be solved again
- * if/when we want the bloody solution, we want to just rip-it-back out of the
- * LogicalSolver, because we can easily get him from him factory, anywhere,
- * without having to pass bloody references around everywhere.
+ * BruteForce is Donald Knuths algorithm for recursively guessing cell-values,
+ * which is frightfully FAST! <br>
+ * We solve the puzzle twice: once forwards (using smallest potential value of
+ * each cell-value guessed), and once backwards (largest); and if those two
+ * solutions are equal then the puzzle has a unique solution, ergo it's valid. <br>
+ * If, however, the puzzle has zero or multiple solutions (ergo invalid) then
+ * we add a WarningHint (or a subtype thereof) to the IAccumulator.
+ * <p>
+ * The handling of the solution (presuming there is one) is a bit interesting.
+ * We solve the puzzle twice in order to validate it, so we definitely don't
+ * want to wait for it to be solved again if/when we want the solution, instead
+ * we cache the correct value of each cell in the {@link Grid#solution} field.
  */
-public final class SingleSolution extends AWarningHinter {
+public final class BruteForce extends AWarningHinter {
 
 	// these are shorthand because the full names are too long
-	private static final int N = REGION_SIZE;
-	private static final int M = N - 1;
-	private static final int S = BOX_EDGE; // S for SquareRoot
+	private static final int N = REGION_SIZE;	// num cells in region
+	private static final int M = N - 1;			// index of last cell
+//	private static final int R = ROOT;			// square root of N
 
 	/** If true && VERBOSE_3_MODE then I write stuff to Log.out */
 	private static final boolean IS_NOISY = false; // @check false
@@ -78,14 +71,6 @@ public final class SingleSolution extends AWarningHinter {
 	// for the solve methods isReverse parameter.
 	private static final boolean BACKWARDS = true;
 
-	/**
-	 * true produces a SolutionHint for F8 Tools ~ Solve; else <br>
-	 * false a plain SudokuSolved hint for solution by natural causes. <br>
-	 * Set to true by LogicalSolver.solveRecursively and then reset to false
-	 * at the end of each getHints call.
-	 */
-	public boolean wantSolutionHint = false;
-
 	/** the solution is derived. */
 	public SolutionHint solutionHint = null;
 
@@ -95,7 +80,7 @@ public final class SingleSolution extends AWarningHinter {
 	private final IAccumulator accu;
 
 	// the singles are both passed the above apcu explicitly.
-	private final AHinter[] singlesHinters;
+	private final IHinter[] singlesHinters;
 
 	// HintsApplicumulator is used by locking. It immediately applies each hint
 	// to the grid and we carry on searching, and later it'll return true,
@@ -115,48 +100,29 @@ public final class SingleSolution extends AWarningHinter {
 	private final HintsApplicumulator apcu;
 
 	// The "fast" hinters evaluated by ns/elim.
-	// Locking uses the HintsApplicumulator under the hood, and then adds
-	// to the "normal" accu an AppliedHintsSummaryHint, whose apply method
-	// returns numElims, so that everything else still works as per normal.
-	private final AHinter[] fourQuickFoxes;
+	// Locking uses the HintsApplicumulator under the hood, and then adds a
+	// SummaryHint the "normal" accu, whose apply returns numElims, so that
+	// everything else still works as per normal.
+	private final IHinter[] fourQuickFoxes;
 
 	/**
-	 * This constructor is only used by the test-cases, where I don't want
-	 * to create a LogicalSolver in order to create a SingleSolution.
+	 * Constructs a new BruteForce using the given basic hinters.
+	 * @param basics the basic hinters
 	 */
-	public SingleSolution() {
-		super(Tech.SingleSolution);
+	public BruteForce(final Map<Tech,IHinter> basics) {
+		super(Tech.NotOneSolution);
 		accu = new SingleHintsAccumulator();
 		apcu = new HintsApplicumulator(AHint.printHintHtml);
-		this.singlesHinters = new AHinter[] {
-			  new HiddenSingle() // NB: hidden first, coz it's quicker this way
-			, new NakedSingle()  // when we run them both anyway.
+		this.singlesHinters = new IHinter[] {
+			// nb: hidden first, for speed, when we run them both anyway
+			  basics.get(Tech.HiddenSingle)
+			, basics.get(Tech.NakedSingle)
 		};
-		this.fourQuickFoxes = new AHinter[] {
-			  new LockingSpeedMode(apcu) // apcu applies hints immediately
-			, new NakedSet(Tech.NakedPair)
-			, new HiddenSet(Tech.HiddenPair)
-			, new BasicFisherman(Tech.Swampfish)
-		};
-	}
-
-	/**
-	 * Constructs a new SingleSolution using hinters of this solver.
-	 * @param solver
-	 */
-	public SingleSolution(LogicalSolver solver) {
-		super(Tech.SingleSolution);
-		accu = new SingleHintsAccumulator();
-		apcu = new HintsApplicumulator(AHint.printHintHtml);
-		this.singlesHinters = new AHinter[] {
-			  solver.getHiddenSingle() // NB: hidden first, for speed
-			, solver.getNakedSingle()  // when we run them both anyway.
-		};
-		this.fourQuickFoxes = new AHinter[] {
-			  new LockingSpeedMode(apcu) // always create a new one!
-			, solver.getNakedPair()
-			, solver.getHiddenPair()
-			, solver.getSwampfish()
+		this.fourQuickFoxes = new IHinter[] {
+			  new LockingSpeedMode(apcu) // ALWAYS a new one, for speed mode!
+			, basics.get(Tech.NakedPair)
+			, basics.get(Tech.HiddenPair)
+			, basics.get(Tech.Swampfish)
 		};
 	}
 
@@ -168,7 +134,7 @@ public final class SingleSolution extends AWarningHinter {
 	 * @param rnd the random number generator (not null).
 	 * @return the solution Grid.
 	 */
-	public Grid buildRandomPuzzle(Random rnd) {
+	public Grid buildRandomPuzzle(final Random rnd) {
 		final Grid solution = new Grid();
 		try {
 			apcu.grid = solution;
@@ -186,7 +152,7 @@ public final class SingleSolution extends AWarningHinter {
 	 * The meaning of the returned value is:<ul>
 	 *  <li><b>0</b> means the Sudoku has no solution (ie is invalid).
 	 * <pre>This actually means that we failed to solve the puzzle
-	 * using SingleSolution (ie Knuths Brute Force algorithm)
+	 * using BruteForce (ie Knuths Brute Force algorithm)
 	 * and the Four Quick Foxes:
 	 *   * Locking using the HintsApplicumulator
 	 *   * NakedSet(Tech.NakedPair)
@@ -194,10 +160,10 @@ public final class SingleSolution extends AWarningHinter {
 	 *   * BasicFisherman(Tech.Swampfish).
 	 * With the code in good order, no solution is not possible,
 	 * therefore (ie never) this puzzle is actually invalid;
-	 * or (most likely) the-most-recently-modified-hinter produced
-	 *    an invalid hint so use the HintValidator;
+	 * or (most likely) most-recently-modified-hinter produced an invalid hint
+	 *    so use {@link diuf.sudoku.solver.hinters.Validator#isValid} on it
 	 * or (less likely) s__t broke in the Four Quick Foxes;
-	 * or (wtf) HintsApplicumulator or SingleSolution is rooted.
+	 * or (wtf) HintsApplicumulator or BruteForce is rooted.
 	 *    Start with whichever has changed most recently.</pre>
 	 *  <li><b>1</b> means the Sudoku has exactly one solution (ie is valid)
 	 *  <li><b>2</b> means the Sudoku has <b>more than one</b> solution (ie is
@@ -210,35 +176,34 @@ public final class SingleSolution extends AWarningHinter {
 	public int countSolutions(final Grid grid) {
 		// NOTE: rebuild the maybes here before we countSolutions
 		// (generate only place were grid IS borken; so fix here).
-		Grid f = new Grid(grid); // forwards
-		if ( !doRecursiveSolve(f, FORWARDS) )
+		final Grid f = new Grid(grid); // forwards
+		if ( !doRecursiveSolve(f, FORWARDS) ) {
 			return 0; // 0 solutions
-		Grid b = new Grid(grid); // backwards
-		if ( !doRecursiveSolve(b, BACKWARDS) )
+		}
+		final Grid b = new Grid(grid); // backwards
+		if ( !doRecursiveSolve(b, BACKWARDS) ) {
 			return 0; // 0 solutions (should never happen)
-		if ( f.equals(b) )
+		}
+		if ( f.equals(b) ) {
 			return 1; // 1 solution: the Sudoku is valid.
+		}
 		return 2; // 2-or-more solutions: the Sudoku is invalid
 	}
 
 	/**
-	 * solveASAP sets the given grids solutionValues field, and returns the
-	 * solution Grid, just in case you want it.
+	 * Returns a copy of the given grid that has been solved,
+	 * else throws an UnsolvableException.
 	 *
 	 * @param grid to be solved
-	 * @return  solution Grid (a copy of grid that's been solved)
+	 * @return a copy of the given grid that has been solved
 	 */
-	public Grid solveASAP(Grid grid) {
-		final Grid solution = new Grid(grid);
-		if ( !doRecursiveSolve(solution, FORWARDS) )
-			throw new UnsolvableException("recursiveSolve failed. Puzzle is invalid (probable) or recursiveSolve is rooted again.");
-		// set the given grid's solution field to my solved copy
-		grid.solutionValues = solution.toValuesArrayNew();
-		if ( wantSolutionHint ) {
-			solutionHint = new SolutionHint(this, grid, solution);
-			wantSolutionHint = false;
+	public Grid solve(final Grid grid) {
+		final Grid copy = new Grid(grid);
+		if ( !doRecursiveSolve(copy, FORWARDS) ) {
+			// invalid Puzzle or doRecursiveSolve is broken again.
+			throw new UnsolvableException("invalid Puzzle.");
 		}
-		return solution;
+		return copy;
 	}
 
 	/**
@@ -246,35 +211,20 @@ public final class SingleSolution extends AWarningHinter {
 	 * <p>
 	 * If the Sudoku has:
 	 * <ul>
-	 *  <li><b>0 solutions:</b> then a WarningHint is produced: either a
-	 *   "Missing maybes" or a "No solution"
-	 *  <li><b>1 solution:</b> the Sudoku is valid, so the {@code solutionMode}
-	 *   field (passed to my constructor) determines if the solution is:
-	 *   <ul>
-	 *	  <li>IGNORED so we throw the solution away; or
-	 *    <li>STORED so we store the solved grid in Grid.solution for later
-	 *     retrieval by the kinky hinters who need to know if they're producing
-	 *     an invalid hint (currently AlmostLockedSet only); and also store the
-	 *     SolutionHint in my solutionHint field for later retrieval; or
-	 *    <li>WANTED so store the solution grid in Grid.solution,
-	 *     and add a SolutionHint to the IAccumulator.
-	 *    <li>Note that using a constructor field works here coz you ALWAYS
-	 *     create a SingleSolution (me), use me, and throw me away! You do
-	 *     NOT keep me hanging around like a bad smell to go off in the sun,
-	 *     except of course in LogicalSolver itself were we do exactly that,
-	 *     rather than wear repeat creation costs, so we CAREfully test him for
-	 *     side-effects of all my insane hangy-aroundy s__t, by re-using me
-	 *     repeatedly and seeing where s__t breaks. Consider yourself warned.
-	 *   </ul>
-	 *  <li><b>2 (or more) solutions:</b> The MultipleSolutionsHint contains
-	 *   two of those solutions.
+	 *  <li><b>0 solutions:</b> then a {@link WarningHint} is produced: either
+	 *   a "Missing maybes" or a "No solution"
+	 *  <li><b>1 solution:</b> the Sudoku is valid so the {@code grid.solution}
+	 *   field is set, for later retrieval
+	 *  <li><b>2 (or more) solutions:</b> The {@link MultipleSolutionsHint}
+	 *   contains two of those solutions.
 	 * </ul>
 	 *
+	 * @param grid
+	 * @param accu
 	 * @return true if the grid is invalid (hint added to accu), else false.
 	 */
 	@Override
 	public boolean findHints(final Grid grid, final IAccumulator accu) {
-		// debug only: true logs each hint when it's applied (verbose)
 		boolean result = false;
 		try {
 			final Grid f = new Grid(grid); // FORWARDS solution
@@ -287,56 +237,52 @@ public final class SingleSolution extends AWarningHinter {
 				final Grid b = new Grid(grid); // BACKWARDS solution
 				doRecursiveSolve(b, BACKWARDS);
 				if ( b.equals(f) ) {
-					// the Sudoku is valid
-					// store the solution to this puzzle in the grid itself
-					grid.solutionValues = f.toValuesArrayNew();
-					// cache hint in public field for later collection.
-					if ( wantSolutionHint )
-						solutionHint = new SolutionHint(this, grid, f);
-					// "Did you produce a hint?"
-					result = wantSolutionHint;
+					// the Sudoku is valid: so set grid.solution
+					grid.solution = f.values();
+					result = false; // there's no hint here
 				} else {
 					// the Sudoku is invalid: multiple solutions
 					accu.add(new MultipleSolutionsHint(this, grid, f, b));
-					// so "Did you produce a hint?" is true
-					result = true;
+					result = true; // there's a hint here
 				}
 			} else {
 				// the Sudoku is unsolvable (ie invalid)
 				// but are we just missing some maybe/s?
 				f.copyFrom(grid);
-				// restore any missing maybes
-//				f.rebuildMaybesAndS__t();
-				// solve it again Sam. Or not. sigh.
+				// restore any missing maybes (effects only missolved puzzles)
+				f.rebuildMaybesAndS__t();
+				// if there's missing maybes and it solves with them restored
 				if ( !f.equals(grid) && doRecursiveSolve(f, BACKWARDS) ) {
 					// Missing maybe/s: a cells solution value has been removed
 					// from its potential values, so the puzzle is unsolvable.
-					accu.add(new WarningHint(this, "Missing maybes", "NoMissingMaybes.html"));
+					accu.add(new WarningHint(this, "Missing maybes"
+							, "NoMissingMaybes.html"));
 				} else {
-					// Congratulations, it's a piece of crap ANNDD Frighten It!
-					accu.add(LogicalSolverFactory.get().UNSOLVABLE_HINT);
+					// the Sudoku is unsolvable in it's current form
+					accu.add(LogicalSolverFactory.get().unsolvableHint);
 				}
-				result = true;
+				result = true; // there's a hint here
 			}
 		} catch (Exception ex) {
 			Log.teeTrace(Log.me()+" caught "+ex, ex);
-		} finally {
-			wantSolutionHint = false; // reset it for next time
 		}
 		return result;
 	}
 
-	/** Try to solve the given grid, forwards or backwards.
-	 * <p>The grid can be solved in forward or reverse direction.
-	 * Both direction will result in the same solution if, and only if,
-	 * the sudoku has exactly one solution.
+	/**
+	 * Try to solve the given grid, forwards or backwards.
+	 * <p>
+	 * The grid can be solved in forward or reverse direction. Both directions
+	 * result in the same solution if, and only if, the Sudoku has exactly one
+	 * solution.
+	 *
 	 * @param grid the grid to solve
 	 * @param isReverse whether to solve in reverse direction
 	 * @param isNoisy true to log, false to shut the ____ up.
-	 * @return <tt>true</tt> if the grid has been solved successfully
-	 * (in which case the grid is filled with the solution), or
-	 * <tt>false</tt> if the grid has no solution. */
-	private boolean doRecursiveSolve(Grid grid, boolean isReverse) {
+	 * @return <tt>true</tt> if the given grid has been solved,
+	 *  else <tt>false</tt> if the grid has no solution.
+	 */
+	private boolean doRecursiveSolve(final Grid grid, final boolean isReverse) {
 		boolean result;
 		try {
 			apcu.grid = grid;
@@ -372,15 +318,17 @@ public final class SingleSolution extends AWarningHinter {
 //		if ( grid.isInvalidated() )
 //			return false;
 		// (1) Fill-in whatever you can logically (faster than just guessing)
-		if ( solveLogically(grid) )
+		if ( solveLogically(grid) ) {
 			return true;
+		}
 		// (2) Find the cell with the smallest number of potential values.
 		//     nb: the first cell with two potential values is returned, which
 		//     fits in with above solveLogically that fills-in any cells with
 		//     only one remaining potential value (ie Naked Singles).
 		final Cell smallestCell = getSmallestCell(grid);
-		if ( smallestCell == null ) // grid was solved by previous set
+		if ( smallestCell == null ) { // grid was solved by previous set
 			return true;
+		}
 		// (3) Try each potential value for that cell
 		// we need a backup to revert to if/when we guess a wrong value.
 		final Backup backup = new Backup(grid);
@@ -401,8 +349,9 @@ public final class SingleSolution extends AWarningHinter {
 				// nb: cell.set(... true) also sets any subsequent naked
 				//     or hidden singles, and may throw UnsolvableException
 				smallestCell.set(values[i], 0, true, null); // Grid.AUTOSOLVE
-				if ( recursiveSolve(grid, depth+1, isReverse, rnd) )
+				if ( recursiveSolve(grid, depth+1, isReverse, rnd) ) {
 					return true;
+				}
 			} catch (UnsolvableException eaten) {
 				// guessed wrong, so guess again.
 			}
@@ -410,8 +359,9 @@ public final class SingleSolution extends AWarningHinter {
 			// we don't need to restore the grid, because we're about to return
 			// false, leaving it upto our caller to guess again, or return to
 			// his caller to guess again, or return to...
-			if ( ++i == n )
+			if ( ++i == n ) {
 				break;
+			}
 			grid.restore(backup);
 		}
 		return false;
@@ -422,11 +372,14 @@ public final class SingleSolution extends AWarningHinter {
 	 * quick foxes: Locking, NakedPair, HiddenPair, Swampfish; exhaustively.
 	 * <p>
 	 * In theory logical-solving is not required (pure brute-force suffices),
-	 * but in practice some 17-clued Sudokus do too many iterations without.
+	 * but in practice some Sudokus require many more iterations without this.
 	 *
-	 * @throws throws UnsolvableException if the grid is found to be rooted.
+	 * @throws throws UnsolvableException if the puzzle is unsolvable, which in
+	 *  the context of recursive-solving almost certainly means this puzzle
+	 *  contains bad guess/s, ie this puzzle is rooted, so back-the-truck-up
+	 *  and guess-again. Either that or you've buggered-up a basic hinter.
 	 */
-	private boolean solveLogically(Grid grid) {
+	private boolean solveLogically(final Grid grid) {
 		AHint hint;
 		boolean any; // were any hints found in this pass through the hinters?
 		// localise fields for speed
@@ -440,21 +393,25 @@ public final class SingleSolution extends AWarningHinter {
 		do {
 			any = false;
 			// singles use the apcu where-as foxes are applied manually.
-			for ( AHinter hinter : singlesHinters )
+			for ( IHinter hinter : singlesHinters ) {
 				// apcu immediately applies hints
 				if ( (hinter.findHints(grid, apcu)) // throws UnsolvableException
 				  && (any|=true)
-				  && grid.numSet > 80 )
+				  && grid.numSet > 80 ) {
 					return true; // it's solved
-			for ( AHinter hinter : fourQuickFoxes )
+				}
+			}
+			for ( IHinter hinter : fourQuickFoxes ) {
 				// note that Locking is using the apcu "under the hood".
 				if ( hinter.findHints(grid, accu) // throws UnsolvableException
 				  // get any apply the hint
 				  && (hint=accu.getHint()) != null
 				  && (any|=true)
 				  && hint.applyQuitely(true, grid) > 0 // throws UnsolvableException
-				  && grid.numSet > 80 )
+				  && grid.numSet > 80 ) {
 					return true;  // it's solved
+				}
+			}
 		} while ( any );
 		return false;
 	}
@@ -466,17 +423,19 @@ public final class SingleSolution extends AWarningHinter {
 	 *     which is fastest because it gives us the highest probability of
 	 *     guessing correctly.
 	 */
-	private Cell getSmallestCell(Grid grid) {
+	private static Cell getSmallestCell(final Grid grid) {
 		int card;
 		Cell leastCell = null;
 		int least = VALUE_CEILING; // 1 more than the highest value
-		for ( Cell cell : grid.cells )
+		for ( Cell cell : grid.cells ) {
 			if ( cell.value == 0
 			  && (card=cell.size) < least ) {
 				leastCell = cell;
-				if ( (least=card) < 3 )
+				if ( (least=card) < 3 ) {
 					break; // no point looking any further
+				}
 			}
+		}
 		return leastCell;
 	}
 
@@ -485,7 +444,8 @@ public final class SingleSolution extends AWarningHinter {
 	 * Note that reverse has no effect when rnd!=null; but AFAIK this is only
 	 * ever used forwards, never in reverse, so it doesn't matter.
 	 */
-	private int[] getValuesToGuess(Cell least, Random rnd, boolean reverse) {
+	private static int[] getValuesToGuess(final Cell least, final Random rnd
+			, final boolean reverse) {
 		int count, v, rv, value;
 		final int cands = least.maybes;
 		// nb: values is a new array, else big cache! So try big cache, but its
@@ -497,15 +457,18 @@ public final class SingleSolution extends AWarningHinter {
 		final int delta; if(reverse) delta=-1; else delta=1; // back/forwards
 		if ( rnd == null ) {
 			// populate values with the cells potential values
-			for ( count=0,v=start; v!=stop; v+=delta )
-				if ( (cands & VSHFT[value=v+1]) != 0 )
+			for ( count=0,v=start; v!=stop; v+=delta ) {
+				if ( (cands & VSHFT[value=v+1]) != 0 ) {
 					values[count++] = value;
+				}
+			}
 		} else {
 			// random generator given so combine with a random value.
 			for ( count=0,v=start,rv=rnd.nextInt(N); v!=stop; v+=delta ) {
 				value = ((v+rv) % N) + 1;
-				if ( (cands & VSHFT[value]) != 0 )
+				if ( (cands & VSHFT[value]) != 0 ) {
 					values[count++] = value;
+				}
 			}
 			// Shuffle the values into random order before returning them.
 			// This solves the problem "top-lines tend towards order", it's
@@ -516,7 +479,7 @@ public final class SingleSolution extends AWarningHinter {
 	}
 
 	/** shuffle values once. */
-	private int[] shuffle(Random rnd, int[] values) {
+	private static int[] shuffle(final Random rnd, final int[] values) {
 		int i1, i2, temp;
 		// KRC introduced howMany to sort twice to increase randomness, coz I
 		// am seeing LOTS of demi-shuffles, with a better than average chance

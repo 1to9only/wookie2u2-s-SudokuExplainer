@@ -1,0 +1,3 @@
+The package name aals stands for Almost Almost Locked Set, which is a set of
+cells with two more maybes than cells; so 3 cells sharing 5 maybes, or 4 cells
+sharing 6 maybes.

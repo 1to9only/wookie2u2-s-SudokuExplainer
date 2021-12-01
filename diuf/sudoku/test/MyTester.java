@@ -7,6 +7,8 @@ import static java.util.Calendar.*;
 
 import diuf.sudoku.*;
 import diuf.sudoku.Grid.*;
+import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.*;
 import diuf.sudoku.solver.hinters.*;
@@ -23,6 +25,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.layout.Region;
 import javax.swing.*;
+import static diuf.sudoku.Grid.SQRT;
 //import sun.security.action.GetPropertyAction;
 //import sudoku.SudokuSet;
 
@@ -47,7 +50,7 @@ public final class MyTester {
 //	private static final int HOW_MANY = 1000 * 1000;
 //	public static void main(String[] args) {
 //		Grid grid = new Grid();
-//		ErrMsg msg = IO.load(grid, new File("C:/Users/User/Documents/SodukuPuzzles/MagicTour/top87.mt"), 2);
+//		ErrMsg msg = IO.load(grid, new File("C:/Users/User/Documents/SudokuPuzzles/MagicTour/top87.mt"), 2);
 //		if ( msg != null ) {
 //			System.out.println("ERROR: "+msg);
 //			return;
@@ -182,7 +185,7 @@ public final class MyTester {
 // Q: Performance test caching of card=idxOf[v].size
 //	public static void main(String[] args) {
 //		Grid grid = new Grid();
-//		File file = new File("C:\\Users\\User\\Documents\\SodukuPuzzles\\MagicTour\\top1465.mt");
+//		File file = new File("C:\\Users\\User\\Documents\\SudokuPuzzles\\MagicTour\\top1465.mt");
 //		ErrMsg msg = IO.load(grid, file, 205);
 //		if ( msg != null ) {
 //			JOptionPane.showMessageDialog(null, msg.toString(), "Oops!", msg.getType());
@@ -227,7 +230,7 @@ public final class MyTester {
 //
 //	}
 
-//	public static final String DIR = "C:\\Users\\User\\Documents\\SodukuPuzzles\\MagicTour\\";
+//	public static final String DIR = "C:\\Users\\User\\Documents\\SudokuPuzzles\\MagicTour\\";
 //	public static void main(String[] args) {
 //		final String filepath = DIR+"top1465.descending.mt";
 //		final String logFilepath = filepath.replaceFirst("\\.mt$", ".log");
@@ -723,7 +726,7 @@ public final class MyTester {
 //	public static boolean isFast;
 //	private static final int HOW_MANY = 100;
 //	public static void main(String[] args) {
-//		final File file = new File("C:/Users/User/Documents/SodukuPuzzles/Test/LoadTest.txt");
+//		final File file = new File("C:/Users/User/Documents/SudokuPuzzles/Test/LoadTest.txt");
 //		try {
 //			long t0, t1, t2;
 //			ArrayList<String> lines = IO.slurp(file);
@@ -768,7 +771,7 @@ public final class MyTester {
 //	// NB: there's 2 mains in this session. The 2nd processes output of 1st.
 //	private static final int HOW_MANY = 1000*1000;
 //	public static void main(String[] args) {
-//		final File file = new File("C:/Users/User/Documents/SodukuPuzzles/Test/LoadTest.txt");
+//		final File file = new File("C:/Users/User/Documents/SudokuPuzzles/Test/LoadTest.txt");
 //		try {
 //			long t0, t1, t2, t3, t4;
 //			ArrayList<String> lines = IO.slurp(file);
@@ -2152,5 +2155,49 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //			System.out.flush();
 // 		}
 // 	}
+
+//	// Q: Is this regex correct?
+//	// A: Yes
+// 	public static void main(String[] args) {
+// 		try {
+//			final String re = "S?T?U?V?WXYZ_Wing";
+//			assert Tech.WXYZ_Wing.name().matches(re);
+//			assert Tech.VWXYZ_Wing.name().matches(re);
+//			assert Tech.UVWXYZ_Wing.name().matches(re);
+//			assert Tech.TUVWXYZ_Wing.name().matches(re);
+//			assert Tech.STUVWXYZ_Wing.name().matches(re);
+//			assert !Tech.BigWings.name().matches(re);
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//	// Q: How to calculate the boxIndex from cell-indice?
+//	// A: Look it up in Grid.BOX_OF
+// 	public static void main(String[] args) {
+// 		try {
+//			final int N = REGION_SIZE;
+//			final int R = SQRT;
+//			final PrintStream out = System.out;
+//			for ( int i=0; i<GRID_SIZE; ++i ) {
+//				out.print(", ");
+//				out.print((((i/N)/R)*R) + ((i%N)/R));
+//				if ( (i+1)%REGION_SIZE == 0 )
+//					out.println();
+//			}
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+	// Q: I know knuffink!
+	// A: Yep.
+ 	public static void main(String[] args) {
+ 		try {
+			System.out.println(Integer.toString(42, 2));
+ 		} catch (Exception ex) {
+ 			ex.printStackTrace(System.out);
+ 		}
+ 	}
 
 }

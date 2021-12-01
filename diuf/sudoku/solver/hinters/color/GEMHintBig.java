@@ -21,9 +21,9 @@ import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import static diuf.sudoku.utils.Frmt.PLUS;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 /**
  * GEMHintBig is GEM (Graded Equivalence Marks) Type 2+ (Multi) hints. It's
@@ -86,7 +86,7 @@ public class GEMHintBig extends AHint  {
 	}
 
 	@Override
-	public List<ARegion> getPinkRegions() {
+	public List<ARegion> getPinkos() {
 		return Regions.list(region);
 	}
 
@@ -137,7 +137,7 @@ public class GEMHintBig extends AHint  {
 	public double getDifficultyTotal() {
 		return getDifficulty()
 			 + setPots.size() * Tech.NakedSingle.difficulty // cell-set bonus
-			 + redPots.totalSize() * 0.01; // elimination bonus
+			 + reds.totalSize() * 0.01; // elimination bonus
 	}
 
 	// The GUI sorts hints by Score then Indice, and this is the only hint in
@@ -178,7 +178,7 @@ public class GEMHintBig extends AHint  {
 	protected String toStringImpl() {
 		return Frmt.getSB(64).append(getHintTypeName())
 		  .append(COLON_SP).append(greenCellIds)
-		  .append(COMMA_SP).append(blueCellIds)
+		  .append(CSP).append(blueCellIds)
 		  .append(ON).append(v)
 		  .toString();
 	}
@@ -228,8 +228,8 @@ public class GEMHintBig extends AHint  {
 		if ( hc == 0 ) {
 			if ( setPots != null )
 				hc = setPots.hashCode();
-			else if ( redPots != null )
-				hc = redPots.hashCode();
+			else if ( reds != null )
+				hc = reds.hashCode();
 			else
 				hc = toString().hashCode();
 		}

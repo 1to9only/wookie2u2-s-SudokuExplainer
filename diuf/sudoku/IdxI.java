@@ -24,16 +24,19 @@ package diuf.sudoku;
 public class IdxI extends IdxL implements Cloneable {
 
 	private static final long serialVersionUID = 4598934L;
+	
+	/** THE Immutable empty Idx. */
+	public static final IdxI EMPTY = new IdxI();
 
 	public static IdxI of(int[] indices) {
 		int a0=0, a1=0, a2=0;
 		for ( int i : indices )
 			if ( i < BITS_PER_ELEMENT )
-				a0 |= SHFT[i];
+				a0 |= IDX_SHFT[i];
 			else if ( i < BITS_TWO_ELEMENTS )
-				a1 |= SHFT[i%BITS_PER_ELEMENT];
+				a1 |= IDX_SHFT[i%BITS_PER_ELEMENT];
 			else
-				a2 |= SHFT[i%BITS_PER_ELEMENT];
+				a2 |= IDX_SHFT[i%BITS_PER_ELEMENT];
 		return new IdxI(a0, a1, a2);
 	}
 

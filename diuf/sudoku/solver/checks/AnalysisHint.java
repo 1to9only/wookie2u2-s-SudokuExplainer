@@ -12,14 +12,13 @@ import diuf.sudoku.solver.Usage;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IHinter;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.dbl;
 import static diuf.sudoku.utils.Frmt.enspace;
-import static diuf.sudoku.utils.Frmt.frmtDbl;
 import diuf.sudoku.utils.Html;
-import static diuf.sudoku.utils.MyStrings.BIG_BUFFER_SIZE;
-import static diuf.sudoku.utils.MyStrings.bigSB;
 import diuf.sudoku.utils.Pair;
 import java.util.Map;
+import static diuf.sudoku.utils.Frmt.SP;
+import static diuf.sudoku.utils.MyStrings.BIG_BFR_SIZE;
 
 
 /**
@@ -43,28 +42,34 @@ public final class AnalysisHint extends AWarningHint  {
 		this.usageMap = usageMap;
 	}
 
-	private void appendSubHints(StringBuilder mySB
-			, Map<String, Pair<Integer, Double>> subHints) {
-		// append one line per hint in the hints Map.
+	@Override
+	public double getDifficulty() {
+		if ( maxDifficulty == 0.0D )
+			this.maxDifficulty = usageMap.getMaxDifficulty();
+		return maxDifficulty;
+	}
+
+	// sb.append a line per hint in the subHints Map.
+	private void appendSubHints(StringBuilder sb, Map<String, Pair<Integer, Double>> subHints) {
 		for ( String hintName : subHints.keySet() ) {
-			// first append 5 leading spaces (to indent the "sub-hints".
-			mySB.append("     ");
+			// 5 leading spaces to indent the "sub-hints".
+			sb.append("     ");
 			// append right-aligned 1, 2 or 3 digit numHints (AFAIK max is 2)
-			Pair<Integer, Double> tuple = subHints.get(hintName);
-			int numHints = tuple.a;
-			double difficulty = tuple.b;
-			if(numHints < 100) mySB.append(' ');
-			if(numHints < 10) mySB.append(' ');
+			final Pair<Integer, Double> tuple = subHints.get(hintName);
+			final int numHints = tuple.a;
+			final double difficulty = tuple.b;
+			if(numHints < 100) sb.append(' ');
+			if(numHints < 10) sb.append(' ');
 			// append the line
-			mySB.append(numHints).append(" x ").append(hintName).append(SPACE)
-					.append(frmtDbl(difficulty)).append(NL);
+			sb.append(numHints).append(" x ").append(hintName).append(SP)
+					.append(dbl(difficulty)).append(NL);
 		}
 	}
 
 	private void appendUsage(StringBuilder sb, IHinter h, Usage u) {
 		final String difficulty;
 		if ( u.maxDifficulty > 0.0 )
-			difficulty = SPACE+frmtDbl(u.maxDifficulty);
+			difficulty = SP+dbl(u.maxDifficulty);
 		else
 			difficulty = EMPTY_STRING;
 		int numHints = u.hints;
@@ -76,15 +81,10 @@ public final class AnalysisHint extends AWarningHint  {
 			if ( u.subHintsMap.size() > 1 )
 				appendSubHints(sb, u.subHintsMap);
 		}
-		// update the hint's difficulty feilds
+		// update my difficulty fields
 		if ( u.maxDifficulty > maxDifficulty )
 			maxDifficulty = u.maxDifficulty;
 		ttlDifficulty += u.ttlDifficulty;
-	}
-
-	// Cast me to AnalysisHint to access this method.
-	public StringBuilder appendUsageMap() {
-		return appendUsageMap(bigSB());
 	}
 
 	// appendUsageMap takes mySB: a formatted summary of AnalysisHint.
@@ -105,19 +105,11 @@ public final class AnalysisHint extends AWarningHint  {
 	@Override
 	public String toHtmlImpl() {
 		// nb: MyStrings.bigSB is already used!
-		final StringBuilder mySB = new StringBuilder(BIG_BUFFER_SIZE);
-		mySB.append(NL).append("<pre>").append(NL);
-		appendUsageMap(mySB);
-		mySB.append("</pre>").append(NL);
-		return Html.produce(this, "AnalysisHint.html"
-				, frmtDbl(getDifficulty()), mySB);
-	}
-
-	@Override
-	public double getDifficulty() {
-		if ( maxDifficulty == 0.0D )
-			this.maxDifficulty = usageMap.getMaxDifficulty();
-		return maxDifficulty;
+		final StringBuilder sb = new StringBuilder(BIG_BFR_SIZE);
+		sb.append(NL).append("<pre>").append(NL);
+		appendUsageMap(sb);
+		sb.append("</pre>").append(NL);
+		return Html.produce(this, "AnalysisHint.html", dbl(getDifficulty()), sb);
 	}
 
 	@Override

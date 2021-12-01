@@ -36,19 +36,43 @@ public class IdxL extends Idx implements Cloneable {
 	public static IdxL full() {
 		return new IdxL(true); // full by design
 	}
-	public static IdxL of(Idx idx) {
+	public static IdxL of(Idx idx) { // overrides Idx of(Idx)
 		return new IdxL(idx);
 	}
-	public static IdxL of(int[] indices) {
+	public static IdxL of(int[] indices) { // overrides Idx of(int[])
 		int a0=0, a1=0, a2=0;
 		for ( int i : indices )
 			if ( i < BITS_PER_ELEMENT )
-				a0 |= SHFT[i];
+				a0 |= IDX_SHFT[i];
 			else if ( i < BITS_TWO_ELEMENTS )
-				a1 |= SHFT[i%BITS_PER_ELEMENT];
+				a1 |= IDX_SHFT[i%BITS_PER_ELEMENT];
 			else
-				a2 |= SHFT[i%BITS_PER_ELEMENT];
+				a2 |= IDX_SHFT[i%BITS_PER_ELEMENT];
 		return new IdxL(a0, a1, a2);
+	}
+	public static IdxL of(final Cell[] cells) {
+		return of(cells, cells.length);
+	}
+	public static IdxL of(Cell[] cells, int n) {
+		final IdxL result = new IdxL();
+		for ( int i=0; i<n; ++i ) {
+			result.add(cells[i].i);
+		}
+		return result;
+	}
+	public static IdxL of(final Cell[] cells, final int[] indexes) {
+		final IdxL result = new IdxL();
+		for ( int i : indexes ) {
+			result.addOK(cells[i].i);
+		}
+		return result;
+	}
+	public static IdxL of(final Cell[] cells, final int[] indexes, final int n) {
+		final IdxL result = new IdxL();
+		for ( int i=0; i<n; ++i ) {
+			result.add(cells[indexes[i]].i);
+		}
+		return result;
 	}
 
 	protected boolean isLocked = false;

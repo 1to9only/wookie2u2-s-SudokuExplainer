@@ -14,26 +14,19 @@ import static diuf.sudoku.Grid.GRID_SIZE;
 import static diuf.sudoku.Settings.THE_SETTINGS;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.io.*;
-import diuf.sudoku.solver.LogicalSolver.Cheats.Chaet;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.checks.*;
 import diuf.sudoku.solver.hinters.*;
-import diuf.sudoku.solver.hinters.align2.*;
-import diuf.sudoku.solver.hinters.chain.*;
 import diuf.sudoku.solver.hinters.fish.*;
-import diuf.sudoku.solver.hinters.hdnset.*;
 import diuf.sudoku.solver.hinters.lock.*;
-import diuf.sudoku.solver.hinters.lock2.*;
-import diuf.sudoku.solver.hinters.nkdset.*;
 import diuf.sudoku.solver.hinters.single.*;
 import diuf.sudoku.utils.*;
 import static diuf.sudoku.utils.Frmt.*;
-import static diuf.sudoku.utils.MyStrings.BIG_BUFFER_SIZE;
+import static diuf.sudoku.utils.MyStrings.BIG_BFR_SIZE;
 // JAPI
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedList;
@@ -42,8 +35,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A LogicalSolver solves Sudoku puzzles as quickly as possible (as I'm able)
- * using logic, the challenge of which is what this whole project is about.
+ * A LogicalSolver solves Sudoku puzzles using logic, and does so as quickly as
+ * possible (as I'm able). The challenge of doing this is what the whole Sudoku
+ * Explainer project is about.
+ * <p>
  * This version of Sudoku Explainer/HoDoKu/Sukaku/Sudopedia was written "just
  * for fun" and the author (Keith Corlett) feels he must humbly apologise for
  * producing rather a lot of code which is pretty hard to maintain because it
@@ -96,19 +91,19 @@ import java.util.Set;
  *  matter til you Shft-F5 to find MORE hints. They take distant monarch ages.
  * <li>My definition of "slow" is 100 milliseconds per elimination
  * <li>My definition of "too slow" is a second per elimination
- * <li>My definition of "far too slow" is a minute per elimination
+ * <li>My definition of "far too slow" is about 10 seconds per elimination
  * <li>All of these hinters are as fast as I know how to make them, which is
- *  pretty fast, except the A*E debacle. Search APB. I cannot preclude the
- *  possibility that it can be done faster, so have a go if you're really smart
- *  and have a few years to invest, but I warn you that gambling is addictive.
+ *  pretty fast, except the A*E debacle, but I cannot preclude the possibility
+ *  that it can be done faster. Have a go if you're smart and have a few years
+ *  to waste, but I warn you that gambling is addictive, so best left for
+ *  retirement.
  * </ul>
  * <p>
  * <b>LogicalSolver is used to:</b><ul>
  *  <li>Check the validity of a Sudoku puzzle (ie a grid).
- *  <li>Get the simplest available hint (a Sudoku solving step) from a grid.
- *  <li>Get all available hints, including chainers and wanted nested-chainers
- *   from a grid. Note that the GUI allows the user to manage the wantedHinters
- *   list, which I (the LogicalSolver) just get from the registry via Settings.
+ *  <li>Get the simplest available hint (a Sudoku solving step) in a grid.
+ *  <li>Get all available hints in a grid, including wanted chainers and
+ *   nested-chainers.
  *  <li>Solve a Sudoku puzzle logically to calculate its difficulty rating,
  *   and get a summary list of the hint-types (usages) that are required.
  * </ul>
@@ -117,11 +112,16 @@ import java.util.Set;
  * <li>Validators are implemented in the {@code diuf.sudoku.solver.checks}
  *  package. Validity is checked ASAP because it's quicker to fail fast.
  * <li>The solving techniques are under the {@code diuf.sudoku.solver.hinters}
- *  package. There's too many to want to list here. The only counterintuitive
- *  packaging is that {@link Locking} hinter is "out of place" in the
- *  {@code diuf.sudoku.solver.hinters.fish} package because it shares the
- *  {@code PointFishHint} with the {@link BasicFisherman}. The rest of it is
- *  pretty straight forward, to me at least.
+ *  package. There's too many to list, so I mention the odd-balls only: <ul>
+ *  <li>{@link diuf.sudoku.solver.hinters.als.BigWings} finds all variants of
+ *   {@link diuf.sudoku.solver.hinters.wing.BigWing} in one hit. Note well that
+ *   wing.BigWing finds its own ALSs and predates als.BigWings which shares
+ *   cached ALSs with the other ALS hinters. BigWing is faster outright, but
+ *   BigWings is faster overall because it populates the ALS cache shared with
+ *   other hinters, presuming that you want the other ALS hinters. sigh.
+ *  <li>The sdp package contains SingleDigitPattern (donor HoDoKu class name)
+ *   hinters: EmptyRectangle, SkyScraper, and TwoStringKite
+ *  </ul>
  * <li>The hints-accumulators are in the {@code diuf.sudoku.solver.accu}
  *  package.
  * <li>All read/writing of puzzles is in the diuf.sudoku.io package.
@@ -193,66 +193,94 @@ import java.util.Set;
  *  This currently takes about 2 minutes to run, sans slow hinters.
  * </ul>
  * <p>
- * @see ./LogicalSolverTimings for run timings.
+ * @see diuf.sudoku.BuildTimings for batch timings over top1465.
  */
 public final class LogicalSolver {
-
-	/**
-	 * true uses new align2 package, which is slower than the original align
-	 * package for large (5+) aligned sets. I attempted to eradicate all that
-	 * ugly "boiler-plate" code, but failed to achieve acceptable performance
-	 * without it. sigh.
-	 */
-	private static final boolean USE_NEW_ALIGN2 = false; //@check false
-
-	/**
-	 * true uses the new BasicFisherman1 class, which is faster than the old
-	 * BasicFisherman. I applied hobiwans "stack recursion" technique which is
-	 * faster than the Permutations class, which is a bit slow. sigh.
-	 */
-	private static final boolean USE_NEW_BASIC_FISHERMAN = true; // @check true
 
 	/** The ANALYSE_LOCK synchronises {@link diuf.sudoku.gen.PuzzleCache}
 	 * with {@link LogicalAnalyser}, so that one solve runs at a time. */
 	public static final Object ANALYSE_LOCK = new Object();
 
-	/** Does this puzzle have at least 17 clues?. */
-	private final TooFewClues tooFewClues = new TooFewClues();
+	/**
+	 * Constructs and returns a new instance of ${className} which implements
+	 * the given 'tech', passing the 'tech' if the constructor takes it.
+	 * <p>
+	 * I'm package visible for use by LogicalSolverBuilder. I'm static because
+	 * I do not reference the current instance, if any.
+	 * <p>
+	 * This method is design for use with a "simple" hinter, which has ONE ONLY
+	 * constructor, which may take a Tech parameter. Anything more complex gets
+	 * hard, so use {@link #want(IHinter) the other want method} instead.
+	 * I just use the "first" constructor (according to reflections).
+	 * <p>
+	 * FYI: I'm bound to simple hinters because I'm too dumb to work-out how to
+	 * choose between constructors with multiple parameter-types. It's possible
+	 * to expand the definition of simple to other parameters, BUT before doing
+	 * so be sure it's for many (not just one) hinters, and try to NOT pass it
+	 * as a constructor parameter: often a simple setter works, even if its not
+	 * good design. Most final fields do not actually NEED to be final. Can you
+	 * add the wanted-parameter to the Tech enum?
+	 *
+	 * @param tech the Tech parameter to the constructor
+	 * @param className the full name of the IHinter class to be constructed
+	 * @return a new instance of ${className} which must implement IHinter
+	 */
+	static IHinter constructHinter(final Tech tech, final String className) {
+		try {
+			final Class<?> clazz = Class.forName(className);
+			// find the constructor
+			final Constructor<?>[] cons = clazz.getConstructors();
+			if ( cons==null || cons.length == 0 ) {
+				throw new IllegalArgumentException("no constructors");
+			}
+			// classes with multiple constructors aren't handled competently.
+			if ( cons.length > 1 ) {
+				Log.teeln(Log.me()+": WARN: multiple constructors: "
+						  +clazz.getSimpleName());
+			}
+			// get and execute the first (according to reflections) constructor
+			Constructor<?> con = cons[0];
+			final Class<?>[] params = con.getParameterTypes();
+			if ( params.length == 0 ) {
+				return (IHinter)con.newInstance();
+			} else if ( params[0] == Tech.class ) {
+				if ( tech == null ) {
+					throw new IllegalArgumentException("needed tech is null");
+				}
+				return (IHinter)con.newInstance(tech);
+			}
+			throw new IllegalArgumentException("unknown param: "+params[0]);
+		} catch (Exception ex) {
+			Log.teeTrace(Log.me()+"("+className+", "+tech+") failed!", ex);
+			return null;
+		}
+	}
+	static IHinter constructHinter(final Tech tech) {
+		return constructHinter(tech, tech.className);
+	}
 
-	/** Does this puzzle contain 8 values?. */
-	private final TooFewValues tooFewValues = new TooFewValues();
+	/**
+	 * NAME is a lambda returning the hinter name.
+	 */
+	private static final IFormatter<IHinter> NAME = (IHinter h) ->
+			h==null ? NULL_ST : h.toString();
 
-	/** gridValidators check the Sudoku grid is still valid after each hint. */
-	private final IHinter[] gridValidators = new IHinter[] {
-		  new NoDoubleValues()	 // one value per box, row, col
-		, new NoMissingMaybes()	 // value unset and no maybes
-		, new NoHomelessValues() // value unplaced and no places
-	};
+	/**
+	 * ENABLED is a lambda returning is this hinter enabled.
+	 */
+	private static final IFilter<IHinter> ENABLED = (IHinter h)->h.isEnabled();
 
-	// a bunch of "basic" hinters that we do some interesting stuff with.
+	// NOTE: We must create the basic hinters before the validators.
+	// First the singles: NakedSingle and HiddenSingle;
+	// then Four Quick Foxes: Locking, NakedPair, HiddenPair and SwampFish.
+	// then BruteForce (a validator) which uses the basic hinters
+	// NOTE: Locking uses HiddenPair and HiddenTriple.
 
 	/** A cell with only one potential value remaining is that value. */
-	private final NakedSingle nakedSingle = new NakedSingle();
+	private final NakedSingle nakedSingle;
 
 	/** The only place in a region which maybe a value is that value. */
-	private final HiddenSingle hiddenSingle = new HiddenSingle();
-
-	/** If two cells in a Region maybe only the same two values then those two
-	 * cells must be those values, so we can eliminate those two values from
-	 * all other cells in the region. */
-	private final NakedSet nakedPair = new NakedSet(Tech.NakedPair);
-
-	/** If three cells in a Region have just the same three potential values
-	 * between them then those three cells must be those three values, because
-	 * every cell must have a value, so we can eliminate those three values
-	 * from all other cells in the region. */
-	private final NakedSet nakedTriple = new NakedSet(Tech.NakedTriple);
-
-	/** Two row/col (bases) have v's only in the same two col/row (covers), so
-	 * one of the intersecting cells in each base region must be v, eliminating
-	 * v from cells in the cover regions and not in the base regions.
-	 * NOTE: to use BasicFisherman1 just swap it in manually. */
-	private final BasicFisherman1 swampfish = new BasicFisherman1(Tech.Swampfish);
+	private final HiddenSingle hiddenSingle;
 
 	/** If the only cells in a region which maybe v also share another common
 	 * region then we can claim v from that other region. I use "claim" to mean
@@ -265,627 +293,203 @@ public final class LogicalSolver {
 	 * <li>Claiming: If all cells which maybe v in row 1 are also in box 1
 	 * then claim v from box 1.
 	 * <ul>
-	 * Note that the delineation between pointing and claiming is arbitrary,
-	 * as the initial rule statement alludes to. The Locking class delineates
-	 * but LockingGeneralised doesn't. It's a MUCH simpler solution (smart).
+	 * NOTE: the delineation between pointing and claiming is arbitrary, as the
+	 * initial rule statement alludes to. The Locking class delineates, but
+	 * LockingGen doesn't. It's a more elegant solution, that's slower. */
+	private final Locking locking;
+
+	/** siameseLocking used in the GUI, optional in LogicalSolverTester. */
+	private final SiameseLocking siameseLocking;
+
+	// NOTE: validators are created AFTER the hinters coz BruteForce uses
+	// the Four Quick Foxes {NakedSingle, HiddenSingle, Locking, Swampfish}
+	// to solve logically, which is faster than just guessing cell-values
+	// that can be quickly proven invalid.
+
+	/** puzzle validator: Does this puzzle have at least 17 clues?. */
+	private final InsufficientClues tooFewClues = new InsufficientClues();
+
+	/** puzzle validator: Does this puzzle contain 8 values?. */
+	private final InsufficientValues tooFewValues = new InsufficientValues();
+
+	/** puzzle validator: Does this puzzle have ONE solution? <br>
+	 * NB: BruteForce uses the basic hinters, so constructed after them. */
+	private final BruteForce bruteForce;
+
+	/**
+	 * The generic "Sudoku unsolvable" Hint. There's ONE public instance, for
+	 * speed, rather than everybody rolling-there-own on the fly.
 	 */
-	private final Locking locking = new Locking();
-
-	/** If two cells are the only possible locations for the same two values in
-	 * a region then those cells must be those two values, so we can eliminate
-	 * all other potential values from those two cells.
-	 * <p>
-	 * Hidden Pair/Triple used (cheekily) by Locking to upgrade siamese locking
-	 * hints to the full HiddenSet hint, with extra eliminations. */
-	private final HiddenSet hiddenPair = new HiddenSet(Tech.HiddenPair);
-
-	/** If three cells are the only possible locations for the same three
-	 * values in a region then those cells must be those three values, so we
-	 * can eliminate all other potential values from those three cells.
-	 * <p>
-	 * Hidden Pair/Triple used (cheekily) by Locking to upgrade siamese locking
-	 * hints to the full HiddenSet hint, with extra eliminations. */
-	private final HiddenSet hiddenTriple = new HiddenSet(Tech.HiddenTriple);
-
-	/** siameseLocking used in the GUI, and now also in LogicalSolverTester. */
-	private final SiameseLocking siameseLocking = new SiameseLocking(hiddenPair, hiddenTriple);
-
-	// SingleSolution uses above basic hinters, so construct after them.
-	/** Does this puzzle have one and one-only solution?. */
-	private final SingleSolution singleSolution = new SingleSolution(this);
-
-	/** The Sudoku cannot be solved (a generic message). */
-	public final AHint UNSOLVABLE_HINT = new WarningHint(singleSolution
-			, "Unsolvable", "NoSolution.html");
+	public final AHint unsolvableHint;
 
 	/** puzzleValidators check the puzzle conforms to the Sudoku rules ONCE. */
-	private final IHinter[] puzzleValidators = new IHinter[] {
-		  tooFewClues		// minimum 17 clues
-		, tooFewValues		// minimum 8 values
-		, singleSolution	// single solution (brute-force)
+	private final IHinter[] puzzleValidators;
+
+	/** gridValidators check the Sudoku grid is still valid after each hint. */
+	private final IHinter[] gridValidators = new IHinter[] {
+		  new NoDoubleValues()	 // one value per box, row, col
+		, new NoMissingMaybes()	 // no value and no maybes
+		, new NoHomelessValues() // no places for unplaced value
 	};
 
 	/** All of the validators. */
-	private final IHinter[] validators = new IHinter[] {
-		  puzzleValidators[0], puzzleValidators[1], puzzleValidators[2]
-		, gridValidators[0], gridValidators[1], gridValidators[2]
-	};
+	private final IHinter[] validators;
 
 	/**
-	 * If the user wants each Tech then its used to solve puzzles, else it's
-	 * not used; but it's hinter may be created anyway then lost. sigh.
+	 * wanted is an array of IHinter which the user currently wants.
 	 * <p>
-	 * see: {@code HKEY_CURRENT_USER\Software\JavaSoft\Prefs\diuf\sudoku}
+	 * An array coz native-array-iterator is MUCH faster than an Iterator.
 	 */
-	private final EnumSet<Tech> wantedTechs;
+	public final IHinter[] wanted;
 
 	/**
-	 * A private list of all the wanted hinters, to which the Constructor
-	 * adds hinters using the want methods. This list in then read into the
-	 * wantedHinters array, which is used everywhere-else. So I'm only a
-	 * field so that I can be accessed via the want methods. The Constructor
-	 * always leaves me null. Basically, use the wantedHinters array instead,
-	 * because arrays are faster to iterate!
+	 * A CSV String of the names of 'unwanted' Techs, for reporting only.
 	 */
-	private List<IHinter> whList;
+	private final EnumSet<Tech> unwanted;
+
+	/** solve and apply both detect deadCats: hints which do not set a Cell and
+	 * and do not remove any maybes. If a deadCat is seen twice then presume we
+	 * are at the start of an infinite loop in solve/generate/whatever (finding
+	 * the same eliminationless hint endlessly) so disable the hinter, which is
+	 * re-enabled at the start of the next puzzle by prepare.
+	 * NB: "funky" means that add is an addOnly operation, which by design does
+	 * not update existing elements. */
+	private final Set<AHint> deadCats = new MyFunkyLinkedHashSet<>(16, 0.25F);
 
 	/**
-	 * An array of the wantedHintersList, coz it's faster to iterate arrays
-	 * (native) than a Collection (using an Iterator).
+	 * The Sudoku has been solved (a generic message).
 	 */
-	public final IHinter[] wantedHinters;
+	public final AHint solvedHint = new SolvedHint();
+
+	/** A set of "basic hinters" (singles + Four Quick Foxes). */
+	private final Map<Tech,IHinter> basics;
 
 	/**
-	 * Each unwanted Tech is added to this set, which is printed in the
-	 * LogicalSolverTester log-file, as a record of what's NOT wanted.
-	 */
-	private final EnumSet<Tech> unwantedHinters = EnumSet.noneOf(Tech.class);
-
-	/**
-	 * LogicalSolver solve/apply detect DEAD_CAT, a hint which does not set a
-	 * Cell and does not remove any maybes). If we see a DEAD_CAT twice presume
-	 * we're at the start of an infinite loop in solve/generate/whatevs (finds
-	 * same eliminationless hint endlessly) so throw an UnsolvableException
-	 * instead. I the disable the hinter, but (for reasons I don't understand)
-	 * the hinter checks isDisabled to be dis/re-enabled on-the-fly; apparently
-	 * LogicalSolver.solve only handles disabled at start-up, even though that
-	 * is definitely NOT how the code reads. BFIIK!
-	 */
-	private final Set<AHint> DEAD_CATS = new MyFunkyLinkedHashSet<>(16, 0.25F);
-
-	/**
-	 * singlesSolution is weird: it's set by LS.solveWithSingles and then read
+	 * singlesSolution is weird: it's set by solveWithSingles and then read
 	 * back by SudokuExplainer.getTheNextHint.
 	 */
 	public Grid singlesSolution;
 
 	/**
-	 * The Sudoku has been solved (a generic message).
-	 */
-	public final AHint SOLVED_HINT = new SolvedHint();
-
-	/**
-	 * My clone of THE_SETTINGS, set in the constructor, and read elsewhere.
-	 */
-	private final Settings settings;
-
-	/**
-	 * This EnumMap speeds-up the findWantedHinter method, a reverse look-up.
-	 */
-	private final EnumMap<Tech,IHinter> implementations = new EnumMap<>(Tech.class);
-
-	/**
-	 * The ONLY Constructor used <u>ONLY</u> by {@link LogicalSolverFactory}
-	 * to construct a new LogicalSolver, that's why I'm only package visible.
+	 * Constructor sets-up this LogicalSolver to solve logically. All the hard
+	 * work is done by {@link LogicalSolverBuilder#build} before I am called.
 	 * <p>
-	 * Note that this constructor is package visible, so LogicalSolver is only
-	 * created via the {@link LogicalSolverFactory}. This is intentional, to
-	 * protect against accidental miss-use: the solve method uses statefull
-	 * static variables, so only ONE solve may run at a time, and the cheapest
-	 * way to achieve this is using external synchronisation. sigh.
-	 * <p>
-	 * I populate the wantedHinters array which is used by solve (et al).
-	 * Sudoku Explainers goal is to produce a realistic metric of difficulty of
-	 * all possible Sudoku puzzles, as quickly as possible; which in practice
-	 * means "as quickly as I'm able". The key to finding the simplest solution
-	 * to a puzzle is to apply the simplest possible hint at each step, so the
-	 * hinters here-in are listed in increasing order of complexity.
-	 * <p>
-	 * <u>Hinter Selection</u>:<br>
-	 * <p>
-	 * Naked Single and Hidden Single are hardcoded because they're required.
-	 * The user unwants techs in the GUI, changing registry Settings, which the
-	 * "want" method reads via the wantedTechs field, which is refreshed at the
-	 * start of this method. An IHinter is instantiated which implements each
-	 * Tech, added to the list, and then the list is converted into the
-	 * wantedHinters array (used everywhere else) at the end.
-	 * <p>
-	 * <u>Execution Order</u>:<br>
-	 * The solve (et al) methods iterate the wantedHinters array, invoking
-	 * hinters in the order they're added here, which is approximately by
-	 * Tech.difficulty ascending. Some hinters are called sooner than there
-	 * Tech.difficulty dictates, because they're faster than "easier" ones.
-	 * <p>
-	 * Producing the simplest possible solution to each Sudoku demands that
-	 * the software produces simplest possible hint at each step, but the
-	 * concept of "simplest" is fairly arbitrary. Nanos-per-elimination is
-	 * the only empirical evidence available, but that depends on how good
-	 * my implementation of each technique is, which is fairly arbitrary.
-	 * <pre>
-	 * KRC 2021-06-07 simplified configureHinters. A new want method takes a
-	 * Tech, which now has className and passTech attributes used to look-up
-	 * the constructor and construct it only if it's wanted, so that unwanted
-	 * hinters are never constructed.
+	 * NOTE: the bruteForce validator uses the "basic hinters" so it's creation
+	 * is delayed until this constructor, which in turn delays the creation of
+	 * everything that uses bruteForce.
 	 *
-	 * configureHinters adds to the private wantedHintersList, which is then
-	 * read into the public wantedHinters array, that's used everywhere-else
-	 * because array-iterators are faster than Iterators.
-	 *
-	 * This also saves creating a private array in the solve method, which was
-	 * nuts when you consider that the array only need be created when Settings
-	 * change and the LogicalSolver is recreated. I removed the category lists.
-	 * They were a useless complication. This is cleaner, in my humble opinion.
-	 *
-	 * KRC 2021-06-07: configureHinters has become the only constructor, coz it
-	 * is now the only place configureHinters was called. The LogicalSolver now
-	 * keeps a private snapshot of THE_SETTINGS. And the constructor does NOT
-	 * log anything, instead it exposes logging-methods, which cleans-up noise
-	 * in the test-cases.
-	 * </pre>
-	 * <p>
-	 * See the class documentation for more discussion.
+	 * @param basics the "basic hinters" {NakedSingle, HiddenSingle, Locking,
+	 *  NakedPair, HiddenPair, Swampfish} are created even if not wanted, for
+	 *  use in LogicalSolver, BruteForce, and the chainers
+	 * @param wanted an array of those IHinter that are wanted by the user.
+	 *  Note that this is an array for iteration speed: top1465 batch is about
+	 *  30 seconds (ie s__tloads) slower with any sort of collection
+	 * @param unwanted a set of the unwanted techs, for reporting only
 	 */
-	LogicalSolver() {
-		// We add hinters to the wantedHintersList roughly by complexity, ergo
-		// complexity is rising, so the order in which hinters are created is
-		// the order in which they execute, which is roughly Tech.difficulty
-		// ASCENDING, but some hinters run before difficulty dicates, because
-		// they're actually faster than some "easier" Techs.
-		//
-		// Ideally, we'd create hinters by Tech.difficulty ASCENDING, and each
-		// Tech has one implementation, and each hinter implements one Tech,
-		// but in reality some Techs have two impls, some hinters handle many
-		// Techs, and some hinters run before there Tech.difficulty demands.
-		// Reality is complicated. Just accept that, and even lean into it.
-		//
-		// 99% of puzzles do not require chains, 99% of the rest solve with
-		// DynamicChains, 99% of the the rest solve with DynamicPlus, and the
-		// rest solve with NestedUnary; so that 0.001% is the real challenge.
-
-		try {
-			settings = (Settings)THE_SETTINGS.clone();
-		} catch ( CloneNotSupportedException ex ) {
-			// Wrap the clone exception in a generic runtime exception. sigh.
-			throw new RuntimeException("THE_SETTINGS.clone() failed", ex);
-		}
-
-		// refetch the wantedTechniques field, in case they've changed; then my
-		// want method reads this field, rather than re-fetching it every time.
-		wantedTechs = settings.getWantedTechs();
-
-		// the want method adds hinters to the wantedHintersList, which is
-		// then read into the wantedHinters array, for faster iteration.
-		whList = new ArrayList<>(wantedTechs.size());
-
-		// empty the unwanted-techs set. Populated by want. Report at end.
-		unwantedHinters.clear();
-
-		// These initial "direct" hinters set cell values directly.
-
-		// Easy
-		if ( Run.type == Run.Type.GUI ) { // useless in batch and test-cases
-			want(new LonelySingle()); // 1 maybe and last place in region
-		}
-		// naked and hidden singles are mandatory (the user can't unwant them)
-		whList.add(nakedSingle); // cell has 1 maybe
-		whList.add(hiddenSingle); // value has 1 place in region
-
-		// Medium
-		if ( Run.type == Run.Type.GUI ) { // useless in batch and test-cases
-			want(Tech.DirectNakedPair);	   // 2 cells with 2 maybes -> single
-			want(Tech.DirectHiddenPair);   // 2 places for 2 values -> single
-			want(Tech.DirectNakedTriple);  // 3 cells with 3 maybes -> single
-			want(Tech.DirectHiddenTriple); // 3 places for 3 values -> single
-		}
-		// From here down, unless stated otherwise, the remaining hinters just
-		// remove maybes, setting cell values only indirectly.
-		// Locking XOR LockingGeneralised (mandatory: not neither, nor both).
-		// nb: SiameseLocking can be swapped-in for locking, if wanted.
-		if ( !want(locking) ) { // Pointing and Claiming
-			whList.add(new LockingGeneralised());
-		}
-
-		// Hard
-		want(nakedPair);	// 2 cells with only 2 maybes
-		want(hiddenPair);	// same 2 places for 2 values in a region
-		want(nakedTriple);	// 3 cells with only 3 maybes
-		want(hiddenTriple);	// same 3 places for 3 values in a region
-		want(swampfish);	// same 2 places in 2 rows/cols
-		want(Tech.TwoStringKite); // box and 2 biplace regions
-
-		// Fiendish
-		want(Tech.XY_Wing);		// 3 bivalue cells
-		want(Tech.XYZ_Wing);	// trivalue + 2 bivalues
-		want(Tech.W_Wing);		// biplace row/col and 2 bivalue cells
-		want(Tech.Skyscraper);	// 2 biplace rows/cols get bent
-		want(Tech.EmptyRectangle); // box and biplace region
-		wantFish(Tech.Swordfish); // same 3 places in 3 rows/cols
-
-		// Nightmare
-		want(Tech.BUG);			// Bivalue Universal Grave (stoneage coloring)
-		want(Tech.Coloring);	// 2 color-sets and the ONLY 3+ color-sets
-		// XColoring, Medusa3D, and GEM can set cell values directly,
-		// but there more common hints just remove maybes.
-		want(Tech.XColoring);	// 2 color-sets with cheese
-		want(Tech.Medusa3D);	// 2 color-sets with cheese and pickles
-		want(Tech.GEM);			// 2 color-sets with the lot (?bacon?)
-		want(Tech.NakedQuad);	// 4 cells with only 4 maybes
-		want(Tech.HiddenQuad);	// same 4 places for 4 values in a region
-		wantFish(Tech.Jellyfish); // same 4 places in 4 rows/cols // 0 in top1465 with my preferred hinter selection
-		want(Tech.NakedPent);	// DEGENERATE 5 values in 5 cells
-		want(Tech.HiddenPent);	// DEGENERATE 5 places for 5 values in a region
-		// BigWings XOR individual S/T/U/V/WXYZ-Wing
-		if ( !want(Tech.BigWings) ) { // All below BigWing (faster overall)
-			want(Tech.WXYZ_Wing);	  // 3 cell ALS + bivalue cell
-			want(Tech.VWXYZ_Wing);	  // 4 cell ALS + bivalue cell
-			want(Tech.UVWXYZ_Wing);	  // 5 cell ALS + bivalue cell
-			want(Tech.TUVWXYZ_Wing);  // 6 cell ALS + bivalue cell
-			want(Tech.STUVWXYZ_Wing); // 7 cell ALS + bivalue cell
-		}
-		want(Tech.URT); // UniqueRectangle: a rectangle of 2 values
-		want(Tech.FinnedSwampfish); // OK always includes Sashimi's
-		want(Tech.FinnedSwordfish); // OK
-		want(Tech.FinnedJellyfish); // SLOW (just)
-		want(Tech.ALS_XZ);		 // OK // 2 Almost Locked Sets + bivalue
-		want(Tech.ALS_Wing);	 // OK // 3 Almost Locked Sets + bivalue
-		want(Tech.ALS_Chain);	 // OK // 4+ Almost Locked Sets + bivalue
-		want(Tech.DeathBlossom); // OK // N ALSs + Nvalued cell; N in 2,3
-		want(Tech.SueDeCoq);	 // SLOW (just) // Almost Almost Locked Sets
-
-		// Diabolical
-		want(Tech.FrankenSwampfish);	 // NONE (DEGENATE to Finned, WTF?)
-		want(Tech.FrankenSwordfish);	 // OK
-		want(Tech.FrankenJellyfish);	 // OK
-		// Krakens & Mutants interleaved: Swamp, Sword, Jelly; for speed
-		want(Tech.KrakenSwampfish);	// SLOW (28 seconds)
-		want(Tech.MutantSwampfish);	// NONE
-		want(Tech.KrakenSwordfish);	// TOO SLOW (84 seconds)
-		want(Tech.MutantSwordfish);	// SLOW (39 seconds)
-		want(Tech.KrakenJellyfish);	// WAY TOO SLOW (8 minutes)
-		want(Tech.MutantJellyfish);	// WAY TOO SLOW (7 minutes)
-		// the new align2 package is faster than the old align for A234E;
-		wantAE(true, Tech.AlignedPair);	// OK, but none in top1465
-		wantAE(true, Tech.AlignedTriple); // OK
-		wantAE(true, Tech.AlignedQuad); // a bit slow
-		// align2 takes 3*A5E, 4*A6E, 5*A7E, presume so on for 8, 9, 10.
-		// the user chooses if A5+E is correct (slow) or hacked (faster).
-		// hacked finds about a third of hints in about a tenth of time.
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedPent); // a bit slow
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedHex);  // SLOW
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedSept); // TOO SLOW
-		// really large Aligned sets (8+) are too slow to be allowed
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedOct);	  // FAR TOO SLOW
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedNona); // WAY TOO SLOW
-		wantAE(USE_NEW_ALIGN2, Tech.AlignedDec);	  // CONSERVATIVE
-		// single value forcing chains and bidirectional cycles.
-		want(new ChainerUnary());
-		// contradictory consequences of a single (bad) assumption.
-		want(new ChainerMulti(Tech.NishioChain, this));
-		// the remaining ChainerMulti techniques sometimes set cells directly,
-		// but most hints just remove a single maybe.
-		// forcing chains from more than 2 values/positions.
-		want(new ChainerMulti(Tech.MultipleChain, this));
-		// forcing chains with consequences recorded in the grid.
-		// does Unary Chains not Cycles, and Multiple Chains not Nishios.
-		want(new ChainerMulti(Tech.DynamicChain, this));
-		// DynamicPlus is dynamic chaining + four quick foxes (Locking,
-		// NakedPair, HiddenPair, and Swampfish). It only misses on hardest
-		// puzzles, so used as safety-net for all the but the hardest puzzles
-		want(new ChainerMulti(Tech.DynamicPlus, this));
-
-		// IDKFA
-		// Nested means imbedded chainers: assumptions on assumptions.
-		// The only way to ever see a nested hint is with Shift-F5 in the GUI.
-		// advanced					 // approx time per call on an i7 @ 2.9GHz
-		// NestedUnary covers the hardest Sudoku according to conceptis.com so
-		// it's a safety-net: it always hints!
-		want(new ChainerMulti(Tech.NestedUnary, this));		//  4 secs
-		want(new ChainerMulti(Tech.NestedMultiple, this));	// 10 secs
-		// experimental
-		want(new ChainerMulti(Tech.NestedDynamic, this));	// 15 secs
-		// NestedPlus is Dynamic + Dynamic + Four Quick Foxes => confusing!
-		// @bug 2020 AUG: NestedPlus PRODUCED INVALID HINTS so now uses the
-		// HintValidator to log and ignore them. NOT adequate needs fixing!
-		// I'm just ignoring this bug for now coz IT'S NEVER USED in anger.
-		want(new ChainerMulti(Tech.NestedPlus, this));		// 70 secs
-
-		// having finalised the list we turn it into an array
-		wantedHinters = whList.toArray(new IHinter[whList.size()]);
-		whList = null; // EVERYthing else uses the array
+	LogicalSolver(final Map<Tech,IHinter> basics, final IHinter[] wanted
+			, final EnumSet<Tech> unwanted) {
+		this.basics = basics;
+		this.wanted = wanted;
+		this.unwanted = unwanted;
 		// weird: each hinter knows it's index in the wantedHinters array,
 		// so that LogicalSolverTester can log hinters in execution order.
-		for ( int i=0,n=wantedHinters.length; i<n; ++i )
-			wantedHinters[i].setIndex(i);
+		for ( int i=0,n=wanted.length; i<n; ++i ) {
+			wanted[i].setIndex(i);
+		}
+		// bruteForce uses the "basic hinters", so it's creation is delayed,
+		// which in turn delays creation of all dependant artifacts. sigh.
+		bruteForce = new BruteForce(basics);
+		unsolvableHint = new WarningHint(bruteForce, "Unsolvable"
+				, "NoSolution.html");
+		puzzleValidators = new IHinter[] {
+			  tooFewClues		// minimum 17 clues
+			, tooFewValues		// minimum 8 values
+			, bruteForce		// ONE solution
+		};
+		validators = new IHinter[] {
+			  puzzleValidators[0], puzzleValidators[1], puzzleValidators[2]
+			, gridValidators[0], gridValidators[1], gridValidators[2]
+		};
+		// set-up individual hinters
+		nakedSingle = (NakedSingle)basics.get(Tech.NakedSingle);
+		hiddenSingle = (HiddenSingle)basics.get(Tech.HiddenSingle);
+		locking = (Locking)basics.get(Tech.Locking);
+		siameseLocking = new SiameseLocking(basics);
 		siameseLocking.index = locking.index; // not used if 0 (unwanted)
 	}
 
 	/**
-	 * A better name would be addHinterIfWanted but that's just too verbose.
-	 * If the given tech is wanted then I instantiate it's className, passing
-	 * the tech if it's passTech is true.
-	 * Some techs have a null className, in which case you will need to supply
-	 * the className (IHinter that is the default implementation of this Tech)
-	 * and passTech in the Tech definition, or just instantiate your hinter
-	 * manually, and pass it to the <u>other</u> want method.
-	 *
-	 * @param tech the Tech to add to wantedHinters, if the user wants it.
-	 * @throws IllegalArgumentException, RuntimeException
+	 * @return the existing map containing the basic hinters.
 	 */
-	private boolean want(Tech tech) {
-		final boolean result;
-		if ( result=wantedTechs.contains(tech) ) {
-			final IHinter hinter = createHinterFor(tech);
-			if ( hinter != null ) {
-				whList.add(hinter);
-			}
-		} else {
-			unwantedHinters.add(tech);
-		}
-		return result;
-	}
-
-	// create and return a new instance of the default implementation of tech,
-	// which is the IHinter whose full-class-name is tech.className.
-	// @throws IllegalArgumentException if tech has no hinter defined
-	//       , IllegalStateException if I fail to construct the hinter
-	// but never returns null!
-	private IHinter createHinterFor(final Tech tech) {
-		if ( tech.className==null || tech.className.isEmpty() ) {
-			// This'll only happen to noobs, but it happens to noobs!
-			// So let's supply a nice detailed error-message, which still
-			// leaves them scratching there heads. How to!?!? How to!?!?
-			throw new IllegalArgumentException(Log.me()
-			+" cannot instantiate the class implementing Tech "+tech.name()
-			+" because its className attribute (the full-name of the"
-			+" implementing class) is null/empty. Supply the className and"
-			+" passTech in the Tech definition, or instantiate the hinter"
-			+" manually and pass that to the other want method.");
-		}
-		final IHinter hinter = constructHinter(tech.className, tech);
-		if ( hinter == null ) {
-			throw new IllegalStateException(Log.me()+": "+tech+"->"+tech.className);
-		}
-		return hinter;
+	public Map<Tech, IHinter> getBasicHinters() {
+		return basics;
 	}
 
 	/**
-	 * Constructs and returns a new "simple" ${className} which implements
-	 * IHinter, passing the given Tech if the constructor takes a Tech param.
+	 * Set-up this LogicalSolver to use SiameseLocking instead of Locking,
+	 * because LogicalSolverTester needs the option to use SiameseLocking,
+	 * in order to find instances of any bugs in SiameseLocking.
 	 * <p>
-	 * A "simple" hinter has ONE ONLY constructor, which may take a Tech
-	 * parameter. Anything more complex than that is too hard for me, so use
-	 * {@link #want(IHinter) the other want method} instead!
-	 * <p>
-	 * I'm unable to choose among constructors taking various parameters, so I
-	 * just use the "first" constructor (according to reflections), hence the
-	 * contract is that I create IHinters with ONE ONLY constructor, else you
-	 * create the hinter yourself and pass it to the other want method.
-	 * <p>
-	 * FYI: The actual problem is I'm too stupid to work-out how to choose
-	 * between constructors, so I accept IHinter's with ONE ONLY constructor.
-	 * <p>
-	 * It's possible to expand the definition of "simple" to other parameters
-	 * BUT before doing so be sure it's for many (not just one) hinters, and
-	 * try hard to NOT pass whatever-it-is as a constructor parameter: often a
-	 * simple setter will suffice, even if it's not "good design": most final
-	 * stuff doesn't actually NEED to be final. Bugger the purists!
-	 *
-	 * @param className the full name of the IHinter class to be constructed
-	 * @param tech the Tech parameter to the constructor
-	 * @return a new instance of ${className} which must implement IHinter
+	 * if Locking (not LockingGen) then replace Locking with SiameseLocking.
+	 * NB: setSiamese is ignored when LockingGen is wanted coz that means basic
+	 * locking (precluding SiameseLocking); that and locking.index remains 0,
+	 * so I replace NakedSingle with SiameseLocking, which is just plain wrong.
 	 */
-	private IHinter constructHinter(String className, Tech tech) {
-		try {
-			final Class<?> clazz = Class.forName(className);
-			// find the constructor
-			final Constructor<?>[] cons = clazz.getConstructors();
-			if ( cons==null || cons.length == 0 ) {
-				throw new IllegalArgumentException("null/empty constructors");
-			}
-			// classes with multiple constructors aren't handled competently.
-			if ( cons.length > 1 ) {
-				Log.teeln(Log.me()+": WARN: multiple constructors: "+clazz);
-			}
-			// get and execute the first (according to reflections) constructor
-			final Constructor<?> con = cons[0];
-			final Class<?>[] params = con.getParameterTypes();
-			if ( params.length == 0 ) {
-				return (IHinter)clazz.getConstructor().newInstance();
-			} else if ( params[0] == Tech.class ) {
-				if ( tech == null ) {
-					throw new IllegalArgumentException("tech is null");
-				}
-				return (IHinter)clazz.getConstructor(Tech.class).newInstance(tech);
-			}
-			throw new IllegalArgumentException("unknown parameter: "+params[0]);
-		} catch (Exception ex) {
-			Log.stackTrace(Log.me()+"("+className+", "+tech+") failed!", ex);
-			return null;
-		}
-	}
-
-	/**
-	 * A better name would be addThisHinterIfItsWanted but it's too long.
-	 * If hinter.getTech() is wanted then add it to the wantedHintersList;
-	 * otherwise add the tech to the unwantedHinters list, for printing
-	 * once we're done with all these bloody want methods.
-	 *
-	 * @param hinter to want, or not.
-	 */
-	private boolean want(IHinter hinter) {
-		final boolean result;
-		final Tech tech = hinter.getTech();
-		if ( result=wantedTechs.contains(tech) ) {
-			whList.add(hinter);
-		} else {
-			unwantedHinters.add(tech);
-		}
-		return result;
-	}
-
-	/**
-	 * Adds a new instance of BasicFisherman/1(tech) to the wantedHintersList.
-	 * If USE_NEW_BASIC_FISHERMAN use the new BasicFisherman1 class, else the
-	 * original BasicFisherman implementation, which is a bit faster. sigh.
-	 *
-	 * @param tech Tech.Swampfish, Tech.Swordfish, or Tech.Jellyfish
-	 * @return is the given Tech wanted?
-	 */
-	private boolean wantFish(Tech tech) {
-		final boolean result;
-		if ( (result=wantedTechs.contains(tech)) ) {
-			if ( USE_NEW_BASIC_FISHERMAN ) {
-				whList.add(new BasicFisherman1(tech));
-			} else {
-				whList.add(new BasicFisherman(tech));
-			}
-		} else {
-			unwantedHinters.add(tech);
-		}
-		return result;
-	}
-
-	/**
-	 * wantAlignedExclusion sees if the given Tech is wanted by the user. If so
-	 * it creates an instance of an IHinter which implements the given Aligned
-	 * Exclusion tech, and adds it to the wantedHintersList.
-	 * <p>
-	 * Two packages implement AlignedExclusion: The old align package is a mass
-	 * of "fast" boiler-plate code. The new align2 package is "clean" but slow.
-	 * The new one is actually faster for A234E, but takes about thrice A5E,
-	 * four times A6E, five times A7E, and and presumably so on for A8910E,
-	 * which are already too slow, so I haven't even bothered to time them.
-	 * <p>
-	 * The "registered" Tech.className for AE is the "old" align package class,
-	 * that is still used for A5678910E (sigh), while A234E uses the new one.
-	 * <p>
-	 * NOTE that all Aligned*Exclusion are NOT wanted by default because they
-	 * are all still, despite my bestest efforts, <b>TOO BLOODY SLOW</b>! What
-	 * is actually required, if we are ever going to actually use AE, is a
-	 * completely new and much faster way of finding in/valid combos, but I am
-	 * simply too stupid to imagineer it.
-	 *
-	 * @param useNewAlign2 use the new "align2" package, or the old "align"
-	 *  package; A234E are always true (new), and for A5678910E pass me the
-	 *  value of the USE_NEW_ALIGN2 constant, which is currently false (old)
-	 * @param tech one of the Aligned* Tech's (I validate isAligned, ergo
-	 *  {@code tech.name().startsWith("Aligned")})
-	 * @throws IllegalArgumentException if the given tech is unknown
-	 * @throws IllegalStateException if the hinter cannot be constructed
-	 */
-	private boolean wantAE(boolean useNewAlign2, Tech tech) {
-		assert tech.isAligned;
-		if ( useNewAlign2 ) {
-			// new AE constructor reads "isa${degree}ehacked" Setting itself.
-			// There is no more class per size and no more _1C/_2H versions,
-			// eliminating all that "boiler-plate" code, but the new version is
-			// MUCH slower for A5E upwards, only getting worse as N grows, so I
-			// reckon the new A10E correct would run for 8-10 days (I haven't
-			// tried it) for something knuth can do subsecond, which makes me
-			// feel really really stoopit, mainly because I am. sigh.
-			return want(new AlignedExclusion(tech));
-		}
-		switch ( tech ) {
-			// there is no _2H hacked version of A234E
-			case AlignedPair:
-			case AlignedTriple:
-			case AlignedQuad:
-				// the registered Impl's are the old-school ones!
-				return want(tech);
-			// user chooses if A5+E is _2H hacked or _1C correct
-			case AlignedPent:
-			case AlignedHex:
-			case AlignedSept:
-			case AlignedOct:
-			case AlignedNona:
-			case AlignedDec:
-				if ( settings.getBoolean(tech.name(), tech.defaultWanted) ) {
-					// registered Tech for A5+E are the old-school _2H ones
-					String className = tech.className; // _2H
-					// the "registered" impl is the default _2H hacked version,
-					// so read "isa${degree}ehacked" and swap over to the _1C
-					// correct version if that's what the user wants, but the
-					// default for all A5+E is true (hacked), else too slow.
-					if ( !settings.getBoolean("isa"+tech.degree+"ehacked", true) )
-						className = className.replaceFirst("_2H", "_1C");
-					IHinter hinter = constructHinter(className, tech);
-					if ( hinter == null ) {
-						throw new IllegalStateException(Log.me()+": "+tech+"->"+className);
-					}
-					whList.add(hinter);
-					return true;
-				} else {
-					unwantedHinters.add(tech);
-					return false;
-				}
-			default:
-				throw new IllegalArgumentException("Unknown tech: "+tech);
-		}
-	}
-
-	/** LogicalSolverTester needs the option to set-up for siamese locking. */
-	public void setSiamese() {
-		// when LockingGeneralised used instead of Locking, Locking.index
-		// remains 0, so this replaces NakedSingle with siamese. WRONG!
+	public void setSiamese() { // wax on
 		if ( locking.index != 0 ) {
-			wantedHinters[locking.index] = siameseLocking;
+			wanted[locking.index] = siameseLocking;
 		}
 	}
-	/** un-set-up after siamese locking. */
-	public void clearSiamese() {
-		if ( locking.index != 0 ) {
-			wantedHinters[locking.index] = locking;
-		}
-	}
-
-	/** @return the HiddenSingle hinter to friends. */
-	public AHinter getHiddenSingle() { return hiddenSingle; }
-	/** @return the NakedSingle hinter to friends. */
-	public AHinter getNakedSingle() { return nakedSingle; }
-	/** @return the Locking hinter to friends. */
-	public AHinter getLocking() { return locking; }
-	/** @return the NakedPair hinter to friends. */
-	public AHinter getNakedPair() { return nakedPair; }
-	/** @return the HiddenPair hinter to friends. */
-	public AHinter getHiddenPair() { return hiddenPair; }
-	/** @return the Swampfish hinter to friends. */
-	public AHinter getSwampfish() { return swampfish; }
-
-	private static final IFormatter<IHinter> TECH_NAME = (IHinter h) ->
-			h==null ? NULL_ST : h.toString();
-
-	private static final IFilter<IHinter> ENABLED = (IHinter h)->h.isEnabled();
 
 	/**
-	 * Logging Only: the WantedHinters in CSV format.
-	 * @return CSV of the wanted hinter.getTech().names.
+	 * Revert to standard locking (not siamese).
 	 */
-	public final String getWantedHinterNames() {
-		StringBuilder sb = new StringBuilder(512);
-		sb.append("WantedHinters: ");
-		Frmt.appendTo(sb, wantedHinters, TECH_NAME, COMMA_SP, COMMA_SP);
+	public void clearSiamese() { // wax off
+		if ( locking.index != 0 ) {
+			wanted[locking.index] = locking;
+		}
+	}
+
+	/**
+	 * Disable a useless prick, I mean tech. No, I do mean prick. sigh.
+	 *
+	 * @param tech to disable
+	 */
+	public void disable(final Tech tech) {
+		final IHinter h = getWantedHinter(tech);
+		if ( h != null ) {
+			h.setIsEnabled(false);
+		}
+	}
+
+	/**
+	 * Disable these useless pricks, I mean techs. No, I do mean pricks. sigh.
+	 *
+	 * @param techs to disable
+	 */
+	public void disable(final Tech[] techs) {
+		for ( Tech tech : techs )
+			disable(tech);
+	}
+
+	/**
+	 * @return CSV of wanted hinters for logging
+	 */
+	public final String getWanteds() {
+		final StringBuilder sb = new StringBuilder(512);
+		sb.append("Wanted: ");
+		Frmt.appendTo(sb, wanted, NAME, CSP, CSP);
 		return sb.toString();
 	}
 
 	/**
-	 * Logging Only: the WantedEnabledHinters in CSV format.
-	 * @return CSV of the wanted enabled hinter.getTech().names.
+	 * @return CSV of the wanted enabled hinters for logging
 	 */
-	public String getWantedEnabledHinterNames() {
+	public String getWantedEnableds() {
 		try {
 			final StringBuilder sb = new StringBuilder(512);
-			sb.append("WantedEnabledHinters: ");
-			Frmt.appendTo(sb, wantedHinters, ENABLED, TECH_NAME, COMMA_SP, COMMA_SP);
+			sb.append("WantedEnabled: ");
+			Frmt.appendTo(sb, wanted, ENABLED, NAME, CSP, CSP);
 			return sb.toString();
 		} catch (IOException ex) {
 			return "WantedEnabledHinters: "+ex;
@@ -893,18 +497,25 @@ public final class LogicalSolver {
 	}
 
 	/**
-	 * Logging Only: the UnwantedHinters in CSV format.
-	 * @return CSV of the unwanted hinter.getTech().names.
+	 * @return CSV of the unwanted tech.names for logging
 	 */
-	public String getUnwantedHinterNames() {
-		// remove "[" and "]" from toString
-		String s = unwantedHinters.toString();
-		return "UnwantedHinters: "+s.substring(1, s.length()-1);
+	public String getUnwanteds() {
+		return "Unwanted: " + unwanted.toString().replaceFirst("\\[", "")
+				.replaceFirst("\\]", "");
 	}
 
-	// clean-up before the GC runs
+	/** Called after the puzzle is solved. */
+	public void after() {
+		for ( IHinter h : wanted ) {
+			if ( h instanceof IAfter ) {
+				((IAfter)h).after();
+			}
+		}
+	}
+
+	/** Called before the GC runs. */
 	public void cleanUp() {
-		for ( IHinter h : wantedHinters ) {
+		for ( IHinter h : wanted ) {
 			if ( h instanceof ICleanUp ) {
 				((ICleanUp)h).cleanUp();
 			}
@@ -930,13 +541,13 @@ public final class LogicalSolver {
 	 * really understand what happened) so now I insist on a SingleHA.
 	 * @return true if a hint was found, else false; always true AFAIK.
 	 */
-	public boolean getFirstHint(Grid grid, SingleHintsAccumulator accu) {
+	public boolean getFirstHint(final Grid grid, final SingleHintsAccumulator accu) {
 		if ( grid.numSet > 80 ) {
-			accu.add(SOLVED_HINT);
+			accu.add(solvedHint);
 			return true;
 		}
 		if ( getFirstHint(validators, grid, accu, false)
-		  || getFirstHint(wantedHinters, grid, accu, false) ) {
+		  || getFirstHint(wanted, grid, accu, false) ) {
 			grid.hintNumberIncrement();
 			return true;
 		}
@@ -964,7 +575,6 @@ public final class LogicalSolver {
 	 * @return List of AHint
 	 */
 	public List<AHint> getAllHints(final Grid grid, final boolean wantMore, final boolean logHints, final boolean printHints) {
-		final boolean isFilteringHints = settings.isFilteringHints(false);
 		if (Log.MODE >= Log.VERBOSE_2_MODE) {
 			Log.println();
 			final String more; if(wantMore) more=" MORE"; else more="";
@@ -977,10 +587,10 @@ public final class LogicalSolver {
 		// this doesn't appear to ever be triggered! So I guess we no longer
 		// get here when the grid is already full, but I'm leaving it.
 		if ( grid.numSet > 80 ) {
-			hints.add(SOLVED_HINT);
+			hints.add(solvedHint);
 			return hints; // empty if I was interrupted, or didn't find a hint
 		}
-		final long t0 = Run.time = System.nanoTime();
+		final long start = Run.time = System.nanoTime();
 		// HintsAccumulator.add returns false so hinter keeps searching,
 		// adding each hint to the hints List.
 		final IAccumulator accu = new HintsAccumulator(hints);
@@ -989,22 +599,25 @@ public final class LogicalSolver {
 		// always finds a hint. NestedUnary ALWAYS finds a hint.
 		boolean any = getFirstHint(validators, grid, accu, false);
 		if ( !any ) {
-			// tell locking to merge/upgrade any siamese hints
-			// when the GUI wantsLess (not Shft-F5) and isFilteringHints
-			if ( Run.type==Run.Type.GUI && !wantMore && isFilteringHints ) {
+			// do siamese locking on F5 in GUI when filtering
+			if ( Run.type==Run.Type.GUI
+			  && !wantMore
+			  // read the CURRENT global Settings, not my immutable copy.
+			  // nb: that's why this is done repeatedly in getAllHints, and
+			  // not just once when setting-up this LogicalSolver.
+			  && THE_SETTINGS.isFilteringHints(false) ) {
 				setSiamese();
 			}
 			// run prepare AFTER validators and BEFORE wantedHinters
 			if ( !grid.isPrepared() ) { // once on each grid
 				prepare(grid); // prepare wanted IPreparer's to process grid
 			}
-			any = getAllHints(wantedHinters, grid, accu, !wantMore, logHints);
-			// unset doSiamese or Generate goes mental. I'm in two minds RE
-			// putting this in a finally block: safer but slower. This works.
+			any = getAllHints(wanted, grid, accu, !wantMore, logHints);
+			// revert to standard locking
 			clearSiamese();
 		}
 		if (Log.MODE >= Log.VERBOSE_2_MODE) {
-			final long took = System.nanoTime()-t0;
+			final long took = System.nanoTime()-start;
 			// if there where any hints (there should be)
 			if ( any && (logHints || printHints) ) {
 				final AHint hint = accu.peek(); // the first hint, else null
@@ -1032,7 +645,7 @@ public final class LogicalSolver {
 				break;
 			}
 		}
-		return accu.hasAny();
+		return accu.any();
 	}
 
 	// getHints from the given hinters: if less then return when hint found as
@@ -1040,7 +653,7 @@ public final class LogicalSolver {
 	// and then return "were any found?" (which'll allways be true, AFAIK).
 	// This method is only called by getAllHints directly, to handle wantLess.
 	// Hinters are only called then they are enabled. A Hinter is disabled if
-	// it's a very naughty boy and produces the same DEAD_CAT twice.
+	// it's a very naughty boy and produces the same deadCat twice.
 	private boolean getAllHints(final IHinter[] hinters, final Grid grid
 			, final IAccumulator accu, final boolean less
 			, final boolean logHints) {
@@ -1051,7 +664,7 @@ public final class LogicalSolver {
 				break;
 			}
 		}
-		return accu.hasAny() && less;
+		return accu.any() && less;
 	}
 
 	// findHints calls the hinter.findHints; log it if isNoisy.
@@ -1073,13 +686,18 @@ public final class LogicalSolver {
 	}
 
 	/**
-	 * Phil McKraken goes bugger-up in generate. Go figure.
+	 * enableKrakens dis/enables Krakens, coz they break generate.
+	 * <p>
+	 * The Generator skips Kraken Swordfish & Jellyfish which bugger-up on null
+	 * table entries, and I cannot understand why they are null, which has been
+	 * driving me mad, to the point where I decided to just skip the whole damn
+	 * mess, leaving the clean-up to someone with a "real" IQ. sigh.
 	 *
-	 * @param enabled
-	 * @param degree
+	 * @param enabled if false then disable. if true then enable.
+	 * @param degree the minimum size krakens to dis/enable: 3 (Sword).
 	 */
-	public void enableKrakens(boolean enabled, int degree) {
-		for ( IHinter h : wantedHinters ) {
+	public void enableKrakens(final boolean enabled, final int degree) {
+		for ( IHinter h : wanted ) {
 			if ( h instanceof KrakenFisherman && h.getDegree()>=degree ) {
 				h.setIsEnabled(enabled);
 			}
@@ -1087,63 +705,65 @@ public final class LogicalSolver {
 	}
 
 	/**
-	 * Get the hinter which implements targetTech from wantedHinters list.
-	 * @param targetTech
-	 * @return the hinter; else null if the hinter which implements targetTech
-	 *  is not wanted, or (improbable) no hinter implements targetTech.
+	 * Get the wanted hinter which implements 'tech', else null.
+	 *
+	 * @param tech the target tech for which we seek the implementing hinter
+	 * @return the implementing hinter only if 'tech' is wanted; <br>
+	 *  else null probably means 'tech' not wanted, <br>
+	 *  or (improbable) no implementation of 'tech', <br>
+	 *  or (tilt) s__t happened
 	 */
-	public IHinter getWantedHinter(Tech targetTech) {
-		// first time only O(n)
-		if ( implementations.isEmpty() )
-			try {
-				for ( IHinter h : wantedHinters ) {
-					implementations.put(h.getTech(), h);
-				}
-			} catch (Exception eaten) {
-				// Do nothing
-			}
-		// subsequent fast O(1) look-up
+	public IHinter getWantedHinter(final Tech tech) {
+		// fast O(1) look-up
 		try {
 			final IHinter hinter;
-			if ( (hinter=implementations.get(targetTech)) != null ) {
+			if ( (hinter=cache.get(tech)) != null ) {
 				return hinter;
 			}
 		} catch (Exception eaten) {
 			// Do nothing
 		}
-		// rescue: the old O(n) way, every time, if we get here // untested
-		for ( IHinter hinter : wantedHinters ) {
-			if ( hinter.getTech() == targetTech ) {
-				implementations.put(targetTech, hinter);
+		// empty/missing, so add current wanted hinters
+		for ( IHinter h : wanted ) {
+			try {
+				cache.put(h.getTech(), h);
+			} catch (Exception eaten) {
+				// Do nothing
+			}
+		}
+		// rescue: the old O(n) way (never happens)
+		for ( IHinter hinter : wanted ) {
+			if ( hinter.getTech() == tech ) {
+				cache.put(tech, hinter);
 				return hinter;
 			}
 		}
 		return null;
 	}
+	// a cache to speed-up getWantedHinter
+	private final EnumMap<Tech,IHinter> cache = new EnumMap<>(Tech.class);
 
 	/**
-	 * This analyseDifficulty method is only used by the Generator to calculate
-	 * how difficult a random generated puzzle is. The question that I was
-	 * designed to answer boils down to: Is this grids max-difficulty less than
-	 * the given maxD?
-	 * <p>
-	 * Note that the listed Difficulty.maxD is EXCLUSIVE: the value is actually
-	 * the minD of the next Difficulty, so all comparisons are puzzleDifficulty
-	 * &lt; Difficulty.maxD (not pd &lt= maxD).
+	 * analyseDifficulty is used only by Generator to calculate how difficult a
+	 * random generated puzzle is. The question that I answer is:
+	 * Is this puzzles-difficulty (the max hint difficulty) less than maxD?
 	 * <p>
 	 * To calculate an answer to this question we find and apply hints to the
 	 * grid, stopping at the first hint whose difficulty exceeds <tt>maxD</tt>.
-	 * Pretty obviously there may not be one, to keep Turing happy. I return
-	 * the puzzles max-difficulty, that is his maximum hint difficulty; even if
-	 * it's above the given maxDif, which just told me to stop looking now.
+	 * Pretty obviously, there may not be one. I return the puzzle-difficulty,
+	 * ie the maximum hint difficulty, even if it's above the given maxD (which
+	 * just tells me to stop analysing).
 	 * <p>
-	 * My caller enforces minDif (or not) itself. There is no consideration of
+	 * My caller enforces minD (or not) itself. There is no consideration of
 	 * minimum difficulty here, only maximum. To enforce a minimum: if this
 	 * puzzles difficulty (the value I return) is below Difficulty.min then
-	 * reject this puzzle. I only monitor the maximum, so that I can exit-early
-	 * if it's exceeded.
+	 * reject this puzzle. I only monitor the maxD, so that I can return as
+	 * soon as it's exceeded.
+	 * <p>
+	 * NB: minD is inclusive and maxD is EXCLUSIVE, so maxD is minD of the next
+	 * Difficulty, so always {@code pd < maxD} (not {@code pd <= maxD}).
 	 *
-	 * @param gridParam to examine
+	 * @param gridParam to analyse to find the difficulty (the hardest step)
 	 * @param maxD the maximum desired difficulty (inclusive), a ceiling that
 	 *  stop at if exceeded
 	 * @return The puzzles difficulty if it's below the given <tt>maxD</tt>,
@@ -1151,29 +771,29 @@ public final class LogicalSolver {
 	 * @throws InterruptException from AHinter.interrupt() back-up to generate.
 	 */
 	public double analyseDifficulty(final Grid gridParam, final double maxD) {
+		double pd = 0.0D; // puzzleDifficulty, my result
 		final Grid grid = new Grid(gridParam);
-		double pd=0.0D; // puzzleDifficulty, my result
 		final IAccumulator accu = new SingleHintsAccumulator();
-		// re-enable all hinters just in case we hit a DEAD_CAT last time
+		// re-enable all hinters just in case we hit a deadCat last time
 		if ( anyDisabled ) {
-			for ( IHinter hinter : wantedHinters ) {
+			for ( IHinter hinter : wanted ) {
 				hinter.setIsEnabled(true);
 			}
 		}
-		DEAD_CATS.clear(); // deal with deceased felines
-		// Generator skips Kraken Swordfish & Jellyfish which bugger-up on
-		// null table entries, and I do not understand why they are null!
-		enableKrakens(false, 3); // just say no to Phil McKraken!
+		deadCats.clear(); // deal with eliminationless hints
 		grid.hintNumberReset(); // Start from the start
 		grid.rebuildMaybesAndS__t();
 		grid.rebuildIndexes(false);
+		enableKrakens(false, 3); // disable KrakenSwordfish and KrakenJellyfish
 		if ( validatePuzzleAndGrid(grid, false) != null ) {
-			throw new UnsolvableException("validate said "+grid.invalidity);
+			throw new UnsolvableException(grid.invalidity == null
+					? "ugly: not one solution" // 0 or 2 (or more) solutions
+					: "fart: "+grid.invalidity);
 		}
-//collect all the hints in-case we hit an UnsolvableException
+//collect hints in-case it goes Unsolvable
 //StringBuilder sb = new StringBuilder(8192);
 		for ( int pre=grid.totalSize,now; pre>0; pre=now ) { // ie !isFull
-			if ( getFirstHint(wantedHinters, grid, accu, false) ) {
+			if ( getFirstHint(wanted, grid, accu, false) ) {
 				final AHint hint = accu.getHint();
 //sb.append(NL)
 //  .append(grid).append(NL)
@@ -1181,11 +801,12 @@ public final class LogicalSolver {
 //Debug.breakpoint();
 				assert hint != null;
 				// get the difficulty-rating of this hint
-				final double d = hint.getDifficulty();
-				// if this hint is harder than puzzleDifficulty then set pd,
+				final double hd = hint.getDifficulty(); // hintDifficulty
+				// calculate puzzleDifficulty = maximum hintDifficulty,
 				// and if the pd exceeds the maxD then return it
-				if ( d>pd && (pd=d)>=maxD )
+				if ( hd>pd && (pd=hd)>=maxD ) {
 					return pd; // max target difficulty EXCLUSIVE exceeded
+				}
 				try {
 					hint.applyQuitely(false, grid); // NO_AUTOSOLVE
 				} catch (UnsolvableException ex) {
@@ -1195,8 +816,8 @@ public final class LogicalSolver {
 					}
 					throw ex;
 				}
-				// deal with DEAD_CAT: a hint that doesn't remove any maybes.
-				if ( (now=grid.totalSize)==pre && !DEAD_CATS.add(hint) ) {
+				// deal with deadCats: eliminationless hints.
+				if ( (now=grid.totalSize)==pre && !deadCats.add(hint) ) {
 					anyDisabled = true;
 					hint.hinter.setIsEnabled(false);
 				}
@@ -1218,30 +839,29 @@ public final class LogicalSolver {
 	 * an AnalysisHint that contains a summary of the hints applied.
 	 *
 	 * @param grid a copy of the Grid to solve (not the GUI's grid)
-	 * @param logHints if true then hints are printed in the Log. <br>
-	 *  In the GUI that's HOME/SudokuExplainer.log in my normal setup.
-	 * @param logTimes if true then EVERY single hinter execution is logged. <br>
-	 *  In the GUI that's HOME/SudokuExplainer.log in my normal setup.
+	 * @param logHints are hints logged.
+	 * @param logTimes is EVERY single hinter execution-time logged. <br>
+	 *  This is HEAPS verbose, so don't use it in a full batch run!
 	 * @return an AHint which is either an AnalysisHint or a WarningHint.
 	 */
-	public AHint analysePuzzle(final Grid grid, final boolean logHints, final boolean logTimes) {
+	public AHint analysePuzzle(final Grid grid, final boolean logHints
+			, final boolean logTimes) {
+		if ( grid.numSet > 80 ) {
+			return solvedHint;
+		}
 		if (Log.MODE >= Log.NORMAL_MODE) {
 			Log.format("\nanalyse: %s\n%s\n", grid.source, grid);
 		}
-		final SingleHintsAccumulator accu = new SingleHintsAccumulator();
 		final long t0 = System.nanoTime();
-		if ( grid.numSet > 80 ) {
-			return SOLVED_HINT;
-		}
+		final SingleHintsAccumulator accu = new SingleHintsAccumulator();
 		// execute just the puzzle validators.
 		if ( getFirstHint(puzzleValidators, grid, accu, false) ) {
 			return accu.getHint();
 		}
-		final LogicalAnalyser analyser = new LogicalAnalyser(this, logHints, logTimes);
 		// LogicalAnalyser.findHints allways returns true, only the returned
-		// hint-type varies: solved=AnalysisHint or invalid="raw" WarningHint,
-		// which are both WarningHints; so telling them apart is a bit tricky.
-		if ( analyser.findHints(grid, accu) ) {
+		// hint-type varies: solved=AnalysisHint/invalid=WarningHint which are
+		// both WarningHints; so take care to differentiate them properly.
+		if ( new LogicalAnalyser(this, logHints, logTimes).findHints(grid, accu) ) {
 			final long t1 = System.nanoTime();
 			final AHint hint = accu.getHint(); // a SolutionHint
 			if (Log.MODE >= Log.NORMAL_MODE) {
@@ -1249,20 +869,7 @@ public final class LogicalSolver {
 						, t1-t0, grid.numSet, grid.totalSize
 						, hint.getNumElims(), hint.getHinter(), hint);
 				if ( hint instanceof AnalysisHint ) {
-					final AnalysisHint ah = (AnalysisHint)hint;
-					// this is a cluster____ because appendUsageMap calculates
-					// ttlDifficulty but it's logged BEFORE appendUsageMap runs
-					// so that log is consistent with the GUI. I'm a putz!
-					final StringBuilder sb = new StringBuilder(BIG_BUFFER_SIZE);
-					final String maxD = "Difficulty ##.##"; // largest possible
-					sb.append(NL); // leading blank line
-					sb.append(maxD).append(NL);
-					ah.appendUsageMap(sb);
-					sb.append("Total Difficulty ").append(ah.ttlDifficulty).append(NL); // trailing blank line (unusual, for me)
-					int i = sb.indexOf(maxD);
-					String newMaxD = "Difficulty "+Frmt.frmtDbl(ah.maxDifficulty);
-					sb.replace(i, i+maxD.length(), newMaxD);
-					Log.println(sb);
+					log((AnalysisHint) hint);
 				}
 			}
 			return hint;
@@ -1270,30 +877,41 @@ public final class LogicalSolver {
 		return null; // happens after InterruptException
 	}
 
-	/**
-	 * Solve the grid using brute-force, set my solution field, and return the
-	 * solution.
-	 * <p>
-	 * Note that repeated calls to solve the same grid will solve the same damn
-	 * grid, so take care to NOT call me unless you need to. Check my solution
-	 * field first.
-	 * @param grid Grid to be solved
-	 * @return solution Grid, which is NOT the given grid, it's a copy that has
-	 * been solved.
-	 */
-	public Grid solveASAP(Grid grid) {
-		return singleSolution.solveASAP(grid);
+	// Log Difficulty BEFORE appendUsageMap, for consistency with GUI display.
+	private void log(final AnalysisHint ah) {
+		final StringBuilder sb = new StringBuilder(BIG_BFR_SIZE);
+		final String maxD = "Difficulty ##.##"; // largest possible
+		sb.append(NL); // leading blank line
+		sb.append(maxD).append(NL);
+		ah.appendUsageMap(sb);
+		sb.append("Total Difficulty ").append(ah.ttlDifficulty)
+				.append(NL); // an unusual trailing blank line
+		final int i = sb.indexOf(maxD);
+		String newMaxD = "Difficulty "+dbl(ah.maxDifficulty);
+		sb.replace(i, i+maxD.length(), newMaxD);
+		Log.println(sb);
 	}
 
 	/**
-	 * Count the number of ways this grid can be solved:
+	 * Returns a copy of the grid that has been solved using brute-force.
+	 *
+	 * @param grid to solve
+	 * @return a copy of the given grid that has been solved
+	 */
+	public Grid solve(final Grid grid) {
+		return bruteForce.solve(grid);
+	}
+
+	/**
+	 * Returns the number of possible solutions for the given grid.
 	 *
 	 * @param grid Grid to be solved
-	 * @return 1 means valid, 0 means invalid (no solution), 2 means invalid
-	 *  (multiple solutions).
+	 * @return 1 means the puzzle is valid, <br>
+	 *  0 means invalid (no solution), <br>
+	 *  2 means invalid (multiple solutions).
 	 */
-	public int countSolutions(Grid grid) {
-		return singleSolution.countSolutions(grid);
+	public int countSolutions(final Grid grid) {
+		return bruteForce.countSolutions(grid);
 	}
 
 	/**
@@ -1307,27 +925,19 @@ public final class LogicalSolver {
 	 *
 	 * @param grid the puzzle to solve
 	 * @return a SolutionHint as an AHint, else null */
-	public AHint getSolutionHint(Grid grid) {
-		IAccumulator accu = new SingleHintsAccumulator();
+	public AHint getSolutionHint(final Grid grid) {
+		final IAccumulator accu = new SingleHintsAccumulator();
 		// check the puzzle is basically valid
 		if ( grid.numSet > 80 ) { // already solved
-			return SOLVED_HINT;
+			return solvedHint;
 		}
 		if ( tooFewClues.findHints(grid, accu) // NumberOfClues >= 17
 		  || tooFewValues.findHints(grid, accu) ) { // NumberOfValues >= 8
 			return accu.getHint();
 		}
-		// tell recursiveAnalyser I want the SolutionHint.
-		singleSolution.wantSolutionHint = true;
-		// set recursiveAnalyser.solutionHint
-		if ( singleSolution.solveASAP(grid) == null ) {
-			return UNSOLVABLE_HINT;
-		}
-		// return recursiveAnalyser.solutionHint
-		AHint result = singleSolution.solutionHint;
-		assert result != null;
-		singleSolution.solutionHint = null;
-		return result;
+		final Grid solution = solve(grid);
+		return solution==null ? unsolvableHint
+			: new SolutionHint(bruteForce, grid, solution);
 	}
 
 	/**
@@ -1336,10 +946,11 @@ public final class LogicalSolver {
 	 * @param accu
 	 * @return
 	 */
-	private boolean validatePuzzle(Grid grid, IAccumulator accu) {
-		if ( tooFewClues.findHints(grid, accu) // NumberOfClues >= 17
-		  || tooFewValues.findHints(grid, accu) // NumberOfValues >= 8
-		  || singleSolution.findHints(grid, accu) ) {
+	private boolean validatePuzzle(final Grid grid, final IAccumulator accu) {
+		if ( tooFewClues.findHints(grid, accu)	// numClues >= 17
+		  || tooFewValues.findHints(grid, accu)	// numValues >= 8
+		  || bruteForce.findHints(grid, accu)	// OneSolution
+		) {
 			return carp("Invalid Sudoku Puzzle: "+accu.getHint(), grid, true);
 		}
 		return true; // the puzzle is (probably) valid.
@@ -1355,13 +966,12 @@ public final class LogicalSolver {
 	 * @param grid Grid to validate.
 	 * @param logHints true to log, false to shut the ____ up.
 	 * @return the first warning hint, else null. */
-	public AHint validatePuzzleAndGrid(Grid grid, boolean logHints) {
-		IAccumulator accu = new SingleHintsAccumulator();
-		AHint problem = null;
+	public AHint validatePuzzleAndGrid(final Grid grid, final boolean logHints) {
+		final IAccumulator accu = new SingleHintsAccumulator();
 		if ( getFirstHint(validators, grid, accu, logHints) ) {
-			problem = accu.getHint();
+			return accu.getHint(); // problem
 		}
-		return problem;
+		return null; // no problem
 	}
 
 	/**
@@ -1373,42 +983,48 @@ public final class LogicalSolver {
 	 * @param grid Grid to validate.
 	 * @param logHints true to log, false to shut the ____ up.
 	 * @return the first warning hint, else null. */
-	public AHint validateGrid(Grid grid, boolean logHints) {
-		IAccumulator accu = new SingleHintsAccumulator();
-		AHint problem = null;
+	public AHint validateGrid(final Grid grid, final boolean logHints) {
+		final IAccumulator accu = new SingleHintsAccumulator();
 		if ( getFirstHint(gridValidators, grid, accu, logHints) ) {
-			problem = accu.getHint();
+			return accu.getHint(); // problem
 		}
-		return problem;
+		return null; // no problem
 	}
 
 	/**
-	 * Solve 'grid' logically to populate 'usageMap' and return success.
-	 * In English: Solves the given Sudoku puzzle (the 'grid') using logic to
-	 * populate the given 'usageMap' with a summary of which Hinters were used
-	 * how often, and how long each took to run; to return "was the puzzle
-	 * solved", which should be true for any/every valid puzzle, but never say
-	 * never. An invalid puzzle should throw an UnsolvableException (a subtype
-	 * of RuntimeException) so solve never returns false. Never say never.
+	 * Solve the puzzle in 'grid' logically populating 'usageMap' and return
+	 * was it solved.
+	 * <p>
+	 * In English: Solves the given Sudoku puzzle (the 'grid') using logic (the
+	 * hinters) and populate the given UsageMap with a summary of hinters used,
+	 * how often, and how long each took to run; returning Did It Solve, always
+	 * true for valid puzzles. Invalid puzzles throw an UnsolvableException, so
+	 * solve never returns false. Never say never.
 	 *
 	 * @param grid Grid containing the Sudoku puzzle to be solved
-	 * @param usage UsageMap (empty) that I populate with hinter usage: number
-	 *  of calls, hint count, elapsed time, and number of maybes eliminated
-	 * @param validate true means run the TooFewClues and TooFewValues
-	 *  validators before solving the puzzle.
-	 * @param isNoisy true prints local messages to stdout
-	 * @param logHints true logs progress, false does it all quietly.
-	 * @param logTimes NEVER true in LogicalSolverTester (too verbose).
+	 * @param usage to populate with hinter usage: number of calls, hint count,
+	 *  elapsed time, and number of maybes eliminated
+	 * @param validatePuzzle true means run the TooFewClues and TooFewValues
+	 *  validators before solving the puzzle
+	 * @param isNoisy true prints local messages to standard output
+	 * @param logHints true logs progress, false does it all quietly
+	 * @param logTimes NEVER true in LogicalSolverTester (too verbose)
 	 * @return was it solved; else see grid.invalidity
-	 * @throws UnsolvableException which is a RuntimeException means that this
-	 *  puzzle is invalid and/or cannot be solved. See the exceptions message
-	 *  (if any) for details, and/or grid.invalidity field.
+	 * @throws UnsolvableException (a RuntimeException) when puzzle is invalid,
+	 *  ie cannot be solved. Details in the exception message (if any) and/or
+	 *  the grid.invalidity field. sigh. <br>
+	 *  A UE could just mean you've unwanted the rescue hinters: DynamicPlus
+	 *  and NestedUnary, but typically a UE means you broke the hinter you are
+	 *  working-on, so use the Validator to find examples in order to work-out
+	 *  precisely where you have gone wrong. <br>
+	 *  Note that a UE purports to say "puzzle is broken" but what it really
+	 *  means is "failed to solve puzzle", which really means "you broke the
+	 *  bloody solver again, ya putz!".
 	 */
 	public boolean solve(final Grid grid, final UsageMap usage
-			, final boolean validate, final boolean isNoisy
-			, final boolean logHints, final boolean logTimes) {
+			, final boolean validatePuzzle, final boolean isNoisy
+			, boolean logHints, boolean logTimes) {
 		assert grid!=null && usage!=null;
-		final boolean logHinterTimes = logTimes && Run.type==Run.Type.GUI;
 //if ( grid!=null && grid.source!=null && grid.source.lineNumber==185 )
 //	Debug.breakpoint();
 		grid.invalidity = null; // assume sucess
@@ -1421,7 +1037,7 @@ public final class LogicalSolver {
 		long start = Run.time = System.nanoTime();
 		// special case for being asked to solve a solved puzzle. Not often!
 		if ( grid.numSet > 80 ) { // ie the grid is already solved
-			accu.add(SOLVED_HINT);
+			accu.add(solvedHint);
 			return true; // allways, even if accu is NOT a Single
 		}
 		// when called by the GUI we don't need to validate any longer because
@@ -1429,26 +1045,29 @@ public final class LogicalSolver {
 		// hint therefrom properly; so now we only validate here when called by
 		// the LogicalSolverTester, which is all a bit dodgy, but only a bit;
 		// all because it's hard to differentiate "problem" messages. Sigh.
-		if ( validate ) {
+		if ( validatePuzzle ) {
 			validatePuzzle(grid, accu); // throws UnsolvableException
 		}
 		assert grid.isPrepared();
-		if ( !grid.isPrepared() ) {
-			prepare(grid); // prepare hinters to process this grid
-		}
-		// and they're off and hinting ...
+// you can just prepare if above assert goes off, but please track it down.
+//		if ( !grid.isPrepared() ) {
+//			prepare(grid); // prepare hinters to process this grid
+//		}
+		// make all caches refresh
 		grid.hintNumberReset();
 
+		// solve the puzzle by finding and applying hints
 		AHint hint;
 		long now;
+		logHints |= logTimes;
 		while ( grid.numSet < GRID_SIZE ) {
-			// getHints from each enabled hinter
-			if ( logHinterTimes ) {
-				if ( !timeHintersNoisy(wantedHinters, grid, accu, usage) ) {
-					return carp("Hint not found", grid, true);
+			// getHints from each wanted hinter that's still enabled
+			if ( logTimes ) { // very verbose
+				if ( !timeHintersNoisily(wanted, grid, accu, usage) ) {
+					return carp("Hint gone AWOL", grid, true);
 				}
-			} else {
-				if ( !timeHinters(wantedHinters, grid, accu, usage) ) {
+			} else { // the normal path
+				if ( !timeHintersQuitely(wanted, grid, accu, usage) ) {
 					return carp("Hint not found", grid, true);
 				}
 			}
@@ -1456,76 +1075,89 @@ public final class LogicalSolver {
 			now = System.nanoTime();
 			hint = accu.getHint();
 			// apply may throw UnsolvableException from Cell.set
-			applyHint(hint, now-start, grid, usage, isNoisy, logHints);
+			apply(hint, now-start, grid, usage, logHints, isNoisy);
 			start = now;
 		} // wend
+		// puzzle solved, so tidy-up now
+		after();
 		if ( isNoisy ) {
 			System.out.format("<solve %s\t%s\n", Settings.took(), grid);
 		}
 		return true;
 	}
 
-	// solve times the getHints of each hinter.
-	private boolean timeHinters(final IHinter[] hinters, final Grid grid
+	// getHints from each hinter quitely (the normal path).
+	private boolean timeHintersQuitely(final IHinter[] hinters, final Grid grid
 			, final IAccumulator accu, final UsageMap usage) {
-		long start;  boolean any;
+		long start;
+		boolean any = false;
 		for ( IHinter hinter : hinters ) {
-			if ( hinter.isEnabled()) {
+			if ( hinter.isEnabled() ) {
 				start = System.nanoTime();
 				any = hinter.findHints(grid, accu);
 				usage.addon(hinter, 1, 0, 0, System.nanoTime() - start);
-				if ( any )
-					return true;
-			}
-			if ( Run.stopGenerate ) {
-				throw new InterruptException();
-			}
-		}
-		return false;
-	}
-	// solve times the getHints of each hinter, logging the execution time of
-	// every single bloody hinter (very very verbose: too big for LST top1465)
-	private boolean timeHintersNoisy(final IHinter[] hinters, final Grid grid
-			, final IAccumulator accu, final UsageMap usage) {
-		long start, took;  boolean any;
-		for ( IHinter hinter : hinters ) {
-			if ( hinter.isEnabled()) {
-				start = System.nanoTime();
-				any = hinter.findHints(grid, accu);
-				took = System.nanoTime() - start;
-				usage.addon(hinter, 1, 0, 0, took);
-				Log.teef("\t%,14d\t%s\n", took, hinter);
 				if ( any ) {
-					return true;
+					return any;
 				}
 			}
 			if ( Run.stopGenerate ) {
 				throw new InterruptException();
 			}
 		}
-		return false;
+		return any;
+	}
+	// getHints from each hinter noisily, logging the execution time of every
+	// single bloody hinter (far too verbose for batch top1465)
+	private boolean timeHintersNoisily(final IHinter[] hinters, final Grid grid
+			, final IAccumulator accu, final UsageMap usage) {
+		long start, took;
+		boolean any = false;
+		for ( IHinter hinter : hinters ) {
+			if ( hinter.isEnabled() ) {
+				start = System.nanoTime();
+				any = hinter.findHints(grid, accu);
+				took = System.nanoTime() - start;
+				usage.addon(hinter, 1, 0, 0, took);
+				Log.teef("\t%,14d\t%s\n", took, hinter);
+				if ( any ) {
+					return any;
+				}
+			}
+			if ( Run.stopGenerate ) {
+				throw new InterruptException();
+			}
+		}
+		return any;
 	}
 
-	// Apply this hint to the grid.
-	// @param hint to apply
-	// @param took nanoseconds between now and previous hint
-	// @param grid to apply the hint to
-	// @param usage for the updateUsage method (below)
-	// @param logHints if true log hints
-	// @throws UnsolvableException on the odd occassion
-	// @return the number of cell-values eliminated (and/or 10 per cell set)
-	private int applyHint(final AHint hint, final long took, final Grid grid
-			, final UsageMap usage, final boolean logGrid, final boolean logHints) {
+	/**
+	 * Apply this hint to the grid.
+	 *
+	 * @param hint to apply
+	 * @param took nanoseconds between now and previous hint
+	 * @param grid to apply the hint to
+	 * @param usage to be updated
+	 * @param logHints if true then log hints
+	 * @param logGrid if true then log the grid with the hints. Note that this
+	 *  has no effect unless logHints is true, because the logging the grid
+	 *  is pointless without the hints (it makes the log nonsensical)
+	 * @throws UnsolvableException on the odd occasion
+	 * @return the number of cell-values eliminated (and/or 10 per cell set)
+	 */
+	private int apply(final AHint hint, final long took, final Grid grid
+			, final UsageMap usage, final boolean logHints
+			, final boolean logGrid) {
 		if ( hint == null ) {
 			return 0;
 		}
 		if ( hint instanceof AWarningHint ) { // DoubleValue MissingMaybe
-			throw new UnsolvableException("Warning: " + hint);
+			throw new UnsolvableException("Fubarred: " + hint);
 		}
 		assert hint.getDifficulty() >= 1.0; // 0.0 has occurred. Bug!
 		// + the grid (2 lines per hint)
 		if (Log.MODE >= Log.VERBOSE_3_MODE) {
-			if ( logGrid && logHints ) { // the grid makes no sense sans hints
+			// the grid makes no sense without the hints
+			if ( logHints && logGrid ) {
 				Log.println();
 				Log.println(grid);
 			}
@@ -1563,17 +1195,16 @@ public final class LogicalSolver {
 		if ( grid.isInvalidated() ) {
 			throw new UnsolvableException("Invalidity: " + grid.invalidity);
 		}
-		// if the hint yields 0-cells-set and 0-maybes-eliminated, then we have
-		// a problem, which we ignore until it happens twice.
-		// nb: DEAD_CATS.add is "addOnly"; returns false if already exists.
-		if ( numElims==0 && !DEAD_CATS.add(hint) ) {
-			// tell-em it's rooted
-			Log.teeln("WARN: DEAD_CAT disabled "+hint.hinter.tech.name()+": "+hint.toFullString());
-			// disable the offender
+		// detect and deal-with eliminationless hints
+		// nb: deadCats.add is "addOnly"; returns false if already exists.
+		if ( numElims==0 && !deadCats.add(hint) ) {
+			Log.teeln("WARN: deadCat disabled "+hint.hinter.tech.name()+": "
+					  +hint.toFullString());
+			// disable the offending hinter, averting infinite loop
 			hint.hinter.setIsEnabled(false);
 		}
 		grid.hintNumberIncrement();
-		// rebuild before validate for SingleSolution.
+		// rebuild before validate for BruteForce.
 //		grid.rebuildAllRegionsS__t();
 // done above with grid.isInvalidated() so this is just silly.
 //		// detect invalid grid, meaning a hinter is probably borken!
@@ -1587,7 +1218,8 @@ public final class LogicalSolver {
 	// max's maxDifficulty, and addonates the subHints.
 	// Called by: solve->apply->updateUsage
 	// NB: usage was added by timeHinters, we just update the details.
-	private void updateUsage(UsageMap usageMap, AHint hint, int numElims) {
+	private void updateUsage(final UsageMap usageMap, final AHint hint
+			, final int numElims) {
 		Usage u = usageMap.get(hint.hinter);
 		if ( u == null ) {
 			// Locking upgrades siamese hints to HiddenPair/Triple, so usage
@@ -1610,35 +1242,31 @@ public final class LogicalSolver {
 		u.addonateSubHints(hint, 1);
 	}
 
-	public void prepare(Grid grid) {
+	public void prepare(final Grid grid) {
 		if ( grid==null || grid.isPrepared() ) {
 			return; // safety first!
 		}
-		for ( IPreparer prepper : getPreppers(wantedHinters) ) {
+		for ( IPreparer prepper : getPreppers(wanted) ) {
 			try {
 				prepper.prepare(grid, this);
 			} catch (Exception ex) {
-				StdErr.carp("WARN: "+prepper+".prepare Exception", ex);
+				Log.teeTrace("WARN: "+prepper+".prepare Exception", ex);
 			}
 		}
 		grid.setPrepared(true);
 	}
 
 	/**
-	 * Cache {@code LinkedList<IPreparer>} from hinters where isa IPreparer.
+	 * Get the cached {@code LinkedList<IPreparer>} from hinters.
 	 * <p>
-	 * The cache is updated when it's out-dated, that is: when the cache does
-	 * not exist yet or THE_SETTINGS.getModificationCount() differs from when
-	 * the cache was read previously; in case the wantedHinters have changed,
-	 * otherwise we will prepare no-longer-wanted-hinters, which is no biggy.
+	 * The preppers-cache is created ONCE, first-time only.
 	 *
 	 * @param hinters the wantedHinters list
 	 * @return A cached {@code LinkedList<IPreparer>}
 	 */
-	private LinkedList<IPreparer> getPreppers(IHinter[] hinters) {
-		final int modCount = settings.getModCount();
+	private LinkedList<IPreparer> getPreppers(final IHinter[] hinters) {
 		LinkedList<IPreparer> preppers = preppersCache;
-		if ( preppers==null || preppersMC!=modCount ) {
+		if ( preppers == null ) {
 			preppers = new LinkedList<>();
 			for ( IHinter hinter : hinters ) {
 				if ( hinter instanceof IPreparer ) {
@@ -1646,25 +1274,27 @@ public final class LogicalSolver {
 				}
 			}
 			preppersCache = preppers;
-			preppersMC = modCount;
 		}
 		return preppers;
 	}
 	private LinkedList<IPreparer> preppersCache; // defaults to null
-	private int preppersMC; // defaults to 0
 
 	/**
 	 * Get the solution to this puzzle as soon as possible (ie guessing
 	 * recursively, ie using brute force, ie using a BIG stick).
-	 * <p>NB: the solution is generated once and cached in the grid.
+	 * <p>
+	 * The solution is generated once and cached in {@link Grid#solution} and
+	 * a SolutionHint is also cached in the {@link Grid#solutionHints} as the
+	 * only element in a List (the requisite return type).
 	 *
 	 * @param grid the Grid to solve.
 	 * @return a {@code List<AHint>} containing a SolutionHint.
 	 */
-	public List<AHint> getSolution(Grid grid) {
+	public List<AHint> getSolution(final Grid grid) {
 		if ( grid.solutionHints == null ) {
 			final IAccumulator accu = new SingleHintsAccumulator();
-			if ( singleSolution.findHints(grid, accu) ) {
+			// side-effect: sets grid.solution
+			if ( bruteForce.findHints(grid, accu) ) {
 				grid.solutionHints = AHint.list(accu.getHint());
 			}
 			// else WTF? No solution is available. Your options are:
@@ -1684,57 +1314,48 @@ public final class LogicalSolver {
 	 * flashes green when only singles remain, and I Ctrl-P onto next puzzle.
 	 *
 	 * @param grid puzzle to solve, or not.
-	 * @param accu the IAccumulator to which I add an AppliedHintsSummaryHint
-	 * (not the SolutionHint, as you might reasonable expect). If accu is null
-	 * then no hint is created, and I just return was the grid solved using
-	 * only singles.
+	 * @param accu If null then no hint is created, otherwise accu is the
+	 *  IAccumulator to which I add a SummaryHint (not a SolutionHint, as
+	 *  you might reasonably expect).
 	 * @return was the grid solved? returns false on Exception that's logged.
 	 */
-	public boolean solveWithSingles(Grid grid, IAccumulator accu) {
-		boolean result = false; // presume failure
-		HintsApplicumulator apcu = null;
+	public boolean solveWithSingles(final Grid grid, final IAccumulator accu) {
+		// HintsApplicumulator.add apply's each hint when it's added.
+		// @param isStringy=true for hint.toString's in the SummaryHint
+		final HintsApplicumulator apcu = new HintsApplicumulator(true);
+		// presume that no hint will be found
+		boolean result = false;
 		try {
-			// we work on a copy of the given grid
-			Grid copy = new Grid(grid);
-			// HintsApplicumulator.add apply's each hint when it's added.
-			// @param isStringy = true so builds toString buffer for the hint.
-			// @param isAutosolving = true so that Cell.set also sets subsequent
-			// singles, because Cell.set can do it faster than THE_SINGLES coz
-			// it has a smaller search (20 siblings vs 81 Grid.cells).
-			apcu = new HintsApplicumulator(true);
+			// we solve a copy of the given grid
+			final Grid copy = new Grid(grid);
 			apcu.grid = copy; // to tell Cell.apply which grid
-//			copy.rebuildMaybesAndEverything();
-			int ttlNumElims = 0;
+			int ttlElims = 0;
 			do {
 				apcu.numElims = 0;
 				if ( nakedSingle.findHints(copy, apcu)
-				   // nb: use bitwise-or (|) so that both hinters are
-				   // invoked regardless of nakedSingle's return value
 				   | hiddenSingle.findHints(copy, apcu) ) {
-					ttlNumElims += apcu.numElims;
+					ttlElims += apcu.numElims;
 				}
 			} while ( apcu.numElims > 0 );
-			if ( (result=ttlNumElims>0 && copy.numSet>80) && accu!=null ) {
+			if ( (result=ttlElims>0 && copy.numSet>80) && accu!=null ) {
 				singlesSolution = copy; // hints pre-applied to copy
-				accu.add(new AppliedHintsSummaryHint(Log.me(), ttlNumElims, apcu));
+				accu.add(new SummaryHint(Log.me(), ttlElims, apcu));
 			}
 		} catch (Exception ex) { // especially UnsolvableException
 // but only when we're focusing on solveWithSingles, which we normaly aren't.
 //			Log.teeTrace(ex);
 //			Log.teeln(grid);
 		} finally {
-			if ( apcu != null ) {
-				apcu.grid = null;
-			}
+			apcu.grid = null;
 		}
 		return result;
 	}
 
-	private boolean carp(String message, Grid grid, boolean throwIt) {
+	private boolean carp(final String message, final Grid grid, final boolean throwIt) {
 		return carp(new UnsolvableException(message), grid, throwIt);
 	}
 
-	private boolean carp(UnsolvableException ex, Grid grid, boolean throwIt) {
+	private boolean carp(final UnsolvableException ex, final Grid grid, final boolean throwIt) {
 		grid.invalidity = ex.getMessage();
 		if ( throwIt ) {
 			if (Log.MODE >= Log.NORMAL_MODE) {
@@ -1774,12 +1395,13 @@ public final class LogicalSolver {
 	 * }}</pre>
 	 */
 	public void report() {
-		for ( IHinter h : wantedHinters ) {
+		for ( IHinter h : wanted ) {
 			if ( h instanceof IReporter ) {
 				try {
 					((IReporter)h).report();
 				} catch (Exception ex) { // usually a bad format specifier
-					StdErr.carp(""+h+".report failed and we continue anyway", ex);
+					StdErr.carp(""+h+".report failed and we continue anyway"
+							, ex);
 				}
 			}
 		}
@@ -1805,10 +1427,10 @@ public final class LogicalSolver {
 		// report if we're not in the GUI (ie batch, test-cases, or whatever).
 		// If we're in the GUI then report if we're -ea (used by techies).
 		// IGNORE IDE WARNING: Assert condition produces side effects
-		if ( Run.type!=Run.Type.GUI || isAsserting() ) {
+		if ( Run.type!=Run.Type.GUI || Run.ASSERTS_ENABLED ) {
 			report();
 		}
-		for ( IHinter h : wantedHinters ) {
+		for ( IHinter h : wanted ) {
 			if ( h instanceof Closeable ) {
 				try {
 					((Closeable)h).close();
@@ -1819,15 +1441,6 @@ public final class LogicalSolver {
 		}
 		THE_SETTINGS.close();
 	}
-	private static boolean isAsserting;
-	private static boolean setIsAsserting() {
-		return isAsserting = true;
-	}
-	private static boolean isAsserting() {
-		isAsserting = false;
-		assert setIsAsserting(); // sets isAsserting=true if asserts are on
-		return isAsserting;
-	}
 
 	// ========================================================================
 	//
@@ -1836,396 +1449,367 @@ public final class LogicalSolver {
 	// ========================================================================
 
 	/**
-	 * Cheet or Cheet not, there is no Cheet!
+	 * The public cheat method points the user towards available hints, but
+	 * allows the user to work-out what these interesting cell-values mean,
+	 * so a cheat is sort-of a hint-lite, but not all hint-types are covered.
+	 * <p>
+	 * All a cheat does is run the hinter specified by the 'key' column label:
+	 * A..I for the left-mouse button, then a..i for the right-mouse button,
+	 * and parse the hint/s (if any) into a Pots, which my caller (the GUI)
+	 * paints. I return null if no hints are found, or the hinter is not found,
+	 * or something goes wrong, so I may return null, but never an empty Pots.
+	 * Never say never.
+	 * <p>
+	 * Implementing this in an inner-class was harder than I expected. It took
+	 * me several tries to get it to work, and it was so ugly that I decided to
+	 * obfuscate it, to hide my shame; but I have since decided to de-obfuscate
+	 * it for universal edification, that and obfuscation stopped being fun and
+	 * started to become just obfuscation.
+	 * <p>
+	 * Note well that any RuntimeException experienced here-in propagates out
+	 * to my caller, so handling them is upto my caller!
 	 *
-	 * @author Keith Corlett 2010-06-26
+	 * @param grid to find cheat-hints in
+	 * @param key a letter identifying which cheat to run, starting with the
+	 *  column headers A..I, and continuing with the right mouse-button a..i
+	 * @return Pots to paint, else null (never empty please)
 	 */
-	private interface Cheets {
-		Pots cheat(final Grid cheated, final Tech cheat, final Cheats.Chaet chaet, final boolean cheats);
+	public Pots cheat(final String key, final Grid grid) {
+		return cheats().execute(key, grid);
 	}
 
 	/**
-	 * @return the single instance of the Cheats.
-	 */
-	private Cheets cheats() {
-		if ( CHEATS == null )
-			CHEATS = new Cheats();
-		return CHEATS;
-	}
-	private static Cheats CHEATS;
-
-	/**
-	 * The cheat method allows the user to cheat, but the code hopefully
-	 * prevents other programmers from ever understanding HOW it's done.
+	 * Get THE instance of Cheats, which is lazy-loaded, that is construction
+	 * is delayed until the {@link #cheat(String, Grid)} method is called
+	 * if/when the user wants to cheat (long after LogicalSolver constructed).
 	 * <p>
-	 * Welcome to the labarinth.
+	 * Previously I had a static Cheats instance, but the LogicalSolverBuilder
+	 * has to then construct two LogicalSolvers, one for itself, and one just
+	 * for the static Cheats. FYI, I found this in stack-traces produced by
+	 * {@code diuf.sudoku.solver.hinters.als.RccFinderFactory#get}. What's
+	 * going on under the hood is quite interesting. The first reference to
+	 * LogicalSolver is the static constructHinter method, so a static CHEATS
+	 * constructs Cheats then, creating each hinter, whereas delaying Cheats
+	 * construction means this LogicalSolver pre-exists, so Cheats uses his
+	 * hinters. This is a big difference for a simple code-change to avoid a
+	 * big trap for young players that I fell into. Guess I'm a bit thick.
 	 *
-	 * @param cheated a Grid
-	 * @param cheat a String
-	 * @param cheatMode a boolean
-	 * @param b a boolean, because sooner or later cheat and all of its many
-	 *  and varied farquarstrations get to be reasonably boring, so I called
-	 *  a boolean b. Please shoot me!
-	 * @return Pots
+	 * @return THE instance of cheats, which is lazy-loaded.
 	 */
-	public Pots cheat(Grid cheated, String cheat, boolean cheatMode, boolean b) {
-		return ((Cheats)cheats()).cheat(cheated, cheat, cheatMode, b);
-	}
-
-	/**
-	 * Cheats is a muck-up: I gave my dark-side open slather, just for fun.
-	 * I normally try to write code as simply as possible, even when I aim
-	 * for speed. This code is NOT as simple as possible, and is further
-	 * obfuscated by truly atrocious variable names aided by some misnomas;
-	 * extraneous arguments, clauses, and methods; flip static to instance
-	 * and back; a pointless interface; and reasonably random gremlins.
-	 * <p>
-	 * Basically this how to NOT write bloody code! All of this crap is based
-	 * on crap that I've seen either in actual systems, or in questions from
-	 * people who are as-yet unaware of the simplest way to do stuff, and so
-	 * dream-up some truly spectacularly complicated ways to take a relatively
-	 * straight forward crap. This is my humble contribution to the insane
-	 * level of insanity that dominates our planet. Good luck following it!
-	 * <p>
-	 * If you're a lefty and your surname is Lie then please go right ahead and
-	 * call your son Hubert. He'll have no trouble whatever getting elected. We
-	 * will even call him Hubert, or probably Bert, but weasel gets it anyways.
-	 * <p>
-	 * The most interesting insanity, IMHO, is that an inner enum does NOT
-	 * innately hold a reference to the containing instance, the working-around
-	 * of which made a total cluster____ out of the existing downstream code,
-	 * so I eventually made the enum static, and then obfuscated the lot, to
-	 * make a purse out of a pigs ear, by making it so bloody hard to follow
-	 * that everyone overlooks my stupidity: a "complexitorium" if you will,
-	 * as per standard banking/legal/government practice. So yes, it's most
-	 * certainly my fault, but YOU sure as hell can't be bothered to prove it!
-	 * <p>
-	 * Having said that, some of this code is a bit nice. It's just that now
-	 * being all obfuscated, it resists your efforts to build a mind-map, so my
-	 * advice is: DON'T, just use the debugger! If you're going to clean it up,
-	 * do so from the bottom up, but you'll need to think pretty hard if this
-	 * is the simplest possible solution to the core problem at each step. This
-	 * code is more complex that it needs to be, but not a lot more complex.
-	 * <p>
-	 * The fundamental point is that this code <b>works</b>, despite being a
-	 * bit mental, and even, in part, <b>because</b> it is a bit mental!
-	 */
-	public static class Cheats implements Cheets {
-
-		// cheat-colored: take a bloody knee people, seriously!
-		static enum Chaet {
-			G, GO, GB;
-			final IVisitor<AHint> cheat(Grid cheat, Pots cheets, Cheets cheeter) {
-				assert cheeter != null;
-				switch ( this ) {
-					case G:  return (cheet) ->
-								cheets.addAll(cheet.getGreens(0));
-					case GO: return (cheet) -> {
-								cheets.addAll(cheet.getGreens(0));
-								cheets.addAll(cheet.getOranges(0));
-							 };
-					case GB: return (cheet) -> {
-								cheets.addAll(cheet.getGreens(0));
-								cheets.addAll(cheet.getBlues(cheat, 0));
-							 };
-					default: cheated();
-				}
-				return null;
-			}
+	private Cheats cheats() {
+		if ( cheats == null ) {
+			cheats = new Cheats(this);
 		}
+		return cheats;
+	}
+	private Cheats cheats;
 
-		// cheat-well: be good or be good at it
+	public String[] cheatNames() {
+		return cheats().names();
+	}
+
+	/**
+	 * The Cheats class (pretty-much) encapsulates SudokExplainers cheats.
+	 * A "cheat" is just a short-hand hint. All Cheats does is get the hinter
+	 * for a tech, run it, and parse resulting hint/s into a Pots, which my
+	 * caller (the GUI) just displays in the grid. Sounds easy enough.
+	 */
+	private static class Cheats {
+
+		/**
+		 * A Parser knows what-colored highlighted-cell-values in the resulting
+		 * hint/s (if any) are added to the 'result' Pots. Each Parser parses
+		 * the given 'hint' adding "these-colored" highlighted-cell-values to
+		 * the 'result' Pots. The 'grid' parameter is needed only to getBlues
+		 * from the hint, but using lambda expressions requires it to be passed
+		 * into all Parser's.
+		 */
+		private interface Parser {
+			Pots parse(final AHint hint, final Pots result, final Grid grid);
+		}
+		/** The GREEN parser. */
+		private static final Cheats.Parser GREEN
+				= (final AHint hint, final Pots result, final Grid grid) -> {
+			result.addAll(hint.getGreens(0));
+			return result;
+		};
+		/** The GREEN_ORANGE parser. */
+		private static final Cheats.Parser GREEN_ORANGE
+				= (final AHint hint, final Pots result, final Grid grid) -> {
+			result.addAll(hint.getGreens(0));
+			result.addAll(hint.getOranges(0));
+			return result;
+		};
+		/** The GREEN_BLUE parser. */
+		private static final Cheats.Parser GREEN_BLUE
+				= (final AHint hint, final Pots result, final Grid grid) -> {
+			result.addAll(hint.getGreens(0));
+			result.addAll(hint.getBlues(grid, 0));
+			return result;
+		};
+
+		/**
+		 * The Cheat enum defines each available cheat. It maps each key to a
+		 * Tech and a Parser. The key is A..I (left-button) and a..i (right).
+		 * <p>
+		 * Each Cheat Tech has a non-null className (a default implementation)
+		 * so that Cheats can create an instance of className if (and only if)
+		 * the tech is not currently wanted by the user. If tech is not wanted
+		 * and tech.className is null then this Cheat is permanently disabled,
+		 * silently: there's no logging, because I just don't care, but that
+		 * makes Cheats harder to debug, so you need to mind how you go. Just
+		 * ensure that Tech has a non-null className if/when you create the
+		 * Cheat for it, and if it can't have a default implementation then
+		 * think real-hard about the benefits of implementing a bloody cheat
+		 * for the bastard. All things are possible, it's just that many are
+		 * simply not worth the hassle.
+		 * <p>
+		 * The parser defines color/s of highlighted cell-values to display.
+		 */
 		private static enum Cheat {
 			// left mouse button => column 'A'..'I'
-			  A(Tech.NakedSingle		, Chaet.G) // and HiddenSingle
-			, B(Tech.Locking		, Chaet.G)
-			, C(Tech.NakedPair		, Chaet.G)
-			, D(Tech.HiddenPair		, Chaet.G)
-			, E(Tech.NakedTriple	, Chaet.G)
-			, F(Tech.HiddenTriple	, Chaet.G)
-			, G(Tech.Swampfish		, Chaet.G)
-			, H(Tech.TwoStringKite	, Chaet.GB)
-			, I(Tech.XY_Wing		, Chaet.GO) // and XYZ_Wing
+			  A(Tech.NakedSingle, null) {
+				// ODD_BALL: NakedSingle and HiddenSingle
+				@Override
+				String techName() { return "Naked/HiddenSingle"; }
+			  }
+			, B(Tech.Locking)
+			, C(Tech.NakedPair)
+			, D(Tech.HiddenPair)
+			, E(Tech.NakedTriple)
+			, F(Tech.HiddenTriple)
+			, G(Tech.Swampfish)
+			, H(Tech.TwoStringKite, GREEN_BLUE)
+			, I(Tech.XY_Wing, GREEN_ORANGE) {
+				// ODD_BALL: XY_Wing and XYZ_Wing
+				@Override
+				String techName() { return "XY/Z_Wing"; }
+			  }
 			// right mouse button => column 'a'..'e'
-			, a(Tech.W_Wing			, Chaet.GB)
-			, b(Tech.Swordfish		, Chaet.G)
-			// skipped coloring: there is no sane way to portray them in a "cheat"
-			, c(Tech.Skyscraper		, Chaet.G)
-			, d(Tech.EmptyRectangle	, Chaet.GB)
-			, e(Tech.Jellyfish		, Chaet.G)
-			, f(Tech.NakedQuad		, Chaet.G)
-			, g(Tech.HiddenQuad		, Chaet.G)
-			, h(Tech.BigWings		, Chaet.GO) // S?T?U?V?WXYZ_Wing
-			, i(Tech.URT			, Chaet.GB)
+			, a(Tech.W_Wing, GREEN_BLUE)
+			, b(Tech.Swordfish)
+			// skip coloring coz there hints can't be rendered as a cheat
+			, c(Tech.Skyscraper)
+			, d(Tech.EmptyRectangle, GREEN_BLUE)
+			, e(Tech.Jellyfish)
+			, f(Tech.NakedQuad)
+			, g(Tech.HiddenQuad)
+			, h(Tech.BigWings, GREEN_ORANGE) // S?T?U?V?WXYZ_Wing
+			, i(Tech.URT, GREEN_BLUE)
 			;
-			private final Tech cheat;
-			private final Chaet chaet;
-			private Cheat(Tech cheat, Chaet chaet) {
-				this.cheat = cheat;
-				this.chaet = chaet;
+			// the Tech-to-run
+			private final Tech tech;
+			// which color cell-values to return
+			private final Parser parser;
+			// the all-args actual constructor
+			private Cheat(final Tech tech, final Parser parser) {
+				this.tech = tech;
+				this.parser = parser;
 			}
-			final Pots cheat(Grid cheats, Cheets cheeter, final boolean chaets) {
-				return cheeter.cheat(cheats, cheat, chaet, chaets);
+			// default to the green Parser, which is the most common
+			private Cheat(final Tech cheat) {
+				this(cheat, GREEN);
+			}
+			/**
+			 * The Cheat enum exists for this run method to pass the Tech and
+			 * Parser for this Cheat to the {@link Cheats#run} method; so
+			 * effectively Cheat just maps each key to a Tech and a Parser!
+			 *
+			 * @param cheats the containing instance of Cheats is passed-in
+			 *  because an enum has no implicit Container.this, to allow me
+			 *  to call-back {@link Cheats#run}
+			 * @param grid the grid to search
+			 * @return the Pots to be painted, else null meaning:
+			 *  (usual) the hinter did not find any hints,
+			 *  or (bug) no hinter for this tech,
+			 *  or (tilt) s__t happened
+			 */
+			final Pots run(final Cheats cheats, final Grid grid) {
+				return cheats.run(tech, parser, grid);
+			}
+			/**
+			 * The name of the Technique for this Cheat.
+			 * @return tech.name()
+			 */
+			String techName() {
+				return tech.name();
 			}
 		}
-		// ALL of the cheats
-		private static final EnumSet<Cheat> CHEATS = EnumSet.allOf(Cheat.class);
-		// ALL of the chaets
-		private static final Map<Tech,IHinter> CHAETS = new EnumMap<>(Tech.class);
 
-		// The dirty rotton cheater
-		private final LogicalSolver cheater;
+		// a reverse-lookup-cache Tech=>Hinter of each Cheatable hinter
+		private static final Map<Tech,IHinter> HINTERS
+				= new EnumMap<>(Tech.class);
+
+		// parse the given 'hints' (not null/empty) into a new Pots using the
+		// given 'parser'. The 'grid' is needed only to hint.getBlues. sigh.
+		private static Pots parse(final Iterable<AHint> hints
+				, final Parser parser, final Grid grid) {
+			final Pots result = new Pots();
+			hints.forEach((h)->parser.parse(h, result, grid));
+			return result;
+		}
+
+		// Cheats is a static-inner-class in order to have the internal enum's
+		// I need to map each cheat-acronym to it's Tech and Parser; so then I
+		// need a "custom" explicit reference to LogicalSolver.this that is
+		// normally implicit in a non-static-inner-class. sigh.
+		private final LogicalSolver ls;
 
 		// Constructor.
-		public Cheats() {
-			this.cheater = cheater();
+		private Cheats(final LogicalSolver ls) {
+			this.ls = ls;
 		}
 
-		// cheat allways: for a bigger real-estate scam. Now with free kiddies!
-		private Pots cheat(Grid cheated, String cheat, boolean chaet, boolean cheatMode) {
-			return cheat(this, cheated, cheat, chaet, cheatMode);
-		}
-
-		// cheat inferencing: because there are no bones in icecream
-		private static Pots cheat(final Cheats cheeting, final Grid cheeter, final String cheat, final boolean b, final boolean cheatMode) {
-			return cheeting.cheat(cheeter, cheat, b, cheatMode, false);
-		}
-
-		// cheat manager: manages the cheats
-		private Pots cheat(final Grid cheeter, final String cheat, final boolean b, final boolean cheatMode, final boolean chaeter) {
-			if ( !cheatMode || b || chaeter ) {
-				return cheat(cheater, cheeter, !b);
-			}
-			switch ( cheat ) {
-				case "A": return cheat(cheater, cheeter, b|!b);
-				case "I": return cheat(this, cheeter, cheat==null, b);
-				default: return Cheat.valueOf(cheat).cheat(cheeter, cheeter(), cheatMode);
-			}
-		}
-
-		// cheat-lite: for dummies with attitude
-		private static Pots cheat(final LogicalSolver cheater, final Grid cheat, final boolean cheeter) {
-			if ( !cheeter )
-				return null;
-			final HintsAccumulator cheats = new HintsAccumulator(new LinkedList<>());
-			if ( cheater.getNakedSingle().findHints(cheat, cheats)
-			   | cheater.getHiddenSingle().findHints(cheat, cheats) )
-				return cheat(cheats);
-			return null;
-		}
-
-		// cheat longer: dogs die in hot cars
-		private static Pots cheat(final HintsAccumulator cheats) {
-			final Pots cheets = new Pots();
-			cheats.foreach((cheet) -> {
-				cheets.put(cheet.cell, VSHFT[cheet.value]);
-			});
-			return cheets;
-		}
-
-		// cheat harder: at the lost childrens home
-		private static Pots cheat(final Cheats cheeting, final Grid cheat, final boolean cheeter, final boolean cheater) {
-			if ( CHAETS.isEmpty() ) {
-				cheat(cheeter == cheater);
-			}
-			final Pots chaets = new Pots();
-			chaets.addAll(cheeting.cheat(cheat, Tech.XY_Wing, Chaet.GO, true));
-			chaets.addAll(cheeting.cheat(cheat, Tech.XYZ_Wing, Chaet.GO, true));
-			return chaets;
-		}
-
-		// the public cheat method: for cheating
-		@Override
-		public final Pots cheat(final Grid cheeter, final Tech chaet, final Chaet cheat, final boolean chaets) {
-			final IHinter cheatered = cheat(chaet, chaets);
-			if ( cheatered == null ) {
-				return null;
-			}
-			final HintsAccumulator cheets = new HintsAccumulator(new LinkedList<>());
-			if ( !cheatered.findHints(cheeter, cheets) ) {
-				return null;
-			}
-			final Pots cheats = new Pots();
-			cheets.foreach(cheat.cheat(cheeter, cheats, cheeter()));
-			return cheats;
-		}
-
-		// the private cheat method: does stuff the other one doesn't
-		private IHinter cheat(final Tech cheat, final boolean cheeter) {
-			try {
-				IHinter chaeters;
-				final EnumMap<Tech,IHinter> chaet = chaeters();
-				if ( (chaeters=chaet.get(cheat)) == null ) {
-					chaet.put(cheat, chaeters=cheat(cheat, cheat!=null, cheeter));
+		/**
+		 * names are displayed when cheats are password authorised.
+		 * Cheats are organised A..I (left) then a..i (right)
+		 * so names are: "$left / $right"
+		 * and we need an empty first element for to-left-of-the-grid
+		 *
+		 * @return a new array of the names of the Cheats
+		 */
+		private String[] names() {
+			// names are: "$left / $right"
+			final EnumSet<Cheat> cheats = EnumSet.allOf(Cheat.class);
+			final int n = cheats.size() / 2;
+			final String[] names = new String[n + 1];
+			names[0] = ""; // first element is "", and the rest move down 1
+			int i = 0;
+			for ( Cheat c : cheats ) {
+				if ( i < n ) { // A..I (left-button)
+					names[i + 1] = c.techName();
+				} else { // a..i (right-button)
+					names[i%n + 1] += " / " + c.techName();
 				}
-				return chaeters;
-			} catch (Exception eaten) {
-				return null;
+				++i;
+			}
+			return names;
+		}
+
+		// execute is the top-level method in cheats, it runs the hinter for
+		// 'key' Cheat over this 'grid', and parses the resulting hint/s (if
+		// any) into the returned Pots, else null (ie never an empty Pots).
+		private Pots execute(final String key, final Grid grid) {
+			// this switch handles the ODD_BALL cheats
+			switch ( key ) {
+				// ODD_BALL: run both NakedSingle and HiddenSingle
+				case "A": return runSingles(grid);
+				// ODD_BALL: run both XY_Wing and XYZ_Wing
+				case "I": return runXyzWing(grid);
+				// run 'key' Cheat over the grid.
+				default: return Cheat.valueOf(key).run(this, grid);
 			}
 		}
 
-		// internal cheat method: because masturbation gets boring, eventually
-		private void cheat(final boolean cheet, final Tech cheat, final boolean chaet) {
-			if ( cheat==null==!cheet && !cheated ) {
-				final IHinter[] cheeters = cheeters();
-				for ( int i=0,n=cheat(Tech.URT, true, false, true); i<n; ++i ) {
-					if ( cheat(cheeters[i].getTech(), true, false, true, true, cheated, false, i, chaet) ) {
-						cheat(cheeters[i], true, false, false, true);
-					}
-				}
-				cheated = true;
-			}
-		}
-		private boolean cheated = false;
-
-		// no-op cheat method: because choko vines grow best on s__thouses
-		private int cheat(final Tech cheat, final boolean chaet, final boolean cheet, final boolean chi) {
-			if ( chaet != chi ) {
-				return 0;
-			}
-			final IHinter[] cheeters = cheeters();
-			final int n; if(chaet == cheet) n=0; else n=cheeters.length;
-			for ( int i=0; i<n; ++i ) {
-				if ( cheeters[i].getTech() == cheat ) {
-					return i + 1;
-				}
-			}
-			return n;
-		}
-
-		// fondoolies cheat method: returns Log.log(n).log(n)
-		private void cheat(final IHinter cheat, final boolean cheater, final boolean chaet, final boolean chaeter, final boolean cheets) {
-			if ( cheater!=chaet || cheater!=chaeter && chaet!=cheets || chaet!=cheets ) {
-				cheated = chaeters().put(cheat.getTech(), cheat) == null;
-			}
-		}
-
-		// Adrian Wapcaplets cheat method: get thing to do stuff.
-		// The epitome of obfuscation: I'm pretty proud of this one!
-		// @return the thing that does stuff
-		// @throws InsufficentIntelligenceException
-		private IHinter cheat(final Tech cheat, final boolean cheated, final boolean cheats) {
-			IHinter cheeter = null;
-			cheat(cheat!=null==cheated|cheats|!cheats, cheat, cheats);
-			if ( (cheat!=cheat)!=(!cheated==!!!cheated) || !(cheated && !cheated) || !cheats|!!cheats ) {
-				cheeter = cheat(cheat, cheated, false, false, true, true, true, 42, Tech.URT, false, true);
-			}
-			if ( cheeter==null && java.util.Objects.equals(cheat, cheeter) == !!cheated!=!cheated ) {
-				cheeter = cheat(cheat, cheats, true, false, false, true, true, 42, Tech.URT, false);
-			}
-			if ( cheeter==null && cheat!=null && (cheated|cheats|!cheats) ) {
-				cheeter = cheat(Tech.URT, cheated, true, false, false, true, true, 42, cheat);
-			}
-			if ( cheeter==null && cheat!=Tech.NakedSingle ) {
-				final IHinter chaet = CHAETS.get(cheat);
-				if ( chaet==null || chaet==cheater.getNakedSingle() ) {
-					try {
-						cheeter = cheater.createHinterFor(cheat);
-					} catch (IllegalArgumentException eaten ) {
-						// Do nothing
-					}
-					CHAETS.put(cheat, cheeter); // even if null
-				}
-			}
-			return cheeter;
-		}
-
-		// Nero Wapcaplets cheat method: does more stuff the other one doesn't
-		// @throws ExcessIntelligenceException
-		private boolean cheat(final Tech cheat, final boolean cheater, final boolean chaet, final boolean chaeter, final boolean cheets, final boolean cheated, final boolean cheating, final int i, final boolean chaets) {
-			if ( !cheated && cheater!=chaet && cheater && cheater==cheater && cheater==chaeter && cheater==cheets && cheater==cheated && cheater!=cheating && i!=-i ) {
-				cheat(false);
-			} else if ( !cheated && (!!cheater!=!!!cheater)!=(!!!!cheater&&!!!!!cheater) && CHAETS.isEmpty() && !CHEATS.isEmpty() && cheat!=null ) {
-				CHEATS.forEach((c)->CHAETS.put(c.cheat, cheeter(c.cheat)));
-			}
-			return CHAETS.containsKey(cheat);
-		}
-
-		// Brian Gerbels cheat method: need I say more
-		private IHinter cheat(final Tech cheat, final boolean chaet, final boolean cheet, final boolean chi, final boolean cha, final boolean chee, final boolean cheeter, final int i, final Tech cheater, final boolean ceaht) {
-			if ( cheat==null || chaet==cheet && cheet==chi && chee==cha && chee==cheeter && i!=-i && ((cheat==null&cheat!=null)!=(cheater==null)) ) {
-				return null;
-			}
-			if ( chaet ) {
-				return CHAETS.get(cheat);
-			} else {
-				return cheat(false);
-			}
-		}
-
-		// inner cheat method: returns the cheater
-		private IHinter cheat(final Tech cheat, final boolean chaet, final boolean cheet, final boolean chi, final boolean cha, final boolean chee, final boolean cheeter, final int i, final Tech cheats, final boolean cheeted, final boolean cheets) {
-			if ( cheat!=null && (chaet==cheet || chaet==chi || chaet==cha && chaet==cheeter && chaet==cheeter && chaet==(-i!=i) && chaet==(cheats!=null) && chaet==cheeted || chaet==cheets) ) {
-				switch (cheat) {
-					case NakedSingle: return cheater.getNakedSingle();
-					case HiddenSingle: return cheater.getHiddenSingle();
-					case Locking: return cheater.getLocking();
-					case NakedPair: return cheater.getNakedPair();
-					case HiddenPair: return cheater.getHiddenPair();
-					case Swampfish: return cheater.getSwampfish();
-				}
+		// ODD_BALL: run both NakedSingle and HiddenSingle over the 'grid',
+		// and parse any resulting hint/s into a new Pots to return, by
+		// reading the set-cell-values (not the more usual eliminations).
+		private Pots runSingles(final Grid grid) {
+			final LinkedList<AHint> hints = new LinkedList<>();
+			final HintsAccumulator hacu = new HintsAccumulator(hints);
+			if ( ls.nakedSingle.findHints(grid, hacu)
+			   | ls.hiddenSingle.findHints(grid, hacu) ) {
+				// nb: this is the only place we parse set-cell-values
+				// into a Pots, so it's implemented in-line
+				final Pots result = new Pots();
+				hints.forEach((h)->result.put(h.cell, VSHFT[h.value]));
+				return result;
 			}
 			return null;
 		}
 
-		// auquatic cheat method: the cermonial disconfabulator
-		private IHinter cheat(final Tech cheat, final boolean chaet, final boolean cheet, final boolean chi, final boolean cha, final boolean chee, final boolean chaeter, final int i, final Tech chete) {
-			if ( (i & ~i | ~i & i) != (~i & i | i & ~i) == cheet&!chaet|chaet && chi==cha && chi==!chee|chaeter&!chaeter && cheat!=null ) {
-				final IHinter cheeted = cheeter(chete);
-				if ( cheeted != null ) {
-					return cheeted;
+		// ODD_BALL: run both XY_Wing and XYZ_Wing over the 'grid', and parse
+		// any resulting hints into a new Pots to return.
+		private Pots runXyzWing(final Grid grid) {
+			final LinkedList<AHint> hints = new LinkedList<>();
+			final HintsAccumulator hacu = new HintsAccumulator(hints);
+			boolean any = false;
+			final IHinter xyWing = getHinterFor(Tech.XY_Wing);
+			if ( xyWing != null ) {
+				any |= xyWing.findHints(grid, hacu);
+			}
+			final IHinter xyzWing = getHinterFor(Tech.XYZ_Wing);
+			if ( xyzWing != null ) {
+				any |= xyzWing.findHints(grid, hacu);
+			}
+			// nb: use Cheat.I.parser for single point of truth
+			return any ? parse(hints, Cheat.I.parser, grid) : null;
+		}
+
+		/**
+		 * The "generic" run method gets the hinter that implements 'tech'
+		 * and runs it over the 'grid', and parses the resulting hint/s
+		 * into a Pots using the given 'parser', which is returned.
+		 * <p>
+		 * I'm called by {@link Cheat#run} to provide the 'tech' and 'parser'
+		 * appropriate for this cheat.
+		 *
+		 * @param tech I get the hinter implementing tech, upon which I call
+		 *  the findHints methods, to find any available hints in the grid
+		 * @param parser that parses any hint/s into a Pots
+		 * @param grid to search for hints
+		 * @return a new Pots containing all cell-values to paint in the GUI,
+		 *  else null means (usual) hint not found, or (bug) hinter not found,
+		 *  or (tilt) s__t happened; so possibly null, but never empty. Note
+		 *  that any runtime exception in findHints or parse propagates out.
+		 */
+		private Pots run(final Tech tech, final Parser parser, final Grid grid) {
+			final IHinter hinter = getHinterFor(tech);
+			if ( hinter != null ) {
+				final LinkedList<AHint> hints = new LinkedList<>();
+				if ( hinter.findHints(grid, new HintsAccumulator(hints)) ) {
+					return parse(hints, parser, grid);
 				}
 			}
-			// bugger the debugger. You shouldn't need it now anyway.
-			return cheat(cheat(cheat, !chaet, !cheet, !chi, !cha, !chee, !chaeter, i | ((1<<6)-1) & ~(i>>>1), cheat, false, true)==null && (!cheet && chi || !chaeter || cha && !chee || i==cheat()) );
+			return null; // no hint, or no hinter, or tilt
 		}
 
-		// Douglas's cheat method: Tick bloody Tock Dr Hawkins. O'bugger. BANG!
-		private int cheat() {
-			return 1<<5 | 1<<3 | 1<<1;
-		}
-
-		// flying cheat method: completely different
-		private static LogicalSolver cheater() {
-			return LogicalSolverFactory.get();
-		}
-
-		// actual cheat method: returns that thing of the thing
-		private static Cheets cheeter() {
-			return cheater().cheats();
-		}
-
-		// other actual cheat method: returns other flying thing
-		private static IHinter cheeter(Tech cheat) {
-			for ( IHinter cheeter : cheeters() ) {
-				if ( cheeter.getTech() == cheat ) {
-					return cheeter;
+		// get the hinter that implements 'tech', else null (Cheat disabled)
+		private IHinter getHinterFor(final Tech tech) {
+			// first-time only: setup the HINTERS map
+			if ( HINTERS.isEmpty() ) {
+				// build reverse-lookup-cache: Tech=>Hinter
+				cache = new EnumMap<>(Tech.class);
+				// add the basics to the cache, in case they're not wanted
+				cache.putAll(ls.basics);
+				// add each wanted hinter to the cache
+				for ( IHinter hinter : ls.wanted ) {
+					cache.put(hinter.getTech(), hinter);
 				}
+				// add each Cheat's hinter to HINTERS
+				// if a Cheat hinter is not in the cache then we attempt to
+				// construct our own, which fails if tech.className is null,
+				// so this Cheat is permanently and silently disabled.
+				EnumSet.allOf(Cheat.class).forEach((c) ->
+						HINTERS.put(c.tech, cached(c.tech))
+				);
+				// we're done with the cache, which is used only to
+				// construct the HINTERS, limited to Cheats. sigh.
+				cache = null;
 			}
-			return null;
+			return HINTERS.get(tech); // null means: Cheat disabled
 		}
+		// reverse-lookup-cache: Tech=>Hinter of the wantedHinters
+		private EnumMap<Tech,IHinter> cache;
 
-		// other other actual cheat method: returns other other flying thing
-		private static IHinter[] cheeters() {
-			return cheater().wantedHinters;
-		}
-
-		// other other other actual cheat method: this is getting boring
-		private static EnumMap<Tech,IHinter> chaeters() {
-			return cheater().implementations;
-		}
-
-		// nice cheat method: cheats
-		private static IHinter cheat(boolean cheat) {
-			if ( !cheat ) {
-				cheated();
+		/**
+		 * Get the hinter that implements 'tech' from the reverse-lookup-cache,
+		 * else constructHinter, which my caller adds to the HINTERS Map, even
+		 * if it's null, so we do all this ONCE, disabling any AWOL hinters.
+		 *
+		 * @param tech you want the hinter for
+		 * @return the hinter that implements 'tech', else null meaning that
+		 *  constructHinter failed, so this cheat is disabled
+		 */
+		private IHinter cached(final Tech tech) {
+			IHinter result;
+			if ( (result=cache.get(tech)) == null ) {
+				// if the hinter is not cached then attempt to construct it,
+				// which will fail if tech.className is null, returning null,
+				// so that this Cheat is permanently and silently disabled.
+				result = constructHinter(tech);
 			}
-			return null;
-		}
-
-		// self explanatory
-		private static void cheated() {
-			throw new java.lang.IllegalStateException("Insert new programmer and press any key to continue...");
+			return result;
 		}
 
 	}

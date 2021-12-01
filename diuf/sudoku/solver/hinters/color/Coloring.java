@@ -149,10 +149,11 @@ public final class Coloring extends AHinter {
 
 		boolean result;
 		try {
-			if ( accu.isSingle() )
+			if ( accu.isSingle() ) {
 				result = findSimpleColors() || findMultiColors();
-			else
+			} else {
 				result = findSimpleColors() | findMultiColors();
+			}
 		} finally {
 			this.grid = null;
 			this.idxs = null;
@@ -177,10 +178,10 @@ public final class Coloring extends AHinter {
 		AHint hint;
 		int v, numColors, i;
 		boolean any;
-		final Pots redPots = this.redPots;
-		redPots.clear();
+		final Pots reds = this.redPots;
 		// presume that no hints will be found
 		boolean result = false;
+		reds.clear();
 //find the caching problem with 160#top1465.d5.mt
 //if ( grid.source.lineNumber==160 && AHint.hintNumber==20 )
 //	Debug.breakpoint();
@@ -195,27 +196,31 @@ public final class Coloring extends AHinter {
 				// color wrap (rare): if two cells with the same color see each
 				// other, then we can remove all candidates of that color.
 				any = false;
-				if ( checkColorWrap(c1) )
-					any = redPots.addAll(c1.cellsA(grid), VSHFT[v]);
-				if ( checkColorWrap(c2) )
-					any |= redPots.addAll(c2.cellsA(grid), VSHFT[v]);
+				if ( checkColorWrap(c1) ) {
+					any = reds.addAll(c1.cellsA(grid), VSHFT[v]);
+				}
+				if ( checkColorWrap(c2) ) {
+					any |= reds.addAll(c2.cellsA(grid), VSHFT[v]);
+				}
 				if ( any ) {
 					// build the hint and add it to accu
 					hint = new ColoringHint(this, Subtype.SimpleColorWrap
-							, potsArray(v, c1, c2), v, redPots);
+							, potsArray(v, c1, c2), v, reds);
 					result = true;
-					if ( accu.add(hint) )
+					if ( accu.add(hint) ) {
 						return result;
+					}
 				} else {
 					// color trap (more common): any candidate that sees two
 					// cells of opposite colors can be removed.
-					if ( eliminate(c1, c2, v, redPots) ) {
+					if ( eliminate(c1, c2, v, reds) ) {
 						// nb: creating the hint clears the existing redPots!
 						hint = new ColoringHint(this, Subtype.SimpleColorTrap
-								, potsArray(v, c1, c2), v, redPots);
+								, potsArray(v, c1, c2), v, reds);
 						result = true;
-						if ( accu.add(hint) )
+						if ( accu.add(hint) ) {
 							return result;
+						}
 					}
 				}
 			}
@@ -231,17 +236,19 @@ public final class Coloring extends AHinter {
 	 * @param idx The Idx to examine
 	 */
 	private boolean checkColorWrap(Idx idx) {
-		Idx budsIdx;
+		Idx buds;
 		int i, j;
 		final int n=idx.size(), m=n-1;
 		final int[] indices = idx.toArrayA(); // get array ONCE
 		// foreach indice in set (except the last)
 		for ( i=0; i<m; ++i ) {
-			budsIdx = Grid.BUDDIES[indices[i]];
+			buds = Grid.BUDDIES[indices[i]];
 			// foreach subsequent indice in set
-			for ( j=i+1; j<n; ++j )
-				if ( budsIdx.has(indices[j]) )
+			for ( j=i+1; j<n; ++j ) {
+				if ( buds.has(indices[j]) ) {
 					return true;
+				}
+			}
 		}
 		return false;
 	}
@@ -258,19 +265,19 @@ public final class Coloring extends AHinter {
 	 * @param a The first set to check
 	 * @param b The second set to check
 	 * @param v the candidate value 1..9 that we seek
-	 * @param redPots a non-null Pots to which I add eliminations, if any.
+	 * @param reds a non-null Pots to which I add eliminations, if any.
 	 * @return true if any eliminated were found, else false
 	 */
-	private boolean eliminate(Idx a, Idx b, int v, Pots redPots) {
+	private boolean eliminate(final Idx a, final Idx b, final int v, final Pots reds) {
 		final Idx cmnBuds = this.cmnBuds.clear();
 		final Idx[] buds = Grid.BUDDIES;
 		final Idx vs = idxs[v];
-		// for each a, b: cmnBuds += grid.buds[a] & grid.buds[b] & idxs[v]
+		// foreach a foreach b: cmnBuds += buds[ai] & buds[bi] & idxs[v]
 		a.forEach((ai)->b.forEach((bi)->cmnBuds.orAnd(buds[ai], buds[bi], vs)));
-		if ( cmnBuds.none() )
+		if ( cmnBuds.none() ) {
 			return false;
-		final int sv = VSHFT[v];
-		cmnBuds.forEach(grid.cells, (c)->redPots.put(c, sv));
+		}
+		reds.upsertAll(cmnBuds, grid, v);
 		return true;
 	}
 	private final Idx cmnBuds = new Idx();
@@ -301,9 +308,10 @@ public final class Coloring extends AHinter {
 	 */
 	private int doColoring(final int v) {
 		// check the cache
-		if ( hintNumbers[v] == grid.hintNumber )
+		if ( hintNumbers[v] == grid.hintNumber ) {
 			// sudoku has not changed since last calculation
 			return numColorPairs[v];
+		}
 		// reset everything
 		numColorPairs[v] = 0;
 		// candidateSet is an Idx of grid.cells which maybe cand
@@ -313,11 +321,12 @@ public final class Coloring extends AHinter {
 		startSet.clear(); // we start from an empty set, then
 		// add indice of each cell in a region with 2 places for cand
 		candidateSet.forEach((i) -> {
-			for ( ARegion r : grid.cells[i].regions )
+			for ( ARegion r : grid.cells[i].regions ) {
 				if ( r.ridx[v].size == 2 ) {
 					startSet.add(i);
 					break; // first region only
 				}
+			}
 		});
 		// now do the coloring.
 		int indice;
@@ -342,8 +351,9 @@ public final class Coloring extends AHinter {
 			if ( colorSets[C1].none() || colorSets[C2].none() ) {
 				colorSets[C1].clear();
 				colorSets[C2].clear();
-			} else
+			} else {
 				++numColorPairs[v];
+			}
 		}
 		hintNumbers[v] = grid.hintNumber;
 		return numColorPairs[v];
@@ -375,13 +385,15 @@ public final class Coloring extends AHinter {
 	 */
 	private void recurse(int indice, boolean on) {
 		// give-up if there's no conjugate, or we've already done this index
-		if ( indice==-1 || !startSet.has(indice) )
+		if ( indice==-1 || !startSet.has(indice) ) {
 			return;
+		}
 		// record the color of this index
-		if ( on )
+		if ( on ) {
 			colorSets[C1].add(indice);
-		else
+		} else {
 			colorSets[C2].add(indice);
+		}
 		// remove this index from the start set
 		startSet.remove(indice);
 		// recursion: a depth first search (DFS)
@@ -414,13 +426,15 @@ public final class Coloring extends AHinter {
 	 * @return An index, if the house has only one cell left, or -1
 	 */
 	private int conjugate(int indice, ARegion r) {
-		if ( r.ridx[candidate].size != 2 )
+		if ( r.ridx[candidate].size != 2 ) {
 			return -1; // no conjugate pair, so stop coloring.
+		}
 		// return the indice of the other cell in this conjugate pair
 		conjugateSet.setAnd(candidateSet, r.idx);
 		int result = conjugateSet.poll();
-		if ( result == indice )
+		if ( result == indice ) {
 			result = conjugateSet.poll();
+		}
 		return result;
 	}
 
@@ -437,19 +451,18 @@ public final class Coloring extends AHinter {
 		AHint hint;
 		int v, numColors, i, j;
 		final Pots reds = this.redPots;
-		reds.clear();
 		boolean any;
 		// presume the no hints will be found
 		boolean result = false;
+		reds.clear();
 		// foreach value: foreach color
 		// NOTE: a->b != b->a, so check ALL combos, not just forward-only.
 		for ( v=1; v<VALUE_CEILING; ++v ) {
 			numColors = doColoring(v);
 			vSets = colors[v];
-			A_LOOP: for ( i=0; i<numColors; ++i )
-				if ( (a1=vSets[i][C1]).any()
-				  && (a2=vSets[i][C2]).any() )
-					B_LOOP: for ( j=0; j<numColors; ++j )
+			A_LOOP: for ( i=0; i<numColors; ++i ) {
+				if ( (a1=vSets[i][C1]).any() && (a2=vSets[i][C2]).any() ) {
+					B_LOOP: for ( j=0; j<numColors; ++j ) {
 						if ( j != i
 						  && (b1=vSets[j][C1]).any()
 						  && (b2=vSets[j][C2]).any()
@@ -457,64 +470,78 @@ public final class Coloring extends AHinter {
 							any = false; // nb: redPots is cleared by hint-creation
 							// first see if cells of one-color see cells of the
 							// other color, eliminating all v's of that color.
-							if ( isMultiColor1(a1, b1, b2) )
+							if ( isMultiColor1(a1, b1, b2) ) {
 								any = reds.addAll(a1.cellsA(grid), VSHFT[v]);
-							if ( isMultiColor1(a2, b1, b2) )
+							}
+							if ( isMultiColor1(a2, b1, b2) ) {
 								any |= reds.addAll(a2.cellsA(grid), VSHFT[v]);
+							}
 							if ( any ) {
 								hint = new ColoringHint(this, Subtype.MultiColor1
 										, potsArray(v, a1, a2, b1, b2), v, reds);
 								result = true;
-								if ( accu.add(hint) )
+								if ( accu.add(hint) ) {
 									return result;
+								}
 							} else {
 								// now see if two cells of different color-sets
 								// see each other. If so, then all v's seeing
 								// cells of opposite colors are eliminated
-								if ( isMultiColor2(a1, b1) )
+								if ( isMultiColor2(a1, b1) ) {
 									any = eliminate(a2, b2, v, reds);
-								if ( isMultiColor2(a1, b2) )
+								}
+								if ( isMultiColor2(a1, b2) ) {
 									any |= eliminate(a2, b1, v, reds);
-								if ( isMultiColor2(a2, b1) )
+								}
+								if ( isMultiColor2(a2, b1) ) {
 									any |= eliminate(a1, b2, v, reds);
-								if ( isMultiColor2(a2, b2) )
+								}
+								if ( isMultiColor2(a2, b2) ) {
 									any |= eliminate(a1, b1, v, reds);
+								}
 								if ( any ) {
 									hint = new ColoringHint(this, Subtype.MultiColor2
 										   , potsArray(v, a1, a2, b1, b2), v, reds);
 									result = true;
-									if ( accu.add(hint) )
+									if ( accu.add(hint) ) {
 										return result;
+									}
 								}
 							}
 						}
+					}
+				}
+			}
 		}
 		return result;
 	}
 
 	/**
-	 * Can cells in set see cells in both a and b?
+	 * Returns can cells in set see cells in both a and b?
 	 * If so, then the whole set can be eliminated.
 	 *
 	 * @param set Set to be checked
 	 * @param a First color of other color pair
 	 * @param b Second color of other color pair
-	 * @return
+	 * @return can cells in set see cells in both a and b?
 	 */
-	private boolean isMultiColor1(Idx set, Idx a, Idx b) {
+	private boolean isMultiColor1(final Idx set, final Idx a, final Idx b) {
 		// NOTE: none of the sets are empty here
 		assert !set.none() && !a.none() && !b.none();
-		Idx x; // buds doesn't fit on a line
-		// see if sets-buds intersect both a and b
+		// buds no fit on line
+		Idx x;
+		// shorthands and speed
 		final int a0=a.a0, a1=a.a1, a2=a.a2
 				, b0=b.a0, b1=b.a1, b2=b.a2;
+		// see if sets-buds intersect both a and b
 		boolean seeA=false, seeB=false;
 		for ( int i : set.toArrayA() ) {
 			x = Grid.BUDDIES[i];
 			seeA |= (x.a0 & a0)!=0 || (x.a1 & a1)!=0 || (x.a2 & a2)!=0;
 			seeB |= (x.a0 & b0)!=0 || (x.a1 & b1)!=0 || (x.a2 & b2)!=0;
-			if ( seeA && seeB )
+			if ( seeA && seeB ) {
 				return true;
+			}
 		}
 		return false;
 	}
@@ -527,14 +554,17 @@ public final class Coloring extends AHinter {
 	 * @param b Second set
 	 * @return
 	 */
-	private boolean isMultiColor2(Idx a, Idx b) {
-		if ( a.none() || b.none() )
+	private boolean isMultiColor2(final Idx a, final Idx b) {
+		if ( a.none() || b.none() ) {
 			return false;
+		}
 		final int n = a.size();
 		final int[] indices = a.toArrayA();
-		for ( int i=0; i<n; ++i )
-			if ( Grid.BUDDIES[indices[i]].andAny(b) ) // intersects
+		for ( int i=0; i<n; ++i ) {
+			if ( Grid.BUDDIES[indices[i]].intersects(b) ) {
 				return true;
+			}
+		}
 		return false;
 	}
 
@@ -547,11 +577,12 @@ public final class Coloring extends AHinter {
 	 * @param Idx... idxs a param-array of the idx's to add
 	 * @return a new array of Pots
 	 */
-	private Pots[] potsArray(int valueToRemove, Idx... idxs) {
+	private Pots[] potsArray(final int valueToRemove, final Idx... idxs) {
 		final int n = idxs.length;
-		Pots[] result = new Pots[n];
-		for ( int i=0; i<n; ++i )
+		final Pots[] result = new Pots[n];
+		for ( int i=0; i<n; ++i ) {
 			result[i] = new Pots(idxs[i].cellsA(grid), valueToRemove);
+		}
 		return result;
 	}
 

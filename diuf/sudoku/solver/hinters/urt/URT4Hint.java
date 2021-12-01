@@ -50,7 +50,7 @@ public final class URT4Hint extends AURTHint {
 			, c1.id				// 4
 			, c2.id				// 5
 			, region.id			// 6
-			, redPots.toString()// 7
+			, reds.toString()// 7
 		);
 	}
 }

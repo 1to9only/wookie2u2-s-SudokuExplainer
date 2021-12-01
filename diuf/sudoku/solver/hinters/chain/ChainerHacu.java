@@ -14,7 +14,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.accu.AppliedHintsSummaryHint;
+import diuf.sudoku.solver.accu.SummaryHint;
 import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Values.VALUESES;
 import java.util.List;
@@ -23,6 +23,7 @@ import diuf.sudoku.utils.MyLinkedList;
 import java.util.Collection;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.utils.Log;
+import java.util.Comparator;
 
 /**
  * The ChainerHintsAccumulator is used by MultipleChainer.getHinterEffects
@@ -73,13 +74,13 @@ public final class ChainerHacu implements IAccumulator {
 		if ( hint==null )
 			return false;
 		prevHint = hint;
-		if ( hint.redPots == null ) {
+		if ( hint.reds == null ) {
 			// except Summary of hint/s already applied by HintsApplicumulator
-			if ( !(hint instanceof AppliedHintsSummaryHint) )
+			if ( !(hint instanceof SummaryHint) )
 				StdErr.whingeLns(Log.me()+": null redPots in: "+hint, initGrid, currGrid);
 			return false;
 		}
-		if ( hint.redPots.isEmpty() )
+		if ( hint.reds.isEmpty() )
 			return StdErr.whinge(Log.me()+": Empty redPots in "+hint);
 		final MyLinkedList<Ass> parents; // effect Ass's parent Ass's
 		try {
@@ -96,7 +97,7 @@ public final class ChainerHacu implements IAccumulator {
 			return false;
 		}
 		boolean result = false;
-		final Pots redPots = hint.redPots;
+		final Pots redPots = hint.reds;
 		final AChainingHint nestedChain;
 		if ( hint instanceof AChainingHint )
 			nestedChain = (AChainingHint)hint;
@@ -137,7 +138,7 @@ public final class ChainerHacu implements IAccumulator {
 	}
 
 	@Override
-	public boolean hasAny() {
+	public boolean any() {
 		return !effects.isEmpty();
 	}
 
@@ -147,7 +148,7 @@ public final class ChainerHacu implements IAccumulator {
 	}
 
 	@Override
-	public void sort() {
+	public void sort(Comparator<AHint> comparator) {
 		// a no-op
 	}
 

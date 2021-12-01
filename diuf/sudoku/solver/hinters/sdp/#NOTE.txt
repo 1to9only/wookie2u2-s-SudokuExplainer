@@ -1,5 +1,6 @@
 NOTE: The package name: sdp stands for Single Digit Pattern, because these
-solving techniques all revolve around a single potential value.
+solving techniques all revolve around a single potential value. Just think of
+this as miscellaneous hinters and you won't be too far wrong.
 
 EmptyRectangle, Skyscraper and TwoStringKite are from SingleDigitPatternSolver.
 I have not copied hobiwans code, just the concepts there-in, but the concepts

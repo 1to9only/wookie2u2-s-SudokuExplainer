@@ -40,6 +40,7 @@ import diuf.sudoku.utils.MyArrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A MultipleChainer is an engine for searching a Grid for multiple and
@@ -84,7 +85,7 @@ public final class ChainerMulti extends ChainerBase
 //	*
 //	* 7.8...3.....2.1...5.........4.....263...8.......1...93.9.6....4....7.5...........
 //	* ,12,,459,4569,4569,,1456,125,49,36,3469,,3456,,467,4578,578,,1236,12346,78,346,78,269,146,129,189,,1579,3579,59,3579,178,,,,1267,1269,479,,24679,147,1457,157,268,578,2567,,2456,2467,478,,,128,,1357,,125,2358,127,1378,,12468,2368,12346,3489,,23489,,1368,1289,12468,3578,1234567,34589,1249,234589,2679,13678,12789
-//	* C:\Users\User\Documents\SodukuPuzzles\Test\DynamicPlusTest_MiaRegionReductionChain.txt
+//	* C:\Users\User\Documents\SudokuPuzzles\Test\DynamicPlusTest_MiaRegionReductionChain.txt
 //	* HINT NOT FOUND: Region Reduction Chain: 5 in box 2 so C5+9
 //	* 17703031 Region Reduction Chain: 5 in box 2 so B8+8 (B8+8 B8-236)
 //	*  8937795 Region Reduction Chain: 5 in box 2 so D5+4 (D5+4 D5-79)
@@ -121,9 +122,9 @@ public final class ChainerMulti extends ChainerBase
 	protected Grid grid;
 
 	/**
-	 * The initial (unmodified) grid used to find parent (causal) Ass's.
+	 * The initial (unmodified) grid used to find parent (causal) Assumptions.
 	 */
-	protected Grid theInitialGrid; // the initial Grid
+	protected Grid theInitialGrid;
 
 	/**
 	 * if doChains solves do you want the solution?
@@ -131,68 +132,74 @@ public final class ChainerMulti extends ChainerBase
 	private boolean turbo;
 
 	/**
-	 * The actual Constructor implementation is private. It's wrapped by the
-	 * two below public constructors to validate and provide the default
-	 * isImbedded=false.
+	 * The actual Constructor is private. It is exposed by the following public
+	 * constructor to validate and provide the default isImbedded=false.
 	 *
-	 * @param tech a Tech with isChainer==true.
-	 * @param isImbedded true ONLY when this is an imbedded (nested) Chainer.
+	 * @param tech a Tech with isChainer==true
+	 * @param basics from which, if not null, I retrieve the Four Quick Foxes
+	 *  (simple hinters whose single instances are owned by the LogicalSolver)
+	 *  else I just create my own instance of each of these hinters
+	 * @param noCache true ONLY when this is an imbedded (nested) Chainer.
 	 *  true prevents the superclass ChainerBase from caching my hints. It all
-	 *  goes straight to hell in a hand-basket when nested hinters do not
-	 *  report ALL there found hints at the time they are found, both because
-	 *  the master-chainer requires ALL hints, and because the puzzle most
-	 *  certainly WILL have changed the next-time we're called, coz the master
-	 *  chainer is testing a different assumption about a cells value. So don't
-	 *  bloody-well cache hints! If you do cache hints then bloody-well BEWARE!
+	 *  goes straight to hell in a hand-basket when nested hinters fail to vend
+	 *  ALL hints-found at the time they are found, both coz the master-chainer
+	 *  requires ALL hints, and coz the puzzle most certainly WILL have changed
+	 *  the next-time we're called, coz my master-chainer is testing another
+	 *  assumption about a cells value. So true means don't cache hints!
 	 */
 	@SuppressWarnings("fallthrough")
-	private ChainerMulti(Tech tech, boolean isImbedded, LogicalSolver solver) {
-		super(tech, isImbedded);
+	private ChainerMulti(Tech tech, Map<Tech,IHinter> basics, boolean noCache) {
+		super(tech, noCache);
 		// any chainer except unary
 		assert tech.isChainer && tech!=Tech.UnaryChain;
-		// bolt a hair-dryer on it Benny?
+		// hair-dryer?
 		turbo = THE_SETTINGS.getBoolean("turbo", false);
 		// build the hinters array
 		assert degree>=0 && degree<=5;
-		if ( degree <= 0 ) { // Unary, Nishio, Multiple, or Dynamic
+		if ( degree < 1 ) {
+			// UnaryChain, NishioChain, MultipleChain, or DynamicChain
 			this.hinters = null;
 			return;
 		}
-		// Create and populate the hinters array.
+		// DynamicPlus, NestedUnary, NestedMultiple, NestedDynamic, NestedPlus
+		// populate the hinters array.
 		this.hinters = new IHinter[numHinters(degree)];
-		// imbed the Four Quick Foxes					// ns/call
-		if ( solver != null ) {
-			// Note that we ALWAYS use a new Locking, in non-Siamese-mode!
-			hinters[0] = new Locking();
-			hinters[1] = solver.getHiddenPair();
-			hinters[2] = solver.getNakedPair();
-			hinters[3] = solver.getSwampfish();
+		// imbed the Four Quick Foxes
+		// ALWAYS use a new "standard" Locking
+		hinters[0] = new Locking();
+		// fetch the others from the LogicalSolver, if supplied
+		if ( basics != null ) {
+			hinters[1] = basics.get(Tech.HiddenPair);
+			hinters[2] = basics.get(Tech.NakedPair);
+			hinters[3] = basics.get(Tech.Swampfish);
 		} else {
-			hinters[0] = new Locking();
 			hinters[1] = new HiddenSet(Tech.HiddenPair);
 			hinters[2] = new NakedSet(Tech.NakedPair);
 			hinters[3] = new BasicFisherman(Tech.Swampfish);
 		}
-		// degree >= 2: Create the 1or2 nested (imbedded) Chainers.
-		//  reasonabls: 0 UnaryChain, NishioChain, MultipleChain, DynamicChain
-		//    possible: 1=DynamicPlus // I've never seen it NOT find a hint
-		//    advanced: 2=NestedUnary, 3=NestedMultiple
-		//experimental:	4=NestedDynamic, 5=NestedPlus
+		// create the nested (imbedded) chainers, by Tech (not degree, sigh)
+		// retaining this chart mapped by degree (sigh)
+		// 0 = UnaryChain, NishioChain, MultipleChain, DynamicChain
+		// 1 = DynamicPlus    = Dynamic with Four Quick Foxes (FQF) only
+		// 2 = NestedUnary    = Dynamic with FQF + Unary
+		// 3 = NestedMultiple = Dynamic with FQF + Unary + Multiple
+		// 4 = NestedDynamic  = Dynamic with FQF + Dynamic
+		// 5 = NestedPlus     = Dynamic with FQF + Dynamic + DynamicPlus
 		switch (tech) {
-		case DynamicPlus: // has no imbedded chainers, just the Four Quick Foxes
+		case DynamicPlus: // no imbedded chainers, just above Four Quick Foxes
 			break;
 		case NestedMultiple: // has imbedded UnaryChain + MultipleChain
-			hinters[5]=new ChainerMulti(Tech.MultipleChain, T, solver);
+			hinters[5]=new ChainerMulti(Tech.MultipleChain, basics, T);
  			//fallthrough
 		case NestedUnary: // has imbedded UnaryChain
-			hinters[4]=new ChainerUnary(T);
+			hinters[4]=new ChainerUnary(Tech.UnaryChain, T);
 			break;
 		case NestedPlus: // has imbedded DynamicChain + DynamicPlus
-			hinters[5]=new ChainerMulti(Tech.DynamicPlus, T, solver);
+			hinters[5]=new ChainerMulti(Tech.DynamicPlus, basics, T);
 			//fallthrough
 		case NestedDynamic: // has imbedded DynamicChain
-			hinters[4]=new ChainerMulti(Tech.DynamicChain, T, solver);
-			//fallout			//fallout
+			hinters[4]=new ChainerMulti(Tech.DynamicChain, basics, T);
+			//fallout
 		}
 	}
 
@@ -200,10 +207,12 @@ public final class ChainerMulti extends ChainerBase
 	 * The "basic" MultipleChainer Constructor.
 	 *
 	 * @param tech a Tech with isChainer==true.
-	 * @param solver from which I get hinters ONLY.
+	 * @param basics from which, if not null, I retrieve the Four Quick Foxes
+	 *  (simple hinters whose single instances are owned by the LogicalSolver)
+	 *  else I just create my own instance of each of these hinters
 	 */
-	public ChainerMulti(Tech tech, LogicalSolver solver) {
-		this(tech, F, solver);
+	public ChainerMulti(Tech tech, Map<Tech,IHinter> basics) {
+		this(tech, basics, F);
 		// any chainer except unary
 		assert tech.isChainer && tech!=Tech.UnaryChain;
 	}
@@ -211,15 +220,14 @@ public final class ChainerMulti extends ChainerBase
 	@Override
 	public void cleanUp() {
 		super.cleanUp();
-		// and also cleanUp my imbedded hinters (if any)
+		// cleanUp imbedded hinters
 		if ( hinters != null )
 			for ( IHinter hinter : hinters )
 				if ( hinter instanceof ICleanUp )
 					((ICleanUp)hinter).cleanUp();
-		// and forget my grid
+		// forget my grid
 		grid = null;
-		// and I can't forget my initialGrid because it's final, but I can
-		// clear it, so I will, just for completeness
+		// theInitialGrid is final, so just clear it
 		if ( theInitialGrid != null )
 			theInitialGrid.clear();
 	}
@@ -366,13 +374,12 @@ public final class ChainerMulti extends ChainerBase
 				doBinaryReductions = doReduction && card>2; // Why the card>2?
 				doCellReductions = !isNishio && (card==2 || (isMultiple && card>2));
 				cellOns = cellOffs = null;
-				// foreach value of this cell (we know there's 2 or more)
-				// NOTE: VALUESES[cell.maybes.bits] is an array we iterate, so
-				// when cell.maybes.bits is modified by doChains "erase" the
-				// iteration is not effected.
-				// This behaviour is MANDATORY for algorithmic correctness.
-				final int cellMaybes = cell.maybes;
-				for ( int v : VALUESES[cellMaybes] ) {
+				// foreach INITIAL maybe of this cell (there must be 2+).
+				// NOTE: VALUESES[cell.maybes] is set BEFORE we iterate,
+				// so doChains "erase" does NOT effect the iteration,
+				// and hence we iterate each INITIAL maybe of this cell,
+				// as required for algorithmic correctness!
+				for ( int v : VALUESES[cell.maybes] ) {
 					// do binary chaining: contradictions and reductions
 					// contradition: the initialAss causes a cell to be both on
 					// and off, which is absurd, so the initialAss is wrong.
@@ -665,9 +672,9 @@ public final class ChainerMulti extends ChainerBase
 		Ass a; // the current Assumption
 		boolean noOns, noOffs; // is rgnOns/Offs empty?
 		for ( ARegion r : cell.regions ) { // Box, Row, Col of this cell
-			// Is this region worth looking at?
-			// does this region have 2 (or-more if isMultiple) positions for
-			// the value of the initial assumption?
+			// Each region is examined ONCE, so is r worth looking at?
+			// does r have 2 (or-more if isMultiple) positions for the value of
+			// the initial assumption?
 			// WARN: we need a copy of idxsOf[v] (ie riv) because the doChains
 			// method erases them when isDynamic. We also want an array (riv)
 			// instead of a bitset, so that works out rather nicely.
@@ -807,7 +814,7 @@ public final class ChainerMulti extends ChainerBase
 			offQ.add(anAss);
 		}
 
-//		//C:\Users\User\Documents\SodukuPuzzles\Test\DynamicPlusTest_MiaRegionReductionChain.txt
+//		//C:\Users\User\Documents\SudokuPuzzles\Test\DynamicPlusTest_MiaRegionReductionChain.txt
 //		//MIA: DynamicPlusTest: Region Reduction Chain: 5 in box 2 so C5+9
 //		if ( WATCH_GRID
 //		  && diuf.sudoku.Run.type == diuf.sudoku.Run.Type.GUI // only in the GUI!
@@ -1102,8 +1109,8 @@ public final class ChainerMulti extends ChainerBase
 		// we only "erase" assumptions when isDynamic, so that we can
 		// comeback later and play "Who's your daddy".
 		// called 9,102,331 times in top1465
-		final int initBits = theInitialGrid.cells[cell.i].maybes;
-		final int currBits = grid.cells[cell.i].maybes;
+		final int initBits = theInitialGrid.maybes[cell.i];
+		final int currBits = grid.maybes[cell.i];
 		if ( currBits != initBits ) {
 			// foreach value of cell that has been removed
 			Ass p; // parent
@@ -1143,7 +1150,7 @@ public final class ChainerMulti extends ChainerBase
 		}
 	}
 
-////RETAIN for debugging: GridWatchHint
+////RETAIN for debugging: GridWatchHint is called GWH for brevity
 //	private static class GWH extends diuf.sudoku.solver.AHint {
 //
 //		private static final diuf.sudoku.solver.hinters.AHinter DUMMY_HINTER
@@ -1194,7 +1201,7 @@ public final class ChainerMulti extends ChainerBase
 //
 //		@Override
 //		protected int applyImpl(boolean isAutosolving, Grid grid) {
-//			return 0; // I'm a Do nothing DEAD_CAT
+//			return 0; // I'm a Do nothing deadCat
 //		}
 //
 //		@Override

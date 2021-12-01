@@ -6,23 +6,29 @@
  */
 package diuf.sudoku;
 
+import static diuf.sudoku.Grid.CELL_IDS;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.utils.Frmt.MINUS;
 
 
 /** A link between two potential values (candidates) of two cells. */
 public final class Link {
 
-	public final Cell srcCell;  public final int srcValue;
-	public final Cell endCell;  public final int endValue;
+	public final int srcIndice;  public final int srcValue;
+	public final int endIndice;  public final int endValue;
 
 	public Link(Ass src, Ass dst) {
-		this.srcCell = src.cell;  this.srcValue = src.value;
-		this.endCell = dst.cell;  this.endValue = dst.value;
+		this.srcIndice = src.cell.i;  this.srcValue = src.value;
+		this.endIndice = dst.cell.i;  this.endValue = dst.value;
 	}
 
 	public Link(Cell srcCell, int srcValue, Cell dstCell, int dstValue) {
-		this.srcCell = srcCell;  this.srcValue = srcValue;
-		this.endCell = dstCell;  this.endValue = dstValue;
+		this.srcIndice = srcCell.i;  this.srcValue = srcValue;
+		this.endIndice = dstCell.i;  this.endValue = dstValue;
+	}
+	public Link(int srcIndice, int srcValue, int dstIndice, int dstValue) {
+		this.srcIndice = srcIndice;  this.srcValue = srcValue;
+		this.endIndice = dstIndice;  this.endValue = dstValue;
 	}
 
 	@Override
@@ -34,16 +40,16 @@ public final class Link {
 	public boolean equals(Link that) {
 		return srcValue == that.srcValue
 			&& endValue == that.endValue
-			&& srcCell.hashCode == that.srcCell.hashCode
-			&& endCell.hashCode == that.endCell.hashCode;
+			&& srcIndice == that.srcIndice
+			&& endIndice == that.endIndice;
 	}
 
 	@Override
 	public int hashCode() {
 		if ( hashCode == 0 ) {
-			int h = srcCell.hashCode;
+			int h = srcIndice;
 			h = (h<<4) + srcValue;
-			h = (h<<8) + endCell.hashCode;
+			h = (h<<8) + endIndice;
 			h = (h<<4) + endValue;
 			hashCode = h;
 		}
@@ -53,8 +59,8 @@ public final class Link {
 
 	@Override
 	public String toString() {
-		// to build links statement in test-case from error message
-		return "\""+srcCell.id+"\""; 
-		//return srcCell.id+MINUS+srcValue+"==>"+endCell.id+MINUS+endValue;
+// to build links statement in test-case from error message
+//		return "\""+CELL_IDS[srcIndice]+"\""; 
+		return CELL_IDS[srcIndice]+MINUS+srcValue+"->"+CELL_IDS[endIndice]+MINUS+endValue;
 	}
 }

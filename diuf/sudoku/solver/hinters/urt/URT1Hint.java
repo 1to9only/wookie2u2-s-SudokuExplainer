@@ -37,7 +37,7 @@ public final class URT1Hint extends AURTHint {
 			, v2				// 2
 			, Frmu.csv(loop)	// 3
 			, target.id			// 4
-			, redPots.toString()// 5
+			, reds.toString()// 5
 		);
 	}
 }

@@ -10,11 +10,8 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.ADirectHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
-import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.ON;
-
 
 /**
  * A NakedSingleHint is the data-structure representing a naked single hint.

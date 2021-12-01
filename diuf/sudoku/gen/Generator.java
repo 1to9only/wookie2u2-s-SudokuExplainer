@@ -16,33 +16,37 @@ import diuf.sudoku.gui.GenerateDialog;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.checks.SingleSolution;
+import diuf.sudoku.solver.checks.BruteForce;
 import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.Log;
 import java.util.Random;
 
-
 /**
- * The Generator generates new Sudoku puzzles in conjunction with a fast
- * (brute-force) SingleSolution and a slower (but still reasonably fast)
- * LogicalSolver.
+ * The Generator generates new Sudoku puzzles.
  * <p>
  * The generated puzzles are cached in a file so that the user need only wait
  * for the puzzle to analyse, not generate. The background generator must wait
  * for the foreground analyse to complete before it generates a replacement to
- * refill the cache. If you stop the generator then the cache remains incomplete
+ * refill the cache. If you stop the generator then da cache remains incomplete
  * and will persist in that state, so the next time you press generate you must
  * wait for generation and analyse. Swings and round-a-bouts.
  * <p>
- * I can only offer my humble apologies for the insane complexity of this code.
- * It was not designed; more cobbled together stage by stage, adding new
- * requirements such as caching as I went along, hence someone with a much
- * higher IQ than I could conceivably look at the current requirements and
- * reverse engineer a MUCH simpler solution to this set of problems using the
- * latest and greatest libraries and what-not. This is JUST my humble attempt,
- * not an example to be followed. I'm no multi-threading expert, and it shows.
- * I'm also bright enough to not take myself too seriously, and I encourage you
- * to do likewise.
+ * Generating a new IDKFA puzzle can take an indeterminate time, ie ages. The
+ * longest I've seen was seven minutes, but that was bloody unlucky. I noticed
+ * that all IDKFA's used Symmetry.NONE, so now only NONE is used to generate
+ * IDKFA's, so if it ever takes that long again you've been really unlucky. It
+ * should take a few minutes, tops.
+ * <p>
+ * Patience is a virtue, but I am unvirtuous, so I cache generated puzzles.
+ * I hope that Mr User solves each puzzle generated, giving adequate time to
+ * generate a replacement, in the background. Mr Thick hammers the generate
+ * button, killing and restarting generate. Intelligence is also a virtue.
+ * <p>
+ * I apologise for the complexity of this code. I'm a multi-threading noob,
+ * which I imagine shows. This code wasn't designed, just hacked together,
+ * adding new requirements such as caching as I went along. It is entirely
+ * conceivable that a simpler solution is possible. This is just my humble
+ * attempt, not an example to be followed.
  */
 public final class Generator {
 
@@ -54,9 +58,11 @@ public final class Generator {
 	// most folks won't wait this long.
 	private static final int MAX_TRIES = 4096;
 
-	// an arbitrary small number of UsolvableExceptions are acceptable,
-	// but too many indicate that an IHinter is broken.
-	private static final int MAX_FAILURES = 256;
+	// an arbitrary number of UsolvableExceptions are acceptable, but too many
+	// means one of the Four Quick Foxes is most-probably broken; either that
+	// or you've broken BruteForce; or you caught UnsolvableException as
+	// Exception and rethrown it, when the intended catch needs UnsolvableEx.
+	private static final int MAX_FAILURES = 512;
 
 	// NN is the number of cells in a grid: 9*9 = 81.
 	private static final int N = REGION_SIZE;
@@ -105,15 +111,14 @@ public final class Generator {
 		return null;
 	}
 
-	// my cache of generated puzzles
-	private final PuzzleCache cache;
+	// my analyser generates random puzzles
+	private final BruteForce analyser;
 
-	// my logicalSolver used to determine the difficulty of each puzzle
+	// my logicalSolver determines each puzzles difficulty
 	private final LogicalSolver solver;
 
-	// my recursiveAnalyser because I'm awkward and difficult and demanding,
-	// both of myself and the poeple around me.
-	private final SingleSolution analyser;
+	// my cache of generated puzzles
+	private final PuzzleCache cache;
 
 	public static Generator getInstance() {
 		if ( theInstance == null )
@@ -123,9 +128,9 @@ public final class Generator {
 	private static Generator theInstance;
 
 	private Generator() {
-		this.cache = new PuzzleCache();
 		this.solver = LogicalSolverFactory.get();
-		this.analyser = new SingleSolution(solver);
+		this.analyser = new BruteForce(solver.getBasicHinters());
+		this.cache = new PuzzleCache();
 	}
 
 	/** The "Stop" button stops generate.*/
@@ -157,6 +162,7 @@ public final class Generator {
 	 * @return the generated grid.
 	 */
 	public Grid cachedGenerate(Symmetry[] syms, Difficulty diff, boolean isExact) {
+		// cache's before calling-back my generate method.
 		return cache.generate(syms, diff, isExact);
 	}
 
@@ -164,11 +170,14 @@ public final class Generator {
 	// a new Sudoku puzzle. It sticks each generated puzzle in the cache, and
 	// keeps going until it hits one of the desired Difficulty. This can take
 	// a while (10 minutes), so the puzzle cache is worth the hastle.
-	Grid generate(final PuzzleCache cache, final Symmetry[] syms
+	// BUG: Sometimes generate IDKFA produces a Diabolical coz the actual hint
+	// difficulties of the two Difficulty's overlap, coz da actual diff grows,
+	// but it is still compared as if it were a "base" difficulty. sigh.
+	Grid generate(final PuzzleCache cache, final Symmetry[] symmetries
 			, final Difficulty target, final boolean isExact) {
 		// one does NOT do null!
 		assert cache != null;
-		assert syms != null;
+		assert symmetries != null;
 		assert target != null;
 		Run.Type prevRunType = Run.setRunType(Run.Type.Generator);
 		Run.stopGenerate = false; // reset from last-time
@@ -177,15 +186,15 @@ public final class Generator {
 			double d;
 			Difficulty difficulty;
 			// Diabolical+ are too slow with anything but Symmetry.None
-			final boolean tiny = target.ordinal() < Difficulty.Diabolical.ordinal();
-			final Symmetry[] mySyms = tiny ? syms : null;
-			Symmetry sym = tiny ? null : Symmetry.None;
+			final boolean small = target.ordinal() < Difficulty.Diabolical.ordinal();
+			final Symmetry[] syms = small ? symmetries : null;
+			Symmetry sym = small ? null : Symmetry.None;
 			final double minD = isExact ? target.min : 0.0D;
 			final double maxD = target.max;
 			assert minD < maxD; // maxD is exclusive, so they can't be equal
-			final int n = mySyms!=null ? mySyms.length : 1;
+			final int n = small ? syms.length : 1;
 			Random rnd = new Random();
-			int analyseFailures = 0;
+			int failures = 0; // number of analyse-failures
 			int tries = MAX_TRIES + 1;
 			int i = rnd.nextInt(n);
 			for (;;) {
@@ -195,8 +204,8 @@ public final class Generator {
 					puzzle = null;
 					break; // interrupted
 				}
-				if ( mySyms != null )
-					sym = mySyms[i=(i+1)%n];
+				if ( small )
+					sym = syms[i=(i+1)%n];
 				puzzle = strip(rnd, analyser.buildRandomPuzzle(rnd), sym);
 				if ( puzzle == null ) {
 					break; // strip interrupted, or puzzle completely rooted
@@ -214,27 +223,24 @@ public final class Generator {
 					if (Log.MODE >= Log.NORMAL_MODE) {
 						System.out.format("%4d\t%-20s\t%4.2f %-10s\t%s%s", tries, sym, d, difficulty, puzzle.toShortString(), NL);
 					}
-					if ( d>=minD && d<=maxD ) // puzzle is pre-set
+					if ( d>=minD && d<=maxD ) { // puzzle is pre-set
 						break;
+					}
 				} catch (UnsolvableException ex) {
-					++analyseFailures;
-// Silence UNLESS you've got a bug. Never TELL the user you're incompetent,
-// let them figure it out for themselves!
-//						System.out.println(puzzle);
-//						System.out.println("WARN: "+analyseFailures+": "+ex);
-//						System.out.flush();
-//						ex.printStackTrace(System.out);
-					if ( analyseFailures > MAX_FAILURES ) {
+//// Silence: I Kill You! Don't tell the user you're incompetent, let them figure it out for themselves!
+//					++analyseFailures; // remove the below ++
+//					System.out.println(puzzle);
+//					System.out.println("WARN: "+analyseFailures+": "+ex);
+//					System.out.flush();
+//					ex.printStackTrace(System.out);
+					if ( ++failures > MAX_FAILURES ) {
 						Log.teeln(Log.me()+": GIVE-UP: "+MAX_FAILURES+" exceeded");
 						puzzle = null;
 						break;
 					}
 				}
-// WTF: it generates MANY more IDKFA's if you replace Random EVERY time!
-// And some days seem to generate MANY more than others: as if there where
-// flat-spots in randoms tables or something: octagonal-orthoginals. sigh.
-//				if ( tries % 16 == 0 )
-					rnd = new Random();
+				// recreate each time to generate more IDKFA's
+				rnd = new Random();
 			}
 		} finally {
 			Run.type = prevRunType;

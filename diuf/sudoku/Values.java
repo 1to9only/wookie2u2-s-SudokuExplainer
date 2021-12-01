@@ -98,8 +98,8 @@ public final class Values implements Iterable<Integer> {
 	}
 
 	/**
-	 * An array of jagged-arrays of all the possible maybes, as left-shifted
-	 * bitset values.
+	 * An array of bitset values. More formally, I'm an array of jagged-arrays
+	 * of all the possible maybes, as left-shifted bitset values.
 	 * First index is your maybes, which is a bitset, ie 0..511.
 	 * The second index depends on the number of maybes, between 0 and 9.
 	 * <p>
@@ -205,7 +205,8 @@ public final class Values implements Iterable<Integer> {
 			VSIZE[i] = (VALUESES[i]=toValuesArrayNew(i)).length;
 	}
 
-	// clone Indexes.IFIRST and then add 1 to each element
+	// The magnitude of the lowest order set bit in each bitset + 1.
+	// A clone of Indexes.IFIRST with 1 added to each element.
 	public static final int[] VFIRST = Indexes.IFIRST.clone();
 	static {
 		for ( int i=0; i<VFIRST.length; ++i )
@@ -213,15 +214,15 @@ public final class Values implements Iterable<Integer> {
 	}
 
 	/** The minimum value storable in this 1-based Values Set is 1. */
-	private static final int MIN = 1;
+	private static final int MIN_VALUE = 1;
 	/** The maximum value storable in this Values Set plus 1 is 10. */
-	private static final int MAX = 10;
+	private static final int VALUE_CEILING = 10;
 
 	/** The number of all values: 9 */
-	public static final int VALL_SIZE = MAX-1;
+	public static final int VALL_SIZE = VALUE_CEILING-1;
 
-	// Note that ALL_BITS also works for Indexes. It's just 9 (1) bits,
-	// regardless of whether those bits represent 1..9 or 0..8.
+	// VALL also works for Indexes: VALL is just 9 (1) bits, regardless of
+	// whether those bits represent 1..9 (Values) or 0..8 (Indexes).
 	/** The bits of all values (1,2,3,4,5,6,7,8,9) == 111,111,111 == 511 */
 	public static final int VALL = (1<<VALL_SIZE)-1;
 
@@ -230,10 +231,10 @@ public final class Values implements Iterable<Integer> {
 	 * value of 1, as you'd expect. Ie: without 0 in the array you'd have to do
 	 * SHFT[value-1] instead of just SHFT[value], which'd suck even more than
 	 * this small brown lump of ____. */
-	public static final int[] VSHFT = new int[MAX]; // 10
+	public static final int[] VSHFT = new int[VALUE_CEILING]; // 10
 	/** An array of "negated" bitset-values (faster than ~(1&lt;&lt;v-1)) */
 	static {
-		for ( int v=MIN; v<MAX; ++v )
+		for ( int v=MIN_VALUE; v<VALUE_CEILING; ++v )
 			VSHFT[v] = 1<<v-1;
 	}
 
@@ -265,6 +266,13 @@ public final class Values implements Iterable<Integer> {
 		return new Values(0, 0, false);
 	}
 
+	/**
+	 * Return a new Values containing elements in 'a' plus elements in 'b'.
+	 *
+	 * @param a first Values
+	 * @param b second Values
+	 * @return a new Values containing 'a' | 'b'
+	 */
 	public static Values newOr(Values a, Values b) {
 		return new Values(a.bits|b.bits, false);
 	}
@@ -285,6 +293,27 @@ public final class Values implements Iterable<Integer> {
 		return result;
 	}
 
+	/**
+	 * Return a new array of plain (unshifted) values of these 'n' 'cands'.
+	 *
+	 * @param cands an array of bitsets
+	 * @param n number of cands in cands
+	 * @return a new array of {@code VFIRST[cands[i]]} of each
+	 */
+	public static int[] toValues(final int[] cands, final int n) {
+		int[] result = new int[n];
+		for ( int i=0; i<n; ++i ) {
+			result[i] = VFIRST[cands[i]];
+		}
+		return result;
+	}
+
+	/**
+	 * Return a bitset of candidates in 's'.
+	 *
+	 * @param s to parse
+	 * @return a bitset of candidates in 's'.
+	 */
 	public static int parse(String s) {
 		int bitset = 0;
 		for ( int i=0,n=s.length(); i<n; ++i )
@@ -735,8 +764,8 @@ public final class Values implements Iterable<Integer> {
 	 * @param v 1..10: is presumed be a value that is in this set
 	 * @return next missing value */
 	public int next0(int v) {
-		assert v>0 && v<=MAX; // nb MAX is invalid but allowed
-		for ( int z=v; z<MAX; ++z )
+		assert v>0 && v<=VALUE_CEILING; // nb MAX is invalid but allowed
+		for ( int z=v; z<VALUE_CEILING; ++z )
 			if ( (bits & VSHFT[z]) == 0 )
 				return z;
 		return NONE;
@@ -808,7 +837,7 @@ public final class Values implements Iterable<Integer> {
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ toString & friends ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	private static final StringBuilder SB = new StringBuilder(3*MAX+5);
+	private static final StringBuilder SB = new StringBuilder(3*VALUE_CEILING+5);
 
 	/** Appends the string representation of bits (a Values bitset) to the
 	 * given StringBuilder, in "plain format". EG: "1389"
@@ -875,31 +904,6 @@ public final class Values implements Iterable<Integer> {
 			, "0000", "000", "00", "0", ""
 	};
 
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Frmt methods ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-	/** only used in watch expressions on Aligned*Exclusion. */
-	public static String csv(boolean dummy, int... svs) {
-		return csv(0L, svs.length, svs);
-	}
-
-	/** only used in watch expressions on Aligned*Exclusion. */
-	public static String csv(long dummy, int n, int[] svs) {
-		if(n==0) return MINUS;
-		SB.setLength(0);
-		Values.appendTo(SB, svs[0]);
-		for (int i=1; i<n; ++i) {
-			SB.append(COMMA_SP);
-			Values.appendTo(SB, svs[i]);
-		}
-		return SB.toString();
-	}
-
-	public static String or(int bits) { return toString(bits, COMMA_SP, OR); }
-	public static String and(int bits) { return toString(bits, COMMA_SP, AND); }
-	public static String csv(int bits) { return toString(bits, COMMA_SP, COMMA_SP); }
-	public static String ssv(int bits) { return toString(bits, SPACE, SPACE); }
-	public static String plain(int bits) { return toString(bits, EMPTY_STRING, EMPTY_STRING); }
-
 	public static String and(Collection<Integer> c) {
 		if(c==null) return NULL_ST;
 		SB.setLength(0);
@@ -908,13 +912,18 @@ public final class Values implements Iterable<Integer> {
 		for ( Integer value : c ) {
 			if ( ++i > 1 )
 				if ( i<m )
-					SB.append(COMMA_SP);
+					SB.append(CSP);
 				else
 					SB.append(AND);
 			SB.append(Integer.toString(value));
 		}
 		return SB.toString();
 	}
+
+	public static String orString(int bits) { return toString(bits, CSP, OR); }
+	public static String andString(int bits) { return toString(bits, CSP, AND); }
+	public static String csv(int bits) { return toString(bits, CSP, CSP); }
+	public static String ssv(int bits) { return toString(bits, SP, SP); }
 
 	/**
 	 * A fancy (with field separators) toString for displaying Values in hints.
@@ -929,7 +938,7 @@ public final class Values implements Iterable<Integer> {
 		SB.setLength(0);
 		final int[] values = VALUESES[bits];
 		final int n = values.length;
-		int i = 0; // a 1 based index
+		int i = 0;
 		for ( int v : values ) {
 			if ( ++i > 1 )
 				if ( i < n )
@@ -957,16 +966,6 @@ public final class Values implements Iterable<Integer> {
 				SB.append(v);
 		}
 		return SB.toString();
-	}
-
-	/**
-	 * andString: Format bits into an and list: "1, 2 and 3".
-	 * @param bits your Values.bits (called maybes, bitset, or just bits) to
-	 *  format
-	 * @return 7 => "1, 2, and 3"
-	 */
-	public static String andS(int bits) {
-		return Values.toString(bits, Frmt.COMMA_SP, Frmt.AND);
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ plumbing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

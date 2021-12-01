@@ -13,6 +13,7 @@ import static diuf.sudoku.Grid.COL;
 import static diuf.sudoku.Grid.NUM_REGIONS;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Grid.ROW;
+import static diuf.sudoku.Idx.IDX_SHFT;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.utils.Frmu;
@@ -23,8 +24,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
 import java.util.NoSuchElementException;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 
 /**
@@ -60,7 +61,7 @@ public final class Regions {
 		return regions;
 	}
 
-	// I've given up and I'm doing a varargs call. This method is non-performant!
+	// it's just faster to not do a varargs call unless you have/want to
 	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4) {
 		ArrayList<ARegion> result = new ArrayList<>(4);
 		result.add(r1);
@@ -70,7 +71,7 @@ public final class Regions {
 		return result;
 	}
 
-	// I give up. Wear a varargs call. This method is non-performant!
+	// it's just faster to not do a varargs call unless you have/want to
 	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion r5) {
 		ArrayList<ARegion> result = new ArrayList<>(5);
 		result.add(r1);
@@ -81,34 +82,40 @@ public final class Regions {
 		return result;
 	}
 
-	// I give up. Wear a varargs call. This method is non-performant!
-	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion r5, ARegion... extraRegions) {
-		ArrayList<ARegion> result = new ArrayList<>(4+extraRegions.length);
+	// I give up and do a varargs call, which is a bit slower.
+	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion r5, ARegion... others) {
+		ArrayList<ARegion> result = new ArrayList<>(5+others.length);
 		result.add(r1);
 		result.add(r2);
 		result.add(r3);
 		result.add(r4);
 		result.add(r5);
-		for ( ARegion r : extraRegions )
+		for ( ARegion r : others )
 			result.add(r);
 		return result;
 	}
 
-	// a new java.util.ArrayList<ARegion> of an existing array, not the shit
+	// a new java.util.ArrayList<ARegion> of an existing array, not the crap
 	// local-ArrayList returned by Arrays.asList, which isn't comparable.
-	public static ArrayList<ARegion> list(ARegion[] regions) {
-		ArrayList<ARegion> result = new ArrayList<>(regions.length);
+	public static ArrayList<ARegion> list(final ARegion[] regions) {
+		return list(regions, new ArrayList<>(regions.length));
+	}
+
+	public static ArrayList<ARegion> list(final ARegion[] regions, final ArrayList<ARegion> result) {
 		for ( ARegion r : regions )
 			result.add(r);
 		return result;
 	}
 
-	public static ArrayList<ARegion> list(int size, ARegion[] regions, int indexes) {
+	public static ArrayList<ARegion> list(final int size, final ARegion[] regions, final int indexes) {
 		return list(size, regions, INDEXES[indexes]);
 	}
 
-	public static ArrayList<ARegion> list(int size, ARegion[] regions, int[] indexes) {
-		ArrayList<ARegion> result = new ArrayList<>(size);
+	public static ArrayList<ARegion> list(final int size, final ARegion[] regions, final int[] indexes) {
+		return list(size, regions, indexes, new ArrayList<>(size));
+	}
+
+	public static ArrayList<ARegion> list(final int size, final ARegion[] regions, final int[] indexes, final ArrayList<ARegion> result) {
 		for ( int i : indexes )
 			result.add(regions[i]);
 		return result;
@@ -243,7 +250,7 @@ public final class Regions {
 	// parse "row 1, row 3, row 6" into a "used" boolean array
 	public static boolean[] used(String used) {
 		final boolean[] result = new boolean[NUM_REGIONS];
-		for ( String rid : used.split(COMMA_SP) )
+		for ( String rid : used.split(CSP) )
 			result[Grid.regionIndex(rid)] = true;
 		return result;
 	}
@@ -298,7 +305,7 @@ public final class Regions {
 		final StringBuilder sb = new StringBuilder(n*6);
 		sb.append(regions[0].id);
 		for ( int i=1; i<n; ++i )
-			sb.append(COMMA_SP).append(regions[i].id);
+			sb.append(CSP).append(regions[i].id);
 		return sb.toString();
 	}
 
@@ -370,9 +377,9 @@ public final class Regions {
 		}
 		// add the common regions to result
 		int result = 0;
-		if (box != null) { result |= Idx.SHFT[box.index]; }
-		if (row != null) { result |= Idx.SHFT[row.index]; }
-		if (col != null) { result |= Idx.SHFT[col.index]; }
+		if (box != null) { result |= IDX_SHFT[box.index]; }
+		if (row != null) { result |= IDX_SHFT[row.index]; }
+		if (col != null) { result |= IDX_SHFT[col.index]; }
 		return result;
 	}
 	public static int common(Cell[] cells) {
@@ -390,9 +397,9 @@ public final class Regions {
 		}
 		// add the common regions to result
 		int result = 0;
-		if (box != null) { result |= Idx.SHFT[box.index]; }
-		if (row != null) { result |= Idx.SHFT[row.index]; }
-		if (col != null) { result |= Idx.SHFT[col.index]; }
+		if (box != null) { result |= IDX_SHFT[box.index]; }
+		if (row != null) { result |= IDX_SHFT[row.index]; }
+		if (col != null) { result |= IDX_SHFT[col.index]; }
 		return result;
 	}
 
@@ -417,7 +424,7 @@ public final class Regions {
 			final int crs = common(cells); // bitset of commonRegions indexes
 			if ( Integer.bitCount(crs) == 2 ) {
 				ocr = region.getGrid().regions[Integer.numberOfTrailingZeros(
-						crs & ~Idx.SHFT[region.index])];
+						crs & ~IDX_SHFT[region.index])];
 			}
 		}
 		return ocr;
@@ -444,17 +451,29 @@ public final class Regions {
 			final int crs = common(cells); // bitset of commonRegions indexes
 			if ( Integer.bitCount(crs) == 2 ) {
 				ocr = region.getGrid().regions[Integer.numberOfTrailingZeros(
-						crs & ~Idx.SHFT[region.index])];
+						crs & ~IDX_SHFT[region.index])];
 			}
 		}
 		return ocr;
 	}
 
+	// return do 'cells' 1..'n' have regions['rti']=='r'
+	// called by the commonN method (below)
+	private static boolean same(final ARegion r, final Cell[] cells
+			, final int n, final int rti) {
+		for ( int i=1; i<n; ++i ) {
+			if ( cells[i].regions[rti] != r ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/**
-	 * Populate 'result' with the regions common to the first 'n' 'cells',
-	 * and return how many: 1 or 2. The intent is that if there weren't atleast
-	 * one common region you would not call me, because that would be a silly
-	 * waste of time, but if there are no common regions then 0 is returned and
+	 * Populate 'result' with the regions common to the first 'n' 'cells', and
+	 * return how many: 1 or 2. The intent is that if there weren't atleast one
+	 * common region you would not call me, because that would be a silly waste
+	 * of time, but if there are no common regions then 0 is returned and
 	 * result is not modified. I am called on ALS's, of upto 8 cells.
 	 * <p>
 	 * I also handle n==1 (result is all three regions), but not tested.
@@ -471,50 +490,102 @@ public final class Regions {
 	public static int commonN(final Cell[] cells, final int n, final ARegion[] result) {
 		if ( cells==null || n<1 )
 			return 0;
+		final Cell a = cells[0];
 		switch ( n ) {
 			case 2: {
 				// there are many 2-cell ALSs which can be handled more
 				// efficiently, which I hope will prove faster overall.
-				final Cell first = cells[0], second = cells[1];
+				final Cell b = cells[1];
 				int cnt = 0;
-				if(first.box == second.box) { result[cnt++] = first.box; }
-				if(first.row == second.row) { result[cnt++] = first.row; }
-				if(first.col == second.col) { result[cnt++] = first.row; }
+				if(a.box == b.box) { result[cnt++] = a.box; }
+				if(a.row == b.row) { result[cnt++] = a.row; }
+				if(a.col == b.col) { result[cnt++] = a.row; }
 				return cnt;
 			}
 			case 1: {
 				// just in case I'm ever called with n == 1
-				final Cell first = cells[0];
-				result[0] = first.box;
-				result[1] = first.row;
-				result[2] = first.col; // ARegion[3] is your responsibility!
+				result[0] = a.box;
+				result[1] = a.row;
+				result[2] = a.col; // ARegion[3] is your responsibility!
 				return 3;
 			}
 			default: { // n is 3 or more
-				final Cell first = cells[0];
-				ARegion box=first.box, row=first.row, col=first.col;
-				for ( int i=1; i<n; ++i )
-					if ( cells[i].box != box ) {
-						box = null;
-						break;
-					}
-				for ( int i=1; i<n; ++i )
-					if ( cells[i].row != row ) {
-						row = null;
-						break;
-					}
-				for ( int i=1; i<n; ++i )
-					if ( cells[i].col != col ) {
-						col = null;
-						break;
-					}
 				// add the common regions to result
 				int cnt = 0;
-				if(box!=null) result[cnt++] = box;
-				if(row!=null) result[cnt++] = row;
-				if(col!=null) result[cnt++] = col;
+				if(same(a.box, cells, n, BOX)) result[cnt++] = a.box;
+				if(same(a.row, cells, n, ROW)) result[cnt++] = a.row;
+				if(same(a.col, cells, n, COL)) result[cnt++] = a.col;
 				// return how many
 				return cnt;
+			}
+		}
+	}
+
+	/**
+	 * How many common regions to these 'n' 'cells' share?
+	 * I don't retrieve the common regions, just count them, for speed.
+	 *
+	 * @param cells a fixed-size cells array
+	 * @param n the number of cells to compare
+	 * @return the result
+	 */
+	public static int commonCount(final Cell[] cells, final int n) {
+		if ( cells==null || n<1 )
+			return 0;
+		final Cell a = cells[0];
+		switch ( n ) {
+			case 2: {
+				// there are many 2-cell ALSs which can be handled more
+				// efficiently, which I hope will prove faster overall.
+				final Cell b = cells[1];
+				int cnt = 0;
+				if(a.box == b.box) { cnt++; }
+				if(a.row == b.row) { cnt++; }
+				if(a.col == b.col) { cnt++; }
+				return cnt;
+			}
+			case 1: {
+				// just in case I'm ever called with n == 1
+				return 3;
+			}
+			default: { // n is 3 or more
+				int cnt = 0;
+				if(same(a.box, cells, n, BOX)) cnt++;
+				if(same(a.row, cells, n, ROW)) cnt++;
+				if(same(a.col, cells, n, COL)) cnt++;
+				return cnt;
+			}
+		}
+	}
+
+	/**
+	 * Do these 'n' 'cells' share any common regions?
+	 *
+	 * @param cells a fixed-size cells array
+	 * @param n the number of cells to compare
+	 * @return the result
+	 */
+	public static boolean anyCommon(final Cell[] cells, final int n) {
+		if ( cells==null || n<1 )
+			return false;
+		final Cell a = cells[0];
+		switch ( n ) {
+			case 2: {
+				// there are many 2-cell ALSs which can be handled more
+				// efficiently, which I hope will prove faster overall.
+				final Cell b = cells[1];
+				if(a.box == b.box) return true;
+				if(a.row == b.row) return true;
+				return a.col == b.col;
+			}
+			case 1: {
+				// just in case I'm ever called with n == 1
+				return true;
+			}
+			default: { // n is 3 or more
+				if(same(a.box, cells, n, BOX)) return true;
+				if(same(a.row, cells, n, ROW)) return true;
+				return same(a.col, cells, n, COL);
 			}
 		}
 	}

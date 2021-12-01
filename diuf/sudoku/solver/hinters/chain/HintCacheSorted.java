@@ -48,7 +48,7 @@ public final class HintCacheSorted extends TreeSet<AHint> implements HintCache {
 			while ( (cached=super.pollFirst()) != null ) {
 				// if the cached hint is still "fresh" then return it,
 				// otherwise throw away this "gone off" hint.
-				if ( cached.redPots.anyCurrent()
+				if ( cached.reds.anyCurrent()
 				  // for completeness only (None of the hinters which currently
 				  // use the HintCache set cell values)
 				  || cached.cell!=null && cached.cell.value==0 ) {

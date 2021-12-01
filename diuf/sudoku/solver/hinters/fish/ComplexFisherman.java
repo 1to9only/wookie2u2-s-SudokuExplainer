@@ -31,6 +31,7 @@ import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.BOX;
 import static diuf.sudoku.Grid.BUDDIES;
 import static diuf.sudoku.Grid.COL;
+import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.NUM_REGIONS;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Grid.ROW;
@@ -51,73 +52,75 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.solver.hinters.Validator;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import diuf.sudoku.utils.Log;
+import static java.lang.Integer.bitCount;
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * ComplexFisherman implements Basic Fish, Franken Fish, and Mutant Fish Sudoku
- * solving techniques, but doesn't implement Kraken Fish! This class is based
- * on HoDoKu's FishSolver.
+ * ComplexFisherman implements Basic Fish (commented-out), Franken Fish, and
+ * Mutant Fish Sudoku solving techniques, but not Kraken Fish. Basic Fish code
+ * is commented-out because BasicFisherman is faster.
  * <p>
- * Fish come with a whole language of there own. Here's a very brief precis.
- * NOTE: other Sudokuists have other perspectives: There's >1 way to do it.
+ * This started as a copy-paste of HoDoKu's FishSolver, modified to use Sudoku
+ * Explainers model, chainers, and hints; and import all HoDoKu dependencies.
+ * I ripped-out Kraken Fish coz I'm too stupid to work-out how to implement
+ * them using my chainers. Kudos to hobiwan. Mistakes are mine. ~KRC
  * <p>
- * A "basic fish" is a pattern where 2/3/4 bases (rows-or-cols) share 2/3/4
- * possible positions (covers: cols-or-rows) for a potential value; therefore
- * one of the intersecting cells (a corner) must contain the value, so we can
- * remove any extra positions for value from the covers (cols-or-rows).
+ * Fish have there own language. Here's a brief precis, defining terminology.
+ * Other folks have other perspectives. There's more than one way to do it.
  * <p>
- * Fish size:<ul>
- * <li>2 regions are Swampfish, common name X-Wing. I dissent because it's a
- * bloody Fish, not a Wing! Recall Yoda raising Luke's X-Wing from the swamp.
- * <li>3 regions are called Swordfish
- * <li>4 regions are called Jellyfish
- * <li>Larger fish are all degenerate (combinations of simpler patterns) so I
- * do not (though I can) seek them: 5=Squirmbag, 6=Whale, 7=Leviathan
- * <li>The size of the fish is stored in super.degree (set by Tech selection).
+ * Basic Fish: $degree base regions (rows/cols) share $degree positions for a
+ * value, and every region has exactly one instance of each value, hence value
+ * is "locked into" these base regions, therefore value can be eliminated from
+ * all other places in the cross-regions, called the covers.
+ * <p>
+ * Degree is the fish size, ie the number of bases, and num covers:<ul>
+ * <li>The fish size is stored in super.degree, from the passed Tech.
+ * <li>2 regions are Swampfish, not X-Wing. Recall Yoda raising Luke's X-Wing
+ * from the swamp. I demur because fish should have fish-names, not wing-names,
+ * especially in software that already has wings. Mispatterned nominatives
+ * matter when all you have to go-on are names. You name your kid Mr Ed and are
+ * surprised when blind folks think he's a horse. We're all born blind.
+ * <li>3 regions are called Swordfish.
+ * <li>4 regions are called Jellyfish.
+ * <li>Larger fish {5=Squirmbag, 6=Whale, 7=Leviathan} are all degenerate
+ * (combinations of simpler patterns) so I do not (though I can) seek them.
  * </ul>
  * <p>
- * The regions we look in are called "bases". The crossing regions that we
- * actually eliminate from are called the "covers". So for "basic fish" we:<ul>
+ * So, the regions we look in are called "bases". The crossing regions that we
+ * actually eliminate from are called the "covers". So we: <ul>
  * <li>first search the rows (bases), and the cols are our covers;
  * <li>then bases are cols, and covers are rows (they swap roles).
  * <li>Mutant Fish (below) need only one search (includes all bases).
  * </ul>
  * <p>
- * A "basic fish" does not have fins. All the "complex fish" types expand the
- * search to find more hints with reduced eliminations. We do more work for
- * less pay as s__t gets harder.
+ * All the "complex" fish types have fins (below) to expand the definitions of
+ * basic fish to find more hints, but with reduced eliminations, so we're doing
+ * more work for less pay, ergo s__t gets harder.
  * <p>
- * A "finned fish" is a basic fish just with one-or-more fins. A fin is an
- * additional position for the fish value in a base region. Fins expand the
- * number of matches but also reduce the number of eliminations; because each
- * elimination must see all fins (so IIRC all fins must see each other).
+ * A Finned Fish is a basic fish just with one-or-more fins. A fin is an extra
+ * position for the fish value in a base region. Fins expand the number of
+ * matches but also reduce the number of eliminations; because each elimination
+ * must see all fins.
  * <p>
- * Sashimi fish rely on a fin (else they're degenerate) to allow us to drop
- * a corner from the normal Fish pattern: replacing a corner with a fin.
- * Sashimi's are now found in a "normal" Finned search.
+ * Sashimi Fish rely on a fin (else they're degenerate) to allow us to drop a
+ * corner from the normal Fish pattern: replacing a corner with a fin. Sashimi
+ * Fish are now found in the "normal" Finned Fish search.
  * <p>
- * Franken fish adds a box to the bases OR the covers.
+ * Franken Fish adds a box to the bases OR the covers.
  * <p>
- * Mutant fish adds boxes to the bases AND the covers.
+ * Mutant Fish adds boxes to the bases AND the covers.
  * <p>
- * NOT_IMPLEMENTED: Kraken fish adds chaining to our equations: If all possible
- * configurations of the Fish AND all the fins chain to the same elimination,
- * then the elimination must be true, so it is applied.
- * <p>
- * This class is a copy-paste of HoDoKu's FishSolver, modified to use Sudoku
- * Explainers model, chainers, and hints; and import all HoDoKu dependencies.
- * I ripped-out Kraken Fish coz I'm too stupid to work-out how to implement
- * them using my chainers.
- * <p>
- * Kudos to hobiwan. Mistakes are mine. ~KRC
+ * KrakenFisherman (not me) is fish + chaining: If each fish configuration
+ * and each fin has an XY-forcing-chain to the same elimination, then that
+ * elimination cannot be false, so it can be applied.
  * <p>
  * 2020-09-28 after some hard-thinking I've dropped Kraken for now in order to
- * get the rest of it working first. The plan is to come back and knut-out how
+ * get the rest of it working first. The plan is to come back and nut-out how
  * to find kraken-chains more efficiently. Hobiwans design relies on doing the
  * tabling-search for all chains ONCE, and re-using that and the ALS-search
  * results in the Kraken search; I need to not re-use results, so I need to
@@ -172,19 +175,44 @@ import java.util.List;
  *     4,990,931,400 4415  1,130,448  0              0 Mutant Swampfish
  *    60,627,458,000 4415 13,732,153  1 60,627,458,000 Mutant Swordfish
  *   394,362,063,900 4414 89,343,467 11 35,851,096,718 Mutant Jellyfish
- *
  * </pre>
  *
- * @author Keith Corlett 2020 Sept 24
+ * @author Keith Corlett 2020-09-24
  */
 public class ComplexFisherman extends AHinter
-//		, diuf.sudoku.solver.IReporter
+//		implements diuf.sudoku.solver.IReporter
 {
-	// MIA is an acronym for "Missing In Action". REDS are the eliminations.
-	// Problem: Hint contains eliminations for non-potential-values.
+//DEBUG
+//	@Override
+//	public void report() {
+//		if ( seekMutant ) {
+//			double total = dones + skips;
+//			Log.teef(
+//				  tech.name()+": done=%,d (%4.2f\\%), skip=%,d (%4.2f\\%)\n"
+//				, dones, ((double)dones)/(total)*100D
+//				, skips, ((double)skips)/(total)*100D
+//			);
+//		}
+//	}
+//	private long skips=0L, dones=0L;
+
+//DEBUG
+//	private String debugContainsValue(boolean[] array) {
+//		StringBuilder sb = new StringBuilder(REGION_SIZE);
+//		for ( int v=1; v<VALUE_CEILING; ++v )
+//			if ( array[v] )
+//				sb.append(v);
+//			else
+//				sb.append("_");
+//		return sb.toString();
+//	}
+
+	// MIA is an acronym for "Missing In Action". Reds are the eliminations.
+	// Problem: grid does NOT contain cell-value/s that are being eliminated.
 	// Fix: createHint checks for missing deletes/sharks, throwing "No reds".
-	// This is a HACK: No non-existant cell-value should ever be eliminated,
-	// but it happened, and I dunno HOW, so I treat symptoms, not da disease.
+	// This is a HACK: No non-existant cell-value should ever be eliminated but
+	// it has happened, and I know not why, so treat symptoms, not the disease.
+	// True logs eliminations that don't exist in the grid, and drops them.
 	private static final boolean MIA_REDS = false;
 
 	// maximum number of fins (extra cells which maybe v in a base)
@@ -208,11 +236,14 @@ public class ComplexFisherman extends AHinter
 	}
 
 	// WORDS_* are Idx.WORDS with 9..72 added to them, to precalculate once
-	// instead of adding BILLIONS of times in fastCommonBuddies. These extra
+	// instead of adding BILLIONS of times in anyCommonBuddies. These extra
 	// fields use heaps of RAM, but still save 17 seconds on top1465. They're
 	// local so that if ComplexFisherman is not used (as is common) then the
 	// class is never referenced, so these statics are not created. That's part
 	// of the reasoning behind Tech: a light place-holder for a heavy class.
+	// Idx might be faster if it did this, but it'd probably be slower overall
+	// coz of all the extra RAM tied-up in these array-of-arrays. So to be
+	// clear, these exist only for speed, and pay-back coz they're hammered!
 	private static final int[][] WORDS_09 = new int[1<<9][]; // WORDS +  9
 	private static final int[][] WORDS_18 = new int[1<<9][]; // WORDS + 18
 	private static final int[][] WORDS_27 = new int[1<<9][]; // WORDS + 27
@@ -316,7 +347,9 @@ public class ComplexFisherman extends AHinter
 	/** the Fish candidate value, called 'v' for short. */
 	private int v;
 	/** indices of cells which maybe the Fish candidate value, v. */
-	private Idx vs;
+	private Idx idx;
+	/** DECOMPOSED indices of cells which maybe the Fish candidate value, v. */
+	private int idx0, idx1, idx2;
 	/** Idx of the endo-fins, used as param to grid.cmnBuds. */
 	private final Idx endoFins = new Idx();
 	/** buds: used a result of grid.cmnBuds. */
@@ -354,6 +387,8 @@ public class ComplexFisherman extends AHinter
 	// these fields are set by findHints (values rely on parameters)
 	/** The Grid to search for Fish hint/s. */
 	private Grid grid;
+	/** The cells array of the Grid to search for Fish hint/s. */
+	private Cell[] cells;
 	/** The IAccumulator to which I add hint/s. */
 	private IAccumulator accu;
 
@@ -361,7 +396,7 @@ public class ComplexFisherman extends AHinter
 	 * The Constructor.
 	 * @param tech Tech.Finned/Franken/Mutant Swamp/Sword/Jellyfish
 	 */
-	public ComplexFisherman(Tech tech) {
+	public ComplexFisherman(final Tech tech) {
 		super(tech);
 		// This thing can do bigger fish, but they're all degenerate, and slow!
 		assert degree>=2 && degree<=4; // 2=Swampfish, 3=Swordfish, 4=Jellyfish
@@ -376,10 +411,10 @@ public class ComplexFisherman extends AHinter
 		assert !seekBasic : "Basic-fish are found faster by the BasicFisherman, so the basic-fish code is commented-out in the ComplexFisherman!";
 
 		// initialise the two recursion-stacks
-		for ( int i=0,n=baseStack.length; i<n; ++i )
+		for ( i=0; i<REGION_SIZE; ++i ) {
 			baseStack[i] = new BaseStackEntry();
-		for ( int i=0,n=coverStack.length; i<n; ++i )
 			coverStack[i] = new CoverStackEntry();
+		}
 	}
 
 	/**
@@ -387,42 +422,49 @@ public class ComplexFisherman extends AHinter
 	 * eliminations then {@link #searchBases(boolean)} for Fish.
 	 * Search rows first, then cols.
 	 * If accu.isSingle then exit-early when the first hint is found.
+	 * @param grid
+	 * @param accu
 	 * @return were any hint/s found
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		this.grid = grid;
+		this.cells = grid.cells;
 		this.accu = accu;
 		this.oneOnly = accu.isSingle();
 		int pre = accu.size();
 		try {
 			final Idx[] idxs = grid.idxs;
-			// rebuild each region.containsValue array (dirty in generate)
-			grid.rebuildAllRegionsContainsValues();
 // templates are useless because EVERYthing passes!
 //			final Idx[]	deletables = Run.templates.getDeletables(grid);
 //			int done=0, skip=0;
 			for ( int v=1; v<VALUE_CEILING; ++v ) {
 //				// skip if no idxs[v] are deletable
-//				if ( deletables[v].andAny(idxs[v]) )
+//				if ( deletables[v].andAny(idxs[v]) ) {
 //					++done;
-//				else {
+//				} else {
 //					++skip;
 //					continue;
 //				}
 				this.v = v;
-				this.vs = idxs[v];
+				this.idx = idxs[v];
+				this.idx0 = idx.a0;
+				this.idx1 = idx.a1;
+				this.idx2 = idx.a2;
 				// first search rows for fish
 				// Mutant searches both ROWs and COLs
-				if ( searchBases(ROW) && oneOnly )
+				if ( searchBases(ROW) && oneOnly ) {
 					break; // exit-early
+				}
 				// then search cols for fish
 				// Mutant needs only the above search
-				if ( !seekMutant && searchBases(COL) && oneOnly )
+				if ( !seekMutant && searchBases(COL) && oneOnly ) {
 					break; // exit-early
+				}
 			}
 		} finally {
 			this.grid = null;
+			this.cells = null;
 			this.accu = null;
 			Cells.cleanCasA();
 		}
@@ -435,14 +477,15 @@ public class ComplexFisherman extends AHinter
 	 * @param baseType ROW, or COL
 	 * @return were hint/s found
 	 */
-	private boolean searchBases(int baseType) {
+	private boolean searchBases(final int baseType) {
 
 		// presume that no hints will be found
 		searchBasesResult = false;
 		// find eligible bases and allCovers; the actual covers are calculated
 		// in searchCovers because eligibility depends on the current bases.
-		if ( !selectBasesAndAllCovers(baseType) )
+		if ( !selectBasesAndAllCovers(baseType) ) {
 			return false;
+		}
 
 		// clear everything before we start
 		// initialise the counts of boxs, rows, and cols used a base region
@@ -470,8 +513,9 @@ public class ComplexFisherman extends AHinter
 					--usedBaseTypes[REGION_TYPE[cB.prevIndex]];
 					cB.prevIndex = -1;
 				}
-				if ( --bLevel < 1 ) // ie <= 0 (level 0 is just a stopper!)
+				if ( --bLevel < 1 ) { // ie <= 0 (level 0 is just a stopper!)
 					return searchBasesResult; // we've tried all combos!
+				}
 			}
 			// unuse the-previous-base-at-this-level
 			// hijack baseIndex coz I don't really need another variable
@@ -504,8 +548,8 @@ public class ComplexFisherman extends AHinter
 			if ( bLevel < degree ) {
 				// if there's no endofins
 				if ( (efM0|efM1|efM2) == 0
-				  // or there's not many endofins
-				  || Integer.bitCount(efM0)+Integer.bitCount(efM1)+Integer.bitCount(efM2) < MAX_ENDO_FINS ) {
+				  // or there's not too many endofins already
+				  || bitCount(efM0)+bitCount(efM1)+bitCount(efM2) < MAX_ENDO_FINS ) {
 					// onto the next level
 					cB = baseStack[++bLevel];
 					cB.index = b + 1;
@@ -515,15 +559,16 @@ public class ComplexFisherman extends AHinter
 			// if there's no endofins to check
 			} else if ( (efM0|efM1|efM2) == 0
 				// or there's not too many endofins
-				|| ( Integer.bitCount(efM0)+Integer.bitCount(efM1)+Integer.bitCount(efM2) < MAX_ENDO_FINS
+				|| ( bitCount(efM0)+bitCount(efM1)+bitCount(efM2) < MAX_ENDO_FINS
 				  // which have common buddy/s that maybe v
-				  && endoFins.set(efM0,efM1,efM2).commonBuddies(buds).and(vs).any() )
+				  && endoFins.set(efM0,efM1,efM2).commonBuddies(buds).and(idx).any() )
 			) {
 				if ( searchCovers() ) {
 					// we found a Fish!
 					searchBasesResult = true;
-					if ( oneOnly )
+					if ( oneOnly ) {
 						return searchBasesResult;
+					}
 				}
 			}
 			interrupt();
@@ -551,12 +596,13 @@ public class ComplexFisherman extends AHinter
 	 * <li>a Franken fish has a box as base OR a cover, but not both.
 	 * </ul>
 	 * <p>
-	 * DEVELOPERS: searchCovers has zero variables, so it's invocation does NOT
+	 * SPEED: searchCovers has zero variables, so it's invocation does NOT
 	 * create a stackframe, which is faster. It comes with the cost of field
-	 * access for EVERYthing, which sux, but ya can't have it both ways.
-	 * searchCovers calls the myCommonBuddies method, which also has no local
-	 * variables, and is therefore stackframeless. This is about 15% faster
-	 * overall than the "normal" Idx.commonBuddies method call. Still too slow.
+	 * access for EVERYthing, which sucks, but you can't have it both ways.
+	 * searchCovers calls anyCommonBuddies which also has no local variables,
+	 * and is therefore stackframeless. This is ~15% faster overall than the
+	 * normal Idx.commonBuddies, which is still too slow. If I could have any-
+	 * thing right-now it'd be a really fast way to calculate commonBuddies.
 	 *
 	 * @return were hint/s found?
 	 */
@@ -584,10 +630,11 @@ public class ComplexFisherman extends AHinter
 			}
 		}
 		// need atleast degree covers to form a Fish.
-		if ( numCovers < degree )
+		if ( numCovers < degree ) {
 			return false; // this'll only happen rarely.
-		// partial-calculation of the maximum cover index.
-		ground = numCovers - degree - 1;
+		}
+		// partial-calculation of the last cover index.
+		floor = numCovers - degree - 1;
 		// coverLevel: the current depth in the coverStack
 		// coverLevel: start at level 1 (0 is just a stopper)
 		// currentCover: the current CoverStackEntry
@@ -597,38 +644,44 @@ public class ComplexFisherman extends AHinter
 		// clean-up from last time, in case we returned.
 		Arrays.fill(coversUsed, false);
 		// foreach each distinct combo of covers
-//<HAMMERED comment="billions of iterations: No continue, labels, vars, terniaries, or methods.">
+//<HAMMERED comment="BILLIONS: No continue, label, var, terniary, method">
 		for (;;) {
-			// fallback level/s if there's no more covers in allCovers
-			while ( (cC=coverStack[cLevel]).index > ground + cLevel ) {
+			// while coverLevel exhausted fallback a coverLevel
+			// exhausted means there's no more covers to be searched
+			// calculating the last index at this coverLevel is tricky
+			// and AFAIK it's impossible to calculate quickly
+			// this is the best I can do
+			// nb: cC (current Cover) is also set here
+			while ( (cC=coverStack[cLevel]).index > floor + cLevel ) {
 				// unuse the previous cover
 				if ( cC.prevIndex != -1 ) {
 					coversUsed[cC.prevIndex] = false;
 					cC.prevIndex = -1;
 				}
 				// fallback
-				if ( --cLevel < 1 ) // if all covers have been searched
-					return searchCoversResult; // return my result
+				if ( --cLevel < 1 ) { // 0 is just a stopper
+					return searchCoversResult; // done
+				}
 			}
 			// unuse the previous cover
-			if ( cC.prevIndex != -1 )
+			if ( cC.prevIndex != -1 ) {
 				coversUsed[cC.prevIndex] = false;
-			// get next cover set (must exist or we would have fallen back)
-			// use covers[c] as the current cover
+			}
+			// squished into one line for speed
+			// get next covers (exists or we would have fallen back)
 			// remember prevIndex to unuse this cover
-			// mashed into one line for speed
+			// use covers[c] as the current cover
 			coversUsed[cC.prevIndex=covers[c=cC.index++]] = true;
-			// set the previous Cover (the combination of all existing covers)
-			// nb: cC (current Cover) is already set in above while loop
+			// set the previous Cover (agglomeration of all existing covers)
 			pC = coverStack[cLevel - 1];
-			// current v's = previous v's | v's in this cover
+			// current v's = previous v's | v's in this cover (agglomerate)
 			cC.vsM0 = pC.vsM0 | coverVsM0[c];
 			cC.vsM1 = pC.vsM1 | coverVsM1[c];
 			cC.vsM2 = pC.vsM2 | coverVsM2[c];
 			// if this cover has candidates in common with the existing covers
 			// then those candidates become possible eliminations, which I call
 			// sharks because it's shorter than cannabilistic. The Great White
-			// Shark: a non-placental that bearths live young. Do the math!
+			// Shark: a non-placental bearthing predatory young. Do the math!
 			// sharks: current = previous | (v's in prev covers & this cover)
 			cC.skM0 = pC.skM0 | (pC.vsM0 & coverVsM0[c]);
 			cC.skM1 = pC.skM1 | (pC.vsM1 & coverVsM1[c]);
@@ -646,16 +699,17 @@ public class ComplexFisherman extends AHinter
 				f2 = efM2 | (vsM2 & ~cC.vsM2);
 //				// basic fish (no fins)
 //				if ( seekBasic ) {
-//					// no fins AND any deletes or sharks
+//					// no fins
 //					if ( (fM0|fM1|fM2)==0 ) {
-//						// deletes: v's in covers but not bases
-//						delsM0 = cC.vsM0 & ~vsM0;
-//						delsM1 = cC.vsM1 & ~vsM1;
-//						delsM2 = cC.vsM2 & ~vsM2;
-//						if ( (delsM0|delsM1|delsM2|cC.skM0|cC.skM1|cC.skM2) != 0 ) {
+//						// deletes = v's in covers except bases
+//						dlM0 = cC.vsM0 & ~vsM0;
+//						dlM1 = cC.vsM1 & ~vsM1;
+//						dlM2 = cC.vsM2 & ~vsM2;
+//						// any deletes or sharks
+//						if ( (dlM0|dlM1|dlM2|cC.skM0|cC.skM1|cC.skM2) != 0 ) {
 //							// ***************** BASIC FISCH ******************
 //							// Eliminate candidates in covers except bases.
-//							deletes.set(delsM0, delsM1, delsM2);
+//							deletes.set(dlM0, dlM1, dlM2);
 //							// shark: If a base v is in >1 cover its lunch.
 //							sharks.set(cC.skM0, cC.skM1, cC.skM2);
 //							fins.clear();
@@ -671,9 +725,10 @@ public class ComplexFisherman extends AHinter
 				// complex fish need fins
 				if ( (f0|f1|f2) != 0
 				  // but not too many of them
-				  && Integer.bitCount(f0)+Integer.bitCount(f1)+Integer.bitCount(f2) <= MAX_FINS
+				  && bitCount(f0)+bitCount(f1)+bitCount(f2) <= MAX_FINS
 				  // with common buddy/s that maybe v (stackframeless = speed)
-				  && anyCommonBuddies() ) { // sets (cb0,cb1,cb2)
+				  && anyCommonBuddies() // sets cb0,cb1,cb2
+				) {
 					// ******************* COMPLEX FISCH ******************
 					// Candidate is deletable if in covers but not bases,
 					// or belongs to more than one cover set (an endo-fin).
@@ -696,15 +751,16 @@ public class ComplexFisherman extends AHinter
 						final AHint hint = createHint();
 						if ( hint != null ) {
 							searchCoversResult = true;
-							if ( accu.add(hint) ) // if accu says so
+							if ( accu.add(hint) ) { // if accu says so
 								return searchCoversResult; // exit-early
+							}
 						}
 					}
 				}
 			}
 		}
 	}
-	// buddies of this fin cell (sorry about the short, bad name).
+	// budsFin: buddies of this fin cell (sorry about the short, bad name).
 	private Idx bf;
 	// these fields are (logically) searchCovers variables
 	private CoverStackEntry pC, cC; // the previous and current CoverStackEntry
@@ -713,7 +769,7 @@ public class ComplexFisherman extends AHinter
 	private int c; // the current cover region index
 	private int cLevel; // current coversStack level, ie coversSet size
 	private int numCovers; // the number of covers in the covers array
-	private int ground; // partial-calculation of the maximum cover index
+	private int floor; // partial-calculation of the last cover index
 	// fins: indices of exo-fins and endo-fins
 	private int f0, f1, f2;
 	// deletes: indices of potential eliminations
@@ -725,53 +781,62 @@ public class ComplexFisherman extends AHinter
 	// !(is a BOX used as a base)?
 	private boolean boxIsNotBase;
 
+	//<NO_WRAPPING comment="wrapping makes this harder to read">
 	/**
 	 * FAST: do the fin/s have any common buddy/s that maybe v? <br>
 	 * IE: {@code fins.set(f0,f1,f2).commonBuddies(buds).and(vs).any()} <br>
-	 * sets (cb0,cb1,cb2) to buddies of all fins (f0,f1,f2) and returns any? <br>
+	 * sets {cb0,cb1,cb2} to buddies of all fins {f0,f1,f2} and returns any? <br>
 	 * <p>
 	 * For speed, anyCommonBuddies is stackframeless and exploded (verbose).
 	 * I'm about 17% faster overall than Idx.commonBuddies, which is quite a
 	 * significant improvement, but comes at the cost of inflexibility.
 	 * <p>
-	 * PLEASE EXPLAIN: cb* is an Idx of commonBuddies, starts as indices/cells
-	 * in grid that maybe v, then we boolean-and that set with the buddies
-	 * (other cells in my three regions) of each fin cell in f*. Each BUDDIES
-	 * excludes the cell itself, so we end up with cells which "see" all of the
-	 * fin cells, except those cells themselves.
+	 * PLEASE EXPLAIN: cb0,cb1,cb2 is an Idx of commonBuddies, set to indices
+	 * in the grid that maybe v, then we boolean-and that set with the buddies
+	 * of each fin in f0,f1,f2. Each BUDDIES excludes the cell itself, so we
+	 * end-up with cells that see all fin cells, except the fins themselves,
+	 * ergo the common buddies of all of the fin cells.
 	 * <p>
-	 * The fun bit (which makes a mess) is doing it all as fast as possible, ie
-	 * minimising the amount of repetitious work, which is where WORDS_09 and
-	 * friends come in: we've already pre-added the distance from the start of
-	 * the grid of each-word-we-are-reading, just to save doing these additions
-	 * billions of times. So this code can be implemented more succinctly, but
-	 * only with a significant performance loss. Programmers are trained to go
-	 * after brevity, seeking flexibility, which is convenient, and, I think
-	 * these days, probably not enough to seek actual performance, which can be
-	 * totally inflexible and therefore rather inconvenient. Actual speed costs
-	 * inflexibility. But what's the probability that this will need to change?
-	 * Cheese. Cracker. Balance. That's all I'm saying.
+	 * The aspect that makes a mess is doing it all as fast as possible, which
+	 * boils down to minimising the amount of repetitious work, which is where
+	 * WORDS_09 (et al) come in: we've already pre-added the distance from the
+	 * start of the grid to each-word-we-are-reading, just to save doing these
+	 * additions billions of times.
+	 * <p>
+	 * Programmers find brevity and flexibility convenient, so we must rejig
+	 * our brains to seek performance, which can be rather inconvenient. Speed
+	 * costs inflexibility. But what is the probability that this will need to
+	 * change? Speed vs Flex. Cheese. Cracker. Balance. That's all I'm saying.
+	 * <p>
+	 * I'm proud of this method, because it's FAST, even though it's ugly.
 	 *
-	 * @return are the any common buddies in the cb* fields?
+	 * @return commonBuddies {fields: cb0,cb1,cb2} is not empty,
+	 *  ie do the fin/s have any common buddy/s that maybe v?
 	 */
 	private boolean anyCommonBuddies() {
-		cb0 = vs.a0;
-		cb1 = vs.a1;
-		cb2 = vs.a2;
+		// set the common buddies to indices of cells in grid which maybe v
+		cb0=idx0; cb1=idx1; cb2=idx2;
+		// if the top third of fins index is notEmpty
 		if ( f0 != 0 ) {
+			// if the first row (9 bits) of fins index is notEmpty
 			if ( (n=(word=WORDS[f0 & WORD_MASK]).length) != 0 )
+				// foreach fin in first row (ie set (1) bit in this word)
 				for ( i=0; i<n; ++i )
+					// bail if (cmnBuds &= buddies-of-this-fin) isEmpty
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
+			// the second 9 bits (WORDS_09 values pre-moved down to second row)
 			if ( (n=(word=WORDS_09[(f0>>9) & WORD_MASK]).length) != 0 )
 				for ( i=0; i<n; ++i )
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
+			// the third 9 bits (making 27 bits, which is a third of a Grid)
 			if ( (n=(word=WORDS_18[(f0>>18) & WORD_MASK]).length) != 0 )
 				for ( i=0; i<n; ++i )
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
 		}
+		// the middle third of fins index
 		if ( f1 != 0 ) {
 			if ( (n=(word=WORDS_27[f1 & WORD_MASK]).length) != 0 )
 				for ( i=0; i<n; ++i )
@@ -786,6 +851,7 @@ public class ComplexFisherman extends AHinter
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
 		}
+		// the bottom third of fins index
 		if ( f2 != 0 ) {
 			if ( (n=(word=WORDS_54[f2 & WORD_MASK]).length) != 0 )
 				for ( i=0; i<n; ++i )
@@ -800,7 +866,7 @@ public class ComplexFisherman extends AHinter
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
 		}
-		return true;
+		return true; // commonBuddies {cb0,cb1,cb2} is not empty
 	}
 	// common buddies of all fins (an Idx)
 	private int cb0,cb1,cb2;
@@ -808,19 +874,7 @@ public class ComplexFisherman extends AHinter
 	private int i, n;
 	// an array of the indexes of set-bits in a 9-bit word
 	private int[] word;
-
-//	@Override
-//	public void report() {
-//		if ( seekMutant ) {
-//			double total = dones + skips;
-//			Log.teef(
-//				  tech.name()+": done=%,d (%4.2f\\%), skip=%,d (%4.2f\\%)\n"
-//				, dones, ((double)dones)/(total)*100D
-//				, skips, ((double)skips)/(total)*100D
-//			);
-//		}
-//	}
-//	private long skips=0L, dones=0L;
+	//</NO_WRAPPING>
 
 	/**
 	 * Create a new ComplexFishHint and return it, or null meaning "no hint".
@@ -853,8 +907,8 @@ public class ComplexFisherman extends AHinter
 		final Pots reds = new Pots(); // set-of-Cell=>Values to be eliminated
 		// problem with non-existent reds, so log issues,
 		// throw IllegalStateException if reds come-out empty.
-		final int sv = VSHFT[v]; // bitset of the Fish candidate value
 		if ( MIA_REDS ) {
+			final int sv = VSHFT[v]; // bitset of the Fish candidate value
 			// skip if there's no deletes and no sharks.
 			if ( deletes.none() && sharks.none() ) {
 				carp("no deletes and no sharks");
@@ -862,22 +916,22 @@ public class ComplexFisherman extends AHinter
 			}
 			// check that each delete exists
 			if ( deletes.any() ) { // there may occasionally only be sharks
-				deletes.forEach(grid.cells, (cell) -> {
-					if ( (cell.maybes & sv) != 0 ) {
-						reds.put(cell, sv);
+				deletes.forEach(cells, (c) -> {
+					if ( (c.maybes & sv) != 0 ) {
+						reds.put(c, sv);
 					} else { // the "missing" delete was NOT added
-						carp("MIA delete: "+cell.toFullString()+MINUS+v);
+						carp("MIA delete: "+c.toFullString()+MINUS+v);
 					}
 				});
 			}
 			// check that each shark exists
 			if ( sharks.any() ) { // there's usually only deletes
 				// foreach shark (cannibalistic) cell in grid.cells
-				sharks.forEach(grid.cells, (cell) -> {
-					if ( (cell.maybes & sv) != 0 ) {
-						reds.put(cell, sv);
+				sharks.forEach(cells, (c) -> {
+					if ( (c.maybes & sv) != 0 ) {
+						reds.put(c, sv);
 					} else { // the "missing" shark was NOT added
-						carp("MIA shark: "+cell.toFullString()+MINUS+v);
+						carp("MIA shark: "+c.toFullString()+MINUS+v);
 					}
 				});
 			}
@@ -889,15 +943,12 @@ public class ComplexFisherman extends AHinter
 			// normal operation: just add the deletes and sharks to reds,
 			// and then return null (no hint) if reds come-out null or empty.
 			if ( deletes.any() )
-				deletes.forEach(grid.cells
-					, (cell) -> reds.put(cell, sv)
-				);
+				reds.upsertAll(deletes, grid, v);
 			if ( sharks.any() )
-				sharks.forEach(grid.cells
-					, (cell) -> reds.put(cell, sv)
-				);
-			if ( reds.isEmpty() )
+				reds.upsertAll(sharks, grid, v);
+			if ( reds.isEmpty() ) {
 				return null; // should never happen. Never say never.
+			}
 		}
 
 		baseMask = Regions.types(basesUsed);
@@ -960,8 +1011,9 @@ public class ComplexFisherman extends AHinter
 		else {
 			yellow = new Pots(sharks.cellsA(grid), v);
 			// paint all sharks yellow (except eliminations which stay red)!
-			if ( !yellow.isEmpty() )
+			if ( !yellow.isEmpty() ) {
 				yellow.removeFromAll(green, blue, purple);
+			}
 		}
 
 		// paint all eliminations red (including sharks)!
@@ -975,14 +1027,15 @@ public class ComplexFisherman extends AHinter
 		final AHint myHint = new ComplexFishHint(this, type, isSashimi, v
 			, basesL, coversL, reds, green, blue, purple, yellow, tag);
 
-		if ( HintValidator.COMPLEX_FISHERMAN_USES ) {
+		if ( Validator.COMPLEX_FISHERMAN_VALIDATES ) {
 			// only needed for Franken and Mutant, but just check all
-			if ( !HintValidator.isValid(grid, myHint.redPots) ) {
+			if ( !Validator.isValid(grid, myHint.reds) ) {
 				myHint.isInvalid = true;
-				HintValidator.report(tech.name(), grid, myHint.toFullString());
-				// See in GUI, but they cause DEAD_CAT's in the batch.
-				if ( Run.type == Run.Type.Batch )
+				Validator.report(tech.name(), grid, myHint.toFullString());
+				// See in GUI, but they cause deadCat's in the batch.
+				if ( Run.type == Run.Type.Batch ) {
 					return null;
+				}
 			}
 		}
 
@@ -995,12 +1048,14 @@ public class ComplexFisherman extends AHinter
 	 * @return does any used base contain only 1 non-fin v
 	 */
 	private boolean isSashimi() {
-		for ( int j=0; j<numBases; ++j )
+		for ( int j=0; j<numBases; ++j ) {
 			if ( basesUsed[bases[j]]
 			  && Idx.sizeLTE(baseVsM0[j] & ~fins.a0
 						   , baseVsM1[j] & ~fins.a1
-						   , baseVsM2[j] & ~fins.a2, 1) )
+						   , baseVsM2[j] & ~fins.a2, 1) ) {
 				return true;
+			}
+		}
 		return false;
 	}
 
@@ -1019,34 +1074,26 @@ public class ComplexFisherman extends AHinter
 	 * @return are there at least degree bases and allCovers: ie should we
 	 *  search this Fish.
 	 */
-	private boolean selectBasesAndAllCovers(int baseType) {
+	private boolean selectBasesAndAllCovers(final int baseType) {
 		numBases = numAllCovers = 0;
 		addRegions(grid.rows, baseType==ROW, seekMutant);
 		addRegions(grid.cols, baseType==COL, seekMutant);
 		// BOXS in Franken: bases AND covers, used in either but not both.
 		// BOXS in Mutant: bases AND covers.
-		if ( seekFranken || seekMutant )
+		if ( seekFranken || seekMutant ) {
 			addRegions(grid.boxs, true, true);
+		}
 		return numBases>=degree && numAllCovers>=degree;
 	}
 
-//	private String debugContainsValue(boolean[] array) {
-//		StringBuilder sb = new StringBuilder(REGION_SIZE);
-//		for ( int v=1; v<VALUE_CEILING; ++v )
-//			if ( array[v] )
-//				sb.append(v);
-//			else
-//				sb.append("_");
-//		return sb.toString();
-//	}
-
-	private void addRegions(ARegion[] regions, boolean isBase, boolean andConverse) {
+	private void addRegions(final ARegion[] regions, final boolean isBase, final boolean andConverse) {
 		for ( ARegion region : regions ) {
 			// ignore regions which already have the Fish candidate set.
 			// nb: call containsValue() coz the field no work in generate.
 //			boolean[] pre = region.containsValue.clone();
-			if ( !region.containsValue[v] )
+			if ( !region.containsValue[v] ) {
 				addRegion(region, isBase, andConverse);
+			}
 //			if ( !Arrays.equals(pre, region.containsValue) ) {
 //				System.out.println("region: "+region);
 //				System.out.println("before: "+debugContainsValue(pre));
@@ -1056,25 +1103,26 @@ public class ComplexFisherman extends AHinter
 		}
 	}
 
-	private void addRegion(ARegion region, boolean isBase, boolean andConverse) {
-		// indices of cells which maybe the fish candidate value in this region
-		final Idx rvs = region.idxs[v];
+	private void addRegion(final ARegion region, final boolean isBase, final boolean andConverse) {
+		// indices of cells in this region which maybe the fish candidate value
+		final Idx idx = region.idxs[v];
 		if ( isBase ) { // region is a base
 //			// basic fish bases have upto degree candidates, but not more.
 //			if ( !seekBasic || region.ridx[v].size<=degree ) {
 				bases[numBases] = region.index;
-				baseVsM0[numBases] = rvs.a0;
-				baseVsM1[numBases] = rvs.a1;
-				baseVsM2[numBases++] = rvs.a2;
+				baseVsM0[numBases] = idx.a0;
+				baseVsM1[numBases] = idx.a1;
+				baseVsM2[numBases++] = idx.a2;
 //			}
 		} else { // region is a cover
 			allCovers[numAllCovers] = region.index;
-			allCoverVsM0[numAllCovers] = rvs.a0;
-			allCoverVsM1[numAllCovers] = rvs.a1;
-			allCoverVsM2[numAllCovers++] = rvs.a2;
+			allCoverVsM0[numAllCovers] = idx.a0;
+			allCoverVsM1[numAllCovers] = idx.a1;
+			allCoverVsM2[numAllCovers++] = idx.a2;
 		}
-		if ( andConverse )
+		if ( andConverse ) {
 			addRegion(region, !isBase, false);
+		}
 	}
 
 }

@@ -132,7 +132,7 @@ implements
 		// get an array of the Cells at which we hinted last time;
 		// otherwise we skip this call to getHints
 		final Cell[] hitCells = useHits // only true when AHinter.hackTop1465
-				? hits.getHitCells(gsl, hintNum, degree, grid)
+				? hits.cells(gsl, hintNum, degree, grid)
 				: null;
 		final boolean hitMe = hitCells != null;
 		if ( useHits && !hitMe )
@@ -243,7 +243,7 @@ implements
 			c0b = c0.maybes;
 			for ( i1=i0+1; i1<n1; ++i1 ) {
 				// get c1 and index of excluders common to c1 and c0.
-				if ( excluders[(c1=cells[1]=candidates[i1]).i].idx1(idx01, idx0) )
+				if ( excluders[(c1=cells[1]=candidates[i1]).i].idx1(idx0, idx01) )
 					continue;
 				if(hitMe && c1!=hitCells[1]) continue;
 				c1b = c1.maybes;
@@ -251,7 +251,7 @@ implements
 				for ( i2=i1+1; i2<n2; ++i2 ) {
 					// get c2 and index of excluders common to c0,c1,c2
 					// skip if the index is empty (ie there are no common excluders).
-					if ( excluders[candidates[i2].i].idx1(idx02, idx01) )
+					if ( excluders[candidates[i2].i].idx1(idx01, idx02) )
 						continue;
 					c2 = cells[2]=candidates[i2];
 					if(hitMe && c2!=hitCells[2]) continue;
@@ -262,7 +262,7 @@ implements
 					for ( i3=i2+1; i3<numCandidates; ++i3 ) {
 						// get c3 and index of excluders common to c0,c1,c2,c3
 						// skip if the index is empty (ie there are no common excluders).
-						if ( excluders[candidates[i3].i].idx1(idx03, idx02) )
+						if ( excluders[candidates[i3].i].idx1(idx02, idx03) )
 							continue;
 						c3 = cells[3] = candidates[i3];
 						if(hitMe && c3!=hitCells[3]) continue;

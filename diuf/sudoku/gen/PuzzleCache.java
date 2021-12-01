@@ -35,21 +35,23 @@ public final class PuzzleCache {
 
 	// ---------------- static stuff ----------------
 
-	// cache a puzzle of each Difficulty level.
-	private static final int NUM_DIFFICULTIES = Difficulty.values().length;
-
-	private static final Grid[] PUZZLE_CACHE = new Grid[NUM_DIFFICULTIES];
-
-	// NOTE: hardest to easiest because generating a hard one usually takes a
-	// lot of attempts, so it tends to fill-in the easier ones along the way.
+	// I cache a puzzle for each Difficulty.
+	// NB: hardest to easiest because generating a hard one usually takes
+	// many attempts, so it tends to fill-in all easier ones along the way.
 	private static final Difficulty[] DIFFICULTIES = Difficulty.reverseValues();
+
+	// number of puzzles to cache.
+	private static final int SIZE = DIFFICULTIES.length;
+
+	// puzzle cache
+	private static final Grid[] CACHE = new Grid[SIZE];
 
 	// this is called by GenerateDialogs (static) class-init
 	private static boolean needFactory = false;
 	public static void staticInitialiser() {
-		assert NUM_DIFFICULTIES == DIFFICULTIES.length; // invariant (no catch)
+		assert SIZE == DIFFICULTIES.length; // invariant (no catch)
 		try {
-			if ( loadPuzzleCache() != (1<<NUM_DIFFICULTIES)-1 )
+			if ( loadPuzzleCache() != (1<<SIZE)-1 )
 				needFactory = true; // fix it in instance-land
 		} catch (IOException ex) {
 			StdErr.whinge("staticInitialiser failed", ex);
@@ -62,14 +64,14 @@ public final class PuzzleCache {
 		int loaded = 0; // a bitset of loaded Difficulty.ordinal()s
 		String line;
 		// for each difficulty
-		for ( int i=0; i<NUM_DIFFICULTIES; ++i ) {
+		for ( int i=0; i<SIZE; ++i ) {
 			// if this line was read and it's atleast 81 characters
 			if ( i<n && (line=lines.get(i))!=null && line.length()>80 ) {
 				// add i into the loaded bitset
-				PUZZLE_CACHE[i] = new Grid(line);
+				CACHE[i] = new Grid(line);
 				loaded |= 1<<i;
 			} else {
-				PUZZLE_CACHE[i] = null;
+				CACHE[i] = null;
 			}
 		}
 		return loaded;
@@ -78,12 +80,12 @@ public final class PuzzleCache {
 	private static void savePuzzleCache() {
 		try {
 			// 83 is 81 + 2 for Windows NL.
-			StringBuilder sb = new StringBuilder(83 * NUM_DIFFICULTIES);
-			for ( int i=0; i<NUM_DIFFICULTIES; ++i ) {
-				if ( PUZZLE_CACHE[i] == null )
+			StringBuilder sb = new StringBuilder(83 * SIZE);
+			for ( int i=0; i<SIZE; ++i ) {
+				if ( CACHE[i] == null )
 					sb.append(NL);
 				else
-					sb.append(PUZZLE_CACHE[i].toShortString()).append(NL);
+					sb.append(CACHE[i].toShortString()).append(NL);
 			}
 			IO.save(sb.toString(), IO.PUZZLE_CACHE);
 		} catch ( IOException ex) {
@@ -105,11 +107,11 @@ public final class PuzzleCache {
 	 * but note that the given puzzle may be null.
 	 *
 	 * @param diff
-	 * @param puzzle 
+	 * @param puzzle
 	 */
 	void set(Difficulty diff, Grid puzzle) {
 		if ( diff!=null )
-			PUZZLE_CACHE[diff.ordinal()] = puzzle;
+			CACHE[diff.ordinal()] = puzzle;
 	}
 
 	// PuzzleCache.generate retrieves a puzzle from the cache and then replaces
@@ -117,17 +119,18 @@ public final class PuzzleCache {
 	// then generate all difficulties in a background thread.
 	Grid generate(Symmetry[] syms, Difficulty difficulty, boolean isExact) {
 		final int d = difficulty.ordinal();
-		Grid puzzle = PUZZLE_CACHE[d];
+		Grid puzzle = CACHE[d];
 		if ( puzzle != null ) {
 			// cache-hit: generate a replacement Sudoku in the background.
-			PUZZLE_CACHE[d] = null;
+			CACHE[d] = null;
 			produce(syms, difficulty);
 		} else {
 			// cache-miss: so generate a new Sudoku in this thread.
 			try {
-				Log.teeln(Thread.currentThread().getName()+": Generating "+difficulty+"...");
-				PUZZLE_CACHE[d] = puzzle = Generator.getInstance().generate(
-						this, syms, difficulty, isExact);
+				final String threadName = Thread.currentThread().getName();
+				Log.teeln(threadName+": Generating "+difficulty+"...");
+				final Generator gen = Generator.getInstance();
+				puzzle = CACHE[d] = gen.generate(this, syms, difficulty, isExact);
 				// if the cache is not already full
 				if ( !gotAllDifficulties() )
 					// fill the cache in the background
@@ -140,8 +143,8 @@ public final class PuzzleCache {
 	}
 
 	private boolean gotAllDifficulties() {
-		for ( int i=0; i<NUM_DIFFICULTIES; ++i )
-			if ( PUZZLE_CACHE[i] == null )
+		for ( int i=0; i<SIZE; ++i )
+			if ( CACHE[i] == null )
 				return false;
 		return true;
 	}
@@ -151,38 +154,32 @@ public final class PuzzleCache {
 		if ( Threads.exists(Generator.FACTORY_THREAD_NAME) ) {
 			return;
 		}
-//		if ( IO.FACTORY_LOCK_DIR.exists() ) {
-//			Log.teeln(Log.me()+": is already running.");
-//			return;
-//		}
-//		IO.makeTempDir(IO.FACTORY_LOCK_DIR);
-		final GenerateDialog gd = GenerateDialog.getInstance();
-		gd.doFinished = false; // stop generate finishing itself till all done
+		final GenerateDialog dialog = GenerateDialog.getInstance();
+		dialog.doFinished = false; // don't stop yourself
 		Thread thread = new Thread(Generator.FACTORY_THREAD_NAME) {
 			@Override
 			public void run() {
+				// tell dialog "stop this tread, when asked"
+				dialog.addGeneratorThread(this);
 				// A very small percentage of puzzles are hard, so finding a
 				// hard one almost always fills all the easier level, hence
 				// DIFFICULTIES is sorted hardest-to-easiest, so PUZZLE_CACHE
-				// index is the bloody reverse of DIFFICULTIES index!
-				gd.setGeneratorThread(this);
-				for ( Difficulty difficulty : DIFFICULTIES ) { // hardest first
-					if ( PUZZLE_CACHE[difficulty.ordinal()] == null ) {
+				// index is the reverse of DIFFICULTIES index!
+				for ( Difficulty d : DIFFICULTIES ) { // hardest first
+					if ( CACHE[d.ordinal()] == null ) {
 						try {
-							Log.teeln(Thread.currentThread().getName()+": Generating "+difficulty+"...");
-							final Generator g = Generator.getInstance();
-							PUZZLE_CACHE[difficulty.ordinal()] =
-								g.generate(PuzzleCache.this, Symmetry.values()
-										, difficulty, true);
-						} catch ( InterruptException | TuringException eaten ) {
+							final String tn = Thread.currentThread().getName();
+							Log.teeln(tn+": Generating "+d+"...");
+							final Generator gen = Generator.getInstance();
+							CACHE[d.ordinal()] = gen.generate(PuzzleCache.this
+									, Symmetry.values(), d, true);
+						} catch (InterruptException | TuringException eaten) {
 							break;
 						}
 					}
 				}
 				savePuzzleCache();
-				gd.doFinished = true;
-//				IO.delete(IO.FACTORY_LOCK_DIR);
-//				gd.stopGeneratorThread();
+				dialog.doFinished = true;
 			}
 		};
 		thread.setDaemon(true);
@@ -192,8 +189,7 @@ public final class PuzzleCache {
 
 	/**
 	 * produce runs after a cache-hit, to refill the cache by generating a
-	 * puzzle to replace the one we just "vended". The self-refiller in a
-	 * self-refilling vending machine.
+	 * replacement puzzle: the self-refiller in a self-refilling machine.
 	 *
 	 * @param syms Symmetry's selected by the user
 	 * @param difficulty the target Difficulty
@@ -201,16 +197,15 @@ public final class PuzzleCache {
 	private void produce(final Symmetry[] syms, final Difficulty difficulty) {
 		// determine the useful symmetries from the users selection
 		final Symmetry[] mySyms = usefulSymmetries(difficulty, syms);
-		// now generate a replacement puzzle
-		final Thread generatorThread = new Thread(Generator.PRODUCE_THREAD_NAME) {
+		// generate a replacement puzzle in a new thread
+		final Thread thread = new Thread(Generator.PRODUCE_THREAD_NAME) {
 			@Override
 			public void run() {
 				// Wait a-quarter-second for GUIs analyse to start...
 				try{Thread.sleep(250);}catch(InterruptedException eaten){}
 				// then we synchronize so that my background generate starts
-				// when the foreground analyse completes, so two LogicalSolvers
-				// don't run concurrently and trip over stateful static vars
-				// like GrabBag. GrabBag.ANALYSE_LOCK is aggregiously ironic.
+				// when the foreground analyse completes, to avoid two solves
+				// running concurrently (tripping-over stateful static vars).
 				synchronized (LogicalSolver.ANALYSE_LOCK) {
 					try {
 						generate(mySyms, difficulty, true);
@@ -221,9 +216,9 @@ public final class PuzzleCache {
 				}
 			}
 		};
-		generatorThread.setDaemon(true);
-		Runtime.getRuntime().addShutdownHook(generatorThread);
-		generatorThread.start();
+		thread.setDaemon(true);
+		Runtime.getRuntime().addShutdownHook(thread);
+		thread.start();
 	}
 
 	// Determine the useful symmetries to speed-up generation:

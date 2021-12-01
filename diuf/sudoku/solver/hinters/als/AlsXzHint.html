@@ -2,17 +2,18 @@
 <body>
 <h2>HoDoKu ALS-XZ</h2>
 <p>
-The two Almost Locked Sets (ALSs):<pre>
- (a) <b1>{0}</b1>
- (b) <b2>{1}</b2>
+These two Almost Locked Sets (ALSs) are aligned:<pre>
+    (a) <b1>{0}</b1>
+    (b) <b2>{1}</b2>
 </pre>
-share the Restricted Common Candidate (RCC) x = {2}{6}.
+They share the Restricted Common Candidate (RCC) x = {2}{6}.
 <p>
-All x = {2}'s in both ALSs see each other (that's the Restriction) so only one of
-these two ALSs will contain a {2}, so the other ALS will contain the other common
-value z = {3}.
+All x = {2}'s in both ALSs see each other (that's the Restriction) so only one
+of these two ALSs will contain a {2}, so the other ALS must contain the other
+common value z = {3}.
 <p>
-Hence {3} is eliminated from external cells seeing all {3}'s in <u>both</u> ALSs.
+Hence {3} may be eliminated from external cells seeing all {3}'s in <u>both</u>
+ALSs.
 <p>
 Therefore <r>we can remove <b>{4}</b></r>. 
 <p>
@@ -22,13 +23,15 @@ Therefore <r>we can remove <b>{4}</b></r>.
 <p>
 The logic is: all x's in these two ALS's see each other, so that x must be in
 one of these two ALS's, which "pushes" the other common value z into the other
-ALS. We don't yet know which ALS is which, but that doesn't matter because we
+ALS, because only one value can be removed from an ALS before it goes invalid.
+We don't yet know which ALS is which, but that doesn't matter because we
 eliminate only from cells seeing all z's in <u>both</u> of these ALSs.
 <p>
-The "push" is tricky. The rule is that each ALS can loose only <u>one</u> value before
-going invalid. But why? ALS-A cannot contain both {2} and {3} because that leaves
-ALS-B with not enough values to place one value in each of its cells; ergo the
-Sudoku is invalid, and we MUST avoid sending the Sudoku invalid.
+The "push" is the tricky bit. The rule is that each ALS can loose only <u>one</u>
+value before going invalid. But why? ALS-A cannot contain both {2} and {3}
+because that leaves ALS-B with not enough values to place one value in each of
+its cells; ergo the Sudoku is invalid, and we MUST avoid sending the Sudoku
+invalid.
 <p>
 <u>ALS Blurb</u>
 <p>
@@ -40,8 +43,8 @@ Further, each ALS may loose only one value before it goes invalid because
 eliminating a second value leaves it with insufficient potential values to fill
 all of it's cells.
 <p>
-ALSs are not very useful until we chain them together in groups of 2=ALS-XZ,
-3=ALS-Wing, or more=ALS-Chains; or Death Blossom, or Big Wings, or whatever;
+ALSs are not very useful until we chain them together in groups of 2=ALS_XZ,
+3=ALS_Wing, or more=ALS_Chain; or Death Blossom, or Big Wings, or whatever;
 the point is that additional logic needs to be applied to ALSs in order to
 produce a hint.
 <p>
@@ -52,6 +55,10 @@ In ALS-XZ and ALS-Wings the RCC (x) is allowed to appear in the overlap, if any,
 of each pair of ALSs, in ALS-Chains this is forbidden because it breaks the "and
 reciprocally" rule. There are other extraneous differences. If you really want
 to know then you need to read the code, but that's the crux of it.
+<p>
+I later renamed the tech's: ALS_Pair..ALS_Sept. Note that you CAN have chains
+longer than 7, but work increases exponentially while the number of hints fall
+away, so 7 is barking, and 8 would be beyond slow and probably not hint at all.
 <p>
 <!--debugMessage-->{5}
 </body>

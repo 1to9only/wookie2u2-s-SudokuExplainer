@@ -8,6 +8,7 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VSIZE;
 import static diuf.sudoku.solver.hinters.als.AAlsHinter.MAX_RCCS;
 import diuf.sudoku.utils.Log;
 
@@ -17,10 +18,7 @@ import diuf.sudoku.utils.Log;
  * <li>allowOverlaps = false (ie ignore ALS's that overlap).
  * </ul>
  * <p>
- * AlsChain always does an "All" search (currently RccFinderAllAllowOverlaps)
- * using the start and end indexes, so I extend RccFinderAbstractForAlsChains
- * to inherit it's starts and ends fields, and it's implementations of
- * getStartIndexes and getEndIndexes, which return those arrays (not null).
+ * Used by BigWings (first), and DeathBlossom (last) so find twice per pass.
  *
  * @author Keith Corlett 2021-07-29
  */
@@ -32,8 +30,7 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 	@Override
 	public int find(Als[] alss, int numAlss, Rcc[] rccs) {
 		// ALL variables are pre-declared, ANSII-C style, for zero stack-work.
-		Als a, b; // two ALSs intersect on a Restricted Common Candidate (RCC)
-		Rcc rcc; // the current Restricted Common Candidate
+		Als a, b; // two ALSs that intersect on one-or-two RC-value/s
 		Idx[] avs // a.vs: indices of cells which maybe v in ALS a
 		    , avAll // a.vAll: indices of cells which maybe v in ALS a + buds
 			, bvs // b.vs: indices of cells which maybe v in ALS b
@@ -42,52 +39,69 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 		  , av // a.vs[v]: indices of cells in ALS a which maybe v
 		  , avA // a.vAll[v]: indices of cells which maybe v in ALS a + buddies
 		  , bidx // b.*: is re-used for all of b's Idx's (currently three)
-		  , bvsv; // b.vs[v]: indices if cells in ALS b which maybe v
+		  , bv; // b.vs[v]: indices if cells in ALS b which maybe v
 		int[] vs; // VALUESES[cmnMaybes]: array of maybes common to ALSs a & b
-		int aMaybes // a.maybes: all potential values of cells in ALS a
+		int i // alss-index in the outer 'a' loop
+		  , aMaybes // a.maybes: all potential values of cells in ALS a
 		  , j // the index in the alss array of ALS b
-		  , cmnMaybes // maybes common to both ALS's a and b
 		  , vi,vn,v // index into vs, vs.length, and the value at vs[vi]
-		  , bv0,bv1,bv2; // bothVs //inline for speed: call no methods
+		  , bv0,bv1,bv2 // bothVs //inline for speed: call no methods
+		  , v1, v2 // first and occassional second RC-value
+		  ;
+		boolean any = false; // any RCC for this pair of ALSs?
 		int numRccs = 0; // number RCC's found so far.
 		// foreach ALS
-		for ( int i=0; i<numAlss; ++i ) {
-			a = alss[i];
+		for ( i=0; i<numAlss; ++i ) {
 			starts[i] = numRccs;
+			a = alss[i];
 			avAll = a.vAll;
 			avs = a.vs;
 			aidx = a.idx;
 			aMaybes = a.maybes;
 			// foreach ALS again (a full n*n search)
 			for ( j=0; j<numAlss; ++j ) {
-				// if the two ALSs share common maybes
-				if ( (cmnMaybes=(aMaybes & (b=alss[j]).maybes)) != 0
+				// if the two ALSs share any common maybes
+				if ( (aMaybes & alss[j].maybes) != 0
 				  // and the two ALSs do NOT physically overlap
-				  && ( ( (aidx.a0 & (bidx=b.idx).a0)
+				  // which also supresses j == i
+				  && ( ( (aidx.a0 & (bidx=alss[j].idx).a0)
 					   | (aidx.a1 & bidx.a1)
 					   | (aidx.a2 & bidx.a2) ) == 0 )
 				) {
 					// foreach common value
-					for ( vs=VALUESES[cmnMaybes], vn=vs.length, vi=0, bvs=b.vs
-							, bvAll=b.vAll, rcc=null; ; ) {
+					for ( v1 = v2 = 0
+					    , b = alss[j]
+						, bvs = b.vs
+						, bvAll = b.vAll
+					    , vs = VALUESES[aMaybes & b.maybes]
+					    , vn = vs.length
+						, vi = 0
+						;//NO_STOPPER
+						;//NO_INCREMENT
+					) {
 						// if all v's in both ALSs see each other
-						if ( ((bv0=(av=avs[v=vs[vi]]).a0 | (bvsv=bvs[v]).a0) & (avA=avAll[v]).a0 & (bidx=bvAll[v]).a0) == bv0
-						  && ((bv1 = av.a1 | bvsv.a1) & avA.a1 & bidx.a1) == bv1
-						  && ((bv2 = av.a2 | bvsv.a2) & avA.a2 & bidx.a2) == bv2
+						if ( ((bv0=(av=avs[v=vs[vi]]).a0 | (bv=bvs[v]).a0) & (avA=avAll[v]).a0 & (bidx=bvAll[v]).a0) == bv0
+						  && ((bv1 = av.a1 | bv.a1) & avA.a1 & bidx.a1) == bv1
+						  && ((bv2 = av.a2 | bv.a2) & avA.a2 & bidx.a2) == bv2
 						) {
-							if ( rcc == null ) {
-								rccs[numRccs++] = rcc = new Rcc(i, j, v);
-								if ( numRccs == MAX_RCCS ) {
-									Log.teeln("WARN: "+Log.me()+": MAX_RCCS exceeded!");
-									return numRccs;
-								}
-							} else {
-								rcc.v2 = v;
+							if ( any ) {
+								v2 = v;
 								break;
+							} else {
+								v1 = v;
+								any = true;
 							}
 						}
 						if ( ++vi == vn ) {
 							break;
+						}
+					}
+					if ( any ) {
+						any = false;
+						rccs[numRccs] = new Rcc(i, j, v1, v2);
+						if ( ++numRccs == MAX_RCCS ) {
+							Log.teeln("WARN: "+Log.me()+": MAX_RCCS exceeded!");
+							return numRccs; // no crash!
 						}
 					}
 				}

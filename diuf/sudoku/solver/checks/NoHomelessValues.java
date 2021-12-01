@@ -12,17 +12,16 @@ import diuf.sudoku.solver.accu.IAccumulator;
 
 
 /**
- * NoHomelessValues validates that no unplaced value has no remaining possible
- * positions in any region, ie foreach region, foreach unplaced value: check
- * that this value has at-least one possible position in this region.
+ * NoHomelessValues checks that no unplaced value has zero remaining places in
+ * any region; ie foreach region, foreach unplaced value: check this value has
+ * at-least one possible position in this region.
  * <p>
- * Note: grid now implements the actual examination in the hasHomelessValues
- * method, so all this class need do is present it's results as an IHinter.
+ * NB: grid now implements the exam, so all I do is present it as an IHinter.
  */
 public final class NoHomelessValues extends AWarningHinter {
 
 	public NoHomelessValues() {
-		super(Tech.NoHomelessValues);
+		super(Tech.HomelessValues);
 	}
 
 	@Override

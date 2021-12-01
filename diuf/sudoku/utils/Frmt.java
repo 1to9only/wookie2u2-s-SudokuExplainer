@@ -44,28 +44,29 @@ public final class Frmt {
 	public static final String[] LETTERS = new String[] {
 		"A", "B", "C", "D", "E", "F", "G", "H", "I"
 	};
-	public static final String[] LOWERCASE_LETTERS = new String[] {
-		"a", "b", "c", "d", "e", "f", "g", "h", "i"
-	};
 	public static final String[] NUMBERS = {
 		"1", "2", "3", "4", "5", "6", "7", "8", "9"
 	};
 
+	/** COLON_SPACE */
 	public static final String COLON_SP = ": ";
-	public static final String COLON_ONLY = ":";
+	public static final String COLON = ":";
 	public static final String IN = " in ";
 	public static final String ON = " on ";
 	public static final String SO = " so ";
 	public static final String NULL_ST = "null";
 
 	public static final String EMPTY_STRING = "";
-	public static final String COMMA_SP = ", ";
+	/** COMMA_SPACE */
+	public static final String CSP = ", ";
 	public static final String COMMA = ",";
 	public static final String AND = " and ";
 	public static final String OR = " or ";
-	public static final String SPACE = " ";
+	/** SPACE */
+	public static final String SP = " ";
 	public static final String TAB = "\t";
-	public static final String TWO_SPACES = "  ";
+	/** TWO_SPACES */
+	public static final String SP2 = "  ";
 	public static final String PLUS = "+";
 	public static final String MINUS = "-";
 	public static final String PERIOD = ".";
@@ -79,21 +80,21 @@ public final class Frmt {
 
 	// just cast it to Whatever in your Formatter and IFilter impl's.
 
-	public static <T> String csv(String prefix, T[] a, IFormatter<T> ts) {
+	public static <T> String csv(final String prefix, final T[] a, final IFormatter<T> ts) {
 		if(a==null) return EMPTY_STRING;
 		MY_SB.setLength(0);
 		MY_SB.append(prefix);
-		return appendTo(MY_SB, a, ts, COMMA_SP, COMMA_SP).toString();
+		return appendTo(MY_SB, a, ts, CSP, CSP).toString();
 	}
-	public static <T> String csv(T[] a, IFormatter<T> ts) {
-		return Frmt.frmt(a, ts, COMMA_SP, COMMA_SP);
+	public static <T> String csv(final T[] a, final IFormatter<T> ts) {
+		return frmt(a, ts, CSP, CSP);
 	}
-	public static <T> String frmt(T[] a, IFormatter<T> ts, String sep, String lastSep) {
+	public static <T> String frmt(final T[] a, final IFormatter<T> ts, final String sep, final String lastSep) {
 		if(a==null) return EMPTY_STRING;
 		MY_SB.setLength(0);
 		return appendTo(MY_SB, a, ts, sep, lastSep).toString();
 	}
-	public static <T> StringBuilder appendTo(StringBuilder sb, T[] a, IFormatter<T> ts, String sep, String lastSep) {
+	public static <T> StringBuilder appendTo(final StringBuilder sb, final T[] a, final IFormatter<T> ts, final String sep, final String lastSep) {
 		final int m = a.length - 1; // m is n-1; n is the population count.
 		int i = 0;
 		for ( T e : a ) {
@@ -104,8 +105,7 @@ public final class Frmt {
 		return sb;
 	}
 
-	public static <T> void appendTo(Appendable sb, T[] a, IFilter<T> filter
-			, IFormatter<T> formatter, String sep, String lastSep) throws IOException {
+	public static <T> void appendTo(final Appendable sb, final T[] a, final IFilter<T> filter, final IFormatter<T> formatter, final String sep, final String lastSep) throws IOException {
 		final int m = a.length - 1; // m is n-1; n is the population count.
 		int i = 0;
 		for ( T e : a )
@@ -119,7 +119,7 @@ public final class Frmt {
 	// ======================== Collection IFormatter =========================
 
 	public static <E> String csv(Collection<? extends E> c, IFormatter<E> ts) {
-		return Frmt.frmt(c, ts, COMMA_SP, COMMA_SP);
+		return frmt(c, ts, CSP, CSP);
 	}
 	public static <E> String frmt(Collection<? extends E> c, IFormatter<E> ts, String sep, String lastSep) {
 		if(c==null) return EMPTY_STRING;
@@ -164,7 +164,7 @@ public final class Frmt {
 	 */
 	public static <E> void csv(PrintStream out, Collection<? extends E> c
 			, IFilter<E> filter, IFormatter<E> formatter) {
-		Frmt.csv(out, c, filter, formatter, COMMA_SP, COMMA_SP);
+		csv(out, c, filter, formatter, CSP, CSP);
 	}
 
 	/**
@@ -199,26 +199,26 @@ public final class Frmt {
 
 	// ============================ String ==============================
 
-	public static String csvs(Collection<String> ss) { return Frmt.frmts(ss, COMMA_SP, COMMA_SP); }
-	public static String ands(Collection<String> ss) { return Frmt.frmts(ss, COMMA_SP, AND); }
-	public static String ors(Collection<String> ss) { return Frmt.frmts(ss, COMMA_SP, OR); }
-	public static String frmts(Collection<String> ss, String sep, String lastSep) {
-		if(ss==null) return EMPTY_STRING;
+	public static String csvs(Collection<String> c) { return frmts(c, CSP, CSP); }
+	public static String ands(Collection<String> c) { return frmts(c, CSP, AND); }
+	public static String ors(Collection<String> c) { return frmts(c, CSP, OR); }
+	public static String frmts(Collection<String> c, String sep, String lastSep) {
+		if(c==null) return EMPTY_STRING;
 		MY_SB.setLength(0);
-		return appendTos(MY_SB, ss, sep, lastSep).toString();
+		return appendS(MY_SB, c, sep, lastSep).toString();
 	}
 	/** Appends the given String to the given StringBuilder, separating each
 	 * value with 'sep', except the last which is preceeded by 'lastSep'.
 	 * @param sb to append to
-	 * @param ss {@code Collection<String>} to format as a list (or whatever)
+	 * @param c {@code Collection<String>} to format as a list (or whatever)
 	 * @param sep values separator
 	 * @param lastSep the last values separator
 	 * @return the given 'sb' so that you can chain method calls */
-	public static StringBuilder appendTos(StringBuilder sb
-			, Collection<String> ss, String sep, String lastSep) {
-		final int m = ss.size() - 1; // m is n-1; n is the population count.
+	public static StringBuilder appendS(StringBuilder sb
+			, Collection<String> c, String sep, String lastSep) {
+		final int m = c.size() - 1; // m is n-1; n is the population count.
 		int i = 0;
-		for ( String s : ss ) {
+		for ( String s : c ) {
 			if ( ++i > 1 )
 				sb.append(i<m ? sep : lastSep);
 			sb.append(s);
@@ -234,7 +234,7 @@ public final class Frmt {
 	 * significant to testing it, even if it isn't in using it, which it
 	 * almost certainly will be in some future instance, so it's Linked.
 	 */
-	public static LinkedHashSet<String> csvToSetOfStrings(String line, String sep) {
+	public static LinkedHashSet<String> parse(String line, String sep) {
 		if ( line == null || line.isEmpty() )
 			return new LinkedHashSet<>(0, 0.75F);
 		if ( sep == null )
@@ -306,13 +306,13 @@ public final class Frmt {
 	// =============================== int... =================================
 
 	/** csv: {1,2,4,0} => "1, 2, 4, 0" */
-	public static String csv(int... vs) { return Frmt.frmt(vs, COMMA_SP, COMMA_SP); }
+	public static String csv(int... vs) { return frmt(vs, CSP, CSP); }
 	/** ssv: 3, {1,2,4,0} => "1 2 4" */
-	public static String ssv(int n, int... vs) { return Frmt.frmt(vs, n, SPACE, SPACE); }
+	public static String ssv(int n, int... vs) { return frmt(vs, n, SP, SP); }
 	/** and: {1,2,4,0} => "1, 2, 4 and 0" */
-	public static String and(int... vs) { return Frmt.frmt(vs, COMMA_SP, AND); }
+	public static String and(int... vs) { return frmt(vs, CSP, AND); }
 	/** or: {1,2,4,0} => "1, 2, 4 or 0" */
-	public static String or(int... vs) { return Frmt.frmt(vs, COMMA_SP, OR); }
+	public static String or(int... vs) { return frmt(vs, CSP, OR); }
 	/** frmt: {1,2,4,0}, ", ", " or "  =>  "1, 2, 4 or 0" */
 	public static String frmt(int[] vs, String sep, String lastSep) {
 		return frmt(vs, vs.length, sep, lastSep);
@@ -349,11 +349,11 @@ public final class Frmt {
 
 //not used, but retained just coz it's a bit clever
 //	/** csv-Null-Terminated-List: {1,2,4,0,0} => "1, 2, 4" */
-//	public static String csvNTL(int... vs) { return Frmt.frmtNTL(vs, comma, comma); }
+//	public static String csvNTL(int... vs) { return frmtNTL(vs, comma, comma); }
 //	/** and-Null-Terminated-List: {1,2,4,0,0} => "1, 2 and 4" */
-//	public static String andNTL(int... vs) { return Frmt.frmtNTL(vs, comma, and); }
+//	public static String andNTL(int... vs) { return frmtNTL(vs, comma, and); }
 //	/** or-Null-Terminated-List: {1,2,4,0,0} => "1, 2 or 4" */
-//	public static String orNTL(int... vs) { return Frmt.frmtNTL(vs, comma, or); }
+//	public static String orNTL(int... vs) { return frmtNTL(vs, comma, or); }
 //	/** frmt-Null-Terminated-List: {1,2,4,0,0}, ", ", " or "  =>  "1, 2 or 4" */
 //	public static String frmtNTL(int[] vs, String sep, String lastSep) {
 //		if(vs==null || vs.length==0) return EMPTY_STRING;
@@ -392,13 +392,14 @@ public final class Frmt {
 	// ============================ Integer ==============================
 
 	/**
-	 * Converts the given set of Strings into a new set of Integers by calling
-	 * Integer.valueOf(s) on each.
+	 * Converts {@code Set<String>} into {@code Set<Integer>},
+	 * by calling {@code Integer.valueOf(s)} on each.
+	 *
 	 * @param strings {@code Set<String>}
 	 * @return {@code Set<Integer>}
 	 * @throws NumberFormatException which is all your problem.
 	 */
-	public static LinkedHashSet<Integer> toIntegersSet(LinkedHashSet<String> strings) {
+	public static LinkedHashSet<Integer> integers(LinkedHashSet<String> strings) {
 		LinkedHashSet<Integer> result = new LinkedHashSet<>(strings.size());
 		for ( String s : strings )
 			result.add(Integer.valueOf(s));
@@ -412,8 +413,8 @@ public final class Frmt {
 	 * @return {@code LinkedHashSet<Integer>}
 	 * @throws NumberFormatException which is all your problem.
 	 */
-	public static LinkedHashSet<Integer> integerSetFromCsv(String line, String sep) {
-		return toIntegersSet(csvToSetOfStrings(line, sep));
+	public static LinkedHashSet<Integer> linkedHashSet(String line, String sep) {
+		return integers(parse(line, sep));
 	}
 
 	public static String frmtIntegers(Collection<Integer> vs, String sep, String lastSep) {
@@ -438,10 +439,10 @@ public final class Frmt {
 	// ============================ boolean... ==============================
 
 //not used 2020-11-23 but retained just coz I think I should have it
-	public static String plain(boolean... bs) { return Frmt.frmt(bs, EMPTY_STRING, EMPTY_STRING); }
-	public static String csv(boolean... bs) { return Frmt.frmt(bs, COMMA_SP, COMMA_SP); }
-	public static String and(boolean... bs) { return Frmt.frmt(bs, COMMA_SP, AND); }
-	public static String or(boolean... bs) { return Frmt.frmt(bs, COMMA_SP, OR); }
+	public static String plain(boolean... bs) { return frmt(bs, EMPTY_STRING, EMPTY_STRING); }
+	public static String csv(boolean... bs) { return frmt(bs, CSP, CSP); }
+	public static String and(boolean... bs) { return frmt(bs, CSP, AND); }
+	public static String or(boolean... bs) { return frmt(bs, CSP, OR); }
 	public static String frmt(boolean[] bs, String sep, String lastSep) {
 		MY_SB.setLength(0);
 		return append(MY_SB, bs, sep, lastSep).toString();
@@ -458,9 +459,10 @@ public final class Frmt {
 
 	// ============================ Object ==============================
 
-	public static String csv(Object[] a) { return Frmt.frmtObj(COMMA_SP, COMMA_SP, a); }
-	public static String and(Object[] a) { return Frmt.frmtObj(COMMA_SP, AND, a); }
-	public static String or(Object[] a) { return Frmt.frmtObj(COMMA_SP, OR, a); }
+	public static String ssv(Object[] a) { return frmtObj(SP, SP, a); }
+	public static String csv(Object[] a) { return frmtObj(CSP, CSP, a); }
+	public static String and(Object[] a) { return frmtObj(CSP, AND, a); }
+	public static String or(Object[] a) { return frmtObj(CSP, OR, a); }
 	public static String frmtObj(final String sep, final String lastSep, Object[] a) {
 		MY_SB.setLength(0);
 		return appendObj(MY_SB, a, sep, lastSep).toString();
@@ -484,9 +486,9 @@ public final class Frmt {
 		return sb;
 	}
 
-	public static String csvIt(Iterable<?> any) { return formatIt(any, COMMA_SP, COMMA_SP); }
-	public static String andIt(Iterable<?> any) { return formatIt(any, COMMA_SP, AND); }
-	public static String orIt(Iterable<?> any) { return formatIt(any, COMMA_SP, OR); }
+	public static String csvIt(Iterable<?> any) { return formatIt(any, CSP, CSP); }
+	public static String andIt(Iterable<?> any) { return formatIt(any, CSP, AND); }
+	public static String orIt(Iterable<?> any) { return formatIt(any, CSP, OR); }
 	public static String formatIt(Iterable<?> any, final String sep, final String lastSep) {
 		if ( any == null )
 			return EMPTY_STRING;
@@ -513,10 +515,11 @@ public final class Frmt {
 	// ========================== funky stuff ============================
 
 	public static DecimalFormat DOUBLE_FORMAT = new DecimalFormat("#0.00");
-	public static String frmtDbl(double d) { return DOUBLE_FORMAT.format(d); }
+	// dbl because it's short, and double is a reserved word.
+	public static String dbl(double d) { return DOUBLE_FORMAT.format(d); }
 
 	// 132 spaces should be enough, I guess
-	public static final String SPACES = repeat(SPACE, 132);
+	public static final String SPACES = repeat(SP, 132);
 
 	public static String repeat(String chars, int howManyTimes) {
 		final StringBuilder sb = new StringBuilder(chars.length()*howManyTimes);

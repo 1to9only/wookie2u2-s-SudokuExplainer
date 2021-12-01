@@ -18,7 +18,6 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 
-
 /**
  * A Helper class that loads and formats HTML.
  * @author Keith Corlett
@@ -32,7 +31,6 @@ public final class Html {
 
 	// the maximum size of the arguments array passed to the format method.
 	private static final int MAX_ARGS = 32;
-
 
 	public static void save(Object caller, String filename, String content
 			, boolean wantCache) throws ResourceException {
@@ -177,18 +175,19 @@ public final class Html {
 //	private static final int BLUE2  = 25;
 //	private static final int CYAN2  = 29;
 
-	private static final String[] COLORS = new String[] {  // startIndex
-	 "<r>", "<font color=\"red\">"     ,"</r>", "</font>"  //  0 red (candidate)
-	,"<c>", "<font color=\"#00AAAA\">" ,"</c>", "</font>"  //  4 cyan (cell background)
-	,"<g>", "<font color=\"#009000\">" ,"</g>", "</font>"  //  8 green (candi)
-	,"<o>", "<font color=\"#E08000\">" ,"</o>", "</font>"  // 12 orange (candi)
-	,"<k>", "<font color=\"#FF00FF\">" ,"</k>", "</font>"  // 16 pink (candi)
-	,"<b1>","<font color=\"#0000A0\">" ,"</b1>","</font>"  // 20 blue (region)
-	,"<b2>","<font color=\"#009000\">" ,"</b2>","</font>"  // 24 green (region)
-	,"<b3>","<font color=\"#009090\">" ,"</b3>","</font>"  // 28 dark aqua (ALS)
-	,"<b4>","<font color=\"#CCCC00\">" ,"</b4>","</font>"  // 32 yellow (ALS)
-	,"<b5>","<font color=\"#964B00\">" ,"</b5>","</font>"  // 36 brown (ALS)
-	,"<b6>","<font color=\"#DC05DC\">" ,"</b6>","</font>"  // 40 purple (SueDeCoq)
+	private static final String[] COLORS = new String[] { // startIndex
+	 "<r>", "<font color=\"red\">"     ,"</r>", "</font>" //  0 red candidate
+	,"<c>", "<font color=\"#00AAAA\">" ,"</c>", "</font>" //  4 cyan cell bg
+	,"<g>", "<font color=\"#009000\">" ,"</g>", "</font>" //  8 green candi
+	,"<o>", "<font color=\"#E08000\">" ,"</o>", "</font>" // 12 orange candi
+	,"<k>", "<font color=\"#FF00FF\">" ,"</k>", "</font>" // 16 pink candi
+	,"<b1>","<font color=\"#0000A0\">" ,"</b1>","</font>" // 20 blue region
+	,"<b2>","<font color=\"#009000\">" ,"</b2>","</font>" // 24 green region
+	,"<b3>","<font color=\"#009090\">" ,"</b3>","</font>" // 28 dark aqua ALS
+	,"<b4>","<font color=\"#CCCC00\">" ,"</b4>","</font>" // 32 yellow ALS
+	,"<b5>","<font color=\"#964B00\">" ,"</b5>","</font>" // 36 brown ALS
+	,"<b6>","<font color=\"#DC05DC\">" ,"</b6>","</font>" // 40 purple SDC/ALS
+	,"<b7>","<font color=\"#000000\">" ,"</b7>","</font>" // 44 light blue ALS // black coz D8E6FF is unreadable
 	};
 
 	private static String color(String html, int i) {

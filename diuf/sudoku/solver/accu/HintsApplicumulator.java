@@ -10,8 +10,8 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.utils.Frmt;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
-
 
 /**
  * An Applicumulator is by "apply" out of "accumulator"; a striped lion.
@@ -19,19 +19,19 @@ import java.util.List;
  * A HintsApplicumulator is used by
  * {@link diuf.sudoku.solver.hinters.lock.Locking} to apply each Pointing and
  * Claiming hint as soon as it is found, so that all hints are applied in one
- * pass through the grid (it's all about efficiency). Then Locking adds a
- * single {@link AppliedHintsSummaryHint} to the "normal" IAccumulator to pass
- * the total number of potential values eliminated back to the calling
+ * pass through the grid (for efficiency); then Locking adds a single
+ * {@link diuf.sudoku.solver.accu.SummaryHint} to the "normal" IAccumulator to
+ * pass the total number of potential values eliminated back to the calling
  * {@link AHint#applyImpl} method, in order to keep score.
  * <p>
  * Note that there's nothing specific to Locking here, it's just that Locking
  * is currently the only place I'm used, because Locking is were I'm needed
  * most, coz Locking tends to cause Locking; far more than other hint types.
  * <p>
- * {@link diuf.sudoku.solver.checks.SingleSolution#solveLogically} builds-up
- * a {@link AppliedHintsSummaryHint} with the agglomerate of all hints found
- * and applied (through me) in a run. I track the number of hints found, the
- * number of eliminations, and a StringBuilder of the line-separated
+ * {@link diuf.sudoku.solver.checks.BruteForce#solveLogically} builds-up
+ * a {@link diuf.sudoku.solver.accu.SummaryHint} with the agglomerate of all
+ * hints found and applied (through me) in a run. I track the number of hints
+ * found, the number of eliminations, and a StringBuilder of the line-separated
  * toFullString's of all the hints I apply, to pass on to the summary hint.
  * <p>
  * Note that for speed, the public Grid grid should be set post-construction,
@@ -59,7 +59,8 @@ public final class HintsApplicumulator implements IAccumulator {
 	  * run through Grid (several hinters) and then forgotten, because it's
 	  * light to construct, but heavy to hold onto, coz it has a Grid.
 	  *
-	  * @param isStringy
+	  * @param isStringy should I populate the public SB StringBuilder with the
+	  *  hint.toString() of each hint that is added to me when I apply it?
 	  */
 	public HintsApplicumulator(boolean isStringy) {
 		if ( isStringy ) // NEVER in anger
@@ -86,9 +87,9 @@ public final class HintsApplicumulator implements IAccumulator {
 	 * This is the funky part: Apply the hint to the grid and keep searching,
 	 * so the immediate consequences of each hint are included in the search,
 	 * so that setting just one cell may solve the whole grid.
-	 * 
+	 *
 	 * @param hint
-	 * @return 
+	 * @return
 	 */
 	@Override
 	public boolean add(AHint hint) {
@@ -131,7 +132,7 @@ public final class HintsApplicumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean hasAny() {
+	public boolean any() {
 		return false;
 	}
 
@@ -141,7 +142,7 @@ public final class HintsApplicumulator implements IAccumulator {
 	}
 
 	@Override
-	public void sort() {
+	public void sort(Comparator<AHint> comparator) {
 		// a no-op
 	}
 

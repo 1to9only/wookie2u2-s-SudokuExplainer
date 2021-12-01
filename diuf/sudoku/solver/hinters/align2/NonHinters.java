@@ -86,26 +86,28 @@ class NonHinters {
 	 *
 	 * @param cellStack the CellStackEntry array
 	 * @param degree the number of cells (2..10) in an aligned set
-	 * @param numExcls the number of excluder-cells whose maybes are 
+	 * @param numExcls the number of excluder-cells whose maybes are
 	 * currently in the AlignedExclusion.EXCLUDERS_MAYBES array.
+	 * @param firstPass is this the first run of this instance of AE through
+	 *  this puzzle?
 	 * @return should we skip searching the cells in the given stack
 	 */
 	boolean skip(final CellStackEntry[] cellStack, final int degree
-			, final int numExcls, boolean firstPass) {
-		// calculate my hashCode and totalMaybes
-		// and remember these for the presumed future call to put
-		// the cellStack always contains atleast 2 cells; it is NEVER empty!
+			, final int numExcls, final boolean firstPass) {
+		// calculate hashCode and totalMaybes of cellStack, and
+		// remember these for the presumed future call to put.
+		// nb: the cellStack always contains atleast 2 cells.
 		Cell c = cellStack[0].cell;
 		long hc = c.hashCode; // hashCode
 		long tm = c.maybes; // totalMaybes
 		for ( int i=1; i<degree; ++i ) {
 			c = cellStack[i].cell;
-			// NOTE: shift is set by my constructor; it varies for $degree
 			hc = (hc<<shift) ^ c.hashCode;
 			tm += c.maybes;
 		}
-		// if the number of excluders has changed, or any of there maybes
-		// have changed, then we will re-examine this aligned-set.
+		// if the number of excluders has changed
+		// or any of there maybes have changed
+		// then re-examine this aligned-set.
 		for ( int i=0; i<numExcls; ++i )
 			tm += EXCLUDERS_MAYBES[i];
 		this.hashCode = hc;
@@ -117,12 +119,13 @@ class NonHinters {
 			// should allow it be configured to be FAR more persistent in it's
 			// sampling of what should be compiled, or atleast give us a bloody
 			// compileAll switch, avoiding sampling all-together. We know how
-			// to wait. And far more eruditely, we know when to wait.
+			// to wait, and we know WHEN to wait.
 			if ( ++cnt > 100 )
 				return false;
 			return store.get(hc) == tm; // ie stored mb == current mb
 		}
-		// now return is the totalMaybes unchanged since last time we saw them;
+		// now return is the totalMaybes the same as the last time we examined
+		// these cells;
 		// else (virgin cells) then get returns NOT_FOUND (-1) which is NEVER
 		// equal to the current total maybes, so skip returns false.
 		// BFIIK: I tried skipping get in first getHints on each puzzle, when

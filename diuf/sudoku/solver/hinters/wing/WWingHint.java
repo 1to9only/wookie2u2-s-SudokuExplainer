@@ -84,8 +84,8 @@ public final class WWingHint extends AHint  {
 			, Integer.toString(value0)			// 4
 			, Integer.toString(value1)			// 5
 			, wABCommonRegion					// 6
-			, Frmu.and(redPots.keySet())		// 7
-			, redPots.toString()				// 8
+			, Frmu.and(reds.keySet())		// 7
+			, reds.toString()				// 8
 		);
 	}
 

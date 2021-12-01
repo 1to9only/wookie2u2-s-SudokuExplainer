@@ -42,7 +42,7 @@ class BigWingHint extends AHint  {
 		this.both = both;
 		this.yz = yz;
 		this.wingValues = VALUESES[alsCands ^ yz.maybes];
-		this.als = als.clone(); // copy reused array
+		this.als = als; // store the given array
 		// all cells = als cells + the yz cell
 		this.all = new Cell[als.length+1];
 		System.arraycopy(als, 0, all, 0, degree);
@@ -144,7 +144,7 @@ class BigWingHint extends AHint  {
 			, yz.id						// 2
 			, z							// 3
 			, x							// 4
-			, redPots.toString()		// 5
+			, reds.toString()		// 5
 			, Integer.toString(degree)	// 6
 			, NUMBER_NAMES[degree-1]	// 7
 			, NUMBER_NAMES[degree-2]	// 8

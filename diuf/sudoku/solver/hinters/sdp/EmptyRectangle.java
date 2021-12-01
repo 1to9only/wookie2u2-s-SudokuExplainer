@@ -35,11 +35,10 @@ package diuf.sudoku.solver.hinters.sdp;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
-import static diuf.sudoku.Grid.BOX_EDGE;
 import diuf.sudoku.Grid.Box;
+import diuf.sudoku.Grid.Row;
 import diuf.sudoku.Grid.Col;
 import static diuf.sudoku.Grid.REGION_SIZE;
-import diuf.sudoku.Grid.Row;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Indexes.IFIRST;
 import static diuf.sudoku.Indexes.ISHFT;
@@ -55,16 +54,31 @@ import java.util.List;
 /**
  * EmptyRectangle implements the Empty Rectangle Sudoku solving technique.
  * <p>
- * An Empty Rectangle is when all cells which maybe v in a box are in one row
- * and one col in a box; ie in each box all v's appear in one row or one col;
- * so either the row or the col must contain v. If there's another row or col
- * with two places for v then v can be eliminated from the cell in this box's
- * col-or-row at the far end of the other row-or-col. Hard to explain, sorry.
+ * An EmptyRectangle can occur when all cells which maybe v in a box are all in
+ * one row or one col, so that either the row or the col must contain v. If
+ * either of those row/col has a cross-region (col/row) with two places for v
+ * then we can eliminate v from the other (non-box) end of the other col/row in
+ * the box.
+ * <p>
+ * The logic is that the box must contain a v, which is on either the row or
+ * the col, so if it's in the row/col which intersects the bi-place region then
+ * the other place in that region must be v, so the victim (the intersection of
+ * "the other place"s cross-region and the box's other col/row) cannot be v;
+ * and if the v in the box happens to be in other col/row then the victim still
+ * cannot be v, hence the victim cannot be v.
+ * <p>
+ * Sorry for the poor explanation. I'm doing my best. Use log-view in the GUI
+ * to view an EmptyRectangle hint; the hint explanation is vastly superior to
+ * this verbose, over-abstracted pile of festering fuss.
  * <p>
  * The package name SDP stands for SingleDigitPattern which is the name of the
  * HoDoKu class that fathered all the hinters in this directory. All SDP's are
  * found by the UnaryChainer, but the SDP's are simpler and therefore faster;
  * and produce hints that more than 1% of users can follow.
+ * <p>
+ * NB: All empty rectangles are simple region forcing chains, which finds many
+ * others besides, but this specific pattern is arguably a "simpler technique"
+ * which is faster than forcing chains, so I'm keeping it.
  *
  * @author Keith Corlett 2020-03-25
  *
@@ -104,31 +118,33 @@ import java.util.List;
  * For fast/easy comparison we use bitset-indexes of all possible combinations
  * of the required empty cells in each box, created ONCE at startup.
  * <p>
- * Note that this code uses the continue statement, which is slow; but it's
- * uglier than a hatfull of assholes without it, so I've chosen to retain it
- * because it's "fast enough" as is. If you want this code to really zing then
- * performance test; eradicate continue; and test again. I reckon it'll be at
- * least 10% faster (possibly 50%); but it's already "fast enough".
+ * Note that this code avoids using the continue statement, coz it's slow.
  *
  * @author hobiwan
  */
 public class EmptyRectangle extends AHinter {
 
 	/**
-	 * EMPTY_BOX_BITS is the box.ridx[$v].bits (box.cells indices) which
-	 * must NOT maybe $v in order for this box to form an ER.
+	 * There's a problem referencing Grid.SQRT (I suspect infinite referential
+	 * loop) so I create a local constant that just happens to have the same
+	 * value. sigh.
+	 */
+	private static final int R = (int)Math.sqrt(Grid.REGION_SIZE); // 3
+	
+	/**
+	 * EMPTY_BOXS is the box.ridx[$v].bits (box.cells indexes) which must NOT
+	 * maybe $v in order for this box to form an ER. Note that not!
 	 * <p>
-	 * Foreach ER {@code erBox.ridx[v].bits & EMPTY_BOX_BITS[er]==0} ie
-	 * $v is not a maybe in any of the erBox cells that are denoted by a set
-	 * (1) bit in EMPTY_BOX_BITS.
+	 * Foreach er 0..8: {@code erBox.ridx[v].bits & EMPTY_BOXS[er]==0},
+	 * ie $v is not a maybe in any of the erBox cells that are denoted by a set
+	 * (1) bit in EMPTY_BOXS.
 	 * <p>
-	 * nb: hobiwan's erOffsets were absolute Grid.cells indices, but what I
-	 * want is the indices in region.cells, coz that is what is in existing
-	 * ridx[$v].bits; so I translated them over.<br>
-	 * <p>
-	 * Translated hobiwans erOffsets array of 9 boxs * 9 ER patterns, to my
-	 * EMPTY_BOX_BITS array of 9 ER patterns (no need for one for each box!)
-	 * formatted to bitwise-and with the existing region.ridx[$v].bits.
+	 * nb: hobiwan's erOffsets were absolute Grid.cells indices, but I'm using
+	 * the indices in region.cells coz that's what I've got in ridx[$v].bits;
+	 * so I translated them over. That is, translated hobiwans erOffsets array
+	 * of 9 boxs times 9 ER patterns, to EMPTY_BOXS array of 9 ER patterns
+	 * (no need for one for each box), formatted to bitwise-and with existing
+	 * region.ridx[$v].bits.
 	 * <p>
 	 * Diagram: ARegion.ridx[$v].bits indice numbers in a Box:
 	 * <pre>
@@ -139,11 +155,14 @@ public class EmptyRectangle extends AHinter {
 	 * + - - - +
 	 * </pre>
 	 * <p>
-	 * This is a right-to-left representation of a left-to-right reality (ie
-	 * everything is back-to-front; so you must mentally mirror my bits for
-	 * it to make any sense. Sorry about that, but I see no alternative.
+	 * This is a right-to-left representation of a left-to-right reality, ie
+	 * everything is mirrored; so you must mentally mirror it back to make it
+	 * make sense. Sorry about that, but I see no alternative. Computers are
+	 * like wiping your ass with wet-and-dry. I'll swap you four 320's for a
+	 * 1200. Look mate, there's no global warming here. There's can't be or I'm
+	 * a complete moron. Sigh. This is a 320 solution. Just grin and bear it.
 	 */
-	private static final int[] EMPTY_BOX_BITS = new int[] {
+	private static final int[] EMPTY_BOXS = new int[] {
 		// diagram        empty         erBoxOffsets erRowOffset,erColOffset
 		// row 1           bits         0  1  2  3   R, C
 		  Integer.parseInt("000"
@@ -178,13 +197,13 @@ public class EmptyRectangle extends AHinter {
 	};
 
 	/**
-	 * Masks used to detect if all v's in box are in the same row.
+	 * Bitsets used to detect if all v's in a box are in the same row.
 	 * Also used to remove erBox from erRow.ridx[$v], despite my name.
 	 * <p>
 	 * This is a right-to-left representation of a left-to-right reality,
 	 * so you need to mentally invert my rows for it to make sense.
 	 */
-	private static final int[] ROW_BITS = {
+	private static final int[] ROWS = {
 		// 0 = top row
 		  Integer.parseInt("000"
 						 + "000"
@@ -200,13 +219,12 @@ public class EmptyRectangle extends AHinter {
 	};
 
 	/**
-	 * Masks used to detect if all v's in box are in the same col.
-	 * Also used to remove erBox from erCol.ridx[$v], despite my name.
+	 * Bitsets used to detect if all v's in a box are in the same col.
 	 * <p>
 	 * This is a right-to-left representation of a left-to-right reality,
 	 * so you need to mentally mirror my bits for it to make sense.
 	 */
-	private static final int[] COL_BITS = {
+	private static final int[] COLS = {
 		// 0 = left col
 		  Integer.parseInt("001"
 						 + "001"
@@ -237,10 +255,14 @@ public class EmptyRectangle extends AHinter {
 		final int[] erColOff = new int[]{2, 1, 0, 2, 1, 0, 2, 1, 0};
 		// row-col of top-left of each box
 		int r=0, c=0;
+		// foreach box: create contigious sub-arrays, for speed
+		for ( int b=0; b<REGION_SIZE; ++b )
+			erRows[b] = new int[REGION_SIZE];
+		// foreach box: create contigious sub-arrays, for speed
+		for ( int b=0; b<REGION_SIZE; ++b )
+			erCols[b] = new int[REGION_SIZE];
 		// foreach box
 		for ( int b=0; b<REGION_SIZE; ++b ) {
-			erRows[b] = new int[REGION_SIZE];
-			erCols[b] = new int[REGION_SIZE];
 			// foreach ER pattern
 			for ( int er=0; er<REGION_SIZE; ++er ) {
 				// translate the relative erRowOff into an absolute
@@ -250,11 +272,11 @@ public class EmptyRectangle extends AHinter {
 				// Grid indice for this ER pattern in this box.
 				erCols[b][er] = erColOff[er] + c;
 			}
-			if ( (b % BOX_EDGE) == 2 ) { // move onto the next row of boxs
-				r += BOX_EDGE;
+			if ( (b % R) == 2 ) { // move onto the next row of boxs
+				r += R;
 				c = 0;
 			} else// move on to the next box in this row
-				c += BOX_EDGE;
+				c += R;
 		}
 	}
 
@@ -272,15 +294,16 @@ public class EmptyRectangle extends AHinter {
 		Row row;
 		Col col;
 		Cell victim, c1, c2;
-		Cell[] hisCells; // the cell array returned by row/col.at
-		int b, v, er, card, boxVs, erR, erC, i, n;
-		// these are for the first verse (read on McDuff).
-		int c2yBits, c2y;
-		// these are for the second verse (an inversion of the first)
-		// I'm using distinct vars coz the names help explain the code.
-		// Over-abstraction tends to cause meaningless variable names.
-		int c2xBits, c2x;
-		// I'm localising the grids fields for speed.
+		Cell[] cs; // the cell array returned by row/col.at
+		int b, v, card, er, boxVs, erR, erC, i, n;
+		// for the first verse (read on McDuff).
+		// WTF: c2y/c2x both contain the bitset of the row/col index, and later
+		// the row/col index itself (decoded from the bitset).
+		int c2y;
+		// for the second verse (an inversion of the first).
+		// I'm using distinct vars just coz the names help explain the code.
+		int c2x;
+		// localise the grid fields for speed.
 		final Box[] boxs = grid.boxs;
 		final Row[] rows = grid.rows;
 		final Col[] cols = grid.cols;
@@ -291,70 +314,76 @@ public class EmptyRectangle extends AHinter {
 		for ( b=0; b<REGION_SIZE; ++b ) {
 			box = boxs[b];
 			for ( v=1; v<VALUE_CEILING; ++v ) {
-				// ER patterns needs between 2 and 5 positions for v but my
-				// minimum is 3 coz I'm not doing boxes which have 1 value in
-				// either the erRow or erCol, which was optional in hobiwans.
+				// ER patterns need between 2 and 5 places for v, but my min is
+				// 3 coz I'm not doing "the 1*1 cases": boxes having 1 value in
+				// either the erRow or erCol; which was optional in hobiwans.
 				if ( (card=box.ridx[v].size)>2 && card<6 ) {
 					boxVs = box.ridx[v].bits;
-					for ( er=0; er<REGION_SIZE; ++er ) { // the ER pattern index
-						// if this boxs v's match this ER pattern.
-						// nb: EMPTY_BOX_BITS contains the cells that
-						// must NOT maybe v in order to form an ER.
-						if ( (boxVs & EMPTY_BOX_BITS[er]) == 0
+					for ( er=0; er<REGION_SIZE; ++er ) { // ER pattern index
+						// if this boxs v's match this ER pattern, ie the box
+						// does not have any v's in places where it shouldn't.
+						if ( (boxVs & EMPTY_BOXS[er]) == 0
 						  // and box.v's are NOT all in (erRow or erCol)
-						  && (boxVs & ~ROW_BITS[(erR=erRows[b][er])%BOX_EDGE]) != 0
-						  && (boxVs & ~COL_BITS[(erC=erCols[b][er])%BOX_EDGE]) != 0
+						  && (boxVs & ~ROWS[(erR=erRows[b][er])%R]) != 0
+						  && (boxVs & ~COLS[(erC=erCols[b][er])%R]) != 0
 						) {
 							row = rows[erR];
 							col = cols[erC];
 
 							// First verse: row => col
 							//
-							// We follow the erRow accross, examining each cell which
-							// maybe $v to see if there's two $v's in that column, and
-							// if so we'll jump up/down to the otherCell in that column
-							// and see if there's a $v at the intersection of his row
-							// and the erCol (the victim), and if so it's an:
-							// Empty Rectangle: $victim cannot be $v.
+							// We follow the erRow accross, examining each cell
+							// which maybe v to see if there's two v's in that
+							// col, and if so, jump up/down to the otherCell in
+							// dat col to see if there's a v at da intersection
+							// of his row and the erCol (the victim), and if so
+							// it's an Empty Rectangle: $victim cannot be v.
 							//
-							// Note that hobiwan did the first and second verse in a
-							// method, reversing the roles by swapping params and using
-							// a "flip" variable, which I find confusing, so I have
-							// deabstracted it, making it, I hope, easier to follow.
-							// So I'm an idiot, but this took 0.064s for top1465 where
-							// hobiwans took 3.652s, so this is "a bit" faster.
-							// Computers are idiots, they just follow instructions, so
-							// programming is learning to think clearly, and as
-							// efficiently as possible, just like an idiot; and
-							// unfortunately sometimes that means NOT the simplest or
-							// the most abstract possible code.
+							// hobiwan did first and second verse in a method,
+							// reversing the roles by swapping params and using
+							// a "flip" variable, which I find uber-confusing,
+							// so I've deabstracted it, making it easier to
+							// follow. I'm an idiot, but this took 0.064s for
+							// top1465, where hobiwan took 3.652s, so this is a
+							// little bit faster.
 							//
-							// foreach cell in the erRow (except erBox) which maybe $v
-							//             (ie remove erBox from the erRow.idxsOf[$v])
-							// nb: We use ROW_BITS even though erBox isn't a row. The
-							//     concept is the same: we remove the three bits that
-							//     are the erBox from the erRow.ridx[$v].
-							hisCells = row.at(row.ridx[v].bits & ~ROW_BITS[box.hNum], false);
-							for ( i=0,n=hisCells.length; i<n; ++i ) {
+							// Computers are idiots that follow instructions so
+							// programming is thinking clearly and efficiently,
+							// like an idiot; and sometimes that means NOT the
+							// simplest (the most abstract) possible solution.
+							//
+							// Note that hobiwans implementation covered da 1*1
+							// cases which this, by choice, does not. If you
+							// need/want the 1*1 cases then just use HoDoKu! I
+							// am defensive about this choice, BECAUSE it's
+							// indefensible, and I'm a lazy bastard.
+							//
+							// foreach c in erRow (except erBox) that maybe v
+							// (ie remove erBox from the erRow.idxsOf[v])
+							// nb: We use ROWS even though erBox isn't a row.
+							// The concept is da same: we remove the three bits
+							// that are the erBox from the erRow.ridx[v].
+							cs = row.at(row.ridx[v].bits & ~ROWS[box.hNum], F);
+							for ( i=0,n=cs.length; i<n; ++i ) {
 								// if the col containing c1 has two v's
-								if ( (c1=hisCells[i]).col.ridx[v].size == 2 ) {
+								if ( cs[i].col.ridx[v].size == 2 ) {
 									// get the row of otherCell in c1's col which maybe v
 									// nb: c2 becomes "the otherCell" later on, for now we
-									//     need just c2yBits: his row number left-shifted.
-									c2yBits = c1.col.ridx[v].bits & ~ISHFT[c1.y];
-									assert Integer.bitCount(c2yBits) == 1;
+									//     need just his row number (y) as a bitset.
+									c2y = (c1=cs[i]).col.ridx[v].bits & ~ISHFT[c1.y];
+									assert Integer.bitCount(c2y) == 1;
 									// now if the erCol has $v in c2's row then
 									// it's an ER, and that's the victim.
-									if ( (col.ridx[v].bits & c2yBits) != 0 ) {
+									if ( (col.ridx[v].bits & c2y) != 0 ) {
 										// get the victim cell
 //KEEP4DOC: the combined line is ungrockable.
-										c2y = IFIRST[c2yBits];
-										victim = cells[c2y*REGION_SIZE+erC];
+										c2y = IFIRST[c2y];
+										victim = cells[c2y*REGION_SIZE + erC];
 										// if he's NOT in the erBox
 										if ( victim.box != box ) {
 											// FOUND Empty Rectangle!
-											c2 = cells[c2y*REGION_SIZE+c1.x];
-											// create the hint and add it to accu
+											c2 = cells[c2y*REGION_SIZE + c1.x];
+											// create the hint and add to accu
 											final AHint hint = createHint(v
 												, box, row, col, c1, c2, boxVs
 												, victim, false);
@@ -367,41 +396,42 @@ public class EmptyRectangle extends AHinter {
 							}
 
 							// Second verse: col => row
-							// We reverse the roles of rows and cols, x and y, etc.
+							// We reverse the roles of rows/cols, x/y, etc.
 							//
-							// We follow the erCol, examining each cell which maybe $v
-							// to see if there's two $v's in that row, and if so we
-							// jump left/right to the otherCell in that row and see if
-							// there's a $v in the intersection of his column and the
-							// erRow (the victim), and if so, then it's an:
-							// Empty Rectangle: $victim cannot be $v.
+							// Follow the erCol, examining each cell that maybe
+							// v to see if there's two v's in the row, and if
+							// so jump left/right to the otherCell in that row
+							// to see if there's a v in the intersection of his
+							// col and da erRow (the victim), and if so, then
+							// it's an Empty Rectangle: victim cannot be v.
 							//
-							// foreach cell in ER row (except ER box) which maybe $v
-							//           (ie remove erBox from the erCol.idxsOf[$v])
-							// nb: We use ROW_BITS even though erBox isn't a row. The
-							//     concept is the same: we remove the three bits that
-							//     are the erBox from the erCol.ridx[$v].
-							hisCells = col.at(col.ridx[v].bits & ~ROW_BITS[box.vNum], false);
-							for ( i=0,n=hisCells.length; i<n; ++i ) {
+							// foreach c in ER row (except ER box) that maybe v
+							// (ie remove erBox from the erCol.idxsOf[$v])
+							// nb: We use ROWS even though erBox isn't a row.
+							// The concept is the same: we remove the 3 bits
+							// that are the erBox from the erCol.ridx[$v].
+							cs = col.at(col.ridx[v].bits & ~ROWS[box.vNum], F);
+							for ( i=0,n=cs.length; i<n; ++i ) {
 								// if the row containing c1 has 2 v's
-								if ( (c1=hisCells[i]).row.ridx[v].size == 2 ) {
-									// get the col of otherCell in c1's row which maybe v
-									// nb: c2 becomes "the otherCell" later on, for now we
-									//     need just his column number left-shifted.
-									c2xBits = c1.row.ridx[v].bits & ~ISHFT[c1.x];
-									assert Integer.bitCount(c2xBits) == 1;
+								if ( cs[i].row.ridx[v].size == 2 ) {
+									// get da col of otherCell in c1s row which
+									// maybe v. nb: c2 becomes "the otherCell"
+									// later, for now we need just his col (x)
+									// as a bitset.
+									c2x = (c1=cs[i]).row.ridx[v].bits & ~ISHFT[c1.x];
+									assert Integer.bitCount(c2x) == 1;
 									// now if the erRow has $v in c2's col then
 									// it's an ER, and that's the victim.
-									if ( (row.ridx[v].bits & c2xBits) != 0 ) {
+									if ( (row.ridx[v].bits & c2x) != 0 ) {
 										// get the red (removable value) cell
 										// and check that it's not in the erBox
 //KEEP4DOC: the combined line is ungrockable.
-										c2x = IFIRST[c2xBits];
-										victim = cells[erR*REGION_SIZE+c2x];
+										c2x = IFIRST[c2x];
+										victim = cells[erR*REGION_SIZE + c2x];
 										if ( victim.box != box ) {
 											// FOUND Empty Rectangle!
-											c2 = cells[c1.y*REGION_SIZE+c2x];
-											// create the hint and add it to the IAccumulator
+											c2 = cells[c1.y*REGION_SIZE + c2x];
+											// create the hint and add to accu
 											final AHint hint = createHint(v
 												, box, row, col, c1, c2, boxVs
 												, victim, true);
@@ -411,14 +441,16 @@ public class EmptyRectangle extends AHinter {
 										}
 									}
 								}
-							}
-						} // if it matches the ER pattern
-						// weird: a Box with 3-or-more v's can match only
-						// one er-pattern, which we've just done, so break
+							} // next 
+						} // fi ER pattern
+						// weird: a Box with 3-or-more vs can match only one ER
+						// pattern, which we've just done, so break, for speed.
 						// Don't believe me: batch, comment out, batch; to see
-						// that number of EmptyRectangle's doesn't increase.
-						if ( card > 2 )
+						// that number-of-ER's doesn't increase, and total-ER
+						// time should increase just a smidge.
+						if ( card > 2 ) {
 							break; // Mike drop!
+						}
 					} // next er pattern
 				} // if 3..6 v's in box
 			} // next v

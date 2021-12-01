@@ -10,6 +10,7 @@ import diuf.sudoku.Hints;
 import diuf.sudoku.Grid;
 import diuf.sudoku.solver.AHint;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 
 
@@ -68,7 +69,7 @@ public final class SingleHintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public boolean hasAny() {
+	public boolean any() {
 		return theHint != null;
 	}
 
@@ -80,7 +81,7 @@ public final class SingleHintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void sort() {
+	public void sort(Comparator<AHint> comparator) {
 		// a no-op
 	}
 

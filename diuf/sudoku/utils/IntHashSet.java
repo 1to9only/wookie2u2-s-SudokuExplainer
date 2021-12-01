@@ -6,8 +6,8 @@
  */
 package diuf.sudoku.utils;
 
-import static diuf.sudoku.utils.Frmt.SPACE;
 import java.util.Arrays;
+import static diuf.sudoku.utils.Frmt.SP;
 
 
 /**
@@ -42,7 +42,7 @@ public class IntHashSet {
 		}
 		@Override
 		public String toString() {
-			return ""+value+SPACE+next; // no loops please
+			return ""+value+SP+next; // no loops please
 		}
 	}
 

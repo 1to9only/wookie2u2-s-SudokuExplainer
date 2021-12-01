@@ -11,17 +11,23 @@ package diuf.sudoku.solver.hinters.als;
  * of RccFinder that finds RCC's (Restricted Common Candidates) with the given
  * constraints: forwardOnly, and allowOverlaps.
  *
- * Please note that the RccFinderFactory exists for performance, because I
- * reckon this Factory, and an RccFinder interface with four implementations
- * is a nicer way of solving the problem than the old static RccFinder.getRccs
- * method, which made the same decision on which actual getRcc's method to call
- * each time it was called. This factory makes that decision ONCE, returning an
- * implementation that handles this use-case.
+ * The RccFinderFactory exists for performance, because I reckon this Factory,
+ * and an RccFinder interface with four implementations is a nicer way to solve
+ * the problem than the old static RccFinder.getRccs method, which made da same
+ * decision on which actual getRcc's method to call each time it was called.
+ * This factory makes that decision ONCE, returning an implementation to handle
+ * this use-case. There are downsides: this is architecturally more complex,
+ * like moch-gothic siding on a minimalist barn-sit. Get Over It Kevin!
  *
  * @author Keith Corlett 2021-07-29
  */
 class RccFinderFactory {
 
+	// We require ONE only instance of each type of RccFinder, which fails to
+	// account for the case where a finder-type is never used, but you can't
+	// have everything, unless you really want to go really mental and have
+	// everything, like Hitler. I'm not (much) like Hitler, so this suffices. 
+	// Kick it, not into Russia.
 	private static final RccFinder[] FINDERS = {
 		  new RccFinderForwardOnlyAllowOverlaps()
 		, new RccFinderForwardOnlyNoOverlaps()
@@ -30,21 +36,32 @@ class RccFinderFactory {
 	};
 
 	/**
-	 * The static get method that returns an instance of RccFinder that finds
-	 * RCC's (Restricted Common Candidates) with the given constraints:
-	 * forwardOnly, and allowOverlaps.
+	 * The static get method returns an instance of RccFinder that finds RCC's
+	 * (Restricted Common Candidates) with the given forwardOnly and
+	 * allowOverlaps constraints. This cluster____ is a performance measure.
+	 * <pre>
+	 * as at 2021-09-11 10:30
+	 * BigWings     : forwardOnly=false, allowOverlaps=false
+	 * AlsXz        : forwardOnly=true , allowOverlaps=true
+	 * AlsWing      : forwardOnly=true , allowOverlaps=true
+	 * AlsChain     : forwardOnly=false, allowOverlaps=true
+	 * DeathBlossom : forwardOnly=false, allowOverlaps=false
+	 * </pre>
 	 *
 	 * @param forwardOnly if true the RccFinder does a forward-only search of
-	 *  the given alss, that is for each ALS we examine only subsequent alss;
+	 *  the given ALSs, that is for each ALS we examine only subsequent ALSs;
 	 *  but if false the RccFinder does all full search of all possible pairs
-	 *  of alss.
+	 *  of ALSs.
 	 * @param allowOverlaps if true the RccFinder allows the ALSs to physically
 	 *  overlap (that is the same cell may be present in both ALSs); but if
 	 *  false ALSs pairs that contain a common cell are ignored (filtered out)
-	 * @return a new instance of RccFinder that is optimised for searching for
-	 *  the given RCC-search configuration.
+	 * @return an instance of RccFinder that searches for the given forwardOnly
+	 *  and allowOverlaps constraints.
 	 */
 	public static RccFinder get(final boolean forwardOnly, final boolean allowOverlaps) {
+//// to produce the state-of-play report in method comment
+//		System.out.println("forwardOnly="+forwardOnly+", allowOverlaps="+allowOverlaps);
+//		new Exception().printStackTrace(System.out); // get caller manually
 		// these methods where split-up for speed
 		if ( forwardOnly ) {
 			if ( allowOverlaps ) { // used by AlsXz and AlsWing

@@ -8,15 +8,26 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.solver.hinters.als.AAlsHinter.MAX_RCCS;
+import diuf.sudoku.utils.Log;
 
 /**
  * RccFinderForwardOnlyAllowOverlaps implements RccFinder to find RCC's with: <ul>
  * <li>forwardOnly = true (ie foreach ALS search subsequent ALSs only), and
- * <li>allowOverlaps = true (ie find RCC's in ALS-pairs that overlap)
+ * <li>allowOverlaps = true (ie find RCC's in ALS-pairs that overlap); while
+ *  the ALS pairs may overlap the RC-values cannot be in that overlap (if any),
+ *  which is the "Restricted" in Restricted Common Candidate, so that each
+ *  RC-value may be in one ALS or the other (not both). It's worth belabouring
+ *  this point because calculating the absence of each potential RC-value from
+ *  the overlap is much harder than calculating merely "do these ALSs overlap",
+ *  so it pays to avoid it if you don't need overlapping ALSs.
  * </ul>
- * Please note that AlsChain NEVER does a "forwardOnly" search, so I extend the
- * "base" RccFinderAbstract whose getStartIndexes and getEndIndexes methods
- * just return null, which is fine, because they're never called.
+ * <p>
+ * Used by AlsXz and AlsWing.
+ * <p>
+ * AlsChain NEVER does a "forwardOnly" search, so I extend RccFinderAbstract
+ * whose getStarts and getEnds methods return null, which works only because
+ * they are never called.
  *
  * @author Keith Corlett 2021-07-29
  */
@@ -24,119 +35,159 @@ final class RccFinderForwardOnlyAllowOverlaps extends RccFinderAbstract {
 
 	@Override
 	public int find(final Als[] alss, final int numAlss, final Rcc[] rccs) {
-		// ALL variables are pre-declared, ANSII-C style, for zero stack-work.
-		Als a, b; // two ALSs intersect on Restricted Common Candidate/s (RCC)
-		Rcc rcc; // the current Restricted Common Candidate
-		Idx[] avs, bvs		// a.vs,		b.vs
-			, avAll, bvAll; // a.vAll,		b.vAll
-		Idx aidx, bidx		// a.idx,		b.idx
-		  , av, bv			// a.vs[v],		b.vs[v]
-		  , aA, bA;			// a.vAll[v],	b.vAll[v]
-		int[] vs; // VALUESES[cmnMaybes]
-		int amaybes // a.maybes
-		  , j // index in alss array of ALS b
-		  , cmnMaybes // maybes common to both ALSs a and b
-		  , k,K,v // index into vs, vs.length, and the value at vs[k]
-		  , ol0,ol1,ol2 // overlap //inline for speed: call no methods
-		  , bv0,bv1,bv2; // bothVs //inline for speed: call no methods
-		final int lastAls = numAlss - 1; // for ++j>lastAls
-		final int penultimateAls = lastAls - 1; // for ++i>penultimateAls
-		int numRccs = 0; // number RCCs found so far.
-		int i = 0; // index in alss array of the first ALS
-//inline for speed: call no methods (original code retained as documentation)
-//		final Idx overlap = this.overlap;//.clear();
-//		final Idx bothVs = this.bothVs;//.clear();
-//		final Idx vAlls = this.VAlls;//.clear();
-		// foreach ALS (except the last)
-//		System.out.println();
-//		System.out.println("processing i="+i);
-		for (;;) { // i-loop
-//			++COUNTS[0];
-// starts and ends are not used when forwardOnly is true, so commented out.
-// This is a bit dodgy, but I hope it's a smidge faster.
-//			starts[i] = numRccs;
-			j = i + 1; // index of the first ALS b: a forward only search
-			// unpack ALS a, for speed
-			avAll = (a=alss[i]).vAll;
-			avs = a.vs;
-			aidx = a.idx;
-			amaybes = a.maybes;
-			// foreach subsequent ALS (a forward only search)
-//			System.out.println("processing j="+j);
-			for (;;) { // j-loop
-//				++COUNTS[1];
-				// get maybes common to ALSs a and b, skip if none
-				if ( (cmnMaybes=(amaybes & (b=alss[j]).maybes)) != 0 ) {
-					bvs = b.vs;
-					bvAll = b.vAll;
-					// calculate the overlap of ALSs a and b for later
-					// overlap.setAnd(a.idx, b.idx);
-//					++COUNTS[2];
-					ol0 = aidx.a0 & (bidx=b.idx).a0;
-					ol1 = aidx.a1 & bidx.a1;
-					ol2 = aidx.a2 & bidx.a2;
-					// we remember the rcc to add the second RC value, if any
-					rcc = null;
-					// get an array of the maybes common to ALSs a and b
-					vs = VALUESES[cmnMaybes];
-					// micro opting
-					k = 0;
-					K = vs.length - 1; // for ++k>K
-					// foreach maybe common to ALSs a and b
-					// there must be one, or cmnMaybes would have been 0
-					for (;;) { // k-loop
-//						++COUNTS[3];
-						// get indices of v in both ALSs, none of which may be
-						// in the overlap, even if allowOverlaps. And they all
-						// must see each other: That's the "Restricted" in
-						// Restricted Common Candidate, coz then v must be in
-						// one ALS or the other (never both).
-//inline for speed: call no methods (original code retained as documentation)
-//						if ( bothVs.setOr(a.vs[v=vs[vi]], b.vs[v]).andNone(overlap)
-//						  && bothVs.andEqualsThis(vAlls.setAnd(a.vAll[v], b.vAll[v])) )
-//						  // v is an RC if all v's in both ALSs see each other
-//						  // * bothVs        allVsInBothAlss
-//						  // * andEqualsThis areAllIn
-//						  // * vAlls         vsPlusTheirBudsCommonToBothAlss
-//						  //   retains each v only if ALL other vsInBothAlss
-//						  //   see it (and also external v's seen by all v's
-//						  //   in both ALSs). vAlls is pretty tricky!
-//						  // * bothVs areAllIn vsPlusTheirBudsCommonToBothAlss
-						if ( ( ((bv0=(av=avs[v=vs[k]]).a0 | (bv=bvs[v]).a0) & ol0)
-							 | ((bv1=av.a1 | bv.a1) & ol1)
-							 | ((bv2=av.a2 | bv.a2) & ol2) ) == 0
-//						  && ++COUNTS[4] > -1
-						  // vAlls is calculated inline, so no var required
-						  && (bv0 & (aA=avAll[v]).a0 & (bA=bvAll[v]).a0) == bv0
-						  && (bv1 & aA.a1 & bA.a1) == bv1
-						  && (bv2 & aA.a2 & bA.a2) == bv2 ) {
-//							++COUNTS[5];
-							if ( rcc == null ) {
-								rccs[numRccs++] = rcc = new Rcc(i, j, v);
-							} else { // a fairly rare second RC value in an RCC
-//								++COUNTS[6];
-								rcc.v2 = v;
-								break; // there can NEVER be a third one!
+		// ALL variables are pre-declared, ANSII-C style, reducing stack-work.
+		Als a, b; // two ALSs intersect on a Restricted Common Candidate (RCC)
+		Idx[] avs // a.vs: indices of cells which maybe v in ALS a
+			, bvs // b.vs: indices of cells which maybe v in ALS b
+		    , avAll // a.vAll: indices of cells which maybe v in ALS a + buds
+		    , bvAll; //b.vAll: indices of cells which maybe v in ALS b + buds
+		Idx aI // a.idx: indices of cells in ALS a
+		  , bI // b.idx: indices of cells in ALS b
+		  , av // a.vs[v]: indices of cells in ALS a which maybe v
+		  , bv // b.vs[v]: indices if cells in ALS b which maybe v
+		  , avA // a.vAll[v]: indices of cells which maybe v in ALS a + buddies
+		  , bvA;// b.vAll[v]: indices of cells which maybe v in ALS b + buddies
+		int[] vs; // VALUESES[cmnMaybes]: array of maybes common to ALSs a & b
+		int aMaybes // a.maybes: all potential values of cells in ALS a
+		  , j // the index in the alss array of ALS b
+		  , commonMaybes // candidates shared by ALS a and ALS b (inc v1/2)
+		  , vi,vLast,v // index into vs, vs.length-1, value at vs[vi]
+		  , ol0,ol1,ol2 // overlap exploded
+		  , ev0,ev1,ev2 // eitherVs exploded
+		  , i // alss-index for the outer 'a' loop
+		  , v1, v2 // the first and occassional second RC-value
+		  ;
+		boolean any = false; // any RCC for this pair of ALSs?
+		int numRccs = 0; // number RCC's found so far.
+		// the last valid alss index, for a fast STOPPER test in inner ALS loop
+		final int last = numAlss - 1
+				, penultimate = last - 1;
+		// foreach ALS a (except the last)
+		for ( i = 0
+			; //NO_STOPPER
+			; //NO_INCREMENT
+		) {
+			// foreach subsequent ALS b (forwardOnly search)
+			for (
+				avAll = (a=alss[i]).vAll,
+				avs = a.vs,
+				aI = a.idx,
+				aMaybes = a.maybes,
+				j = i + 1 // FORWARD_ONLY
+				; //NO_STOPPER
+				; //NO_INCREMENT
+			) {
+				// if there are any maybes common to ALS a and ALS b.
+				if ( (commonMaybes=(aMaybes & (b=alss[j]).maybes)) != 0 ) {
+// this is faster but misses hints, including the one in AlsWingTest! I don't
+// really understand WHY it ,misses coz the below logic adds-up according to my
+// current, evidently flawed, understanding of AlsWings.
+				// if there are 2+ maybes common to ALS a and ALS b.
+				// An Rcc with just one common cand is useless. We need an
+				// RC-value and another common candidate, restricted or not.
+				// java bug: do NOT inline this statement
+//				commonMaybes = (aMaybes & (b=alss[j]).maybes);
+//				if ( VSIZE[commonMaybes] > 1 ) {
+					// if these two ALSs do NOT overlap (ol* reused, if any).
+					// MAGNITUDE: There are about 250 million ALS pairs with a
+					// billion cmnMaybes, and about 20% of pairs overlap.
+					if ( ( (ol0=aI.a0 & (bI=b.idx).a0)
+						 | (ol1=aI.a1 & bI.a1)
+						 | (ol2=aI.a2 & bI.a2) ) == 0
+					) {
+//						++COUNTS[0]; // 191,662,530
+						// there is no overlap, so there is no point checking
+						// that there are no v's in the overlap, as was done
+						// previously. About 80% of pairs do not overlap.
+						for (
+							v1 = v2 = 0,
+							bvs = b.vs,
+							bvAll = b.vAll,
+							vs = VALUESES[commonMaybes],
+							vLast = vs.length - 1,
+							vi = 0
+							; //NO_STOPPER
+							; //NO_INCREMENT
+						) {
+							// if all v's in either ALS see each other
+							if ( ((ev0=(av=avs[v=vs[vi]]).a0 | (bv=bvs[v]).a0) & (avA=avAll[v]).a0 & (bvA=bvAll[v]).a0) == ev0
+							  && ((ev1=av.a1 | bv.a1) & avA.a1 & bvA.a1) == ev1
+							  && ((ev2=av.a2 | bv.a2) & avA.a2 & bvA.a2) == ev2
+							) {
+								if ( any ) {
+									v2 = v;
+									break; // there can't be more than 2 RC-values
+								} else {
+									v1 = v;
+									any = true;
+								}
+							}
+							if ( ++vi > vLast ) {
+								break;
 							}
 						}
-						if ( ++k > K ) {
-							break;
+						if ( any ) {
+							any = false;
+							rccs[numRccs] = new Rcc(i, j, v1, v2);
+							if ( ++numRccs == MAX_RCCS ) {
+								Log.teeln("WARN: "+Log.me()+": MAX_RCCS exceeded!");
+								return numRccs; // no crash!
+							}
+						}
+					} else {
+//						++COUNTS[1]; // 61,661,404
+						// these two ALSs overlap. For algorithmic correctness
+						// we must check that there are no v's in the overlap,
+						// which costs time, now minimised by checking only in
+						// those 20% of cases that actually overlap. sigh.
+						for (
+							v1 = v2 = 0,
+							bvAll = b.vAll,
+							bvs = b.vs,
+							vs = VALUESES[commonMaybes],
+							vLast = vs.length - 1,
+							vi = 0
+							; //NO_STOPPER
+							; //NO_INCREMENT
+						) {
+							// if there are no v's in the overlap
+							if ( ( ((ev0=(av=avs[v=vs[vi]]).a0 | (bv=bvs[v]).a0) & ol0)
+								 | ((ev1=av.a1 | bv.a1) & ol1)
+								 | ((ev2=av.a2 | bv.a2) & ol2) ) == 0
+							  // and all v's in both ALSs see each other
+							  && (ev0 & (avA=avAll[v]).a0 & (bvA=bvAll[v]).a0) == ev0
+							  && (ev1 & avA.a1 & bvA.a1) == ev1
+							  && (ev2 & avA.a2 & bvA.a2) == ev2
+							) {
+								if ( any ) {
+									v2 = v;
+									break; // there can't be more than 2 RC-values
+								} else {
+									v1 = v;
+									any = true;
+								}
+							}
+							if ( ++vi > vLast ) {
+								break;
+							}
+						}
+						if ( any ) {
+							any = false;
+							rccs[numRccs] = new Rcc(i, j, v1, v2);
+							if ( ++numRccs == MAX_RCCS ) {
+								Log.teeln("WARN: "+Log.me()+": MAX_RCCS exceeded!");
+								return numRccs; // no crash!
+							}
 						}
 					}
 				}
-				if ( ++j > lastAls ) {
+				if ( ++j > last ) {
 					break;
 				}
-//				System.out.println("processing j="+j);
 			}
-// starts and ends are not used when forwardOnly is true, so commented out.
-// This is a bit dodgy, but I hope it's a smidge faster.
-//			ends[i] = numRccs;
-			if ( ++i > penultimateAls ) {
+			if ( ++i > penultimate ) {
 				break;
 			}
-//			System.out.println();
-//			System.out.println("processing i="+i);
 		}
 		return numRccs;
 	}

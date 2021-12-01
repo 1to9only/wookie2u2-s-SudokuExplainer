@@ -22,7 +22,7 @@ import static diuf.sudoku.Grid.MAX_EMPTIES;
 
 /**
  * A hint that shows two different solutions of an invalid Sudoku.
- * @see diuf.sudoku.solver.checks.SingleSolution
+ * @see diuf.sudoku.solver.checks.BruteForce
  */
 public final class MultipleSolutionsHint extends AWarningHint implements IPretendHint {
 

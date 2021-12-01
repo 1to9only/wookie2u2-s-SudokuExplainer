@@ -30,7 +30,7 @@ import static diuf.sudoku.utils.Frmt.ON;
 
 
 /**
- * A BasicFishHint is raised by the BasicFisherman (and BasicFisherman1). It's
+ * A BasicFishHint is raised by the BasicFisherman (and BasicFisherman). It's
  * the Data Transfer Object (DTO) of a "basic" Fish hint. It provides a textual
  * summary of this hint in the LogicalSolverTester (where speed is THE issue),
  * and also provides HTML to hopefully fully explain this hint to the GUI user
@@ -179,7 +179,7 @@ public final class BasicFishHint extends AHint implements IChildHint {
 			, Regions.typeName(covers)			//  3
 			, nn								//  4 number name; BasicFishHint only
 			, debugMessage						//  5 debugMessage
-			, redPots.toString()				//  6
+			, reds.toString()				//  6
 		);
 	}
 

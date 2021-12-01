@@ -23,7 +23,7 @@ import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.ICleanUp;
-import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.solver.hinters.Validator;
 import static diuf.sudoku.utils.Frmt.OR;
 import static diuf.sudoku.utils.Frmt.PLUS;
 import diuf.sudoku.utils.IAssSet;
@@ -136,7 +136,7 @@ abstract class ChainerBase extends AHinter
 	/** Is this Chainer looking for Dynamic Contradictions. */
 	protected final boolean isNishio;
 	/** Is this Chainer imbedded (nested) inside another Chainer? */
-	protected final boolean isImbedded;
+	protected final boolean noCache;
 
 	/**
 	 * I retain a list of hints.
@@ -163,16 +163,16 @@ abstract class ChainerBase extends AHinter
 	 * hints in "natural order": the order in which they were added.
 	 *
 	 * @param tech a Tech with isChainer==true,
-	 * @param isImbedded true only when this is an imbedded hinter, ie is nested
+	 * @param noCache true only when this is an imbedded hinter, ie is nested
 	 * inside another hinter.
 	 */
-	protected ChainerBase(Tech tech, boolean isImbedded) {
+	protected ChainerBase(Tech tech, boolean noCache) {
 		super(tech);
 		assert tech.isChainer;
 		this.isMultiple	 = tech.isMultiple;
 		this.isDynamic	 = tech.isDynamic;
 		this.isNishio	 = tech.isNishio;
-		this.isImbedded  = isImbedded;
+		this.noCache  = noCache;
 		// NEVER cache in a test-case (register as GUI to test the cache!)
 		if ( Run.type == Run.Type.TestCase )
 			cache = new HintCacheBasic();
@@ -232,7 +232,7 @@ abstract class ChainerBase extends AHinter
 		// that when I put-in the cache NestedUnary produced invalid hints.
 		if ( cache instanceof HintCacheSorted // ie, was isFilteringHints on when I was created
 		  && cache.size() > 0
-		  && !isImbedded // caching breaks imbedded chainers
+		  && !noCache // caching breaks imbedded chainers
 		  && Run.type!=Run.Type.TestCase // caching breaks test cases!
 		) {
 			AHint cached;
@@ -242,8 +242,8 @@ abstract class ChainerBase extends AHinter
 			// Chainer, so they're in the same ball park atleast).
 			while ( (cached=cache.pollFirst()) != null )
 				// if either any elimination in the cached hint is still there
-				if ( cached.redPots != null ) {
-					if ( cached.redPots.anyCurrent()
+				if ( cached.reds != null ) {
+					if ( cached.reds.anyCurrent()
 				      // or cached hint sets a cell which has not yet been set
 					  || cached.cell!=null && cached.cell.value==0
 					) {
@@ -255,13 +255,13 @@ abstract class ChainerBase extends AHinter
 					accu.add(cached);
 				}
 		}
-		
+
 		cache.clear();
 
 		// implemented by my subtypes to find the bloody hints.
 		findChainHints(grid, cache);
 
-		if ( HintValidator.CHAINER_USES ) {
+		if ( Validator.CHAINER_VALIDATES ) {
 			// valid nested hints, they've got problems!
 			if ( tech.isNested  )
 				validateTheHints(grid, cache);
@@ -288,7 +288,7 @@ abstract class ChainerBase extends AHinter
 		// pass through multiple hints
 		accu.addAll(cache);
 		// Do NOT cache hints if I am an imbedded (nested) Chainer.
-		if ( isImbedded )
+		if ( noCache )
 			cache.clear();
 		// nb: ignore accu.add's return value coz we already stopped searching.
 		return true; // coz we know n != 0
@@ -503,7 +503,7 @@ abstract class ChainerBase extends AHinter
 	}
 
 	private void validateTheHints(Grid grid, HintCache hints) {
-		final int[] svs = grid.getSolutionValues();
+		final int[] solution = grid.getSolution();
 		for ( Iterator<AHint> it = hints.iterator(); it.hasNext(); ) {
 			AHint hint = it.next();
 			if ( hint == null ) {
@@ -512,7 +512,7 @@ abstract class ChainerBase extends AHinter
 				Log.println("null hint!");
 				it.remove(); // all I can do it skip it. Sigh.
 			} else if ( hint.value!=0 && hint.cell!=null ) {
-				int sv = svs[hint.cell.i];
+				int sv = solution[hint.cell.i];
 				if ( hint.value != sv ) {
 					String problem = "hint says "+hint.cell.id+PLUS+hint.value+" when solution value is "+hint.cell.id+PLUS+sv;
 					Log.println("ChainerBase.validateTheHints:");
@@ -520,9 +520,9 @@ abstract class ChainerBase extends AHinter
 					Log.println("Invalid grid:\n"+grid);
 					it.remove(); // all I can do it skip it. Sigh.
 				}
-			} else if ( hint.redPots!=null && !hint.redPots.isEmpty() ) {
-				if ( !HintValidator.isValid(grid, hint.redPots) ) {
-					String problem = "invalidity: "+HintValidator.invalidity;
+			} else if ( hint.reds!=null && !hint.reds.isEmpty() ) {
+				if ( !Validator.isValid(grid, hint.reds) ) {
+					String problem = "invalidity: "+Validator.invalidity;
 					Log.println("ChainerBase.validateTheHints:");
 					Log.println("Invalid hint ("+problem+"): "+hint.toFullString());
 					Log.println("Invalid grid:\n"+grid);
@@ -532,7 +532,7 @@ abstract class ChainerBase extends AHinter
 				// This should never happen. Every hint eliminates a cell value
 				// OR sets a cell value. Never say never.
 				Log.println("ChainerBase.validateTheHints:");
-				Log.println("Dodgy: MIA "+hint.cell+PLUS+hint.value+OR+hint.redPots);
+				Log.println("Dodgy: MIA "+hint.cell+PLUS+hint.value+OR+hint.reds);
 				Log.println("Dodgy hint: No elims in: "+hint.toFullString());
 				Log.println("Dodgy grid:\n"+grid);
 				it.remove(); // all I can do it skip it. Sigh.

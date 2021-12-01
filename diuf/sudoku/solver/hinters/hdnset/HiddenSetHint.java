@@ -127,7 +127,7 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 				, Frmt.and(hdnSetValuesArray)	//  2
 				, region.id						//  3
 				, getHintTypeName()				//  4
-				, redPots.toString()			//  5
+				, reds.toString()			//  5
 		);
 	}
 

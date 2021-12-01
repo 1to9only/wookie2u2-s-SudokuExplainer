@@ -36,17 +36,15 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
+import diuf.sudoku.IdxL;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
-import diuf.sudoku.utils.Frmu;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * An Almost Locked Set (ALS) is N cells in a region with N+1 maybes between
@@ -56,6 +54,11 @@ import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
  * ALSs of size one (a cell with two maybes) are ignored. Cells that take part
  * in an actual Locked Set (a Naked Pair/Triple/etc) in this region are ignored
  * in ALS_Chains.
+ * <p>
+ * KRC 2021-10-05 Formerly Als held cell references, now it exposes JUST an idx
+ * which can be used to get the cells in this Almost Locked Set, but does not
+ * hold the cell-references itself, so that any Als-based-fields don't hold the
+ * whole Grid in memory.
  *
  * @author hobiwan. Adapted to SE by KRC.
  */
@@ -63,63 +66,49 @@ public class Als {
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ static stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	// turn the first n elements of array into a LinkedList
-	static LinkedList<Als> linkedList(int n, Als[] array) {
-		LinkedList<Als> list = new LinkedList<>();
-		// the last ALS may not exist, so stop at end-of-array
-		final int I;
-		if ( n < array.length )
-			I = n;
-		else
-			I = array.length - 1;
-		for ( int i=0; i<=I; ++i )
-			list.add(array[i]);
-		return list;
-	}
-
-	public static Collection<Als> list(Als... alss) {
-		ArrayList<Als> result = new ArrayList<>(alss.length);
+	public static ArrayList<Als> list(Als[] alss) {
+		final ArrayList<Als> result = new ArrayList<>(alss.length);
 		for ( Als a : alss )
 			result.add(a);
 		return result;
 	}
 
-	static List<ARegion> regionsList(Collection<Als> alss) {
-		List<ARegion> ll = new LinkedList<>();
+	static List<ARegion> regionsList(Als[] alss) {
+		final List<ARegion> result = new LinkedList<>();
 		for ( Als a : alss )
 			if ( a != null ) // sometimes the last als in alss is null
-				ll.add(a.region);
-		return ll;
+				result.add(a.region);
+		return result;
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ instance stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	/** The indices of the cells in this ALS. */
-	public final Idx idx;
+	public final IdxL idx;
 
 	/** A bitset of the combined potential values of the cells in this ALS.
 	 * Invariant: VSIZE[maybes] == idx.size() + 1; // or it's NOT an ALS. */
 	public final int maybes;
 
-	/** The ARegion which contains this ALS. */
+	/** The region which contains this ALS. */
 	public final ARegion region;
 
 	/** The indices of cells in this ALS which maybe each value of this ALS. */
 	public final Idx[] vs = new Idx[VALUE_CEILING];
 
-	/** Cells which see all cells in this ALS which maybe each ALS value, (I
-	 * think) excepting the ALS cells themselves. Other values are null. */
+	/** Buddies of all cells in this ALS which maybe each ALS value, excluding
+	 * the ALS cells themselves, ergo buds of vs. Other values remain null. */
 	public final Idx[] vBuds = new Idx[VALUE_CEILING];
 
-	/** vs union vBuds: Cells which see all cells in this ALS which maybe each
-	 * ALS value, including the ALS cells themselves. Other values are null. */
+	/** Buddies of all cells in this ALS which maybe each ALS value, plus the
+	 * ALS cells themselves, ergo vBuds plus vs. Other values remain null. */
 	public final Idx[] vAll = new Idx[VALUE_CEILING];
 
-	/** The union of the buddies of all values in this ALS. */
-	public Cell[] cells;
-
-	/** The union of the buddies of all values in this ALS. */
-	public Idx buddies;
+	/** The aggregate of the buddies of all values in this ALS. */
+	public Idx buds;
+	
+	/** The index of this Als in the alss array. sigh. */
+	public int index;
 
 	// prevent toString errors during construction
 	private final boolean initialised;
@@ -128,89 +117,86 @@ public class Als {
 	 * Constructs a new ALS.
 	 * <p>
 	 * <b>WARN:</b> You must call {@link #computeFields} before use!
+	 * <b>WARN:</b> I store the passed Idx, so YOU create a new one to pass
+	 * to me if you are (as is usual) reusing an Idx.
 	 *
 	 * @param idx
 	 * @param maybes
 	 * @param region
 	 */
-	public Als(Idx idx, int maybes, ARegion region) {
-		this.idx = new Idx(idx);
+	public Als(IdxL idx, int maybes, ARegion region) {
+		this.idx = idx.lock();
 		this.maybes = maybes;
 		this.region = region;
 		this.initialised = true;
 	}
 
 	/**
-	 * Constructs a new ALS.
-	 * <p>
-	 * <b>WARN:</b> You must call {@link #computeFields} before use!
-	 *
-	 * @param cells
-	 * @param maybes
-	 * @param region
-	 */
-	public Als(Cell[] cells, int maybes, ARegion region) {
-		this(cells.clone(), maybes, region, false);
-	}
-	// the package contructor does not copy the given cells array
-	Als(Cell[] cells, int maybes, ARegion region, boolean dummy) {
-		this.cells = cells;
-		this.idx = Idx.of(cells);
-		this.maybes = maybes;
-		this.region = region;
-		this.initialised = true;
-	}
-
-	/**
-	 * Compute additional fields, not in constructor so not run on double-up.
+	 * computeFields after construction, to not run on double-ups.
+	 * You MUST computeFields of each ALS before you query it!
+	 * I populate cells when Idx constructor was used (AlsFinder)!
 	 *
 	 * @param grid the Grid we're currently solving
-	 * @param candidates indices of Grid cells which maybe value 1..9
+	 * @param index the index of this Als in the alss array
+	 * @return this Als for method chaining
 	 */
-	public void computeFields(Grid grid, Idx[] candidates) {
-		if ( this.cells == null )
-			this.cells = idx.cells(grid, new Cell[idx.size()]);
-		this.buddies = new Idx();
+	public Als computeFields(final Grid grid, final int index) {
+		final Idx[] idxs = grid.idxs; // indices of cells that maybe 1..9
+		this.buds = new Idx();
 		for ( int v : VALUESES[maybes] ) {
-			vs[v] = Idx.newAnd(idx, candidates[v]);
-			vBuds[v] = vs[v].commonBuddies(new Idx()).andNot(idx).and(candidates[v]);
+			vs[v] = Idx.newAnd(idx, idxs[v]);
+			vBuds[v] = vs[v].commonBuddies(new Idx()).andNot(idx).and(idxs[v]);
 			vAll[v] = Idx.newOr(vs[v], vBuds[v]);
-			buddies.or(vBuds[v]);
+			buds.or(vBuds[v]);
 		}
+		this.index = index;
+		return this;
 	}
 
 	/**
-	 * Two ALSs are equal if there indices are equal.
+	 * Two ALSs are equal if regions and idxs are equal.
+	 *
 	 * @param o
-	 * @return indices.equals(((Als)o).indices);
+	 * @return are these bastards equals
 	 */
 	@Override
 	public boolean equals(Object o) {
 		return o!=null
 			&& (o instanceof Als)
-			&& idx.equals(((Als)o).idx);
+		    && equals((Als)o);
+	}
+
+	/**
+	 * Two ALSs are equal if regions and idxs are equal.
+	 *
+	 * @param other
+	 * @return {@code region.index==o.region.index && idx.equals(o.idx)}
+	 */
+	public boolean equals(Als other) {
+		return region.index == other.region.index
+			&& idx.equals(other.idx);
 	}
 
 	/**
 	 * hashCode to match {@link #equals(java.lang.Object) }.
-	 * @return indices.hashCode();
+	 * @return {@code idx.hashCode() ^ region.index}
 	 */
 	@Override
 	public int hashCode() {
-		return idx.hashCode();
+		return idx.hashCode() ^ region.index;
 	}
 
 	/**
 	 * The format method returns a human readable String representation of
-	 * this DiufAls suitable for use in hint HTML.
+	 * this Als suitable for use in hint HTML.
 	 *
 	 * @return "region.id: cell.ids {maybes}"<br>
 	 * Note that if region is null then "^[^:]+: " goes MIA.
 	 */
 	public String format() {
-		// region should never be null. Never say never.
-		final String s; if(region==null) s=EMPTY_STRING; else s=region.id+COLON_SP;
-		return s+Frmu.csv(cells)+" {"+Values.toString(maybes)+"}";
+		// region should now never be null. Never say never.
+		final String rid; if(region==null) rid=""; else rid=region.id+": ";
+		return rid+idx.ids(", ")+" {"+Values.toString(maybes)+"}";
 	}
 
 	/**
@@ -226,9 +212,12 @@ public class Als {
 	public String toString() {
 		// prevent errors during construction
 		if ( !initialised )
-			return "!initialised";
+			return "#Als#";
 		if ( ts == null )
-			ts = region.id+": "+idx+" {"+Values.toString(maybes)+"}";
+			ts =
+// for debug AlsChain, but breaks test-cases
+//				""+index+": "+ // @check commented out (fails test-cases)
+				region.id+": "+idx+" {"+Values.toString(maybes)+"}";
 		return ts;
 	}
 	private String ts;

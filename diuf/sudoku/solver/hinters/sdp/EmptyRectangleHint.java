@@ -64,7 +64,7 @@ public class EmptyRectangleHint extends AHint  {
 
 	@Override
 	public String toHtmlImpl() {
-		Cell redCell = redPots.firstCell();
+		Cell redCell = reds.firstCell();
 		final String id1, id2;
 		{ // this block just localises 'it'
 			Iterator<Cell> it = greens.keySet().iterator();
@@ -83,7 +83,7 @@ public class EmptyRectangleHint extends AHint  {
 				, id1						 // 8 assisting cell1
 				, id2						 // 9 assisting cell2
 				, debugMessage				 //10 identifies which method was used to find this hint: "A:ROW", or "B:COL"
-				, redPots.toString()		 //11
+				, reds.toString()		 //11
 		);
 	}
 

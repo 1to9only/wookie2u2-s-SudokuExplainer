@@ -4,22 +4,22 @@
  * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
-package diuf.sudoku.solver;
+package diuf.sudoku;
 
 /**
- * Timings exists to hold this comment. Each entry is a LogicalSolverTester log
- * from shortly before each build; to keep track of how long it takes to solve
- * all 1465 Sudoku puzzles with logic, to see if we're making progress in the
- * quest to solve all possible Sudoku puzzles as simply and quickly as possible.
+ * The BuildTimings class exists specifically to hold this over-large comment.
+ * Each entry is a LogicalSolverTester log from shortly before each build;
+ * to keep track of how long it takes to solve all 1465 Sudoku puzzles using
+ * logic, to see if we're making progress in the quest to solve all possible
+ * Sudoku puzzles as simply, accurately, and quickly as possible.
  * <p>
- * That and it's just nice to remember stuff like it took Juillerat just over
- * 27 minutes to solve 1465 puzzles; and now that's down to like 3 or 4 mins.
- * So all it takes is the investment of years and years of hard complex bloody
- * pernickety work, and you too can claim to be a total, complete and utter
- * time-wasting Putz! Nag! Putz! Nag!
+ * That and it's just nice to remember stuff like it took Juillerat 17:48 to
+ * solve 1465 puzzles; and my best is 01:30. So all it takes is the investment
+ * of years and years of hard complex bloody pernickety work, and you too can
+ * claim to be a total, complete and utter time-wasting Putz! Nag! Putz! Nag!
  * <p>
  * This comment was moved from the LogicalSolver class comments because it's
- * too long, bogbing Nutbeans, but here (no code) it seems OK. Go figure.
+ * too bloody long, bogging Nutbeans, but here (no code) it seems to be OK.
  * <p>
  * <hr>
  * <p>
@@ -42,11 +42,11 @@ package diuf.sudoku.solver;
  *        97,959,001   16698      14 Jellyfish
  *        39,045,423   16694       1 Hidden Quad
  *       791,894,951   16693     370 XYZ-Wing
- *     9,946,812,269   16347    1113 Unique Rectangle or Loop
- *       759,591,584   15824      59 Bivalue Universal Grave
+ *     9,946,812,269   16347    1113 Unique Rectangle or Loop (URT)
+ *       759,591,584   15824      59 Bivalue Universal Grave (BUG)
  *     1,045,301,780   15796       2 Aligned Pair Exclusion
  *   381,454,233,202   15794     645 Aligned Triple Exclusion
- *   324,716,699,628   15217  203576 Unary and Cycle Chain
+ *   324,716,699,628   15217  203576 Unary Chain and Cycle
  *   104,867,749,248    7749    2011 Nishio Chain
  *    99,642,081,087    6637   20452 Multiple Chain
  *   139,180,249,531    1895   15677 Dynamic Chain
@@ -137,7 +137,8 @@ package diuf.sudoku.solver;
  * NB: The first 200-or-so puzzles in top1465.d5.mt are the hardest I've ever
  *     seen. I suppose they must've been handmade specifically to be HARD.
  * NB: I've just run the original project by Nicolas Juillerat on this box, for
- *     comparison. It took 27 minutes 43 seconds to solve the same 1465 puzzles.
+ *     comparison. It took 17 minutes 48 seconds to solve the same 1465 puzzles
+ *     so updated comments to compare my i7 with my i7 (not an i4).
  * </pre>
  * <hr><p>
  * <b>KRC 2019-09-10</b> with A3E + A4E but NO A5E.
@@ -177,46 +178,46 @@ package diuf.sudoku.solver;
  * NOTES:
  * 1. 552,426,532,932 ns (9:12) @ 377,082,958 ns (0.377 secs) puzzle. Flash!
  *    A4E took 424,327,893,776 ns or 76.8% of total. How to? The Codez!
- * 2. A3E now runs AFTER UnaryChain, plus a couple of performance tweaks brought
+ * 2. A3E now runs AFTER UnaryChain plus a couple of performance tweaks brought
  *    it down to just under 18 seconds. Acceptable. If I could get A4E down to
  *    24 seconds I'd take it in a second.
  * </pre>
  * <hr><p>
  * <b>KRC 2019-09-24</b> with A3E, A4E, A5E.
  * <pre>
- *        time (ns)  calls      time/call   elims    time/elim hinter
- *       14,961,463  42576            351  135050          110 Naked Single
- *       45,516,188  41228          1,104  355750          127 Hidden Single
- *      156,016,062  32883          4,744   33694        4,630 Direct Naked Pair
- *      120,961,186  32452          3,727   46176        2,619 Direct Hidden Pair
- *      203,284,743  31448          6,464    7212       28,187 Direct Naked Triple
- *      171,422,105  31396          5,459    8680       19,749 Direct Hidden Triple
- *      108,075,928  31258          3,457   22364        4,832 Point and Claim
- *       84,615,682  20492          4,129    3931       21,525 Naked Pair
- *       55,377,414  19025          2,910    5288       10,472 Hidden Pair
- *      102,776,253  17587          5,843    1194       86,077 Naked Triple
- *       84,516,885  17249          4,899    1016       83,185 Hidden Triple
- *      200,353,063  17051         11,750     817      245,230 XY-Wing
- *       56,771,945  16503          3,440     653       86,940 Swampfish
- *       66,468,686  16248          4,090     319      208,365 Swordfish
- *      183,617,463  16158         11,363     129    1,423,391 Naked Quad
- *       18,886,894  16138          1,170      12    1,573,907 Jellyfish
- *      198,167,455  16134         12,282     377      525,643 XYZ-Wing
- *      142,852,465  16134          8,854       0            0 Hidden Quad
- *      161,170,299  16134          9,989       0            0 Naked Pent
- *      125,508,662  16134          7,779       0            0 Hidden Pent
- *    1,712,653,661  15782        108,519    1122    1,526,429 Unique Rectangle
- *      205,039,849  15249         13,446      52    3,943,074 Bi-Uni Grave
- *    4,226,374,655  15223        277,630      23  183,755,419 Aligned Pair
- *   57,645,339,830  15200      3,792,456  252114      228,647 Unary Chain
- *   27,136,037,780   7401      3,666,536     108  251,259,609 Aligned Triple
- *    8,725,338,643   7304      1,194,597    2511    3,474,846 Nishio Chain
- *   17,042,232,868   6218      2,740,790   21629      787,934 Multiple Chain
- *   16,510,659,946   1694      9,746,552   15878    1,039,845 Dynamic Chain
- *      338,240,936      3    112,746,978       0            0 Aligned Quad
- *    4,896,278,836      3  1,632,092,945       0            0 Aligned Pent
- *      163,206,909      3     54,402,303      30    5,440,230 Dynamic Plus
- *  140,902,724,754
+ *       time (ns) calls     time/call  elims   time/elim hinter
+ *      14,961,463 42576           351 135050         110 Naked Single
+ *      45,516,188 41228         1,104 355750         127 Hidden Single
+ *     156,016,062 32883         4,744  33694       4,630 Direct Naked Pair
+ *     120,961,186 32452         3,727  46176       2,619 Direct Hidden Pair
+ *     203,284,743 31448         6,464   7212      28,187 Direct Naked Triple
+ *     171,422,105 31396         5,459   8680      19,749 Direct Hidden Triple
+ *     108,075,928 31258         3,457  22364       4,832 Point and Claim
+ *      84,615,682 20492         4,129   3931      21,525 Naked Pair
+ *      55,377,414 19025         2,910   5288      10,472 Hidden Pair
+ *     102,776,253 17587         5,843   1194      86,077 Naked Triple
+ *      84,516,885 17249         4,899   1016      83,185 Hidden Triple
+ *     200,353,063 17051        11,750    817     245,230 XY-Wing
+ *      56,771,945 16503         3,440    653      86,940 Swampfish
+ *      66,468,686 16248         4,090    319     208,365 Swordfish
+ *     183,617,463 16158        11,363    129   1,423,391 Naked Quad
+ *      18,886,894 16138         1,170     12   1,573,907 Jellyfish
+ *     198,167,455 16134        12,282    377     525,643 XYZ-Wing
+ *     142,852,465 16134         8,854      0           0 Hidden Quad
+ *     161,170,299 16134         9,989      0           0 Naked Pent
+ *     125,508,662 16134         7,779      0           0 Hidden Pent
+ *   1,712,653,661 15782       108,519   1122   1,526,429 Unique Rectangle
+ *     205,039,849 15249        13,446     52   3,943,074 Bi-Uni Grave
+ *   4,226,374,655 15223       277,630     23 183,755,419 Aligned Pair
+ *  57,645,339,830 15200     3,792,456 252114     228,647 Unary Chain
+ *  27,136,037,780  7401     3,666,536    108 251,259,609 Aligned Triple
+ *   8,725,338,643  7304     1,194,597   2511   3,474,846 Nishio Chain
+ *  17,042,232,868  6218     2,740,790  21629     787,934 Multiple Chain
+ *  16,510,659,946  1694     9,746,552  15878   1,039,845 Dynamic Chain
+ *     338,240,936     3   112,746,978      0           0 Aligned Quad
+ *   4,896,278,836     3 1,632,092,945      0           0 Aligned Pent
+ *     163,206,909     3    54,402,303     30   5,440,230 Dynamic Plus
+ * 140,902,724,754
  * NOTES:
  * 1. 140,902,724,754 ns is about 2 mins 21 secs; which is 96,179,334 ns/puzzle,
  *    which is better than a poke in the eye with a blunt stick. I said "If I
@@ -233,32 +234,32 @@ package diuf.sudoku.solver;
  * <hr><p>
  * <b>KRC 2019-09-30</b> with A3E, A4E, A5E.
  * <pre>
- *        time (ns)  calls   time/call   elims    time/elim hinter
- *       18,052,498  46008         392  225530           80 Naked Single
- *       46,726,398  43738       1,068  391100          119 Hidden Single
- *      107,817,083  34911       3,088   26459        4,074 Point and Claim
- *      121,137,957  22574       5,366    6663       18,180 Naked Pair
- *       90,090,958  20392       4,417    8517       10,577 Hidden Pair
- *      133,328,909  18286       7,291    1620       82,301 Naked Triple
- *      115,189,957  17887       6,439    1102      104,528 Hidden Triple
- *      197,520,833  17672      11,177     764      258,535 XY-Wing
- *       58,826,272  17144       3,431     649       90,641 Swampfish
- *       67,631,290  16892       4,003     317      213,347 Swordfish
- *      184,852,330  16802      11,001     130    1,421,941 Naked Quad
- *       20,438,369  16780       1,218      12    1,703,197 Jellyfish
- *      187,670,393  16776      11,186     365      514,165 XYZ-Wing
- *    1,698,245,523  16435     103,331    1106    1,535,484 Unique Rectangle
- *      194,761,605  15907      12,243      64    3,043,150 Bi-Uni Grave
- *    1,998,883,121  15875     125,913      27   74,032,708 Aligned Pair
- *   26,324,092,870  15848   1,661,035     562   46,840,022 Aligned Triple
- *  137,966,158,983  15342   8,992,710     843  163,660,924 Aligned Quad
- *  216,229,695,438  14607  14,803,155     542  398,947,777 Aligned Pent
- *   52,577,575,759  14115   3,724,943  217432      241,811 Unary Chain
- *    8,329,930,804   7137   1,167,147    2470    3,372,441 Nishio Chain
- *   16,017,181,673   6054   2,645,718   20900      766,372 Multiple Chain
- *   15,863,185,465   1680   9,442,372   15760    1,006,547 Dynamic Chain
- *      151,796,199      3  50,598,733      30    5,059,873 Dynamic Plus
- *  478,700,790,687
+ *       time (ns) calls  time/call  elims   time/elim hinter
+ *      18,052,498 46008        392 225530          80 Naked Single
+ *      46,726,398 43738      1,068 391100         119 Hidden Single
+ *     107,817,083 34911      3,088  26459       4,074 Point and Claim
+ *     121,137,957 22574      5,366   6663      18,180 Naked Pair
+ *      90,090,958 20392      4,417   8517      10,577 Hidden Pair
+ *     133,328,909 18286      7,291   1620      82,301 Naked Triple
+ *     115,189,957 17887      6,439   1102     104,528 Hidden Triple
+ *     197,520,833 17672     11,177    764     258,535 XY-Wing
+ *      58,826,272 17144      3,431    649      90,641 Swampfish
+ *      67,631,290 16892      4,003    317     213,347 Swordfish
+ *     184,852,330 16802     11,001    130   1,421,941 Naked Quad
+ *      20,438,369 16780      1,218     12   1,703,197 Jellyfish
+ *     187,670,393 16776     11,186    365     514,165 XYZ-Wing
+ *   1,698,245,523 16435    103,331   1106   1,535,484 Unique Rectangle
+ *     194,761,605 15907     12,243     64   3,043,150 Bi-Uni Grave
+ *   1,998,883,121 15875    125,913     27  74,032,708 Aligned Pair
+ *  26,324,092,870 15848  1,661,035    562  46,840,022 Aligned Triple
+ * 137,966,158,983 15342  8,992,710    843 163,660,924 Aligned Quad
+ * 216,229,695,438 14607 14,803,155    542 398,947,777 Aligned Pent
+ *  52,577,575,759 14115  3,724,943 217432     241,811 Unary Chain
+ *   8,329,930,804  7137  1,167,147   2470   3,372,441 Nishio Chain
+ *  16,017,181,673  6054  2,645,718  20900     766,372 Multiple Chain
+ *  15,863,185,465  1680  9,442,372  15760   1,006,547 Dynamic Chain
+ *     151,796,199     3 50,598,733     30   5,059,873 Dynamic Plus
+ * 478,700,790,687
  * NOTES:
  * 1. This not as fast as 2019-09-24 but it does find some hints. because A3E,
  *    A4E, and A5E ran before UnaryChain because they're now fast enough, thanks
@@ -274,13 +275,13 @@ package diuf.sudoku.solver;
  * <b>KRC 2019-10-01</b> added A6E and A7E.
  * <pre>
  * top1465.d5.mt 2019-10-01 08:21:42
- *       time (ns)        calls   time/call elim      time/elim  hinter
- *   2,132,186,446        16090     132,516   29     73,523,670  Aligned Pair
- *  29,161,434,276        16061   1,815,667  557     52,354,460  Aligned Triple
- * 152,089,171,294  2:32  15561   9,773,740  821    185,248,686  Aligned Quad
- * 262,133,574,714  4:22  14846  17,656,848  644    407,039,712  Aligned Pent
- * 612,845,635,986 10:12  14264  42,964,500  411  1,491,108,603  Aligned Hex
- * 914,140,777,296 15:14  13907  65,732,420  182  5,022,751,523  Aligned Sept
+ *       time (ns)       calls  time/call elim     time/elim  hinter
+ *   2,132,186,446       16090    132,516   29    73,523,670  Aligned Pair
+ *  29,161,434,276       16061  1,815,667  557    52,354,460  Aligned Triple
+ * 152,089,171,294  2:32 15561  9,773,740  821   185,248,686  Aligned Quad
+ * 262,133,574,714  4:22 14846 17,656,848  644   407,039,712  Aligned Pent
+ * 612,845,635,986 10:12 14264 42,964,500  411 1,491,108,603  Aligned Hex
+ * 914,140,777,296 15:14 13907 65,732,420  182 5,022,751,523  Aligned Sept
  * NB: the price goes up, and the returns go down, so dare we try A8E? I think
  * so, but first 3#top1465.d5.mt which took 33,743,216,168 ns. I don't like it!
  * </pre>
@@ -288,14 +289,14 @@ package diuf.sudoku.solver;
  * <b>KRC 2019-10-04</b> added A8E.
  * <pre>
  * top1465.d5.mt 2019-10-04.13-14-43
- *         time (ns)  calls   time/call  elim      time/elim  hinter
- *     1,652,508,503  16109     102,582    30     55,083,616 Aligned Pair
- *    27,032,816,722  16079   1,681,249   569     47,509,343 Aligned Triple
- *   146,494,334,180  15567   9,410,569   892    164,231,316 Aligned Quad
- *   226,324,167,577  14788  15,304,582   567    399,160,789 Aligned Pent
- *   530,340,130,297  14274  37,154,275   411  1,290,365,280 Aligned Hex
- *   693,079,616,124  13917  49,800,935   178  3,893,705,708 Aligned Sept
- *   594,076,016,953  13758  43,180,405    81  7,334,271,814 Aligned Oct
+ *         time (ns) calls  time/call elim     time/elim  hinter
+ *     1,652,508,503 16109    102,582   30    55,083,616 Aligned Pair
+ *    27,032,816,722 16079  1,681,249  569    47,509,343 Aligned Triple
+ *   146,494,334,180 15567  9,410,569  892   164,231,316 Aligned Quad
+ *   226,324,167,577 14788 15,304,582  567   399,160,789 Aligned Pent
+ *   530,340,130,297 14274 37,154,275  411 1,290,365,280 Aligned Hex
+ *   693,079,616,124 13917 49,800,935  178 3,893,705,708 Aligned Sept
+ *   594,076,016,953 13758 43,180,405   81 7,334,271,814 Aligned Oct
  * 2,315,795,801,110 @ 1,587,693,428 ns/puzzle
  * NB: We dared A8E. The price went up, and the returns went down, as expected.
  * 7 seconds per elimination is bonkers! I got 3#top1465.d5.mt (et al) down by
@@ -305,68 +306,68 @@ package diuf.sudoku.solver;
  * <hr><p>
  * <b>KRC 2019-10-04</b> with A8E.
  * <pre>
- *       time (ns)  calls   time/call   elims      time/elim  hinter
- *      33,377,414  46283         721  229270            145  Naked Single
- *      59,125,946  43987       1,344  391270            151  Hidden Single
- *     139,072,377  35131       3,958   26418          5,264  Point and Claim
- *     149,521,562  22810       6,555    6649         22,487  Naked Pair
- *     101,189,990  20625       4,906    8465         11,953  Hidden Pair
- *     146,736,148  18530       7,918    1598         91,824  Naked Triple
- *     122,477,141  18131       6,755    1100        111,342  Hidden Triple
- *     225,913,149  17915      12,610     758        298,038  XY-Wing
- *      70,253,746  17385       4,041     652        107,751  Swampfish
- *      69,815,125  17129       4,075     319        218,856  Swordfish
- *     199,112,164  17038      11,686     129      1,543,505  Naked Quad
- *      20,385,919  17016       1,198      12      1,698,826  Jellyfish
- *     217,955,007  17012      12,811     359        607,117  XYZ-Wing
- *   1,851,736,378  16676     111,041    1110      1,668,230  Unique Rectangle
- *     257,221,110  16148      15,928      62      4,148,727  Bi-Uni Grave
- *   1,844,881,090  16117     114,468      30     61,496,036  Aligned Pair
- *  28,501,469,004  16087   1,771,708     584     48,803,885  Aligned Triple
- * 152,740,937,228  15560   9,816,255     879    173,766,709  Aligned Quad
- * 232,033,151,060  14790  15,688,515     568    408,509,068  Aligned Pent
- * 553,588,140,557  14274  38,782,971     409  1,353,516,236  Aligned Hex
- * 723,794,413,105  13919  52,000,460     180  4,021,080,072  Aligned Sept
- * 599,526,759,080  13759  43,573,425      81  7,401,564,926  Aligned Oct
- *  55,388,539,343  13685   4,047,390  213460        259,479  Unary Chain
- *   8,759,665,370   7025   1,246,927    2462      3,557,946  Nishio Chain
- *  17,360,074,664   5950   2,917,659   20650        840,681  Multiple Chain
- *  17,075,776,084   1664  10,261,884   15747      1,084,382  Dynamic Chain
- *     161,868,013      3  53,956,004      30      5,395,600  Dynamic Plus
+ *       time (ns) calls  time/call  elims     time/elim hinter
+ *      33,377,414 46283        721 229270           145 Naked Single
+ *      59,125,946 43987      1,344 391270           151 Hidden Single
+ *     139,072,377 35131      3,958  26418         5,264 Point and Claim
+ *     149,521,562 22810      6,555   6649        22,487 Naked Pair
+ *     101,189,990 20625      4,906   8465        11,953 Hidden Pair
+ *     146,736,148 18530      7,918   1598        91,824 Naked Triple
+ *     122,477,141 18131      6,755   1100       111,342 Hidden Triple
+ *     225,913,149 17915     12,610    758       298,038 XY-Wing
+ *      70,253,746 17385      4,041    652       107,751 Swampfish
+ *      69,815,125 17129      4,075    319       218,856 Swordfish
+ *     199,112,164 17038     11,686    129     1,543,505 Naked Quad
+ *      20,385,919 17016      1,198     12     1,698,826 Jellyfish
+ *     217,955,007 17012     12,811    359       607,117 XYZ-Wing
+ *   1,851,736,378 16676    111,041   1110     1,668,230 Unique Rectangle
+ *     257,221,110 16148     15,928     62     4,148,727 Bi-Uni Grave
+ *   1,844,881,090 16117    114,468     30    61,496,036 Aligned Pair
+ *  28,501,469,004 16087  1,771,708    584    48,803,885 Aligned Triple
+ * 152,740,937,228 15560  9,816,255    879   173,766,709 Aligned Quad
+ * 232,033,151,060 14790 15,688,515    568   408,509,068 Aligned Pent
+ * 553,588,140,557 14274 38,782,971    409 1,353,516,236 Aligned Hex
+ * 723,794,413,105 13919 52,000,460    180 4,021,080,072 Aligned Sept
+ * 599,526,759,080 13759 43,573,425     81 7,401,564,926 Aligned Oct
+ *  55,388,539,343 13685  4,047,390 213460       259,479 Unary Chain
+ *   8,759,665,370  7025  1,246,927   2462     3,557,946 Nishio Chain
+ *  17,360,074,664  5950  2,917,659  20650       840,681 Multiple Chain
+ *  17,075,776,084  1664 10,261,884  15747     1,084,382 Dynamic Chain
+ *     161,868,013     3 53,956,004     30     5,395,600 Dynamic Plus
  * 2,394,439,567,774 / 1465 = 1,634,429,739 ns/puzzle (1.6 seconds)
  * </pre>
  * <hr><p>
  * <b>KRC 2019-10-08</b> Hack: New -REDO argument to LogicalSolverTester parses
  * a previous logFile to see which hinters to apply to each puzzle.
  * <pre>
- *       time (ns)  calls   time/call   elims    time/elim hinter
- *      25,374,419  46276         548  229310          110 Naked Single
- *      61,138,533  43979       1,390  391240          156 Hidden Single
- *     135,930,629  35123       3,870   26414        5,146 Point and Claim
- *     141,214,807  18571       7,604    6640       21,267 Naked Pair
- *      91,479,466  15664       5,840    8460       10,813 Hidden Pair
- *  66,025,341,862  13526   4,881,364  213456      309,315 Unary Chain
- *     138,149,887   7427      18,601     756      182,737 XY-Wing
- *  83,503,693,374   7417  11,258,418     858   97,323,651 Aligned Quad
- *  21,101,527,017   5912   3,569,270   20650    1,021,865 Multiple Chain
- *      60,950,294   5856      10,408    1598       38,141 Naked Triple
- *   1,048,865,034   5790     181,151    1110      944,923 Unique Rectangle
- *  12,447,607,042   5742   2,167,817     611   20,372,515 Aligned Triple
- * 101,982,425,510   5695  17,907,361     568  179,546,523 Aligned Pent
- *      98,632,746   5178      19,048     359      274,743 XYZ-Wing
- *   7,265,182,790   4926   1,474,864    2462    2,950,927 Nishio Chain
- *      25,070,799   4616       5,431     652       38,452 Swampfish
- * 191,164,018,256   4258  44,895,260     409  467,393,687 Aligned Hex
- *      28,533,093   3206       8,899    1100       25,939 Hidden Triple
- * 148,072,604,302   2068  71,601,839     179  827,221,253 Aligned Sept
- *      14,835,670   1853       8,006     319       46,506 Swordfish
- *  20,543,122,988   1663  12,353,050   15737    1,305,402 Dynamic Chain
- *  55,320,695,749   1149  48,146,819      81  682,971,552 Aligned Oct
- *      13,921,344    550      25,311      62      224,537 Bi-Uni Grave
- *      62,143,905    458     135,685      30    2,071,463 Aligned Pair
- *       5,191,936    308      16,856     129       40,247 Naked Quad
- *         541,274     81       6,682      12       45,106 Jellyfish
- *     154,043,077      3  51,347,692      30    5,134,769 Dynamic Plus
+ *       time (ns) calls  time/call  elims   time/elim hinter
+ *      25,374,419 46276        548 229310         110 Naked Single
+ *      61,138,533 43979      1,390 391240         156 Hidden Single
+ *     135,930,629 35123      3,870  26414       5,146 Point and Claim
+ *     141,214,807 18571      7,604   6640      21,267 Naked Pair
+ *      91,479,466 15664      5,840   8460      10,813 Hidden Pair
+ *  66,025,341,862 13526  4,881,364 213456     309,315 Unary Chain
+ *     138,149,887  7427     18,601    756     182,737 XY-Wing
+ *  83,503,693,374  7417 11,258,418    858  97,323,651 Aligned Quad
+ *  21,101,527,017  5912  3,569,270  20650   1,021,865 Multiple Chain
+ *      60,950,294  5856     10,408   1598      38,141 Naked Triple
+ *   1,048,865,034  5790    181,151   1110     944,923 Unique Rectangle
+ *  12,447,607,042  5742  2,167,817    611  20,372,515 Aligned Triple
+ * 101,982,425,510  5695 17,907,361    568 179,546,523 Aligned Pent
+ *      98,632,746  5178     19,048    359     274,743 XYZ-Wing
+ *   7,265,182,790  4926  1,474,864   2462   2,950,927 Nishio Chain
+ *      25,070,799  4616      5,431    652      38,452 Swampfish
+ * 191,164,018,256  4258 44,895,260    409 467,393,687 Aligned Hex
+ *      28,533,093  3206      8,899   1100      25,939 Hidden Triple
+ * 148,072,604,302  2068 71,601,839    179 827,221,253 Aligned Sept
+ *      14,835,670  1853      8,006    319      46,506 Swordfish
+ *  20,543,122,988  1663 12,353,050  15737   1,305,402 Dynamic Chain
+ *  55,320,695,749  1149 48,146,819     81 682,971,552 Aligned Oct
+ *      13,921,344   550     25,311     62     224,537 Bi-Uni Grave
+ *      62,143,905   458    135,685     30   2,071,463 Aligned Pair
+ *       5,191,936   308     16,856    129      40,247 Naked Quad
+ *         541,274    81      6,682     12      45,106 Jellyfish
+ *     154,043,077     3 51,347,692     30   5,134,769 Dynamic Plus
  * 709,532,235,803
  * pzls       total (ns) (mm:ss)    each (ns)
  * 1465  715,388,763,279 (11:55)  488,319,974 (a tad under 0.5 seconds)
@@ -1576,8 +1577,8 @@ package diuf.sudoku.solver;
  *    has finished it's examination. Piece of s__t! C# anyone? Except I don't
  *    want to suck Bills cock either. Sigh.
  *    .... release 6.30.045 for a fresh 7z ....
- *    see: KRC 2020-02-04 15:03 hacked
- *    and: KRC 2020-02-04 16:50 correct
+ *    see: <b>KRC 2020-02-04 15:03 hacked
+ *    and: <b>KRC 2020-02-04 16:50 correct
  * 4. Recall 2020-02-01 "no idea where to go from here?" Well let's: every combo
  *    examined must include atleast 1 unknown value. If we make the cell-to-be
  *    -examined the "focus" is last (right-most) because it could take one pass
@@ -2406,17 +2407,19 @@ package diuf.sudoku.solver;
  * 1. So !IS_HACKY top1465.d5.mt with A234E_1C &amp; A5678910_2H in 11:46
  *    and IS_HACKY top1465.d5.mt with A2345678910E_1C        in 50:46.
  * </pre>
+ * <hr>
  * <p>
  * <b>KRC 2020-02-26 morning</b> Ran !IS_HACKY A2345678910_1C just to see how
  * long it takes. Something like 10 or 11 hours is my guess.
+ * <hr>
  * <p>
  * <b>KRC 2020-02-26 13:26</b> A9E_1C is running like a dog for some reason:
- * <pre>
+ * <p>
  * So A9E_1C has taken 19.8 times longer than A8E_1C, and that's just wrong!
  * I still haven't decided wether or not I'm going to kill the run, but I'm
  * leaning towards the affirmative. I'm just going to take a look at the code
  * to see if I've left a breakpoint or some other stupidity in there.
- *
+ * <pre>
  * As at puzzle 60 where I killed it:
  *    748,603,735,600  1454     514,858,140  35   21,388,678,160  Aligned Oct
  * 14,824,806,195,900  1421  10,432,657,421  27  549,066,896,144  Aligned Nona = TOO SLOW
@@ -2487,6 +2490,7 @@ package diuf.sudoku.solver;
  *    or !IS_HACKY top1465.d5.mt with A2345678910E_1C        in 318:49 (5:18:49)
  * 2. That'll do pig. Coz it'll bloody well have to.
  * </pre>
+ * <hr>
  * <p>
  * <b>KRC 2020-02-28 07:33</b> Made some performance improvements to Hidden Set
  * and ran it again overnight to see how it goes.
@@ -2552,6 +2556,7 @@ package diuf.sudoku.solver;
  * 2. Next we run IS_HACKY again with "HIT" puzzle numbers from lastnights run,
  *    then I guess we build, release, and backup.
  * </pre>
+ * <hr>
  * <p>
  * <b>KRC 2020-02-28 11:14</b> A log of a HACKY A2345678910E_1C run.
  * <pre>
@@ -2614,6 +2619,7 @@ package diuf.sudoku.solver;
  * 1. IS_HACKY top1465 A2345678910E_1C in 53:30 was 50:46 = 2:44 slower!
  * 2. Now I run it all hacked, and if slower I consider reverting.
  * </pre>
+ * <hr>
  * <p>
  * <b>KRC 2020-02-28 11:35:53</b> A HACKY A5678910E_2H run.
  * <pre>
@@ -3925,7 +3931,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.078 2020-07-20 11:42:18 Forgive me father it's been 10 days since
+ * <b>KRC 6.30.078 2020-07-20 11:42:18</b> Forgive me father it's been 10 days since
  * my last release and I just need to rub one out. Actually I need to delete my
  * log-files and I want a backup before I do so. I've been pissin about trying
  * to make HoDoKu faster, with some (but not much) success. The main snags are
@@ -3986,16 +3992,15 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.079 2020-07-21 12:26:19 profile to expedite getAllKrakenFishes->
+ * <b>KRC 6.30.079 2020-07-21 12:26:19</b> profile to expedite getAllKrakenFishes->
  * TablingSolver.buildChain-> TreeMap<Int,Int>-> Int.of -> CACHE_SIZE
  * (4K -> 75% hit rate) but now there's s__tloads of logs so I release to back
  * and clean them up.
+ * <p>
+ * <b>BROKEN:</b> I discovered that my desktop "release" SudokuExplainer doesn't
+ * run: HoDoKu ClassNotFound, so can only run in situ now. I need a real
+ * programmer to workout what's happened to the classpath. Blame Nutbeans!
  * <pre>
- * <b>BROKEN:</b> I discovered that my desktop "release" SudokuExplainer no
- *			longer runs (HoDoKu ClassNotFound) so I only run in situ now.
- *			I need a real Java programmer to workout what's happened to
- *			the classpath. I just blame Nutbeans! Weird dependancy s__t!
- * </pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
  *      19,947,100 119400        167 680640          29 Naked Single
  *      15,009,300  51336        292 173320          86 Hidden Single
@@ -4038,7 +4043,6 @@ package diuf.sudoku.solver;
  * 155,818,916,600
  *  pzls       total (ns) (mm:ss)    each (ns)
  *  1465  200,534,855,600 (03:20)  136,883,860
- * <pre>
  * NOTES:
  * 1. 03:20 is nearly minute faster, which is nice, but don't get too excited:
  *    I've been pissin about with hinter selection again. I made improvements
@@ -4050,7 +4054,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.080 2020-08-01 16:34:20 I broke HoDoKu so I had to revert it.
+ * <b>KRC 6.30.080 2020-08-01 16:34:20</b> I broke HoDoKu so I had to revert it.
  * This release I'll pack HoDoKu and SudokuExplainer into a single 7z. No more
  * dumb mistakes like this. It's really annoying because at one stage I had
  * it finding a couple of thousand fish hints, (I've got the logs to prove it)
@@ -4061,7 +4065,6 @@ package diuf.sudoku.solver;
  * tool to help find the problem, instead of relying on backups too heavily.
  * Nutbeans has a history feature, but I find it useless.
  * <pre>
- * </pre>
  *         time (ns)  calls  time/call  elims   time/elim hinter
  *        20,040,300 120288        166 678010          29 Naked Single
  *        15,874,800  52487        302 173070          91 Hidden Single
@@ -4105,7 +4108,6 @@ package diuf.sudoku.solver;
  *   168,873,941,800
  * pzls       total (ns) (mm:ss)    each (ns)
  * 1465  214,367,479,200 (03:34)  146,325,924
- * <pre>
  * NOTES:
  * 1. 03:34 is 12 secs slower than prev, which I can account for because it's
  *    unoptimised because I had to revert HoDoKu to the zip, coz I'm a putz!
@@ -4116,7 +4118,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.081 2020-08-06 22:26:21 There is no try. Been pissin about trying
+ * <b>KRC 6.30.081 2020-08-06 22:26:21</b> There is no try. Been pissin about trying
  * to make FishSolver faster, then tried implementing FrankenFisherman myself
  * and it totally sucks bags. It's slow and doesn't work and I feel pretty
  * stupid right now. But there was a nice tender lesso kiss on the tele and
@@ -4177,7 +4179,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.082 2020-08-10 21:42:22 Implemented HdkColoring. Made
+ * <b>KRC 6.30.082 2020-08-10 21:42:22</b> Implemented HdkColoring. Made
  * HdkFisherman marginally faster. Standardised caching in the HintCache.
  * Dropped Nishio Chainer which took 4 seconds to produce 1 hint, and the
  * Franken Swordfish which took 21 seconds to produce 9 hints.
@@ -4234,7 +4236,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.083 2020-08-21 10:08:83 I went through the first 1000 puzzles in
+ * <b>KRC 6.30.083 2020-08-21 10:08:83</b> I went through the first 1000 puzzles in
  * the GUI looking for bugs, weak hint explanations and the like. Fixed a few
  * things like painting fins blue, and bug in Locking mergeSiameseHints.
  * This run has siamese checks switched on, so Locking actually finds
@@ -4299,7 +4301,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.084 2020-08-21 20:37:24 Discovered a bug in NakedSet, it was
+ * <b>KRC 6.30.084 2020-08-21 20:37:24</b> Discovered a bug in NakedSet, it was
  * falsely returning false after finding hints. Doh! How embarrassment!
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -4353,7 +4355,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.085 2020-08-31 17:39:25 Simplified colors by adding a getOrange
+ * <b>KRC 6.30.085 2020-08-31 17:39:25</b> Simplified colors by adding a getOrange
  * independent of getGreens and getReds. Fixed all test cases.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -4455,7 +4457,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.087 2020-09-03 08:05:27 Fixed logView. Previous release is a bust.
+ * <b>KRC 6.30.087 2020-09-03 08:05:27</b> Fixed logView. Previous release is a bust.
  * Bugs in the load process makes it not work at all; so I must release patch
  * ASAP. I fixed the logView, which is what I thought I had done in the previous
  * release, which was rushed out because I don't control when we go to town. I
@@ -4518,7 +4520,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.088 2020-09-07 11:20:28 Release coz I'm at the library and I can.
+ * <b>KRC 6.30.088 2020-09-07 11:20:28</b> Release coz I'm at the library and I can.
  * No notable changes to the best of my recollection.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -4574,7 +4576,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.089 2020-09-12 11:55:29 Bug fix: Subsequent views not shown for
+ * <b>KRC 6.30.089 2020-09-12 11:55:29</b> Bug fix: Subsequent views not shown for
  * RegionReductionHint and CellReductionHint.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -4631,7 +4633,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.090 2020-09-24 13:30:30 Boosted ColoringSolver as color.Coloring.
+ * <b>KRC 6.30.090 2020-09-24 13:30:30</b> Boosted ColoringSolver as color.Coloring.
  * Renamed package diuf.sudoku.solver.hinters.alshdk to als.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -4692,7 +4694,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.091 2020-10-06 18:06:31 Boost HoDoKuFisherman does Finned, Franken,
+ * <b>KRC 6.30.091 2020-10-06 18:06:31</b> Boost HoDoKuFisherman does Finned, Franken,
  * and Mutant fish. It can do Basic but doesn't coz Fisherman is faster. It's
  * still too slow for Mutant (not really useable). Stripped Kraken from hobiwan
  * code, which I plan to put in a KrakenFisherman class.
@@ -4758,7 +4760,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.092 2020-10-11 18:46:32 Boost Kraken Fish from HoDoKuFisherman into
+ * <b>KRC 6.30.092 2020-10-11 18:46:32</b> Boost Kraken Fish from HoDoKuFisherman into
  * KrakenFisherman. It works, but it's so slow it won't even fit on one line.
  * <pre>
  *         time (ns)  calls     time/call  elims       time/elim hinter
@@ -4826,7 +4828,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.093 2020-10-14 18:03:33 New version of KrakenFisherman is twice as
+ * <b>KRC 6.30.093 2020-10-14 18:03:33</b> New version of KrakenFisherman is twice as
  * fast as original, so now it's just very very slow.
  * <pre>
  *         time (ns)  calls   time/call  elims     time/elim hinter
@@ -4881,7 +4883,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.094 2020-10-15 15:37:34 Replaced the "interleaved" getRegions
+ * <b>KRC 6.30.094 2020-10-15 15:37:34</b> Replaced the "interleaved" getRegions
  * method in AHint and all subtypes (30 of them) with getBase and getCovers.
  * This change should have no consequence to non-developers, but to a techie
  * combining two different types of things into one array was MENTAL. So now
@@ -4935,7 +4937,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.095 2020-10-17 22:25:35 test-cases for Idx, HdkSet and HdkSetBase.
+ * <b>KRC 6.30.095 2020-10-17 22:25:35</b> test-cases for Idx, HdkSet and HdkSetBase.
  * I've given-up on cleaning-up "the mess" I've made out of ALSs package, to
  * get rid of the HoDoKu types, especially HdkAls; I've tried 4 times and it
  * just fails like a bastard, so I feel totally inadequate, but none the less
@@ -4984,7 +4986,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 2020-10-18 06:28 I ran it again with the big fish overnight.
+ * <b>KRC 2020-10-18 06:28</b> I ran it again with the big fish overnight.
  * <p>
  * Note that all the fish are enabled, including the big ones, so this run
  * produced the simplest possible solution using my implemented hinter set.
@@ -5089,7 +5091,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 2020-10-19 21:14 I finally found my bug in eradicating the HoDoKu types
+ * <b>KRC 2020-10-19 21:14</b> I finally found my bug in eradicating the HoDoKu types
  * from the als package; so they're gone now, except HdkAls becomes Als and the
  * DiufAls class is history.
  * <pre>
@@ -5146,7 +5148,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.098 2020-10-23 23:20:39 I went mad and cleaned-up. There should be
+ * <b>KRC 6.30.098 2020-10-23 23:20:39</b> I went mad and cleaned-up. There should be
  * no visible changes, but LOTS of dead and dying code has been removed. The
  * only notable for users is that the Grid constructor now just calls load,
  * instead of doing it all itself the pernickety way; so the Grid constructor
@@ -5201,7 +5203,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 2020-10-24 06:10 Here's da hinter summary of the overnight Big Fish run.
+ * <b>KRC 2020-10-24 06:10</b> Here's da hinter summary of the overnight Big Fish run.
  * <pre>
  *         time (ns)  calls     time/call  elims       time/elim hinter
  *        19,916,500 117272           169 670290              29 Naked Single
@@ -5266,7 +5268,7 @@ package diuf.sudoku.solver;
  * <hr>
  * <p>
  * <pre>
- * KRC 2020-10-26 FYI I ran HoDoKu over top1465.d5.mt
+ * <b>KRC 2020-10-26</b> FYI I ran HoDoKu over top1465.d5.mt
  * 1465 puzzles in 6,932,786 ms (01:55:32.786) at 4,732.277 ms/puzzle
  * with a minor performance tweaks, like a modified IntIntTreeMap.
  *
@@ -5279,7 +5281,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 2020-11-29 08:45 This is a redo of the above BIG FISH run, with lessons
+ * <b>KRC 2020-11-29 08:45</b> This is a redo of the above BIG FISH run, with lessons
  * from a month of performance tuning HoDoKu, especially the caching in
  * {@link diuf.sudoku.solver.hinters.fish.KrakenFisherman#kt2Search}, plus bug
  * fixes from generate.
@@ -5349,7 +5351,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 2020-11-30 07:01 Disabled mutant hinters by commenting out Tech's.
+ * <b>KRC 2020-11-30 07:01</b> Disabled mutant hinters by commenting out Tech's.
  * <pre>
          time (ns)	  calls	     time/call	  elims	     time/elim	hinter
         32,559,400	 117263	           277	 670380	            48	Naked Single
@@ -5404,7 +5406,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 2020-12-05 10:05:40 Polished KrakenFisherman. Added nonHinters filter to
+ * <b>KRC 2020-12-05 10:05:40</b> Polished KrakenFisherman. Added nonHinters filter to
  * A5+E; which is what I SHOULD have done instead of all those months trying to
  * work-out how to do it faster, so the ideal implementation now would be an
  * A*E class implementing A5678910E, and another simpler one for A234E. The key
@@ -5467,7 +5469,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.101 2020-12-08 07:58:40 Back-up prior to Aligned*Exclusion redo.
+ * <b>KRC 6.30.101 2020-12-08 07:58:40</b> Back-up prior to Aligned*Exclusion redo.
  * This version has NonHinters64 and LongLongHashMap. Now I will try iterating
  * a stack in A*E (ala hobiwan) to remove most of the A*E classes, ie eliminate
  * my previous code-bloat.
@@ -5526,113 +5528,115 @@ package diuf.sudoku.solver;
  * 2. Release 6.30.101 2020-12-08 07:58:40 =>
  *    DiufSudoku_V6_30.101.2020-12-08.7z
  * 3. Next I apply hobiwans stack-iteration technique to Aligned*Exclusion.
+ * </pre>
  * <hr>
  * <p>
- * KRC 6.30.102 2020-12-17 10:54:42 Release align2.AlignedExclusion squashing
+ * <b>KRC 6.30.102 2020-12-17 10:54:42</b> Release align2.AlignedExclusion squashing
  * all Aligned*Exclusion's boiler-plate code down into one complex succinct
  * class using hobiwans stack iteration technique twice: once for cells, and
  * again for vals.
  * <pre>
- * -- "old version" for comparison --
- *         time (ns)  calls  time/call  elims      time/elim hinter
- *        19,812,600 116122        170 666010             29 Naked Single
- *        14,401,500  49521        290 168620             85 Hidden Single
- *        91,215,500  32659      2,792   5847         15,600 Direct Naked Pair
- *        82,771,900  32248      2,566  12324          6,716 Direct Hidden Pair
- *       203,858,400  31307      6,511    884        230,609 Direct Naked Triple
- *       186,843,600  31252      5,978   1812        103,114 Direct Hidden Triple
- *        99,576,700  31114      3,200  18527          5,374 Locking
- *        52,314,200  21962      2,382   4410         11,862 Naked Pair
- *        44,350,400  20848      2,127   8527          5,201 Hidden Pair
- *       107,202,800  19233      5,573   1307         82,022 Naked Triple
- *        98,394,600  18863      5,216   1028         95,714 Hidden Triple
- *        62,941,000  18664      3,372   1401         44,925 Two String Kite
- *        39,629,400  17263      2,295    448         88,458 Swampfish
- *        91,374,700  17061      5,355    620        147,378 XY-Wing
- *        63,655,100  16616      3,830    303        210,082 XYZ-Wing
- *        68,472,200  16331      4,192    466        146,936 W-Wing
- *        50,511,500  16018      3,153    351        143,907 Skyscraper
- *        56,370,200  15833      3,560    480        117,437 Empty Rectangle
- *        68,918,700  15353      4,488    259        266,095 Swordfish
- *       175,257,700  15277     11,471     98      1,788,343 Naked Quad
- *       140,974,500  15258      9,239     13     10,844,192 Hidden Quad
- *        19,857,200  15256      1,301      9      2,206,355 Jellyfish
- *     1,637,667,900  15253    107,366    860      1,904,265 Unique Rectangle
- *     2,650,147,700  14850    178,461    506      5,237,446 Finned Swampfish
- *     6,019,139,500  14423    417,329    429     14,030,628 Finned Swordfish
- *     7,223,144,500  14076    513,153     21    343,959,261 Finned Jellyfish
- *       456,780,500  14059     32,490    108      4,229,449 Coloring
- *    22,284,415,200  13975  1,594,591   8358      2,666,237 ALS-XZ
- *    22,331,816,900   8276  2,698,382   4329      5,158,654 ALS-Wing
- *     3,747,979,500   4673    802,049      0              0 Franken Swampfish
- *    18,170,867,300   4673  3,888,480    178    102,083,524 Franken Swordfish
- *    44,356,454,800   4524  9,804,698    103    430,645,192 Franken Jellyfish
- *       282,292,600   4430     63,722      1    282,292,600 Aligned Pair
- *     2,100,666,900   4429    474,298     16    131,291,681 Aligned Triple
- *    31,186,149,200   4414  7,065,280     52    599,733,638 Aligned Quad
- *    69,763,009,900   4372 15,956,772     68  1,025,926,616 Aligned Pent
- *    21,958,348,900   4315  5,088,840      1 21,958,348,900 Aligned Hex
- *    20,710,004,900   4314  4,800,650      5  4,142,000,980 Aligned Sept
- *    16,488,024,100   4310  3,825,527      1 16,488,024,100 Aligned Oct
- *    17,186,799,700   4309  3,988,581      0              0 Aligned Nona
- *    12,924,583,400   4309  2,999,439      0              0 Aligned Dec
- *    13,416,250,900   4309  3,113,541   2179      6,157,067 Unary Chain
- *     5,148,660,700   3510  1,466,854     28    183,880,739 Nishio Chain
- *     9,284,748,300   3482  2,666,498   5716      1,624,343 Multiple Chain
- *    11,527,092,500   1447  7,966,200   7942      1,451,409 Dynamic Chain
- *       115,788,600      3 38,596,200     30      3,859,620 Dynamic Plus
- *   362,809,538,800
+ * The "old version" for comparison:
+ *       time (ns)  calls  time/call  elims      time/elim hinter
+ *      19,812,600 116122        170 666010             29 Naked Single
+ *      14,401,500  49521        290 168620             85 Hidden Single
+ *      91,215,500  32659      2,792   5847         15,600 Direct Naked Pair
+ *      82,771,900  32248      2,566  12324          6,716 Direct Hidden Pair
+ *     203,858,400  31307      6,511    884        230,609 Direct Naked Triple
+ *     186,843,600  31252      5,978   1812        103,114 Direct Hidden Triple
+ *      99,576,700  31114      3,200  18527          5,374 Locking
+ *      52,314,200  21962      2,382   4410         11,862 Naked Pair
+ *      44,350,400  20848      2,127   8527          5,201 Hidden Pair
+ *     107,202,800  19233      5,573   1307         82,022 Naked Triple
+ *      98,394,600  18863      5,216   1028         95,714 Hidden Triple
+ *      62,941,000  18664      3,372   1401         44,925 Two String Kite
+ *      39,629,400  17263      2,295    448         88,458 Swampfish
+ *      91,374,700  17061      5,355    620        147,378 XY-Wing
+ *      63,655,100  16616      3,830    303        210,082 XYZ-Wing
+ *      68,472,200  16331      4,192    466        146,936 W-Wing
+ *      50,511,500  16018      3,153    351        143,907 Skyscraper
+ *      56,370,200  15833      3,560    480        117,437 Empty Rectangle
+ *      68,918,700  15353      4,488    259        266,095 Swordfish
+ *     175,257,700  15277     11,471     98      1,788,343 Naked Quad
+ *     140,974,500  15258      9,239     13     10,844,192 Hidden Quad
+ *      19,857,200  15256      1,301      9      2,206,355 Jellyfish
+ *   1,637,667,900  15253    107,366    860      1,904,265 Unique Rectangle
+ *   2,650,147,700  14850    178,461    506      5,237,446 Finned Swampfish
+ *   6,019,139,500  14423    417,329    429     14,030,628 Finned Swordfish
+ *   7,223,144,500  14076    513,153     21    343,959,261 Finned Jellyfish
+ *     456,780,500  14059     32,490    108      4,229,449 Coloring
+ *  22,284,415,200  13975  1,594,591   8358      2,666,237 ALS-XZ
+ *  22,331,816,900   8276  2,698,382   4329      5,158,654 ALS-Wing
+ *   3,747,979,500   4673    802,049      0              0 Franken Swampfish
+ *  18,170,867,300   4673  3,888,480    178    102,083,524 Franken Swordfish
+ *  44,356,454,800   4524  9,804,698    103    430,645,192 Franken Jellyfish
+ *     282,292,600   4430     63,722      1    282,292,600 Aligned Pair
+ *   2,100,666,900   4429    474,298     16    131,291,681 Aligned Triple
+ *  31,186,149,200   4414  7,065,280     52    599,733,638 Aligned Quad
+ *  69,763,009,900   4372 15,956,772     68  1,025,926,616 Aligned Pent
+ *  21,958,348,900   4315  5,088,840      1 21,958,348,900 Aligned Hex
+ *  20,710,004,900   4314  4,800,650      5  4,142,000,980 Aligned Sept
+ *  16,488,024,100   4310  3,825,527      1 16,488,024,100 Aligned Oct
+ *  17,186,799,700   4309  3,988,581      0              0 Aligned Nona
+ *  12,924,583,400   4309  2,999,439      0              0 Aligned Dec
+ *  13,416,250,900   4309  3,113,541   2179      6,157,067 Unary Chain
+ *   5,148,660,700   3510  1,466,854     28    183,880,739 Nishio Chain
+ *   9,284,748,300   3482  2,666,498   5716      1,624,343 Multiple Chain
+ *  11,527,092,500   1447  7,966,200   7942      1,451,409 Dynamic Chain
+ *     115,788,600      3 38,596,200     30      3,859,620 Dynamic Plus
+ * 362,809,538,800
  * pzls       total (ns) (mm:ss)    each (ns)
  * 1465  416,922,969,300 (06:56)  284,589,057
- * -- new version --
- *         time (ns)  calls  time/call  elims      time/elim hinter
- *        22,967,700 116122        197 666010             34 Naked Single
- *        18,510,400  49521        373 168620            109 Hidden Single
- *       106,958,800  32659      3,275   5847         18,292 Direct Naked Pair
- *        90,391,900  32248      2,803  12324          7,334 Direct Hidden Pair
- *       229,001,100  31307      7,314    884        259,051 Direct Naked Triple
- *       198,434,500  31252      6,349   1812        109,511 Direct Hidden Triple
- *       103,989,600  31114      3,342  18527          5,612 Locking
- *        59,913,100  21962      2,728   4410         13,585 Naked Pair
- *        51,542,700  20848      2,472   8527          6,044 Hidden Pair
- *       129,033,200  19233      6,708   1307         98,724 Naked Triple
- *       106,144,500  18863      5,627   1028        103,253 Hidden Triple
- *        66,694,300  18664      3,573   1401         47,604 Two String Kite
- *        44,284,300  17263      2,565    448         98,848 Swampfish
- *       100,668,900  17061      5,900    620        162,369 XY-Wing
- *        69,403,900  16616      4,176    303        229,055 XYZ-Wing
- *        67,785,700  16331      4,150    466        145,462 W-Wing
- *        51,487,500  16018      3,214    351        146,688 Skyscraper
- *        60,154,000  15833      3,799    480        125,320 Empty Rectangle
- *        75,379,300  15353      4,909    259        291,039 Swordfish
- *       204,867,900  15277     13,410     98      2,090,488 Naked Quad
- *       153,609,200  15258     10,067     13     11,816,092 Hidden Quad
- *        21,898,600  15256      1,435      9      2,433,177 Jellyfish
- *     1,695,816,000  15253    111,179    860      1,971,879 Unique Rectangle
- *     2,988,384,000  14850    201,237    506      5,905,897 Finned Swampfish
- *     6,838,824,700  14423    474,161    429     15,941,316 Finned Swordfish
- *     8,068,908,900  14076    573,238     21    384,233,757 Finned Jellyfish
- *       466,421,300  14059     33,175    108      4,318,715 Coloring
- *    24,684,311,300  13975  1,766,319   8358      2,953,375 ALS-XZ
- *    25,874,960,300   8276  3,126,505   4329      5,977,121 ALS-Wing
- *     4,025,086,900   4673    861,349      0              0 Franken Swampfish
- *    19,970,723,300   4673  4,273,640    178    112,195,074 Franken Swordfish
- *    49,605,385,800   4524 10,964,939    103    481,605,687 Franken Jellyfish
- *       356,226,000   4430     80,412      1    356,226,000 Aligned Pair
- *     2,371,181,100   4429    535,376     15    158,078,740 Aligned Triple
- *    56,179,909,200   4415 12,724,781     53  1,059,998,286 Aligned Quad
- *   244,482,183,100   4372 55,919,986     66  3,704,275,501 Aligned Pent
- *    38,714,087,800   4316  8,969,899      3 12,904,695,933 Aligned Hex
- *    52,396,760,600   4314 12,145,748      5 10,479,352,120 Aligned Sept
- *    53,700,368,200   4310 12,459,482      1 53,700,368,200 Aligned Oct
- *    41,702,234,300   4309  9,677,937      0              0 Aligned Nona
- *    26,156,226,600   4309  6,070,138      0              0 Aligned Dec
- *    15,658,818,500   4309  3,633,979   2179      7,186,240 Unary Chain
- *     5,775,262,500   3510  1,645,373     28    206,259,375 Nishio Chain
- *    10,395,368,500   3482  2,985,459   5716      1,818,643 Multiple Chain
- *    12,421,114,000   1447  8,584,045   7942      1,563,978 Dynamic Chain
- *        99,803,900      3 33,267,966     30      3,326,796 Dynamic Plus
- *   706,661,487,900
+ *
+ * The "new version" for edification:
+ *       time (ns)  calls  time/call  elims      time/elim hinter
+ *      22,967,700 116122        197 666010             34 Naked Single
+ *      18,510,400  49521        373 168620            109 Hidden Single
+ *     106,958,800  32659      3,275   5847         18,292 Direct Naked Pair
+ *      90,391,900  32248      2,803  12324          7,334 Direct Hidden Pair
+ *     229,001,100  31307      7,314    884        259,051 Direct Naked Triple
+ *     198,434,500  31252      6,349   1812        109,511 Direct Hidden Triple
+ *     103,989,600  31114      3,342  18527          5,612 Locking
+ *      59,913,100  21962      2,728   4410         13,585 Naked Pair
+ *      51,542,700  20848      2,472   8527          6,044 Hidden Pair
+ *     129,033,200  19233      6,708   1307         98,724 Naked Triple
+ *     106,144,500  18863      5,627   1028        103,253 Hidden Triple
+ *      66,694,300  18664      3,573   1401         47,604 Two String Kite
+ *      44,284,300  17263      2,565    448         98,848 Swampfish
+ *     100,668,900  17061      5,900    620        162,369 XY-Wing
+ *      69,403,900  16616      4,176    303        229,055 XYZ-Wing
+ *      67,785,700  16331      4,150    466        145,462 W-Wing
+ *      51,487,500  16018      3,214    351        146,688 Skyscraper
+ *      60,154,000  15833      3,799    480        125,320 Empty Rectangle
+ *      75,379,300  15353      4,909    259        291,039 Swordfish
+ *     204,867,900  15277     13,410     98      2,090,488 Naked Quad
+ *     153,609,200  15258     10,067     13     11,816,092 Hidden Quad
+ *      21,898,600  15256      1,435      9      2,433,177 Jellyfish
+ *   1,695,816,000  15253    111,179    860      1,971,879 Unique Rectangle
+ *   2,988,384,000  14850    201,237    506      5,905,897 Finned Swampfish
+ *   6,838,824,700  14423    474,161    429     15,941,316 Finned Swordfish
+ *   8,068,908,900  14076    573,238     21    384,233,757 Finned Jellyfish
+ *     466,421,300  14059     33,175    108      4,318,715 Coloring
+ *  24,684,311,300  13975  1,766,319   8358      2,953,375 ALS-XZ
+ *  25,874,960,300   8276  3,126,505   4329      5,977,121 ALS-Wing
+ *   4,025,086,900   4673    861,349      0              0 Franken Swampfish
+ *  19,970,723,300   4673  4,273,640    178    112,195,074 Franken Swordfish
+ *  49,605,385,800   4524 10,964,939    103    481,605,687 Franken Jellyfish
+ *     356,226,000   4430     80,412      1    356,226,000 Aligned Pair
+ *   2,371,181,100   4429    535,376     15    158,078,740 Aligned Triple
+ *  56,179,909,200   4415 12,724,781     53  1,059,998,286 Aligned Quad
+ * 244,482,183,100   4372 55,919,986     66  3,704,275,501 Aligned Pent
+ *  38,714,087,800   4316  8,969,899      3 12,904,695,933 Aligned Hex
+ *  52,396,760,600   4314 12,145,748      5 10,479,352,120 Aligned Sept
+ *  53,700,368,200   4310 12,459,482      1 53,700,368,200 Aligned Oct
+ *  41,702,234,300   4309  9,677,937      0              0 Aligned Nona
+ *  26,156,226,600   4309  6,070,138      0              0 Aligned Dec
+ *  15,658,818,500   4309  3,633,979   2179      7,186,240 Unary Chain
+ *   5,775,262,500   3510  1,645,373     28    206,259,375 Nishio Chain
+ *  10,395,368,500   3482  2,985,459   5716      1,818,643 Multiple Chain
+ *  12,421,114,000   1447  8,584,045   7942      1,563,978 Dynamic Chain
+ *      99,803,900      3 33,267,966     30      3,326,796 Dynamic Plus
+ * 706,661,487,900
  * pzls       total (ns) (mm:ss)    each (ns)
  * 1465  763,321,961,900 (12:43)  521,038,881
  * NOTES:
@@ -5645,7 +5649,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.103 2021-01-01 15:17:43 Release "wing2" package with WXYZWing,
+ * <b>KRC 6.30.103 2021-01-01 15:17:43</b> Release "wing2" package with WXYZWing,
  * UVWXYZWing, and TUVWXYZWing boosted from Sukaku, by Nicolas Juillerat (the
  * original authors rewrite of Sudoku Explainer) who boosted them from
  * SudokuMonster.
@@ -5707,7 +5711,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC NO-RELEASE 2021-01-03 18:05 I just ran EVERYthing to see how slow it was
+ * <b>KRC NO-RELEASE 2021-01-03 18:05</b> I just ran EVERYthing to see how slow it was
  * and got a pleasant surprise 21:45. Not too shabby, considering A10E used to
  * take over a day on it's own. Although it looks like Franken Fish is rooted!
  * <pre>
@@ -5783,7 +5787,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.104 2021-01-06 19:06:44 I'm releasing just to clean-up the logs.
+ * <b>KRC 6.30.104 2021-01-06 19:06:44</b> I'm releasing just to clean-up the logs.
  * I've implemented SueDeCoq in the als package, and also tried but failed at
  * DeathBlossom.
  * <pre>
@@ -5842,7 +5846,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.105 2021-01-12 10:05:45 Ship SueDeCoq. Failed at DeathBlossom.
+ * <b>KRC 6.30.105 2021-01-12 10:05:45</b> Ship SueDeCoq. Failed at DeathBlossom.
  * This Run: hinters which take less than a tenth of a second per elimination.
  * <pre>
  *       time (ns)  calls  time/call  elims  time/elim hinter
@@ -5897,7 +5901,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.106 2021-01-14 09:02:46 Ship DeathBlossom. Last top1465 4:10 is a
+ * <b>KRC 6.30.106 2021-01-14 09:02:46</b> Ship DeathBlossom. Last top1465 4:10 is a
  * minute slower, but that's still OK coz I have no love for DeathBlossom, so
  * I won't be using it.
  * <pre>
@@ -5961,7 +5965,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.107 2021-01-15 09:44:47 ship DeathBlossom today; now faster, and
+ * <b>KRC 6.30.107 2021-01-15 09:44:47</b> ship DeathBlossom today; now faster, and
  * with a better test-case.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -6020,7 +6024,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.108 2021-01-23 14:40:48 Faster align2.AlignedExclusion, which still
+ * <b>KRC 6.30.108 2021-01-23 14:40:48</b> Faster align2.AlignedExclusion, which still
  * isn't competitive with the old align.Aligned*Exclusion classes but it's
  * getting there, and it's just SOOOO much more succinct.
  * <pre>
@@ -6091,7 +6095,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.109 2021-02-13 07:00:49 BigWings, faster Complex and Kraken fish.
+ * <b>KRC 6.30.109 2021-02-13 07:00:49</b> BigWings, faster Complex and Kraken fish.
  * Wrote the BigWing class to succinctify it. Tried and mostly failed to make
  * Complex and KrakenFisherman faster.
  * <pre>
@@ -6159,7 +6163,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.110 2021-02-17 14:31:50 Faster Complex and Kraken fisherman.
+ * <b>KRC 6.30.110 2021-02-17 14:31:50</b> Faster Complex and Kraken fisherman.
  * <pre>
          time (ns)  calls   time/call  elims      time/elim hinter
         23,041,800 117429         196 669940             34 Naked Single
@@ -6223,7 +6227,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.111 2021-02-23 08:33:50 Oops! Last release used align2. My bad.
+ * <b>KRC 6.30.111 2021-02-23 08:33:50</b> Oops! Last release used align2. My bad.
  * <pre>
  * NOTES:
  * 1. There's no "serious" code changes since last release, so no log posted.
@@ -6233,7 +6237,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.112 2021-03-04 10:59:52 Hidden Unique Rectangles and XColoring.
+ * <b>KRC 6.30.112 2021-03-04 10:59:52</b> Hidden Unique Rectangles and XColoring.
  * Last top1465 run took 04:36, which is over a minute slower than previous,
  * which is a bit of a worry, but still acceptable.
  * <p>
@@ -6296,7 +6300,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.113 2021-03-11 16:38:53 3D Medusa Coloring that finds a "few more"
+ * <b>KRC 6.30.113 2021-03-11 16:38:53</b> 3D Medusa Coloring that finds a "few more"
  * hints than the standard algorithm on sudopedia by also coloring the last
  * remaining v in each effected box, so long as it also reduces the origin
  * cells box to one place for v, to form a "strong" (bidirectional) link.
@@ -6362,7 +6366,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.114 2021-03-22 12:04:54 GEM (Graded Equivalence Marks) is all-out
+ * <b>KRC 6.30.114 2021-03-22 12:04:54</b> GEM (Graded Equivalence Marks) is all-out
  * Coloring. It (51224) finds more hints than Medusa 3D Coloring (28599).
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -6421,7 +6425,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.115 2021-03-24 08:53:55 GEM Mark 2 now finds more hints (75550)
+ * <b>KRC 6.30.115 2021-03-24 08:53:55</b> GEM Mark 2 now finds more hints (75550)
  * than Mark 1 (51224). I'll actually release this build, I think, today.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -6484,7 +6488,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.116 2021-03-25 13:28:55 GEM mark 3, with it's own Multi hint.
+ * <b>KRC 6.30.116 2021-03-25 13:28:55</b> GEM mark 3, with it's own Multi hint.
  * Also contradictions uses ons as well as colors, so finds 77283 vs 75550,
  * but it does take longer, about 2 seconds. sigh.
  * <pre>
@@ -6546,7 +6550,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.117 2021-03-27 14:02:57 GEM mark 4, sets subsequent singles to find
+ * <b>KRC 6.30.117 2021-03-27 14:02:57</b> GEM mark 4, sets subsequent singles to find
  * 130790 eliminations verses 77283 previously, and GEM is 1.5 secs faster.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
@@ -6602,7 +6606,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.118 2021-03-30 20:21:58 GEM mark 5 efficiency.
+ * <b>KRC 6.30.118 2021-03-30 20:21:58</b> GEM mark 5 efficiency.
  * <pre>
  *         time (ns)  calls  time/call  elims   time/elim hinter
  *        21,249,200 104385        203 560460          37 Naked Single
@@ -6658,7 +6662,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.119 2021-04-01 09:15:59 GEM mark 6 improved explanation.
+ * <b>KRC 6.30.119 2021-04-01 09:15:59</b> GEM mark 6 improved explanation.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
  *      20,663,200 104385        197 560460          36 Naked Single
@@ -6713,7 +6717,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.120 2021-04-04 06:11:00 GEM mark 7 more eliminations.
+ * <b>KRC 6.30.120 2021-04-04 06:11:00</b> GEM mark 7 more eliminations.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
  *      22,321,000 102906        216 549570          40 Naked Single
@@ -6771,7 +6775,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.121 2021-04-04 10:01:01 GEM mark 8 even more eliminations, chasing
+ * <b>KRC 6.30.121 2021-04-04 10:01:01</b> GEM mark 8 even more eliminations, chasing
  * Naked/Hidden Singles from little hints as well. Eliminations are upto 162376
  * from 142775. IMHO this greedy behaviour is warranted because GEM is often
  * the last "serious" hint, so it should solve the puzzle whenever possible.
@@ -6832,7 +6836,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.122 2021-04-05 07:17:02 GEM mark 9 fix bug in mark 8: an AIOOBE
+ * <b>KRC 6.30.122 2021-04-05 07:17:02</b> GEM mark 9 fix bug in mark 8: an AIOOBE
  * building the why string (steps) when goodColor still == -1. My bad.
  * <p>
  * Also fixed GEM test-cases so this is the last GEM build. I promise to take
@@ -6893,7 +6897,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.123 2021-04-07 19:50:03 GEM mark 10 seriously greedy gemSolve. Made
+ * <b>KRC 6.30.123 2021-04-07 19:50:03</b> GEM mark 10 seriously greedy gemSolve. Made
  * addConsequentSingles use gemSolve which uses 9 HINTERS to solve most puzzles
  * in order to get seriously greedy about setting as many cells as possible.
  * <pre>
@@ -6950,7 +6954,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.124 2021-04-11 09:26:04 GEM mark 11 uber greedy gemSolve using
+ * <b>KRC 6.30.124 2021-04-11 09:26:04</b> GEM mark 11 uber greedy gemSolve using
  * additional hinters.
  * <pre>
  *       time (ns) calls  time/call  elims   time/elim hinter
@@ -7008,7 +7012,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.125 2021-04-13 10:04:05 GEM mark 12 ultra greedy gemSolve using all
+ * <b>KRC 6.30.125 2021-04-13 10:04:05</b> GEM mark 12 ultra greedy gemSolve using all
  * hinters under 20ms/elim. Last top1465 run took 03:09 with 194557 GEM elims,
  * which is up from 185959 previously, and is as far as I'd ever want to go.
  * There are other usable hinters, but they're all too slow to warrant. SE will
@@ -7068,7 +7072,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.126 2021-04-17 06:09:06 GEM mark 13 Moved coloring up the hinters
+ * <b>KRC 6.30.126 2021-04-17 06:09:06</b> GEM mark 13 Moved coloring up the hinters
  * list and dropped all hinters taking longer than 100ms/elim; so the last
  * top1465 run took 02:09, which is a minute faster, but most of that comes
  * from just dropping the slow hinters. GEM is now up to 278910 (from 194557)
@@ -7122,7 +7126,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.127 2021-04-24 08:18:07 GEM mark 14 is not greedy.
+ * <b>KRC 6.30.127 2021-04-24 08:18:07</b> GEM mark 14 is not greedy.
  * <pre>
  *       time (ns)  calls  time/call  elims   time/elim hinter
  *      22,620,300 101549        222 553210          40 Naked Single
@@ -7185,7 +7189,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.128 2021-05-04 14:37:08 No real changes, just cleaning up crap, and
+ * <b>KRC 6.30.128 2021-05-04 14:37:08</b> No real changes, just cleaning up crap, and
  * building to release because I'm going shopping this afternoon.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -7241,7 +7245,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.129 2021-05-13 10:25:09 Build for backup before I experiment with
+ * <b>KRC 6.30.129 2021-05-13 10:25:09</b> Build for backup before I experiment with
  * some GUI changes. A non-release build, but all tests pass anyway.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -7297,7 +7301,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.130 2021-05-17 10:19:10 GenerateDialog and TechSelectDialog are now
+ * <b>KRC 6.30.130 2021-05-17 10:19:10</b> GenerateDialog and TechSelectDialog are now
  * more flexible. The description in the GenerateDialog is a generated list of
  * Tech's in this Difficulty range. The Tech difficulty (a base for hints of
  * this type) is displayed in the TechSelectDialog. The user can look at
@@ -7363,8 +7367,8 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.131 2021-05-19 08:07:11 Building for release because we're going
- * shopping today. I've been pissing-about with BasicFisherman1 to make it
+ * <b>KRC 6.30.131 2021-05-19 08:07:11</b> Building for release because we're going
+ * shopping today. I've been pissing-about with BasicFisherman to make it
  * faster than BasicFisherman, and failing. sigh.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -7414,7 +7418,7 @@ package diuf.sudoku.solver;
  * 1. Last top1465 run took 02:20, 19 secs faster than previous, but no longer
  *    using STUVWXYZ-Wing, FinnedJellyfish, and Sue De Coq. It's all good.
  *    Anything under about 5 minutes feels "pretty snappy" in the GUI. Overall,
- *    BasicFisherman1 is about 8 seconds slower than BasicFisherman so I stick
+ *    BasicFisherman is about 8 seconds slower than BasicFisherman so I stick
  *    with the original BasicFisherman, which keeps getting better and better.
  * 2. Release 6.30.131 2021-05-19 08:07:11
  *    as DiufSudoku_V6_30.131.2021-05-19.7z
@@ -7422,7 +7426,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.132 2021-05-25 09:24:12 Release coz we're shopping today. I've been
+ * <b>KRC 6.30.132 2021-05-25 09:24:12</b> Release coz we're shopping today. I've been
  * updating comments, hint explanations, and documentation. Still no comprende
  * why BigWing swaps x and z. It's nonsensical.
  * <pre>
@@ -7481,7 +7485,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.133 2021-05-30 14:26:13 Build to clean-up logs and create backup.
+ * <b>KRC 6.30.133 2021-05-30 14:26:13</b> Build to clean-up logs and create backup.
  * I've just been pissin-about making SDP/ALS hinters faster.
  * <pre>
  *       time (ns)  calls  time/call  elims  time/elim hinter
@@ -7537,7 +7541,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.134 2021-06-01 17:56:14 Made all ALS hinters cache ALSs and RCCs,
+ * <b>KRC 6.30.134 2021-06-01 17:56:14</b> Made all ALS hinters cache ALSs and RCCs,
  * saving 20 seconds on top1465.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -7593,7 +7597,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.135 2021-06-04 16:04:15 Speed-up AAlsHinter by introducing new
+ * <b>KRC 6.30.135 2021-06-04 16:04:15</b> Speed-up AAlsHinter by introducing new
  * AlsFinder and RccFinder classes. It's actually a second slower, but it's
  * cleaner, so I'm keeping it anyway. sigh.
  * <pre>
@@ -7646,7 +7650,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.136 2021-06-05 11:19:16 Split RccFinder on forwardOnly.
+ * <b>KRC 6.30.136 2021-06-05 11:19:16</b> Split RccFinder on forwardOnly.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
  *     20,146,800 101260        198 553810         36 Naked Single
@@ -7697,7 +7701,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.137 2021-06-09 15:28:17 Cleaning-up messy crap, and stuff I don't
+ * <b>KRC 6.30.137 2021-06-09 15:28:17</b> Cleaning-up messy crap, and stuff I don't
  * use any longer.
  * <p>
  * Here's the release README:
@@ -7824,7 +7828,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.138 2021-06-13 11:43:18 Still cleaning-up my own mess.
+ * <b>KRC 6.30.138 2021-06-13 11:43:18</b> Still cleaning-up my own mess.
  * <p>
  * Here's the additions to README.txt:
  * <pre>
@@ -7907,10 +7911,10 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.139 is MIA. I don't know how I stuffed-up, but stuff-up I did.
+ * <b>KRC 6.30.139</b> is MIA. I don't know how I stuffed-up, but stuff-up I did.
  * <hr>
  * <p>
- * KRC 6.30.140 2021-06-19 12:06:20 Removed tech.nom. AHint.apply takes grid.
+ * <b>KRC 6.30.140 2021-06-19 12:06:20</b> Removed tech.nom. AHint.apply takes grid.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
  *     18,605,628 103675        179 566410         32 NakedSingle
@@ -7962,7 +7966,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.141 2021-06-22 16:02:21 LogicalSolver mySettings. Hinter summaries
+ * <b>KRC 6.30.141 2021-06-22 16:02:21</b> LogicalSolver mySettings. Hinter summaries
  * in LogicalSolverTester log now in wantedHinters order. Replace keySet+get
  * with entrySet on all HashMaps. IMySet.visit. Split Frmu out of Frmt.
  * <pre>
@@ -8025,7 +8029,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.142 2021-06-23 10:06:22 Simplified Locking.pointFrom with the new
+ * <b>KRC 6.30.142 2021-06-23 10:06:22</b> Simplified Locking.pointFrom with the new
  * pointFromElims method, to not farnarkle my way around not repeating the same
  * code 6 times: just put it in a method and wear the extra stack-work, which
  * worked out to be less work (programming can be strange like that); and so
@@ -8086,12 +8090,23 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.143 2021-06-25 13:55:23 cleaning-up: Tech.nom gone. AHint.apply takes
- *			grid. HashMaps entrySet. LogicalSolver clones THE_SETTINGS.
- *			IMySet.visit. Split Frmu from Frmt. Locking.pointFromElims.
- *			New Build class. Improved AboutDialog. Settings.THE renamed.
- *			jar runs without files. Fixed A*E HitSet.
- * 6.30.144 2021-06-25 19:36:24 Fixed bugs in jar runs without files.
+ * <b>KRC 6.30.143 2021-06-25 13:55:23</b> cleaning-up:
+ * <pre>
+ * Tech.nom gone.
+ * AHint.apply takes grid.
+ * HashMaps entrySet.
+ * LogicalSolver clones THE_SETTINGS.
+ * IMySet.visit.
+ * Split Frmu from Frmt.
+ * Locking.pointFromElims.
+ * New Build class.
+ * Improved AboutDialog.
+ * Settings.THE renamed.
+ * jar runs without files. Fixed A*E HitSet.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.144 2021-06-25 19:36:24</b> Fixed bugs in jar runs without files.
  * <pre>
  *       time (ns)  calls  time/call  elims  time/elim hinter
  *      24,098,800 116010        207 661550         36 NakedSingle
@@ -8126,7 +8141,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.145 2021-06-27 22:23:25 Cheats obfiscated. One instance of each four
+ * <b>KRC 6.30.145 2021-06-27 22:23:25</b> Cheats obfiscated. One instance of each four
  * quick fox. Run TooFewClues and TooFewValues ONCE per puzzle.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -8166,7 +8181,7 @@ package diuf.sudoku.solver;
  * 82,744,738,471
  * pzls       total (ns) (mm:ss)   each (ns)
  * 1465  101,341,344,501 (01:41)  69,174,979
- * * NOTES:
+ * NOTES:
  * 1. 1:41 is actually about 6 seconds slower than recent fastest, which is a
  *    bit dissapointing, but the GUI feel like lightning, so ship it anyway.
  * 2. Build 6.30.145 2021-06-27 22:23:25 for release tomorrow. I promise!
@@ -8175,7 +8190,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * KRC 6.30.146 2021-06-29 22:26:26 Cleaning-up Log and stdout, which are still
+ * <b>KRC 6.30.146 2021-06-29 22:26:26</b> Cleaning-up Log and stdout, which are still
  * a bloody nightmare. I should port it to Logging, but I'm too lazy.
  * Constantised common strings, but it's no faster. sigh.
  * <pre>
@@ -8216,7 +8231,7 @@ package diuf.sudoku.solver;
  * 82,994,749,100
  * pzls       total (ns) (mm:ss)   each (ns)
  * 1465  102,586,160,100 (01:42)  70,024,682
- * * NOTES:
+ * NOTES:
  * 1. 1:42 is another 1 second slower than last time, which is a worry.
  * 2. Build 6.30.146 2021-06-29 22:26:26 for release tomorrow. I insist!
  *    as DiufSudoku_V6_30.146.2021-06-29.7z
@@ -8224,7 +8239,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.147 2021-07-04 00:05:27 Not clean-up NakedSets Collections. maybes and
+ * <b>KRC 6.30.147 2021-07-04 00:05:27</b> Not clean-up NakedSets Collections. maybes and
  * maybesSize, with no Values instances. Sexy GRID_WATCH. Turbo. Fixed TreeSet
  * comparator in HintsListOrdered with toString.
  * <pre>
@@ -8273,7 +8288,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.148 2021-07-09 06:25:28 Reapplied Grid.numSet and totalSize, change how
+ * <b>KRC 6.30.148 2021-07-09 06:25:28</b> Reapplied Grid.numSet and totalSize, change how
  * WWing works, simplified cell.set method, Cells and Regions test-cases.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -8320,7 +8335,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.149 2021-07-09 17:45:29 Settings written-to/read-from file instead of
+ * <b>KRC 6.30.149 2021-07-09 17:45:29</b> Settings written-to/read-from file instead of
  * the Windows registry, using diuf.sudoku.utils.MyPreferences class.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -8367,7 +8382,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.150 2021-07-12 09:58:30 Generate -> analyseDifficulty now validates,
+ * <b>KRC 6.30.150 2021-07-12 09:58:30</b> Generate -> analyseDifficulty now validates,
  * and so rebuildMaybesAndS__t, solving all generate's index issues.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -8416,7 +8431,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.151 2021-07-12 21:56:31 SiameseLocking factored-out of Locking, which
+ * <b>KRC 6.30.151 2021-07-12 21:56:31</b> SiameseLocking factored-out of Locking, which
  * is now basically back to itself, and comprehensible.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
@@ -8465,7 +8480,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.152 2021-07-13 23:00:32 indexes maintained on the fly, instead of
+ * <b>KRC 6.30.152 2021-07-13 23:00:32</b> indexes maintained on the fly, instead of
  * rebuilding everything all the time; now we only rebuild after loading the
  * puzzle, or before analysing it in generate, but no more maintenance is
  * required, it maintains them itself, which is, surprisingly, no faster.
@@ -8515,8 +8530,10 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.153 2021-07-17 08:29:33 make generate stoppable, but batch secs slower.
- * 6.30.154 2021-07-18 11:08:33 make generate stoppable, not 30 seconds slower.
+ * <b>KRC 6.30.153 2021-07-17 08:29:33</b> make generate stoppable, but batch secs slower.
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.154 2021-07-18 11:08:33</b> make generate stoppable, not 30 seconds slower.
  * I made the back-ground Generate thread, which replenishes the cache stop
  * with the existing "Generate/Stop" button, but then the batch, for reasons
  * I still do not understand, ran 30 seconds slower, so I went trolling around
@@ -8586,7 +8603,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.155 2021-07-18 17:56:35 make generate actually stop. sigh. Note that
+ * <b>KRC 6.30.155 2021-07-18 17:56:35</b> make generate actually stop. sigh. Note that
  * when you catch and re-throw an exception the type that you caught is the
  * type that's thrown, not the type of the actual exception. Oops!
  * <pre>
@@ -8598,21 +8615,26 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.156 2021-07-19 09:25:36 I wish I could stop stopping bloody Generate.
+ * <b>KRC 6.30.156 2021-07-19 09:25:36</b> I wish I could stop stopping bloody Generate.
  * I think this is about the best I can do. It is still not perfect, but it
  * stops when you ask it to, and the "Generate" button reverts nicely, and you
  * can generate again having stopped, and it all seems to work fairly nicely
- * except for the stuff that doesn't. sigh. We still have problems solving an
- * IDKFA (and presumably other Difficulty, it's just MUCH harder to see) while
- * actively solving the generated IDKFA, so it's better to wait for it to
- * generate the replacement before playing with the current one; which exactly
- * what I was trying to avoid. I wanted to generate a replacement "quitely" in
- * the background while leaving the user free to play with the current puzzle,
- * but that doesn't seem achievable coz of hinters static statefull variables.
+ * except for the stuff that doesn't. sigh.
+ * <p>
+ * We still have problems solving an IDKFA (and presumably other Difficulty,
+ * it's just MUCH harder to see) while actively solving the generated IDKFA, so
+ * it's better to wait for it to generate the replacement before solving the
+ * current puzzle; which exactly what I was trying to avoid. I wanted to
+ * generate a replacement "quitely" in the background, leaving the user to play
+ * with the current puzzle, but that doesn't seem achievable coz of hinters
+ * static statefull variables.
+ * <p>
  * The ONLY practical answer is moving the factory to it's own JVM, and have it
  * generate a file (the current standard out will do), then parse those puzzles
  * into a multi-puzzle cache: say a 1024 puzzles per difficulty, with each
- * Difficulty stored in it's own cache-file.
+ * Difficulty stored in it's own cache-file. I haven't done this, I would just
+ * like to. Basically, generate should be a batch job, and the GUI just loads
+ * pre-generated puzzles.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
  *     16,744,500 104096        160  56569        296 NakedSingle
@@ -8658,7 +8680,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.157 2021-07-20 08:51:37 jar-only-distribution rolls it's own Settings.
+ * <b>KRC 6.30.157 2021-07-20 08:51:37</b> jar-only-distribution rolls it's own Settings.
  * While "acceptance testing" the previous build I discovered jar-only-release
  * produces an annoying override warning msg-box when you generate, so now
  * Settings creates a default-settings-file from DEFAULT_DEFAULT_SETTINGS, if
@@ -8671,7 +8693,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.158 2021-07-28 11:22:38 I'm building for a back-up before I change
+ * <b>KRC 6.30.158 2021-07-28 11:22:38</b> I'm building for a back-up before I change
  * AlsChain for speed, ie rewrite RccFinder "properly" in the OO-sense.
  * <pre>
  * 1. io.IO.load is now gui.GridLoader.load coz it's only used in the GUI, and
@@ -8759,13 +8781,12 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.159 2021-07-30 06:38:39 RccFinder completely OO-decomposed.
+ * <b>KRC 6.30.159 2021-07-30 06:38:39</b> RccFinder completely OO-decomposed.
  * <p>
  * RccFinder is now an interface defining find, getStartIndexes, getEndIndexes.
  * There's two abstract classes: RccFinderAbstract is "base", defining no-op
  * getStart/EndIndexes. RccFinderAbstractIndexed extends RccFinderAbstract,
  * furnishes starts and ends, and overrides getStart/EndIndexes to return them.
- * <p>
  * <pre>
  * There are four implementations:
  * 1. RccFinderForwardOnlyAllowOverlaps extends RccFinderAbstract
@@ -8821,7 +8842,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.160 2021-08-11 07:10:40 build to clean-up old logs. I honestly can't
+ * <b>KRC 6.30.160 2021-08-11 07:10:40</b> build to clean-up old logs. I honestly can't
  * recall what the hell I've done, if anything, in the past two weeks. I just
  * need shooting. All I can recall is UniqueRectangle now keeps a Set of loops
  * instead of a List, to save some time processing the same loop multiple times
@@ -8875,7 +8896,7 @@ package diuf.sudoku.solver;
  * </pre>
  * <hr>
  * <p>
- * 6.30.161 2021-08-12 12:57:42 BasicFisherman1 now faster than BasicFisherman.
+ * <b>KRC 6.30.161 2021-08-12 12:57:42</b> BasicFisherman1 now faster than BasicFisherman.
  * <pre>
  *      time (ns)  calls  time/call  elims  time/elim hinter
  *     15,802,813 104096        151  56569        279 NakedSingle
@@ -8913,7 +8934,6 @@ package diuf.sudoku.solver;
  * 71,628,030,620
  * pzls      total (ns) (mm:ss)   each (ns)
  * 1465  90,433,194,700 (01:30)  61,729,143
- * <pre>
  * NOTES:
  * 1. 1:30 is a second faster than last time. I was hoping for more. sigh.
  * 2. Build 6.30.161 2021-08-11 11:14:41 is releasable, and there is now some
@@ -8925,8 +8945,898 @@ package diuf.sudoku.solver;
  *    my book: The Theory of Everything by Stephen Hawking. It's really quite
  *    interesting, but he has a singularity fixation. Each to there own. sigh.
  * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.162 2021-09-04 04:57:42</b> new Hidden/NakedSetDirect, Tech.MULTI_CHAINERS,
+ * de-obfuscate Cheats, no pass Grid.idxs to ALS-hinters, LogicalSolverBuilder.
+ * Build for back-up and to clean-up logs.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     16,592,100 105691        156  56621        293 NakedSingle
+ *     18,746,800  49070        382  15934      1,176 HiddenSingle
+ *     75,685,200  33136      2,284  24129      3,136 Locking
+ *     82,933,900  21864      3,793   7785     10,653 NakedPair
+ *     73,695,300  19845      3,713   8203      8,983 HiddenPair
+ *    119,528,100  17822      6,706   1642     72,794 NakedTriple
+ *    109,187,300  17421      6,267    991    110,178 HiddenTriple
+ *     51,650,800  17231      2,997    607     85,091 Swampfish
+ *     52,771,500  16998      3,104   1128     46,783 TwoStringKite
+ *     94,185,800  15870      5,934    574    164,086 XY_Wing
+ *     70,197,700  15481      4,534    281    249,813 XYZ_Wing
+ *    134,626,600  15217      8,847    372    361,899 W_Wing
+ *     72,088,800  14953      4,821    354    203,640 Skyscraper
+ *     21,799,100  14770      1,475     53    411,303 EmptyRectangle
+ *     59,351,800  14717      4,032    226    262,618 Swordfish
+ *    455,908,600  14658     31,103    367  1,242,257 Coloring
+ *  1,537,712,900  14369    107,015   1014  1,516,482 XColoring
+ *  1,905,802,100  14042    135,721 131453     14,497 GEM
+ *    146,075,800  12586     11,606     95  1,537,640 NakedQuad
+ *    119,705,600  12569      9,523     11 10,882,327 HiddenQuad
+ *  4,029,164,700  12568    320,589   2218  1,816,575 BigWings
+ *  1,463,252,000  11328    129,171    919  1,592,221 URT
+ *  1,190,764,500  10694    111,348    356  3,344,844 FinnedSwampfish
+ *  2,443,707,200  10388    235,243    308  7,934,114 FinnedSwordfish
+ * 12,589,973,600  10147  1,240,758   3936  3,198,672 ALS_XZ
+ *  9,000,570,900   7475  1,204,089   3487  2,581,178 ALS_Wing
+ * 14,227,353,100   4739  3,002,184   1093 13,016,791 ALS_Chain
+ *  3,253,049,100   3861    842,540    131 24,832,435 DeathBlossom
+ *    781,693,900   3745    208,730     11 71,063,081 SueDeCoq
+ *  9,177,397,100   3743  2,451,882    924  9,932,247 UnaryChain
+ *  6,265,253,600   3336  1,878,073   4046  1,548,505 MultipleChain
+ *  4,067,355,000   1567  2,595,631   5596    726,832 DynamicChain
+ *    147,849,900      3 49,283,300     30  4,928,330 DynamicPlus
+ * 73,855,630,400
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  92,629,113,000 (01:32)  63,228,063
+ * NOTES:
+ * 1. 1:32 is two seconds slower than last time. Meh! SueDeCoq is 0.7 of that,
+ *    and I'm writing 1.3 off to a bad run.
+ * 2. 6.30.162 2021-09-04 04:57:42 looks releasable, but there's no rush.
+ *    DiufSudoku_V6_30.162.2021-09-04.7z
+ * 3. Next I'm still trying to cleanup after myself.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.164 2021-09-21 09:28:44</b> failed to speed-up AlsWing and AlsChain.
+ * sigh. I build just to clean-up the log-files.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     17,843,700 105390        169  56406        316 NakedSingle
+ *     17,856,700  48984        364  15919      1,121 HiddenSingle
+ *     76,041,900  33065      2,299  24133      3,150 Locking
+ *     82,550,600  21782      3,789   7806     10,575 NakedPair
+ *     70,923,000  19756      3,589   8210      8,638 HiddenPair
+ *    117,540,600  17734      6,627   1638     71,758 NakedTriple
+ *    109,602,500  17337      6,321    998    109,822 HiddenTriple
+ *     48,669,700  17142      2,839    588     82,771 Swampfish
+ *     52,615,600  16916      3,110   1126     46,727 TwoStringKite
+ *     82,869,000  15790      5,248    588    140,933 XY_Wing
+ *     69,001,100  15385      4,484    278    248,205 XYZ_Wing
+ *    121,267,700  15124      8,018    376    322,520 W_Wing
+ *     64,214,100  14853      4,323    346    185,589 Skyscraper
+ *     20,576,400  14673      1,402     53    388,233 EmptyRectangle
+ *     58,836,800  14620      4,024    219    268,661 Swordfish
+ *    451,091,600  14564     30,973    358  1,260,032 Coloring
+ *  1,477,355,700  14281    103,449   1017  1,452,660 XColoring
+ *  1,903,572,400  13948    136,476 133396     14,270 GEM
+ *    144,521,700  12500     11,561     96  1,505,434 NakedQuad
+ *    121,772,400  12483      9,755     11 11,070,218 HiddenQuad
+ *  2,973,498,800  12482    238,222   2158  1,377,895 BigWings
+ *  1,477,872,900  11276    131,063    920  1,606,383 URT
+ *  1,160,558,500  10642    109,054    350  3,315,881 FinnedSwampfish
+ *  2,369,842,800  10341    229,169    302  7,847,161 FinnedSwordfish
+ * 13,308,544,900  10104  1,317,156   3961  3,359,895 ALS_XZ
+ * 10,437,110,100   7417  1,407,187   3425  3,047,331 ALS_Wing
+ * 15,402,498,900   4695  3,280,617    828 18,602,051 ALS_Chain
+ *  3,564,108,800   4038    882,642    137 26,015,392 DeathBlossom
+ *    816,694,700   3917    208,500     11 74,244,972 SueDeCoq
+ *  9,415,170,800   3915  2,404,896   1072  8,782,808 UnaryChain
+ *  6,129,129,800   3459  1,771,936   4240  1,445,549 MultipleChain
+ *  4,153,896,900   1595  2,604,324   5732    724,685 DynamicChain
+ *    132,852,400      3 44,284,133     30  4,428,413 DynamicPlus
+ * 76,450,503,500
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  95,028,890,900 (01:35)  64,866,137
+ * NOTES:
+ * 1. 1:35 is three seconds slower again than last time, so we're now up 5
+ *    seconds, which has become a worry, so this build should not be released.
+ * 2. 6.30.164 2021-09-21 09:28:44 should NOT be released, coz it's slower.
+ *    DiufSudoku_V6_30.164.2021-09-21.LOGS.7z
+ * 3. Next I continue trying to make AlsWing and AlsChain faster.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.166 2021-10-07 09:00:44</b> AlsChain1 intended to be a faster AlsChain,
+ * but it's not right. It's faster, but relies on the Validator to suppress
+ * invalid hints; so unusable. Build to clean-up old log-files.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     17,361,200 104239        166  58799        295 NakedSingle
+ *     16,464,600  45440        362  16510        997 HiddenSingle
+ *     64,499,200  28930      2,229  23694      2,722 Locking
+ *     66,794,800  18047      3,701   7668      8,710 NakedPair
+ *     58,015,300  16162      3,589   8212      7,064 HiddenPair
+ *     89,643,200  14185      6,319   1643     54,560 NakedTriple
+ *     81,299,700  13805      5,889    986     82,454 HiddenTriple
+ *     36,884,200  13619      2,708    584     63,157 Swampfish
+ *     44,481,900  13408      3,317   1095     40,622 TwoStringKite
+ *     63,968,000  12313      5,195    575    111,248 XY_Wing
+ *     53,453,000  11918      4,485    294    181,812 XYZ_Wing
+ *     99,087,900  11646      8,508    367    269,994 W_Wing
+ *     48,951,000  11389      4,298    328    149,240 Skyscraper
+ *     17,299,500  11220      1,541     46    376,076 EmptyRectangle
+ *     43,841,200  11174      3,923    214    204,865 Swordfish
+ *    342,950,000  11125     30,826    281  1,220,462 Coloring
+ *  1,119,587,800  10899    102,723    979  1,143,603 XColoring
+ *  1,434,191,700  10610    135,173 109523     13,094 GEM
+ *    105,367,400   9410     11,197     96  1,097,577 NakedQuad
+ *     84,446,300   9392      8,991     11  7,676,936 HiddenQuad
+ *  2,102,705,400   9391    223,906   2115    994,186 BigWings
+ *  1,210,880,100   8217    147,362    861  1,406,364 URT
+ *    835,121,600   7644    109,251    335  2,492,900 FinnedSwampfish
+ *  1,712,877,100   7358    232,791    275  6,228,644 FinnedSwordfish
+ *  8,045,870,300   7149  1,125,453   3707  2,170,453 ALS_XZ
+ *  4,431,014,900   4692    944,376   2973  1,490,418 ALS_Wing
+ *  5,219,155,900   2347  2,223,756   1981  2,634,606 ALS_Chain
+ *    655,983,700    926    708,405     42 15,618,659 DeathBlossom
+ *    205,183,800    892    230,026      0          0 SueDeCoq
+ *  1,911,030,600    892  2,142,410    138 13,848,047 UnaryChain
+ *  1,778,337,400    821  2,166,062    528  3,368,063 MultipleChain
+ *  1,545,148,600    518  2,982,912   1579    978,561 DynamicChain
+ *     55,859,600      1 55,859,600     10  5,585,960 DynamicPlus
+ * 33,597,756,900
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  51,758,553,600 (00:51)  35,330,070
+ * NOTES:
+ * 1. 0:51 is 34 seconds faster, but relies on Validator, so ignore this.
+ * 2. 6.30.166 2021-10-07 09:00:44 should NOT be released, coz it's slower.
+ *    DiufSudoku_V6_30.166.2021-10-07.LOGS.7z
+ * 3. Next I continue trying to make AlsWing and AlsChain faster.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.167 2021-10-10 16:35:47</b> AlsChain now takes about 4.5 times to find
+ * 1.5 times as many hints. I also reordered the hinters but that's slower too.
+ * sigh. I'm just not was worried about performance as I was coz it's all now
+ * "basically fast enough", and any top1465 time under about three mins feels
+ * "snappy enough" in the GUI (on an i7).
+ * <pre>
+ *       time (ns)  calls  time/call  elims   time/elim hinter
+ *      18,704,000 105881        176  56291         332 NakedSingle
+ *      18,413,700  49590        371  16013       1,149 HiddenSingle
+ *      76,154,200  33577      2,268  24160       3,152 Locking
+ *      83,243,900  22257      3,740   7904      10,531 NakedPair
+ *      71,346,200  20221      3,528   8253       8,644 HiddenPair
+ *     123,984,200  18164      6,825   1607      77,152 NakedTriple
+ *     109,926,900  17761      6,189    972     113,093 HiddenTriple
+ *      48,612,100  17575      2,765    600      81,020 Swampfish
+ *      54,632,000  17344      3,149   1139      47,964 TwoStringKite
+ *      79,150,000  16205      4,884    591     133,925 XY_Wing
+ *      71,413,900  15801      4,519    297     240,450 XYZ_Wing
+ *     131,738,400  15522      8,487    392     336,067 W_Wing
+ *      65,826,300  15240      4,319    357     184,387 Skyscraper
+ *      21,400,400  15049      1,422     51     419,615 EmptyRectangle
+ *      58,590,300  14998      3,906    224     261,563 Swordfish
+ *     454,250,400  14937     30,411    347   1,309,078 Coloring
+ *   1,471,976,000  14668    100,352   1039   1,416,723 XColoring
+ *   1,907,480,900  14327    133,138 134561      14,175 GEM
+ *     149,308,200  12845     11,623     95   1,571,665 NakedQuad
+ *     120,120,800  12828      9,363     11  10,920,072 HiddenQuad
+ *   1,808,604,100  12827    140,999   1028   1,759,342 URT
+ *   2,758,262,400  12111    227,748   2143   1,287,103 BigWings
+ *   1,200,956,100  10921    109,967    350   3,431,303 FinnedSwampfish
+ *   2,462,640,200  10621    231,865    308   7,995,585 FinnedSwordfish
+ *   3,287,833,900  10382    316,685     17 193,401,994 FinnedJellyfish
+ *   9,087,634,300  10368    876,507   2547   3,567,975 DeathBlossom
+ *  10,945,866,600   8217  1,332,100   2078   5,267,500 ALS_XZ
+ *   8,736,853,100   6898  1,266,577   2817   3,101,474 ALS_Wing
+ *  39,856,095,400   4658  8,556,482   1613  24,709,296 ALS_Chain
+ *     727,307,000   3362    216,331     15  48,487,133 SueDeCoq
+ *   8,003,461,300   3359  2,382,691    640  12,505,408 UnaryChain
+ *   5,729,791,900   3067  1,868,207   3579   1,600,947 MultipleChain
+ *   3,989,257,700   1513  2,636,654   5389     740,259 DynamicChain
+ *     116,520,600      3 38,840,200     30   3,884,020 DynamicPlus
+ * 103,847,357,400
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  123,115,939,700 (02:03)  84,038,184
+ * NOTES:
+ * 1. 02:03 is 1:02 slower, sigh, but it no longer relies on Validator, and
+ *    three minutes is still OK. So ____ It She'll Do!
+ * 2. DiufSudoku_V6_30.167.2021-10-10.LOGS.7z can be released, but it's slower.
+ * 3. Next I bend my head around making AlsChain faster (again).
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.168 2021-10-11 17:33:48</b> AlsChain faster, so now it takes 3 times to
+ * find 1.5 times as many hints, by caching related RCC's by previousAlsIndex
+ * and previousCandToExclude.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     17,544,700 105987        165  56524        310 NakedSingle
+ *     18,564,800  49463        375  15994      1,160 HiddenSingle
+ *     78,212,400  33469      2,336  24186      3,233 Locking
+ *     86,071,400  22140      3,887   7869     10,938 NakedPair
+ *     72,053,500  20114      3,582   8224      8,761 HiddenPair
+ *    120,279,500  18070      6,656   1593     75,505 NakedTriple
+ *    108,709,500  17673      6,151    975    111,496 HiddenTriple
+ *     49,653,900  17485      2,839    602     82,481 Swampfish
+ *     54,333,300  17253      3,149   1144     47,494 TwoStringKite
+ *     84,744,200  16109      5,260    590    143,634 XY_Wing
+ *     76,316,000  15704      4,859    293    260,464 XYZ_Wing
+ *    135,699,900  15429      8,795    395    343,544 W_Wing
+ *     67,260,900  15146      4,440    356    188,935 Skyscraper
+ *     22,299,300  14957      1,490     51    437,241 EmptyRectangle
+ *     59,144,500  14906      3,967    219    270,066 Swordfish
+ *    464,730,800  14847     31,301    345  1,347,045 Coloring
+ *  1,492,611,900  14580    102,373   1038  1,437,969 XColoring
+ *  1,960,942,500  14245    137,658 132422     14,808 GEM
+ *    147,093,200  12767     11,521     95  1,548,349 NakedQuad
+ *    117,635,000  12750      9,226     11 10,694,090 HiddenQuad
+ *  1,730,404,500  12749    135,728   1030  1,680,004 URT
+ *  2,693,817,300  12031    223,906   2103  1,280,940 BigWings
+ *  1,199,087,200  10862    110,392    351  3,416,202 FinnedSwampfish
+ *  2,452,027,900  10561    232,177    315  7,784,215 FinnedSwordfish
+ *  9,021,215,600  10316    874,487   2556  3,529,427 DeathBlossom
+ * 10,897,785,200   8155  1,336,331   2101  5,186,951 ALS_XZ
+ *  9,523,719,800   6824  1,395,621   2772  3,435,685 ALS_Wing
+ * 30,231,822,000   4629  6,530,961   1565 19,317,458 ALS_Chain
+ *  8,202,403,000   3390  2,419,587    641 12,796,260 UnaryChain
+ *  5,949,096,700   3097  1,920,922   3574  1,664,548 MultipleChain
+ *  4,035,466,600   1539  2,622,135   5469    737,880 DynamicChain
+ *    137,932,700      3 45,977,566     30  4,597,756 DynamicPlus
+ * 91,308,679,700
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  110,562,592,900 (01:50)  75,469,346
+ * NOTES:
+ * 1. 1:50 is 13 seconds faster, but we're still WELL up on the best-ever valid
+ *    run at 1:30, but anything under 3 about minutes feels snappy enough in
+ *    GUI, and I'm definately not as performance-centric as I was in the past.
+ * 2. DiufSudoku_V6_30.168.2021-10-11.LOGS.7z can be released, but no rush.
+ * 3. Next I don't know. I'll find something.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.169 2021-10-13 10:18:49</b> Still playing with AlsChain: it now filters
+ * its filter: the inline loop method (an O(n) operation) executes only when da
+ * new ALS (a) might be in the loop. First check 'a' allIn allCellsInTheChain
+ * (kept in an Idx, for speed) or allCells allIn 'a' (which is superfluous but
+ * faster, WTF?)
+ * <p>
+ * If so it checks each ALS in chainAlss individually (the O(n) operation), but
+ * before it examines each ALS it checks that these two ALSs might intersect
+ * using the new ARegion.INTERSECTS array. If the two regions which contain
+ * these two ALSs do not intersect that these two ALSs cannot intersect, let
+ * alone contain each other, so it's a tad faster with this check.
+ * <p>
+ * <pre>
+ * The upshot is that now (after this series of AlsChain changes):
+ * PRE: 14,227,353,100   4739  3,002,184   1093 13,016,791 ALS_Chain 6.30.162
+ * NOW: 32,486,048,500   4623  7,027,049   1665 19,511,140 ALS_Chain 6.30.168
+ * So it now takes about 1.5 times as long per elimination, which is more than
+ * twice as long in wait-time, but I reckon it's worth keeping anyway, despite
+ * the performance loss, coz I (mostly) value accuracy more than speed (now).
+ * You might quite reasonably demur.
+ *
+ * In a perfect world there would be user-options:
+ * AlsChain ala hobiwan (hacked) or KRC (correct); and
+ * AlsChain.LENGTH would also be optional 4..8.
+ * And AlsChain wouldn't be so bloody slow.
+ * But it's not an ideal world. sigh.
+ *
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     18,218,300 105863        172  56423        322 NakedSingle
+ *     19,212,000  49440        388  16003      1,200 HiddenSingle
+ *     76,891,500  33437      2,299  24190      3,178 Locking
+ *     83,312,100  22112      3,767   7866     10,591 NakedPair
+ *     73,605,500  20079      3,665   8235      8,938 HiddenPair
+ *    121,849,900  18033      6,757   1585     76,876 NakedTriple
+ *    112,984,800  17641      6,404    977    115,644 HiddenTriple
+ *     52,172,500  17451      2,989    608     85,810 Swampfish
+ *     57,885,700  17216      3,362   1142     50,688 TwoStringKite
+ *     82,454,000  16074      5,129    586    140,706 XY_Wing
+ *     75,115,200  15671      4,793    289    259,914 XYZ_Wing
+ *    131,686,200  15400      8,551    399    330,040 W_Wing
+ *     68,097,000  15113      4,505    354    192,364 Skyscraper
+ *     21,680,200  14925      1,452     51    425,101 EmptyRectangle
+ *     62,210,800  14874      4,182    223    278,972 Swordfish
+ *    469,927,900  14813     31,724    345  1,362,109 Coloring
+ *  1,605,280,400  14546    110,358   1067  1,504,480 XColoring
+ *  1,971,736,000  14210    138,756 133335     14,787 GEM
+ *    150,166,500  12735     11,791     95  1,580,700 NakedQuad
+ *    124,959,100  12718      9,825     11 11,359,918 HiddenQuad
+ *  1,759,672,000  12717    138,371   1027  1,713,409 URT
+ *  2,694,326,800  12002    224,489   2105  1,279,965 BigWings
+ *  1,213,667,100  10826    112,106    347  3,497,599 FinnedSwampfish
+ *  2,461,942,600  10527    233,869    318  7,741,957 FinnedSwordfish
+ *  9,039,089,400  10280    879,288   2535  3,565,715 DeathBlossom
+ *  9,158,551,800   8137  1,125,544   2086  4,390,485 ALS_XZ
+ *  8,488,292,400   6818  1,244,982   2771  3,063,259 ALS_Wing
+ * 32,486,048,500   4623  7,027,049   1665 19,511,140 ALS_Chain
+ *  8,117,502,200   3353  2,420,966    630 12,884,924 UnaryChain
+ *  5,928,389,800   3062  1,936,116   3523  1,682,767 MultipleChain
+ *  4,118,204,000   1528  2,695,159   5449    755,772 DynamicChain
+ *    131,898,200      3 43,966,066     30  4,396,606 DynamicPlus
+ * 90,977,030,400
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  109,812,271,700 (01:49)  74,957,182
+ * NOTES:
+ * 1. 1:49 is a whole second faster than previous. Gee wow! We're still WELL up
+ *    on the best-ever valid run at 1:30, but anything under about 3 minutes
+ *    feels snappy enough in the GUI, and my speed-o-philia is waining.
+ * 2. DiufSudoku_V6_30.169.2021-10-13.7z slower but releasable.
+ * 3. Next I don't know. I'll find something. AlsChains are starting to REALLY
+ *    shit me, so I reckon leave it for a month or two, then come back to it.
+ *    It's amazing how much you don't see when you've been staring straight at
+ *    it for six weeks. Male pattern blindness. @STRETCH for faster AlsChain!
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.170 2021-10-17 11:01:50</b> "nieve" AlsChain is about 10% slower than
+ * "fast" but is maintainable; so LENGTH=6, TIMEOUT=500 elims 1776 in 03:06,
+ * and top1465 in about 3 mins still feels "pretty snappy" in the GUI, so OK.
+ * <pre>
+ *       time (ns)  calls  time/call  elims  time/elim hinter
+ *      26,116,500 105794        246  56228        464 NakedSingle
+ *      19,298,500  49566        389  15996      1,206 HiddenSingle
+ *      78,615,800  33570      2,341  24145      3,255 Locking
+ *      86,522,400  22255      3,887   7899     10,953 NakedPair
+ *      77,139,200  20204      3,818   8238      9,363 HiddenPair
+ *     129,187,500  18150      7,117   1596     80,944 NakedTriple
+ *     116,145,800  17759      6,540    981    118,395 HiddenTriple
+ *      52,402,800  17567      2,983    608     86,188 Swampfish
+ *      55,579,600  17334      3,206   1125     49,404 TwoStringKite
+ *      85,261,100  16209      5,260    595    143,295 XY_Wing
+ *      75,483,700  15803      4,776    290    260,288 XYZ_Wing
+ *     146,561,100  15530      9,437    389    376,763 W_Wing
+ *      70,383,500  15249      4,615    361    194,968 Skyscraper
+ *      22,779,900  15059      1,512     48    474,581 EmptyRectangle
+ *      62,272,800  15011      4,148    230    270,751 Swordfish
+ *     467,231,400  14946     31,261    351  1,331,143 Coloring
+ *   1,539,364,700  14678    104,875    971  1,585,339 XColoring
+ *   1,998,283,200  14357    139,185 135767     14,718 GEM
+ *     154,431,300  12867     12,002     90  1,715,903 NakedQuad
+ *     128,613,100  12851     10,008     11 11,692,100 HiddenQuad
+ *   1,759,250,900  12850    136,906   1036  1,698,118 URT
+ *   2,843,975,700  12132    234,419   2128  1,336,454 BigWings
+ *   1,232,914,600  10936    112,739    342  3,605,013 FinnedSwampfish
+ *   2,547,489,700  10639    239,448    310  8,217,708 FinnedSwordfish
+ *   9,351,343,600  10397    899,427   2592  3,607,771 DeathBlossom
+ *   9,374,037,500   8212  1,141,504   2102  4,459,580 ALS_XZ
+ *   9,859,613,000   6883  1,432,458   2838  3,474,141 ALS_Wing
+ * 102,076,601,600   4589 22,243,757   1776 57,475,563 ALS_Chain
+ *   7,866,195,200   3277  2,400,425    610 12,895,401 UnaryChain
+ *   4,558,846,100   2997  1,521,136    206 22,130,320 NishioChain
+ *   5,483,142,800   2800  1,958,265   3320  1,651,549 MultipleChain
+ *   3,950,331,900   1415  2,791,753   5093    775,639 DynamicChain
+ *     146,402,100      3 48,800,700     30  4,880,070 DynamicPlus
+ * 166,441,818,600
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  186,242,933,600 (03:06)  127,128,282
+ * NOTES:
+ * 1. 03:06 is 01:36 SLOWER than fastest, but yields a more accurate assessment
+ *    of the difficult of each puzzle. About three mins for top1465 still feels
+ *    "pretty snappy" in the GUI. IMHO AlsChain was the best hinter to invest
+ *    the available 90 seconds, which I've just done. It's worth noting that
+ *    accuracy is a compromise with performance. If you have days to wait then
+ *    you can reduce the difficulty of almost all puzzles by overdoing simpler
+ *    hinters, like hobiwan did with his AlsChain MAX_LENGHT=32.
+ * 2. DiufSudoku_V6_30.170.2021-10-17.7z MUCH slower, but still releasable.
+ * 3. Next I don't know. I tap-out on AlsChain. It officially just s__ts me.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.171 2021-10-18 19:02:51</b> in-lined everything in AlsChain again, for
+ * speed, and it's about 20% faster than the nieve version.
+ * <pre>
+ *       time (ns)  calls  time/call  elims  time/elim hinter
+ *      18,200,200 105780        172  56250        323 NakedSingle
+ *      18,448,900  49530        372  16031      1,150 HiddenSingle
+ *      77,611,500  33499      2,316  24132      3,216 Locking
+ *      82,623,900  22193      3,722   7886     10,477 NakedPair
+ *      73,001,400  20147      3,623   8208      8,893 HiddenPair
+ *     120,367,200  18099      6,650   1601     75,182 NakedTriple
+ *     110,326,300  17704      6,231    977    112,923 HiddenTriple
+ *      51,182,100  17514      2,922    604     84,738 Swampfish
+ *      53,884,600  17284      3,117   1138     47,350 TwoStringKite
+ *      78,631,900  16146      4,870    601    130,835 XY_Wing
+ *      68,308,300  15734      4,341    291    234,736 XYZ_Wing
+ *     131,029,600  15460      8,475    403    325,135 W_Wing
+ *      66,306,700  15169      4,371    362    183,167 Skyscraper
+ *      21,294,700  14980      1,421     48    443,639 EmptyRectangle
+ *      60,278,900  14932      4,036    230    262,082 Swordfish
+ *     455,865,200  14868     30,660    340  1,340,780 Coloring
+ *   1,450,579,500  14610     99,286    932  1,556,415 XColoring
+ *   1,917,139,300  14296    134,103 135248     14,174 GEM
+ *     144,680,100  12817     11,288     93  1,555,700 NakedQuad
+ *     121,327,500  12801      9,477     11 11,029,772 HiddenQuad
+ *   1,728,936,100  12800    135,073   1032  1,675,325 URT
+ *   2,703,107,900  12085    223,674   2105  1,284,136 BigWings
+ *   1,183,583,400  10910    108,486    343  3,450,680 FinnedSwampfish
+ *   2,439,268,300  10613    229,837    312  7,818,167 FinnedSwordfish
+ *   8,890,776,500  10370    857,355   2572  3,456,756 DeathBlossom
+ *   9,059,357,400   8201  1,104,664   2103  4,307,825 ALS_XZ
+ *   8,279,797,300   6874  1,204,509   2847  2,908,253 ALS_Wing
+ * 108,861,565,500   4623 23,547,818   1764 61,712,905 ALS_Chain
+ *   7,538,720,200   3263  2,310,364    592 12,734,324 UnaryChain
+ *   4,349,728,200   2992  1,453,786    206 21,115,185 NishioChain
+ *   5,138,382,900   2795  1,838,419   3306  1,554,259 MultipleChain
+ *   3,819,679,600   1415  2,699,420   5093    749,986 DynamicChain
+ *     150,531,000      3 50,177,000     30  5,017,700 DynamicPlus
+ * 169,264,522,100
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  188,120,236,900 (03:08)  128,409,718
+ * NOTES:
+ * 1. 03:08 ain't great but ____ it, she'll do.
+ * 2. DiufSudoku_V6_30.171.2021-10-18.7z slower, but still releasable.
+ * 3. Next I don't know. I really tap-out on AlsChain this time.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.172 2021-10-19 09:37:52</b> Still playing with AlsChain. Dropped LENGTH
+ * to 6, reinstated length loop and moved TIMEOUT=125 into i loop. This is both
+ * faster and finds more elims.
+ * <pre>
+ *       time (ns)  calls  time/call  elims  time/elim hinter
+ *      18,474,300 105735        174  56190        328 NakedSingle
+ *      19,285,200  49545        389  15989      1,206 HiddenSingle
+ *      79,179,200  33556      2,359  24144      3,279 Locking
+ *      83,782,600  22241      3,767   7900     10,605 NakedPair
+ *      72,284,400  20190      3,580   8242      8,770 HiddenPair
+ *     121,325,600  18137      6,689   1596     76,018 NakedTriple
+ *     112,662,800  17746      6,348    984    114,494 HiddenTriple
+ *      51,610,100  17553      2,940    608     84,885 Swampfish
+ *      56,454,100  17320      3,259   1126     50,136 TwoStringKite
+ *      82,603,000  16194      5,100    590    140,005 XY_Wing
+ *      70,880,400  15791      4,488    289    245,260 XYZ_Wing
+ *     134,754,100  15519      8,683    389    346,411 W_Wing
+ *      69,045,900  15238      4,531    361    191,262 Skyscraper
+ *      21,274,000  15048      1,413     48    443,208 EmptyRectangle
+ *      61,938,000  15000      4,129    230    269,295 Swordfish
+ *     487,561,600  14935     32,645    351  1,389,064 Coloring
+ *   1,487,570,100  14667    101,422    971  1,531,998 XColoring
+ *   1,959,592,000  14346    136,595 136231     14,384 GEM
+ *     147,865,600  12855     11,502     90  1,642,951 NakedQuad
+ *     122,019,300  12839      9,503     11 11,092,663 HiddenQuad
+ *   1,680,291,700  12838    130,884   1036  1,621,903 URT
+ *   2,657,203,400  12120    219,241   2124  1,251,037 BigWings
+ *   1,225,575,200  10926    112,170    342  3,583,553 FinnedSwampfish
+ *   2,484,200,300  10629    233,719    310  8,013,549 FinnedSwordfish
+ *   9,085,047,100  10387    874,655   2587  3,511,807 DeathBlossom
+ *   9,152,252,500   8206  1,115,312   2103  4,351,998 ALS_XZ
+ *   8,533,980,900   6876  1,241,125   2833  3,012,347 ALS_Wing
+ *  75,141,770,400   4634 16,215,315   1782 42,167,098 ALS_Chain
+ *   7,661,717,800   3266  2,345,902    594 12,898,514 UnaryChain
+ *   4,503,175,000   2993  1,504,568    206 21,860,072 NishioChain
+ *   5,263,391,900   2796  1,882,472   3307  1,591,591 MultipleChain
+ *   3,755,256,400   1415  2,653,891   5093    737,336 DynamicChain
+ *     173,915,200      3 57,971,733     30  5,797,173 DynamicPlus
+ * 136,577,940,100
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  154,394,397,700 (02:34)  105,388,667
+ * NOTES:
+ * 1. 02:34 is 30 seconds faster than previous with more ALS_Chain elims. But
+ *    we're still over a minute slower than the fastest ever, which found 1090
+ *    ALS_Chain elims, so if you need speed over accuracy unwant ALS_Chain.
+ *    If you want faster AlsChain keep halving TIMEOUT and/or set LENGTH = 5.
+ * 2. DiufSudoku_V6_30.172.2021-10-19.7z faster, but still slow = Releasable.
+ * 3. Next I don't know. I really really tap-out on AlsChain this time. sigh.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.173 2021-10-20 10:21:53</b> Updated AlsWing and AlsXz with learnings
+ * from AlsChain. They're both just a little faster, and cleaner, IMHO.
+ * <pre>
+ *       time (ns)  calls  time/call  elims  time/elim hinter
+ *      17,893,100 105735        169  56190        318 NakedSingle
+ *      19,362,300  49545        390  15989      1,210 HiddenSingle
+ *      77,540,200  33556      2,310  24144      3,211 Locking
+ *      83,384,200  22241      3,749   7900     10,554 NakedPair
+ *      74,388,500  20190      3,684   8242      9,025 HiddenPair
+ *     123,255,900  18137      6,795   1596     77,228 NakedTriple
+ *     112,363,400  17746      6,331    984    114,190 HiddenTriple
+ *      49,422,400  17553      2,815    608     81,286 Swampfish
+ *      56,211,900  17320      3,245   1126     49,921 TwoStringKite
+ *      84,825,100  16194      5,238    590    143,771 XY_Wing
+ *      72,612,100  15791      4,598    289    251,252 XYZ_Wing
+ *     137,318,500  15519      8,848    389    353,003 W_Wing
+ *      63,903,500  15238      4,193    361    177,018 Skyscraper
+ *      23,230,600  15048      1,543     48    483,970 EmptyRectangle
+ *      60,498,700  15000      4,033    230    263,037 Swordfish
+ *     468,464,400  14935     31,366    351  1,334,656 Coloring
+ *   1,537,582,400  14667    104,832    971  1,583,504 XColoring
+ *   1,977,090,100  14346    137,814 136231     14,512 GEM
+ *     150,465,200  12855     11,704     90  1,671,835 NakedQuad
+ *     123,728,000  12839      9,636     11 11,248,000 HiddenQuad
+ *   1,703,977,000  12838    132,729   1036  1,644,765 URT
+ *   2,713,241,800  12120    223,864   2124  1,277,420 BigWings
+ *   1,215,551,300  10926    111,253    342  3,554,243 FinnedSwampfish
+ *   2,486,891,200  10629    233,972    310  8,022,229 FinnedSwordfish
+ *   9,166,757,700  10387    882,522   2587  3,543,393 DeathBlossom
+ *   9,293,705,200   8206  1,132,549   2103  4,419,260 ALS_XZ
+ *   9,327,200,300   6876  1,356,486   2833  3,292,340 ALS_Wing
+ *  73,382,025,400   4634 15,835,568   1782 41,179,587 ALS_Chain
+ *   7,582,535,300   3266  2,321,658    594 12,765,210 UnaryChain
+ *   4,478,525,600   2993  1,496,333    206 21,740,415 NishioChain
+ *   5,229,948,400   2796  1,870,510   3307  1,581,478 MultipleChain
+ *   3,850,312,000   1415  2,721,068   5093    756,000 DynamicChain
+ *     153,983,600      3 51,327,866     30  5,132,786 DynamicPlus
+ * 135,898,195,300
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465   155,054,722,600 (02:35)       105,839,401
+ * NOTES:
+ * 1. 02:35 is a second slower than previous. No worries. More of a worry is
+ *    that both AlsXz and AlsWing are slower, and I just enspeedonated them,
+ *    but the JIT compiler is muercurial, so I'm hoping they'll bed-in nicely.
+ * 2. DiufSudoku_V6_30.173.2021-10-20.7z faster, but still slow = Releasable.
+ * 3. Next I don't know. I need to look for something else to play with for a
+ *    while, because over-familiarity breeds over-contempt, but AlsChain is
+ *    still the slowest hinter that I still use, and it can still be faster.
+ *    AlsChain's recalcitrance is a challenge, which I accept, just not now.
+ *    I might trying sticking a cache in the latest version. Memory efficiency
+ *    would be nice, to avoid bogging the other hinters.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.174 2021-10-20 14:29:54</b> AlsChain.TIMEOUT from 125 to 16, which
+ * costs 23 elims but saves 34 seconds.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     17,766,400 105677        168  56143        316 NakedSingle
+ *     23,559,900  49534        475  15986      1,473 HiddenSingle
+ *     76,017,800  33548      2,265  24143      3,148 Locking
+ *     82,345,000  22234      3,703   7898     10,426 NakedPair
+ *     72,196,100  20184      3,576   8239      8,762 HiddenPair
+ *    119,561,200  18134      6,593   1597     74,866 NakedTriple
+ *    108,998,500  17743      6,143    984    110,770 HiddenTriple
+ *     47,109,800  17550      2,684    608     77,483 Swampfish
+ *     53,457,900  17317      3,087   1125     47,518 TwoStringKite
+ *     79,811,700  16192      4,929    589    135,503 XY_Wing
+ *     69,395,900  15790      4,394    290    239,296 XYZ_Wing
+ *    140,773,800  15517      9,072    392    359,116 W_Wing
+ *     60,601,000  15235      3,977    361    167,869 Skyscraper
+ *     21,772,900  15045      1,447     48    453,602 EmptyRectangle
+ *     58,145,100  14997      3,877    229    253,908 Swordfish
+ *    455,652,500  14933     30,513    352  1,294,467 Coloring
+ *  1,478,015,700  14664    100,792    971  1,522,158 XColoring
+ *  1,915,677,500  14343    133,561 136701     14,013 GEM
+ *    146,121,500  12850     11,371     90  1,623,572 NakedQuad
+ *    119,482,000  12834      9,309     11 10,862,000 HiddenQuad
+ *  1,778,828,100  12833    138,613   1036  1,717,015 URT
+ *  2,704,102,600  12115    223,202   2125  1,272,518 BigWings
+ *  1,195,523,900  10920    109,480    342  3,495,683 FinnedSwampfish
+ *  2,447,040,200  10623    230,353    310  7,893,678 FinnedSwordfish
+ *  9,044,361,400  10381    871,241   2585  3,498,785 DeathBlossom
+ *  9,122,861,100   8201  1,112,408   2103  4,338,022 ALS_XZ
+ *  8,278,842,600   6872  1,204,720   2830  2,925,386 ALS_Wing
+ * 38,576,840,100   4633  8,326,535   1759 21,931,120 ALS_Chain
+ *  7,837,004,600   3287  2,384,242    598 13,105,358 UnaryChain
+ *  4,462,289,300   3010  1,482,488    206 21,661,598 NishioChain
+ *  5,307,996,000   2813  1,886,952   3351  1,584,003 MultipleChain
+ *  3,812,040,700   1415  2,694,021   5093    748,486 DynamicChain
+ *    128,676,300      3 42,892,100     30  4,289,210 DynamicPlus
+ * 99,842,869,100
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  118,648,012,400 (01:58)  80,988,404
+ * NOTES:
+ * 1. 01:58 is 37 seconds faster than previous, and two minutes feels snappy in
+ *    the GUI, and three minutes is OK, so it's all good.
+ * 2. DiufSudoku_V6_30.174.2021-10-20.7z RELEASE THIS!
+ * 3. Next I don't know. I shall see.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.175 2021-10-21 09:30:55</b> Killed Idx.pots method coz mutating a param
+ * is poor form: mutate THIS, not that, ergo Pots.upsertAll. My bad. Soz.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     18,129,400 105578        171  56090        323 NakedSingle
+ *     18,820,600  49488        380  15983      1,177 HiddenSingle
+ *     75,553,800  33505      2,255  24133      3,130 Locking
+ *     82,150,200  22198      3,700   7894     10,406 NakedPair
+ *     72,932,600  20150      3,619   8239      8,852 HiddenPair
+ *    118,482,700  18100      6,546   1591     74,470 NakedTriple
+ *    111,299,500  17712      6,283    984    113,109 HiddenTriple
+ *     48,174,000  17519      2,749    607     79,364 Swampfish
+ *     53,183,200  17287      3,076   1126     47,231 TwoStringKite
+ *     86,760,500  16161      5,368    589    147,301 XY_Wing
+ *     68,216,000  15759      4,328    289    236,041 XYZ_Wing
+ *    127,311,800  15487      8,220    392    324,775 W_Wing
+ *     59,658,000  15205      3,923    361    165,257 Skyscraper
+ *     21,155,000  15015      1,408     48    440,729 EmptyRectangle
+ *     59,423,900  14967      3,970    229    259,493 Swordfish
+ *    443,731,800  14903     29,774    350  1,267,805 Coloring
+ *  1,458,200,300  14636     99,631    971  1,501,751 XColoring
+ *  1,928,320,000  14315    134,706 136699     14,106 GEM
+ *    145,709,500  12824     11,362     90  1,618,994 NakedQuad
+ *    122,346,600  12808      9,552     11 11,122,418 HiddenQuad
+ *  1,645,985,800  12807    128,522   1036  1,588,789 URT
+ *  2,778,794,000  12089    229,861   2122  1,309,516 BigWings
+ *  1,189,267,700  10896    109,147    342  3,477,390 FinnedSwampfish
+ *  2,440,253,300  10599    230,234    310  7,871,784 FinnedSwordfish
+ *  9,015,062,100  10357    870,431   2580  3,494,210 DeathBlossom
+ *  9,369,024,700   8179  1,145,497   2102  4,457,195 ALS_XZ
+ *  9,031,292,000   6851  1,318,244   2824  3,198,049 ALS_Wing
+ * 38,005,175,700   4618  8,229,791   1761 21,581,587 ALS_Chain
+ *  7,591,787,900   3269  2,322,357    605 12,548,409 UnaryChain
+ *  4,383,416,900   2994  1,464,067    206 21,278,722 NishioChain
+ *  5,189,153,100   2797  1,855,256   3348  1,549,926 MultipleChain
+ *  3,802,455,400   1402  2,712,165   5629    675,511 DynamicChain
+ *    123,543,000      3 41,181,000     30  4,118,100 DynamicPlus
+ * 99,684,771,000
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  117,942,536,400 (01:57)  80,506,850
+ * NOTES:
+ * 1. 01:57 is a second faster than previous, from fixing a basic mistake.
+ * 2. DiufSudoku_V6_30.175.2021-10-21.7z is releasable
+ * 3. Next I don't know. I shall see.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.176 2021-10-22 18:11:56</b> Reduced AlsChain.TIMEOUT to 8 ms for speed.
+ * I tried making RccFinder find only Rccs with a second common value. Faster
+ * (~30% time) but finds ~60% hints, so @stretch "hacked" AlsChain. Reverted to
+ * the evidently more correct version.
+ * <pre>
+ * WARN: this log is from the hacked version, but I reverted it out.
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     17,561,057 105851        165  56371        311 NakedSingle
+ *     18,463,712  49480        373  16008      1,153 HiddenSingle
+ *     77,056,017  33472      2,302  24184      3,186 Locking
+ *     83,584,789  22146      3,774   7927     10,544 NakedPair
+ *     72,368,125  20097      3,600   8235      8,787 HiddenPair
+ *    121,364,921  18057      6,721   1602     75,758 NakedTriple
+ *    111,165,205  17666      6,292    991    112,174 HiddenTriple
+ *     48,992,820  17472      2,804    593     82,618 Swampfish
+ *     54,435,383  17246      3,156   1125     48,387 TwoStringKite
+ *     84,596,440  16121      5,247    600    140,994 XY_Wing
+ *     73,468,379  15714      4,675    285    257,783 XYZ_Wing
+ *    138,039,428  15446      8,936    389    354,857 W_Wing
+ *     64,074,582  15167      4,224    356    179,984 Skyscraper
+ *     22,065,759  14980      1,473     50    441,315 EmptyRectangle
+ *     58,484,588  14930      3,917    224    261,091 Swordfish
+ *    471,511,888  14870     31,708    352  1,339,522 Coloring
+ *  1,541,745,651  14600    105,599    959  1,607,659 XColoring
+ *  1,927,138,320  14283    134,925 133574     14,427 GEM
+ *    148,089,521  12788     11,580     90  1,645,439 NakedQuad
+ *    119,719,326  12772      9,373     11 10,883,575 HiddenQuad
+ *  1,652,864,139  12771    129,423   1037  1,593,890 URT
+ *  2,718,650,078  12047    225,670   2159  1,259,217 BigWings
+ *  1,212,568,326  10833    111,932    341  3,555,918 FinnedSwampfish
+ *  2,509,924,835  10537    238,201    306  8,202,368 FinnedSwordfish
+ *  9,277,471,719  10297    900,987   2561  3,622,597 DeathBlossom
+ *  9,165,675,944   8139  1,126,142   2094  4,377,113 ALS_XZ
+ *  6,725,623,588   6824    985,583   2824  2,381,594 ALS_Wing
+ * 13,068,090,387   4597  2,842,743   1290 10,130,302 ALS_Chain
+ *  8,714,331,316   3600  2,420,647    821 10,614,289 UnaryChain
+ *  5,004,829,421   3244  1,542,795    227 22,047,706 NishioChain
+ *  5,700,580,410   3035  1,878,280   3832  1,487,625 MultipleChain
+ *  4,020,723,847   1453  2,767,187   5284    760,924 DynamicChain
+ *    133,160,898      3 44,386,966     30  4,438,696 DynamicPlus
+ * 75,158,420,819
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  93,933,208,600 (01:33)  64,118,231
+ * NOTES:
+ * 1. 01:33 is 24 seconds faster than previous, but we're only finding ~60% of
+ *    the AlsChains. Impatience costs inaccuracy.
+ * 2. DiufSudoku_V6_30.176.2021-10-22.7z is releasable
+ * 3. Next I don't know. I shall see.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.177 2021-10-25 11:08:57</b> Still playin with AlsChain. I hit a problem
+ * with the non-determinism of the TIMEOUT approach so I've ripped-out da grow-
+ * length search and dropped LENGTH back to 4, but da code that grows-length is
+ * still there, just commented out. It finds less AlsChains, in about the same
+ * time, but is deterministic; which I now feel trumps all other concerns, even
+ * correctness. I'd rather be consistently wrong than occassionaly right.
+ * So that worked out rather well. Sighing lols.
+ * <pre>
+ *      time (ns)  calls  time/call  elims  time/elim hinter
+ *     18,022,115 105750        170  56303        320 NakedSingle
+ *     18,761,324  49447        379  16012      1,171 HiddenSingle
+ *     77,761,638  33435      2,325  24167      3,217 Locking
+ *     82,547,313  22118      3,732   7922     10,420 NakedPair
+ *     71,472,597  20072      3,560   8233      8,681 HiddenPair
+ *    119,974,317  18032      6,653   1599     75,030 NakedTriple
+ *    109,777,377  17641      6,222    990    110,886 HiddenTriple
+ *     47,611,141  17447      2,728    597     79,750 Swampfish
+ *     54,652,957  17219      3,173   1122     48,710 TwoStringKite
+ *     83,950,961  16097      5,215    600    139,918 XY_Wing
+ *     73,844,171  15689      4,706    285    259,102 XYZ_Wing
+ *    135,136,325  15421      8,763    390    346,503 W_Wing
+ *     66,878,189  15141      4,417    355    188,389 Skyscraper
+ *     20,943,136  14955      1,400     50    418,862 EmptyRectangle
+ *     59,296,250  14905      3,978    227    261,216 Swordfish
+ *    470,499,697  14844     31,696    352  1,336,646 Coloring
+ *  1,526,925,279  14574    104,770    958  1,593,867 XColoring
+ *  1,951,798,061  14258    136,891 134289     14,534 GEM
+ *    148,379,104  12772     11,617     90  1,648,656 NakedQuad
+ *    121,044,946  12756      9,489     11 11,004,086 HiddenQuad
+ *  1,720,257,614  12755    134,869   1035  1,662,084 URT
+ *  2,711,235,735  12033    225,316   2158  1,256,365 BigWings
+ *  1,214,432,752  10821    112,229    341  3,561,386 FinnedSwampfish
+ *  2,469,360,026  10525    234,618    306  8,069,804 FinnedSwordfish
+ *  9,088,545,402  10285    883,669   2553  3,559,947 DeathBlossom
+ *  9,074,152,168   8132  1,115,857   2087  4,347,940 ALS_XZ
+ *  6,774,422,960   6824    992,734   2827  2,396,329 ALS_Wing
+ * 14,359,470,871   4597  3,123,661   1302 11,028,779 ALS_Chain
+ *  8,748,245,136   3587  2,438,875    784 11,158,475 UnaryChain
+ *  4,931,305,071   3241  1,521,538    227 21,723,810 NishioChain
+ *  5,799,354,402   3032  1,912,715   3782  1,533,409 MultipleChain
+ *  4,029,657,833   1455  2,769,524   5286    762,326 DynamicChain
+ *    133,813,601      3 44,604,533     30  4,460,453 DynamicPlus
+ * 76,313,530,469
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  95,537,317,701 (01:35)  65,213,186
+ * NOTES:
+ * 1. 01:35 is a couple of seconds slower, and we find minimal AlsChains.
+ *    Impatience costs inaccuracy. I am impatient: maybe too impatient?
+ * 2. DiufSudoku_V6_30.177.2021-10-25.7z is releasable
+ * 3. Next I don't know. I shall see. I need to stop playing with AlsChain but
+ *    it's still the slowest hinter that I still use, so it's still the s__t
+ *    that most needs attention, but I really don't know what else to try.
+ *    I found a @stretch in RccFinderAllAllowOverlaps but it's a big one. I've
+ *    no idea if its implementable, or how to work out how to work that out.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.178 2021-10-26 13:34:58</b> Separate Techs for ALS_Chain_4..ALS_Chain_7
+ * each of which finds all 4..degree chains, so you select 1 of them at a time,
+ * coz it's faster. RCC_CACHE is back for speed. TechSelectDialog selects one
+ * ALS_Chain_* at a time.
+ * <pre>
+ *       time (ns)  calls  time/call  elims  time/elim hinter
+ *      19,112,494 105766        180  56215        339 NakedSingle
+ *      18,414,779  49551        371  16039      1,148 HiddenSingle
+ *      78,258,065  33512      2,335  24136      3,242 Locking
+ *      82,666,071  22204      3,723   7887     10,481 NakedPair
+ *      72,207,068  20156      3,582   8200      8,805 HiddenPair
+ *     120,166,620  18111      6,635   1602     75,010 NakedTriple
+ *     109,187,906  17716      6,163    976    111,872 HiddenTriple
+ *      46,937,497  17527      2,678    604     77,711 Swampfish
+ *      53,781,565  17297      3,109   1139     47,218 TwoStringKite
+ *      81,570,388  16158      5,048    603    135,274 XY_Wing
+ *      70,877,784  15745      4,501    293    241,903 XYZ_Wing
+ *     134,252,928  15469      8,678    404    332,309 W_Wing
+ *      58,612,273  15177      3,861    362    161,912 Skyscraper
+ *      22,657,414  14988      1,511     48    472,029 EmptyRectangle
+ *      59,011,708  14940      3,949    230    256,572 Swordfish
+ *     452,945,332  14876     30,448    340  1,332,192 Coloring
+ *   1,514,250,743  14618    103,588    923  1,640,575 XColoring
+ *   1,918,551,817  14305    134,117 135450     14,164 GEM
+ *     150,276,609  12824     11,718     93  1,615,877 NakedQuad
+ *     117,024,514  12808      9,136     11 10,638,592 HiddenQuad
+ *   1,751,592,402  12807    136,768   1029  1,702,227 URT
+ *   2,736,586,069  12094    226,276   2105  1,300,040 BigWings
+ *   1,189,978,542  10921    108,962    344  3,459,239 FinnedSwampfish
+ *   2,437,382,686  10623    229,443    312  7,812,123 FinnedSwordfish
+ *   8,805,412,938  10380    848,305   2578  3,415,598 DeathBlossom
+ *   9,331,899,182   8207  1,137,065   2103  4,437,422 ALS_XZ
+ *   6,620,018,519   6880    962,211   2852  2,321,184 ALS_Wing
+ *  47,169,430,109   4487 10,512,464   1720 27,424,087 ALS_Chain_6
+ *   7,601,046,889   3292  2,308,944    621 12,240,011 UnaryChain
+ *   4,373,492,336   3010  1,452,987    206 21,230,545 NishioChain
+ *   5,173,467,295   2813  1,839,128   3386  1,527,899 MultipleChain
+ *   3,747,280,754   1416  2,646,384   5094    735,626 DynamicChain
+ *     166,167,296      3 55,389,098     30  5,538,909 DynamicPlus
+ * 106,284,518,592
+ * pzls       total (ns) (mm:ss)   each (ns)
+ * 1465  124,828,511,002 (02:04)  85,207,174
+ * NOTES:
+ * 1. 02:04 is 31 seconds slower, but this one has ALS_Chain_6, and 1720 is a
+ *    bit more accurate than the previous lesserer AlsChains run at 1302 elims.
+ * 2. DiufSudoku_V6_30.178.2021-10-26.7z is releasable
+ * 3. Next I don't know, but I promise to stop fiddling with AlsChain!
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.179 2021-10-27 17:56:59</b> AlsChain rccCache has it's own IAS
+ * (an int[]'s cache) instead of creating-em on the fly, and tada: ALS_Chain_7
+ * has been wrangled into the three minute batch window, for a "snappy" GUI.
+ * <p>
+ * The hunter, endlessly seeking.
+ * <pre>
+ *       time (ns)  calls  time/call  elims  time/elim hinter
+ *      18,363,661 105841        173  56290        326 NakedSingle
+ *      18,194,394  49551        367  16038      1,134 HiddenSingle
+ *      78,205,005  33513      2,333  24141      3,239 Locking
+ *      83,284,954  22202      3,751   7885     10,562 NakedPair
+ *      73,682,140  20147      3,657   8203      8,982 HiddenPair
+ *     121,196,385  18102      6,695   1608     75,370 NakedTriple
+ *     111,842,472  17708      6,315    975    114,710 HiddenTriple
+ *      47,911,734  17520      2,734    604     79,324 Swampfish
+ *      53,894,865  17290      3,117   1143     47,152 TwoStringKite
+ *      90,409,927  16147      5,599    593    152,461 XY_Wing
+ *      73,264,955  15741      4,654    293    250,051 XYZ_Wing
+ *     134,213,941  15465      8,678    402    333,865 W_Wing
+ *      62,856,703  15175      4,142    362    173,637 Skyscraper
+ *      21,552,502  14987      1,438     48    449,010 EmptyRectangle
+ *      57,944,111  14939      3,878    229    253,031 Swordfish
+ *     458,350,793  14876     30,811    337  1,360,091 Coloring
+ *   1,528,253,541  14620    104,531    923  1,655,745 XColoring
+ *   1,934,710,411  14307    135,228 134651     14,368 GEM
+ *     145,708,257  12825     11,361     93  1,566,755 NakedQuad
+ *     123,275,970  12809      9,624     11 11,206,906 HiddenQuad
+ *   1,769,608,821  12808    138,164   1033  1,713,077 URT
+ *   2,742,339,765  12092    226,789   2116  1,296,001 BigWings
+ *   1,214,192,953  10914    111,250    345  3,519,399 FinnedSwampfish
+ *   2,458,924,631  10615    231,646    310  7,932,014 FinnedSwordfish
+ *   8,896,765,893  10374    857,602   2588  3,437,699 DeathBlossom
+ *   9,011,550,661   8190  1,100,311   2102  4,287,131 ALS_XZ
+ *   6,498,541,294   6865    946,619   2842  2,286,608 ALS_Wing
+ * 102,763,606,524   4390 23,408,566   1697 60,556,043 ALS_Chain_7
+ *   7,685,503,912   3310  2,321,904    621 12,376,012 UnaryChain
+ *   4,418,066,701   3010  1,467,796    204 21,657,189 NishioChain
+ *   5,080,859,675   2815  1,804,923   3423  1,484,329 MultipleChain
+ *   3,823,794,021   1417  2,698,513   5104    749,175 DynamicChain
+ *     133,398,400      3 44,466,133     30  4,446,613 DynamicPlus
+ * 161,734,269,972
+ * pzls       total (ns) (mm:ss)    each (ns)
+ * 1465  180,354,536,699 (03:00)  123,108,898
+ * NOTES:
+ * 1. 03:00 is 56 seconds slower than previous, but this one has ALS_Chain_7
+ *    with 1697 elims verses ALS_Chain_6's 1720, so its a bit more accurate,
+ *    and as I've said repeatedly the GUI feels OK when batch is three minutes.
+ *    But Oh wait, 1697 is less than 1720, so it's NOT "more accurate", so calm
+ *    down and think it through. The actual determinant is the number of times
+ *    it's called. 4390 is lower than 4487, which means ALS_Chain_7 is finding
+ *    more effective hints, just (as you'd expect) less of them. I don't really
+ *    understand why, but I really like this version. It could be faster but
+ *    then again EVERYTHING could be faster, even an F18. Just ask NASA. The
+ *    only thing that couldn't be faster is Voyager, and it's out of my league.
+ * 2. DiufSudoku_V6_30.179.2021-10-27.7z needs releasing, tomorrow, I promise.
+ * 3. Next I don't know, but I need to stop pulling my AlsChain!
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.180 2021-10-28 10:10:10</b> AlsChain has ANY_RELATED_RCCS and an
+ * alsCeiling, so it's a tad faster. The hunter, is still endlessly seeking.
+ * <pre>
+ *       time (ns)  calls  time/call  elims  time/elim hinter
+ *      15,701,900 105794        148  56254        279 NakedSingle
+ *      18,587,500  49540        375  16033      1,159 HiddenSingle
+ *      76,666,300  33507      2,288  24137      3,176 Locking
+ *      83,442,400  22200      3,758   7882     10,586 NakedPair
+ *      95,942,900  20147      4,762   8203     11,696 HiddenPair
+ *     121,359,800  18102      6,704   1608     75,472 NakedTriple
+ *     111,711,100  17708      6,308    975    114,575 HiddenTriple
+ *      47,900,300  17520      2,734    604     79,305 Swampfish
+ *      53,554,400  17290      3,097   1141     46,936 TwoStringKite
+ *      88,257,600  16149      5,465    591    149,336 XY_Wing
+ *      71,355,500  15744      4,532    293    243,534 XYZ_Wing
+ *     136,106,700  15468      8,799    401    339,418 W_Wing
+ *      62,517,800  15179      4,118    362    172,701 Skyscraper
+ *      22,196,700  14991      1,480     48    462,431 EmptyRectangle
+ *      58,670,700  14943      3,926    229    256,203 Swordfish
+ *     455,013,300  14880     30,578    337  1,350,187 Coloring
+ *   1,514,566,300  14624    103,567    923  1,640,916 XColoring
+ *   1,918,930,600  14311    134,087 135056     14,208 GEM
+ *     150,831,500  12829     11,757     93  1,621,844 NakedQuad
+ *     122,842,000  12813      9,587     11 11,167,454 HiddenQuad
+ *   1,794,229,600  12812    140,042   1033  1,736,911 URT
+ *   2,730,682,100  12096    225,750   2117  1,289,882 BigWings
+ *   1,208,023,900  10917    110,655    345  3,501,518 FinnedSwampfish
+ *   2,556,416,600  10618    240,762    310  8,246,505 FinnedSwordfish
+ *   8,990,663,400  10377    866,402   2589  3,472,639 DeathBlossom
+ *   9,178,378,900   8192  1,120,407   2102  4,366,498 ALS_XZ
+ *   6,532,452,400   6867    951,281   2842  2,298,540 ALS_Wing
+ * 101,998,826,500   4394 23,213,205   1700 59,999,309 ALS_Chain_7
+ *   7,780,794,800   3310  2,350,693    621 12,529,460 UnaryChain
+ *   4,475,167,900   3010  1,486,766    204 21,937,097 NishioChain
+ *   5,235,370,800   2815  1,859,812   3423  1,529,468 MultipleChain
+ *   3,917,462,500   1417  2,764,617   5104    767,527 DynamicChain
+ *     117,635,900      3 39,211,966     30  3,921,196 DynamicPlus
+ * 161,742,260,600
+ * pzls        total (ns) (mm:ss)         each (ns)
+ * 1465   181,176,008,600 (03:01)       123,669,630
+ * NOTES:
+ * 1. 03:01 is a second slower than previous, but ALS_Chain_7 is 700ms faster,
+ *    and that's what I've changed, so accepted. More-RAM-slow! More-RAM-slow!
+ * 2. DiufSudoku_V6_30.180.2021-10-28.7z needs releasing, today!
+ * 3. Next I don't know, but I still need to stop pulling my AlsChain!
+ * </pre>
  */
-final class LogicalSolverTimings {
+final class BuildTimings {
 	// never called
-	private LogicalSolverTimings(){}
+	private BuildTimings(){}
 }

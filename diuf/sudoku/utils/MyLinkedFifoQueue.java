@@ -10,7 +10,7 @@ import java.util.AbstractQueue;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Queue;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 
 /**
@@ -217,7 +217,7 @@ public final class MyLinkedFifoQueue<E> extends AbstractQueue<E> implements Queu
 		int cnt = 0;
 		for ( Node<E> c=head.next; c!=null; c=c.next ) { // c for Current
 			if ( ++cnt > 1 )
-				sb.append(COMMA_SP);
+				sb.append(CSP);
 			sb.append(String.valueOf(c.item));
 		}
 		return sb.toString();

@@ -4,7 +4,7 @@
  * Copyright (C) 2013-2021 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
-package diuf.sudoku.solver.hinters.als;
+package diuf.sudoku.solver.hinters.aals;
 
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Pots;
@@ -49,7 +49,7 @@ public class SueDeCoqHint extends AHint  {
 			, greens.toString()	 // intersection <g>
 			, blues.toString()	 // inter & line <b1>
 			, purples.toString() // inter & box  <b6>
-			, redPots.toString() // eliminations <r>
+			, reds.toString() // eliminations <r>
 		);
 	}
 	

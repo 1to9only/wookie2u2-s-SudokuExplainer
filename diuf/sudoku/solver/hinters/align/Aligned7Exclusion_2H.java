@@ -97,7 +97,7 @@ implements
 		// get an array of the Cells at which we hinted last time;
 		// otherwise we skip this call to getHints
 		final Cell[] hitCells = useHits // only true when AHinter.hackTop1465
-				? hits.getHitCells(gsl, hintNum, degree, grid)
+				? hits.cells(gsl, hintNum, degree, grid)
 				: null;
 		final boolean hitMe = hitCells != null;
 		if ( useHits && !hitMe )
@@ -227,7 +227,7 @@ implements
 			c0b = (c0=cells[0]).maybes;
 
 			for ( i1=i0+1; i1<n1; ++i1 ) {
-				if ( excluders[(cells[1]=candidates[i1]).i].idx2(idx01, idx0) )
+				if ( excluders[(cells[1]=candidates[i1]).i].idx2(idx0, idx01) )
 					continue;
 				if(hitMe && cells[1]!=hitCells[1]) continue;
 //KRC#2020-06-30 09:50:00
@@ -235,7 +235,7 @@ implements
 				ns10 = c1.notSees[c0.i];
 
 				for ( i2=i1+1; i2<n2; ++i2 ) {
-					if ( excluders[(cells[2]=candidates[i2]).i].idx2(idx02, idx01) )
+					if ( excluders[(cells[2]=candidates[i2]).i].idx2(idx01, idx02) )
 						continue;
 					if(hitMe && cells[2]!=hitCells[2]) continue;
 //KRC#2020-06-30 09:50:00
@@ -244,7 +244,7 @@ implements
 					ns20 = c2.notSees[c0.i];
 
 					for ( i3=i2+1; i3<n3; ++i3 ) {
-						if ( excluders[candidates[i3].i].idx2(idx03, idx02) )
+						if ( excluders[candidates[i3].i].idx2(idx02, idx03) )
 							continue;
 						cells[3] = candidates[i3];
 						if(hitMe && cells[3]!=hitCells[3]) continue;
@@ -255,7 +255,7 @@ implements
 						ns30 = c3.notSees[c0.i];
 
 						for ( i4=i3+1; i4<n4; ++i4 ) {
-							if ( excluders[candidates[i4].i].idx2(idx04, idx03) )
+							if ( excluders[candidates[i4].i].idx2(idx03, idx04) )
 								continue;
 							cells[4] = candidates[i4];
 							if(hitMe && cells[4]!=hitCells[4]) continue;
@@ -267,7 +267,7 @@ implements
 							ns40 = c4.notSees[c0.i];
 
 							for ( i5=i4+1; i5<n5; ++i5 ) {
-								if ( excluders[candidates[i5].i].idx2(idx05, idx04) )
+								if ( excluders[candidates[i5].i].idx2(idx04, idx05) )
 									continue;
 								cells[5] = candidates[i5];
 								if(hitMe && cells[5]!=hitCells[5]) continue;
@@ -283,7 +283,7 @@ implements
 								// certainly often enough. It's probably more like 10 ms.
 								interrupt();
 								for ( i6=i5+1; i6<numCandidates; ++i6 ) {
-									if ( excluders[candidates[i6].i].idx2(idx06, idx05) )
+									if ( excluders[candidates[i6].i].idx2(idx05, idx06) )
 										continue;
 									cells[6] = candidates[i6];
 									if(hitMe && cells[6]!=hitCells[6]) continue;

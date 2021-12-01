@@ -13,17 +13,20 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.GRID_SIZE;
 import static diuf.sudoku.Grid.MAX_EMPTIES;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSIZE;
+import static diuf.sudoku.Values.appendTo;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.CSP;
+import static diuf.sudoku.utils.Frmt.MINUS;
 import diuf.sudoku.utils.IntIntHashMap;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyArrays;
@@ -37,6 +40,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.io.File;
+import static diuf.sudoku.utils.Frmt.SP;
 
 /**
  * AAlignedSetExclusionBase is an abstract base class of all Aligned*Exclusion.
@@ -287,7 +291,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 
 	// coz getCounters() reflectively references by superclass by SUPER_NAME,
 	// so if you rename me you need to change SUPER_NAME also.
-	private static final String SUPER_NAME = "AHinter";
+	private static final String SUPER = "AHinter";
 
 	/** The size of the CANDIDATES_ARRAY. */
 	protected static final int NUM_CANDIDATES = MAX_EMPTIES; // 81-17=64
@@ -342,9 +346,9 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		log.format(" %2d", totalMaybesSize);
 		log.format(" %2d", siblingsCount);
 		log.format(" %2d", countHits(cmnExclBits, numCmnExclBits, cells));
-		log.format("\t%-110s", diuf.sudoku.utils.Frmu.toFullString(SPACE, cells.length, cells));
+		log.format("\t%-110s", diuf.sudoku.utils.Frmu.toFullString(SP, cells.length, cells));
 		log.format("\t%-25s", redPots);
-		log.format("\t%s", diuf.sudoku.utils.Frmu.toFullString(SPACE, map.getUsedCommonExcluders(cmnExcls, numCmnExcls)));
+		log.format("\t%s", diuf.sudoku.utils.Frmu.toFullString(SP, map.getUsedCommonExcluders(cmnExcls, numCmnExcls)));
 		log.println();
 		log.flush();
 	}
@@ -498,21 +502,22 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 			// foreach class from me upto my AAlignedSetExclusionBase
 			// add class to a queue to reverse the order of processing.
 			Deque<Class<?>> ancestry = new LinkedList<>();
-			Class<?> clazz;
-			for ( clazz = getClass()
-				; !clazz.getName().endsWith(SUPER_NAME)
-				; clazz = clazz.getSuperclass() )
-				ancestry.addFirst(clazz);
-			List<Counter> list = new LinkedList<>();
+			Class<?> c;
+			for ( c=getClass(); !c.getName().endsWith(SUPER); c=c.getSuperclass() ) {
+				ancestry.addFirst(c);
+			}
+			final List<Counter> list = new LinkedList<>();
 			// from AAlignedSetExclusionBase downto me, so that "standard"
 			// counters are printed first, followed by any "custom" counters.
-			while ( (clazz=ancestry.poll()) != null )
-				for ( java.lang.reflect.Field field : clazz.getDeclaredFields() )
+			while ( (c=ancestry.poll()) != null ) {
+				for ( java.lang.reflect.Field field : c.getDeclaredFields() ) {
 					if ( field.getType() == COUNTER_CLASS ) try {
 						list.add((Counter)field.get(this));
 					} catch (Exception eaten) {
 						// Do nothing.
 					}
+				}
+			}
 			countersArray = list.toArray(new Counter[list.size()]);
 		}
 		return countersArray;
@@ -542,49 +547,33 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * with the Grid.cells array.
 	 * @return numCandidates the number of cells in the candidates array.
 	 */
-	protected int populateCandidatesAndExcluders(
-			  Cell[] candidates		// output
-			, CellSet[] excluders	// output
-			, Grid grid				// input
-	) {
-		return populateCandidatesAndExcluders(
-				candidates, excluders, grid, this.degreePlus1);
+	protected int populateCandidatesAndExcluders(final Cell[] candidates
+			, final CellSet[] excluders, final Grid grid) {
+		return populateCandidatesAndExcluders(candidates, excluders, grid, degreePlus1);
 	}
-	protected int populateCandidatesAndExcluders(Cell[] candidates
-			, CellSet[] excluders, Grid grid, final int degreePlus1) {
-
-		// cell's set of excluder cells. CellSet is a Set<Cell> with reasonably
-		// fast contains, remove & clear; but a slow constructor
-		// An excluder cell is a sibling with 2..5 maybes and numExcls>0
-		CellSet set = null;
+	protected int populateCandidatesAndExcluders(final Cell[] candidates
+			, final CellSet[] excluders, final Grid grid, final int ceiling) {
+		CellSet excls = null;
 		int card,  n=0;
-
-		// build the excluder-sibling-cells-set of each candidate cell
-		// foreach cell in grid which has more than one potential value
 		CELL_LOOP: for ( Cell cell : grid.cells ) {
 			if ( cell.size > 1 ) {
-				// find cells excluders: ie siblings with maybesSize 2..5
-				for ( Cell sib : cell.siblings ) { // 81*20=1620
-					// sib is an excluder if it has maybesSize 2..degree
-					// optimise: do the < first because it's more deterministic.
-					if ( (card=sib.size)<degreePlus1 && card>1 ) {
-						if ( set == null )
-							set = new CellSet(); //slow constructor, O(1) contains
-						set.add(sib);
-					// optimize: skip any naked singles
-					} else if ( card == 1 )
-						continue CELL_LOOP; // skip siblings of naked singles
+				for ( Cell sib : cell.siblings ) {
+					if ( (card=sib.size)<ceiling && card>1 ) {
+						if ( excls == null ) {
+							excls = new CellSet();
+						}
+						excls.add(sib);
+					} else if ( card == 1 ) {
+						continue CELL_LOOP;
+					}
 				}
-				if ( set != null ) {
+				if ( excls != null ) {
 					candidates[n++] = cell;
-					excluders[cell.i] = set;
-					set = null; // ready? reset the set for the next set. lols\
-								// pretty piss poor joke that, blood Vessels,
-								// but anyway who gives a ____... Moving right
-								// along now. How's the hair Ritchie?
+					excluders[cell.i] = excls;
+					excls = null;
 				}
 			}
-		} // next cell in grid
+		}
 		return n;
 	}
 
@@ -603,59 +592,47 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * but I might be full of s__te. It's all I can do.
 	 *
 	 * @param candidates {@code Cell[]} to (re)populate
-	 * @param excludersArray {@code CellSet[81]} to (re)populate
+	 * @param excluders {@code CellSet[81]} to (re)populate
 	 * @param grid {@code Grid} to examine
 	 * @return numCandidates the number of cells in the candidates array.
 	 */
 	protected int populateCandidatesAndAtleastTwoExcluders(
-			  Cell[] candidates			// output
-			, CellSet[] excludersArray	// output
-			, Grid grid					// input
-	) {
-		final int degreePlus1 = this.degreePlus1; // localise field for speed.
-
-		// cell's set of excluder cells. CellSet is a Set<Cell> with reasonably
-		// fast contains, remove & clear; but a slow constructor
-		// An excluder cell is a sibling with 2..5 maybes and numExcls>0
-		CellSet exclsSet = null;
+			  final Cell[] candidates, final CellSet[] excluders
+			, final Grid grid) {
+		final int ceiling = degreePlus1;
+		CellSet excls = null;
 		int card;
-		// clear my fields
 		MyArrays.clear(candidates);
-		MyArrays.clear(excludersArray);
-		Cell firstExcluder;
-
-		// build the excluder-sibling-cells-set of each candidate cell
-		// foreach cell in grid which has more than one potential value
-		int numCandidates = 0;
+		MyArrays.clear(excluders);
+		Cell first; // the first excluder cell
+		int n = 0; // the number of candidate cells added
 		CELL_LOOP: for ( Cell cell : grid.cells ) {
 			if ( cell.size > 1 ) {
-				firstExcluder = null;
-				// find cells excluders: ie siblings with maybesSize 2..5
-				for ( Cell sib : cell.siblings ) { // 81*20=1620
-					// sib is an excluder if it has maybesSize 2..degree
-					// optimise: do the < first because it's more deterministic.
-					if ( (card=sib.size)>1 && card<degreePlus1 ) {
-						if ( firstExcluder == null )
-							firstExcluder = sib;
-						else if ( exclsSet == null ) {
-							exclsSet = new CellSet(); //slow constructor, O(1) contains
-							exclsSet.add(firstExcluder);
-							exclsSet.add(sib);
-						} else
-							exclsSet.add(sib);
-					// optimize: skip any naked singles
-					} else if ( card == 1 )
-						continue CELL_LOOP; // skip siblings of naked singles
+				first = null;
+				for ( Cell sib : cell.siblings ) {
+					if ( (card=sib.size)>1 && card<ceiling ) {
+						if ( first == null ) {
+							first = sib;
+						} else if ( excls == null ) {
+							excls = new CellSet();
+							excls.add(first);
+							excls.add(sib);
+						} else {
+							excls.add(sib);
+						}
+					} else if ( card == 1 ) {
+						continue CELL_LOOP;
+					}
 				}
-				if ( exclsSet!=null ) {
-					assert exclsSet.size() > 1;
-					candidates[numCandidates++]=cell; // candidateCellsArray
-					excludersArray[cell.i] = exclsSet; // cellsExcludersMap
-					exclsSet = null; // for the next iteration of this loop (ie cell)
+				if ( excls!=null ) {
+					assert excls.size() > 1;
+					candidates[n++]=cell;
+					excluders[cell.i] = excls;
+					excls = null; // for next time
 				}
 			}
-		} // next cell in grid // next cell in grid
-		return numCandidates;
+		}
+		return n;
 	}
 
 	// return the bitwise-or of all cells.maybes
@@ -665,16 +642,6 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 			all |= cell.maybes;
 		return all;
 	}
-
-//not used
-//	// return a new array of the maybes of each cell
-//	protected static int[] getMaybesesNew(Cell[] cells) {
-//		final int n = cells.length;
-//		int[] maybeses = new int[n];
-//		for ( int i=0; i<n; ++i )
-//			maybeses[i] = cells[i].maybes;
-//		return maybeses;
-//	}
 
 	/**
 	 * The static subsets method reads the common-excluder-cells.maybes
@@ -819,139 +786,6 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 		// return the new, possibly reduced (possibly 0) numCmnExclBits
 		return numCmnExclBits;
 	}
-
-// The algorithmic complexity of disuselessenate is the same order of magnitude
-// as the actual dog____ing loop, hence it doesn't save any time: ie it's just
-// as slow to detect "we don't need to ____ this dog" as it is to just go ahead
-// and ____ the damn dog, so we just ____ it.
-//	/**
-//	 * disuselessenate removes each cmnExclBits which doesn't cover a single
-//	 * combination of the maybeses: the potential values of the cells in the
-//	 * aligned set.
-//	 * <p>Performance WARNING: This takes about the same time as doing nothing
-//	 * because its complexity is on par with the dog____ing loop. The code has
-//	 * been retained for now, though I don't think it's actually used anywhere
-//	 * any longer. I dream of speeding it up, but my juju well has run dry with
-//	 * the Corona virus muting all hope... for the moment/year/lifetime. Sigh.
-//	 * This too will pass. None shall pass! But you're legs off. No it isn't.
-//	 * Come on, come on, I'll ave ya. Runnin' away are ya'. IT'S ONLY A RABBIT!
-//	 * Yes, but it has sharp gnashing teeth. Run away! Run away! sigh.
-//	 * <pre>
-//	 * 1. Don't panic.
-//	 * 2. Cry if you need to. It helps. I feel that way now. It'll pass.
-//	 * 3. Avoid touching your face.
-//	 * 4. Wash your hands. Use soap.
-//	 * 5. Sneeze into your elbow.
-//	 * 6. Stay in touch with friends.
-//	 * 7. Avoid large gatherings, especially in confined spaces. Which means
-//	 *    stay OFF aircraft. Go local this year... somewhere in the bush!
-//	 *    I'd avoid mass gatherings like rock concerts, sporting events, and
-//	 *    religious festivals. If you have to go, go... but only if you've
-//	 *    worked out how to avoid touching your face, and please clue me in.
-//	 * 8. You may need 2 weeks worth of bog roll, long-life milk, coffee, and
-//	 *    sugar; and something to chew on might be nice too, but hoarding a
-//	 *    dozen crates of canned soup is insanity, unless of course you really
-//	 *    really like canned soup. Pumpkin soup again love? Na. This situation
-//	 *    requires a measured response. You need some perspective in order to
-//	 *    measure your response.
-//	 * 9. Don't watch the news. It's depressing. An insane hour of all of the
-//	 *    bad and most of the ugly. COVID 19 exists, and it will always exist.
-//	 *    Accept that fact. There's no point trying to eliminate the threat.
-//	 *    The people pushing this line are hope-mongers, who over-estimate the
-//	 *    threat, and under-estimate the impacts of there response to that
-//	 *    threat (as classic overreaction). These silly people tend to be the
-//	 *    ones who end-up doing silly things like punching-on over bog-rolls,
-//	 *    just (usually, and thankfully) less dramatic.
-//   * 10. What we can do, through INTELLIGENT action, is SLOW DOWN the spread
-//   *    of the virus, so that it doesn't overrun our medicos, destroy our
-//	 *    economy, our spirits, and our hope. Virus plus highly mobile populace
-//	 *    equals nightmare. The virus is here to stay. The populace is to be
-//	 *    maintained. What MUST give is the mobility. Some nightmare is given,
-//	 *    but it's when people feel that it's all nothing BUT nightmare that
-//	 *    societies crumble, and/because people start doing silly things like
-//	 *    punching-on over bloody bog-rolls. Perspective people, please.
-//	 * Summary: Don't panic. Hope. Keep calm. Laugh. Think. Prepare. Love.
-//	 *    GO to the funerals. Cry. This too will pass. Perspective!
-//	 * </pre>
-//	 * @param cmnExclBits the common excluder (maybes) bits array
-//	 * @param numCmnExclBits the number of elements in the cmnExclBits array
-//	 * @param allMaybesBits all the maybes of all the cells in the
-//	 * aligned set agglomerated into one bitset.<br>
-//	 * eg: {@code c0b|c1b|c2b|(c3b=c3.maybes)}
-//	 * @param maybeses the potential values (ie .maybes) of the cells in
-//	 * the aligned set
-//	 * @return the new (possibly reduced) numCmnExclBits; and also the contents
-//	 * of the cmnExclBits array is modified to remove any which cover nada.
-//	 */
-//	protected static int disuselessenate(final int[] cmnExclBits, final int numCmnExclBits,
-//			final int allMaybesBits, final int... maybeses) {
-//		final int[][] SVS = SHIFTED;
-//		int n = numCmnExclBits;
-//		int ceb;
-//		int i = 0;
-//		MAIN_LOOP: while ( i < n ) {
-//			// if the common excluder contains a value that is not all in the
-//			// aglomerate of all cells maybes then the common excluder is
-//			// history (as per the old disdisjunct method).
-//			if ( ((ceb=cmnExclBits[i]) & ~allMaybesBits) != 0 ) {
-//				// remove cmnExclBits[i] and decrement n
-//				for ( int j=i+1; j<n; ++j)
-//					cmnExclBits[j-1] = cmnExclBits[j];
-//				--n;
-//			} else {
-//				// else if the common excluder won't cover a single combination
-//				// of the maybes of the cells in the aligned set then the
-//				// common excluder is history (my NEW "do it faster" itch).
-//				for ( int m=0,M=maybeses.length; m<M; ++m )
-//					for ( int collision : SVS[ceb & maybeses[m]] )
-//						if ( recursiveCoversAny(ceb & ~collision, except(maybeses, m)) ) {
-//							++i; // we need to manually increment the index
-//								 // because we don't increment i when we delete
-//								 // cmnExclBits[i], instead we pull the next
-//								 // element down to i.
-//							continue MAIN_LOOP;
-//						}
-//				// remove cmnExclBits[i] and decrement n
-//				for ( int j=i+1; j<n; ++j)
-//					cmnExclBits[j-1] = cmnExclBits[j];
-//				--n;
-//			}
-//		}
-//		return numCmnExclBits;
-//	}
-//
-//	// returns a-copy-of-array with the element i removed.
-//	private static int[] except(final int[] array, final int i) {
-//		final int n = array.length;
-////		assert i>=0 && i<n;
-//		int[] result = new int[n-1];
-//		int cnt = 0;
-//		// copy the entries to the left of 'i'
-//		for ( int j=0; j<i; ++j )
-//			result[cnt++] = array[j];
-//		// copy the entries to the right of 'i'
-//		for ( int j=i+1; j<n; ++j )
-//			result[cnt++] = array[j];
-////		assert cnt == n - 1;
-//		return result;
-//	}
-//
-//	// recursively determine if ceb covers any combo of these maybeses.
-//	private static boolean recursiveCoversAny(final int ceb, final int[] maybeses) {
-//		if ( ceb == 0 ) // common excluder bits is covered by these maybeses
-//			return true;
-//		final int[][] SVS = SHIFTED;
-//		for ( int m=0,M=maybeses.length; m<M; ++m )
-//			for ( int collision : SVS[ceb & maybeses[m]] ) {
-//				// pre check this just so we don't call except to create a new
-//				// array only to immediately see that ceb==0 and return true.
-//				if ( (ceb & ~collision) == 0 )
-//					return true;
-//				if ( recursiveCoversAny(ceb & ~collision, except(maybeses,m)) )
-//					return true;
-//			}
-//		return false;
-//	}
 
 	/**
 	 * Does this combo contain ALL of any common excluder cells maybes?
@@ -1116,6 +950,23 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 			if ( !any )
 				break;
 		}
+	}
+
+	/** DEBUG Aligned*Exclusion: Don't hammer me. */
+	protected static String valuesCsvVA(int... svs) {
+		return valuesCsv(svs.length, svs);
+	}
+
+	/** DEBUG Aligned*Exclusion: Don't hammer me. */
+	protected static String valuesCsv(int n, int[] svs) {
+		if(n==0) return MINUS;
+		final StringBuilder sb = new StringBuilder(35);
+		appendTo(sb, svs[0]);
+		for (int i=1; i<n; ++i) {
+			sb.append(CSP);
+			appendTo(sb, svs[i]);
+		}
+		return sb.toString();
 	}
 
 	// ========================================================================

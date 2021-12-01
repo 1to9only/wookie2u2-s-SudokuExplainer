@@ -136,7 +136,7 @@ implements
 		// get an array of the Cells at which we hinted last time;
 		// otherwise we skip this call to getHints
 		final Cell[] hitCells = useHits // only true when AHinter.hackTop1465
-				? hits.getHitCells(gsl, hintNum, degree, grid)
+				? hits.cells(gsl, hintNum, degree, grid)
 				: null;
 		final boolean hitMe = hitCells != null;
 		if ( useHits && !hitMe )
@@ -248,9 +248,9 @@ implements
 		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		// search for candidate cells that can contribute to an exclusion set.
-		// NB: 7 is means find common excluder cells with maybesSize 2..7 coz
-		// 6 is max-size of a common excluder cell that contributes to a hint,
-		// not 10 (degreePlus1) as per normal. That occelot ate my chitlins!
+		// NB: 7 is means find common excluder cells with size 2..7 coz 7 is
+		// max-size of a common excluder cell that hints, not 10 (degreePlus1)
+		// as per normal. That occelot ate my chitlins!
 		numCandidates = populateCandidatesAndExcluders(candidates, excluders, grid, 7);
 		if ( numCandidates < degree )
 			return false; // this'll never happen, but never say never.
@@ -274,39 +274,39 @@ implements
 			idx0 = excluders[(cells[0]=candidates[i0]).i].idx();
 			if(hitMe && cells[0]!=hitCells[0]) continue;
 			for ( i1=i0+1; i1<n1; ++i1 ) {
-				if ( excluders[(cells[1]=candidates[i1]).i].idx1(idx01, idx0) )
+				if ( excluders[(cells[1]=candidates[i1]).i].idx1(idx0, idx01) )
 					continue;
 				if(hitMe && cells[1]!=hitCells[1]) continue;
 				for ( i2=i1+1; i2<n2; ++i2 ) {
-					if ( excluders[(cells[2]=candidates[i2]).i].idx1(idx02, idx01) )
+					if ( excluders[(cells[2]=candidates[i2]).i].idx1(idx01, idx02) )
 						continue;
 					if(hitMe && cells[2]!=hitCells[2]) continue;
 					for ( i3=i2+1; i3<n3; ++i3 ) {
-						if ( excluders[(cells[3]=candidates[i3]).i].idx1(idx03, idx02) )
+						if ( excluders[(cells[3]=candidates[i3]).i].idx1(idx02, idx03) )
 							continue;
 						if(hitMe && cells[3]!=hitCells[3]) continue;
 						for ( i4=i3+1; i4<n4; ++i4 ) {
-							if ( excluders[(cells[4]=candidates[i4]).i].idx1(idx04, idx03) )
+							if ( excluders[(cells[4]=candidates[i4]).i].idx1(idx03, idx04) )
 								continue;
 							if(hitMe && cells[4]!=hitCells[4]) continue;
 							for ( i5=i4+1; i5<n5; ++i5 ) {
-								if ( excluders[candidates[i5].i].idx1(idx05, idx04) )
+								if ( excluders[candidates[i5].i].idx1(idx04, idx05) )
 									continue;
 								cells[5] = candidates[i5];
 								if(hitMe && cells[5]!=hitCells[5]) continue;
 								for ( i6=i5+1; i6<n6; ++i6 ) {
-									if ( excluders[candidates[i6].i].idx1(idx06, idx05) )
+									if ( excluders[candidates[i6].i].idx1(idx05, idx06) )
 										continue;
 									cells[6] = candidates[i6];
 									if(hitMe && cells[6]!=hitCells[6]) continue;
 									for ( i7=i6+1; i7<n7; ++i7 ) {
-										if ( excluders[candidates[i7].i].idx1(idx07, idx06) )
+										if ( excluders[candidates[i7].i].idx1(idx06, idx07) )
 											continue;
 										cells[7] = candidates[i7];
 										if(hitMe && cells[7]!=hitCells[7]) continue;
 										interrupt();
 										for ( i8=i7+1; i8<numCandidates; ++i8 ) {
-											if ( excluders[candidates[i8].i].idx1(idx08, idx07) )
+											if ( excluders[candidates[i8].i].idx1(idx07, idx08) )
 												continue;
 											cells[8] = candidates[i8];
 											if(hitMe && cells[8]!=hitCells[8]) continue;

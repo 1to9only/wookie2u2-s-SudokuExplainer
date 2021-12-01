@@ -13,11 +13,8 @@ import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
-import static diuf.sudoku.Indexes.IFIRST;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
-import static diuf.sudoku.Values.VALL;
-import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
@@ -41,13 +38,18 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * valid Sudoku is not invalid, we can conclude that none of cells may be any
  * other value, so we can remove all other potential values from these cells.
  */
-public final class HiddenSet extends AHinter {
+public class HiddenSet extends AHinter {
 
 	// the Permutations Array (used by the Permutations class)
 	private final int[] thePA;
 
 	// values with 2..$degree possible positions in the region
 	private final int[] candidates = new int[REGION_SIZE];
+
+	// the removable (red) potentials, if any for this hint. This is only a
+	// field so that we need not create a Pots (a HashMap) for those 96+% of
+	// cases where there are no eliminations. This is just a bit faster.
+	private final Pots reds = new Pots();
 
 	/**
 	 * Constructor.
@@ -62,27 +64,12 @@ public final class HiddenSet extends AHinter {
 	 *  but they CAN appear in get MORE hints.<br>
 	 *  So I unwant Naked and Hidden Pent, coz they're basically useless.
 	 * </ul>
-	 * <p>
-	 * There are also "Direct" variant Techs:<ul>
-	 * <li>DirectHiddenPair
-	 * <li>DirectHiddenTriple
-	 * </ul>
-	 * which seek HiddenSets that cause a HiddenSingle; ie when we remove all
-	 * other possible values from each of these cells that leaves one only
-	 * possible location for a value in the region. These direct variants are
-	 * also fundamentally useless, in that all hints that they find are found
-	 * anyway by the "normal" HiddenSet hinter; the only difference is the
-	 * direct variant produces a "bigger" hint with the "subsequently set this
-	 * hidden single", where-as the "normal" version leaves the hidden single
-	 * to the next HiddenSingle call, because that's what it's for. sigh.
-	 * <p>
-	 * For speed unwant all the Direct hinters (they're useless).<br>
-	 * For fancier hints want them, but they're still bloody useless.
 	 *
 	 * @param tech the Tech to implement, see above.
 	 */
 	public HiddenSet(Tech tech) {
 		super(tech);
+		assert this instanceof HiddenSetDirect || !tech.isDirect;
 		assert degree>1 && degree<=5;
 		this.thePA = new int[degree]; // for Permutations
 	}
@@ -102,30 +89,31 @@ public final class HiddenSet extends AHinter {
 	/**
 	 * Search this region in the grid for Naked Sets.
 	 * <p>
-	 * This method is weirdly public. Locking finds Naked Pairs/Triples but can
-	 * do only a subset of the eliminations, so it needs a way to ask NakedPair
+	 * This method is weirdly public. Locking finds NakedPairs/Triples but can
+	 * not do all the eliminations itself, so it needs a way to ask NakedPair
 	 * and NakedTriple "Is this a Naked Set? And if so do the elims for me?"
-	 * So search is public, with variables created for each region, which is a
-	 * bit slower, but shows the user all available eliminations.
+	 * So this search method is, weirdly, public, with variables created for
+	 * each region, which is a bit slower in the normal use-case, but shows
+	 * the user all available eliminations, so it's worth the hassle.
 	 *
-	 * @param region the ARegion to search
+	 * @param r the ARegion to search
 	 * @param grid the Grid to search
 	 * @param accu the implementation of IAccumulator to which I add hints
 	 * @return were any hint/s found?
 	 */
-	public boolean search(ARegion region, Grid grid, IAccumulator accu) {
+	public boolean search(ARegion r, Grid grid, IAccumulator accu) {
 		// presume that no hint will be found
 		boolean result = false;
 		// we need atleast 3 empty cells in the region for a Hidden Pair
 		// to remove any maybes (2 cells in Pair + 1 to remove from)
-		if ( region.emptyCellCount > degree ) {
+		if ( r.emptyCellCount > degree ) {
 			// there are sufficient empty cells in this region
 			// a candidateValue has 2..degree possible positions in this region
 			final int[] candidates = this.candidates;
 			// the number of cells in each aligned set
 			final int degree = this.degree;
 			// this regions ridx values 1..9
-			final Indexes[] rio = region.ridx;
+			final Indexes[] rio = r.ridx;
 			// select the candidate values (with 2..degree places in region)
 			int n = 0; // number of candidate values
 			for ( int v=1,card; v<VALUE_CEILING; ++v ) // 27*9 = 243
@@ -134,18 +122,21 @@ public final class HiddenSet extends AHinter {
 			// if there are at least degree candidate values
 			if ( n >= degree ) {
 				// Last stack-frame til we hint. Declare all here, not in loop.
-				Pots reds; // removable (red) Cell=>Values
-				int i // ubiquitous index
+				int i // the ubiquitous index
+					  // hijacked as bitset of removable potential values
 				  , indexes // bitset of indexes-in-region-cells of hidden set
-				  , values; // bitset of values in the hidden set
-				// foreach possible combination of degree candidateValues.
+				  , cands; // bitset of values in the hidden set
+				final Pots reds = this.reds; // removable (red) potentials
+				boolean any = false;
+				// foreach possible combination of degree candidate values.
 				// ------------------------------------------------------------
-				// Note: [Direct]HiddenPairs is the first use of Permutations
-				// in each solve, so any bugs there tend to show up here. Each
-				// perm is an array of degree indexes in the candiValues array.
-				// Each perm is actually thePA, which was been repopulated with
+				// Each perm is an array of degree indexes in candidates array.
+				// The perm array is actually thePA, that next repopulates with
 				// a distinct set of indexes; so all perm's equals all possible
-				// combinations of candidateValues.
+				// combinations of degree (thePA.length) candidate values
+				// amongst these 'n' candidate values.
+				// Note: [Direct]HiddenPairs is the first use of Permutations
+				// in each solve, so any bugs there tend to show up here.
 				// ------------------------------------------------------------
 				for ( int[] perm : new Permutations(n, thePA) ) {
 					// look for $degree positions for these $degree values.
@@ -157,16 +148,30 @@ public final class HiddenSet extends AHinter {
 					// if there are degree positions for our degree values
 					if ( VSIZE[indexes] == degree ) {
 						// build a bitset of the hidden set values
-						values = 0;
+						cands = 0;
 						for ( i=0; i<degree; ++i )
-							values |= VSHFT[candidates[perm[i]]];
-						// if there's degree bloody values (seen 1 in generate)
-						if ( VSIZE[values] == degree
-						  // and any eliminations then create and add hint
-						  && (reds=eliminate(region, values, indexes)) != null ) {
+							cands |= VSHFT[candidates[perm[i]]];
+						// WTF: seen 1 in Generate
+// never happens: code retained just in case it ever happens again.
+//						if ( VSIZE[cands] != degree )
+//							throw new UnsolvableException("Eel vomit!");
+// techies only: in Generate but not in the batch.
+						assert VSIZE[cands] == degree : "VSIZE[cands]="+VSIZE[cands]+" != degree="+degree;
+						// foreach cell in the hidden set which has maybes
+						// other than the hidden set values, eliminate all
+						// "other" maybes from this cell
+						for ( int j : INDEXES[indexes] )
+							// i hijacked as a bitset of maybes to remove
+							if ( (i=(r.cells[j].maybes & ~cands)) != 0 ) {
+								reds.put(r.cells[j], i);
+								any = true;
+							}
+						// if any eliminations then create and add hint
+						if ( any ) {
 							// FOUND HiddenSet! (about 80% skip)
-							final AHint hint = createHint(region, values
-									, indexes, reds, accu);
+							// NOTE: HiddenSetDirect overrides createHint.
+							final AHint hint = createHint(r, cands, indexes
+									, reds.copyAndClear());
 							if ( hint != null ) {
 								result = true;
 								if ( accu.add(hint) )
@@ -177,6 +182,7 @@ public final class HiddenSet extends AHinter {
 						// even if we didn't actually hint here
 						if ( n < degree<<1 )
 							return result;
+						any = false;
 					}
 				} // next permutation
 			}
@@ -185,80 +191,24 @@ public final class HiddenSet extends AHinter {
 	}
 
 	/**
-	 * Build the removable (red) Cell=&gt;Values to see if any exist before
-	 * creating the hint. All potential values other than the hidden set
-	 * values can be removed from each cell in the hidden set.
-	 *
-	 * @param region the region that we're searching
-	 * @param values a bitset of the hidden set values
-	 * @param indexes a bitset of indexes in region.cells of cells in the
-	 *  hidden set
-	 * @return removable (red) Pots if any, else null (about 80%)
-	 */
-	private Pots eliminate(ARegion region, int values, int indexes) {
-		int pinks;
-		Pots reds = null;
-		for ( int i : INDEXES[indexes] )
-			if ( (pinks=(region.cells[i].maybes & ~values)) != 0 ) {
-				if ( reds == null )
-					reds = new Pots();
-				reds.put(region.cells[i], pinks);
-			}
-		return reds;
-	}
-
-	/**
 	 * Create and return a new AHint, else null meaning none.
-	 * <pre>
-	 * if the Tech passed to my constructor isDirect then
-	 *     return a new HiddenSetDirectHint, else null meaning none;
-	 * else
-	 *     return a new HiddenSetHint, always.
-	 * </pre>
-	 * Note that if Direct hidden sets are wanted then they ALWAYS run before
-	 * the "normal" hidden set hinters, so there will be no hidden sets which
-	 * cause hidden singles remaining when the "normal" hinters run.
+	 * <p>
+	 * Note: createHint is protected coz it's overridden by HiddenSetDirect.
 	 *
 	 * @param r the region that we're searching
 	 * @param values a bitset of the values in the hidden set
 	 * @param indexes a bitset of indexes in r of the cells in the hidden set
 	 * @param reds the removable (red) Cell=>Values
-	 * @param accu an implementation of IAccumulator
 	 * @return the new hint, else null meaning none
 	 */
-	private AHint createHint(ARegion r, int values, int indexes, Pots reds
-			, IAccumulator accu) {
+	protected AHint createHint(final ARegion r, final int values
+			, final int indexes, final Pots reds) {
 		// build the highlighted (green) Cell=>Values
 		final Pots greens = new Pots(r.cells, indexes, values, F, F);
 		// build an array of the cells in this hidden set (for the hint)
 		final Cell[] cells = r.atNew(indexes);
-		//
-		// NORMAL MODE: A Hint has been found
-		//
-		if ( !tech.isDirect )
-			return new HiddenSetHint(this, cells, values, greens, reds, r
-					, indexes);
-		//
-		// DIRECT MODE: Does this Hidden Set cause a Hidden Single?
-		//
-		// Direct mode is slower, so never used by SingleSolution
-		assert !"diuf.sudoku.solver.hinters.chain.ChainersHintsAccumulator"
-				.equals(accu.getClass().getCanonicalName());
-		// do the eliminations cause a hidden single?
-		int bits;
-		// foreach value EXCEPT the hidden set values
-		// NOTE: Logically it should be foreach value that has been removed,
-		// but there's no fast way to calculate that, AFAIK, so this'll do;
-		// so I'm leaving the "has been removed" part to the if-statement,
-		// which will erroneously find ALL HiddenSingles in this region, but
-		// HiddenSingle runs BEFORE HiddenSet, so it's all good, except in
-		// Shft-F5 with filterHints off, where this produces false positives.
-		for ( int v : VALUESES[VALL & ~values] )
-			if ( VSIZE[bits=r.ridx[v].bits & ~indexes] == 1 )
-				// this aligned set causes a Hidden Single
-				return new HiddenSetDirectHint(this, cells, values, greens
-						, reds, r, v, r.cells[IFIRST[bits]]);
-		return null; // No hidden single found
+		return new HiddenSetHint(this, cells, values, greens, reds, r
+				, indexes);
 	}
 
 }

@@ -14,8 +14,10 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Run;
 import static diuf.sudoku.Settings.THE_SETTINGS;
+import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.solver.hinters.chain.ChainerHacu;
 import diuf.sudoku.solver.hinters.hdnset.HiddenSet;
 import diuf.sudoku.solver.hinters.hdnset.HiddenSetHint;
@@ -23,6 +25,7 @@ import diuf.sudoku.utils.Permutations;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -66,13 +69,12 @@ public final class SiameseLocking extends Locking {
 
 	/**
 	 * Constructor for "normal mode".
-	 * @param hiddenPair
-	 * @param hiddenTriple
+	 * @param basics
 	 */
-	public SiameseLocking(HiddenSet hiddenPair, HiddenSet hiddenTriple) {
+	public SiameseLocking(Map<Tech,IHinter> basics) {
 		super();
-		this.hiddenPair = hiddenPair;
-		this.hiddenTriple = hiddenTriple;
+		this.hiddenPair = (HiddenSet)basics.get(Tech.HiddenPair);
+		this.hiddenTriple = (HiddenSet)basics.get(Tech.HiddenTriple);
 	}
 
 	@Override
@@ -92,22 +94,22 @@ public final class SiameseLocking extends Locking {
 	 * Searches the given grid for Pointing (box on row/col) and Claiming
 	 * (row/col on box) Hints, which are added to the given HintsAccumulator.
 	 * <p>
-	 * S__t goes weird in "speed mode" when a HintsApplicumulator was passed to
-	 * my Constructor, in which case we apply each hint now (to autosolve grid)
-	 * and then pass-back the total elims in a AppliedHintsSummaryHint to
-	 * getHints-caller via the "normal" HintsAccumulator passed into getHints.
+	 * "Siamese" is multiple Locking hints on different values in a region; so
+	 * I'm not finding my own hints, merely parsing Locking hints to merge the
+	 * siamese ones, which I do using a SiameseLockingAccumulator that calls
+	 * me back when it's done searching each region.
 	 * <p>
-	 * It's all bit complicated, so writing an explanation seems harder than
-	 * writing the code, and I expect the explanation is probably harder to
-	 * understand than the code. I just suck at explaining stuff. sigh.
-	 * <p>
-	 * Note that the HintsApplicumulator has a "debug mode" where it populates
-	 * a StringBuilder with the-full-string of each hint applied to the grid.
+	 * NOTE: "Siamese" a nicety: I just re-present existing hints succinctly.
+	 * I do not find any new hints, so I'm a waste of time in the batch; hence
+	 * SiameseLocking is used only in the GUI. Basically, I wrote this just for
+	 * the challenge of doing so, which seemed like a good idea at the time.
 	 *
+	 * @param grid the puzzle to search for hints
+	 * @param accu the IAccumulator to which I add hints
 	 * @return was a hint/s found.
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		// Siamese breaks test-cases, so SiameseLockingTest says it's GUI
 		if ( Run.type != Run.Type.TestCase
 		  // no chainers!
@@ -119,7 +121,7 @@ public final class SiameseLocking extends Locking {
 			try {
 				this.grid = grid;
 				this.accu = accu;
-				// the hacu is persistent
+				// the hacu is persistent: he calls me back at end-of-region
 				if ( this.hacu == null )
 					this.hacu = new SiameseLockingAccumulator(this);
 				result = super.findHints(grid, hacu);
@@ -152,25 +154,26 @@ public final class SiameseLocking extends Locking {
 	 *
 	 * @param hints
 	 */
-	private List<? extends AHint> removeSubsets(List<? extends AHint> hints) {
+	private List<? extends AHint> removeSubsets(final List<? extends AHint> hints) {
 		// get an array of hints to avoid concurrent modification issues.
-		final int n = hints.size();
+		final int n = hints.size(), m = n - 1;
 		final AHint[] array = hints.toArray(new AHint[n]);
 		// a the lefthand, b the righthand.
 		Pots a, b;
+		int i;
 		// foreach hint except the last
-		for ( int i=0,m=n-1; i<m; ++i ) {
-			if ( (a=array[i].redPots) != null
+		for ( i=0; i<m; ++i ) {
+			if ( (a=array[i].reds) != null
 			  && hints.contains(array[i]) // not already removed
 			) {
 				// foreach subsequent hint (a forward only search)
 				for ( int j=i+1; j<n; ++j ) {
-					if ( (b=array[j].redPots) != null ) {
+					if ( (b=array[j].reds) != null ) {
 						// if b is subset of a then remove b
-						if ( b.isSubsetOf(a) )
+						if ( b.isSubsetOf(a) ) {
 							hints.remove(array[j]);
 						// else if a is a subset of b then remove a
-						else if ( a.isSubsetOf(b) ) {
+						} else if ( a.isSubsetOf(b) ) {
 							hints.remove(array[i]);
 							break; // goto next a
 						}
@@ -193,7 +196,7 @@ public final class SiameseLocking extends Locking {
 	 * eliminations, and remove the old-hints.
 	 * <p>
 	 * We do this in the GUI only because it's a bit slow and only the user
-	 * cares about "hint presentation". LogicalSolverTester, SingleSolution,
+	 * cares about "hint presentation". LogicalSolverTester, BruteForce,
 	 * and the DynamicPlus+ care about Locking hints, but couldn't give three
 	 * parts of a flying-farnarkle about there "succinctness", so it's quicker
 	 * to seek-and-set each in turn.
@@ -210,10 +213,10 @@ public final class SiameseLocking extends Locking {
 	 * "Siamese" are merged, but I can't think of a fast way to tell em apart,
 	 * so I'm a bit too eager. Shoot me!
 	 *
-	 * @param region the region that was searched to find these hints
+	 * @param r the region that was searched to find these hints
 	 * @param list the pointing or claiming hints in this region
 	 */
-	boolean mergeSiameseHints(ARegion region, ArrayList<LockingHint> list) {
+	boolean mergeSiameseHints(final ARegion r, final ArrayList<LockingHint> list) {
 		final int n = list.size();
 		assert n > 1; // or I'm not called
 		final boolean isPointing = list.get(0).isPointing; // else Claiming
@@ -233,16 +236,18 @@ public final class SiameseLocking extends Locking {
 			// foreach possible combination of size hints in our n hints
 			LOOP: for ( int[] perm : new Permutations(n, new int[size]) ) {
 				// build an array of this combo of Locking hints
-				for ( int i=0; i<size; ++i )
+				for ( int i=0; i<size; ++i ) {
 					theseHints[i] = list.get(perm[i]);
+				}
 				// build an Idx of all the cells in these Locking hints
 				idx.set(theseHints[0].idx());
-				for ( int i=1; i<size; ++i )
+				for ( int i=1; i<size; ++i ) {
 					idx.or(theseHints[i].idx());
+				}
 				// search for a Hidden Pair or Triple depending on idx.size
 				switch (idx.size()) {
 				case 2:
-					if ( hiddenPair.search(region, grid, accu)
+					if ( hiddenPair.search(r, grid, accu)
 					  && addElims((HiddenSetHint)accu.peekLast(), grid
 							, newHints, theseHints, size, idx) ) {
 						removeAll(theseHints, list);
@@ -256,7 +261,7 @@ public final class SiameseLocking extends Locking {
 					}
 					break;
 				case 3:
-					if ( hiddenTriple.search(region, grid, accu)
+					if ( hiddenTriple.search(r, grid, accu)
 					  && addElims((HiddenSetHint)accu.peekLast(), grid
 							, newHints, theseHints, size, idx) ) {
 						removeAll(theseHints, list);
@@ -283,25 +288,27 @@ public final class SiameseLocking extends Locking {
 			//     use a HintCache (TreeSet by numElims descending); which we'd
 			//     then use as a cache, but my brain hurts already, without the
 			//     cach complication, so I give it a miss, for now.
-			if ( newHints.size() > 0 )
+			if ( newHints.size() > 0 ) {
 				result = accu.add(newHints.get(0));
-			else if ( list.size() > 0 )
+			} else if ( list.size() > 0 ) {
 				result = accu.add(list.get(0));
+			}
 		} else {
 			// add all available hints
 			result = accu.addAll(newHints);
-			for ( AHint h : list )
+			for ( AHint h : list ) {
 				result |= accu.add(h);
+			}
 		}
 		list.clear();
 		return result;
 	}
 
-	// remove all theseHints from regionHints
-	// nb: done in a loop coz theseHints is an array, not a collection. Sigh.
-	private static void removeAll(LockingHint[] theseHints, ArrayList<LockingHint> regionHints) {
-		for ( LockingHint h : theseHints )
-			regionHints.remove(h);
+	// remove all 'toRemove' from 'from'
+	private static void removeAll(final LockingHint[] toRemove, final ArrayList<LockingHint> from) {
+		for ( LockingHint h : toRemove ) {
+			from.remove(h);
+		}
 	}
 
 	/**
@@ -312,19 +319,21 @@ public final class SiameseLocking extends Locking {
 	 * @param lockingHints
 	 * @return
 	 */
-	private boolean redsAllShareARegion(LockingHint[] lockingHints){
+	private boolean redsAllShareARegion(final LockingHint[] lockingHints){
 		// working storage is for speed only.
 		// we need 2 of them because set.retainAll(set) is nonsensical.
 		// nb: if I wrote retainAll it would assert c!=this;
 		final ArrayList<ARegion> crs = Regions.clear(WS1); // commonRegions
 		final ArrayList<ARegion> ws2 = Regions.clear(WS2); // working storage
 		boolean first = true;
-		for ( LockingHint lh : lockingHints )
+		for ( LockingHint lh : lockingHints ) {
 			if ( first ) {
-				Regions.common(lh.redPots.keySet(), crs);
+				Regions.common(lh.reds.keySet(), crs);
 				first = false;
-			} else
-				crs.retainAll(Regions.common(lh.redPots.keySet(), ws2));
+			} else {
+				crs.retainAll(Regions.common(lh.reds.keySet(), ws2));
+			}
+		}
 		return !crs.isEmpty();
 	}
 	private final ArrayList<ARegion> WS1 = new ArrayList<>(3);
@@ -340,75 +349,79 @@ public final class SiameseLocking extends Locking {
 	 * @param hisHint
 	 * @param grid
 	 * @param newHints
-	 * @param theseHints
+	 * @param mine
 	 * @param size
 	 * @param idx
 	 * @return
 	 */
-	private boolean addElims(
-			  HiddenSetHint hisHint // from NakedSet
-			, Grid grid
-			, List<AHint> newHints
-			, LockingHint[] theseHints // the Locking hints
-			, int size // number of theseHints
-			, Idx idx // of the cells in the Locking hints
+	private static boolean addElims(
+			  final HiddenSetHint hisHint // from NakedSet
+			, final Grid grid
+			, final List<AHint> newHints
+			, final LockingHint[] mine // the Locking hints
+			, final int size // number of theseHints
+			, final Idx idx // of the cells in the Locking hints
 	) {
 		// KRC BUG 2020-08-20 888#top1465.d5.mt UnsolvableException from apply.
 		// Ignore this HiddenSet hint if hisReds do NOT intersect myReds, to
 		// NOT upgrade Claiming's into a HiddenSet that is in another Box.
 		int myReds = 0;
-		for ( int i=0; i<size; ++i )
-			myReds |= theseHints[i].redPots.valuesOf();
-		if ( (hisHint.hdnSetValues & myReds) == 0 )
+		for ( int i=0; i<size; ++i ) {
+			myReds |= mine[i].reds.valuesOf();
+		}
+		if ( (hisHint.hdnSetValues & myReds) == 0 ) {
 			return false;
-
+		}
 		// add my Pointing/Claiming eliminations to the HiddenSetHint's redPots
-		final Pots hisReds = hisHint.redPots;
-		for ( int i=0; i<size; ++i )
-			hisReds.upsertAll(theseHints[i].redPots);
-
+		final Pots heds = hisHint.reds;
+		for ( int i=0; i<size; ++i ) {
+			heds.upsertAll(mine[i].reds);
+		}
 		// and also claim the values of the HiddenSet from each common region.
 		// Note that point/claim elims are from only ONE common region and we
 		// want the other one (if any) also. Q: How to calc "the other one"?
 		// A: Pass down the frickin point/claim region ya putz! Sigh.
-		final int hdnSetVals = hisHint.hdnSetValues;
-		final Idx tmp = new Idx(); // just working storage for r.idxOf
-		final Cell[] cells = grid.cells; // just working storage for r.idxOf
+		final int hsv = hisHint.hdnSetValues;
+		final Idx tmp = TMP; // just working storage for r.idxOf
+		final Cell[] cs = grid.cells; // just working storage for r.idxOf
 		// foreach region common to all the cells in theseHints
-		for ( ARegion r : commonRegions(cells, idx) )
-			r.idxOf(hdnSetVals, tmp).andNot(idx).forEach(cells, (cell) ->
-				hisReds.upsert(cell, cell.maybes & hdnSetVals, false));
+		for ( ARegion cr : commonRegions(cs, idx) ) {
+			cr.idxOf(hsv, tmp).andNot(idx).forEach(cs, (c) ->
+				heds.upsert(c, c.maybes & hsv, false));
+		}
 		// and add hisHint to newHints.
 		newHints.add(hisHint);
 		return true;
 	}
+	private static final Idx TMP = new Idx(); // working storage for idxOf
 
 	/**
 	 * Return the regions (expect 1 or 2 of them, so make it 3 to be safe)
 	 * common to all cells in the given idx.
 	 *
-	 * @param cells the cells of the grid we're solving
-	 * @param idx containing indices you want
+	 * @param cells grid.cells
+	 * @param idx indices to find the common regions of
 	 * @return a {@code ArrayList<ARegion>} may be empty, but never null.
 	 */
-	private ArrayList<ARegion> commonRegions(Cell[] cells, Idx idx) {
+	private static ArrayList<ARegion> commonRegions(final Cell[] cells, final Idx idx) {
 		assert idx.size() > 1;
-		final int[] idxArray = idx.toArrayA(); // get an array ONCE
+		final int[] a = idx.toArrayA(); // get an array ONCE
 		final ArrayList<ARegion> result = new ArrayList<>(2);
-		ARegion commonRegion, cellsRegion;
+		ARegion cr, r;
 		for ( int rti=0; rti<3; ++rti ) {
-			commonRegion = null;
-			for ( int i : idxArray ) {
-				cellsRegion = cells[i].regions[rti];
-				if ( commonRegion == null ) // the first cell
-					commonRegion = cellsRegion;
-				else if ( cellsRegion != commonRegion ) {
-					commonRegion = null;
+			cr = null;
+			for ( int i : a ) {
+				r = cells[i].regions[rti];
+				if ( cr == null ) { // the first cell
+					cr = r;
+				} else if ( r != cr ) {
+					cr = null;
 					break; // not all cells share a region of this type
 				}
 			}
-			if ( commonRegion != null )
-				result.add(commonRegion);
+			if ( cr != null ) {
+				result.add(cr);
+			}
 		}
 		return result;
 	}

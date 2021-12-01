@@ -6,8 +6,6 @@
  */
 package diuf.sudoku;
 
-import static diuf.sudoku.utils.Frmt.SPACE;
-
 /**
  * Build holds the project-name, version number and build date-time.
  * <p>
@@ -16,30 +14,42 @@ import static diuf.sudoku.utils.Frmt.SPACE;
  *
  * To Build:
  * 0. search for @todo and deal with them. A few hangovers is OK. 5 isn't.
- *    If you can't or won't deal with it then change it to a @strech.
+ *    If you can't or won't deal with it now then change it to a @strech.
+ *    I'm more relaxed about @strech's because they're a stretch.
  * 1. search for @check and fix any settings you've changed
- *    * find usages: diuf.sudoku.utils.Debug.breakPoint. It's embarrassing
- *      they make it into production. Harmless, but embarrassing.
+ *    * in a hurry: false.*@check true|true.*@check false
+ *    * find usages: {@link diuf.sudoku.utils.Debug#breakpoint() }.
+ *      It's embarrassing when they make it into prod, but mostly harmless.
  * 2. run the test cases (Alt F6)
- *    * if any failures: dismiss or (fix and start again!)
- *    * you may need to REPROCESS, but careful with that axe Eugeene.
+ *    * if any failures: dismiss/fix them all and then start again. A few known
+ *      test-case failures are OK. More than about three sux.
+ *    * you may need to REPRODUCE some to update the hint-html. Careful with
+ *      that axe Eugeene. Diff the EXPECT and ACTUAL html in your text-editor.
  * 3. change the below VERSION and BUILT settings
- *    * add a comment to Builds.java: seconds = build number % 60
+ *    * add a comment to Build.java (end-of-this-file)
+ *      - build-time-seconds = build number % 60
+ *      - don't forget to change the build number and date time after adding
+ *        your comment (my favourite ____-up)
  * 4. if you haven't run the batch lately (you need a log-file):
  *    * clean and build LogicalSolverTester (aka the batch)
- *    * run it in CMD with run.bat (java.exe seems to optimise better than
- *      Netbeans java-runtime, but that might just be my perception)
- * 5. add a comment to diuf.sudoku.solver.LogicalSolverTimings
+ *    * run it in CMD with batch.bat (java.exe seems to optimise better than
+ *      Netbeans java-runtime, but that might just be my perception), and one
+ *      does NOT want to become Netbeans dependant, which may happen silently
+ *      if that's your only execution environment.
+ * 5. add a comment to {@link diuf.sudoku.BuildTimings}
  *    * using the log-file from a recent batch run (Step 4).
  * 5. clean and build the &lt;default config&gt; (the GUI, not the batch, putz)
  *    * try running the batch again, it should tell you to get stuffed.
- *    * change the file-name to SudokuExplainer.log and go again, to check
- *      that the GUI basically works. Help ~ about to check that release
- *      date and time is as it should be.
- * 6. create a back-up IMMEDIATELY: No code changes.
- *    * Do it IMMEDIATELY coz I once broke commenting when committing, and
- *      so committed the ultimate putz-act: Checked-in code that does not
- *      compile. Procedures matter!
+ *    * change the file-name to SudokuExplainer.log and go again:
+ *      * Does the GUI work at all?
+ *      * Help ~ about: is the release number date and time correct?
+ *      * Analyse some puzzles (happens when you Ctrl-P next-puzzle). Look ok?
+ *      * F5-enter through the first 2-or-3 puzzles in top1465.d5.mt. Look ok?
+ *      * Generate an IDKFA, or two. No crash?
+ *      * Ctrl-L your recently modified hint-types. Look ok?
+ * 6. commit: create a .7z back-up IMMEDIATELY: No code changes!
+ *    * ANY line change renders production stack-traces misleading.
+ *    * I once broke it fixing comments after testing but before committing.
  *
  * To Ship:
  * 1. delete *.log from DiufSudoku; then create the .7z for shipping.
@@ -569,7 +579,7 @@ import static diuf.sudoku.utils.Frmt.SPACE;
  *			side-by-side to see which tech's generate Difficulty requires,
  *			but unfortunately TechSelect is still modal. sigh.
  * 6.30.131 2021-05-19 08:07:11 Building for release because we're going
- *			shopping today. I've been pissing-about with BasicFisherman1
+ *			shopping today. I've been pissing-about with BasicFisherman
  *			to make it faster than BasicFisherman, and failing. sigh.
  * 6.30.132 2021-05-25 09:24:12 Release coz we're shopping today. I've been
  *			updating comments, hint explanations, and documentation. Still
@@ -625,7 +635,62 @@ import static diuf.sudoku.utils.Frmt.SPACE;
  *			rcc.which, to enspeedonate.
  * 6.30.159 2021-07-30 06:38:39 RccFinder completely decomposed.
  * 6.30.160 2021-08-11 07:10:40 build to clean-up old logs.
- * 6.30.161 2021-08-12 12:57:42 BasicFisherman1 now faster than BasicFisherman.
+ * 6.30.161 2021-08-12 12:57:41 BasicFisherman now faster than BasicFisherman.
+ * 6.30.162 2021-09-04 04:57:42 Hidden/NakedSetDirect, Tech.MULTI_CHAINERS,
+ *          de-obfuscate Cheats, Grid.idxs not passed into ALS-hinters,
+ *          LogicalSolverBuilder; build for back-up and to clean-up logs
+ * 6.30.163 2021-09-06 11:23:43 Minor tweaks to align2.AlignedExclusion.
+ *			Release coz I'm shopping.
+ * 6.30.164 2021-09-21 09:28:44 failed to speed-up AlsWing and AlsChain. sigh.
+ *          I build just to clean-up the log-files.
+ * 6.30.165 2021-09-29 was rooted so I deleted it.
+ * 6.30.166 2021-10-07 09:00:46 new AlsChain1 intended to be a faster AlsChain,
+ *			but it's not right. It's faster, but relies on the Validator to
+ *			suppress bad hints; so unusable. Build to clean-up old log-files.
+ * 6.30.167 2021-10-10 16:35:47 AlsChain now takes about 4.5 times to find 1.5
+ *          times as many hints. I also reordered the hinters but that's slower
+ *          too. sigh. I'm just not was worried about performance as I was coz
+ *          it's all now "basically fast enough", and any top1465 time under
+ *          about three minutes feels "snappy enough" in the GUI (on an i7).
+ * 6.30.168 2021-10-11 17:33:48 AlsChain faster, so now it takes 3 times to
+ *          find 1.5 times as many hints, by caching the related RCC's by
+ *			previousAlsIndex and previousCandToExclude.
+ * 6.30.169 2021-10-13 10:18:49 AlsChain now filters its filter: da inline loop
+ *			method (an O(n) operation) executes only when the new ALS (a) might
+ *			be in the loop. It's a bit faster.
+ * 6.30.170 2021-10-17 11:01:50 "nieve" AlsChain is about 10% slower dan "fast"
+ *			but is maintainable; so LENGTH=6, TIMEOUT=500 elims 1776 in 03:06,
+ *          and top1465 in 03:00 still feels "pretty snappy" in the GUI, so OK.
+ * 6.30.171 2021-10-18 19:02:51 inlined everything in AlsChain again, for speed
+ *			and it's about 20% faster than the nieve version.
+ * 6.30.172 2021-10-19 09:37:52 Still pissin about wit AlsChain. Dropped LENGTH
+ *			to 6, reinstated length loop and moved timeout into i loop.
+ * 6.30.173 2021-10-20 10:21:53 Updated AlsWing and AlsXz with learnings from
+ *			AlsChain. They're both just a little faster, and cleaner, IMHO.
+ * 6.30.174 2021-10-20 14:29:54 AlsChain.TIMEOUT from 125 to 16, which costs 23
+ *			elims but saves 34 seconds.
+ * 6.30.175 2021-10-21 09:30:55 Removed Idx.pots method coz mutating a param is
+ *			poor form: mutate THIS, not that, ergo Pots.upsertAll. My bad. Soz.
+ * 6.30.176 2021-10-22 18:11:56 Reduced AlsChain.TIMEOUT to just 8 ms. Tried
+ *			making the RccFinder find only Rcc's with one RC-value and an extra
+ *			common value, finds ~60% in ~30% of time. @stretch AlsChain Hacked.
+ * 6.30.177 2021-10-25 11:08:57 Still playing with AlsChain. I hit a problem
+ *			with the non-determinism of the TIMEOUT approach so I've ripped-out
+ *			the growing length search and dropped LENGTH back to 4, but da code
+ *			that does length-growing is still there but commented out. It finds
+ *			less AlsChains, in about the same time, but is deterministic; which
+ *			I now feel trumps all other concerns, even correctness. I'd rather
+ *			be consistently wrong than occassionaly right. So that worked out
+ *			well. Sighing lols.
+ * 6.30.178 2021-10-26 13:34:58 Separate Tech's for ALS_Chain_4..ALS_Chain_7
+ *			Each AlsChain now finds all 4..degree chains, so you select one of
+ *			them at a time, coz it's a bit faster. RCC_CACHE is back for speed.
+ *			TechSelectDialog selects one ALS_Chain_* at a time.
+ * 6.30.179 2021-10-27 17:56:59 AlsChain rccCache has it's own IAS (a cache of
+ *			int[]'s) instead of creating them on the fly, so I got ALS_Chain_7
+ *			into my three minute window, to keep the GUI "pretty snappy".
+ * 6.30.180 2021-10-28 10:10:10 AlsChain has ANY_RELATED_RCCS and alsCeiling,
+ *			so it's a tad faster. The hunter, is still endlessly seeking.
  * </pre>
  *
  * @author Keith Corlett 2013 - 2021
@@ -635,14 +700,21 @@ public final class Build {
 	/** The TITLE of this application. */
 	public static final String TITLE = "DiufSudoku";
 
-	/** The VERSION number of this build. */
-	public static final String VERSION = "6.30.161";
+	/**
+	 * The VERSION.SUB.BUILD number of this build.
+	 * <pre>
+	 * VERSION changes when default input/output file format changes;
+	 * SUB should change when "other dependencies" change (I'm bad);
+	 * BUILD increments every other time.
+	 * </pre>
+	 */
+	public static final String VERSION = "6.30.180";
 
-	/** The BUILT date of this build. */
-	public static final String BUILT = "2021-08-12 12:57:42";
+	/** The date and time I BUILT this build. */
+	public static final String BUILT = "2021-10-28 10:10:10";
 
-	/** APPLICATION_TITLE_AND_VERSION is too long, so I went bush. */
-	public static final String ATV = TITLE + SPACE + VERSION;
+	/** Application Title and Version (for presentation). */
+	public static final String ATV = TITLE + " " + VERSION;
 
 	private Build() { } // never called
 }

@@ -13,14 +13,14 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.solver.hinters.Validator;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 /**
  * XColoringHint is the Extended Coloring hint DTO.
@@ -91,13 +91,13 @@ public class GEMHint extends AHint  {
 	 */
 	@Override
 	public double getDifficultyTotal() {
-		return getDifficulty() + (redPots.totalSize() * 0.01);
+		return getDifficulty() + (reds.totalSize() * 0.01);
 	}
 
 	@Override
 	protected String toStringImpl() {
 		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(greenCells).append(COMMA_SP).append(blueCells)
+		  .append(greenCells).append(CSP).append(blueCells)
 		  .append(ON).append(v)
 		  .toString();
 	}
@@ -120,7 +120,7 @@ public class GEMHint extends AHint  {
 		sb.append("<html><body>").append(NL);
 		if ( isInvalid )
 			sb.append("<h2>").append("<r>INVALID</r> ").append(getHintTypeName()).append("</h2>").append(NL)
-			  .append("<r><b>").append(HintValidator.prevMessage).append("</b></r><p>").append(NL);
+			  .append("<r><b>").append(Validator.prevMessage).append("</b></r><p>").append(NL);
 		else
 			sb.append("<h2>").append(htmlHintTypeName()).append("</h2>").append(NL);
 	    sb.append("There are two extended coloring sets:<pre>").append(NL)
@@ -136,7 +136,7 @@ public class GEMHint extends AHint  {
 			  .append("</pre>").append(NL);
 		}
 		sb.append("<p>").append(NL)
-		  .append("Therefore <r>we can remove <b>").append(redPots.toString()).append("</b></r>.").append(NL);
+		  .append("Therefore <r>we can remove <b>").append(reds.toString()).append("</b></r>.").append(NL);
 	    // append the pre-made html-snippet in GEMHintExplanation.html
 		sb.append("<p>").append(NL)
 		  .append(Html.load(this, "GEMHintExplanation.html"));

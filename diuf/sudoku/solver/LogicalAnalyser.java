@@ -15,17 +15,24 @@ import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.utils.Log;
 
 /**
- * A LogicalAnalyser is a wrapper that turns the LogicalSolver into an IHinter.
- * It solves a Sudoku puzzle (a Grid) logically, to work-out how difficult that
- * is, and produce a summary of the solving techniques that were applied in
- * order to solve the puzzle.
+ * A LogicalAnalyser presents LogicalSolver.solve as an IHinter. It solves a
+ * Sudoku puzzle logically, to work-out how difficult that is, and produce a
+ * summary of the solving techniques (by type) that were applied in order to
+ * solve the puzzle.
  * <p>
- * I'm a wafer-thin single-use class: I just present LogicalSolver.solve in an
- * IHinter's clothing. LogicalAnalyser and LogicalSolver are codependant. They
- * MUST be in the same package. The analyser calls back the LogicalSolver
- * passed to it's constructor, so analysers are ALWAYS automatic variables (not
- * fields) so that: he comes, he's used, he goes. My constructor takes the
- * logHints and logTimes settings. I'm single use. I'm only waffer-thin!
+ * I'm a waffer-thin <b>single-use</b> IHinter facade for LogicalSolver.solve.
+ * LogicalAnalyser and LogicalSolver are codependant: they MUST be in the same
+ * package. My constructor takes the logHints and logTimes params that would
+ * normally be passed to findHints, if that were possible, which it isn't coz
+ * findHints is defined by IHinter and I must be an AWarningHinter (extends
+ * AHinter, which implements IHinter) in order to be a validator, and I
+ * abso-____ing-lutely <u>must</u> be a validator, it's what I exist for. sigh.
+ * <p>
+ * LogicalAnalyser calls back the LogicalSolver passed to its constructor,
+ * hence I am ALWAYS an automatic variable, not a field, so: <br>
+ * I come, I findHints, then I go.
+ * <p>
+ * So, a LogicalAnalyser is only waffer-thin and it's <b>single-use</b>!
  *
  * @see diuf.sudoku.solver.checks.AnalysisHint
  *
@@ -67,11 +74,13 @@ public final class LogicalAnalyser extends AWarningHinter {
 
 	/**
 	 * {@inheritDoc}
-	 *
 	 * <p>
-	 * This implementation produces a single AnalysisHint (a WarningHint)
-	 * containing the difficulty rating of the Sudoku puzzle and a list of
-	 * the hints (by type) that were applied in order to solve it.
+	 * LogicalAnalyser is a wafer-thin wrapper for {@link LogicalSolver#solve}.
+	 * <p>
+	 * LogicalAnalyser's implementation of findHints produces a single
+	 * AnalysisHint (a WarningHint) containing the difficulty rating of the
+	 * given puzzle, and a summary of the hints (by type) that were applied
+	 * in order to solve it.
 	 * <p>
 	 * If the puzzle cannot be solved (is invalid) then a "raw" WarningHint is
 	 * produced, but it's pre-validated by LogicalSolver.analyse, so it should
@@ -82,30 +91,25 @@ public final class LogicalAnalyser extends AWarningHinter {
 		try {
 			// run the puzzleValidators and the gridValidators seperately
 			// here because differentiating a WarningHint is complicated.
-			final AHint warning = solver.validatePuzzleAndGrid(grid, false);
-			if ( warning != null )
+			final AHint warning = solver.validatePuzzleAndGrid(grid, F);
+			if ( warning != null ) {
 				return accu.add(warning);
+			}
 			final UsageMap usage = new UsageMap();
-			// nb: synchronized so that the generator thread waits for analyse
+			// I'm synchronized so that the generator thread waits for analyse
 			// (ie solve) to finish before generating a puzzle to replenish its
 			// cache. Cant run two solves concurrently coz of stateful statics.
-			// KRC 2019 OCT @strech I really should clean-up those statics with
-			// new RunContext holds all stateful objects in non-static fields.
-			final boolean isSolved;
+			final boolean ok; // did the puzzle solve
 			synchronized ( LogicalSolver.ANALYSE_LOCK ) {
 				// call-back the LogicalSolver that created me.
-				isSolved = solver.solve(grid, usage, false, false, logHints
-						, logTimes);
+				ok = solver.solve(grid, usage, F, F, logHints, logTimes);
 			}
-			if ( isSolved )
-				accu.add(new AnalysisHint(this, usage));
-			else
-				accu.add(solver.UNSOLVABLE_HINT);
+			accu.add(ok? new AnalysisHint(this, usage): solver.unsolvableHint);
 		} catch (InterruptException ex) {
 			return false;
 		} catch (Exception ex) {
 			StdErr.whinge(Log.me()+" exception", ex);
-			accu.add(solver.UNSOLVABLE_HINT);
+			accu.add(solver.unsolvableHint);
 		}
 		return true;
 	}

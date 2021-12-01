@@ -19,7 +19,7 @@
 package diuf.sudoku.utils;
 
 import static diuf.sudoku.utils.Frmt.EQUALS;
-import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.SP;
 
 /**
  * LongLongHashMap is a {@code java.util.HashMap<long, long>} which supports
@@ -44,7 +44,7 @@ public class LongLongHashMap {
 		}
 		@Override
 		public String toString() {
-			return ""+key+EQUALS+value+SPACE+next; // No loops!
+			return ""+key+EQUALS+value+SP+next; // No loops!
 		}
 		@Override
 		public boolean equals(Object o) {

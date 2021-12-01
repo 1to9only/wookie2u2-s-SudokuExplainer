@@ -119,12 +119,12 @@ public class GEM extends AHinter implements IPreparer
 
 	// Should hints be validated internally. Set me true when you ____ with the
 	// promotions method, to check for invalid hints. I'm more forgiving than
-	// the traditional HintValidator approach.
+	// the standard Validator approach.
 	// NOTE: YOU WILL ALSO NEED TO UNCOMMENT MY CODE!!!
 	// Call: cleanRedPots to throw/remove invalid eliminations, and
 	// Call: cleanSetPots to throw/remove invalid cell-values-to-set.
 	//
-	// NOTE this validation is besides the "normal" HintValidator, which can't
+	// NOTE this validation is besides the "normal" Validator, which can't
 	// just remove the little bastards to keep things going, to show you what's
 	// ____ed-up, so that you can fix it. The problem with error handlers is
 	// they PREVENT you from seeing what the problem is. So you disable them
@@ -416,8 +416,8 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		// DEAD_CAT disables a hinter DURING solve (which does disabled only
-		// BEFORE kick-off) so each hinter that's ever gone DEAD_CAT checks
+		// deadCat disables a hinter DURING solve (which does disabled only
+		// BEFORE kick-off) so each hinter that's ever gone deadCat checks
 		// isEnabled itself. I'm re-enabled by the prepare method, so I'm down
 		// for this puzzle only. I'll get you next time Batman. Unfortunately
 		// when you reload the current puzzle prepare is not called. I should
@@ -443,17 +443,20 @@ public class GEM extends AHinter implements IPreparer
 			for ( int i=0,n=startingValues(); i<n; ++i ) { // repopulate scores
 				final int v = scores[i].value;
 				for ( ARegion r : grid.regions ) {
-//if ( v==7 && r.id.equals("box 4") )
-//	Debug.breakpoint();
+//if ( v==8 && r.id.equals("box 4") )
+//	diuf.sudoku.utils.Debug.breakpoint();
 					// if v has 2 possible positions in this region
-					if ( r.ridx[v].size == 2
-					  // and we haven't already painted this cell-value.
-					  && !done[v].has((cell=r.first(v)).i)
-					  // and the search finds something
-					  && ( result |= search(cell, v) )
-					  // and we want onlyOne hint
-					  && onlyOne )
+					if ( ( r.ridx[v].size == 2
+						// and we haven't already painted this cell-value.
+						&& !done[v].has((cell=r.first(v)).i)
+						// and the search finds something
+						&& ( result |= search(cell, v) ) // search disables me!
+						// and we want onlyOne hint
+						&& onlyOne )
+					  || !isEnabled // or I'm now disabled!
+					) {
 						return result; // all done
+					}
 				}
 			}
 		// This indicates an invalid grid so now throws UnsolvableException.
@@ -618,7 +621,7 @@ public class GEM extends AHinter implements IPreparer
 			if ( (subtype=contradictions()) != 0
 			  // presuming that the opposite color isn't rooted too (sigh)
 			  && (hint=createBigHint(v, subtype)) != null
-			  // validate the hint if HintValidator.GEM_USES
+			  // validate the hint if Validator.GEM_VALIDATES
 			  && validSetPots("Contradiction", hint)
 			) {
 				result = true;
@@ -678,6 +681,18 @@ public class GEM extends AHinter implements IPreparer
 			// happen, but it did, so it's handled, sort of. The thing to do
 			// is ensure that cells are not overpainted. Care is required.
 			Log.println("WARN: GEM: Overpaint: "+ex.getMessage());
+			return false;
+		} catch ( NoBananasException ex ) {
+			// for reasons I cannot fathom AlsChain* causes GEM to overpaint,
+			// so when an overpaint occurs a hack is to give-up and temporarily
+			// disable AlsChain, where the actual problem lies, apparently.
+			Log.teeln("WARN: GEM disabled: Overpaint: "+ex.getMessage());
+			setIsEnabled(false);
+			final LogicalSolver ls = LogicalSolverFactory.get();
+			ls.disable(Tech.ALS_Chain_4);
+			ls.disable(Tech.ALS_Chain_5);
+			ls.disable(Tech.ALS_Chain_6);
+			ls.disable(Tech.ALS_Chain_7);
 			return false;
 		}
 		return result;
@@ -746,7 +761,7 @@ public class GEM extends AHinter implements IPreparer
 	 * @throws OverpaintException when a cell-value is painted in both colors.
 	 */
 	private boolean paint(Cell cell, int v, int c, boolean biCheck, String why)
-			throws OverpaintException {
+			throws OverpaintException, NoBananasException {
 		Cell otherCell; // the only other cell in this region which maybe v
 		int otherValue; // the only other value of this bivalue cell
 		// constants for understandability and speed (sort of).
@@ -775,8 +790,10 @@ public class GEM extends AHinter implements IPreparer
 		// implement. Until it's all right then none of it's right. One misstep
 		// breaks everything. So development is ONLY incremental, step by slow
 		// step; double-checking each fully before moving on.
-		if ( otherColor[v].has(i) )
-			throw new OverpaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
+		if ( otherColor[v].has(i) ) {
+//			throw new OverpaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
+			throw new NoBananasException(cell.id+MINUS+v+" is already "+COLORS[o]);
+		}
 
 		// 1. Paint the given cell-value this color
 		colors[c][v].add(i);
@@ -904,7 +921,7 @@ public class GEM extends AHinter implements IPreparer
 							// a Hidden Single from buddies of colors, ergo the
 							// cell to paint is nondeterministic, which is NOT
 							// what we want)
-							if ( sb.idxs[v].andAny(c2.buds)
+							if ( sb.idxs[v].intersects(c2.buds)
 							  // and the "shoot back" rule
 							  && tmp2.setAndNot(sb.idxs[v], c2.buds).size() == 1
 							) {
@@ -1117,7 +1134,7 @@ public class GEM extends AHinter implements IPreparer
 							if ( tmp1.setAndNotAny(grid.regions[ri].idxs[v1], BUDDIES[ii])
 							  && tmp1.size() == 1
 							  // and that source box v is this color
-							  && tmp1.andAny(colors[c][v1])
+							  && tmp1.intersects(colors[c][v1])
 							  // pre-check it's not already painted for speed
 							  // We need to check in here (not pre-check) incase
 							  // it's painted in this loop, otherwise we hit the
@@ -1223,7 +1240,7 @@ public class GEM extends AHinter implements IPreparer
 						if ( wantWhy )
 							steps.append(NL).append(CONTRADICTION_LABEL).append(NL)
 							  .append(KON).append(cell.id).append(KOFF)
-							  .append(HAS).append(CON[c]).append(COLORS[c]).append(SPACE).append(v1)
+							  .append(HAS).append(CON[c]).append(COLORS[c]).append(SP).append(v1)
 							  .append(AND).append(v2).append(COFF[c])
 							  .append(COMMA_SO).append(CCOLORS[goodColor])
 							  .append(IS_TRUE).append(PERIOD).append(NL);
@@ -1261,7 +1278,7 @@ public class GEM extends AHinter implements IPreparer
 						steps.append(NL)
 						  .append(CONTRADICTION_LABEL).append(NL)
 						  .append(KON).append(cell.id).append(KOFF).append(" all values are ")
-						  .append(CON[c]).append(COLORS[c]).append(SPACE).append(MINUS).append(COFF[c])
+						  .append(CON[c]).append(COLORS[c]).append(SP).append(MINUS).append(COFF[c])
 						  .append(COMMA_SO).append(CCOLORS[goodColor]).append(IS_TRUE)
 						  .append(PERIOD).append(NL);
 					return SUBTYPE_4;
@@ -1747,16 +1764,14 @@ public class GEM extends AHinter implements IPreparer
 	private Pots pots(int c) {
 		final Pots result = new Pots();
 		for ( int v : VALUESES[colorValues[c]] )
-			colors[c][v].forEach(grid.cells, (cc) -> {
-					result.upsert(cc, v);
-			});
+			result.upsertAll(colors[c][v], grid, v);
 		return result;
 	}
 
 	/**
 	 * Is the given "normal" elimination hint valid?
 	 * <p>
-	 * This is the "normal" hint validation routine using the HintValidator.
+	 * This is the "normal" hint validation routine using the Validator.
 	 * CHECK_HINTS is preferable because it's more forgiving. It drops bad
 	 * eliminations/sets, instead of dumping the whole hint, optionally Log
 	 * CHECK_NOISE to identify the problem/s, so you can address it/them.
@@ -1767,10 +1782,10 @@ public class GEM extends AHinter implements IPreparer
 	 * @return true is OK, false means do NOT add this hint.
 	 */
 	private boolean validEliminations(AHint hint) {
-		if ( HintValidator.GEM_USES ) {
-			if ( !HintValidator.isValid(grid, hint.getReds(0)) ) {
+		if ( Validator.GEM_VALIDATES ) {
+			if ( !Validator.isValid(grid, hint.getReds(0)) ) {
 				hint.isInvalid = true;
-				HintValidator.report(tech.name(), grid, hint.toFullString());
+				Validator.report(tech.name(), grid, hint.toFullString());
 				if ( Run.type != Run.Type.GUI )
 					return false;
 			}
@@ -1781,7 +1796,7 @@ public class GEM extends AHinter implements IPreparer
 	/**
 	 * Is this given "multi" hint (a setPots) valid?
 	 * <p>
-	 * This is the "normal" hint validation routine using the HintValidator.
+	 * This is the "normal" hint validation routine using the Validator.
 	 * CHECK_HINTS is preferable because it's more forgiving. It drops bad
 	 * eliminations/sets, instead of dumping the whole hint, optionally Log
 	 * CHECK_NOISE to identify the problem/s, so you can address it/them.
@@ -1793,11 +1808,11 @@ public class GEM extends AHinter implements IPreparer
 	 * @return true is OK, false means do NOT add this hint.
 	 */
 	private boolean validSetPots(String identifier, AHint hint) {
-		if ( HintValidator.GEM_USES ) {
-			if ( !HintValidator.isValidSetPots(grid, hint.getResults()) ) {
+		if ( Validator.GEM_VALIDATES ) {
+			if ( !Validator.isValidSetPots(grid, hint.getResults()) ) {
 				hint.isInvalid = true;
-				HintValidator.reportSetPots(tech.name()+identifier, grid
-					, HintValidator.invalidity, hint.toFullString());
+				Validator.reportSetPots(tech.name()+identifier, grid
+					, Validator.invalidity, hint.toFullString());
 				if ( Run.type != Run.Type.GUI )
 					return false;
 			}
@@ -1807,15 +1822,15 @@ public class GEM extends AHinter implements IPreparer
 
 	// HACK: clean non-solution values out of setPots
 	private boolean cleanSetPots(Pots sets, AHint hint) {
-		final int[] svs = grid.getSolutionValues(); // solutionValues
+		final int[] solution = grid.getSolution();
 		for ( java.util.Map.Entry<Cell,Integer> e : sets.entrySet() ) {
-			int hv = VFIRST[e.getValue()]; // hintValue
+			int v = VFIRST[e.getValue()]; // hintValue
 			Cell cell = e.getKey();
-			int sv = svs[cell.i]; // solutionValue
-			if ( hv != sv )
+			int expect = solution[cell.i];
+			if ( v != expect )
 //				throw new UncleanException(
 				throw new UnsolvableException(
-						"Invalid SetPot: "+cell.id+PLUS+hv+NOT_EQUALS+sv+NL
+						"Invalid SetPot: "+cell.id+PLUS+v+NOT_EQUALS+expect+NL
 						+grid+NL
 						+hint.toFullString()+NL
 				);
@@ -1825,7 +1840,7 @@ public class GEM extends AHinter implements IPreparer
 
 	// HACK: clean solution values out of redPots
 	private boolean cleanRedPots(Pots reds, AHint hint) {
-		final int[] svs = grid.getSolutionValues();
+		final int[] solution = grid.getSolution();
 		Iterator<Map.Entry<Cell,Integer>> it = reds.entrySet().iterator();
 		while ( it.hasNext() ) {
 			Map.Entry<Cell,Integer> e = it.next();
@@ -1834,11 +1849,11 @@ public class GEM extends AHinter implements IPreparer
 			if ( cell==null || cands==null )
 				it.remove(); // BFIIK!
 			else {
-				final int sv = svs[cell.i]; // solutionValue
+				final int expect = solution[cell.i];
 				for ( int v : VALUESES[cands] )
-					if ( v == sv )
-//						throw new UncleanException(
-						throw new UnsolvableException(
+					if ( v == expect )
+						throw new UncleanException(
+//						throw new UnsolvableException(
 							"Invalid Elimination: "+cell.id+MINUS+v+" is solution value!"+NL
 							+grid+NL
 							+hint.toFullString()+NL
@@ -1875,6 +1890,14 @@ public class GEM extends AHinter implements IPreparer
 	private static final class OverpaintException extends IllegalStateException {
 		private static final long serialVersionUID = 720396129058L;
 		public OverpaintException(String msg) {
+			super(msg);
+		}
+	}
+
+	/** A distinctive subtype of RuntimeException. */
+	private static final class NoBananasException extends IllegalStateException {
+		private static final long serialVersionUID = 569081283059L;
+		public NoBananasException(String msg) {
 			super(msg);
 		}
 	}

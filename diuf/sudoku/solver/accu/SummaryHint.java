@@ -13,13 +13,11 @@ import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import diuf.sudoku.utils.Frmu;
 import static diuf.sudoku.utils.Frmt.NULL_ST;
 
-
 /**
- * An AppliedHintsSummaryHint is produced by
- * {@link diuf.sudoku.solver.hinters.lock.Locking} AFTER we've used the
- * {@link HintsApplicumulator} to apply (not just accumulate) all the hints,
- * to pass the total-numElims back to {@link AHint#applyImpl} via the "standard"
- * HintsAccumulator.
+ * A SummaryHint is produced by {@link diuf.sudoku.solver.hinters.lock.Locking}
+ * AFTER we've used the {@link HintsApplicumulator} to apply (not accumulate)
+ * all the hints, to pass the total-numElims back to {@link AHint#applyImpl}
+ * via the "standard" HintsAccumulator.
  * <p>
  * Note that there's nothing specific to Locking here, it's only that Locking
  * is currently the only place I'm used, because Locking is were I'm needed,
@@ -27,26 +25,27 @@ import static diuf.sudoku.utils.Frmt.NULL_ST;
  *
  * @author Keith Corlett 2016
  */
-public final class AppliedHintsSummaryHint extends AHint {
+public final class SummaryHint extends AHint {
 
 	private final int numElims;
 	private final String toString;
 
 	/**
-	 * The AppliedHintsSummaryHint constructor.
+	 * Constructor.
+	 *
 	 * @param numElims
 	 * @param apcu the HintsApplicumulator used to apply the hints as they were
 	 * added by the hinter. We toString from it if it!=null and its sb!=null.
-	 * toString = applied hints toFullStrings; BUT SingleSolution doesn't
+	 * toString = applied hints toFullStrings; BUT BruteForce doesn't
 	 * hint.toString() so it's HintsApplicumulator doesn't build the buffer,
-	 * so apcu.sb==null within SingleSolution.
+	 * so apcu.sb==null within BruteForce.
 	 */
-	public AppliedHintsSummaryHint(String source, int numElims, HintsApplicumulator apcu) {
+	public SummaryHint(String source, int numElims, HintsApplicumulator apcu) {
 		super(null, AHint.INDIRECT, null, 0, null, null, null, null, null, null);
 		this.numElims = numElims;
 		// build-up the toString string
 		final StringBuilder sb = Frmu.getSB();
-		sb.append(source).append("->AppliedHintsSummaryHint#");
+		sb.append(source).append("->SummaryHint#");
 		if ( apcu==null )
 			sb.append(NULL_ST);
 		else {

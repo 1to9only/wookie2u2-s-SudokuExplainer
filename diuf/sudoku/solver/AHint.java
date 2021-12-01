@@ -16,6 +16,7 @@ import diuf.sudoku.Result;
 import diuf.sudoku.Grid.Single;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.als.Als;
+import diuf.sudoku.solver.hinters.als.AlsChainHint;
 import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
@@ -40,7 +41,7 @@ import java.util.Set;
  */
 public abstract class AHint implements Comparable<AHint> {
 
-	/** Formerly Used by getHints, see BY_SCORE_DESC_AND_INDICE. */
+	/** hints by numElims descending, then toString */
 	public static final Comparator<AHint> BY_SCORE_DESC
 			= (AHint h1, AHint h2) -> {
 		// short circuit
@@ -129,17 +130,18 @@ public abstract class AHint implements Comparable<AHint> {
 	public final int type; // DIRECT, WARNING, INDIRECT, AGGREGATE
 	public final Cell cell; // The cell to be set
 	public final int value; // The value to set the cell to
-	public final Pots redPots; // The Cell=>Values to be removed are painted red in the GUI
+	public final Pots reds; // The Cell=>Values to be removed are painted red in the GUI
 	public final Pots greens; // Cell=>Values to be painted green in the GUI
 	public final Pots oranges; // Cell=>values to be painted orange in the GUI
 	public final Pots blues; // Cell=>values to be painted blue in the GUI
 	public final List<ARegion> bases; // regions to paint blue
 	public final List<ARegion> covers; // regions to paint green
 
-	/** set true when HintValidator#isValid finds elimination of this cells
-	 * solution value, before toString is called. */
+	/** set true when {@link diuf.sudoku.solver.hinters.Validator#isValid}
+	 * finds elimination of this cells solution value, before toString. */
 	public boolean isInvalid;
-	/** HintValidator.report sets hint.invalidity = the WHOLE Logged line. */
+	/** {@link diuf.sudoku.solver.hinters.Validator#isValid} sets invalidity
+	 * to the WHOLE Logged line. */
 	public String invalidity;
 
 	/** SB is a weird variable specifically for the HintsApplicumulator and
@@ -165,7 +167,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	// the actual constructor
 	public AHint(AHinter hinter, int type, Cell cell, int value
-			, Pots redPots, Pots greens, Pots oranges, Pots blues
+			, Pots reds, Pots greens, Pots oranges, Pots blues
 			, List<ARegion> bases, List<ARegion> covers) {
 		this.hinter = hinter;
 		// AHinter.degree is a mild hack: it's allmost allways just shorthand
@@ -178,7 +180,7 @@ public abstract class AHint implements Comparable<AHint> {
 		this.type = type;
 		this.cell = cell;
 		this.value = value;
-		this.redPots = redPots;
+		this.reds = reds;
 		this.greens = greens;
 		this.oranges = oranges;
 		this.blues = blues;
@@ -204,7 +206,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * This default implementation is protected, to be overridden by:<br>
 	 *   ADirectHint
 	 * , AWarningHint
-	 * , AppliedHintsSummaryHint
+	 * , SummaryHint
 	 * , MultipleSolutionsHint
 	 * , SolutionHint
 	 * , XColoringHintMulti
@@ -231,7 +233,7 @@ public abstract class AHint implements Comparable<AHint> {
 					myNumElims += 10 * cell.set(value, 0, isAutosolving, SB);
 				}
 			}
-			if ( redPots!=null && !redPots.isEmpty() ) {
+			if ( reds!=null && !reds.isEmpty() ) {
 				Cell c; int pinkos;
 				if ( isAutosolving ) {
 					final Deque<Single> singles;
@@ -240,7 +242,7 @@ public abstract class AHint implements Comparable<AHint> {
 					} else {
 						singles = new LinkedList<>(); // slower
 					}
-					for ( Map.Entry<Cell,Integer> e : redPots.entrySet() ) {
+					for ( Map.Entry<Cell,Integer> e : reds.entrySet() ) {
 						if ( (pinkos=(c=e.getKey()).maybes & e.getValue()) != 0 ) {
 							myNumElims += c.canNotBeBits(pinkos, singles);
 						}
@@ -251,7 +253,7 @@ public abstract class AHint implements Comparable<AHint> {
 						}
 					}
 				} else {
-					for ( Map.Entry<Cell,Integer> e : redPots.entrySet() ) {
+					for ( Map.Entry<Cell,Integer> e : reds.entrySet() ) {
 						if ( (pinkos=(c=e.getKey()).maybes & e.getValue()) != 0 ) {
 							myNumElims += c.canNotBeBits(pinkos);
 						}
@@ -409,7 +411,7 @@ public abstract class AHint implements Comparable<AHint> {
 	public int getNumElims() {
 		if ( numElims == 0 ) {
 			if(cell != null) numElims = 10;
-			if(redPots != null) numElims += redPots.totalSize();
+			if(reds != null) numElims += reds.totalSize();
 		}
 		return numElims;
 	}
@@ -512,7 +514,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 * @return the red Pots, else <tt>null</tt>
 	 */
 	public Pots getReds(int viewNum) {
-		return redPots;
+		return reds;
 	}
 
 	/**
@@ -549,11 +551,11 @@ public abstract class AHint implements Comparable<AHint> {
 	}
 
 	/**
-	 * Get the regions to be highlighted with a pink border.
+	 * Get the regions to be highlighted in pink.
 	 *
 	 * @return
 	 */
-	public List<ARegion> getPinkRegions() {
+	public List<ARegion> getPinkos() {
 		return null;
 	}
 
@@ -563,7 +565,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 *
 	 * @return {@code Collection<Als>}
 	 */
-	public Collection<Als> getAlss() {
+	public Als[] getAlss() {
 		return null;
 	}
 
@@ -673,8 +675,8 @@ public abstract class AHint implements Comparable<AHint> {
 	public String toFullString() {
 		if(fullString!=null) return fullString;
 		final String cv; if(cell==null) cv=EMPTY_STRING; else cv=cell.id+PLUS+value;
-		final String rp; if(redPots==null) rp=EMPTY_STRING; else rp=redPots.toString();
-		final String sep; if(cv==EMPTY_STRING||rp==EMPTY_STRING) sep=EMPTY_STRING; else sep=SPACE;
+		final String rp; if(reds==null) rp=EMPTY_STRING; else rp=reds.toString();
+		final String sep; if(cv==EMPTY_STRING||rp==EMPTY_STRING) sep=EMPTY_STRING; else sep=SP;
 		return fullString = toString()+" ("+cv+sep+rp+")";
 	}
 	private String fullString; // toFullStrings cache
@@ -720,8 +722,8 @@ public abstract class AHint implements Comparable<AHint> {
 				return false;
 			if ( cell != null )
 				return cell==o.cell && value==o.value;
-			else if ( redPots != null )
-				return redPots.equals(o.redPots); // indirect hint
+			else if ( reds != null )
+				return reds.equals(o.reds); // indirect hint
 			else
 				return false; // end of tether
 		}
@@ -743,7 +745,7 @@ public abstract class AHint implements Comparable<AHint> {
 		if ( hashCode != 0 )
 			return hashCode;
 		int hc;
-		if ( redPots == null ) {
+		if ( reds == null ) {
 			// a direct hint, or a warning
 			if ( cell==null && value==0 ) // a warning
 				// slow, but it's all I can think of. Random numbers are OUT!
@@ -757,7 +759,7 @@ public abstract class AHint implements Comparable<AHint> {
 				hc = (hc<<8) ^ cell.hashCode;
 			// nb: hc is still 0 for "normal" indirect hints,
 			// no matter coz redPots are deterministic (I think).
-			hc = (hc<<13) ^ redPots.hashCode();
+			hc = (hc<<13) ^ reds.hashCode();
 		}
 		if ( hc == 0 )
 			throw new IllegalStateException("hashCode 0 for "+toString());
@@ -771,7 +773,7 @@ public abstract class AHint implements Comparable<AHint> {
 	protected int getScore() {
 		if(score != 0) return score;
 		if(cell != null) score = 10;
-		else if(redPots != null) score = redPots.totalSize();
+		else if(reds != null) score = reds.totalSize();
 		return score;
 	}
 	private int score;
@@ -782,24 +784,28 @@ public abstract class AHint implements Comparable<AHint> {
 	private int getIndice() {
 		if(indice != -1) return indice;
 		if(cell != null) indice = cell.i;
-		else if(redPots != null) indice = redPots.firstCellIndice();
+		else if(reds != null) indice = reds.firstCellIndice();
 		return indice;
 	}
 	private int indice = -1;
 
-	/** Used by getHints: order by score DESCENDING, indice */
+	/** ORDER BY score DESCENDING, AlsChainHint.BY_LENGTH, indice, toString */
 	public static final Comparator<AHint> BY_ORDER = (AHint a, AHint b) -> {
 		// short circuit
 		if ( a == b )
 			return 0;
 		int ret;
-		if ( (ret=b.getScore() - a.getScore()) != 0 ) // DESCENDING
+		// by score DESCENDING
+		if ( (ret=b.getScore() - a.getScore()) != 0 )
 			return ret;
-		// getIndice returns the indice of the first cell encountered,
-		// which is PROBABLY the topest-leftest because that is the order in
-		// which cells are normally added to redPots; some hinters may differ.
-		if ( (ret=a.getIndice() - b.getIndice()) != 0 ) // ASCENDING
+		// AlsChainHints by length ASCENDING
+		if ( a instanceof AlsChainHint && b instanceof AlsChainHint
+		  && (ret=AlsChainHint.BY_LENGTH.compare((AlsChainHint) a, (AlsChainHint) b)) != 0 )
 			return ret;
+		// by indice of the first cell eliminated from ASCENDING
+		if ( (ret=a.getIndice() - b.getIndice()) != 0 )
+			return ret;
+		// finally by toString ASCENDING
 		return a.toString().compareTo(b.toString());
 	};
 

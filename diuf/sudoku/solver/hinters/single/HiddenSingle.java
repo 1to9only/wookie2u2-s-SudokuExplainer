@@ -8,7 +8,6 @@ package diuf.sudoku.solver.hinters.single;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Tech;
@@ -17,27 +16,27 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
 
 /**
- * HiddenSingle implements the Hidden Single solving technique. A "hidden
+ * HiddenSingle implements the HiddenSingle Sudoku solving technique. A "hidden
  * single" is the only remaining possible location for a given value in a
- * region. The Cell is set to that value when the hint is applied.
+ * region, so the Cell is set to that value when the hint is applied.
  * <p>
  * <b>LARGE ASIDE: <u>The "Rip Nico A New One" Rant</u>:</b>
  * <p>Because this is (nearly) the simplest hinter, lets go through the below
  * single line of code with a fine-toothed comb, to see why this version is "a
- * bit" faster than the original. These principles are applied throughout:
+ * bit" faster than the original. These principles are applied throughout SE:
  * <br><b>NOW:</b><pre>{@code
  *   if ( region.idxsOf[value].size == 1 )
  * }</pre>
  * This implementation:<ul>
  * <li>dereferences the region object to get the address of the idxsOf array,
- * <li>which we offset to get this values 'Indexes' class,
- * <li>which we dereference to get the 'size' field,
+ * <li>do an array-lookup to get the Indexes instance for this value,
+ * <li>which is dereferenced to get the 'size' field,
  * <li>which we push onto a register along with the constant 1, and then equate
  * the two values.
- * <li>and then we short-jump somewhere (no new stackframe), or fallthrough.
+ * <li>and then we short-jump somewhere (no new stackframe), or fall-through.
  * </ul>
- * <p>Now strap in: This is a key reason why this version executes a little
- * bit faster than that the previous implementation:<br>
+ * <p>Now strap in: This is a key reason why this version executes "a bit"
+ * faster than that the previous implementation:<br>
  * <b>WAS:</b><pre>{@code
  *   if (region.getPotentialPositions(value).cardinality() == 1)
  * }</pre>
@@ -45,12 +44,13 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * having a single point of truth, which you query actively: which is data
  * light, but CPU heavy; which is a strategy to deal with NEVER having enough
  * bloody RAM. My first PC had 32K, which was considered HUGE at the time. So
- * conserving RAM became such an ingrained habit that we didn't notice it.
+ * conserving RAM became an ingrained habit that we subsequently failed to
+ * notice.
  * <p>
  * It's worth noting that this implementation uses 26K just to store the 81
  * isSiblingOf matrixes, instead of invoking a method 4 BILLION times, just
  * because it's a bit faster, and I now have 16 Gig to play with. When I run
- * this thing from the command line I give it a max of a Gig of RAM.
+ * this thing from the command line I give it a max of 2 Gig of RAM.
  * <p>
  * So the original calls the {@code region.getPotentialPositions(value)} method,
  * which dereferences region to get it's {@code getPotentialPositions} method,
@@ -64,24 +64,24 @@ import diuf.sudoku.solver.accu.IAccumulator;
  *     return result;
  *   }
  * }</pre>
- * The first thing it does is create a new BitSet which is, IMHO, just more work
- * for the Garbage Collector (GC) later on. Your council has a trash collection
- * service, so do you expect a garbo to follow you around and pick-up your lolly
- * wrappers? No, you put them in a bin yourself, yeah? The same principle can
+ * The first thing it does is create a new BitSet which is, IMHO, just work for
+ * the Garbage Collector (GC) later on. Your council empties your rubbish-bin,
+ * but you don't expect a garbo to follow you around and pick-up your lolly
+ * wrappers: No, you put them in a bin yourself, yeah? The same principle can
  * (and I think should) be applied to code: just because you can create new
- * objects (instances of classes) doesn't mean that you SHOULD create them...
- * often there's an old-school way to solve the problem, which is more code, and
- * looks ugly, but executes MUCH more efficiently.
+ * instances doesn't mean that you SHOULD create them. Often there is an
+ * old-school way to solve the problem, which is more code, which looks a bit
+ * ugly, but executes MUCH more efficiently.
  * <p>
- * Could you reasonably expect your garbo to pick-up the lolly wrappers produced
- * by a lolly unwrapping machine that unwraps 3.4 billion lollies a second?
- * <pre>                    What are you doing Dave?</pre>
+ * Q: Would you expect your garbo to pick-up lolly wrappers produced by a lolly
+ * unwrapping machine that unwraps 3.4 billion lollies a second? <br>
+ * A: "What are you doing Dave?"
  * <p>
  * So we create a BitSet, then call {@code getCell(index)} <b>NINE</b> times,
- * ie: find the getCell method, which is a bit trickier because it's overridden.
+ * ie: find the getCell method, which is a bit trickier coz it's overridden.
  * It's implementation depends upon the type of this region, so it'll be any of
- * (this is a facetious argument coz it's a compile time problem, but it's still
- * somewhat illuminating):<br>
+ * (this is a facetious argument coz its a compile time problem, but it's still
+ * illuminating):<br>
  * <br>
  * <b>Row</b><pre>{@code
  *  public Cell getCell(int index) {
@@ -99,9 +99,9 @@ import diuf.sudoku.solver.accu.IAccumulator;
  *  }
  * }</pre>
  * <p>
- * So we find the method and create a new stackframe, push index onto the stack,
+ * So we find the method and create a new stackframe, push index onto da stack,
  * long-jump to start of method: and retrieve the cell from the matrix (badly
- * named 'cells'. Also repeated arithmetic to demangle index into a matrix
+ * named 'cells', and also repeated arithmetic to demangle index into a matrix
  * coordinate: cells should be a flat array) and return it; then we invoke the
  * {@code hasPotentialValue(value)} method of the returned cell:<pre>{@code
  *   public boolean hasPotentialValue(int value) {
@@ -132,8 +132,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
  *     return bitIndex >> ADDRESS_BITS_PER_WORD;
  *   }
  * }</pre>
- * so we return the BitSet, upon which we call the {@code cardinality()}
- * method:<pre>{@code
+ * so we return the BitSet, upon which we call {@code cardinality()}:<pre>{@code
  *   public int cardinality() {
  *     int sum = 0;
  *     for (int i = 0; i < wordsInUse; i++)
@@ -142,7 +141,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
  *   }
  * }</pre>
  * and there's allways only one word in use, so we'll call
- * {@code Long.bitCount(words[i])} ONCE (thank god):<pre>{@code
+ * {@code Long.bitCount(words[i])} ONCE (thank god, coz it's slow):<pre>{@code
  *   public static int bitCount(long i) {
  *      // HD, Figure 5-14
  *      i = i - ((i >>> 1) & 0x5555555555555555L);
@@ -151,7 +150,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
  *      i = i + (i >>> 8);
  *      i = i + (i >>> 16);
  *      i = i + (i >>> 32);
- *      return (int)i & 0x7f; // I wanr a T-Shirt with "Go'n'get 0x7f;ed!" on it
+ *      return (int)i & 0x7f;
  *   }
  * }</pre>
  * then we're back up to the <b>NINE</b> times
@@ -193,13 +192,13 @@ import diuf.sudoku.solver.accu.IAccumulator;
  *  }
  * }</pre>
  * which will never actually does anything because we've only 9 values to store
- * so 'wordsInUse' will allways be one, as will 'wordsRequired', ergo the BitSet
- * is being <b>ab</b>used: by which I mean "used for a purpose other than that
- * which was intended by it's author". There's a big clue in the first line of
- * BitSets API documentation: "This class implements a vector of bits <b>that
- * grows as needed</b>". We don't need a class that "grows as needed", hence we
- * clearly should NOT be using a BitSet, even if it means rolling our own. Or
- * better still don't use a class at all (as I have done, sort of).
+ * so 'wordsInUse' is allways one, as is 'wordsRequired', ergo the BitSet is
+ * being <b>ab</b>used: by which I mean "used for a purpose other than that
+ * intended by it's author". There's a big clue in the first line of BitSets
+ * API documentation: "This class implements a vector of bits <b>that grows as
+ * needed</b>". We don't need a class that "grows as needed", hence we clearly
+ * should NOT be using a BitSet, even if it means rolling our own. Or better
+ * still don't use a class at all (as I have done, sort of).
  * <p>
  * and finally the last {@code checkInvariants()} method <i>(repeated)</i>:
  * <pre>{@code
@@ -227,43 +226,41 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * done. So that's about it. Thank you umpires. Thank you ball boys.
  * <p>
  * So we've got <b>ONE</b> fairly simple line of code which does:
- * {@code dereference, offset, dereference, push, push, equate, jump} verses
- * what turns out to be more akin to HOMERS BLOODY ODDESSY, which is my whole
- * point really: <b>BEWARE of Homic secretions in your tight loops.</b>
+ * {@code dereference, array-lookup, dereference, push, push, equate, jump}
+ * verses what turns out to be more akin to HOMERS BLOODY ODDESSY, which is my
+ * whole point really: <b>BEWARE of Homic secretions in your tight loops.</b>
  * <p>
  * Can you think why the simpler implementation might be "a bit" faster:<pre>
  *        this 128,830,443,543 / orig 1,314,078,704,062 * 100.0 = 9.8%
  * </pre>
  * Now here's the fundamental question: Is all this lovely efficiency worth all
  * the extra effort? I'm generally in the "More brain, less CPU!" camp myself,
- * especially in a domain like this, with real war machines in play (like
- * Aligned*Exclusion) which eat CPU for breakfast.
+ * especially in a domain like this, with real war machines in play like
+ * Aligned*Exclusion that consume CPU (and small children) for breakfast.
+ * Your position is your affair. There's a great blog-post along these lines
+ * by a "real techie" whose name currently alludes me called something like
+ * "Schlemeale the Painters algorithm" (Schlemeale means idiot). I highly
+ * recommend it.
  * <p>
- * Your position is your affair.
- * <p>
- * There's a great blog-post along these lines by a "real" developer whose name
- * currently alludes me called something like "Schlemeil the Painters
- * algorithm". I highly recommend it.
- * <p>
- * I'm also saying here that Java gained a reputation for being slow, but that's
- * mostly because of how a lot of Java code, including parts of the API, is/was
- * designed; not because of anything inherent to the language itself.
- * You can get REAL performance out of the bastard. You just have to be careful
- * how you go. Just because the language encourages you to be lazy doesn't mean
- * that you HAVE to be lazy. You can be SMART and LAZY. Best of both worlds.
+ * Java has gained a reputation for being slow, but that's mostly because of
+ * how a lot of Java code (incl parts of the API) are designed; not because of
+ * anything inherent to the language itself. You can get REAL performance out
+ * of Java, you just have to be careful how you go. Just because the language
+ * encourages you to be lazy doesn't mean that you HAVE to be lazy. You can be
+ * SMART and LAZY. Best of both worlds.
  * <p>
  * And finally a jab at the java API developers. Might it be worth putting a
  * <b>non-extensible</b> BitSet in the Java API just for use by Uni students,
  * which is exactly where a BitSet class will get most of it's use, because an
  * experienced programmer (ie me) thinks "class" and "bitset" are oxymoronic.
  * If I'm using bitsets I want speed, and that means NOT invoking methods in
- * tight loops, which means no BitSet class, just a raw datatype and a LOT of
- * funky-looking code; which totally sucks bags until you understand it, and
- * why it's faster than the alternatives.
+ * tight loops, which means no BitSet class, just a raw datatype and LOTS of
+ * funky-looking code; which sucks bags until you understand why it's so much
+ * faster than the alternative class.
  * <p>
  * But I can only speak for myself, at 9.8% of the volume evidently required to
- * ever change anybodies mind about anything. They abandoned this rant ages ago.
- * Gone back to looking at porn I expect. I know Knuffink!
+ * ever change anybodies mind about anything. Most folks abandoned this rant
+ * ages ago (TLDR) and went back to watching porn. I know Knuffink!
  * <p>
  * Cheers all.
  */
@@ -299,25 +296,27 @@ public final class HiddenSingle extends AHinter {
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		Indexes[] rio; // regions ridx [values 1..9].
-		int v; // the value we're look at in the current region
-		Cell cell; // the only cell in region which maybe value
-		AHint hint; // the HiddenSingleHint, where applicable
-		boolean result = false; // presume failure, ie no hints found.
-		for ( ARegion region : grid.regions ) { // 27 (9 Box, 9 Row, 9 Col)
-//if ( "box 9".equals(region.id) )
-//	Debug.breakpoint();
-			if ( region.emptyCellCount > 0 ) { // ignore filled regions
-				rio = region.ridx;
+		Indexes[] rio; // region.indexesOf[values 1..9]
+		int v; // the value we're looking at
+		// presume that no hints will be found
+		boolean result = false;
+		// foreach of the 27 regions in the grid
+		for ( ARegion r : grid.regions ) {
+			// if this region has empty cells
+			if ( r.emptyCellCount > 0 ) {
+				// it's (arguably) faster to dereference the struct once
+				rio = r.ridx;
+				// foreach possible value: 1..9
 				for ( v=1; v<VALUE_CEILING; ++v ) {
-					if ( rio[v].size == 1 ) { // there's 1 location for v in region
-						// create the hint
-						cell = region.cells[rio[v].first()];
-						hint = new HiddenSingleHint(this, region, cell, v);
-						// exit immediately if accu.add says we should
-						if ( accu.add(hint) )
-							return true;
-						result = true; // Yeah, we found (at least) one hint!
+					// if there is only 1 place for v in this region
+					if ( rio[v].size == 1 ) {
+						// FOUND a Hidden Single, so raise a hint
+						final AHint hint = new HiddenSingleHint(this, r
+								, r.cells[rio[v].first()], v);
+						result = true;
+						if ( accu.add(hint) ) {
+							return result;
+						}
 					}
 				}
 			}

@@ -10,45 +10,52 @@ import java.io.File;
 import java.util.Objects;
 
 /**
- * File name and optionally a 1-based line number that identifies a
- * a Sudoku Puzzle.
+ * A SourceID is an immutable transfer object, so it doesn't change once it's
+ * constructed. Create a new one if/when the source changes.
  * <p>
- * A PuzzleID is an immutable transfer object, meaning that it doesn't change
- * after it's constructed. If a PuzzleID has changed you construct a new one.
+ * I contain the file-name and optionally a 1-based line number that identifies
+ * the source of a Sudoku Puzzle.
  */
-public final class PuzzleID {
+public final class SourceID {
 
-	// THE empty PuzzleID, which should probably be in PuzzleID. sigh.
-	public static final PuzzleID EMPTY_PUZZLE_ID = new PuzzleID(null, 0);
+	// THE empty SourceID, which should probably be in SourceID. sigh.
+	public static final SourceID EMPTY_PUZZLE_ID = new SourceID(null, 0);
 
 	public final File file; // the file that contains this Sudoku puzzle
 	public final String fileName;
 	public final boolean isTop1465;
 	public final int lineNumber; // 1 based, for MagicTour files
 
-	public static PuzzleID parse(String line) {
-		File file; int lineNumber;
-		// nb: split(single char) is faster than grouped regex "^(\\d+)#(.*)"
-		String[] words = line.split("#", 0);
-		if ( words.length == 2 ) {
-			lineNumber = Integer.parseInt(words[0]);
-			file = new File(words[1]);
-		} else {
-			lineNumber = 0;
-			file = new File(line);
+	/**
+	 * parse a SourceID from the given line, which is in the format:
+	 * {@code [hintNum/]lineNum#fileName}. The optional hintNum is ignored.
+	 *
+	 * @param line
+	 * @return
+	 */
+	public static SourceID parse(String line) {
+		// remove the hintNum/ from start of hintNum/lineNum#fileName
+		final int i = line.indexOf('/'); // useless on unix! sigh.
+		if ( i>0 && line.matches("\\d+/\\d+#.*") ) {
+			line = line.substring(i+1);
 		}
-		return new PuzzleID(file, lineNumber);
+		// nb: split(char) is faster than grouped regex "^(\\d+)#(.*)"
+		final String[] words = line.split("#", 0);
+		if ( words.length != 2 ) {
+			return new SourceID(new File(line), 0);
+		}
+		return new SourceID(new File(words[1]), Integer.parseInt(words[0]));
 	}
 
-	public PuzzleID(File file) {
+	public SourceID(File file) {
 		this(file, 0);
 	}
 
-	public PuzzleID(PuzzleID src) {
+	public SourceID(SourceID src) {
 		this(src.file, src.lineNumber);
 	}
 
-	public PuzzleID(final File file, final int lineNumber) {
+	public SourceID(final File file, final int lineNumber) {
 		this.file = file;
 		if ( file != null) {
 			this.fileName = file.getName();
@@ -87,9 +94,9 @@ public final class PuzzleID {
 
 	@Override
 	public boolean equals(Object o) {
-		if ( o==null || !(o instanceof PuzzleID) )
+		if ( o==null || !(o instanceof SourceID) )
 			return false;
-		PuzzleID other = (PuzzleID)o;
+		SourceID other = (SourceID)o;
 		return lineNumber == other.lineNumber
 			&& file.equals(other.file);
 	}

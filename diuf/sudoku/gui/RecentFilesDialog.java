@@ -7,7 +7,7 @@
 package diuf.sudoku.gui;
 
 import diuf.sudoku.Build;
-import diuf.sudoku.PuzzleID;
+import diuf.sudoku.SourceID;
 import diuf.sudoku.Settings;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -43,8 +43,8 @@ class RecentFilesDialog extends JDialog {
 	private JButton btnOpen;
 	private final JButton btnCancel;
 
-	private JList<PuzzleID> lstFiles;
-	private PuzzleID selectedPuzzleID = null;
+	private JList<SourceID> lstFiles;
+	private SourceID selectedPuzzleID = null;
 
 	/** Constructor. */
 	RecentFilesDialog(SudokuFrame frame, SudokuExplainer engine) {
@@ -136,8 +136,8 @@ class RecentFilesDialog extends JDialog {
 			return;
 		}
 //		engine.frame.clearHintDetailArea();
-		PuzzleID pid = selectedPuzzleID;
-		PuzzleID loaded = engine.loadFile(pid);
+		SourceID pid = selectedPuzzleID;
+		SourceID loaded = engine.loadFile(pid);
 		if ( loaded == null ) {
 			frame.setTitle(Build.ATV+"    "+Build.BUILT);
 			java.awt.Toolkit.getDefaultToolkit().beep();

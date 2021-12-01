@@ -7,10 +7,10 @@
 package diuf.sudoku.tools;
 
 import diuf.sudoku.io.IO;
-import static diuf.sudoku.utils.Frmt.SPACE;
 import diuf.sudoku.utils.MyInteger;
 import java.io.BufferedReader;
 import java.io.FileReader;
+import static diuf.sudoku.utils.Frmt.SP;
 
 /**
  * Analyse the a7/8/9/10e.log file to workout what the filters are. Note that
@@ -78,7 +78,7 @@ puzz hn ce eb cl ms sb hi|cells                                                 
 				//System.out.print(line.substring(from, to));
 				//System.out.println();
 				fives = sixes = sevns = eigts = 0;
-				for ( String cell : line.substring(from, to).trim().split(SPACE) ) {
+				for ( String cell : line.substring(from, to).trim().split(SP) ) {
 					switch(cell.charAt(3) - '0') {
 					case 9: //fallthrough // 9 is the maximum possible
 					case 8: if(++eigts>maxEigts) maxEigts = eigts; //fallthrough

@@ -142,7 +142,7 @@ public final class Permutations implements Iterable<int[]> {
 	 */
 	public int[] nextAsArray() {
 		final long bits = next();
-		for ( int i=0, cnt=0; i<nBits; ++i )
+		for ( int i=0,cnt=0; i<nBits; ++i )
 			if ( (bits & (1L<<i)) != 0 ) // Bit 'i' is set
 				array[cnt++] = i;
 		return array;
@@ -251,9 +251,10 @@ public final class Permutations implements Iterable<int[]> {
 	}
 
 	/*
-	 * LICENCE: combinations was boosted from HoDoKu's SudokuUtil class.
-	 * I presume it's OK to modify GNU GPL code under the LGPL licence.
-	 * Kudos to hobiwan. Mistakes are mine.
+	 * LICENCE: The combinations method was boosted from HoDoKu's SudokuUtil
+	 * class. I presume it's OK to modify GNU GPL code under the LGPL licence.
+	 * IIRC, this code originates from "The Hackers Cookbook", but the name of
+	 * it's author has coopted my towel. I have not modified it (much).
 	 *
 	 * http://sourceforge.net/projects/hodoku/files/
 	 *
@@ -278,15 +279,15 @@ public final class Permutations implements Iterable<int[]> {
 	 */
 
 	/**
-	 * Calculates the number of combinations of k elements (nOnes),
-	 * in a master-list of size n (nBits). Ergo calculates n over k.
+	 * Calculates the number of possible combinations of k elements, in a
+	 * master-list of size n, ergo {@code fakN / (fakNMinusK * fakK)}
 	 * <p>
-	 * You can use this to limit nOnes and nBits, to the maximum time you're
-	 * willing to wait. The count times indicate how long it takes to iterate
-	 * all possible combinations of nOnes elements in a Set of nBits size, and
-	 * then use combinations only in production as a limit on the number of
-	 * possible combinations.
+	 * Rodney's other party, at the faka whackers club, where fak means
+	 * factorial, obviously.
 	 * <p>
+	 * You can use this to limit k and n to the maximum time you are willing to
+	 * wait. Use combinations to estimate how long it'll take to iterate k in n
+	 * and limit k, n, or both.
 	 * <pre>{@code
 	 * assert combinations(nOnes, nBits) < Integer.MAX_VALUE
 	 *         : "Permutations("+nOnes+", "+nBits+") time-out!";
@@ -294,13 +295,15 @@ public final class Permutations implements Iterable<int[]> {
 	 * to make it throw at (10, 44) which takes 34.151 seconds, so expect
 	 * it to take atleast 100 seconds JUST to iterate them all... try it!
 	 * <p>
-	 * The only change is to widen the return value to a long. Why the hell did
-	 * he limit it to an int? There might be a reason.
+	 * KRC's only real change is to widen the return value to a long. Why the
+	 * hell did he limit it to an int? There might be a reason, other than
+	 * chronic acute impatience turbidity (ergo being a lazy c__t).
 	 *
 	 * @param k the number of elements in each combination (nOnes)
-	 * @param n the size of the master list (nBits)
+	 * @param n the size of the master list (nBits), so we seek all possible
+	 *  combinations of 'k' elements in a master list of 'n' elements
 	 * @return {@code (int)(fakN / (fakNMinusK * fakK));} where fak means
-	 * factorial.
+	 *  factorial.
 	 */
 	public static long combinations(final int k, final int n) {
 		if (n < 168) {
@@ -313,16 +316,15 @@ public final class Permutations implements Iterable<int[]> {
 				fakK *= i;
 			return (long)(fakN / (fakNMinusK * fakK));
 		} else {
-			// maintain a cache of positive BigIntegers 0..largest-ever-n
-			// note that this'll only happen ONCE if/when combinations is
-			// invoked repeatedly with a consistent n (size of master list)
-			// as-is the normal use case... only k (num elements in a combo)
-			// varies.
+			// maintain a cache of positive BigIntegers 0..largest-ever-n.
+			// Note that this only happens ONCE when, as normally occurs,
+			// combinations is invoked repeatedly with the same n (size of
+			// master list) and only k (num elements in a combo) varies.
 			if ( biN<n ) { // biN starts life as 0.
-				BigInteger[] newBi = new BigInteger[n];
+				BigInteger[] a = new BigInteger[n];
 				for (int i=biN; i<=n; i++)
-					newBi[i] = new BigInteger(""+i);
-				bi = newBi;
+					a[i] = new BigInteger(""+i);
+				bi = a;
 				biN = n;
 			}
 			BigInteger fakN = BigInteger.ONE
@@ -402,16 +404,12 @@ public final class Permutations implements Iterable<int[]> {
 	/**
 	 * this main-line is a bloody hackfest, so do whatever you like with it,
 	 * just preserve the existing please. You'll see how. And please tell us
-	 * what you were doing in a comment in your code.
+	 * what you were up-to in a comment.
 	 */
 	public static void main(String[] args) {
 		if ( true ) {
 			// Q: Time to iterate 10 elements in a Set of 44?
-			// A: took 208.732 seconds. Output in Permutations.log
-			// this produces a LOT of output... too much so I've limited it to
-			// first and last 100 permutations... so the middle 2 BILLION go
-			// through unused. I hope the JIT compiler doesn't like leave em
-			// out, so my timings are correct.
+			// A: took 208.732 seconds.
 			long start, finish;
 			start = System.currentTimeMillis();
 
@@ -431,33 +429,24 @@ public final class Permutations implements Iterable<int[]> {
 			finish = System.currentTimeMillis();
 			System.out.printf("took %dms\n", finish - start);
 		} else if ( false ) {
-			// Q: Verify combinations is a faster count.
+			// Q: Is combinations faster than count.
 			// A: Yes it is.
 
-			// numOnes is the size of a permutation: the number of 1's in each
-			// bitset produced.
-			final int numOnes = 10; // %,15d guess
+			// k is permutation size: the number of 1's in each permutation.
+			final int k = 10; // %,15d guess
 			long start, finish, x;
-			// numBits is the size of the master set, which must be >= numOnes
-			// or more realistically numOnes must be <= numBits; because
-			// selecting 12 bananas from a box of 11 bananas is just bananas.
-			// You need to select a smaller set, because you can't just expand
-			// the size of your box of bananas in the real world. So yeah,
-			// normally numBits is fixed, and numOnes (combo-size) varies, but
-			// to test it, my combo-size is fixed and I ____ with numBits: the
-			// size of the master set, to push the boat right out and slow the
-			// old count (lol) right down to a stand-still; it's a "Yours is
-			// better than mine!" thing. You need a penis to understand it.
-			for ( int numBits=numOnes; numBits<=64; ++numBits ) {
-				System.out.format("%d,%2d", numOnes,numBits);
+			// n is the size of the master set, so k must be <= n,
+			// which I've implemented as "n starts at k".
+			for ( int n=k; n<=64; ++n ) {
+				System.out.format("%d,%2d", k,n);
 
 				start = System.currentTimeMillis();
-				x = combinations(numOnes,numBits);
+				x = combinations(k,n);
 				finish = System.currentTimeMillis();
 				System.out.format("\tcombinations=%,15d (%dms)", x, finish-start);
 
 				start = System.currentTimeMillis();
-				x = count(numOnes,numBits);
+				x = count(k,n);
 				finish = System.currentTimeMillis();
 				System.out.format("\tcount=%,15d (%dms)", x, finish-start);
 

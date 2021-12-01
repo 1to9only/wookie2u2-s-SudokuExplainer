@@ -22,11 +22,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-
 /**
  * A Generalised Locking hint DTO.
  */
-public class LockingGeneralisedHint extends AHint implements IChildHint {
+public class LockingGenHint extends AHint implements IChildHint {
 
 	// the cells which maybe value in this region
 	private final Cell[] cells;
@@ -38,7 +37,7 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 	/**
 	 * Constructor.
 	 *
-	 * @param hinter the instance of LockingGeneralised that created this hint
+	 * @param hinter the instance of LockingBasic that created this hint
 	 * @param reds the removable (red) Cell=&gt;Values
 	 * @param cells region.atNew(region.ridx[value].bits) note that I
 	 *  store the given cell array, so you must pass me a new array
@@ -46,7 +45,7 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 	 * @param region the region we found this hint in, ie the region we claim
 	 *  for (not the region we claim from).
 	 */
-	public LockingGeneralisedHint(AHinter hinter, Pots reds, Cell[] cells
+	public LockingGenHint(AHinter hinter, Pots reds, Cell[] cells
 			, int value, ARegion region) {
 		super(hinter, reds);
 		this.cells = cells;
@@ -97,9 +96,9 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 
 	@Override
 	public boolean equals(Object o) {
-		return o instanceof LockingGeneralisedHint && equals((LockingGeneralisedHint)o);
+		return o instanceof LockingGenHint && equals((LockingGenHint)o);
 	}
-	public boolean equals(LockingGeneralisedHint o) {
+	public boolean equals(LockingGenHint o) {
 		return Arrays.equals(cells, o.cells);
 	}
 
@@ -127,10 +126,11 @@ public class LockingGeneralisedHint extends AHint implements IChildHint {
 	public String toHtmlImpl() {
 		return Html.produce(
 				  this
-				, "LockingGeneralisedHint.html"
+				, "LockingGenHint.html"
 				, region.id
 				, Integer.toString(value)
 				, getHintTypeName()
 		);
 	}
+
 }

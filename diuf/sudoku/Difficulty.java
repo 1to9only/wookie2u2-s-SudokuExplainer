@@ -6,12 +6,11 @@
  */
 package diuf.sudoku;
 
-import diuf.sudoku.utils.Frmt;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.dbl;
 import java.util.LinkedList;
 import java.util.List;
-
+import static diuf.sudoku.utils.Frmt.CSP;
 
 /**
  * The Difficulty enum is used only to generate Sudokus.
@@ -26,16 +25,30 @@ import java.util.List;
  * good if things stayed that way, considering how much of a pain-in-the-ass
  * maintaining the Difficulty boundaries has turned out to be.
  * <p>
+ * IDFKA is ironic! It's an acronym inherited from Doom meaning "I Don't Know
+ * ____ All" [About Nothing]. It's ironic because IDKFA puzzles are about as
+ * rare as chickens lips, so producing one infers that one knows rather a lot
+ * more than "____ All" about quite a lot of things. Programming being one.
+ * <p>
+ * I'm not saying what FTL stands for, but If you don't already know then it's
+ * a reasonable prediction that you're too stupid to solve them, so you should
+ * probably just ignore there existence, and work on forgiving me for being a
+ * insufferable smartass. I hope I hurt your feelings, because I sure as hell
+ * can't solve them, without a computer, so I feel bad about it, so don't feel
+ * too bad about it. IDKFA puzzles are REALLY REALLY hard. That's all that
+ * really needs saying. Forgive me. I'm not an ___hole really, just a smartass.
+ * <p>
  * Difficulty was exhumed to {@code diuf.sudoku} for public visibility.
  * Formerly Difficulty was an inner-class of the GenerateDialog.
  * <p>
- * <b>WARNING:</b> If you change any hints difficulty then also look at:<ul>
- *  <li>{@link diuf.sudoku.solver.LogicalSolver#LogicalSolver} to keep the
- *   order of wantedHinters near to that of Tech difficulty; so hinters run in
- *   increasing difficulty, to produce the simplest solution to each puzzle.
- *  <li>{@link diuf.sudoku.Tech} for the actual difficulties
- *  <li>{@link diuf.sudoku.Difficulty} double check the ranges
+ * <b>WARNING:</b> If you change any hints difficulty then also please:<ul>
+ *  <li>{@link diuf.sudoku.solver.LogicalSolver#LogicalSolver} to keep order of
+ *   wantedHinters near to Tech.difficulty; so hinters are run in increasing
+ *   difficulty, to produce the simplest possible solution to each puzzle.
+ *  <li>{@link diuf.sudoku.Tech} // double check your difficulties
+ *  <li>{@link diuf.sudoku.Difficulty} // double check the ranges
  * </ul>
+ *
  * @author Keith Corlett 2018 Mar - was an inner class of GenerateDialog
  */
 public enum Difficulty {
@@ -45,7 +58,7 @@ public enum Difficulty {
 	, Medium	(1.5,  2.5, "L Plates")
 	, Hard		(2.5,  3.0, "P Plates")
 	, Fiendish	(3.0,  4.0, "Car Licence")
-	, Nightmare	(4.0,  6.0, "Art Licence")
+	, Nightmare	(4.0,  6.0, "Truck Licence")
 	, Diabolical(6.0,  9.0, "Bus Licence")
 	, IDKFA		(9.0,100.0, "FTL Licence")
 	;
@@ -60,7 +73,7 @@ public enum Difficulty {
 		return result;
 	}
 
-	// get a list of the Techs of this difficulty
+	// get an array of the Techs of this difficulty
 	public Tech[] techs() {
 		return Tech.array(techs(min, max));
 	}
@@ -71,7 +84,8 @@ public enum Difficulty {
 		for ( Tech tech : Tech.values() ) {
 			if ( tech.difficulty >= min
 			  && tech.difficulty < max
-			  && !tech.name().startsWith("Direct")
+			  // ignore Direct.* Tech's here, or categorisations go mental.
+			  && !tech.isDirect
 			) {
 				results.add(tech);
 			}
@@ -79,12 +93,12 @@ public enum Difficulty {
 		return results;
 	}
 
-	// return a String listing the names of all the given Techs
+	// return a CSV String of the names of these 'techs'
 	public static String names(List<Tech> techs) {
 		final StringBuilder sb = new StringBuilder(techs.size()*22);
 		for ( Tech tech : techs ) {
 			if ( sb.length() > 0 )
-				sb.append(COMMA_SP);
+				sb.append(CSP);
 			sb.append(tech.name());
 		}
 		return sb.toString();
@@ -93,16 +107,20 @@ public enum Difficulty {
 	public final double min; // minimum difficulty
 	public final double max; // maximum difficulty
 	public final String html; // html describing this Difficulty in the GUI
+
 	private Difficulty(double min, double max, String licence) {
 		this.min = min;
 		this.max = max;
 		this.html = html(names(techs(min, max)), licence);
 	}
-	public String html(String description, String licence) {
+
+	// html is NOT static in order to access the super.name() method,
+	// which is allowed, even when I'm called by the constructor.
+	private String html(String techNames, String licence) {
 		final String NL = System.lineSeparator();
 		return "<html><body>"+NL
-			+"<b>"+ordinal()+COLON_SP+name()+"</b> "+description+NL
-			+"<p><b>Rating</b>: "+Frmt.frmtDbl(min)+" - "+Frmt.frmtDbl(max)+" ["+licence+"]"+NL
+			+"<b>"+ordinal()+COLON_SP+name()+"</b> "+techNames+NL
+			+"<p><b>Rating</b>: "+dbl(min)+" - "+dbl(max)+" ["+licence+"]"+NL
 			+"</body></html>"+NL;
 	}
 

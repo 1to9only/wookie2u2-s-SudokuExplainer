@@ -10,9 +10,9 @@ import diuf.sudoku.io.IO;
 import diuf.sudoku.utils.MyInteger;
 import java.io.BufferedReader;
 import java.io.FileReader;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
-import static diuf.sudoku.utils.Frmt.SPACE;
 import static diuf.sudoku.utils.Frmt.TAB;
+import static diuf.sudoku.utils.Frmt.CSP;
+import static diuf.sudoku.utils.Frmt.SP;
 
 /**
  * Create a .hit from an a10e.log file.
@@ -40,8 +40,8 @@ puzz hn ce eb cl sb hi|cells                                                    
 				cells = line.substring(23, line.indexOf(TAB, 23)).trim();
 				int cnt=0;
 				sb.setLength(0);
-				for ( String cell : cells.split(SPACE) ) {
-					if(++cnt>1)sb.append(COMMA_SP);
+				for ( String cell : cells.split(SP) ) {
+					if(++cnt>1)sb.append(CSP);
 					sb.append(cell.substring(0, 2));
 				}
 				System.out.format("%d\t%d\t%s\n", puzz, hintNum, sb);

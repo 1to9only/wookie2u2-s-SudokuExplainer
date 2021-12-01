@@ -78,7 +78,7 @@ public final class URTHiddenHint extends AURTHint {
 			, v1					// 1
 			, v2					// 2
 			, Frmu.csv(loop)		// 3
-			, redPots.toString()	// 4
+			, reds.toString()	// 4
 			, loop.get(0).id		// 5 A
 			, loop.get(1).id		// 6 B
 			, loop.get(2).id		// 7 D (out of order!)

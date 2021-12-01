@@ -6,10 +6,10 @@
  */
 package diuf.sudoku.solver.hinters.align;
 
-import static diuf.sudoku.utils.Frmt.COLON_ONLY;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.Arrays;
 import java.util.Comparator;
+import static diuf.sudoku.utils.Frmt.COLON;
 
 
 /**
@@ -110,7 +110,7 @@ public final class HashA {
 	public String toString() {
 		if ( ts != null )
 			return ts;
-		return ts = EMPTY_STRING+hashCode+COLON_ONLY+Arrays.toString(array);
+		return ts = EMPTY_STRING+hashCode+COLON+Arrays.toString(array);
 	}
 	private String ts;
 

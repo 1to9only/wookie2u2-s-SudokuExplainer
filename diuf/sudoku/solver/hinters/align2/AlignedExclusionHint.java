@@ -40,12 +40,11 @@ public final class AlignedExclusionHint extends AHint  {
 	// iteration order is significant to user understanding explanation
 	private final LinkedHashMap<HashA, Cell> excludedCombosMap;
 
-	AlignedExclusionHint(AHinter hinter, Pots redPots, Cell[] cells
-			, Cell[] cmnExcluders
-			, LinkedHashMap<HashA, Cell> excludedCombosMap) {
-		super(hinter, redPots);
+	AlignedExclusionHint(AHinter hinter, Pots reds, Cell[] cells
+			, Cell[] excluders, LinkedHashMap<HashA, Cell> excludedCombosMap) {
+		super(hinter, reds);
 		this.cells = cells.clone();
-		this.cmnExcluders = cmnExcluders;
+		this.cmnExcluders = excluders;
 		// NB: iteration order is significant to user understanding explanation
 		this.alignedSet = new MyLinkedHashSet<>(cells);
 		this.excludedCombosMap = excludedCombosMap;
@@ -69,7 +68,7 @@ public final class AlignedExclusionHint extends AHint  {
 	private int getReleventComboValues() {
 		int result = 0;
 		for ( HashA combo : excludedCombosMap.keySet() )
-			if ( isRelevent(cells, redPots, combo.array) )
+			if ( isRelevent(cells, reds, combo.array) )
 				for ( int i : combo.array )
 					result |= VSHFT[i];
 		return result;
@@ -93,7 +92,7 @@ public final class AlignedExclusionHint extends AHint  {
 	public Pots getOranges(int viewNumUnused) {
 		if ( orangePots == null ) {
 			final Pots pots = new Pots(cells);
-			pots.removeAll(redPots); // remove any collisions with redPots!
+			pots.removeAll(reds); // remove any collisions with redPots!
 			orangePots = pots;
 		}
 		return orangePots;
@@ -118,7 +117,7 @@ public final class AlignedExclusionHint extends AHint  {
 	 * @param value to workout the color of
 	 * @return 'r', 'o', or (char)0 */
 	private char getColorOf(Cell cell, int value) {
-		Integer redVals = redPots.get(cell);
+		Integer redVals = reds.get(cell);
 		if ( redVals != null )
 			if ( (redVals & VSHFT[value]) != 0 )
 				return 'r';
@@ -146,7 +145,7 @@ public final class AlignedExclusionHint extends AHint  {
 			// "1, 2 and 3"
 			if ( i > 0 ) // not the first
 				if ( i < m )
-					sb.append(COMMA_SP);
+					sb.append(CSP);
 				else
 					sb.append(AND);
 			char c = getColorOf(cells[i], combo[i]);
@@ -160,28 +159,27 @@ public final class AlignedExclusionHint extends AHint  {
 		else
 			sb.append("the cell <b>").append(lockCell.id)
 			  .append("</b> must contain <g><b>")
-			  .append(Values.or(lockCell.maybes)).append("</b></g>");
+			  .append(Values.orString(lockCell.maybes)).append("</b></g>");
 	}
 
 	/** Append the HTML representing the given combosMap to the StringBuilder.
 	 * @param sb to append to
-	 * @param excludedCombosMap a Map of HashA (the potential values combo) to
-	 *  Cell (the lockCell, if any; null is a value collision between sibling
-	 *  cells)
+	 * @param map a Map of HashA (the potential values combo) to Cell (the
+	 *  lockCell, if any; null is a value collision between sibling cells)
 	 * @return a StringBuilder which is full of HTML. Yummy!
 	 * @throws {@link diuf.sudoku.solver.IrrelevantHintException} */
-	private StringBuilder appendTo(StringBuilder sb, Map<HashA, Cell> excludedCombosMap)
+	private StringBuilder appendTo(StringBuilder sb, Map<HashA, Cell> map)
 			throws IrrelevantHintException {
 		// first we get an "index" (keys) of the combos sorted by there values.
-		Set<HashA> keySet = excludedCombosMap.keySet();
+		Set<HashA> keySet = map.keySet();
 		HashA[] keyArray = keySet.toArray(new HashA[keySet.size()]);
 		Arrays.sort(keyArray, HashA.BY_VALUES_ASC);
 		// now we'll append the HTML for each combo to the StringBuilder
 		int relevantCount = 0;
 		for ( HashA key : keyArray )
-			if ( isRelevent(cells, redPots, key.array) ) {
+			if ( isRelevent(cells, reds, key.array) ) {
 				++relevantCount;
-				append(sb, key.array, excludedCombosMap.get(key)); // get lockCell, maybe null
+				append(sb, key.array, map.get(key)); // get lockCell, maybe null
 				sb.append("<br>").append(NL);
 			}
 		if ( relevantCount == 0 )
@@ -191,7 +189,7 @@ public final class AlignedExclusionHint extends AHint  {
 
 	private int getRemovableValues() {
 		int result = 0;
-		for ( Integer values : redPots.values() )
+		for ( Integer values : reds.values() )
 			for ( int sv : VSHIFTED[values] )
 				result |= sv;
 		return result;
@@ -204,12 +202,12 @@ public final class AlignedExclusionHint extends AHint  {
 		AlignedExclusionHint other = (AlignedExclusionHint)o;
 		if ( !this.alignedSet.equals(other.alignedSet) )
 			return false;
-		return this.redPots.equals(other.redPots);
+		return this.reds.equals(other.reds);
 	}
 
 	@Override
 	public int hashCode() {
-		int result = redPots.hashCode();
+		int result = reds.hashCode();
 		for ( Cell c : alignedSet )
 			result = result<<4 ^ c.hashCode;
 		return result;
@@ -246,7 +244,7 @@ public final class AlignedExclusionHint extends AHint  {
 			final Cell c = dropped.firstCell();
 			cands = dropped.get(c);
 			final int n = VSIZE[cands];
-			final String candS = Values.andS(cands);
+			final String candS = Values.andString(cands);
 			final String these = Frmt.plural(n, "this", "these");
 			final String values = Frmt.plural(n, "value");
 			String s = ", but <g><b>"+c.id+"</b></g> maybe <b>"+candS+"</b>"
@@ -260,7 +258,7 @@ public final class AlignedExclusionHint extends AHint  {
 			final Cell[] cs = Cells.array(dropped.keySet());
 			for ( int i=0,m=cnt-1; i<cnt; ++i ) {
 				final Cell c = cs[i];
-				final String candS = Values.andS(dropped.get(c));
+				final String candS = Values.andString(dropped.get(c));
 				if(i>0) if(i<m) s+=", "; else s+=" and ";
 				s += "<g><b>"+c.id+"</b></g> maybe <b>"+candS+"</b>";
 			}
@@ -289,9 +287,9 @@ public final class AlignedExclusionHint extends AHint  {
 			, GROUP_NAMES[degree-2]				//{0}
 			, Frmu.and(alignedSet)				// 1
 			, excludedCombos					// 2
-			, Frmu.and(redPots.keySet())		// 3
+			, Frmu.and(reds.keySet())		// 3
 			, Values.csv(getRemovableValues())	// 4
-			, redPots.toString()				// 5
+			, reds.toString()				// 5
 			, Frmu.ssv(cmnExcluders)			// 6
 			, droppedExcluders()				// 7
 		);

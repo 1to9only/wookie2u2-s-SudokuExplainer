@@ -15,6 +15,18 @@ package diuf.sudoku;
  */
 public final class Run {
 
+	public static final boolean ASSERTS_ENABLED;
+	static {
+		boolean b;
+		try {
+			assert false : "meh!";
+			b = false;
+		} catch (AssertionError eaten) {
+			b = true;
+		}
+		ASSERTS_ENABLED = b;
+	}
+
 	/**
 	 * System.nanoTime() between hints in GUI
 	 */

@@ -11,15 +11,14 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.accu.IAccumulator;
 
 /**
- * NoDoubleValues validates that no value appears more than once in a region.
- * <p>
- * Note: the grid implements the actual examination in the firstDoubledValue
- * method, so all this class need do is present it's result as an IHinter.
+ * A valid solved Sudoku has exactly one instance of each value in each region,
+ * so if a region contains two instances of the same value then raise a warning
+ * hint.
  */
 public final class NoDoubleValues extends AWarningHinter {
 
 	public NoDoubleValues() {
-		super(Tech.NoDoubleValues);
+		super(Tech.DoubleValues);
 	}
 
 	/**
@@ -28,14 +27,13 @@ public final class NoDoubleValues extends AWarningHinter {
 	 * @return any hints found.
 	 */
 	@Override
-	public boolean findHints(final Grid grid, IAccumulator accu) {
-		final int doubledValue = grid.firstDoubledValue();
-		if ( doubledValue == 0 )
-			return false; // it's all good
-		// more than one cell in $invalidRegion is set to $doubledValue.
-		accu.add(new NoDoubleValuesHint(this, grid.invalidity
-				, grid.invalidRegion, doubledValue));
-		return true;
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
+		final int v = grid.firstDoubledValue();
+		final boolean result = v != 0;
+		if ( result )
+			accu.add(new NoDoubleValuesHint(this, grid.invalidity
+					, grid.invalidRegion, v));
+		return result;
 	}
 
 }

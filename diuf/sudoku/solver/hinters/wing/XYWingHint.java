@@ -31,7 +31,7 @@ import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
 import static diuf.sudoku.utils.Frmt.and;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.CSP;
 
 
 /**
@@ -152,7 +152,7 @@ public final class XYWingHint extends AHint implements IChildHint {
 	public String getClueHtmlImpl(boolean isBig) {
 		 String s = "Look for a " + getHintTypeName();
 		 if ( isBig )
-			 s += ON+x()+COMMA_SP+y()+AND+"<b>"+zValue+"</b>";
+			 s += ON+x()+CSP+y()+AND+"<b>"+zValue+"</b>";
 		return s;
 	}
 
@@ -173,7 +173,7 @@ public final class XYWingHint extends AHint implements IChildHint {
 				, zValue	//  3
 				, x()		//  4
 				, y()		//  5
-				, redPots.toString() // 6
+				, reds.toString() // 6
 		);
 	}
 

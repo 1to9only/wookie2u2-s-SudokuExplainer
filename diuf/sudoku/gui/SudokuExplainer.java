@@ -11,9 +11,9 @@ import static diuf.sudoku.Build.BUILT;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.GRID_SIZE;
-import diuf.sudoku.GridFactory;
+import diuf.sudoku.GridClipboard;
 import diuf.sudoku.Pots;
-import diuf.sudoku.PuzzleID;
+import diuf.sudoku.SourceID;
 import diuf.sudoku.Run;
 import diuf.sudoku.Settings;
 import static diuf.sudoku.Settings.THE_SETTINGS;
@@ -31,6 +31,8 @@ import diuf.sudoku.solver.accu.SingleHintsAccumulator;
 import diuf.sudoku.solver.checks.SolutionHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.align.LinkedMatrixCellSet;
+import diuf.sudoku.solver.hinters.als.AlsChainHint;
+import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.IAsker;
 import diuf.sudoku.utils.Html;
@@ -43,7 +45,6 @@ import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.io.Closeable;
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ import java.util.regex.Pattern;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-
+import java.util.Set;
 
 /**
  * SudokuExplainer is the "engine" underneath the GUI SudokuFrame. Most of the
@@ -66,11 +67,15 @@ import javax.swing.UIManager;
  * about the GUI, and knowing all of the "action" classes, so that I can bring
  * it all together. In short: I'm the glue.
  * <p>
- * This design keeps the GUI focused on GUI-stuff and the actions blissfully
- * unaware that there even IS a GUI. I'm the only part that knows about the GUI
- * and the actions, so that the other two remain ignorant of each other. If the
- * action classes need to know about the GUI it goes via an interface that
- * exposes only the required methods in "abstract" form.
+ * This design keeps the GUI focused on GUI-stuff and actions (mostly) unaware
+ * that there even IS a GUI. I'm the only part that knows about the GUI and the
+ * actions, so that the other two remain ignorant of each other. If the action
+ * classes need to know about the GUI it goes via an interface that exposes
+ * only the required methods in "abstract" form.
+ * <p>
+ * Note that debug-code, such as the Validator, breaks all the rules which is
+ * fine because it's only used by techies, not in production, so nobody will
+ * complain if we have to change (or even remove) it.
  * <p>
  * There's a few cases, such as asking the user (IAsker) and reporting run
  * statistics (IReporter) where there really is no choice but for the actions
@@ -88,7 +93,7 @@ import javax.swing.UIManager;
  * to limit such exposure.
  * <p>
  * If a new web-interface is required you implement your web stuff and a new
- * SudokuExplainerWeb. The action classes don't need to change (much, sigh).
+ * SudokuExplainerWeb. The action classes won't need to change (much, sigh).
  *
  * @see diuf.sudoku.gui.SudokuFrame
  * @see diuf.sudoku.solver.LogicalSolver
@@ -107,10 +112,12 @@ public final class SudokuExplainer implements Closeable {
 	private final SudokuGridPanel gridPanel;	// The grid
 
 	// The raw un-filtered hints, and the cooked filtered version.
-	private List<AHint> unfilteredHints = null; // all hints (unfiltered)
-	private List<AHint> filteredHints = null; // filtered hints (by effects)
+	private List<AHint> hintsAll = null; // all hints (unfiltered)
+	private List<AHint> hintsFiltered = null; // filtered hints (by effects)
 	// Cells which have already been filtered-out.
-	private final LinkedMatrixCellSet filteredCells = new LinkedMatrixCellSet();
+	// I use LinkedMatrixCellSet for it's fast contains and add methods,
+	// but any-ole Set<Cell> will do the job eventually.
+	private final Set<Cell> filteredCells = new LinkedMatrixCellSet();
 	// The potential cell values which have already been removed (filtered-out).
 	private Pots filteredPots = new Pots();
 	// The potential cell values which have already been set (to filter-out).
@@ -127,8 +134,8 @@ public final class SudokuExplainer implements Closeable {
 	private Cell prevCell = null;
 	private int prevValue = -1;
 
-	//	god mode
-	public boolean godMode = false;
+	// god mode
+	public boolean god = false;
 
 	/**
 	 * SudokuExplainer is a singleton.
@@ -148,15 +155,15 @@ public final class SudokuExplainer implements Closeable {
 	private SudokuExplainer() {
 		// get mostRecent file
 		this.recentFiles = RecentFiles.getInstance();
-		final PuzzleID pid = recentFiles.mostRecent(); // nullable
+		final SourceID pid = recentFiles.mostRecent(); // nullable
 		// we need a grid, so we always start with an empty one.
 		grid = new Grid();
 		// set the frame to the empty grid
 		asker = frame = new SudokuFrame(grid, this);
 		gridPanel = frame.gridPanel;
 		// load the mostRecent pid into the grid and return it's ID
-		final PuzzleID loaded = loadFile(pid); // nullable
-		// display the loaded PuzzleID in the frame's title
+		final SourceID loaded = loadFile(pid); // nullable
+		// display the loaded SourceID in the frame's title
 		if ( loaded == null ) {
 			frame.setTitle(ATV+"    "+BUILT);
 		} else {
@@ -167,8 +174,8 @@ public final class SudokuExplainer implements Closeable {
 		Log.teeln("\nnew SudokuExplainer...");
 		solver = LogicalSolverFactory.get();
 		// nb: GUI cares-not about Log.MODE
-		Log.teeln(solver.getWantedHinterNames());
-		Log.teeln(solver.getUnwantedHinterNames());
+		Log.teeln(solver.getWanteds());
+		Log.teeln(solver.getUnwanteds());
 		// time to paint
 		repaintHintsTree();
 		frame.pack();
@@ -178,16 +185,17 @@ public final class SudokuExplainer implements Closeable {
 
 	private Rectangle getBounds(Component frame) {
 		final Rectangle bounds = THE_SETTINGS.getBounds();
-		if ( bounds != null )
+		if ( bounds != null ) {
 			return bounds;
+		}
 		// default to the right-hand half(ish) of the screen
 		final Toolkit tk = frame.getToolkit();
 		final java.awt.Dimension scrnSize = tk.getScreenSize();
 		final GraphicsConfiguration gc = frame.getGraphicsConfiguration();
 		final java.awt.Insets insets = tk.getScreenInsets(gc);
-		final java.awt.Dimension frameSize = frame.getSize();
 		final int screenWidth = scrnSize.width - insets.left - insets.right;
 		final int screenHeight = scrnSize.height - insets.top - insets.bottom;
+		final java.awt.Dimension frameSize = frame.getSize();
 		final int x = screenWidth - frameSize.width + insets.left;
 		return new Rectangle(x, 0, frameSize.width, screenHeight - 100);
 	}
@@ -196,23 +204,26 @@ public final class SudokuExplainer implements Closeable {
 	// active, and sort them by score (number of eliminations) descending then
 	// by indice (toppest-leftest first)
 	private void filterAndSortHints() {
-		filteredHints = null;
-		if ( unfilteredHints == null ) {
+		hintsFiltered = null;
+		if ( hintsAll == null ) {
 			return;
 		}
 		if ( THE_SETTINGS.isFilteringHints() ) {
-			// unfiltered -> filter -> filtered
-			filteredHints = new ArrayList<>(unfilteredHints.size());
-			for ( AHint hint : unfilteredHints ) {
-				if ( filterAccepts(hint) ) {
-					addFilteredHint(hint);
-				}
+// NOTE: this seems to BREAK the Generator! BFIIK!
+//Debug.dump("\n"+Log.me()+": hintsAll", hintsAll);
+//System.out.println();
+			// sort BEFORE filtering so AlsChainHints prefer the shortest path
+			if ( hintsAll.size() > 1 ) {
+				hintsAll.sort(AHint.BY_ORDER);
 			}
+			// all -> filter -> filtered
+			hintsFiltered = new ArrayList<>(hintsAll.size());
+			hintsAll.stream().filter((h)->filterAccepts(h))
+					.forEachOrdered((h)->addFilteredHint(h));
 		} else {
-			// copy "as is"
-			filteredHints = new ArrayList<>(unfilteredHints);
+			// just copy them over "as is"
+			hintsFiltered = new ArrayList<>(hintsAll);
 		}
-		filteredHints.sort(AHint.BY_ORDER);
 	}
 
 	/**
@@ -220,12 +231,10 @@ public final class SudokuExplainer implements Closeable {
 	 * @param deadTech
 	 */
 	void removeHintsFrom(Tech deadTech) {
-		if ( unfilteredHints == null ) {
+		if ( hintsAll == null ) {
 			return;
 		}
-		unfilteredHints.removeIf((hint) -> {
-			return hint.hinter.tech == deadTech;
-		});
+		hintsAll.removeIf((h)->h.hinter.tech==deadTech);
 		filterAndSortHints();
 	}
 
@@ -237,7 +246,7 @@ public final class SudokuExplainer implements Closeable {
 			// fallthrough
 		case AHint.INDIRECT:
 			Pots setPots = hint.getResults();
-			Pots redPots = hint.redPots;
+			Pots redPots = hint.reds;
 			Integer gone; // cell values that've allready been removed
 			if ( setPots != null  ) {
 				// XColoringHintMulti sets multiple cells
@@ -265,10 +274,10 @@ public final class SudokuExplainer implements Closeable {
 
 	@SuppressWarnings("fallthrough")
 	private void addFilteredHint(AHint hint) {
-		filteredHints.add(hint);
+		hintsFiltered.add(hint);
 		switch( hint.type ) {
 		case AHint.INDIRECT:
-			filteredPots.upsertAll(hint.redPots);
+			filteredPots.upsertAll(hint.reds);
 			// fallthrough: some INDIRECT hints are actually DIRECT also!
 			// fallthrough: some INDIRECT hints are actually DIRECT also!
 			// fallthrough: some INDIRECT hints are actually DIRECT also!
@@ -317,12 +326,12 @@ public final class SudokuExplainer implements Closeable {
 	private void repaintMultipleHints() {
 		final Pots greenPots = new Pots();
 		final Pots redPots = new Pots();
-		for ( AHint hint : selectedHints ) {
-			if ( hint.cell != null ) {
-				greenPots.put(hint.cell, VSHFT[hint.value]);
+		for ( final AHint h : selectedHints ) {
+			if ( h.cell != null ) {
+				greenPots.put(h.cell, VSHFT[h.value]);
 			}
-			if ( hint.type == AHint.INDIRECT ) {
-				redPots.upsertAll(hint.redPots);
+			if ( h.type == AHint.INDIRECT ) {
+				redPots.upsertAll(h.reds);
 			}
 		}
 		final SudokuGridPanel gp = gridPanel;
@@ -357,7 +366,7 @@ public final class SudokuExplainer implements Closeable {
 	String logView(File logFile, String re) {
 		try {
 			while ( re==null || re.length()==0 ) {
-				// Note: can't use LogViewHintRegexDialog here coz he calls-back
+				// nb: can't use LogViewHintRegexDialog here coz he calls-back
 				// SudokuFrame.setRegex, which calls me. sigh.
 				if ( (re=frame.askForString("NONE: hint regex", re)) == null ) {
 					return null;
@@ -388,8 +397,8 @@ public final class SudokuExplainer implements Closeable {
 						if ( pattern.matcher(hint=line.substring(line.indexOf(IN)+4)).matches() ) {
 							grid.load(logLines.get(i-2)+NL+logLines.get(i-1)+NL);
 							getAllHints(false, false, false, false); // wantMore, wantSolution, logHints, printHints
-							if ( filteredHints.size() > 1 ) {
-								for ( AHint h : filteredHints ) {
+							if ( hintsFiltered.size() > 1 ) {
+								for ( AHint h : hintsFiltered ) {
 									if ( h.toString().equals(hint) ) {
 										selectedHints.clear();
 										selectedHints.add(h);
@@ -428,6 +437,10 @@ public final class SudokuExplainer implements Closeable {
 						  + logLines.get(i-howMany-1) + NL
 						  // pid is pidLine upto first \t.
 						  + MyStrings.upto(pidLine, '\t');
+					// Print the puzzle and the hint-line.
+					System.out.println();
+					System.out.println(puzzle);
+					System.out.println(line);
 					// load the puzzle
 					boolean isLoaded;
 					try {
@@ -440,22 +453,25 @@ public final class SudokuExplainer implements Closeable {
 					}
 					if ( isLoaded ) {
 						// search grid again which SHOULD find the same hint.
-						// If not then either a hinter has changed since your
-						// logFile was produced, or some s__t just happened.
+						// If not then either something has changed since your
+						// logFile was produced, or s__t just happened.
 						getAllHints(false, false, false, false); // wantMore, wantSolution, logHints, printHints
 						// if multiple hints are returned then select the hint
 						// with a description that matches the one we just read
 						// from the logFile, if exist, else the user (a techie)
 						// is on there own.
-						if ( filteredHints.size()>1 ) {
-							assert line.length() > 64;
-							String target = line.substring(65, line.length());
-							assert target!=null && !target.isEmpty();
-							for ( AHint h : filteredHints )
+						String target;
+						if ( hintsFiltered.size() > 1
+						  && line.length() > 64
+						  && (target=line.substring(65, line.length())) != null
+						  && !target.isEmpty()
+						) {
+							for ( AHint h : hintsFiltered ) {
 								if ( target.equals(h.toString()) ) {
 									selectedHints.clear();
 									selectedHints.add(h);
 								}
+							}
 						}
 						// start the next search at the next line
 						startLine = i + 1;
@@ -520,8 +536,8 @@ public final class SudokuExplainer implements Closeable {
 	private final UndoList undos = new UndoList();
 	private final UndoList redos = new UndoList();
 
-	/** Ignores all wrongens, specially those religious AARRRGGGHHHH. */
-	private void godMode(int value, Cell cell) throws ReligiousException {
+	/** Do god stuff. */
+	private void god(int value, Cell cell) throws ReligiousException {
 		// ensure the given grid has a puzzleID, which is set when the Grid is
 		// created, and reset when a puzzle is loaded.
 		// * Invalidates all of grid's caches (but maybe not others, sigh).
@@ -530,22 +546,19 @@ public final class SudokuExplainer implements Closeable {
 			grid.pidReset();
 			grid.hintNumberReset();
 		}
-		// if solutionValues is unset || it's a different puzzle
-		if ( solutionValues==null || grid.pid!=solutionValuesPid ) {
-			if ( grid.solutionValues == null ) {
-				solver.solveASAP(grid); // sets grid.solutionValues
-			}
-			solutionValues = grid.solutionValues;
-			solutionValuesPid = grid.pid;
+		// if solution is unset or it's a different puzzle
+		if ( solution==null || grid.pid!=solutionPid ) {
+			solution = grid.solution = solver.solve(grid).values();
+			solutionPid = grid.pid;
 		}
 		// ignore all wrongens!
-		if ( value != solutionValues[cell.i] ) {
+		if ( value != solution[cell.i] ) {
 			throw new ReligiousException();
 		}
 	}
-	// need the solutionValues to validate user input against in godMode
-	private int[] solutionValues = null;
-	private long solutionValuesPid;
+	// need the solution to validate user input against in godMode
+	private int[] solution = null;
+	private long solutionPid;
 
 	private final class UndoList extends LinkedList<String> {
 		private static final long serialVersionUID = 216354987L;
@@ -590,8 +603,8 @@ public final class SudokuExplainer implements Closeable {
 		prevCell = null;
 		prevValue = 0;
 		try {
-			if ( godMode ) {
-				godMode(value, cell);
+			if ( god ) {
+				god(value, cell);
 			}
 			// add an undo BEFORE we change the grid
 			undos.addFirst(grid.toString());
@@ -604,7 +617,7 @@ public final class SudokuExplainer implements Closeable {
 				undo(); // so that (to the user) value won't set
 				lastDitchRebuild();
 			}
-			boolean needRepaintHints = (filteredHints != null);
+			boolean needRepaintHints = (hintsFiltered != null);
 			clearHints(false);
 			this.selectedHints.clear();
 			if (needRepaintHints) {
@@ -636,10 +649,10 @@ public final class SudokuExplainer implements Closeable {
 	void maybeTyped(Cell cell, int v) {
 		if ( (cell.maybes & VSHFT[v]) != 0 ) {
 			// remove v from cells maybes
-			if ( godMode ) {
+			if ( god ) {
 				try {
-					godMode(v, cell);
-				} catch (ReligiousException cake) {
+					god(v, cell);
+				} catch (ReligiousException eaten) {
 					beep();
 					return;
 				}
@@ -709,8 +722,8 @@ public final class SudokuExplainer implements Closeable {
 			gridPanel.setGrid(grid = new Grid());
 			clearHints();
 			clearUndos();
-			solutionValues = null;
-			solutionValuesPid = 0L;
+			solution = null;
+			solutionPid = 0L;
 			frame.setTitle(ATV+"    "+BUILT);
 		}
 	}
@@ -741,8 +754,8 @@ public final class SudokuExplainer implements Closeable {
 	void clearHints(boolean isSelection) {
 		if ( gridPanel == null ) // we're in startUp
 			return;
-		unfilteredHints = null;
-		filteredHints = null;
+		hintsAll = null;
+		hintsFiltered = null;
 		resetHintsFilter();
 		selectedHints.clear();
 		gridPanel.clearSelection(isSelection);
@@ -777,10 +790,10 @@ public final class SudokuExplainer implements Closeable {
 	 * @return is the grid valid? */
 	boolean validatePuzzleAndGrid(boolean isNoisy) {
 		selectedHints.clear();
-		unfilteredHints = new ArrayList<>();
+		hintsAll = new ArrayList<>();
 		AHint hint = solver.validatePuzzleAndGrid(grid, isNoisy);
 		if ( hint != null ) {
-			unfilteredHints.add(hint);
+			hintsAll.add(hint);
 			selectedHints.add(hint);
 		}
 		filterAndSortHints();
@@ -817,8 +830,8 @@ public final class SudokuExplainer implements Closeable {
 
 	// Called by getNextHint (above) and getClue (below)
 	private AHint getNextHintImpl(boolean wantMore, boolean wantSolution) {
-		if ( unfilteredHints == null ) {
-			unfilteredHints = new ArrayList<>();
+		if ( hintsAll == null ) {
+			hintsAll = new ArrayList<>();
 			filterAndSortHints();
 		}
 		// create temporary buffers for gathering a hint
@@ -837,7 +850,7 @@ public final class SudokuExplainer implements Closeable {
 		// move the hint from accu to unfilteredHints
 		AHint hint = accu.getHint();
 		if ( hint != null ) {
-			unfilteredHints.add(hint);
+			hintsAll.add(hint);
 		}
 		selectedHints.clear();
 		return hint; // may be null!
@@ -864,7 +877,7 @@ public final class SudokuExplainer implements Closeable {
 				gridPanel.setBases(hint.getBases());
 				html = Html.colorIn(html);
 				frame.setHintDetailArea(html);
-				unfilteredHints = null;
+				hintsAll = null;
 				resetHintsFilter();
 				filterAndSortHints();
 			}
@@ -888,27 +901,26 @@ public final class SudokuExplainer implements Closeable {
 		try {
 			IAccumulator accu = new SingleHintsAccumulator();
 			if ( grid.numSet > 80 )
-				// it's already solved numbnuts!
-				unfilteredHints = AHint.list(solver.SOLVED_HINT);
+				hintsAll = AHint.list(solver.solvedHint);
 			else if ( wantSolution ) {
 				solver.singlesSolution = null; // defeat solution cache
 				if ( solver.solveWithSingles(grid, accu) ) {
 					// hold down the Shift key to get the solution NOW!
-					unfilteredHints = AHint.list(
-							new SolutionHint(grid, solver.singlesSolution) );
+					hintsAll = AHint.list(new SolutionHint(grid, solver.singlesSolution));
 				}
 			} else {
 				// find the next hint
-				unfilteredHints = solver.getAllHints(grid, wantMore, logHints
-						, printHints);
+				hintsAll = solver.getAllHints(grid, wantMore, logHints, printHints);
 			}
 			selectedHints.clear();
 			resetHintsFilter();
 			filterAndSortHints();
-			if ( filteredHints!=null && !filteredHints.isEmpty() )
-				selectedHints.add(filteredHints.get(0));
+			if ( hintsFiltered!=null && !hintsFiltered.isEmpty() ) {
+				selectedHints.add(hintsFiltered.get(0));
+			}
 			repaintAll();
 		} catch (Throwable ex) {
+			System.out.println(grid);
 			displayError(ex);
 		}
 	}
@@ -935,6 +947,8 @@ public final class SudokuExplainer implements Closeable {
 					undos.addFirst(grid.toString());
 					hint.applyNoisily(Grid.NO_AUTOSOLVE, grid);
 					if ( grid.numSet > 80 ) {
+						// tell the solver to tidy-up now
+						solver.after();
 						// print the solution
 						Log.teef("\nSOLUTION: %s\n", grid.toShortString());
 						break;
@@ -955,8 +969,7 @@ public final class SudokuExplainer implements Closeable {
 				final PrintStream out = System.out;
 				out.flush();
 				out.format(NL+ex+NL);
-				for ( AHint h : selectedHints )
-					out.format("%s%s", h.toFullString(), NL);
+				selectedHints.forEach((h)->out.format("%s%s", h.toFullString(), NL));
 				out.print(NL+"Invalid grid:"+NL+grid+NL);
 				ex.printStackTrace(out);
 				grid.restore(backup);
@@ -1021,11 +1034,11 @@ public final class SudokuExplainer implements Closeable {
 	}
 
 	private void repaintHintsTree() {
-		if ( filteredHints == null ) {
+		if ( hintsFiltered == null ) {
 			frame.clearHintsTree();
 		} else {
 			// select the first hint, or none if the list is empty
-			final List<AHint> hints = filteredHints;
+			final List<AHint> hints = hintsFiltered;
 			final HintNode root = new HintsTreeBuilder().build(hints);
 			// terniaries are fast enough here, at the "top" level
 			final HintNode selected = hints.isEmpty() ? null
@@ -1046,7 +1059,7 @@ public final class SudokuExplainer implements Closeable {
 		clearGrid();
 		try {
 			grid.source = null;
-			GridFactory.pasteClipboardTo(grid);
+			GridClipboard.pasteTo(grid);
 			AHinter.hackTop1465 = grid.hackTop1465();
 			grid.hintNumberReset();
 			frame.setTitle(ATV+"    (clipboard)");
@@ -1066,24 +1079,24 @@ public final class SudokuExplainer implements Closeable {
 	/** Copy the given String to the Systems clipboard.
 	 * @param s to copy */
 	void copyToClipboard(String s) {
-		IO.copyToClipboard(s);
+		GridClipboard.copyTo(s);
 	}
 
 	/** Reload the current file. */
-	final PuzzleID reloadFile() {
+	final SourceID reloadFile() {
 		return loadFile(grid.source);
 	}
 
 	/** Load the next puzzle in a .mt (MagicTour, ie multi-puzzle) file. */
-	final PuzzleID loadNextPuzzle() {
-		PuzzleID gs = grid.source;
+	final SourceID loadNextPuzzle() {
+		SourceID gs = grid.source;
 		if ( gs==null || gs.file==null )
 			return null;
 		return loadFile(gs.file, gs.lineNumber+1);
 	}
 
-	/** Load the given PuzzleID. */
-	final PuzzleID loadFile(PuzzleID id) {
+	/** Load the given SourceID. */
+	final SourceID loadFile(SourceID id) {
 		if ( id == null ) // first time
 			return null;
 		return loadFile(id.file, id.lineNumber);
@@ -1094,9 +1107,9 @@ public final class SudokuExplainer implements Closeable {
 	 *
 	 * @param file to load
 	 * @param lineNumber to load. Used only when filename.endsWith(".mt")
-	 * @return String puzzleName (PuzzleID.toString())
+	 * @return String puzzleName (SourceID.toString())
 	 */
-	final PuzzleID loadFile(File file, int lineNumber) {
+	final SourceID loadFile(File file, int lineNumber) {
 		if ( file==null || !file.exists() )
 			return null;
 		// clear the solvers hint-cache/s before we load the new puzzle,
@@ -1117,7 +1130,7 @@ public final class SudokuExplainer implements Closeable {
 		// bulk RAM) in which case logView then reloads logLines (slow).
 		resetLogLines();
 		// load the file into the grid
-		if ( !GridLoader.load((IAsker)frame, grid, file, lineNumber) 
+		if ( !GridLoader.load((IAsker)frame, grid, file, lineNumber)
 		  && backup != null ) {
 			grid.copyFrom(backup);
 		}
@@ -1140,12 +1153,8 @@ public final class SudokuExplainer implements Closeable {
 
 	/** Returns the next .txt File to be opened. */
 	File nextTxtFile(File file) {
-		File[] txtFiles = file.getParentFile().listFiles(new FilenameFilter() {
-			@Override
-			public boolean accept(File dir, String name) {
-				return name.toLowerCase().endsWith(".txt");
-			}
-		});
+		File[] txtFiles = file.getParentFile().listFiles(
+			(File dir, String name) -> name.toLowerCase().endsWith(".txt"));
 		String filename = file.getName();
 		int n = txtFiles.length - 1;
 		for ( int i=0; i<n; ++i )
@@ -1160,7 +1169,7 @@ public final class SudokuExplainer implements Closeable {
 	String saveFile(File file) {
 		try {
 			IO.save(grid.toString(), file);
-			grid.source = new PuzzleID(file);
+			grid.source = new SourceID(file);
 			clearUndos();
 			return recentFiles.add(grid.source).toString();
 		} catch (IOException ex) {
@@ -1172,14 +1181,14 @@ public final class SudokuExplainer implements Closeable {
 	/** Solve the current grid recursively (ie ASAP) to display the solution. */
 	void solveASAP() {
 		clearHints();
-		unfilteredHints = new ArrayList<>();
+		hintsAll = new ArrayList<>();
 		long t0 = System.nanoTime();
 		AHint solutionHint = solver.getSolutionHint(grid);
 		if (Log.MODE >= Log.VERBOSE_2_MODE) {
 			System.out.format("<solveASAP: %,15d%s %s", System.nanoTime()-t0, solutionHint instanceof SolutionHint, NL);
 		}
 		if ( solutionHint != null ) {
-			unfilteredHints.add(solutionHint);
+			hintsAll.add(solutionHint);
 			selectedHints.add(solutionHint);
 		}
 		filterAndSortHints();
@@ -1195,7 +1204,7 @@ public final class SudokuExplainer implements Closeable {
 			if ( solver == null )
 				return null;
 			clearHints(true);
-			unfilteredHints = new ArrayList<>();
+			hintsAll = new ArrayList<>();
 			// we need to make a copy, else the grid underneath the GUI changes
 			// so mouseMove-while-it's-analysing repaints the modified grid.
 			// Then it all snaps-back when analyse finishes, which is UGLY!
@@ -1206,7 +1215,7 @@ public final class SudokuExplainer implements Closeable {
 			final AHint hint = solver.analysePuzzle(copy, isNoisy, isTiming);
 			// hint should never be null. Never say never.
 			if ( hint != null ) {
-				unfilteredHints.add(hint);
+				hintsAll.add(hint);
 				selectedHints.add(hint);
 			}
 			filterAndSortHints();
@@ -1227,9 +1236,9 @@ public final class SudokuExplainer implements Closeable {
 	 */
 	void showHint(AHint hint) {
 		clearHints();
-		unfilteredHints = new ArrayList<>();
+		hintsAll = new ArrayList<>();
 		if ( hint != null ) {
-			unfilteredHints.add(hint);
+			hintsAll.add(hint);
 			selectedHints.add(hint);
 		}
 		filterAndSortHints();
@@ -1238,33 +1247,48 @@ public final class SudokuExplainer implements Closeable {
 
 	boolean copyUnfilteredHintsListToClipbard() {
 		try {
-			if ( unfilteredHints==null || unfilteredHints.isEmpty() )
+			if ( hintsAll==null || hintsAll.isEmpty() )
 				return false;
-			final StringBuilder sb = new StringBuilder(unfilteredHints.size() * AHint.CHARS_PER_HINT);
-			for ( AHint hint : unfilteredHints )
-				sb.append(hint.hinter.tech.name()).append(TAB)
-				  .append(hint.toFullString()).append(NL);
-			IO.copyToClipboard(sb.toString());
+			final StringBuilder sb = new StringBuilder(hintsAll.size() * AHint.CHARS_PER_HINT);
+			hintsAll.forEach((h)-> sb.append(h.hinter.tech.name()).append(TAB)
+					.append(h.toFullString()).append(NL));
+			GridClipboard.copyTo(sb.toString());
 			return true;
 		} catch (Exception ex) {
 			whinge(ex);
 			return false;
+		}
+	}
+
+	private static void appendBranchRecursivelyTo(StringBuilder sb, HintNode hintNode) {
+		final AHint hint = hintNode.getHint();
+		if ( hint != null ) { // leaf
+			sb.append(hint.hinter.tech.name()).append(TAB)
+			  .append(hint.toFullString()).append(NL);
+		} else {
+			for ( int i=0,n=hintNode.getChildCount(); i<n; ++i ) { // branch
+				appendBranchRecursivelyTo(sb, (HintNode)hintNode.getChildAt(i));
+			}
 		}
 	}
 
 	boolean copyToClipboard(ArrayList<HintNode> selections) {
-		if ( selections==null || selections.isEmpty() )
+		if ( selections==null || selections.isEmpty() ) {
 			return false;
+		}
 		try {
-			final StringBuilder sb = new StringBuilder(selections.size() * AHint.CHARS_PER_HINT);
-			for ( HintNode hintNode : selections ) {
-				AHint hint = hintNode.getHint();
+			final int size = selections.size() * AHint.CHARS_PER_HINT;
+			final StringBuilder sb = new StringBuilder(size);
+			selections.forEach((hintNode) -> {
+				final AHint hint = hintNode.getHint();
 				if ( hint != null ) { // hints are the leaves
 					sb.append(hint.hinter.tech.name()).append(TAB)
 							.append(hint.toFullString()).append(NL);
-				} else appendBranchRecursivelyTo(sb, hintNode);
-			}
-			IO.copyToClipboard(sb.toString());
+				} else {
+					appendBranchRecursivelyTo(sb, hintNode);
+				}
+			});
+			GridClipboard.copyTo(sb.toString());
 			return true;
 		} catch (Exception ex) {
 			whinge(ex);
@@ -1272,26 +1296,70 @@ public final class SudokuExplainer implements Closeable {
 		}
 	}
 
-	void appendBranchRecursivelyTo(StringBuilder sb, HintNode hintNode) {
-		AHint hint = hintNode.getHint();
-		if ( hint != null ) // leaf
-			sb.append(hint.hinter.tech.name()).append(TAB)
-			  .append(hint.toFullString()).append(NL);
-		else for ( int i=0,n=hintNode.getChildCount(); i<n; ++i ) // branch
-			appendBranchRecursivelyTo(sb, (HintNode)hintNode.getChildAt(i));
+	/**
+	 * Return green Pots from the IHinter for this 'column' in this 'grid'.
+	 * <p>
+	 * The hinters get harder as you go from column 'A' on the left to column
+	 * 'I' on the right, then the right mouse-button are encoded 'a' to 'i'.
+	 * <p>
+	 * Note that any and all Exception's are eaten. These are only cheats, so
+	 * I don't care if it goes bad.
+	 *
+	 * @param key 'A'..'I', 'a'..'i' identifies which hinter to run
+	 * @param grid the Grid to search
+	 * @return a Pots of the green cells to highlight, else null.
+	 *
+	 */
+	@SuppressWarnings("empty")
+	public Pots cheat(final String key, final Grid grid) {
+		try {
+			// (authorise OR Naked/HiddenSingle only) AND Frighten It
+			return solver.cheat(cheater||(cheater=frame.cheat())?key:"A", grid);
+		} catch ( Exception eaten ) {
+			// I don't care
+		}
+		return null;
 	}
+	// package visible to be read/set by SudokuFrame.
+	boolean cheater;
 
-	/** prints t's stackTrace to stderr and returns false. */
+	String cheatName(int i) {
+		if ( cheatNames == null ) {
+			cheatNames = solver.cheatNames();
+		}
+		// avoid any AIOOBE's
+		if ( i<0 || i>=cheatNames.length ) {
+			return "";
+		}
+		// nb: cheatNames[0] is also ""
+		return cheatNames[i];
+	}
+	private String cheatNames[];
+
+	/**
+	 * prints t's stackTrace to stderr and returns false.
+	 * @param t
+	 * @return
+	 */
 	public boolean whinge(Throwable t) {
 		return StdErr.whinge(t);
 	}
 
-	/** prints msg to stderr and returns false. */
+	/**
+	 * prints msg to stderr and returns false.
+	 * @param msg
+	 * @return
+	 */
 	public boolean whinge(String msg) {
 		return StdErr.whinge(msg);
 	}
 
-	/** prints a one line error message and returns false. */
+	/**
+	 * prints a one line error message and returns false.
+	 * @param msg
+	 * @param t
+	 * @return
+	 */
 	public boolean carp(String msg, Throwable t) {
 		return StdErr.carp(msg, t);
 	}
@@ -1341,8 +1409,9 @@ public final class SudokuExplainer implements Closeable {
 			String laf = THE_SETTINGS.getLookAndFeelClassName();
 			if ( !"#NONE#".equals(laf) ) {
 				try {
-					if ( laf == null )
+					if ( laf == null ) {
 						laf = UIManager.getSystemLookAndFeelClassName();
+					}
 					UIManager.setLookAndFeel(laf);
 				} catch(Exception ex) {
 					System.out.flush();
@@ -1389,30 +1458,5 @@ public final class SudokuExplainer implements Closeable {
 		private static final long serialVersionUID = 124752002380L;
 		public ReligiousException() { }
 	}
-
-	// -------------------------------- cheat ---------------------------------
-
-	/**
-	 * Return green Pots from the IHinter for this 'column' in this 'grid'.
-	 * The hinters get harder as you go from column 'A' on the left to column
-	 * 'I' on the right, then the right mouse-button for 'a' to 'i'.
-	 * These are only cheats, so if anything goes wrong I just give-up.
-	 *
-	 * @param chaet the Grid to search
-	 * @param cheat 'A'..'I', 'a'..'i' identifies which IHinter to execute
-	 * @return a Pots of the green cells to highlight, else null
-	 */
-	@SuppressWarnings("empty")
-	public Pots cheat(final Grid chaet, final String cheat) {
-		try {
-			if ( "A".equals(cheat) || cheatMode || (cheatMode=frame.cheap()) );
-				return solver.cheat(chaet, cheat, cheat==null, cheatMode);
-		} catch (Throwable eaten) {
-// I really just don't care!
-//			beep();
-		}
-		return null;
-	}
-	boolean cheatMode;
 
 }

@@ -12,11 +12,12 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.accu.IAccumulator;
 
 /**
- * Produce a WarningHint if the Sudoku doesn't have at least 17 clues.
+ * A valid Sudoku has atleast 17 clues. If the grid contains less than 17
+ * cells with a non-zero value then produce a warning hint.
  */
-public final class TooFewClues extends AWarningHinter {
+public final class InsufficientClues extends AWarningHinter {
 
-	public TooFewClues() {
+	public InsufficientClues() {
 		super(Tech.TooFewClues);
 	}
 
@@ -24,15 +25,14 @@ public final class TooFewClues extends AWarningHinter {
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		if ( grid.enoughClues )
 			return false;
-		// Does this puzzle have atleast 17 clues?
-		final int clues = grid.numSet;
-		if ( clues >= MIN_CLUES ) {
+		final int n;
+		if ( (n=grid.numSet) >= MIN_CLUES ) {
 			grid.enoughClues = true;
 			return false;
 		}
 		accu.add(new WarningHint(this
-				, "Number of clues "+clues+" is less than "+MIN_CLUES
-				, "TooFewClues.html", clues));
+				, "Number of clues "+n+" is less than "+MIN_CLUES
+				, "TooFewClues.html", n));
 		return true;
 	}
 

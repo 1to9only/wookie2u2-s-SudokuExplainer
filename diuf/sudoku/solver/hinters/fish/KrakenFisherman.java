@@ -37,7 +37,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.HintValidator;
+import diuf.sudoku.solver.hinters.Validator;
 import diuf.sudoku.Ass;
 import diuf.sudoku.Cells;
 import static diuf.sudoku.Grid.COL;
@@ -53,6 +53,7 @@ import static diuf.sudoku.Regions.ROW_COL_MASK;
 import static diuf.sudoku.Regions.ROW_MASK;
 import diuf.sudoku.Run;
 import static diuf.sudoku.Values.VALUESES;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.hinters.LinkedMatrixAssSet;
@@ -616,15 +617,17 @@ public class KrakenFisherman extends AHinter
 				KT1_VISITOR.candidate = v;
 				for ( int dk : Idx.toArrayA(deletesM0,deletesM1,deletesM2) ) {
 					// It's a KF1 if each fin chains to cells[kd]-v.
-					if ( anyFins && !isKrakenTypeOne(dk, kt1Asses) )
+					if ( anyFins && !isKrakenTypeOne(dk, kt1Asses) ) {
 						continue;
+					}
 					if ( anySharks ) {
-						if ( kSharks.has(dk) )
+						if ( kSharks.has(dk) ) {
 							sharks.clear().add(dk);
-						else if ( !anyFins )
+						} else if ( !anyFins ) {
 							continue;
-						else
+						} else {
 							sharks.clear();
+						}
 					} // else sharks just stays empty
 					// Kraken Found!!!! create hint and add to accu
 					deletes.clear().add(dk);
@@ -650,13 +653,14 @@ public class KrakenFisherman extends AHinter
 								, chains
 	//							, new Idx(fins)
 						);
-						if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
-							if ( !HintValidator.isValid(grid, kHint.redPots) ) {
+						if ( Validator.KRAKEN_FISHERMAN_VALIDATES ) {
+							if ( !Validator.isValid(grid, kHint.reds) ) {
 								kHint.isInvalid = true;
-								HintValidator.report("KF1", grid, kHint.toFullString());
+								Validator.report("KF1", grid, kHint.toFullString());
 								// see in GUI, skip in batch/testcase
-								if ( Run.type != Run.Type.GUI )
+								if ( Run.type != Run.Type.GUI ) {
 									continue;
+								}
 							}
 						}
 						result = true;
@@ -722,11 +726,11 @@ public class KrakenFisherman extends AHinter
 									);
 
 									ok = true;
-									if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+									if ( Validator.KRAKEN_FISHERMAN_VALIDATES ) {
 										// NB: generator hits invalid Kraken Swordfish+
-										if ( !HintValidator.isValid(grid, kraken.redPots) ) {
+										if ( !Validator.isValid(grid, kraken.reds) ) {
 											kraken.isInvalid = true;
-											HintValidator.report("KF2", grid, kraken.toFullString());
+											Validator.report("KF2", grid, kraken.toFullString());
 											// see in GUI, skip in batch/testcase
 											if ( Run.type != Run.Type.GUI )
 												ok = false;
@@ -1137,14 +1141,15 @@ public class KrakenFisherman extends AHinter
 	 */
 	private void kt2Produce(Ass initialOn, final LinkedMatrixAssSet set
 			, final Idx[] elims) {
-		final Cell[] cells = grid.cells;
-		Ass e; // the effect of Ass a (the next Ass in the consequences chain)
-		Cell cell, sib; // a.cell; sibling of a.cell
-		int[] vals;
-		int x; // a.value; use x coz v is the Fish candidate value field
-		int sx; // shiftedX;
-		int jj,JJ; // just an index
 		assert initialOn.isOn;
+		Ass e; // the effect of Ass a (the next Ass in the consequences chain)
+		Cell c; // a.cell
+		int[] vs; // valueses array
+		int x // a.value; use x coz v is the Fish candidate value field
+		  , sx // shiftedX;
+		  , i // index
+		  , n; // number-of
+		final Cell[] cells = grid.cells;
 		kt2Queue.clear(); // should already be empty, but clear it anyway.
 		set.clear(); // likewise should already be empty (I think).
 		set.add(initialOn); // prevent initialOn being re-added (stop looping)
@@ -1154,21 +1159,20 @@ public class KrakenFisherman extends AHinter
 			// this loop is the only place 'a' changes so we can cache it's
 			// attributes just to save repeatedly dereferencing them
 			x = a.value;
-			cell = a.cell;
+			c = a.cell;
 			if ( a.isOn ) {
 				sx = VSHFT[x];
 				// 1. add an OFF for each other potential value of a.cell.
-				vals = VALUESES[cell.maybes & ~sx];
-				for ( jj=0,JJ=vals.length; jj<JJ; ++jj ) {
-					if ( set.add(e = new Ass(cell, vals[jj], OFF, a)) ) {
+				for ( vs=VALUESES[c.maybes & ~sx],i=0,n=vs.length; i<n; ++i ) {
+					if ( set.add(e = new Ass(c, vs[i], OFF, a)) ) {
 						kt2Queue.add(e);
-						elims[vals[jj]].add(cell.i);
+						elims[vs[i]].add(c.i);
 					}
 				}
 				// 2. add an OFF for each other possible position of a.value
 				//    in each of a.cell's three regions.
-				for ( jj=0; jj<20; ++jj ) {
-					if ( ((sib=cell.siblings[jj]).maybes & sx) != 0
+				for ( Cell sib : c.siblings ) {
+					if ( (sib.maybes & sx) != 0
 					  && set.add(e=new Ass(sib, x, OFF, a)) ) {
 						kt2Queue.add(e);
 						elims[x].add(sib.i);
@@ -1177,18 +1181,18 @@ public class KrakenFisherman extends AHinter
 			} else {
 				// 1. if a.cell has only two potential values then it must
 				//    be the other potential value, so add an ON to the queue.
-				if ( cell.size == 2
-				  && set.add(e=new Ass(cell, VALUESES[cell.maybes & ~VSHFT[x]][0], ON, a)) )
+				if ( c.size == 2
+				  && set.add(e=new Ass(c, VFIRST[c.maybes & ~VSHFT[x]], ON, a)) )
 					kt2Queue.add(e);
 				// 2. foreach of a.cell's 3 regions: if region has 2 places for
 				//    a.value then the other cell must be a.value, so add an ON
 				//    to the queue.
-				for ( jj=0; jj<3; ++jj ) {
+				for ( i=0; i<3; ++i ) {
 					// nb: hit rate too low to cache cell.regions[j], faster to
 					// dereference it again in the 10% of cases where there's 2
 					// positions for a.value in the region
-					if ( cell.regions[jj].ridx[x].size == 2
-					  && set.add(e=new Ass(cells[cell.regions[jj].idxs[x].otherThan(cell.i)], x, ON, a)) )
+					if ( c.regions[i].ridx[x].size == 2
+					  && set.add(e=new Ass(cells[c.regions[i].idxs[x].otherThan(c.i)], x, ON, a)) )
 						kt2Queue.add(e);
 				}
 			}
@@ -1230,12 +1234,11 @@ public class KrakenFisherman extends AHinter
 	private ComplexFishHint createBaseHint() {
 
 		// add the deletes (if any) and sharks (if any) to reds
-		final int sv = VSHFT[v];
 		final Pots reds = new Pots();
 		if ( deletes.any() )
-			deletes.forEach(grid.cells, (cell)->reds.put(cell, sv));
+			reds.upsertAll(deletes, grid, v);
 		if ( sharks.any() )
-			sharks.forEach(grid.cells, (cell)->reds.put(cell, sv));
+			reds.upsertAll(sharks, grid, v);
 
 		baseMask = Regions.types(basesUsed);
 		coverMask = Regions.types(coversUsed);
@@ -1306,11 +1309,11 @@ public class KrakenFisherman extends AHinter
 				, tag);
 
 // this pointless coz the base hint most probably has no redPots!
-//		if ( HintValidator.KRAKEN_FISHERMAN_USES ) {
+//		if ( Validator.KRAKEN_FISHERMAN_VALIDATES ) {
 //			// swamp ok, I'm having trouble with sword and jelly.
-//			if ( !HintValidator.isValid(grid, hint.redPots) ) {
+//			if ( !Validator.isValid(grid, hint.redPots) ) {
 //				hint.isInvalid = true;
-//				HintValidator.report("KFB", grid, hint.toFullString());
+//				Validator.report("KFB", grid, hint.toFullString());
 //				return null; // Sigh.
 //			}
 //		}
@@ -1385,17 +1388,9 @@ public class KrakenFisherman extends AHinter
 	 */
 	private static final class Eff extends Ass {
 
-		// NOTE that IntHashSet does not grow like a java.util.Set.
-		// KrakenFisherman.maxKids = 22 is NOT big enough for full Ass.hashCode
-		// so we let the largest ones overfill, so there are more collisions,
-		// but that's OK, it's just a bit slower. Set size a compromise between
-		// construction time and get/add time, which usually wins.
-		// Ideally we'd delay creating the table until we add to it, coz only
-		// 30% of OFFs cause an ON; so I try that only to find its SLOWER; so
-		// ignore me, I'm barking, evidently. This is WHY we performance test.
+		// kidsHCs: kids (effects) Hash Codes.
+		// NB: IntHashSet does not grow like a java.util.Set.
 		public final IntHashSet kidsHCs = new IntHashSet(32);
-		// NOTE: kids was an ArrayList<Eff> now its an array, for speed.
-		// If you get an AIOOBE then your code has gone wrong somewhere.
 		// You can't have more than 22 kids from 20 siblings. Do the math.
 		public final Eff[] kids = new Eff[22];
 		// The number of elements in the kids array

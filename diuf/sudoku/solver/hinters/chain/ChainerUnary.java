@@ -58,20 +58,27 @@ public final class ChainerUnary extends ChainerBase {
 	/**
 	 * The UnaryChainer Constructor: an engine for searching a Sudoku Grid
 	 * for unary forcing chains.
-	 * <p>A "unary" forcing chain follows the consequences of assuming that
-	 * a Cell is a value through cells with only two possible values, and
-	 * regions with only two positions for a value. This is the simplest and
-	 * fastest chaining technique. The slower (more complex) multiple and
-	 * dynamic chaining techniques are now implemented in the MultipleChainer
-	 * class.
+	 * <p>
+	 * A "unary" forcing chain follows the consequences of assuming that a Cell
+	 * is a value through cells with only two possible values, and regions with
+	 * only two positions for a value. This is the simplest/fastest chaining
+	 * technique. The more complex (slower) multiple and dynamic chaining
+	 * techniques are now implemented in the MultipleChainer class.
+	 * <p>
+	 * 
+	 * @param tech ChainerUnary ONLY implements Tech.UnaryChain, but it's
+	 *  passed-in anyway to make it's constructor consistent with the other
+	 *  chainers, which require the Tech to be passed-in because they implement
+	 *  multiple Tech's. So this parameter exists only to make this constructor
+	 *  consistent with those of the other chainers. Clear?
 	 * @param isImbedded true ONLY if this is an imbedded (nested) Chainer.
 	 * true prevents the superclass ChainerBase from caching my hints.
 	 */
-	ChainerUnary(boolean isImbedded) {
-		super(Tech.UnaryChain, isImbedded);
+	ChainerUnary(Tech tech, boolean isImbedded) {
+		super(tech, isImbedded);
 	}
-	public ChainerUnary() {
-		this(false); // not imbedded
+	public ChainerUnary(Tech tech) {
+		this(tech, false); // not imbedded
 	}
 
 	@Override

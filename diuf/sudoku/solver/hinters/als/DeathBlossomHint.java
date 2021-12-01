@@ -7,24 +7,23 @@
 package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Cells;
-import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
+import static diuf.sudoku.solver.hinters.als.AlsHintHelper.link;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
-import static diuf.sudoku.utils.Frmt.getSB;
+import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.COLON;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_ONLY;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.IN;
 
 /**
  * DeathBlossomHint holds all the data of a DeathBlossom hint, which is
@@ -35,11 +34,10 @@ import static diuf.sudoku.utils.Frmt.IN;
 public class DeathBlossomHint extends AHint  {
 
 	private final Cell stem;
-	private final List<Als> alss;
+	private final Als[] alss;
 	private final Als[] alssByValue;
 	public DeathBlossomHint(AHinter hinter, Pots redPots, Cell stem
-			, List<Als> alss, Als[] alssByValue) {
-		// nb: what are normally greens are oranges here
+			, Als[] alss, Als[] alssByValue) {
 		super(hinter, redPots);
 		this.stem = stem;
 		this.alss = alss;
@@ -52,17 +50,31 @@ public class DeathBlossomHint extends AHint  {
 	}
 
 	@Override
-	public Collection<Als> getAlss() {
+	public Als[] getAlss() {
 		return alss;
 	}
 
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
-		Collection<Link> result = new LinkedList<>();
-		for ( int v : VALUESES[stem.maybes] )
-			for ( Cell c : alssByValue[v].cells )
-				if ( c.maybe(v) )
-					result.add(new Link(stem, v, c, v));
+		final Collection<Link> result = new LinkedList<>();
+		// stem -maybes-> alss
+		final int s = stem.i; // the source cell indice
+		for ( int v : VALUESES[stem.maybes] ) {
+			final Idx dst = alssByValue[v].vs[v];
+			if ( dst != null ) {
+				dst.forEach((d)->result.add(new Link(s, v, d, v)));
+			}
+		}
+		// alss -zs-> elims
+		// backwards: foreach dst, foreach src to link ONLY to elim'd values
+		reds.entrySet().forEach((e) -> {
+			final int d = e.getKey().i;
+			for ( int z : VALUESES[e.getValue()] ) {
+				for ( Als src : alss ) {
+					link(src.vs[z], d, z, result);
+				}
+			}
+		});
 		return result;
 	}
 
@@ -76,7 +88,7 @@ public class DeathBlossomHint extends AHint  {
 
 	@Override
 	public String toStringImpl() {
-		return Frmt.getSB().append(getHintTypeName()).append(COLON_ONLY)
+		return Frmt.getSB().append(getHintTypeName()).append(COLON)
 		  .append(" stem ").append(stem.id)
 		  .append(IN).append(Frmu.ssv(Als.regionsList(alss)))
 		  .toString();
@@ -106,13 +118,13 @@ public class DeathBlossomHint extends AHint  {
 
 	@Override
 	public String toHtmlImpl() {
-		final String invalid; if(isInvalid) invalid="INVALID "; else invalid=EMPTY_STRING;
+		final String s; if(isInvalid) s="INVALID "; else s=EMPTY_STRING;
 		return Html.produce(this, "DeathBlossomHint.html"
 			, stem.toFullString()	//{0}
 			, coloredAlss()			// 1
 			, stem.id				// 2
-			, redPots.toString()	// 3
-			, invalid				// 4
+			, reds.toString()		// 3
+			, s						// 4
 		);
 	}
 

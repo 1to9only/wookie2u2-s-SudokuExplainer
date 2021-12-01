@@ -113,8 +113,8 @@ public final class LockingHint extends AHint implements IChildHint {
 		final int v = this.valueToRemove;
 		final int sv = VSHFT[v];
 		for ( Cell c : base.cells )
-			if ( (initGrid.cells[c.i].maybes & sv) != 0
-			  && (currGrid.cells[c.i].maybes & sv) == 0
+			if ( (initGrid.maybes[c.i] & sv) != 0
+			  && (currGrid.maybes[c.i] & sv) == 0
 			  && !cover.contains(c) ) {
 				if(result==null) result = new MyLinkedList<>();
 				result.add(prntOffs.getAss(c, v));
@@ -191,7 +191,7 @@ public final class LockingHint extends AHint implements IChildHint {
 				, Integer.toString(valueToRemove)		//  1
 				, base.typeName							//  2
 				, cover.typeName						//  3
-				, redPots.toString()					//  4
+				, reds.toString()					//  4
 				, debugMessage							//  5
 		);
 	}

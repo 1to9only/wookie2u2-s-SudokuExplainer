@@ -32,10 +32,10 @@ import java.util.EnumMap;
  * <p>
  * RecursiveSolver is currently <u>only</u> used in RecursiveSolverTester. It
  * is not used in the rest of Sudoku Explainer, hence the separate test.knuth
- * package. SingleSolution is used in the rest of SE. It does basically the
+ * package. BruteForce is used in the rest of SE. It does basically the
  * same stuff as me, with cheese. This is the stripped-out racing version: sans
  * cheese, special sauce, pickles, and any other s__t that's gotten tacked-on.
- * SingleSolution is functional, but knuth.RecursiveSolver is all about speed.
+ * BruteForce is functional, but knuth.RecursiveSolver is all about speed.
  * I quite like speed. REAL speed. The kind you discover rather than invent.
  * <p>
  * I tried adding all sorts of hinters, but they're all SLOWER, so I took them
@@ -179,8 +179,8 @@ public final class RecursiveSolver {
 			  // NB: Locking uses a HintsApplicumulator internally to apply a
 			  // hint when it's found so that all pointing/claiming is done
 			  // in ONE pass through the grid, coz it's a bit faster that way.
-			  // My call to accu.getHint() returns an AppliedHintsSummaryHint,
-			  // whose apply just returns the total number of eliminations.
+			  // My call to accu.getHint() returns an SummaryHint, whose apply
+			  // returns the total number of eliminations.
 			  // nb: with autosolve on Locking might fill the grid.
 			  // nb: Locking chases maybes removed from cells in regions that
 			  // have already been searched, by reprocessing dirty regions til

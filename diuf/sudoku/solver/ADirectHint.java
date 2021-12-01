@@ -12,7 +12,6 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Run;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
 import static diuf.sudoku.utils.Frmt.EQUALS;
@@ -20,7 +19,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.IN;
-
 
 /**
  * ADirectHint is an abstract class which extends AHint (the abstract hint) to
@@ -158,8 +156,16 @@ public abstract class ADirectHint extends AHint  {
 		return cell.hashCode() ^ hinter.hashCode() ^ value;
 	}
 
-	/** @return A String representation of this hint.
-	 * Format: "$id=$value in $region". */
+	/**
+	 * Returns a String representation of a direct hint, which sets a cells
+	 * value.
+	 * <pre>
+	 * Format: "$cell.id=$value[ in $region.id]"
+	 * where " in $region" is included if the given region is not null.
+	 * </pre>
+	 *
+	 * @return A String representing this hint
+	 */
 	@Override
 	public String toStringImpl() {
 		final StringBuilder sb = new StringBuilder(13);

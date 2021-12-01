@@ -24,9 +24,10 @@ import static diuf.sudoku.utils.Frmt.COMMA;
 import static diuf.sudoku.utils.Frmt.and;
 import static diuf.sudoku.utils.Frmt.OR;
 import static diuf.sudoku.utils.Frmt.or;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.SPACE;
+import static diuf.sudoku.utils.Frmt.CSP;
+import static diuf.sudoku.utils.Frmt.SP;
+import static diuf.sudoku.utils.Frmt.or;
 
 /**
  * Frmu (that's the letter following t) is Frmt for Sudoku Explainer types, so
@@ -65,7 +66,7 @@ public class Frmu {
 		StringBuilder sb = getMySB(7 * regions.size());
 		boolean first = true;
 		for ( ARegion r : regions ) {
-			if(first) first=false; else sb.append(COMMA_SP);
+			if(first) first=false; else sb.append(CSP);
 			sb.append(r.id);
 		}
 		return sb.toString();
@@ -85,7 +86,7 @@ public class Frmu {
 			if ( first )
 				first = false;
 			else
-				sb.append(COMMA_SP);
+				sb.append(CSP);
 			sb.append(r.id);
 		}
 		return sb;
@@ -107,7 +108,7 @@ public class Frmu {
 		final Iterator<ARegion> c = covers.iterator();
 		boolean first = true;
 		for ( int i=0; i<n; ++i ) {
-			if(first) first=false; else sb.append(COMMA_SP);
+			if(first) first=false; else sb.append(CSP);
 			try {
 				sb.append(i%2==0 ? b.next() : c.next());
 			} catch (NoSuchElementException ex) {
@@ -127,7 +128,7 @@ public class Frmu {
 		StringBuilder sb = getMySB(7 * regions.size());
 		boolean first = true;
 		for ( ARegion r : regions ) {
-			if(first) first=false; else sb.append(SPACE);
+			if(first) first=false; else sb.append(SP);
 			sb.append(r.id);
 		}
 		return sb.toString();
@@ -161,7 +162,7 @@ public class Frmu {
 		return toFullString(sep, cells.length, cells);
 	}
 	public static String toFullString(Cell[] cells) {
-		return toFullString(COMMA_SP, cells.length, cells);
+		return toFullString(CSP, cells.length, cells);
 	}
 
 	/**
@@ -189,15 +190,15 @@ public class Frmu {
 		return sb.toString();
 	}
 	public static String toFullString(Iterable<Cell> cells) {
-		return toFullString(COMMA_SP, cells);
+		return toFullString(CSP, cells);
 	}
 
-	public static String csv(Cell... cells) { return frmt(cells, cells.length, COMMA_SP, COMMA_SP); }
-	public static String csv(int n, Cell... cells) { return frmt(cells, n, COMMA_SP, COMMA_SP); }
-	public static String ssv(Cell... cells) { return frmt(cells, cells.length, SPACE, SPACE); }
-	public static String ssv(int n, Cell... cells) { return frmt(cells, n, SPACE, SPACE); }
-	public static String and(Cell... cells) { return frmt(cells, cells.length, COMMA_SP, AND); }
-	public static String or(Cell... cells) { return frmt(cells, cells.length, COMMA_SP, OR); }
+	public static String csv(Cell... cells) { return frmt(cells, cells.length, CSP, CSP); }
+	public static String csv(int n, Cell... cells) { return frmt(cells, n, CSP, CSP); }
+	public static String ssv(Cell... cells) { return frmt(cells, cells.length, SP, SP); }
+	public static String ssv(int n, Cell... cells) { return frmt(cells, n, SP, SP); }
+	public static String and(Cell... cells) { return frmt(cells, cells.length, CSP, AND); }
+	public static String or(Cell... cells) { return frmt(cells, cells.length, CSP, OR); }
 	public static String frmt(Cell[] cells, int n, final String sep, final String lastSep) {
 		final StringBuilder sb = getMySB(128);
 		return append(sb, cells, n, sep, lastSep).toString();
@@ -214,10 +215,10 @@ public class Frmu {
 		return sb;
 	}
 
-	public static String csv(final Collection<Cell> cells) { return frmt(cells, COMMA_SP, COMMA_SP); }
-	public static String ssv(final Collection<Cell> cells) { return frmt(cells, SPACE, SPACE); }
-	public static String and(final Collection<Cell> cells) { return frmt(cells, COMMA_SP, AND); }
-	public static String or(final Collection<Cell> cells) { return frmt(cells, COMMA_SP, OR); }
+	public static String csv(final Collection<Cell> cells) { return frmt(cells, CSP, CSP); }
+	public static String ssv(final Collection<Cell> cells) { return frmt(cells, SP, SP); }
+	public static String and(final Collection<Cell> cells) { return frmt(cells, CSP, AND); }
+	public static String or(final Collection<Cell> cells) { return frmt(cells, CSP, OR); }
 	public static String frmt(final Collection<Cell> cells, final String sep, final String lastSep) {
 		final StringBuilder sb = getMySB(128);
 		return append(sb, cells, sep, lastSep).toString();
@@ -261,7 +262,7 @@ public class Frmu {
 			CellSet set = map.get(key);
 			if(first) first=false; else sb.append(NL).append("\t, ");
 			sb.append(Frmt.rpad(key.toString(),12)).append("=>").append(set.size()).append(":[");
-			appendFullString(sb, set, COMMA_SP, COMMA_SP); // only use of this method currently
+			appendFullString(sb, set, CSP, CSP); // only use of this method currently
 			sb.append("]");
 		}
 		sb.append(" ]");
@@ -270,9 +271,9 @@ public class Frmu {
 
 	// ============================ Values ==============================
 
-	public static String csv(Values vs) { return frmt(vs, COMMA_SP, COMMA_SP); }
-	public static String and(Values vs) { return frmt(vs, COMMA_SP, AND); }
-	public static String or(Values vs) { return frmt(vs, COMMA_SP, OR); }
+	public static String csv(Values vs) { return frmt(vs, CSP, CSP); }
+	public static String and(Values vs) { return frmt(vs, CSP, AND); }
+	public static String or(Values vs) { return frmt(vs, CSP, OR); }
 	public static String frmt(Values vs, String sep, String lastSep) {
 		if(vs==null) return EMPTY_STRING;
 		final StringBuilder sb = getMySB(128);
@@ -299,7 +300,7 @@ public class Frmu {
 	}
 
 	public static String values(Integer vs) {
-		return Frmt.plural(Values.VSIZE[vs], "value")+SPACE+Values.and(vs);
+		return Frmt.plural(Values.VSIZE[vs], "value")+SP+Values.andString(vs);
 	}
 
 	public static StringBuilder getSB() {

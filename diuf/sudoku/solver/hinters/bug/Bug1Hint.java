@@ -24,7 +24,7 @@ import java.util.Set;
  * There are 29 "BUG type 1:"s and just 1 "BUG type 2:"s in top1465 if you
  * turn-off all the HoDoKu hint types. If you turn on all the HoDoKu hint-types
  * (especially Coloring) then no BUG's are found so you may as well deselect me.
- * 
+ *
  * @author Nicolas Juillerat
  */
 public final class Bug1Hint extends ABugHint  {
@@ -68,10 +68,10 @@ public final class Bug1Hint extends ABugHint  {
 	public String toHtmlImpl() {
 		Integer redVals = bugCell.maybes & ~bugValues;
 		return Html.produce(this, "Bug1Hint.html"
-				, Values.and(bugValues)	// {0}
-				, bugCell.id			//  1
-				, Values.or(bugValues)	//  2
-				, Frmu.values(redVals)	//  3
+				, Values.andString(bugValues)	//{0}
+				, bugCell.id					// 1
+				, Values.orString(bugValues)	// 2
+				, Frmu.values(redVals)			// 3
 		);
 	}
 }

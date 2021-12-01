@@ -186,7 +186,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 		// get an array of the Cells at which we hinted in the last run;
 		// otherwise we skip this call to getHints
 		final Cell[] hitCells = useHits // only true when AHinter.hackTop1465
-				? hits.getHitCells(gsl, hintNum, degree, grid)
+				? hits.cells(gsl, hintNum, degree, grid)
 				: null;
 		final boolean hitMe = hitCells != null;
 		if ( useHits && !hitMe )
@@ -271,7 +271,7 @@ public final class Aligned2Exclusion extends AAlignedSetExclusionBase
 					// of c1's excluders with c0's excluders.
 					// nb: Aligned Pair Exclusion is only possible with atleast
 					//     2 common excluder cells, so we call idx2.
-					if ( excluders[candidates[i1].i].idx2(idx01, idx0) )
+					if ( excluders[candidates[i1].i].idx2(idx0, idx01) )
 						continue;
 
 					c1 = cells[1] = candidates[i1];

@@ -7,9 +7,9 @@
 package diuf.sudoku.utils;
 
 import static diuf.sudoku.utils.Frmt.NL;
-import static diuf.sudoku.utils.Frmt.SPACE;
 import java.util.Formatter;
 import java.util.Locale;
+import static diuf.sudoku.utils.Frmt.SP;
 
 
 /**
@@ -68,7 +68,8 @@ public final class MyStrings {
 	// ------------------------------ replaceAll ------------------------------
 
 	// Welcome.html is the largest .html file at just under 2K (1,995 bytes)
-	public static final int BIG_BUFFER_SIZE = 2 * 1024;
+	/** The Big Buffer Size: 2048. */
+	public static final int BIG_BFR_SIZE = 2 * 1024;
 
 	/**
 	 * get the cached StringBuilder of atleast BUFFER_SIZE.
@@ -76,7 +77,7 @@ public final class MyStrings {
 	 */
 	public static StringBuilder bigSB() {
 		if ( sb == null )
-			sb = new StringBuilder(BIG_BUFFER_SIZE); // growable!
+			sb = new StringBuilder(BIG_BFR_SIZE); // growable!
 		else
 			sb.setLength(0);
 		return sb;
@@ -178,7 +179,7 @@ public final class MyStrings {
 	 * spaces to a single space, and trim it.
 	 */
 	public static String squeeze(String s) {
-		return s.replaceAll(NL, SPACE).replaceAll(TWO_OR_MORE_SPACES, SPACE).trim();
+		return s.replaceAll(NL, SP).replaceAll(TWO_OR_MORE_SPACES, SP).trim();
 	}
 
 	/**
@@ -228,6 +229,21 @@ public final class MyStrings {
 		sb.append(s); // append the remainder
 		return sb.toString();
 	}
+
+//	/**
+//	 * How many fields are in s if we split it on token?
+//	 *
+//	 * @param s to read
+//	 * @param token to look for
+//	 * @return one more than the number of occurrences of token in s.
+//	 */
+//	public static int numFields(String s, String token) {
+//		int count=1, i=-1;
+//		while ( (i=s.indexOf(token, i+1)) > 0 ) {
+//			++count;
+//		}
+//		return count;
+//	}
 
 	private MyStrings() {}
 

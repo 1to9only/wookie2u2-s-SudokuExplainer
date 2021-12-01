@@ -28,7 +28,7 @@ import static diuf.sudoku.utils.Frmt.IN;
  */
 public final class HiddenSetDirectHint extends AHint  {
 
-	private final Cell[] cells;
+	private final Cell[] cells; // cells in this Hidden Set
 	private final int[] hdnSetValuesArray;
 	private final ARegion region;
 
@@ -45,8 +45,9 @@ public final class HiddenSetDirectHint extends AHint  {
 		this.cells = cells;
 		this.hdnSetValues = hdnSetValues;
 		this.region = region;
-		/** Used by Locking. */
+		// Used by Locking.
 		this.hdnSetValuesArray = Values.toArrayNew(hdnSetValues);
+		// Used by Locking.
 		this.hdnSetIdx = Idx.of(cells);
 	}
 
@@ -82,7 +83,7 @@ public final class HiddenSetDirectHint extends AHint  {
 				, getHintTypeName()				//  4
 				, cell.id						//  5
 				, Integer.toString(value)		//  6
-				, redPots.toString()			//  7
+				, reds.toString()			//  7
 		);
 	}
 

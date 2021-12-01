@@ -9,6 +9,7 @@ package diuf.sudoku.solver.accu;
 import diuf.sudoku.Grid;
 import diuf.sudoku.solver.AHint;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -19,7 +20,7 @@ import java.util.List;
  * (Default)HintsAccumulator to find all available hints.
  * <li>The GUI (getFirstHint) and the LogicalSolverTester use a
  * SingleHintsAccumulator to find the first available hint.
- * <li>The SingleSolution uses a SingleHintsAccumulator; and also a funky
+ * <li>The BruteForce uses a SingleHintsAccumulator; and also a funky
  * HintsApplicumulator which applies each hint as soon as it's found allowing
  * it's hinters (HiddenSingle, NakedSingle, Locking, NakedPair,
  * HiddenPair, and Swampfish) to solve in one pass through the grid.
@@ -104,7 +105,7 @@ public interface IAccumulator {
 	 * always actually want to know. Ergo: isEmpty is/was a mistake, IMHO, not
 	 * that it really matters.
 	 */
-	public boolean hasAny();
+	public boolean any();
 
 	/**
 	 * @return the number of hints held by this accumulator.
@@ -120,8 +121,9 @@ public interface IAccumulator {
 
 	/**
 	 * Sorts the hints in a HintsAccumulator by scored descending.
+	 * @param comparator your comparator, or null for AHint.BY_SCORE_DESC
 	 */
-	public void sort();
+	public void sort(Comparator<AHint> comparator);
 
 	/**
 	 * Remove each toRemove hint from my list in a HintsAccumulator.

@@ -7,7 +7,9 @@
 package diuf.sudoku.solver.hinters.color;
 
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
+import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
@@ -16,11 +18,13 @@ import java.util.HashSet;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.COMMA_SP;
+import static diuf.sudoku.utils.Frmt.CSP;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 
 
 /**
- * ColoringHint holds the data of a coloring hint for display.
+ * ColoringHint is the DTO for coloring hints.
  *
  * @author Keith Corlett 2020 Sept 22
  */
@@ -79,7 +83,7 @@ public class ColoringHint extends AHint  {
 		// clone them, and then clear the ONE instance. Simples!
 		super(hinter, redPots.copyAndClear(), pots[0], null, pots[1], null, null);
 		this.subtype = subtype;
-		this.pots = clean(pots, this.redPots); // must pass the field!
+		this.pots = clean(pots, this.reds); // must pass the field!
 		this.valueToRemove = valueToRemove;
 		this.aquaCells = calculateAquaCells(pots);
 	}
@@ -114,6 +118,20 @@ public class ColoringHint extends AHint  {
 		if ( pots.length > 4 )
 			return pots[4];
 		return null;
+	}
+
+	@Override
+	public Collection<Link> getLinks(int viewNum) {
+		final Collection<Link> result = new LinkedHashSet<>();
+		reds.entrySet().forEach((e) -> {
+			final int d = e.getKey().i;
+			aquaCells.stream().filter((src)->src.sees[d]).forEach((src) -> {
+				for ( int v : VALUESES[e.getValue()] ) {
+					result.add(new Link(src.i, v, d, v));
+				}
+			});
+		});
+		return result;
 	}
 
 	@Override
@@ -156,7 +174,7 @@ public class ColoringHint extends AHint  {
 		sb.append(getHintTypeName()).append(COLON_SP);
 		boolean first = true;
 		for ( Pots p : pots ) {
-			if(first) first=false; else sb.append(COMMA_SP);
+			if(first) first=false; else sb.append(CSP);
 			sb.append(p.cells());
 		}
 		return sb.append(ON).append(valueToRemove).toString();
@@ -167,7 +185,7 @@ public class ColoringHint extends AHint  {
 		return Html.produce(this, "ColoringHint.html"
 			, getHintTypeName()					// {0}
 			, Integer.toString(valueToRemove)	//  1
-			, redPots.toString()				//  2
+			, reds.toString()				//  2
 			, toString()						//  3
 		);
 	}

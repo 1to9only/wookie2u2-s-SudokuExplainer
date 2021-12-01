@@ -30,25 +30,31 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
-import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import diuf.sudoku.solver.hinters.Validator;
+import static diuf.sudoku.solver.hinters.Validator.ALS_VALIDATES;
+import static diuf.sudoku.solver.hinters.Validator.isValid;
+import static diuf.sudoku.solver.hinters.Validator.prevMessage;
+import static diuf.sudoku.utils.Html.colorIn;
+import diuf.sudoku.utils.Log;
+import java.util.Arrays;
 
 /**
- * AlsXz implements the Almost Locked Set XZ Sudoku solving technique.
+ * AlsXz implements the ALS-XZ (Almost Locked Set XZ) Sudoku solving technique.
  * <p>
  * I extend AAlsHinter which implements IHinter.findHints to find the ALSs,
- * determine there RCCs (connections), and call my "custom" findHints method
- * passing everything into my implementation of a specific search technique.
+ * determine there RCCs (links), and call my "custom" findHints method passing
+ * everything down. My findHints method implements the ALS-XZ technique. Each
+ * subclass of AAlsHinter implements it's own specific technique.
  * <p>
  * An ALS-XZ is when an Almost Locked Set is linked to a bivalue-cell (XZ) by a
  * common candidate, eliminating the other candidate of the bivalue-cell from
@@ -57,35 +63,35 @@ import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
  * If the ALS contains both bivalue cell values then the ALS-XZ is a "locked
  * set", so all of the ALS's values can be eliminated from each external cell
  * which sees all occurrences of that value in the ALS-XZ.
+ * <pre>
+ * 2021-10-19  9,341,298,800  8206  1,138,349  2103  4,441,891
+ * </pre>
  *
  * @author Keith Corlett 2020 Apr 26
  */
 public final class AlsXz extends AAlsHinter
-//implements diuf.sudoku.solver.IReporter
+//implements diuf.sudoku.solver.hinters.IReporter
 {
 //	@Override
 //	public void report() {
-//		diuf.sudoku.utils.Log.teef("%s: ttlRccs=%,d\n", tech.name(), ttlRccs);
-//		diuf.sudoku.utils.Log.teef("%s: alss=%,d rccs=%,d self=%,d\n", tech.name(), tookAlss, tookRccs, took);
-//		diuf.sudoku.utils.Log.teef("%s: RccFinder.COUNTS=%s\n", tech.name(), java.util.Arrays.toString(RccFinder.COUNTS));
+//		diuf.sudoku.utils.Log.teeln(""+tech+": COUNTS="+java.util.Arrays.toString(COUNTS));
 //	}
-//	private long ttlRccs;
-//	private long took;
-//ALS_XZ:    ttlRccs=    8,801,276
-//ALS_Wing:  ttlRccs=    6,085,665
-//ALS_Chain: ttlRccs=3,100,592,090
-//ALS_XZ: alss=902,700 rccs=13,988,600,100 self=303,228,500
-//    14,196,723,200	   9791	     1,449,976	   3955	     3,589,563	ALS-XZ
+//	private static long[] COUNTS = new long[4];
 
-	// weird: LogicalAnalyser test gets different results from AlsFinder to
-	// AlsFinderRecursive because they put alss in a different order, but it
-	// changes the whole puzzle-solve-path from there-on so LogicalAnalyserTest
-	// needs to know the name of the ALS_FINDER class, to build it into it's
-	// result html file-name, so now we have a test for each implementation;
-	// there may be others in future, because AlsFinderRecursive is still slow!
+	// weird: LogicalAnalyserTest has different recursive results coz FINDERS
+	// put alss in different orders, which changes the whole puzzle-solve-path
+	// so LogicalAnalyserTest needs to know the name of the ALS_FINDER class,
+	// to build into it's result-file-name, so now there is a seperate test for
+	// each subtype of AlsFinder; there may be others in future, because
+	// AlsFinderRecursive is still slow!
 	public static String alsFinderName() {
 		return ALS_FINDER.getClass().getSimpleName();
 	}
+
+	// removeable (red) potentials Cell->Values
+	private final Pots reds = new Pots();
+	// indices of cells to remove from (buds of all z's in both ALSs)
+	private final Idx victims = new Idx();
 
 	/**
 	 * Constructor.
@@ -126,9 +132,6 @@ public final class AlsXz extends AAlsHinter
 	 * KRC edited hobiwan's explanation.
 	 *
 	 * @param grid the Grid to search
-	 * @param candidates array of Idx of cells which maybe each value 1..9.<br>
-	 *  NO LONGER USED in this implementation, but not removed coz it may still
-	 *  be used in the other sub-classes of AAlsHinter
 	 * @param alss array of Almost Locked Sets (ALSs)
 	 * @param numAlss number of ALSs in the alss array
 	 * @param rccs array of Restricted Common Candidates (RCCs) which is the
@@ -143,103 +146,121 @@ public final class AlsXz extends AAlsHinter
 	 * when the first hint is found)
 	 */
 	@Override
-	protected boolean findHints(final Grid grid, final Idx[] candidates
-			, final Als[] alss, final int numAlss, final Rcc[] rccs
-			, final int numRccs, final IAccumulator accu) {
-		try {
-			Rcc rcc; // the current Restricted Common Candidate
-			Als a, b; // the two ALSs to which each RCC-value is common
-			Idx ai, bi; // Idx's in ALS a and b
-			int v1, v2 // restricted candidate values
-			  , zs // bitset of values common to both ALSs except the RC-values
-			  , zsZapped // bitset of z-values (non-RCs) removed by single-link
-			  , bt0,bt1,bt2 // both.setOr(a.idx, b.idx)
-			  , vt0,vt1,vt2; // victims.setAnd(a.vBuds[z], b.vBuds[z]).andNot(both)
-			boolean snglLnkd // are there any z-values
-				  , dblLnkd; // rcc.cand2!=0, then any double-elims
-	//		final long start = System.nanoTime();
-	//		final Idx both = this.both; // cells in both ALSs
-			final Idx victims = AlsXz.VICTIMS; // buds of all z's in both ALSs
-			// presume that no hints will be found
-			boolean result = false;
-	//		ttlRccs += rccs.length;
-			// NOTE: avoid continue because its slow.
-			for ( int i=0; i<numRccs; ++i )
-				// singleLinked ALS-XZs need z-values;
-				// doubleLinked ALS-XZs can still eliminate even without z-values.
-				if ( (snglLnkd=(zs = alss[(rcc=rccs[i]).als1].maybes
-								   & alss[rcc.als2].maybes
-								   & ~VSHFT[rcc.v1]
-								   & ~VSHFT[rcc.v2]) != 0)
-				   | (dblLnkd=rcc.v2 != 0)
-				) {
-					a = alss[rcc.als1];
-					b = alss[rcc.als2];
-					v1 = rcc.v1;
-					v2 = rcc.v2;
-					zsZapped = 0;
-					if ( snglLnkd ) {
-						// look to eliminate each z-value
-						// get indices of all cells in both ALSs
-	// inline for speed: eliminate method calls
-	//					both.setOr(a.idx, b.idx);
-						bt0 = (ai=a.idx).a0 | (bi=b.idx).a0;
-						bt1 = ai.a1 | bi.a1;
-						bt2 = ai.a2 | bi.a2;
-						// foreach z: a non-RC value common to both ALSs
-						for ( int z : VALUESES[zs] ) { // examine 1 or 2 z's
-							// if any external cell/s see all z's in both ALSs.
-	// inline for speed: eliminate method calls
-	//						if ( victims.setAnd(a.vBuds[z], b.vBuds[z])
-	//								.andNot(both).any() ) {
-							if ( ( (vt0=(ai=a.vBuds[z]).a0 & (bi=b.vBuds[z]).a0 & ~bt0)
-								 | (vt1=ai.a1 & bi.a1 & ~bt1)
-								 | (vt2=ai.a2 & bi.a2 & ~bt2) ) != 0
-							) {
-								// add the removable (red) potentials
-								REDS.upsertAll(victims.set(vt0,vt1,vt2), grid, z);
-								// build-up bitset of z-values zapped by singleLink
-								zsZapped |= VSHFT[z];
-							}
-						}
-					}
-					if ( dblLnkd ) {
-						dblLnkd = false;
-						// 1. elim x's outside ALS which see all xs in both ALSs
-						if ( VICTIMS.setAndAny(a.vBuds[v1], b.vBuds[v1]) )
-							dblLnkd = REDS.upsertAll(VICTIMS, grid, v1);
-						if ( VICTIMS.setAndAny(a.vBuds[v2], b.vBuds[v2]) )
-							dblLnkd |= REDS.upsertAll(VICTIMS, grid, v2);
-						// 2. elim all z's outside ALS that see all zs in the ALS
-						for (int z : VALUESES[a.maybes & ~VSHFT[v1] & ~VSHFT[v2]])
-							if ( a.vBuds[z].any() )
-								dblLnkd |= REDS.upsertAll(a.vBuds[z], grid, z);
-						for (int z : VALUESES[b.maybes & ~VSHFT[v1] & ~VSHFT[v2]])
-							if ( b.vBuds[z].any() )
-								dblLnkd |= REDS.upsertAll(b.vBuds[z], grid, z);
-					}
-					if ( !REDS.isEmpty() ) {
-						// FOUND ALS-XZ! create the hint and add it to accu
-						final AHint hint = createHint(grid, a, b, zsZapped, v1, v2
-								, dblLnkd);
-						result = true;
-						if ( accu.add(hint) )
-							break;
-						dblLnkd = false;
+	protected boolean findHints(final Grid grid
+			, final Als[] alss, final int numAlss
+			, final Rcc[] rccs, final int numRccs
+			, final IAccumulator accu) {
+		Rcc rcc; // the current Restricted Common Candidate
+		Idx aI, bI; // Idx's of ALS a, ALS b
+		int [] za; // VALUESES[zs]
+		int zs // bitset of values in ALS a and ALS b except the RC-values
+		  , zi,zn,z // za-index, za.length, z-value
+		  , i0,i1,i2; // exploded victims.setAnd(a.vBuds[z], b.vBuds[z])
+		// ALS a, ALS b
+		Als a=null, b=null;
+		// bitset of zs (non-rcs) removed by single-link
+		int zsZapped = 0;
+		// any doubleLinked eliminations (from ~5% of rccs where v2!=0)
+		boolean doubleLinked = false;
+		// are there any eliminations (either single or double linked)
+		boolean ok = false;
+		// these are for speed only: stack references to heap fields, because
+		// heap references seem to be slower than stack references, even if you
+		// can't create a simple struct on the heap in Java (you can in C#) coz
+		// in Java EVERYthing is blessed. If you demur then simply press Ctrl-E
+		// seven times. You can please some of the people some of the time.
+		final Idx victims = this.victims; // indices to eliminate from
+		final Pots reds = this.reds; // cell-values to eliminate
+		// presume that no hints will be found
+		boolean result = false;
+		// foreach rcc in rccs
+		for ( int i=0; i<numRccs; ++i ) {
+			rcc = rccs[i];
+			// singleLinked AlsXzs need z-values
+			// ~90.75% of rccs are singleLinked
+			if ( (zs = alss[rcc.source].maybes
+				     & alss[rcc.related].maybes
+					 & ~rcc.cands) != 0
+			) {
+				a = alss[rcc.source];
+				b = alss[rcc.related];
+				// foreach z-value (non-RC-value common to both ALSs)
+				for ( za=VALUESES[zs],zn=za.length,zi=0; zi<zn; ++zi ) {
+					// if any external zs see all zs in both ALSs.
+					// nb: vBuds excludes own zs, so a&b are all externals.
+					if ( ( (i0=(aI=a.vBuds[z=za[zi]]).a0 & (bI=b.vBuds[z]).a0)
+						 | (i1=aI.a1 & bI.a1)
+						 | (i2=aI.a2 & bI.a2) ) != 0
+					) {
+						// add the removable (red) potentials
+						// fastard: set ok directly here (not singleLinked)
+						ok |= reds.upsertAll(victims.set(i0,i1,i2), grid, z);
+						// build a bitset of zs eliminated
+						zsZapped |= VSHFT[z];
 					}
 				}
-			// GUI only (we don't get here if accu is a SingleHintAccumulator)
-			if ( result )
-				accu.sort(); // put the highest scoring hint first
-//			took += System.nanoTime() - start;
-			return result;
-		} finally {
-			Cells.cleanCasA();
+			}
+			// doubleLinked AlsXzs can still eliminate without z-values.
+			// just ~5.38% of rccs are doubleLinked,
+			//  and ~56.75 of them are ONLY doubleLinked
+			if ( rcc.v2 != 0 ) {
+				a = alss[rcc.source];
+				b = alss[rcc.related];
+				// the hint needs a switch for AlsXzHintBig.html
+				doubleLinked = false;
+				// 1. elim xs outside ALS which see all xs in both ALSs.
+				// Should victims exclude xs in the other ALS? I think so.
+				if ( ( (i0=(aI=a.vBuds[rcc.v1]).a0 & (bI=b.vBuds[rcc.v1]).a0)
+					 | (i1=aI.a1 & bI.a1)
+					 | (i2=aI.a2 & bI.a2) ) != 0 ) {
+					doubleLinked = reds.upsertAll(victims.set(i0,i1,i2), grid, rcc.v1);
+				}
+				if ( ( (i0=(aI=a.vBuds[rcc.v2]).a0 & (bI=b.vBuds[rcc.v2]).a0)
+					 | (i1=aI.a1 & bI.a1)
+					 | (i2=aI.a2 & bI.a2) ) != 0 ) {
+					doubleLinked |= reds.upsertAll(victims.set(i0,i1,i2), grid, rcc.v2);
+				}
+				// 2. elim external zs that see all zs in each ALS,
+				//    including the other ALS (cannibalism).
+				for ( za=VALUESES[a.maybes & ~rcc.cands],zn=za.length,zi=0; zi<zn; ++zi ) {
+					if ( ((aI=a.vBuds[z=za[zi]]).a0 | aI.a1 | aI.a2) != 0 ) {
+						doubleLinked |= reds.upsertAll(aI, grid, z);
+					}
+				}
+				for ( za=VALUESES[b.maybes & ~rcc.cands],zn=za.length,zi=0; zi<zn; ++zi ) {
+					if ( ((bI=b.vBuds[z=za[zi]]).a0 | bI.a1 | bI.a2) != 0 ) {
+						doubleLinked |= reds.upsertAll(bI, grid, z);
+					}
+				}
+				// fastard: setting ok here happens MUCH less often than
+				// if ( singleLinked || doubleLinked ) would below.
+				ok |= doubleLinked;
+			}
+			if ( ok ) {
+				// AlsXz FOUND!
+				final AlsXzHint hint = createHint(grid, a, b, zsZapped
+						, rcc.v1, rcc.v2, doubleLinked);
+				zsZapped = 0;
+				doubleLinked = false;
+				// is it really ok?
+				if ( ALS_VALIDATES & !isValid(grid, hint.reds) ) {
+					ok = handle(hint, grid, Arrays.asList(a, b));
+				}
+				if ( ok ) {
+					ok = false;
+					result = true;
+					if ( accu.add(hint) ) {
+						break;
+					}
+				}
+			}
 		}
+		// GUI only (we don't get here if accu is a SingleHintAccumulator)
+		if ( result ) {
+			accu.sort(null); // put the highest scoring hint first
+		}
+		return result;
 	}
-	private static final Pots REDS = new Pots(); // removeable (red) potentials Cell->Values
-//	private final Idx both = new Idx(); // indices of cells in both ALSs
-	private static final Idx VICTIMS = new Idx(); // indices of buds of zAlss
 
 	/**
 	 * Create a new AlsXzHint.
@@ -253,35 +274,48 @@ public final class AlsXz extends AAlsHinter
 	 * @param v2 second RC value; 0 for none
 	 * @return
 	 */
-	private AHint createHint(Grid grid, Als a, Als b, int zsZapped, int v1
-			, int v2, boolean anyDoubleLinked) {
-		// build highlighted (orange): RCC's = values in both ALSs except z's.
+	private AlsXzHint createHint(Grid grid, Als a, Als b, int zsZapped, int v1
+			, int v2, boolean doubleLinked) {
+		// build highlighted (orange) Pots: vs in each ALS except zs.
 		final Pots oranges = new Pots();
-		for ( Cell c : a.cells(grid) )
+		for ( Cell c : a.cells(grid) ) {
 			oranges.put(c, c.maybes & ~zsZapped);
-		for ( Cell c : b.cells(grid) )
+		}
+		for ( Cell c : b.cells(grid) ) {
 			oranges.put(c, c.maybes & ~zsZapped);
-		// ALL removed values should ALWAYS be RED, but orange overwrites red,
+		}
+		// all removed values should always be red, but orange overwrites red,
 		// so remove reds from oranges, to cater for any double-linked elims.
-		oranges.removeAll(REDS);
+		// What I should do is change the painter, but I'm too scared because
+		// I have no idea what it'll do to other hint-types. IIRC orange splats
+		// red coz somebody relies on it, but I can't remember who, or why.
+		oranges.removeAll(reds);
 		// build the fin (blue) pots: ALL values removed from both ALSs.
 		// Blues are eliminated-values in the orange-cells; to show candidates
 		// which caused these eliminations. We get the values from redPots coz
 		// zsZapped may be 0 meaning that there is no Z value, ie all elims are
 		// X values from double-linked ALSs. This way we don't care where they
 		// are from: just all eliminated-values are painted blue.
-		final Pots blues = oranges.withBits(REDS.valuesOf());
+		final Pots blues = oranges.withBits(reds.valuesOf());
 		// remove any eliminations from the blues so that they appear RED.
-		blues.removeAll(REDS);
-		// build a string of the RCC-value/s
-		String rccs = Integer.toString(v1);
-		if ( v2 != 0 )
-			rccs += AND + v2;
-		// debugMessage
-		final String tag = EMPTY_STRING;
+		blues.removeAll(reds);
 		// build the hint, and add it to the IAccumulator
-		return new AlsXzHint(this, a, b, zsZapped, REDS.copyAndClear()
-				, anyDoubleLinked, rccs, tag);
+		// nb: reds field is copied-and-cleared, so validator uses hint.reds.
+		return new AlsXzHint(this, a, v1, v2, b, zsZapped, reds.copyAndClear()
+				, doubleLinked);
+	}
+
+	// Always report it, then throw or return true to add it
+	private boolean handle(AlsXzHint hint, Grid grid, Iterable<Als> alss) {
+		Validator.report(tech.name(), grid, alss);
+		if ( Run.type == Run.Type.GUI && Run.ASSERTS_ENABLED ) {
+			// techies: we're in the GUI in java -ea
+			hint.isInvalid = true;
+			hint.debugMessage = colorIn("<p><r>"+prevMessage+"</r>");
+			return true;
+		}
+		// else we're in a prod-GUI, or a test-case, or the batch
+		throw new UnsolvableException(Log.me()+": bad reds: "+hint.reds);
 	}
 
 }
