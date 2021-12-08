@@ -134,8 +134,8 @@ public abstract class AHint implements Comparable<AHint> {
 	public final Pots greens; // Cell=>Values to be painted green in the GUI
 	public final Pots oranges; // Cell=>values to be painted orange in the GUI
 	public final Pots blues; // Cell=>values to be painted blue in the GUI
-	public final List<ARegion> bases; // regions to paint blue
-	public final List<ARegion> covers; // regions to paint green
+	public final ARegion[] bases; // regions to paint blue
+	public final ARegion[] covers; // regions to paint green
 
 	/** set true when {@link diuf.sudoku.solver.hinters.Validator#isValid}
 	 * finds elimination of this cells solution value, before toString. */
@@ -160,7 +160,7 @@ public abstract class AHint implements Comparable<AHint> {
 
 	// indirect hints with pots-to-highlight and bases/covers
 	public AHint(AHinter hinter, Pots redPots, Pots greens, Pots oranges
-			, Pots blues, List<ARegion> bases, List<ARegion> covers) {
+			, Pots blues, ARegion[] bases, ARegion[] covers) {
 		this(hinter, AHint.INDIRECT, null, 0, redPots, greens, oranges, blues
 				, bases, covers);
 	}
@@ -168,7 +168,7 @@ public abstract class AHint implements Comparable<AHint> {
 	// the actual constructor
 	public AHint(AHinter hinter, int type, Cell cell, int value
 			, Pots reds, Pots greens, Pots oranges, Pots blues
-			, List<ARegion> bases, List<ARegion> covers) {
+			, ARegion[] bases, ARegion[] covers) {
 		this.hinter = hinter;
 		// AHinter.degree is a mild hack: it's allmost allways just shorthand
 		// for the AHinter.tech.degree, except in URT's where it's set to the
@@ -305,37 +305,21 @@ public abstract class AHint implements Comparable<AHint> {
 	private String hintTypeName; // hint type name
 
 	/** @return the base (blue) regions of this hint. */
-	public List<ARegion> getBases() {
+	public ARegion[] getBases() {
 		return bases;
 	}
 
-	/** @return array of bases coz jUnit !compare List. */
-	public final ARegion[] getBasesArray() {
-		List<ARegion> list = getBases();
-		if ( list == null)
-			return null;
-		return list.toArray(new ARegion[list.size()]);
-	}
-
 	/** @return the cover (green) regions of this hint. */
-	public List<ARegion> getCovers() {
+	public ARegion[] getCovers() {
 		return covers;
-	}
-
-	/** @return array of bases coz jUnit !compare List. */
-	public ARegion[] getCoversArray() {
-		List<ARegion> list = getCovers();
-		if ( list == null)
-			return null;
-		return list.toArray(new ARegion[list.size()]);
 	}
 
 	/** @return the id of the first Region, else null. */
 	protected String getFirstRegionId() {
-		List<ARegion> rs = getBases();
-		if ( rs==null || rs.size()<1 )
+		ARegion[] rs = getBases();
+		if ( rs==null || rs.length<1 )
 			return null;
-		return rs.get(0).id;
+		return rs[0].id;
 	}
 
 	/**
@@ -555,7 +539,7 @@ public abstract class AHint implements Comparable<AHint> {
 	 *
 	 * @return
 	 */
-	public List<ARegion> getPinkos() {
+	public ARegion[] getPinkos() {
 		return null;
 	}
 

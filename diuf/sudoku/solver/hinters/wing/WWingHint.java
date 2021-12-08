@@ -16,13 +16,10 @@ import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
-import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
-
 
 /**
  * A WWingHint stores the hint data to pass to the GUI for display, and also
@@ -49,8 +46,8 @@ public final class WWingHint extends AHint  {
 	}
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(wABCommonRegion);
+	public ARegion[] getBases() {
+		return Regions.array(wABCommonRegion);
 	}
 
 	@Override
@@ -77,13 +74,13 @@ public final class WWingHint extends AHint  {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "WWingHint.html"
-			, cellA.id							//{0}
-			, cellB.id							// 1
-			, wCellA.id							// 2
-			, wCellB.id							// 3
-			, Integer.toString(value0)			// 4
-			, Integer.toString(value1)			// 5
-			, wABCommonRegion					// 6
+			, cellA.id						//{0}
+			, cellB.id						// 1
+			, wCellA.id						// 2
+			, wCellB.id						// 3
+			, Integer.toString(value0)		// 4
+			, Integer.toString(value1)		// 5
+			, wABCommonRegion				// 6
 			, Frmu.and(reds.keySet())		// 7
 			, reds.toString()				// 8
 		);

@@ -66,6 +66,7 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 		  , ev0,ev1,ev2 // eitherVs exploded
 		  , i
 		  , v1, v2 // first and occassional second RC-value
+		  , howManyKids
 		  ;
 		boolean any = false; // any RCC for this pair of ALSs?
 		int numRccs = 0; // number RCC's found so far.

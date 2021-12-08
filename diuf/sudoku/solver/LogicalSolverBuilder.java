@@ -23,9 +23,10 @@ import java.util.EnumSet;
 import java.util.List;
 
 /**
- * LogicalSolverBuilder builds a new LogicalSolver, which is messy, so I have
- * turned LogicalSolver's Constructor into a class, to keep it all together,
- * and allow the LogicalSolver to concentrate on logical solving.
+ * LogicalSolverBuilder builds a new LogicalSolver, which got a bit messy, so
+ * LogicalSolver's constructor is it's own class, to keep it's s__t together,
+ * and allow LogicalSolver to concentrate on logical solving, and not on
+ * constructing its-bloody-self. sigh.
  *
  * @author Keith Corlett 2021-09-01
  */
@@ -245,21 +246,21 @@ class LogicalSolverBuilder {
 		want(Tech.Skyscraper);	// 2 biplace rows/cols get bent
 		want(Tech.EmptyRectangle); // box and biplace row/col
 		want(Tech.Swordfish);	// same 3 places in 3 rows/cols
+		// NB: Coloring/GEM find all Jellyfish, so run before them if at all.
+		want(Tech.Jellyfish);	// same 4 places in 4 rows/cols
 
 		// Nightmare
 		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		// XColoring, Medusa3D, and GEM sometimes set cell values directly,
 		// but most-times they just eliminate maybes.
 		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		want(Tech.BUG);			// Bivalue Universal Grave (stoneage coloring)
+//		want(Tech.BUG);			// Bivalue Universal Grave (stoneage coloring)
 		want(Tech.Coloring);	// 2 color-sets and the ONLY 3+ color-sets
 		want(Tech.XColoring);	// 2 color-sets with cheese
 		want(Tech.Medusa3D);	// 2 color-sets with cheese and pickles
 		want(Tech.GEM);			// 2 color-sets with the lot (?bacon?)
 		want(Tech.NakedQuad);	// 4 cells with only 4 maybes
 		want(Tech.HiddenQuad);	// same 4 places for 4 values in a region
-		// 0 Jellyfish in top1465 with my preferred hinter selection
-		want(Tech.Jellyfish);	// same 4 places in 4 rows/cols
 		want(Tech.NakedPent);	// DEGENERATE 5 values in 5 cells
 		want(Tech.HiddenPent);	// DEGENERATE 5 places for 5 values in a region
 		want(Tech.URT); // UniqueRectangle/loop: a rectangle/loop of 2 values
@@ -280,10 +281,7 @@ class LogicalSolverBuilder {
 		want(Tech.DeathBlossom); // OK // stem of 2/3 maybes + 2/3 ALSs
 		want(Tech.ALS_XZ);		 // OK // a chain of 2 ALSs, with cheese
 		want(Tech.ALS_Wing);	 // OK // a chain of 3 ALSs, with pickles
-		want(Tech.ALS_Chain_4);	 // OK // a chain of 4 ALSs
-		want(Tech.ALS_Chain_5);	 // OK // a chain of 5 ALSs
-		want(Tech.ALS_Chain_6);	 // OK // a chain of 6 ALSs
-		want(Tech.ALS_Chain_7);	 // OK // a chain of 7 ALSs
+		want(Tech.ALS_Chain);	 // OK // a chain of 4..26 ALSs
 		want(Tech.SueDeCoq);	 // OK // Almost Almost Locked Sets
 
 		// Diabolical
@@ -358,10 +356,8 @@ class LogicalSolverBuilder {
 	private boolean want(final Tech tech) {
 		final boolean result;
 		if ( result=wantedTechs.contains(tech) ) {
-			final IHinter hinter = createHinterFor(tech);
-			if ( hinter != null ) {
-				wanted.add(hinter);
-			}
+			// createHinterFor throws upon failure, so NEVER null.
+			wanted.add(createHinterFor(tech));
 		} else {
 			unwanted.add(tech);
 		}

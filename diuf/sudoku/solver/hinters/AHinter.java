@@ -11,7 +11,7 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.accu.IAccumulator;
-
+import diuf.sudoku.utils.Debug;
 
 /**
  * AHinter (the abstract Hinter) is the base-type for all classes whose
@@ -91,25 +91,28 @@ public abstract class AHinter implements IHinter {
 	}
 
 	@Override
-	public Tech getTech() {
+	public final Tech getTech() {
 		return tech;
 	}
 
 	@Override
-	public boolean isEnabled() {
+	public final boolean isEnabled() {
 		return isEnabled;
 	}
 	@Override
-	public void setIsEnabled(boolean isEnabled) {
+	public final void setIsEnabled(final boolean isEnabled) {
+//if ( !isEnabled ) {
+//	Debug.breakpoint();
+//}
 		this.isEnabled = isEnabled;
 	}
 
 	@Override
-	public int getIndex() {
+	public final int getIndex() {
 		return index;
 	}
 	@Override
-	public void setIndex(int i) {
+	public final void setIndex(final int i) {
 		index = i;
 	}
 
@@ -123,7 +126,7 @@ public abstract class AHinter implements IHinter {
 	 * {@inheritDoc}
 	 */
 	@Override
-	abstract public boolean findHints(Grid grid, IAccumulator accu);
+	abstract public boolean findHints(final Grid grid, final IAccumulator accu);
 
 	/**
 	 * @return the base difficulty of hints produced by this AHinter.
@@ -141,8 +144,17 @@ public abstract class AHinter implements IHinter {
 	 * need to be much more miserly with the gaps on the down-low.
 	 */
 	@Override
-	public double getDifficulty() {
+	public final double getDifficulty() {
 		return tech.difficulty;
+	}
+
+	/**
+	 * I need this in order to disable Krakens, only.
+	 * @return this hinters degree.
+	 */
+	@Override
+	public final int getDegree() {
+		return degree;
 	}
 
 	/**
@@ -169,11 +181,6 @@ public abstract class AHinter implements IHinter {
 	@Override
 	public String toString() {
 		return tech.name();
-	}
-
-	@Override
-	public int getDegree() {
-		return degree;
 	}
 
 }

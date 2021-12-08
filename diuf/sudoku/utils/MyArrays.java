@@ -8,6 +8,8 @@ package diuf.sudoku.utils;
 
 import static diuf.sudoku.utils.Frmt.NL;
 import java.io.PrintStream;
+import java.util.Formatter;
+import java.util.Objects;
 
 
 /**
@@ -531,6 +533,52 @@ public final class MyArrays {
 			}
 			out.append(NL);
 		}
+	}
+
+	public static String format(final long[] a, final String sep, final String format) {
+		return format(a, sep, sep, format);
+	}
+
+	public static String format(final long[] a, final String sep, final String lastSep, final String format) {
+		if ( a == null )
+			return "null";
+		if ( a.length == 0 )
+			return "empty";
+		final StringBuilder sb = new StringBuilder(a.length * 12); // just guess
+		final Formatter formatter = new Formatter(sb);
+		for ( int i=1,n=a.length,m=n-1; i<n; ++i ) {
+			if ( i > 0 )
+				if ( i < m )
+					sb.append(sep);
+				else
+					sb.append(lastSep);
+			formatter.format(format, a[i]);
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Does the master array containsAll of the targets. <br>
+	 * If targets is empty then ALWAYS return true; <br>
+	 * If master is empty then ALWAYS returns false; <br>
+	 * which are both correct, I guess, but look out for them anyway.
+	 *
+	 * @param master
+	 * @param masterSize
+	 * @param targets
+	 * @param targetsSize
+	 * @return 
+	 */
+	public static boolean containsAll(final Object[] master, final int masterSize, final Object[] targets, final int targetsSize) {
+		OUTER: for ( int ti=0; ti<targetsSize; ++ti ) {
+			for ( int mi=0; mi<masterSize; ++mi ) {
+				if ( Objects.equals(master[mi], targets[ti]) ) {
+					continue OUTER;
+				}
+			}
+			return false;
+		}
+		return true;
 	}
 
 }

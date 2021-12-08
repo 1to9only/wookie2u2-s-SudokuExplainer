@@ -160,12 +160,12 @@ public class Ass {
 	 * </ul>
 	 * <p>
 	 * The hashCode field is public final for speed. It's accessed directly by
-	 * the {@code diuf.sudoku.utils.MyFunkyLinkedHashMap.getAss} method (et al),
+	 * the {@code diuf.sudoku.utils.MyFunkyLinkedHashMap.getAss} method (et al)
 	 * which is naughty because it assumes that the generic type K (for Key) is
 	 * Ass, which it may not be. If you're dumb enough to try to getAss from a
-	 * Set of Sheep, then a pox on all of your {@code List<Camel>}. Breaking
-	 * the rules is just a bit faster, that's all... so do it often, but do it
-	 * well, document it, and don't bloody apologise for it. God out. Sigh.
+	 * Set of Sheep, then a pox on all of your {@code List<Camel>}. Breaking da
+	 * rules is just a bit faster, that's all... so do it often, but do it well
+	 * and document it, and never bloody apologise for it. Sorry. Sigh.
 	 * <p>
 	 * Note that the hashCode field is calculated in-situ everywhere it needs
 	 * to be rather than waste clock-ticks on a method call. I've pushed the

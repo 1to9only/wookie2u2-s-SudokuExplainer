@@ -16,7 +16,6 @@ import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -45,6 +44,7 @@ public final class URT3NakedSetHint extends AURTHint {
 	 * Construct a new URT3NakedSetHint.
 	 * @param hinter
 	 * @param loop
+	 * @param loopSize
 	 * @param v1
 	 * @param v2
 	 * @param redPots
@@ -55,10 +55,10 @@ public final class URT3NakedSetHint extends AURTHint {
 	 * @param otherCells WARNING: DO NOT STORE otherCells, IT IS CACHED!
 	 * @param nkdSetVals
 	 */
-	public URT3NakedSetHint(UniqueRectangle hinter, List<Cell> loop
+	public URT3NakedSetHint(UniqueRectangle hinter, Cell[] loop, int loopSize
 			, int v1, int v2, Pots redPots, Cell c1, Cell c2, int extraVals
 			, ARegion region, Cell[] otherCells, int nkdSetVals) {
-		super(3, hinter, loop, v1, v2, redPots);
+		super(3, hinter, loop, loopSize, v1, v2, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
 		this.extraVals = extraVals;
@@ -93,8 +93,8 @@ public final class URT3NakedSetHint extends AURTHint {
 	private Pots orangePots;
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(region);
+	public ARegion[] getBases() {
+		return Regions.array(region);
 	}
 
 	@Override
@@ -127,7 +127,7 @@ public final class URT3NakedSetHint extends AURTHint {
 			, getTypeName()					//{0}
 			, v1							// 1
 			, v2							// 2
-			, Frmu.csv(loop)				// 3
+			, Frmu.csv(loopSize, loop)		// 3
 			, c1.id							// 4
 			, c2.id							// 5
 			, Values.orString(extraVals)	// 6

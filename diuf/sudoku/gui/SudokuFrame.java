@@ -22,6 +22,7 @@ import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IHinter;
+import diuf.sudoku.solver.hinters.als.AlsHelper;
 import static diuf.sudoku.utils.Frmt.AND;
 import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.IAsker;
@@ -99,6 +100,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			= new HintsTreeBuilder().build(EMPTY_HINTS_LIST);
 
 	private static final Pattern CELL_ID_PATTERN = Pattern.compile("[A-I][1-9]");
+	private static final Pattern ALS_ID_PATTERN = Pattern.compile("[a-z][a-z]?");
 
 	private static final DecimalFormat RATING = new DecimalFormat("#0.00");
 
@@ -787,11 +789,18 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					}
 					e.consume();
 				// double-left-click: if the selected text looks like a cell id
-				// then focus on (yellow background) that cell in the grid.
+				// then focus on (yellow background) that cell in the grid;
+				// else if id is an ALS-ID then repaint ALS over the others
 				} else if ( clks==2 && btn==BUTTON1 ) {
 					final String id = hintDetailPane.getSelectedText();
 					if ( id.length()==2 && CELL_ID_PATTERN.matcher(id).matches() ) {
 						gridPanel.setFocusedCellById(id);
+					} else if ( ( (id.length()==1 || id.length()==2) && ALS_ID_PATTERN.matcher(id).matches() )
+							// hintType: ALS-XZ, ALS-Wing, and ALS-Chain
+					         && hintDetailHtml.contains("ALS") ) {
+						// id looks like an ALS-ID, so selectAls, to repaint it
+						// over the top of the others, so that you can see it.
+						gridPanel.selectAls(AlsHelper.alsIndex(id));
 					}
 				}
 			}

@@ -944,7 +944,8 @@ implements diuf.sudoku.solver.hinters.IPreparer
 		final Idx excluderSized = empties.where(cells
 				, (cell) -> cell.size < degreePlus1);
 		// an Idx of the excluders of each cell
-		final Idx cellExcluders = this.cellExcluders;
+		// better to create new once per call than leave it hanging around
+		final Idx cellExcluders = new Idx();
 		// build the excluder-sibling-cells-set of each candidate cell
 		// foreach cell in grid which has more than one potential value
 		candidates.clear();
@@ -958,7 +959,6 @@ implements diuf.sudoku.solver.hinters.IPreparer
 		});
 		return candidates.size();
 	}
-	private final Idx cellExcluders = new Idx();
 
 	/**
 	 * Populates the candidates array and the excluders array of CellSets.
@@ -980,7 +980,8 @@ implements diuf.sudoku.solver.hinters.IPreparer
 		final Idx excluderSized = empties.where(cells
 				, (cell) -> cell.size < degreePlus1);
 		// an Idx of the excluders of each cell
-		final Idx cellExcluders = this.cellExcluders;
+		// better to create new once per call than leave it hanging around
+		final Idx cellExcluders = new Idx();
 		// build the excluder-sibling-cells-set of each candidate cell
 		// foreach cell in grid which has more than one potential value
 		candidates.clear();

@@ -163,18 +163,18 @@ public enum Tech {
 	, Swordfish			(3.20, 3, BasicFisherman.class)
 	, Skyscraper		(3.30, 4, Skyscraper.class)
 	, EmptyRectangle		(3.35, 4, EmptyRectangle.class)
-	// There are no Jellyfish in top1465 with my preferred techs
-	, Jellyfish			(3.40, 4, BasicFisherman.class, F)
+	// NB: Coloring/GEM find all Jellyfish, so run before them if at all.
+	, Jellyfish			(3.40, 4, BasicFisherman.class, F, "DROP for speed: Coloring/GEM harder but faster per elim", F)
 	// FYI: Larger (5+) Fish are all DEGENERATE (comprised of simpler hints)
-	, BUG				(3.50, 0, BUG.class, F,       "DROP (Bivalue Universal Grave) old and slow", T)
-	, Coloring			(3.52, 0, Coloring.class, T,  "KEEP the only Multi-Coloring and basic Simple-Coloring", F)
-	, XColoring			(3.54, 0, XColoring.class, T, "KEEP extended Simple-Coloring finds hints that GEM misses, by design", F)
-	, Medusa3D			(3.56, 0, Medusa3D.class, F,  "DROP extended+ Simple-Coloring is counter-productive with GEM", T)
-	, GEM				(3.58, 0, GEM.class, T,       "KEEP (Graded Equivalence Marks) the ultimate Simple-Coloring", F)
+//	, BUG				(3.50, 0, BUG.class, F,       "DROP (Bivalue Universal Grave) is old and slow", F)
+	, Coloring			(3.52, 0, Coloring.class, T,  "KEEP only Multi-Coloring, basic Simple-Coloring", F)
+	, XColoring			(3.54, 0, XColoring.class, T, "KEEP extended Simple-Coloring hits when GEM misses", F)
+	, Medusa3D			(3.56, 0, Medusa3D.class, F,  "DROP Medusa is counter-productive with GEM", F)
+	, GEM				(3.58, 0, GEM.class, T,       "KEEP (Graded Equivalence Marks) ultimate Coloring", F)
 	, NakedQuad			(3.60, 4, NakedSet.class)
 	, HiddenQuad		(3.62, 4, HiddenSet.class)
-	, NakedPent			(3.64, 5, NakedSet.class, F,  "DEGENERATE", T)
-	, HiddenPent			(3.66, 5, HiddenSet.class, F, "DEGENERATE", T)
+	, NakedPent			(3.64, 5, NakedSet.class, F,  "DROP DEGENERATE to Pair/Triple/Quad", F)
+	, HiddenPent			(3.66, 5, HiddenSet.class, F, "DROP DEGENERATE to Pair/Triple/Quad", F)
 	, URT				(3.70, 0, UniqueRectangle.class, T, "Unique Rectangles and loops", F)
 	// BigWings is S+T+U+V+WXYZ_Wing: slower, but faster over-all with ALS_*.
 	, BigWings			(3.80, 0, BigWings.class, T, "or individual S/T/U/V/WXYZ Wing", F)
@@ -188,24 +188,21 @@ public enum Tech {
 	, FinnedSwampfish	(4.0, 2, ComplexFisherman.class) // with Sashimi
 	, FinnedSwordfish	(4.1, 3, ComplexFisherman.class)
 	, FinnedJellyfish	(4.2, 4, ComplexFisherman.class, F, null, F) // a bit slow
-	, DeathBlossom		(4.3, 0, DeathBlossom.class, F) // stem.maybe->ALS
-	, ALS_XZ			(4.4, 0, AlsXz.class, F)	// 2 ALSs in a Chain
-	, ALS_Wing			(4.5, 0, AlsWing.class, F)	// 3 ALSs in a Chain
-	, ALS_Chain_4		(4.60, 4, AlsChain.class, F) // 4 ALSs in a Chain
-	, ALS_Chain_5		(4.61, 5, AlsChain.class, F) // 5 ALSs in a Chain
-	, ALS_Chain_6		(4.62, 6, AlsChain.class, F) // 6 ALSs in a Chain (SLOW'ish)
-	, ALS_Chain_7		(4.63, 7, AlsChain.class, F) // 7 ALSs in a Chain (TOO SLOW)
+	, DeathBlossom		(4.3, 0, DeathBlossom.class) // stem.maybe->ALS
+	, ALS_XZ			(4.4, 0, AlsXz.class)	 // 2 ALSs in a Chain
+	, ALS_Wing			(4.5, 0, AlsWing.class)	 // 3 ALSs in a Chain
+	, ALS_Chain			(4.6,26, AlsChain.class) // 4..26 ALSs in a Chain
 	, SueDeCoq			(4.8, 0, SueDeCoq.class, F) // AALSs // a bit slow
 	, FrankenSwampfish	(5.0, 2, ComplexFisherman.class, F, null, F) // OK
 	, FrankenSwordfish	(5.1, 3, ComplexFisherman.class, F, null, F) // OK
-	, FrankenJellyfish	(5.2, 4, ComplexFisherman.class, F, null, F) // SLOW
-	// Mutants are too slow to be allowed: 1,764 seconds for just 20 hints.
-	, KrakenSwampfish	(5.3, 2, KrakenFisherman.class, F, null, F)  // OK
-	, MutantSwampfish	(5.4, 2, ComplexFisherman.class, F, "DEGENERATE", T) // NONE
-	, KrakenSwordfish	(5.5, 3, KrakenFisherman.class, F,  "30 seconds", F) // SLOW'ish
-	, MutantSwordfish	(5.6, 3, ComplexFisherman.class, F, "2 minutes", F)  // SLOW
-	, KrakenJellyfish	(5.8, 4, KrakenFisherman.class, F,  "9 minutes", T)	 // TOO SLOW
-	, MutantJellyfish	(5.9, 4, ComplexFisherman.class, F, "20 minutes", T) // TOO SLOW
+	, FrankenJellyfish	(5.2, 4, ComplexFisherman.class, F, "DROP SLOW: 45 seconds", F) // SLOW
+	// WARNING: Mutants are too slow to be allowed! Krakens aren't far behind.
+	, KrakenSwampfish	(5.3, 2, KrakenFisherman.class, F, null, F) // OK
+	, MutantSwampfish	(5.4, 2, ComplexFisherman.class, F, "DROP DEGENERATE to Finned/Franken Swampfish", T)
+	, KrakenSwordfish	(5.5, 3, KrakenFisherman.class, F,  "SLOWish: 30 seconds", F)
+	, MutantSwordfish	(5.6, 3, ComplexFisherman.class, F, "DROP SLOW: 2 minutes", F)
+	, KrakenJellyfish	(5.8, 4, KrakenFisherman.class, F,  "DROP TOO SLOW: 6 minutes", T)
+	, MutantJellyfish	(5.9, 4, ComplexFisherman.class, F, "DROP TOO SLOW: 20 minutes", T)
 
 	// Diabolical
 	// NB: constructor does name().startsWith("Aligned")
@@ -214,12 +211,12 @@ public enum Tech {
 	, AlignedTriple		(6.1, 3, AlignedExclusion.class, F)	// a tad slow
 	, AlignedQuad		(6.2, 4, AlignedExclusion.class, F)	// a bit slow
 	// A5678910E old-school _2H is the "registered" implementation
-	, AlignedPent		(6.3, 5, Aligned5Exclusion_2H.class, F, "1 minute correct", F)	 // SLOW
-	, AlignedHex		(6.4, 6, Aligned6Exclusion_2H.class, F, "3 minutes correct", F)  // SLOW
-	, AlignedSept		(6.5, 7, Aligned7Exclusion_2H.class, F, "6 minutes correct", T)	 // TOO SLOW
-	, AlignedOct			(6.6, 8, Aligned8Exclusion_2H.class, F, "19 minutes correct", T) // FAR TOO SLOW
-	, AlignedNona		(6.7, 9, Aligned9Exclusion_2H.class, F, "3 hours correct", T)    // WAY TOO SLOW
-	, AlignedDec			(6.8,10, Aligned10Exclusion_2H.class, F, "6 hours correct", T)   // CONSERVATIVE
+	, AlignedPent		(6.3, 5, Aligned5Exclusion_2H.class, F, "DROP SLOW: 1 minute correct", F)
+	, AlignedHex		(6.4, 6, Aligned6Exclusion_2H.class, F, "DROP SLOW: 3 minutes correct", F)
+	, AlignedSept		(6.5, 7, Aligned7Exclusion_2H.class, F, "DROP TOO SLOW: 6 minutes correct", T)
+	, AlignedOct			(6.6, 8, Aligned8Exclusion_2H.class, F, "DROP FAR TOO SLOW: 19 minutes correct", T)
+	, AlignedNona		(6.7, 9, Aligned9Exclusion_2H.class, F, "DROP WAY TOO SLOW: 3 hours correct", T)
+	, AlignedDec			(6.8,10,Aligned10Exclusion_2H.class, F, "DROP CONSERVATIVE: 6 hours correct", T)
 	// chains			 diff,dg, className,          Multi,Dynam,Nishi,want
 	// forcing chains on a single value               M,D,N,w
 	, UnaryChain		( 7.0, 0, ChainerUnary.class, F,F,F,T) // OK
@@ -260,28 +257,6 @@ public enum Tech {
 		, NestedDynamic
 		, NestedPlus
 	};
-	
-	/**
-	 * An array of those Tech implemented by AlsChain.
-	 */
-	public static final Tech[] ALS_CHAIN_TECHS = new Tech[] {
-		Tech.ALS_Chain_4, Tech.ALS_Chain_5, Tech.ALS_Chain_6, Tech.ALS_Chain_7
-	};
-
-	/**
-	 * Returns an array of the ALS_CHAIN_TECHS except the given tech.
-	 *
-	 * @param tech to exclude
-	 * @return a new Tech[] of the other three ALS_CHAIN_TECHS
-	 */
-	public static final Tech[] alsChainTechsExcept(Tech tech) {
-		Tech[] result = new Tech[3];
-		int cnt = 0;
-		for ( Tech t : ALS_CHAIN_TECHS )
-			if ( t != tech )
-				result[cnt++] = t;
-		return result;
-	}
 
 	/**
 	 * Returns a new {@code EnumSet<Tech>} of given 'techs'
@@ -325,19 +300,6 @@ public enum Tech {
 	public static EnumSet<Tech> allHinters() {
 		return where((t) -> t.difficulty > 0.0D);
 	}
-
-//not_used 2021-09-12
-//	/**
-//	 * Returns a new {@code EnumSet<Tech>} of all non-hinters (validators),
-//	 * ie those Tech's with {@code difficulty == 0.0D}.
-//	 * <p>
-//	 * Non-hinter Tech's (validators) are identified by a difficulty of 0.0D.
-//	 *
-//	 * @return a new {@code EnumSet<Tech>} of all validator Tech's
-//	 */
-//	public static EnumSet<Tech> allNonHinters() {
-//		return where((t) -> t.difficulty == 0.0D);
-//	}
 
 	/**
 	 * Build a String (a comma-separated list) of the names of these 'techs'.

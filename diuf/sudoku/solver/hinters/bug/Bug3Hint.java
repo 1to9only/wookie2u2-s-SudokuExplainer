@@ -97,8 +97,8 @@ public final class Bug3Hint extends ABugHint  {
 	private Pots orangePots;
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(region);
+	public ARegion[] getBases() {
+		return Regions.array(region);
 	}
 
 	@Override
@@ -116,7 +116,7 @@ public final class Bug3Hint extends ABugHint  {
 	public String toStringImpl() {
 		return Frmt.getSB(64).append(getHintTypeName())
 		  .append(COLON_SP).append(Frmu.csv(bugCells))
-		  .append(ON).append(Frmu.csv(nkdSetCands))
+		  .append(ON).append(Values.csv(nkdSetCands))
 		  .toString();
 	}
 

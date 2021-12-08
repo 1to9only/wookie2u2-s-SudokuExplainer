@@ -70,8 +70,8 @@ public final class Bug4Hint extends ABugHint  {
 	}
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(region);
+	public ARegion[] getBases() {
+		return Regions.array(region);
 	}
 
 	@Override

@@ -6,8 +6,10 @@
  */
 package diuf.sudoku.solver.hinters.nkdset;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
+import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Indexes.INDEXES;
@@ -15,7 +17,6 @@ import static diuf.sudoku.Indexes.ISHFT;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALL;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
@@ -24,7 +25,7 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.chain.ChainerHacu;
 import diuf.sudoku.utils.Permutations;
 import diuf.sudoku.utils.MyArrays;
-import java.util.List;
+import java.util.Arrays;
 
 /**
  * NakedSet implements the NakedPair, NakedTriple, NakedQuad, or NakedPent
@@ -37,23 +38,22 @@ public class NakedSet extends AHinter
 		implements diuf.sudoku.solver.hinters.ICleanUp
 {
 	/**
-	 * Claim each value in the cands bitset from each Cell in the victims List,
+	 * Claim each value in the cands bitset from each Cell in victims,
 	 * adding any eliminations to the reds.
 	 *
-	 * @param victims
-	 * @param cands
-	 * @param reds
-	 * @return
+	 * @param victims to claim from
+	 * @param nv numVictims
+	 * @param cands to claim
+	 * @param reds to add the claims to
+	 * @return any
 	 */
-	protected static boolean claimFrom(final List<Cell> victims
+	protected static boolean claimFrom(final Cell[] victims, final int nv
 			, final int cands, final Pots reds) {
 		int pinkos;
 		boolean any = false;
-		for ( Cell c : victims ) {
-			if ( (pinkos=c.maybes & cands) != 0 ) {
-				any |= reds.put(c, pinkos) == null;
-			}
-		}
+		for ( int i=0; i<nv; ++i )
+			if ( (pinkos=victims[i].maybes & cands) != 0 )
+				any |= reds.put(victims[i], pinkos) == null;
 		return any;
 	}
 
@@ -61,6 +61,8 @@ public class NakedSet extends AHinter
 	private final int[] thePA;
 	// the array of candidate cells
 	private final Cell[] cells = new Cell[REGION_SIZE];
+	// the maybes of the candidate cells
+	private final int[] maybes = new int[REGION_SIZE];
 	// removable (red) potentials
 	private final Pots reds = new Pots();
 
@@ -95,7 +97,7 @@ public class NakedSet extends AHinter
 	 */
 	@Override
 	public boolean findHints(final Grid grid, final IAccumulator accu) {
-		Cell[] rcells; // region.cells array
+		Cell[] rcs; // region.cells array
 		int[] ia; // indexes of cells in this region EXCEPT naked set cells
 		int i // the ubiquitous index
 		      // hijacked as cardinality: cell.size
@@ -103,9 +105,12 @@ public class NakedSet extends AHinter
 		  , rti // region.typeIndex
 		  , cands // bitset of combined maybes of cells in this naked set
 		  , indexes // indexes in this region of cells in this naked set
-		  , nn; // ia.length: number of cells in region EXCEPT nkdSetCells
+		  , nn // ia.length: number of cells in region EXCEPT nkdSetCells
+		  , x // ia[i]
+		  , pinkos; // candidates to remove
 		// local stack references to heap attributes, for speed
 		final Cell[] cells = this.cells; // candidate cells
+		final int[] maybes = this.maybes; // candidate cells
 		final Pots reds = this.reds;
 		final int[] thePA = this.thePA;
 		final int degreePlus1 = this.degreePlus1;
@@ -118,54 +123,52 @@ public class NakedSet extends AHinter
 		// chainer never uses direct mode
 		assert !tech.isDirect || !(accu instanceof ChainerHacu);
 		// foreach region in the grid // 9*box, 9*row, 9*col
-		for ( ARegion r : grid.regions ) {
+		for ( ARegion region : grid.regions ) {
 			// if this region has an "extra" empty cell to remove maybes from
-			if ( r.emptyCellCount > degree ) {
+			if ( region.emptyCellCount > degree ) {
 				// candidate cells := r.cells with 2..degree maybes
 				n = 0; // number of candidate cells
-				for ( Cell c : r.cells ) {
+				for ( Cell c : region.cells )
 					if ( (i=c.size)>1 && i<degreePlus1 ) {
+						maybes[n] = c.maybes;
 						cells[n++] = c;
 					}
-				}
 				// need 2 cells for Pair, 3 for Triple, 4 for Quad, 5 for Pent,
 				// but Pent's are degenerate (so they exist but are not used).
 				if ( n > degreeMinus1 ) {
-					rti = r.typeIndex;
+					rti = region.typeIndex;
 					// foreach combo of degree cells among the candidates
 					for ( int[] perm : new Permutations(n, thePA) ) {
 						// are there degree maybes in this degree cells?
 						// build a bitset of the maybes of this combo of cells
-						cands = 0;
-						for ( i=0; i<degree; ++i ) {
-							// nb: I tried caching this but it's slower.
-							cands |= cells[perm[i]].maybes;
-						}
+						cands = maybes[perm[0]] | maybes[perm[1]];
+						for ( i=2; i<degree; ++i )
+							cands |= maybes[perm[i]];
 						if ( VSIZE[cands] == degree ) {
 							// Naked Set found, but does it remove any maybes?
 							// build a bitset of indexes-in-this-region of the
 							// cells in the naked set
-							indexes = 0;
-							for ( i=0; i<degree; ++i ) {
-								// index-shift cells index in this-region-type
-								// nb: I tried caching this but it's slower.
+							indexes = ISHFT[cells[perm[0]].indexIn[rti]]
+									| ISHFT[cells[perm[1]].indexIn[rti]];
+							for ( i=2; i<degree; ++i )
 								indexes |= ISHFT[cells[perm[i]].indexIn[rti]];
-							}
 							// INDIRECT: 96+% remove no maybes
 							// foreach cell in region except the naked set
-							for ( rcells=r.cells,ia=INDEXES[VALL & ~indexes],nn=ia.length,i=0; i<nn; ++i ) {
+							rcs = region.cells;
+							for ( ia=INDEXES[VALL & ~indexes],nn=ia.length,i=0;
+									i<nn; ++i )
 								// nb: I tried caching, but it's slower.
-								if ( (rcells[ia[i]].maybes & cands) != 0 ) {
-									reds.put(rcells[ia[i]], rcells[ia[i]].maybes & cands);
+								if ( (pinkos=rcs[x=ia[i]].maybes & cands) != 0 ) {
+									reds.put(rcs[x], pinkos);
 									any = true;
 								}
-							}
 							if ( any ) {
 								// ----------------------------------------
 								// Performance isn't a problem here down
 								// ----------------------------------------
 								// nb: NakedSetDirect overrides createHint
-								final AHint hint = createHint(r, cands, indexes);
+								final AHint hint = createHint(region, cands,
+										indexes, reds);
 								if ( hint != null ) {
 									result = true;
 									if ( accu.add(hint) ) {
@@ -188,33 +191,28 @@ public class NakedSet extends AHinter
 	 * <p>
 	 * Note NakedSetDirect overrides createHint to do it's thing.
 	 *
-	 * @param r the region we're searching
+	 * @param region the region we're searching
 	 * @param cands the values of the hidden set
-	 * @param indexes in r.cells of the cells in this hidden set
+	 * @param indexes in region.cells of the cells in this hidden set
+	 * @param reds removable (red) potentials
 	 * @return a new NakedSetHint as a "base" AHint
 	 */
-	protected AHint createHint(final ARegion r, final int cands, final int indexes) {
-		// find any extra Pointing eliminations in
-		// NakedPair and NakedTriple (not Quad+).
-		final List<Cell> list = r.list(indexes);
-		final List<ARegion> regions;
-		if ( degree<4 && r instanceof Grid.Box ) {
-			regions = doOcr(r, list, cands, reds);
-		} else {
-			regions = Regions.list(r);
-		}
+	protected AHint createHint(final ARegion region, final int cands
+			, final int indexes, final Pots reds) {
+		final Cell[] nsCells = region.atNew(indexes);
+		final ARegion[] regions;
+		if ( degree<4 && region instanceof Box )
+			// find any extra Pointing elims in NakedPair/Triple but not Quad+
+			regions = doOtherCommonRegion(region, nsCells, degree, cands, reds);
+		else
+			regions = Regions.array(region);
 		// Build the hint
-		return new NakedSetHint(
-			  this
-			, list
-			, new Values(cands, degree, false)
-			, new Pots(list, cands, false)
-			, reds.copyAndClear()
-			, regions
-		);
+		return new NakedSetHint(this, nsCells, cands
+				, new Pots(nsCells, degree, cands, false)
+				, reds.copyAndClear(), regions);
 	}
 
-	// doOcr (OtherCommonRegion) finds extra Pointing eliminations in the OCR.
+	// doOtherCommonRegion finds extra Pointing eliminations in the OCR.
 	// These cells are all in the same box, so if they all share another common
 	// region (OCR), a row/col, then eliminate cands from the OCR, ie pointing.
 	// If doOcr is omitted then the subsequent Locking run makes these elims,
@@ -223,16 +221,19 @@ public class NakedSet extends AHinter
 	// for the Box=>Row/Col NakedSet hint; and then the Row/Col=>Box doesnt (I
 	// think) need to bother claiming. Find a disproving use-case and I'll code
 	// for it, but Box (pointing) only til then.
-	private static List<ARegion> doOcr(final ARegion box, final List<Cell> cells
-			, final int cands, final Pots reds) {
-		final ARegion ocr = Regions.otherCommon(cells, box);
+	private static ARegion[] doOtherCommonRegion(final ARegion box
+			, final Cell[] nsCells, final int nsSize, final int cands
+			, final Pots reds) {
+		final ARegion ocr = Regions.otherCommon(nsCells, box);
 		if ( ocr != null ) {
-			final List<Cell> victims = ocr.otherThan(cells);
-			if ( !victims.isEmpty() && claimFrom(victims, cands, reds) ) {
-				return Regions.list(box, ocr);
+			final Cell[] victims = Cells.arrayA(REGION_SIZE);
+			final int nv = ocr.otherThan(nsCells, nsSize, victims);
+			if ( nv>0 && claimFrom(victims, nv, cands, reds) ) {
+				Arrays.fill(victims, null);
+				return Regions.array(box, ocr);
 			}
 		}
-		return Regions.list(box);
+		return Regions.array(box);
 	}
 
 }

@@ -122,11 +122,12 @@ public class BigWings extends AAlsHinter
 	 * 2. pretest alsVs to avoid invoking elim pointlessly.
 	 * </pre>
 	 * <p>
-	 * NB: I made eliminate static for speed, because Javas this-injection is
-	 * a bit slow, which makes grid, candidates, VICTIMS, and REDS static,
-	 * which is OK because only one instance of BigWings exists at a time. But
-	 * if you're multi-threading then de-staticise eliminate and it's fields;
-	 * either that or synchronise it, which will be slower.
+	 * NB: I made eliminate static for speed, because Javas this-injection is a
+	 * bit slow, which makes grid, candidates, VICTIMS, and REDS static, which
+	 * is OK because only one instance of BigWings exists at a time. But if you
+	 * are multi-threading then de-staticise eliminate and it's fields; either
+	 * that or synchronise it, which will be slower.
+	 * <p>
 	 * This is fast for how things are now: single-threaded (ST), which I wish
 	 * it wasn't, but it is: It's fast ST, unless we multithread (MT) it all,
 	 * and early-on I decided solve was an ST process, so hinters presume ST,
@@ -163,7 +164,7 @@ public class BigWings extends AAlsHinter
 	}
 
 	// maybes of all bivalue cells in the grid, coincident with biva
-	private static final int[] MAYBES = new int[64]; // 64=81-17
+	private static final int[] MAYBES = new int[81]; // 64 AIOOBE'd, I think
 
 	// these are static only because elim is static, to reduce stackwork.
 	// If you think you can do it "cleaner" then performance test it.
@@ -185,7 +186,6 @@ public class BigWings extends AAlsHinter
 			, final IAccumulator accu) {
 		// ANSI-C style: ALL variables are predeclared, so no more stackwork!
 		Als als; // the Almost Locked Set: N cells sharing N+1 maybes
-		Cell biv; // the bivalue cell to complete the Wing pattern
 		int[] ws; // values to weak eliminate: als.maybes XOR biv.maybes
 		Idx[] avb; // als.vBuds: common buddies of v's in this ALS
 		Idx vb; // als.vBuds[v] where v is the x or z value
@@ -205,7 +205,6 @@ public class BigWings extends AAlsHinter
 		  , zStrong // are there any strong eliminations on z?
 		  , xStrong // are there any strong eliminations on x?
 		  , weak; // are there any weak elims (from the ALS only)?
-		final Cell[] cells = grid.cells;
 		// presume that no hints will be found
 		boolean result = false;
 		try {
@@ -214,19 +213,12 @@ public class BigWings extends AAlsHinter
 			BigWings.grid = grid;
 			BigWings.idxs = grid.idxs;
 			// get Idx of bivalue cells (ie cells with size == 2)
-			final Idx bivi = grid.getBivalue(); 
+			final Idx bivi = grid.getBivalue();
 			// get bivalue indices ONCE (not foreach ALS)
 			// coincident with MAYBES
 			final int[] biva = bivi.toArrayA();
 			// get bivalue maybes ONCE (not foreach ALS)
-			int numBivs = bivi.maybes(cells, MAYBES);
-			// Oh FFS! Something is SERIOUSLY screwy with lambdas + Generator!
-			// NONE of this should EVER happen, but if it does (again).
-			if(numBivs==0) return false;
-			while ( MAYBES[numBivs-1] == 0 ) {
-				if(--numBivs==0) return false;
-			}
-			assert MAYBES[numBivs-1] != 0;
+			final int numBivs = bivi.maybes(grid.cells, MAYBES);
 			// foreach ALS (Almost Locked Set: N cells sharing N+1 maybes)
 			for ( i=0; i<numAlss; ++i ) {
 //				++COUNT[0]; // 2,790,999
@@ -234,13 +226,8 @@ public class BigWings extends AAlsHinter
 				for ( m=(als=alss[i]).maybes,avb=als.vBuds,j=0; j<numBivs; ++j ) {
 //					++COUNT[1]; // 39,496,849
 					// if this biv shares both it's values with the ALS
-//					if ( (m & (w=MAYBES[j])) == w ) {
-// test w!=0 for Generator, which I do NOT understand!
-// Java TROUBLE with getting the index instead the array value when you inline,
-// so more reliable to just do it the old fashioned. I built a cubby, shed,
-// house, hotel, bridge, and a whole city... then I built a cubby. I quite like
-// cubbies. They remind me of the last time I felt safe.
 					w = MAYBES[j];
+					// w!=0 averts VFIRST[0]->33->AIOOBE. S__t happens. sigh.
 					if ( w!=0 && (m & w)==w ) {
 //						++COUNT[2]; // 17,510,250
 					    // read x value from biv.maybes (the lower one)
@@ -270,16 +257,16 @@ public class BigWings extends AAlsHinter
 							}
 							// This ALS+biv form a BigWing; but any eliminations?
 							// seek strong elims on z
-							zStrong = eliminate(T, z, als.vs[z], biv=cells[b]);
+							zStrong = eliminate(T, z, als.vs[z], grid.cells[b]);
 							// if both x and z are linked
 							if ( both = xWing & zWing ) {
 //								++COUNT[4]; // 546,616
 								// seek strong elims on x
-								xStrong = eliminate(T, x, als.vs[x], biv);
+								xStrong = eliminate(T, x, als.vs[x], grid.cells[b]);
 								// seek weak elims on each alsMaybes XOR bivMaybes
 								weak = false;
 								for ( ws=VALUESES[m^w],w=0,W=ws.length; w<W; ++w ) {
-									weak |= eliminate(F, ws[w], als.vs[ws[w]], biv);
+									weak |= eliminate(F, ws[w], als.vs[ws[w]], grid.cells[b]);
 								}
 								// if this wing has no weak-links
 								if ( !weak ) {
@@ -298,7 +285,7 @@ public class BigWings extends AAlsHinter
 							}
 							if ( !REDS.isEmpty() ) {
 								// FOUND a BigWing on x and possibly z
-								final AHint hint = createHint(als, x, z, both, biv);
+								final AHint hint = createHint(als, x, z, both, grid.cells[b]);
 								result = true;
 								if ( accu.add(hint) ) {
 									return result;

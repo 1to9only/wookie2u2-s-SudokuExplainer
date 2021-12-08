@@ -33,6 +33,7 @@ import diuf.sudoku.utils.Log;
 import java.util.Collection;
 import java.util.Iterator;
 import static diuf.sudoku.Ass.Cause.CAUSE_FOR;
+import diuf.sudoku.SourceID;
 
 /**
  * ChainerBase is an abstract engine for searching a Grid for forcing chains.
@@ -142,6 +143,23 @@ abstract class ChainerBase extends AHinter
 	 * I retain a list of hints.
 	 */
 	private final HintCache cache;
+	
+	/**
+	 * The number of set cells in the grid when that cache was filled, so that
+	 * we can force-refresh the cache each time a cell is set, so that we never
+	 * see those annoying outdated hints where a cell is presumed to be one of
+	 * it's old maybes, when the cell has now been set. Note that about 90% of
+	 * eliminations can be reproduced through a simpler path in a simpler grid,
+	 * and I'm willing to write-off the others to avoid displaying what is now
+	 * clearly questionable logic, which smart people will question even though
+	 * (being the same grid) it still stands-up, despite no longer being there.
+	 */
+	private int cacheNumSet;
+
+	/**
+	 * As per cacheNumSet: grid.source: lineNumber/file of src of crnt puzzle.
+	 */
+	private SourceID cacheSource;
 
 	/**
 	 * Constructs an abstract Chainer: an engine for searching a Sudoku Grid
@@ -172,8 +190,9 @@ abstract class ChainerBase extends AHinter
 		this.isMultiple	 = tech.isMultiple;
 		this.isDynamic	 = tech.isDynamic;
 		this.isNishio	 = tech.isNishio;
-		this.noCache  = noCache;
-		// NEVER cache in a test-case (register as GUI to test the cache!)
+		// caching breaks the test-cases
+		this.noCache = noCache | Run.type == Run.Type.TestCase;
+		// NEVER cache in a test-case (say you're the GUI to test the cache!)
 		if ( Run.type == Run.Type.TestCase )
 			cache = new HintCacheBasic();
 		// always cache in the batch
@@ -231,9 +250,10 @@ abstract class ChainerBase extends AHinter
 		// I do not understand why/how it buggers-up chaining, all I know is
 		// that when I put-in the cache NestedUnary produced invalid hints.
 		if ( cache instanceof HintCacheSorted // ie, was isFilteringHints on when I was created
-		  && cache.size() > 0
-		  && !noCache // caching breaks imbedded chainers
-		  && Run.type!=Run.Type.TestCase // caching breaks test cases!
+		  && cache.size() > 0 // got cache
+		  && grid.source == cacheSource // same puzzle
+		  && grid.numSet == cacheNumSet // same number of set cells
+		  && !noCache // caching breaks imbedded chainers, and test-cases
 		) {
 			AHint cached;
 			// nb: I poll: so I throw away the "dead wood"; hints are sorted by
@@ -255,6 +275,10 @@ abstract class ChainerBase extends AHinter
 					accu.add(cached);
 				}
 		}
+		
+		// remember these for next time
+		cacheSource = grid.source;
+		cacheNumSet = grid.numSet;
 
 		cache.clear();
 

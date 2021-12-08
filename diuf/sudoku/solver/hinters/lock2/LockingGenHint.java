@@ -59,13 +59,13 @@ public class LockingGenHint extends AHint implements IChildHint {
 	}
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(this.region);
+	public ARegion[] getBases() {
+		return Regions.array(this.region);
 	}
 
 	@Override
-	public List<ARegion> getCovers() {
-		return Regions.list(Regions.otherCommon(cells, region));
+	public ARegion[] getCovers() {
+		return Regions.array(Regions.otherCommon(cells, region));
 	}
 
 	public Cell[] getSelectedCells() {

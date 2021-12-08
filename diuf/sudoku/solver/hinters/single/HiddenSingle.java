@@ -14,6 +14,7 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.utils.Debug;
 
 /**
  * HiddenSingle implements the HiddenSingle Sudoku solving technique. A "hidden
@@ -292,6 +293,8 @@ public final class HiddenSingle extends AHinter {
 	 * <p>
 	 * See the rant in this classes comments for more.
 	 *
+	 * @param grid
+	 * @param accu
 	 * @return was one-or-more hint found?
 	 */
 	@Override
@@ -308,6 +311,8 @@ public final class HiddenSingle extends AHinter {
 				rio = r.ridx;
 				// foreach possible value: 1..9
 				for ( v=1; v<VALUE_CEILING; ++v ) {
+//if ( v==5 && "col C".equals(r.id) && !Debug.isClassNameInTheCallStack(12, "BruteForce") )
+//	Debug.breakpoint();
 					// if there is only 1 place for v in this region
 					if ( rio[v].size == 1 ) {
 						// FOUND a Hidden Single, so raise a hint

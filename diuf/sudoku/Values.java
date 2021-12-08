@@ -7,7 +7,6 @@
 package diuf.sudoku;
 
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.utils.Frmt;
 import java.util.Iterator;
 import static diuf.sudoku.utils.Frmt.*;
 import java.util.Collection;

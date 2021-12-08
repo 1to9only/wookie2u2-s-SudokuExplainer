@@ -84,8 +84,6 @@ class AlsFinder {
 		return cnt;
 	}
 
-//not_used 2021-10-27 KRC AlsFinderTest is ONLY use which allowNakedSets,
-// so test both or remove. Less code good. More code bad.
 	// populate nakedSetIdxs: an array Idxs, one per region. Each Idx contains
 	// indices of cells in any Naked Set in this region. This is necessary coz
 	// actual-Naked-Sets in Almost-Locked-Sets break AlsChains.

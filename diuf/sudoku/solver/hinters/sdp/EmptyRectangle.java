@@ -48,8 +48,6 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import java.util.List;
 
 /**
  * EmptyRectangle implements the Empty Rectangle Sudoku solving technique.
@@ -130,7 +128,7 @@ public class EmptyRectangle extends AHinter {
 	 * value. sigh.
 	 */
 	private static final int R = (int)Math.sqrt(Grid.REGION_SIZE); // 3
-	
+
 	/**
 	 * EMPTY_BOXS is the box.ridx[$v].bits (box.cells indexes) which must NOT
 	 * maybe $v in order for this box to form an ER. Note that not!
@@ -441,7 +439,7 @@ public class EmptyRectangle extends AHinter {
 										}
 									}
 								}
-							} // next 
+							} // next
 						} // fi ER pattern
 						// weird: a Box with 3-or-more vs can match only one ER
 						// pattern, which we've just done, so break, for speed.
@@ -462,14 +460,12 @@ public class EmptyRectangle extends AHinter {
 			, final Col erCol, final Cell c1, final Cell c2, final int boxVBits
 			, final Cell victim, final boolean isCol) {
 		// build the regions: blue bases, and green covers.
-		final List<ARegion> bases = Regions.list(erBox);
-		final List<ARegion> covers;
+		final ARegion[] bases = Regions.array(erBox);
+		final ARegion[] covers;
 		if ( isCol )
-			covers = Regions.list(erCol, erBox, erRow, c2.col, c2.row);
+			covers = Regions.array(erCol, erBox, erRow, c2.col, c2.row);
 		else
-			covers = Regions.list(erRow, erBox, erCol, c2.col, c2.row);
-//		final String tag = isCol ? "COL" : "ROW";
-		final String tag = EMPTY_STRING; // debug message
+			covers = Regions.array(erRow, erBox, erCol, c2.col, c2.row);
 		// build the hightlighted (green) potential values map
 		final Pots greens = new Pots(v, c1, c2);
 		// build the "fins" (blue) potential values map Cell->Values
@@ -478,7 +474,7 @@ public class EmptyRectangle extends AHinter {
 		final Pots reds = new Pots(victim, v);
 		// build and return the hint
 		return new EmptyRectangleHint(this, v, bases, covers, greens, blues
-				, reds, tag);
+				, reds, "");
 	}
 
 }

@@ -46,7 +46,7 @@ public class AlsXzHint extends AHint  {
 			, Pots reds, boolean doubleLinked) {
 		// nb: what are normally greens are oranges here
 		super(hinter, reds, null, null, null
-				, Regions.list(a.region), Regions.list(b.region));
+				, Regions.array(a.region), Regions.array(b.region));
 		this.a = a;
 		this.v1 = v1;
 		this.v2 = v2;

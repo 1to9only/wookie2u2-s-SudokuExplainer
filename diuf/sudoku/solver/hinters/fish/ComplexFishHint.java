@@ -18,10 +18,7 @@ import java.util.List;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.CSP;
-
 
 /**
  * ComplexFishHint is a hint from the ComplexFisherman.
@@ -175,7 +172,7 @@ public class ComplexFishHint extends AHint  {
 	final Pots sharks; // the shark (canniblistic) Cell=>Values
 	String tag; // the techies debug message, else "" (never null)
 	ComplexFishHint(AHinter hinter, Type hintType, boolean isSashimi
-			, int candidate, List<ARegion> bases, List<ARegion> covers
+			, int candidate, ARegion[] bases, ARegion[] covers
 			, Pots redPots, Pots greenPots, Pots fins, Pots endoFins
 			, Pots sharks, String debugMessage) {
 		super(hinter, redPots, greenPots, null, fins, bases, covers);

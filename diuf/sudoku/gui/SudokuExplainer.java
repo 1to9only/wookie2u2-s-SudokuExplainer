@@ -31,8 +31,6 @@ import diuf.sudoku.solver.accu.SingleHintsAccumulator;
 import diuf.sudoku.solver.checks.SolutionHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.align.LinkedMatrixCellSet;
-import diuf.sudoku.solver.hinters.als.AlsChainHint;
-import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.IAsker;
 import diuf.sudoku.utils.Html;
@@ -536,7 +534,12 @@ public final class SudokuExplainer implements Closeable {
 	private final UndoList undos = new UndoList();
 	private final UndoList redos = new UndoList();
 
-	/** Do god stuff. */
+	/**
+	 * Do the god stuff.
+	 * @param value
+	 * @param cell
+	 * @throws diuf.sudoku.gui.SudokuExplainer.ReligiousException if none shall pass
+	 */
 	private void god(int value, Cell cell) throws ReligiousException {
 		// ensure the given grid has a puzzleID, which is set when the Grid is
 		// created, and reset when a puzzle is loaded.

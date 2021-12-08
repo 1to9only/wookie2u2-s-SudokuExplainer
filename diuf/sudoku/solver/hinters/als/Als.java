@@ -40,8 +40,6 @@ import diuf.sudoku.IdxL;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -53,12 +51,15 @@ import java.util.List;
  * <p>
  * ALSs of size one (a cell with two maybes) are ignored. Cells that take part
  * in an actual Locked Set (a Naked Pair/Triple/etc) in this region are ignored
- * in ALS_Chains.
+ * by ALS_Chain.
  * <p>
+ * Sudoku Explainer picked-up Almost Locked Sets from HoDoKu.
+ * <pre>
  * KRC 2021-10-05 Formerly Als held cell references, now it exposes JUST an idx
  * which can be used to get the cells in this Almost Locked Set, but does not
  * hold the cell-references itself, so that any Als-based-fields don't hold the
  * whole Grid in memory.
+ * </pre>
  *
  * @author hobiwan. Adapted to SE by KRC.
  */
@@ -106,7 +107,7 @@ public class Als {
 
 	/** The aggregate of the buddies of all values in this ALS. */
 	public Idx buds;
-	
+
 	/** The index of this Als in the alss array. sigh. */
 	public int index;
 
@@ -238,12 +239,11 @@ public class Als {
 	 * GUI Adapter: a list containing my region.
 	 * @return {@code ArrayList<ARegion>}
 	 */
-	public ArrayList<ARegion> regions() {
+	public ARegion[] regions() {
 		if ( regions == null )
-			regions = Regions.list(region);
+			regions = Regions.array(region);
 		return regions;
 	}
-	private ArrayList<ARegion> regions;
+	private ARegion[] regions;
 
 }
-// Almost Locked Set from HoDoKu

@@ -209,17 +209,18 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 *
 	 * @param cells to pot
 	 * @param indexes a bitset of indexes of cells to pot
-	 * @param values a bitset of the values to add
+	 * @param cands a bitset of the values to add
 	 * @param dummy1 a dummy parameter.
 	 * @param dummy2 a dummy parameter.
 	 */
-	public Pots(final Cell[] cells, final int indexes, final int values, final boolean dummy1, final boolean dummy2) {
+	public Pots(final Cell[] cells, final int indexes, final int cands
+			, final boolean dummy1, final boolean dummy2) {
 		super(ISIZE[indexes], 1F);
 		Cell cell;
-		int cands;
+		int mine;
 		for ( int i : INDEXES[indexes] ) {
-			if ( (cands=(cell=cells[i]).maybes & values) != 0 ) {
-				put(cell, cands);
+			if ( (mine=(cell=cells[i]).maybes & cands) != 0 ) {
+				put(cell, mine);
 			}
 		}
 	}
@@ -268,16 +269,14 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 *
 	 * @param cells
 	 * @param n
-	 * @param values
+	 * @param cands
 	 * @param dummy
 	 */
-	public Pots(final Cell[] cells, final int n, final int values, final boolean dummy) {
+	public Pots(final Cell[] cells, final int n, final int cands, final boolean dummy) {
 		this(n, 1F);
-		for ( int i=0,cands; i<n; ++i ) {
-			if ( (cands=cells[i].maybes & values) != 0 ) {
-				put(cells[i], cands);
-			}
-		}
+		for ( int i=0,myCands; i<n; ++i )
+			if ( (myCands=cells[i].maybes & cands) != 0 )
+				put(cells[i], myCands);
 	}
 
 	/**
@@ -303,9 +302,10 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 */
 	public Pots(final Cell[] cells, final int cands, final boolean dummy) {
 		super(Math.max(MIN_CAPACITY,cells.length), 1F);
+		int myCands;
 		for ( final Cell cell : cells ) {
-			if ( (cell.maybes & cands) != 0 ) {
-				put(cell, cands);
+			if ( (myCands=cell.maybes & cands) != 0 ) {
+				put(cell, myCands);
 			}
 		}
 	}
@@ -361,6 +361,19 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 				put(cell, otherValues | myExistingValues);
 		});
 		return this;
+	}
+
+	/**
+	 * Construct a new Pots of idx cells in grid to cands.
+	 * 
+	 * @param idx indices of cells to add
+	 * @param grid whose cells are added
+	 * @param cands values to eliminate: the result contains only cands that
+	 *  exist in each cell
+	 * @param dummy says this method takes cands (not a value)
+	 */
+	public Pots(final Idx idx, final Grid grid, final int cands, final boolean dummy) {
+		upsertAll(idx, grid, cands, dummy);
 	}
 
 	/**

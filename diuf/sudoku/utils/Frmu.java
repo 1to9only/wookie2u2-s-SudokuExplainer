@@ -20,14 +20,10 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.NULL_ST;
 import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.COMMA;
-import static diuf.sudoku.utils.Frmt.and;
 import static diuf.sudoku.utils.Frmt.OR;
-import static diuf.sudoku.utils.Frmt.or;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.CSP;
 import static diuf.sudoku.utils.Frmt.SP;
-import static diuf.sudoku.utils.Frmt.or;
 
 /**
  * Frmu (that's the letter following t) is Frmt for Sudoku Explainer types, so
@@ -55,10 +51,11 @@ public class Frmu {
 
 	// ========================== ARegion ============================
 
-	// nb: List binds before Collection to avert type-erasure problem
+	// This is a complete pain in the ass!
 	public static String and(List<ARegion> list) {
-		return Frmt.and((Object[])list.toArray(new ARegion[list.size()]));
+		return Frmt.frmt(list, (r)->r.id, CSP, AND);
 	}
+
 	// nb: List binds before Collection to avert type-erasure problem
 	public static String csv(List<ARegion> regions) {
 		if ( regions == null )
@@ -73,12 +70,12 @@ public class Frmu {
 	}
 
 	// nb: Set binds before Collection to avert type-erasure problem
-	public static String csv(Set<ARegion> regions) {
-		return csv(getMySB(regions.size()<<3), regions).toString();
+	public static String csv(ARegion[] regions) {
+		return csv(getMySB(regions.length<<3), regions).toString();
 	}
 
 	/** Append comma separated regions to sb. */
-	public static StringBuilder csv(StringBuilder sb, Iterable<ARegion> regions) {
+	public static StringBuilder csv(StringBuilder sb, ARegion[] regions) {
 		if ( regions == null )
 			return sb.append(NULL_ST);
 		boolean first = true;
@@ -92,12 +89,12 @@ public class Frmu {
 		return sb;
 	}
 
-	public static StringBuilder basesAndCovers(List<ARegion> bases, List<ARegion> covers) {
+	public static StringBuilder basesAndCovers(ARegion[] bases, ARegion[] covers) {
 		if ( bases==null || covers==null ) // Oops!
 			return basesAndCovers(getMySB(128), bases, covers);
-		return basesAndCovers(getMySB((bases.size()+covers.size())<<3), bases, covers);
+		return basesAndCovers(getMySB((bases.length+covers.length)<<3), bases, covers);
 	}
-	public static StringBuilder basesAndCovers(StringBuilder sb, List<ARegion> bases, List<ARegion> covers) {
+	public static StringBuilder basesAndCovers(StringBuilder sb, ARegion[] bases, ARegion[] covers) {
 		return csv(csv(sb, bases).append(AND), covers);
 	}
 
@@ -138,13 +135,13 @@ public class Frmu {
 
 	/**
 	 * Currently only used for debug logging.
-	 * @param sep the separator between cells-strings: " " works, ", " is standard
-	 * @param numCells the number of cells to format
-	 * @param cells arguements array of Cell to be formatted.
+	 * @param sep the separator between cells
+	 * @param numCells the number of cells in cells
+	 * @param cells to be formatted
 	 * @return a CSV list of the cell.toFullString() of each cell in cells
-	 * (which may be a null-terminated array).
+	 * (which may be a null-terminated array)
 	 */
-	public static String toFullString(String sep, int numCells, Cell... cells) {
+	public static String toFullString(String sep, int numCells, Cell[] cells) {
 		if(cells==null) return NULL_ST;
 		final StringBuilder sb = getMySB(numCells * 20);
 		sb.setLength(0);
@@ -193,12 +190,17 @@ public class Frmu {
 		return toFullString(CSP, cells);
 	}
 
-	public static String csv(Cell... cells) { return frmt(cells, cells.length, CSP, CSP); }
-	public static String csv(int n, Cell... cells) { return frmt(cells, n, CSP, CSP); }
-	public static String ssv(Cell... cells) { return frmt(cells, cells.length, SP, SP); }
-	public static String ssv(int n, Cell... cells) { return frmt(cells, n, SP, SP); }
-	public static String and(Cell... cells) { return frmt(cells, cells.length, CSP, AND); }
-	public static String or(Cell... cells) { return frmt(cells, cells.length, CSP, OR); }
+	public static String csv(Cell c1) { return c1.id; }
+	public static String csv(Cell c1, Cell c2) { return c1.id+CSP+c2.id; }
+	public static String csv(Cell c1, Cell c2, Cell c3) { return c1.id+CSP+c2.id+CSP+c3.id; }
+	public static String csv(Cell[] cells) { return frmt(cells, cells.length, CSP, CSP); }
+	public static String csv(int n, Cell[] cells) { return frmt(cells, n, CSP, CSP); }
+	public static String ssv(Cell[] cells) { return frmt(cells, cells.length, SP, SP); }
+	public static String ssv(int n, Cell[] cells) { return frmt(cells, n, SP, SP); }
+	public static String and(Cell[] cells) { return frmt(cells, cells.length, CSP, AND); }
+	public static String and(Cell c1, Cell c2) { return c1.id+AND+c2.id; }
+	public static String or(Cell c1, Cell c2) { return c1.id+OR+c2.id; }
+	public static String or(Cell[] cells) { return frmt(cells, cells.length, CSP, OR); }
 	public static String frmt(Cell[] cells, int n, final String sep, final String lastSep) {
 		final StringBuilder sb = getMySB(128);
 		return append(sb, cells, n, sep, lastSep).toString();

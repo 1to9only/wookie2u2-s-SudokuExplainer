@@ -129,7 +129,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 
 	/** Int ArrayS used to iterate Idx's. One array-set per iteration.
 	 * There's two of them to avert collisions in imbedded loops. */
-	public static final int IAS_LENGTH = 82; // 81+1 or a full Idx AIOBE's
+	public static final int IAS_LENGTH = 82; // for last 81
 	/** iasA arrays: my size is my indice. */
 	public static final int[][] IAS_A = new int[IAS_LENGTH][];
 	/** iasB arrays: my size is my indice. Two of them support two imbedded
@@ -349,6 +349,20 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
+	 * Add 'cells' which match 'f' into this Idx.
+	 *
+	 * @param cells to read
+	 * @param f to filter
+	 * @return this Idx for method chaining
+	 */
+	public Idx read(final Cell[] cells, final IFilter<Cell> f) {
+		for ( final Cell c : cells )
+			if ( f.accept(c) )
+				add(c.i);
+		return this;
+	}
+
+	/**
 	 * Parse an Idx from SSV (space separated values) of Cell.id's.
 	 * <p>
 	 * For example: "E3 H3 I3 H8 I8 E6 I6"
@@ -434,21 +448,22 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return a cached array of indices (the set (1) bits) in the given Idx
 	 */
 	public static final int[] toArrayA(final int m0, final int m1, final int m2) {
-		int j, i=0;
+		int j, count=0;
 		final int n = bitCount(m0)+bitCount(m1)+bitCount(m2);
 		final int[] a = IAS_A[n];
 		if ( m0 != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
 				for ( int k : WORDS[(m0>>j)&WORD_MASK] )
-					a[i++] = j+k;
+					a[count++] = j+k;
 		if ( m1 != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
 				for ( int k : WORDS[(m1>>j)&WORD_MASK] )
-					a[i++] = BITS_PER_ELEMENT+j+k;
+					a[count++] = BITS_PER_ELEMENT+j+k;
 		if ( m2 != 0 )
 			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
 				for ( int k : WORDS[(m2>>j)&WORD_MASK] )
-					a[i++] = BITS_TWO_ELEMENTS+j+k;
+					a[count++] = BITS_TWO_ELEMENTS+j+k;
+		assert count == n;
 		return a;
 	}
 
@@ -690,10 +705,20 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return this Idx, for method chaining.
 	 */
 	public Idx set(final Cell[] cells) {
+		return set(cells, cells.length);
+	}
+
+	/**
+	 * Set this Idx to the indices of the given cells.
+	 *
+	 * @param cells to add
+	 * @param n the number of cells in cells
+	 * @return this Idx, for method chaining.
+	 */
+	public Idx set(final Cell[] cells, final int n) {
 		a0 = a1 = a2 = 0;
-		for ( Cell c : cells ) {
-			add(c.i);
-		}
+		for ( int i=0; i<n; ++i )
+			add(cells[i].i);
 		return this;
 	}
 

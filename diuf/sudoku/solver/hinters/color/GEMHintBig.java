@@ -86,8 +86,8 @@ public class GEMHintBig extends AHint  {
 	}
 
 	@Override
-	public List<ARegion> getPinkos() {
-		return Regions.list(region);
+	public ARegion[] getPinkos() {
+		return Regions.array(region);
 	}
 
 	@Override

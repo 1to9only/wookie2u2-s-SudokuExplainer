@@ -46,7 +46,7 @@ public class AlsWingHint extends AHint  {
 			, final Rcc[] rcs) {
 		// greens, oranges, and blues are now all null because I do all my own
 		// presentation, via the getAlss method, new in SudokuGridPanel.
-		super(hinter, reds, null, null, null, Regions.list(a.region), Regions.list(b.region));
+		super(hinter, reds, null, null, null, Regions.array(a.region), Regions.array(b.region));
 		this.a = a;
 		this.b = b;
 		this.c = c;

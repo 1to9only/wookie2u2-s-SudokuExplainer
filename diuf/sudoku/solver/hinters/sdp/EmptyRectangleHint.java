@@ -32,8 +32,8 @@ public class EmptyRectangleHint extends AHint  {
 	final boolean isDual;
 	final String debugMessage;
 
-	public EmptyRectangleHint(AHinter hinter, int value, List<ARegion> bases
-			, List<ARegion> covers, Pots greens, Pots blues
+	public EmptyRectangleHint(AHinter hinter, int value, ARegion[] bases
+			, ARegion[] covers, Pots greens, Pots blues
 			, Pots redPots, String debugMessage) {
 		super(hinter, redPots, greens, null, blues, bases, covers);
 		this.redValue = value;
@@ -72,18 +72,18 @@ public class EmptyRectangleHint extends AHint  {
 			id2 = it.next().id;
 		}
 		return Html.produce(this, "EmptyRectangleHint.html"
-				, Integer.toString(redValue) //{0}
-				, bases.get(0).id			 // 1 erBox
-				, redCell.id				 // 2
-				, covers.get(0).id			 // 3 erRow
-				, covers.get(0).typeName	 // 4
-				, covers.get(1).id			 // 5 assisting 1
-				, covers.get(2).typeName	 // 6
-				, covers.get(2).id			 // 7 assisting 2
-				, id1						 // 8 assisting cell1
-				, id2						 // 9 assisting cell2
-				, debugMessage				 //10 identifies which method was used to find this hint: "A:ROW", or "B:COL"
-				, reds.toString()		 //11
+			, Integer.toString(redValue) //{0}
+			, bases[0].id		 // 1 erBox
+			, redCell.id		 // 2
+			, covers[0].id		 // 3 erRow
+			, covers[0].typeName // 4
+			, covers[1].id		 // 5 assisting 1
+			, covers[2].typeName // 6
+			, covers[2].id		 // 7 assisting 2
+			, id1				 // 8 assisting cell1
+			, id2				 // 9 assisting cell2
+			, debugMessage		 //10 identifies which method was used to find this hint: "A:ROW", or "B:COL"
+			, reds.toString()	 //11
 		);
 	}
 

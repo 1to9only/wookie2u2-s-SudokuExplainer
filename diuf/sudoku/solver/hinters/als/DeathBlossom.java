@@ -17,8 +17,8 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.Validator;
+import diuf.sudoku.utils.Log;
 import java.util.Arrays;
-import java.util.LinkedList;
 
 
 /**
@@ -42,16 +42,48 @@ import java.util.LinkedList;
  * Having found a Death Blossom, if an outside cell (not in the ALSs) sees all
  * occurrences of that value (which is in all the ALSs and not in the stem) in
  * the DeathBlossom, then we can eliminate that value from the outside cell.
+ * <pre>
+ * KRC 2021-11-02 alssByValue {@code List<Als>[]} now Als[][] avoiding Iterator
+ * to save about 3 seconds over top1465, costs more code, and a bit more RAM.
+ * </pre>
  *
  * @author Keith Corlett 2020-01-13
  */
 public class DeathBlossom extends AAlsHinter
 		implements diuf.sudoku.solver.hinters.IPreparer
-//				 , diuf.sudoku.solver.hinters.ICleanUp
+				 , diuf.sudoku.solver.hinters.IReporter
 {
+	@Override
+	public void report() {
+		if ( isGrower )
+			Log.teeln(tech.name()+": private static final int ALSS_BY_VALUE_SIZE = "+maxNumAlssByValue()+";");
+	}
+	private static boolean isGrower = false;
 
-	// a list of all the ALSs containing each value 1..9
-	private final AlsList[] alssByValue = new AlsList[VALUE_CEILING];
+	// Returns the maximum number of ALS in any alssByValue array.
+	private int maxNumAlssByValue() {
+		int max = 0;
+		// backwards coz observed 9 has more ALSs than others.
+		for ( int v=VALUE_CEILING-1; v>0; --v )
+			if ( numAlssByValue[v] > max )
+				max = alssByValue[v].length;
+		return max;
+	}
+
+	// observed 255 for 9 in top1465, but they might need to grow a bit more!
+	// I ummed and erred about a size per value, and decided against, but the
+	// lowest observed was only ~200, so there's some fat here! I now suspect
+	// that 255 is a many ALSs as there can be per value, coz I can't fool it.
+	private static final int ALSS_BY_VALUE_SIZE = 256;
+
+	// an array-of-arrays of all the ALSs containing each value 1..9
+	// nb: this was a List<Als>[] but that involves an Iterator, which is about
+	// four seconds slower over top1465, but the array uses a bit more RAM:
+	// PRE: 8,953,518,000  10397  861,163  2573  3,479,797  DeathBlossom
+	// PST: 5,929,003,322  10397  570,260  2573  2,304,315  DeathBlossom
+	private final Als[][] alssByValue = new Als[VALUE_CEILING][];
+	private final int[] numAlssByValue = new int[VALUE_CEILING];
+
 	// The data which is the current DeathBlossom. These fields are in a class
 	// because that makes sense to me, and so clear method "zaps" the lot.
 	// Note that there's ONE DeathBlossomData per DeathBlossom instance.
@@ -92,7 +124,7 @@ public class DeathBlossom extends AAlsHinter
 		super(Tech.DeathBlossom, false);
 		// populate array
 		for ( int v=1; v<VALUE_CEILING; ++v ) {
-			alssByValue[v] = new AlsList();
+			alssByValue[v] = new Als[ALSS_BY_VALUE_SIZE];
 		}
 	}
 
@@ -103,9 +135,7 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	// clean-up after the puzzle is solved
-//I'm now called locally so no longer implement ICleanUp. Never wipe twice.
-//	@Override
-	public void clean() {
+	private void clean() {
 		// forget all Cell references
 		this.grid = null;
 		this.idxs = null;
@@ -117,8 +147,20 @@ public class DeathBlossom extends AAlsHinter
 
 	private void clearAlssByValue() {
 		for ( int v=1; v<VALUE_CEILING; ++v ) {
-			alssByValue[v].clear();
+			numAlssByValue[v] = 0;
+			Arrays.fill(alssByValue[v], null);
 		}
+	}
+
+	// enlarge existing by 10% + 1
+	private static Als[] grow(final int v, final Als[] existing) {
+		final int oldSize = existing.length;
+		final int newSize = (int)(oldSize * 1.1) + 1;
+		final Als[] result = new Als[newSize];
+		System.arraycopy(existing, 0, result, 0, oldSize);
+		Log.println(Log.me()+": "+v+": "+oldSize+" -> "+newSize);
+		isGrower = true;
+		return result;
 	}
 
 	/**
@@ -154,40 +196,51 @@ public class DeathBlossom extends AAlsHinter
 		try {
 			// build an index of all the ALS's by there values
 			Als als;
+			Arrays.fill(numAlssByValue, 0);
 			for ( int i=0; i<numAlss; ++i ) {
-				for ( int v : VALUESES[(als=alss[i]).maybes] ) {
-					// if there are any cells in the grid which see all v's in
-					// this ALS, then file this ALS under v.
+				als = alss[i];
+				for ( int v : VALUESES[als.maybes] ) {
+					// if there are any cells in the grid that see all v's
+					// in this ALS, then file this ALS under v.
 					if ( als.vBuds[v].any() ) {
-						alssByValue[v].add(als);
+						final int abvIndex = numAlssByValue[v]++;
+						try {
+							alssByValue[v][abvIndex] = als;
+						} catch ( ArrayIndexOutOfBoundsException handled ) {
+							alssByValue[v] = grow(v, alssByValue[v]);
+							alssByValue[v][abvIndex] = als;
+						}
 					}
 				}
 			}
-			// stems is grid cells with 2..3 maybes: I tap-out early at 3 coz
+			// stems are grid cells with 2..3 maybes: I tap-out early at 3 coz
 			// I find 0 hints on stems with 4+ maybes in top1465, but this may
-			// occur in other puzzles. All other code handles 4. Correctness
-			// demands you increase < 4 to < 5 unless you prove that 4 can not
-			// produce a hint. This implementation is excessively efficient,
-			// because I'm too lazy/stupid to prove that 4 can't hint! I simply
-			// observe that is DOES not hint, and impose an arbitrary limit for
-			// more speed!
-			final Idx stems = grid.getEmptiesWhere((c)->c.size<4);
-			// foreach stem cell in the grid
-			for ( Cell stem : stems.cellsA(grid) ) {
-				// initialise DeathBlossom data
-				// the stem.maybes to assign to each ALS
-				db.freeCands = stem.maybes;
-				// ALS's must share a common value other than stem.maybes,
-				// so we start with all values other than stem.maybes
-				db.cmnCands = VALL & ~stem.maybes;
-				// each ALSs cells are added to db.idx
-				db.idx.clear();
-//				// the assigned (used) values are added to cands
-//				db.cands = 0;
-				// seek an ALS for each stem.maybe (each freeCand)
-				// if the DeathBlossom has any eliminations then hint
-				if ( (result|=recurse(stem)) && onlyOne ) {
-					return result; // exit early
+			// occur in other puzzles, I simply cannot say, so all other code
+			// handles 4; and correctness demands that we increase < 4 to < 5,
+			// until it is proven that 4 CAN NOT produce a hint.
+			//
+			// This implementation is excessively efficient, simply because I'm
+			// too stupid to prove that 4 can't hint! I simply observe that it
+			// is DOES NOT HINT, and hence impose a reasonable but entirely
+			// arbitrary (unless proven otherwise) limit, because I really like
+			// speed (the smarty-pants non-chemical kind, obviously)!
+			//
+			// foreach stem in grid.cells where size in 2..4
+			for ( Cell stem : grid.cells ) {
+				if ( stem.size>1 && stem.size<4 ) {
+					// initialise DeathBlossom data
+					// the stem.maybes to assign to each ALS
+					db.freeCands = stem.maybes;
+					// ALS's must share a common value other than stem.maybes,
+					// so we start with all values other than stem.maybes
+					db.cmnCands = VALL & ~stem.maybes;
+					// each ALSs cells are added to db.idx
+					db.idx.clear();
+					// seek an ALS for each stem.maybe (each freeCand)
+					// if the DeathBlossom has any eliminations then hint
+					if ( (result|=recurse(stem)) && onlyOne ) {
+						return result; // exit early
+					}
 				}
 			}
 		} finally {
@@ -202,8 +255,6 @@ public class DeathBlossom extends AAlsHinter
 		// presume that no hint will be found
 		boolean result = false;
 		if ( db.freeCands != 0 ) {
-//			// preCands: maybes of all ALS's already in this DB
-//			int preCands;
 			// preCmnCands: maybes common to all ALS's already in this DB
 			int preCmnCands;
 			// get the next free (unassociated) stem.maybe
@@ -213,19 +264,19 @@ public class DeathBlossom extends AAlsHinter
 			// foreach ALS having v as a candidate, find a matching Als and
 			// recurse some more, to associate the next stem.maybe, until all
 			// stem maybes are associated, so you go down else path to examine
-			// this god-damn DeathBlossom.
-			for ( Als als : alssByValue[v] ) {
+			// this bloody DeathBlossom.
+			final Als[] abv = alssByValue[v];
+			Als als;
+			for ( int ai=0,n=numAlssByValue[v]; ai<n; ++ai ) {
 				// each ALS.cell which maybe value sees the stem
 				// vBuds[v] is buddies common to all ALS.cells which maybe v
-				if ( als.vBuds[v].has(i)
+				if ( (als=abv[ai]).vBuds[v].has(i)
 				  // the ALSs can't overlap
 				  && db.idx.disjunct(als.idx)
 				  // the ALSs share a common maybe other than stem.maybes
 				  && (db.cmnCands & als.maybes) != 0
 				) {
 					// add this ALS to my DeathBlossom
-//					preCands = db.cands; // save for after
-//					db.cands |= als.maybes;
 					preCmnCands = db.cmnCands; // save for after
 					db.cmnCands &= als.maybes; // not empty
 					db.freeCands &= ~VSHFT[v];
@@ -237,7 +288,6 @@ public class DeathBlossom extends AAlsHinter
 						return result; // exit early
 					}
 					// remove this ALS from my DeathBlossom
-//					db.cands = preCands;
 					db.cmnCands = preCmnCands;
 					db.freeCands |= VSHFT[v];
 					db.alssByValue[v] = null;
@@ -298,20 +348,10 @@ public class DeathBlossom extends AAlsHinter
 	}
 
 	/**
-	 * List[]s are pigs, so extend {@code List<Als>} to handle the generics.
-	 */
-	private static class AlsList extends LinkedList<Als> {
-		private static final long serialVersionUID = 6468297167L;
-	}
-
-	/**
 	 * DeathBlossomData is the association of an ALS with it's stem.maybe.
 	 * There's ONE DeathBlossomData (db) per DeathBlossom instance.
 	 */
 	private static class DeathBlossomData {
-//not_used 2021-09-16 06:07
-//		// all candidates in all ALSs in this DB.
-//		int cands;
 		// candidates yet to be associated with an ALS.
 		int freeCands;
 		// candidates common to all ALSs in this DB.
@@ -330,7 +370,6 @@ public class DeathBlossom extends AAlsHinter
 			}
 		}
 		void clear() {
-//			cands = freeCands = cmnCands = 0;
 			freeCands = cmnCands = 0;
 			idx.clear();
 			Arrays.fill(alssByValue, null);

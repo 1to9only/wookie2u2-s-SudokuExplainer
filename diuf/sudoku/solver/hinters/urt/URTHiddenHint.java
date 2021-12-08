@@ -13,7 +13,6 @@ import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
-import java.util.List;
 
 /**
  * The DTO for a Hidden Rectangle only (no loops) Hint; ie loop.size==4.
@@ -22,34 +21,34 @@ import java.util.List;
  */
 public final class URTHiddenHint extends AURTHint {
 
-	private final List<ARegion> myBases; // the B -> D edge of the rectangle
-	private final List<ARegion> myCovers; // the C -> D edge of the rectangle
-	public URTHiddenHint(UniqueRectangle hinter, List<Cell> loop
+	private final ARegion[] myBases; // the B -> D edge of the rectangle
+	private final ARegion[] myCovers; // the C -> D edge of the rectangle
+	public URTHiddenHint(UniqueRectangle hinter, Cell[] loop, int loopSize
 			, int l, int e // lockedInValue, eliminatableValue
-			, Pots redPots, List<ARegion> bases, List<ARegion> covers) {
+			, Pots redPots, ARegion[] bases, ARegion[] covers) {
 		// Type 7 is a Hidden Unique Rectangle (aka Unique Rectangle Hidden)
-		super(7, hinter, loop, l, e, redPots);
+		super(7, hinter, loop, loopSize, l, e, redPots);
 		myBases = bases;
 		myCovers = covers;
 	}
 
 	@Override
-	public List<ARegion> getBases() {
+	public ARegion[] getBases() {
 		return myBases;
 	}
 
 	@Override
-	public List<ARegion> getCovers() {
+	public ARegion[] getCovers() {
 		return myCovers;
 	}
 
 	@Override
 	public Pots getOranges(int viewNum) {
 		if ( orangePots == null ) {
-			Pots pots = new Pots(4, 1F);
-			for ( Cell c : loop ) {
-				pots.put(c, VSHFT[v1]); // v1 (a) is locked into rectangle
-			}
+			final Pots pots = new Pots(4, 1F);
+			final int sv = VSHFT[v1]; // v1 (a) is locked into rectangle
+			for ( int i=0; i<loopSize; ++i )
+				pots.put(loop[i], sv);
 			orangePots = pots;
 		}
 		return orangePots;
@@ -59,10 +58,10 @@ public final class URTHiddenHint extends AURTHint {
 	@Override
 	public Pots getBlues(Grid grid, int viewNum) {
 		if ( bluePots == null ) {
-			Pots pots = new Pots(4, 1F);
-			for ( Cell c : loop ) {
-				pots.put(c, VSHFT[v2]); // v2 (b) is value to remove
-			}
+			final Pots pots = new Pots(4, 1F);
+			final int sv = VSHFT[v2]; // v2 (b) is value to remove
+			for ( int i=0; i<loopSize; ++i )
+				pots.put(loop[i], sv);
 			// remove the removable (red) pot so that it appears red
 			pots.removeAll(getReds(0));
 			bluePots = pots;
@@ -74,15 +73,15 @@ public final class URTHiddenHint extends AURTHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "URTHiddenHint.html"
-			, getTypeName()			//{0}
-			, v1					// 1
-			, v2					// 2
-			, Frmu.csv(loop)		// 3
-			, reds.toString()	// 4
-			, loop.get(0).id		// 5 A
-			, loop.get(1).id		// 6 B
-			, loop.get(2).id		// 7 D (out of order!)
-			, loop.get(3).id		// 8 C (out of order!)
+			, getTypeName()				//{0}
+			, v1						// 1
+			, v2						// 2
+			, Frmu.csv(loopSize, loop)	// 3
+			, reds.toString()			// 4
+			, loop[0].id				// 5 A
+			, loop[1].id				// 6 B
+			, loop[2].id				// 7 D (out of order!)
+			, loop[3].id				// 8 C (out of order!)
 		);
 	}
 }

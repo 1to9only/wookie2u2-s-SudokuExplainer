@@ -74,6 +74,11 @@ public class AlsChainHint extends AHint  {
 	}
 
 	@Override
+	public Als[] getAlss() {
+		return alss;
+	}
+
+	@Override
 	public Collection<Link> getLinks(int viewNum) {
 		// NSN means Never Say Never: handle crap in any dodgy hints.
 		final int last = alss.length - 1;
@@ -125,14 +130,14 @@ public class AlsChainHint extends AHint  {
 
 	@Override
 	public String toStringImpl() {
+		if ( AlsChainDebug.HINTS ) // include the alss.length
+			return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
+			  .append(alss.length).append(COLON_SP)
+			  .append(regionsCsv())
+			  .toString();
 		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
 		  .append(regionsCsv())
 		  .toString();
-	}
-
-	@Override
-	public Als[] getAlss() {
-		return alss;
 	}
 
 	// for the BY_LENGTH Comparator
@@ -152,7 +157,7 @@ public class AlsChainHint extends AHint  {
 		// NOTE: This HTML appears inside a PRE-block.
 		int i = 0 // als index
 		  , c; // color index is 1..5 inclusive
-		char label;
+		String label;
 		final int last = alss.length - 1;
 		final StringBuilder sb = Frmu.getSB();
 		// pluralise digits, ie 5s and 9s
@@ -169,26 +174,22 @@ public class AlsChainHint extends AHint  {
 				// lookin at 'em. Same Color helps to look at 'em, a bit. sigh.
 				// nb: I arbitrarily determined that beyond 6 is TOO SLOW.
 				c = (i%7) + 1;
-				label = (char)('a'+i); // a..g
+				label = AlsHelper.alsId(i);
 				sb.append("    (").append(label).append(") ")
 				  .append("<b").append(c).append('>');
-				if ( AlsChain.DEBUG_MODE ) {
+				if ( AlsChainDebug.HINTS ) {
 					sb.append(als.index).append(": ");
 				}
 				sb.append(als.region.id).append(": ")
 				  .append(als.idx.ids(" "))
 				  .append(" {").append(Values.toString(als.maybes)).append("}");
-				if ( values!=null && i<last && values[i+1]!=0 ) {
+				if ( i < last ) {
 					sb.append(" on ").append(values[i+1]);
-				}
-				if ( AlsChain.DEBUG_MODE
-				  // Never Say Never it to avert debug crashes
-				  && i<rccs.length && rccs[i]!=null
-				  && i<rccIndexes.length && rccIndexes[i]!=0 ) {
-					sb.append(" in rccs[").append(rccIndexes[i]).append("]=")
-					  .append(rccs[i]);
-				}
-				if ( i == last ) {
+					if ( AlsChainDebug.HINTS ) {
+						sb.append(" in rccs[").append(rccIndexes[i+1]).append("]=")
+						  .append(rccs[i+1]);
+					}
+				} else {
 					sb.append(" eliminating ").append(zs)
 					  .append(" that see all ").append(zs)
 					  .append(" in both (").append(label).append(") and (a)");

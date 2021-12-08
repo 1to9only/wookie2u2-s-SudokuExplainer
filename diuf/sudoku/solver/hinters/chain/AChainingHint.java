@@ -783,8 +783,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 		// being mutated by all levels of recursion, so changes down the call
 		// stack are seen "back up here".
 		// NB: LinkedLists O(n) indexOf is fast enough, coz n is < 100.
-		assert ancestors.size() < 101 : "We're gonna need a bigger boat."; // a MyLinkedHashSet, I think: O(1) heavy get/contains, ordered iterator,
-//maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
+		assert ancestors.size() < 101 : "You're gonna need a bigger boat.";
+		//maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
 		if ( a.parents!=null && a.parents.size>0 && ancestors.indexOf(a)==-1 ) { // O(n/2) ONCE
 			final int n=htmlLines.size(), m=n-1;
 			// Add chain item for given assumption
@@ -814,11 +814,11 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 						if ( p.nestedChain != null ) // parent is nested chain
 							line.append(" (<b>").append(p.nestedChain).append("</b>)");
 						else
-//							sb.append(" (<b>initial assumption</b>)");
-							line.append(" (<b>misplaced towel</b>)"); // getting warm
+							line.append(" (<b>initial assumption</b>)");
+//							line.append(" (<b>misplaced towel</b>)"); // getting warm
 					else if ( pi < 1 ) // 0 is the initial assumption
-//						sb.append(" (<b>initial assumption</b>)"); // I hope
-						line.append(" (<b>lost luggage</b>)"); // Euston Station
+						line.append(" (<b>initial assumption</b>)"); // I hope
+//						line.append(" (<b>lost luggage</b>)"); // Euston Station
 					else // a previous assumption, but not THE previous.
 						line.append(" (").append(pi+1).append(')');
 				}
@@ -840,8 +840,10 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 
 	// the override is a hack around
 	protected String getChainHtml(Ass a) {
-		final List<Ass> ancestors = new LinkedList<>(); // working storage
-		final List<String> lines = new LinkedList<>(); // the output
+		// working storage. NB: O(n) contains ain't great!
+		final List<Ass> ancestors = new LinkedList<>();
+		// the output
+		final List<String> lines = new LinkedList<>();
 		htmlSize = 0;
 		line = new StringBuilder(512); // max observed 481
 		recurseChainHtml(a, ancestors, lines, a.toString());

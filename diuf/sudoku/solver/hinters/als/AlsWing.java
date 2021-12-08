@@ -62,6 +62,9 @@ import java.util.Arrays;
  * is "pushed" along the chain, eventually eliminating z-value's common to the
  * first and last ALS (a and b in this implementation; c is the "middle" ALS in
  * the chain).
+ * <p>
+ * No matter what has changed this is still, at it's heart, hobiwan's solution.
+ * Kudos to hobiwan. Mistakes are mine.
  * <pre>
  * KRC 2021-05-31 Making XYWing faster, coz it's slowest hinter that I use.
  * The fastest implementation so far ran in about 18-20 seconds for top1465.
@@ -69,11 +72,10 @@ import java.util.Arrays;
  * I'm willing to forego performance for readability.
  *
  * KRC 2021-10-19 Made AlsWing faster using lessons learned in AlsChain.
- * Primarily avoid the else to set ok false.
+ * Primarily avoid the else to set ok false. Me like fast.
  * 6_30.175  8,211,412,700  6876  1,194,213  2833  2,898,486
  * 13-22-23  6,678,551,500  6875    971,425  2831  2,359,078
  * 18-21-00  6,756,448,400  6874    982,899  2831  2,386,594
- * I am no longer willing for forgeo performance.
  * </pre>
  *
  * @author Keith Corlett 2020 May 5

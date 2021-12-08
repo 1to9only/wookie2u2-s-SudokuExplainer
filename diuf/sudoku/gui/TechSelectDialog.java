@@ -130,7 +130,7 @@ class TechSelectDialog extends JDialog {
 				case KrakenSwampfish:
 				case KrakenSwordfish:
 				case KrakenJellyfish:
-				case BUG:
+//				case BUG:
 				case ALS_XZ:
 				case NakedQuad:
 				case NakedPent:
@@ -193,19 +193,6 @@ class TechSelectDialog extends JDialog {
 							// Medusa3d is counter-productive with GEM
 							case GEM:
 								unselect(Tech.Medusa3D);
-								break;
-							// ALS_Chain_* are all mutally exclusive
-							case ALS_Chain_4:
-								unselect(Tech.alsChainTechsExcept(tech));
-								break;
-							case ALS_Chain_5:
-								unselect(Tech.alsChainTechsExcept(tech));
-								break;
-							case ALS_Chain_6:
-								unselect(Tech.alsChainTechsExcept(tech));
-								break;
-							case ALS_Chain_7:
-								unselect(Tech.alsChainTechsExcept(tech));
 								break;
 							}
 							wantedTechs.add(tech);
@@ -360,8 +347,7 @@ class TechSelectDialog extends JDialog {
 		// DynamicPlus misses on expert puzzles, but NestedUnary ALWAYS hints,
 		// as do all thereafter.
 		if ( !anyWanted(Tech.DynamicPlus, Tech.NestedUnary, Tech.NestedMultiple
-				, Tech.NestedDynamic, Tech.NestedPlus)
-		  && !confirmNoSafetyNet() ) {
+			, Tech.NestedDynamic, Tech.NestedPlus) && !confirmNoSafetyNet() ) {
 			return;
 		}
 		// Locking XOR LockingBasic, never neither, never both.
@@ -369,14 +355,6 @@ class TechSelectDialog extends JDialog {
 			wantedTechs.remove(Tech.LockingBasic);
 		} else {
 			wantedTechs.add(Tech.LockingBasic);
-		}
-		// Coloring XOR BUG, maybe neither, never both.
-		// Coloring finds a superset of BUG hints, and is faster.
-		// I should probably deprecate BUG, for simplicity.
-		if ( wantedTechs.contains(Tech.Coloring) ) {
-			wantedTechs.remove(Tech.BUG);
-		} else if ( wantedTechs.contains(Tech.BUG) ) {
-			wantedTechs.remove(Tech.Coloring);
 		}
 		// BigWings (slower, but faster overall) XOR individual BigWing
 		if ( wantedTechs.contains(Tech.BigWings) ) {

@@ -10,23 +10,21 @@ import diuf.sudoku.Ass;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.IChildHint;
+import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedList;
-import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.IN;
-
 
 /**
  * A Naked Set Hint is produced when, for example 2 cells in a box maybe just
@@ -37,24 +35,20 @@ import static diuf.sudoku.utils.Frmt.IN;
 public final class NakedSetHint extends AHint implements IChildHint {
 
 	// the cells in the naked set
-	private final List<Cell> nkdSetCells;
+	private final Cell[] nkdSetCells;
+	// a bitset of the naked set candidate values
+	private final int nkdSetCands;
 	// a string of the region.id's of the bases (the regions we searched)
 	private final String regionIds;
 
-	/* Used by Locking. */
-	public final Values nkdSetValues;
-	/* Used by Locking. */
-	public final Idx nkdSetIdx;
-
-	public NakedSetHint(AHinter hinter, List<Cell> nkdSetCells
-			, Values nkdSetValues, Pots greenPots, Pots redPots
-			, List<ARegion> bases) {
+	public NakedSetHint(AHinter hinter, Cell[] nkdSetCells, int nkdSetCands
+			, Pots greenPots, Pots redPots, ARegion[] bases) {
 		super(hinter, redPots, greenPots, null, null, bases, null);
 		this.nkdSetCells = nkdSetCells;
-		this.nkdSetValues = nkdSetValues;
-		assert super.degree == nkdSetValues.size;
-		this.regionIds = Frmu.and(bases);
-		this.nkdSetIdx = Idx.of(nkdSetCells);
+		assert super.degree == nkdSetCells.length;
+		this.nkdSetCands = nkdSetCands;
+		assert super.degree == Values.VSIZE[nkdSetCands];
+		this.regionIds = Frmt.and(bases);
 	}
 
 	@Override
@@ -63,21 +57,14 @@ public final class NakedSetHint extends AHint implements IChildHint {
 	}
 
 	@Override
-	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
-			, IAssSet parentOffs) {
-		final int bits = nkdSetValues.bits;
-		final Cell[] initGridCells = initGrid.cells;
-		MyLinkedList<Ass> result = new MyLinkedList<>(); // the result
-		int rmvdBits;
-		for ( Cell c : nkdSetCells ) {
-			// removed := initial cell maybes minus nakedSetValues (may be 0)
-			if ( (rmvdBits=initGridCells[c.i].maybes & ~bits) != 0 ) {
-				for ( int v : VALUESES[rmvdBits] ) {
-					// my parent Ass must be applied before I am applicable
-					result.add(parentOffs.getAss(c, v));
-				}
-			}
-		}
+	public MyLinkedList<Ass> getParents(Grid ig, Grid cg, IAssSet rents) {
+		final Cell[] igcs = ig.cells;
+		final MyLinkedList<Ass> result = new MyLinkedList<>();
+		int goners;
+		for ( Cell c : nkdSetCells )
+			if ( (goners=igcs[c.i].maybes & ~nkdSetCands) != 0 )
+				for ( int v : VALUESES[goners] )
+					result.add(rents.getAss(c, v));
 		return result;
 	}
 
@@ -85,19 +72,19 @@ public final class NakedSetHint extends AHint implements IChildHint {
 	public String toStringImpl() {
 		return Frmu.getSB(64).append(getHintTypeName()).append(COLON_SP)
 		  .append(Frmu.csv(nkdSetCells)).append(COLON_SP)
-		  .append(Frmu.csv(nkdSetValues)).append(IN).append(regionIds)
+		  .append(Values.csv(nkdSetCands)).append(IN).append(regionIds)
 		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "NakedSetHint.html"
-			, NUMBER_NAMES[degree-2]	// {0}
-			, Frmu.and(nkdSetCells)	//  1
-			, Frmu.and(nkdSetValues)	//  2
-			, regionIds					//  3
-			, getHintTypeName()			//  4
-			, reds.toString()		//  5
+			, NUMBER_NAMES[degree-2]		// {0}
+			, Frmu.and(nkdSetCells)			//  1
+			, Values.andString(nkdSetCands)	//  2
+			, regionIds						//  3
+			, getHintTypeName()				//  4
+			, reds.toString()				//  5
 		);
 	}
 }

@@ -21,12 +21,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.NoSuchElementException;
 import static diuf.sudoku.utils.Frmt.CSP;
-
 
 /**
  * The Regions class contains static helper methods for Grid.ARegion's. There
@@ -45,16 +43,16 @@ public final class Regions {
 	}
 
 	// it's just faster to not do a varargs call unless you have/want to
-	public static ArrayList<ARegion> list(ARegion r1, ARegion r2) {
-		ArrayList<ARegion> regions = new ArrayList<>(2);
+	public static ArrayList<ARegion> list(final ARegion r1, final ARegion r2) {
+		final ArrayList<ARegion> regions = new ArrayList<>(2);
 		regions.add(r1);
 		regions.add(r2);
 		return regions;
 	}
 
 	// it's just faster to not do a varargs call unless you have/want to
-	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3) {
-		ArrayList<ARegion> regions = new ArrayList<>(3);
+	public static ArrayList<ARegion> list(final ARegion r1, final ARegion r2, final ARegion r3) {
+		final ArrayList<ARegion> regions = new ArrayList<>(3);
 		regions.add(r1);
 		regions.add(r2);
 		regions.add(r3);
@@ -62,8 +60,8 @@ public final class Regions {
 	}
 
 	// it's just faster to not do a varargs call unless you have/want to
-	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4) {
-		ArrayList<ARegion> result = new ArrayList<>(4);
+	public static ArrayList<ARegion> list(final ARegion r1, final ARegion r2, final ARegion r3, final ARegion r4) {
+		final ArrayList<ARegion> result = new ArrayList<>(4);
 		result.add(r1);
 		result.add(r2);
 		result.add(r3);
@@ -72,8 +70,8 @@ public final class Regions {
 	}
 
 	// it's just faster to not do a varargs call unless you have/want to
-	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion r5) {
-		ArrayList<ARegion> result = new ArrayList<>(5);
+	public static ArrayList<ARegion> list(final ARegion r1, final ARegion r2, final ARegion r3, final ARegion r4, final ARegion r5) {
+		final ArrayList<ARegion> result = new ArrayList<>(5);
 		result.add(r1);
 		result.add(r2);
 		result.add(r3);
@@ -83,8 +81,8 @@ public final class Regions {
 	}
 
 	// I give up and do a varargs call, which is a bit slower.
-	public static ArrayList<ARegion> list(ARegion r1, ARegion r2, ARegion r3, ARegion r4, ARegion r5, ARegion... others) {
-		ArrayList<ARegion> result = new ArrayList<>(5+others.length);
+	public static ArrayList<ARegion> list(final ARegion r1, final ARegion r2, final ARegion r3, final ARegion r4, final ARegion r5, final ARegion... others) {
+		final ArrayList<ARegion> result = new ArrayList<>(5+others.length);
 		result.add(r1);
 		result.add(r2);
 		result.add(r3);
@@ -110,25 +108,51 @@ public final class Regions {
 	public static ArrayList<ARegion> list(final int size, final ARegion[] regions, final int indexes) {
 		return list(size, regions, INDEXES[indexes]);
 	}
-
 	public static ArrayList<ARegion> list(final int size, final ARegion[] regions, final int[] indexes) {
 		return list(size, regions, indexes, new ArrayList<>(size));
 	}
-
 	public static ArrayList<ARegion> list(final int size, final ARegion[] regions, final int[] indexes, final ArrayList<ARegion> result) {
 		for ( int i : indexes )
 			result.add(regions[i]);
 		return result;
 	}
 
-	public static ArrayList<ARegion> clear(ArrayList<ARegion> c) {
+	public static ArrayList<ARegion> clear(final ArrayList<ARegion> c) {
 		c.clear();
 		return c;
 	}
 
-	public static List<ARegion> clear(List<ARegion> c) {
+	public static List<ARegion> clear(final List<ARegion> c) {
 		c.clear();
 		return c;
+	}
+
+	public static ARegion[] array(final ARegion region) {
+		return new ARegion[] { region };
+	}
+	public static ARegion[] array(final ARegion r1, final ARegion r2) {
+		return new ARegion[] { r1, r2 };
+	}
+	public static ARegion[] array(final ARegion r1, final ARegion r2, final ARegion r3) {
+		return new ARegion[] { r1, r2, r3 };
+	}
+	public static ARegion[] array(final ARegion r1, final ARegion r2, final ARegion r3, final ARegion r4) {
+		return new ARegion[] { r1, r2, r3, r4 };
+	}
+	public static ARegion[] array(final ARegion r1, final ARegion r2, final ARegion r3, final ARegion r4, final ARegion r5) {
+		return new ARegion[] { r1, r2, r3, r4, r5 };
+	}
+	public static ARegion[] array(final int size, final ARegion[] regions, final int indexes) {
+		return array(size, regions, INDEXES[indexes]);
+	}
+	public static ARegion[] array(final int size, final ARegion[] regions, final int[] indexes) {
+		return array(size, regions, indexes, new ARegion[size]);
+	}
+	public static ARegion[] array(final int size, final ARegion[] regions, final int[] indexes, final ARegion[] result) {
+		int cnt = 0;
+		for ( int i : indexes )
+			result[cnt++] = regions[i];
+		return result;
 	}
 
 	/**
@@ -165,13 +189,13 @@ public final class Regions {
 		return null;
 	}
 
-	public static String typeName(List<ARegion> regions) {
-		if ( regions!=null && regions.size()>0 && regions.get(0)!=null )
-			return regions.get(0).typeName;
-		return "";
+	public static String typeName(ARegion[] regions) {
+		if ( regions==null || regions.length==0 || regions[0]==null )
+			return "";
+		return regions[0].typeName;
 	}
 
-	public static int typeMask(List<ARegion> regions) {
+	public static int typeMask(ARegion[] regions) {
 		int mask = 0;
 		for ( ARegion r : regions )
 			switch (r.typeIndex) {
@@ -187,7 +211,7 @@ public final class Regions {
 		, "box/col", "row/col", "box/row/col"
 	};
 
-	public static String typeNames(List<ARegion> regions) {
+	public static String typeNames(ARegion[] regions) {
 		return TYPE_NAMES[typeMask(regions)];
 	}
 
@@ -208,12 +232,12 @@ public final class Regions {
 	// takes a Set instead of a List is now not used, but retained coz I'm an
 	// ornery bastard, who put in the work, and I might use it one day.
 	// Programming is complex. sigh.
-	public static String finned(List<ARegion> bases, Set<Cell> fins) {
+	public static String finned(final ARegion[] bases, final Set<Cell> fins) {
 		// A Set, for bastard uniqueness
 		HashSet<ARegion> set = new HashSet<>();
 		for ( Cell cell : fins )
 			for ( ARegion r : cell.regions )
-				if ( bases.contains(r) )
+				if ( contains(bases, r) )
 					set.add(r);
 		// list, to sort the bastards by id, for consistent ordering
 		List<ARegion> list = new ArrayList<>(set);
@@ -223,17 +247,26 @@ public final class Regions {
 		// Guinness, for strength!
 	}
 
-	// get a List of the used regions from a used-regions array
-	public static List<ARegion> used(boolean[] used, Grid grid) {
-		List<ARegion> result = new LinkedList<>();
+	public static int count(final boolean[] used) {
+		int cnt = 0;
 		for ( int i=0,n=used.length; i<n; ++i )
 			if ( used[i] )
-				result.add(grid.regions[i]);
+				++cnt;
+		return cnt;
+	}
+
+	// get a List of the used regions from a used-regions array
+	public static ARegion[] used(final boolean[] used, final Grid grid) {
+		final ARegion[] result = new ARegion[count(used)];
+		int cnt = 0;
+		for ( int i=0,n=used.length; i<n; ++i )
+			if ( used[i] )
+				result[cnt++] = grid.regions[i];
 		return result;
 	}
 
 	// used only for debugging
-	public static String usedString(boolean[] used, Grid grid) {
+	public static String usedString(final boolean[] used, final Grid grid) {
 		String s = "";
 		boolean first = true;
 		for ( ARegion r : used(used, grid) ) {
@@ -256,11 +289,21 @@ public final class Regions {
 	}
 
 	/** Is the given Cell in any of these regions? */
-	public static boolean contains(Iterable<ARegion> regions, Cell cell) {
+	public static boolean contains(ARegion[] regions, Cell cell) {
 		if ( regions == null )
 			return false;
 		for ( ARegion region : regions )
 			if ( region.contains(cell) ) // fast O(1)
+				return true;
+		return false;
+	}
+
+	/** Is target in regions? */
+	public static boolean contains(ARegion[] regions, ARegion target) {
+		if ( regions == null )
+			return false;
+		for ( ARegion region : regions )
+			if ( region == target ) // fast O(1)
 				return true;
 		return false;
 	}
@@ -382,14 +425,18 @@ public final class Regions {
 		if (col != null) { result |= IDX_SHFT[col.index]; }
 		return result;
 	}
+
 	public static int common(Cell[] cells) {
+		return common(cells, cells.length);
+	}
+	private static int common(Cell[] cells, int numCells) {
 		// for first cell in cells
 		Cell cell = cells[0];
 		ARegion box = cell.box;
 		ARegion row = cell.row;
 		ARegion col = cell.col;
 		// foreach subsequent cell in cells
-		for ( int i=1,n=cells.length; i<n; ++i) {
+		for ( int i=1; i<numCells; ++i) {
 			cell = cells[i];
 			if (box != cell.box) { box = null; }
 			if (row != cell.row) { row = null; }
@@ -438,23 +485,26 @@ public final class Regions {
 	 *  returns null because "common" is nonsensical. Four-or-more cells always
 	 *  returns null because four cells can have only one common region, so an
 	 *  "other" common region simply cannot exist.
+	 * @param n number of cells
 	 * @param region the region that these cells were found in (and you want
 	 *  there other common region, if any). Note that the "other" common region
 	 *  returned comes from {@code region.getGrid().regions}, ergo the same
 	 *  Grid that contains the given region.
 	 * @return the other ARegion common to all cells, else null meaning none.
 	 */
-	public static ARegion otherCommon(Cell[] cells, ARegion region) {
+	public static ARegion otherCommon(final Cell[] cells, final int n, final ARegion region) {
 		ARegion ocr = null; // otherCommonRegion (the result)
-		final int n = cells.length;
 		if ( n>1 && n<4 ) {
-			final int crs = common(cells); // bitset of commonRegions indexes
+			final int crs = common(cells, n); // bitset of commonRegions indexes
 			if ( Integer.bitCount(crs) == 2 ) {
 				ocr = region.getGrid().regions[Integer.numberOfTrailingZeros(
 						crs & ~IDX_SHFT[region.index])];
 			}
 		}
 		return ocr;
+	}
+	public static ARegion otherCommon(final Cell[] cells, final ARegion region) {
+		return otherCommon(cells, cells.length, region);
 	}
 
 	// return do 'cells' 1..'n' have regions['rti']=='r'

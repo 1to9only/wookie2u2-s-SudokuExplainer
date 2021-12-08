@@ -682,18 +682,14 @@ public class GEM extends AHinter implements IPreparer
 			// is ensure that cells are not overpainted. Care is required.
 			Log.println("WARN: GEM: Overpaint: "+ex.getMessage());
 			return false;
-		} catch ( NoBananasException ex ) {
-			// for reasons I cannot fathom AlsChain* causes GEM to overpaint,
-			// so when an overpaint occurs a hack is to give-up and temporarily
-			// disable AlsChain, where the actual problem lies, apparently.
-			Log.teeln("WARN: GEM disabled: Overpaint: "+ex.getMessage());
-			setIsEnabled(false);
-			final LogicalSolver ls = LogicalSolverFactory.get();
-			ls.disable(Tech.ALS_Chain_4);
-			ls.disable(Tech.ALS_Chain_5);
-			ls.disable(Tech.ALS_Chain_6);
-			ls.disable(Tech.ALS_Chain_7);
-			return false;
+// I think this is fixed!
+//		} catch ( NoBananasException ex ) {
+//			// for reasons I cannot fathom AlsChain* causes GEM to overpaint,
+//			// so when an overpaint occurs a hack is to give-up and temporarily
+//			// disable AlsChain, where the actual problem lies, apparently.
+//			Log.teeln("WARN: GEM disabled: Overpaint: "+ex.getMessage());
+//			LogicalSolverFactory.get().disable(Tech.ALS_CHAIN_TECHS);
+//			return false;
 		}
 		return result;
 	}
@@ -761,7 +757,9 @@ public class GEM extends AHinter implements IPreparer
 	 * @throws OverpaintException when a cell-value is painted in both colors.
 	 */
 	private boolean paint(Cell cell, int v, int c, boolean biCheck, String why)
-			throws OverpaintException, NoBananasException {
+			throws OverpaintException
+//			, NoBananasException
+	{
 		Cell otherCell; // the only other cell in this region which maybe v
 		int otherValue; // the only other value of this bivalue cell
 		// constants for understandability and speed (sort of).
@@ -791,8 +789,8 @@ public class GEM extends AHinter implements IPreparer
 		// breaks everything. So development is ONLY incremental, step by slow
 		// step; double-checking each fully before moving on.
 		if ( otherColor[v].has(i) ) {
-//			throw new OverpaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
-			throw new NoBananasException(cell.id+MINUS+v+" is already "+COLORS[o]);
+			throw new OverpaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
+//			throw new NoBananasException(cell.id+MINUS+v+" is already "+COLORS[o]);
 		}
 
 		// 1. Paint the given cell-value this color
@@ -1894,13 +1892,13 @@ public class GEM extends AHinter implements IPreparer
 		}
 	}
 
-	/** A distinctive subtype of RuntimeException. */
-	private static final class NoBananasException extends IllegalStateException {
-		private static final long serialVersionUID = 569081283059L;
-		public NoBananasException(String msg) {
-			super(msg);
-		}
-	}
+//	/** A distinctive subtype of RuntimeException. */
+//	private static final class NoBananasException extends IllegalStateException {
+//		private static final long serialVersionUID = 569081283059L;
+//		public NoBananasException(String msg) {
+//			super(msg);
+//		}
+//	}
 
 	/** A distinctive subtype of RuntimeException used by search stops find. */
 	private static final class StopException extends RuntimeException {

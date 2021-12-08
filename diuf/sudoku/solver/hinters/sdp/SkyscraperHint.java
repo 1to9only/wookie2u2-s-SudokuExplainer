@@ -8,13 +8,11 @@ package diuf.sudoku.solver.hinters.sdp;
 
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
-import java.util.List;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 
@@ -26,8 +24,8 @@ import static diuf.sudoku.utils.Frmt.ON;
 public class SkyscraperHint extends AHint  {
 
 	private final int valueToRemove;
-	public SkyscraperHint(AHinter hinter, int value, List<ARegion> bases
-			, List<ARegion> covers, Pots redPots, Pots green) {
+	public SkyscraperHint(AHinter hinter, int value, ARegion[] bases
+			, ARegion[] covers, Pots redPots, Pots green) {
 		super(hinter, redPots, green, null, null, bases, covers);
 		this.valueToRemove = value;
 	}
@@ -51,11 +49,11 @@ public class SkyscraperHint extends AHint  {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "SkyscraperHint.html"
-				, Integer.toString(valueToRemove)	// {0}
-				, bases.get(0).id			//  1
-				, bases.get(1).id			//  2
-				, covers.get(0).typeName	//  3
-				, reds.toString()		//  4
+			, Integer.toString(valueToRemove)	// {0}
+			, bases[0].id			//  1
+			, bases[1].id			//  2
+			, covers[0].typeName	//  3
+			, reds.toString()		//  4
 		);
 	}
 

@@ -13,8 +13,8 @@ import static diuf.sudoku.utils.Frmt.SP;
 /**
  * A HashSet of int, based on the java.util.Set interface, but not implementing
  * it, or extending any java.util crap, just simple and clean. Implements only
- * add (which does NOT update existing, ie this Set is "funky"), and clear;
- * which is all I need. I use this set to determine only "is this integer
+ * add (which does NOT update existing, ie this Set is "funky"), and the clear
+ * method; which is all I need. I use IntHashSet to determine "is this integer
  * distinct from all of those that have come before it".
  * <p>
  * KRC 2020-11-26 I just tried late-creating the table, in add, but it's nearly
@@ -73,7 +73,7 @@ public class IntHashSet {
 	 * @param key the key is already an int (so no key.hashCode() here mate)
 	 * @return {@code return hc ^ (hc >>> 12);} to leave the last 4 bits alone
 	 */
-	protected static int hash(int key) {
+	protected static int hash(final int key) {
 		return key ^ (key >>> 12); // leave the last 4 bits alone
 	}
 
@@ -86,7 +86,7 @@ public class IntHashSet {
 	 * @param i
 	 * @return was i added? false means "already exists"
 	 */
-	public boolean add(int i) {
+	public boolean add(final int i) {
 		final int index = hash(i) & mask;
 		Entry e = table[index];
 		if ( e == null ) { // no entry in table yet

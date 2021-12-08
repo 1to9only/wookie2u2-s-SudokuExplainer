@@ -69,10 +69,10 @@ public abstract class ADirectHint extends AHint  {
 
 	/** @return An array of the Regions of this hint. */
 	@Override
-	public List<ARegion> getBases() {
+	public ARegion[] getBases() {
 		if ( region == null )
 			return null;
-		return Regions.list(region);
+		return Regions.array(region);
 	}
 
 	/**

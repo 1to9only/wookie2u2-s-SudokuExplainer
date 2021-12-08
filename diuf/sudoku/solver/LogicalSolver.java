@@ -1025,12 +1025,11 @@ public final class LogicalSolver {
 			, final boolean validatePuzzle, final boolean isNoisy
 			, boolean logHints, boolean logTimes) {
 		assert grid!=null && usage!=null;
-//if ( grid!=null && grid.source!=null && grid.source.lineNumber==185 )
-//	Debug.breakpoint();
 		grid.invalidity = null; // assume sucess
 		if ( isNoisy ) {
 			System.out.println(">solve "+Settings.now()+"\n"+grid);
 		}
+		// the SingleHintsAccumulator collects just the first hint.
 		final IAccumulator accu = new SingleHintsAccumulator();
 		// time between hints incl activate and apply
 		// nb: first hint-time is blown-out by enabling, activation, etc.
@@ -1049,10 +1048,6 @@ public final class LogicalSolver {
 			validatePuzzle(grid, accu); // throws UnsolvableException
 		}
 		assert grid.isPrepared();
-// you can just prepare if above assert goes off, but please track it down.
-//		if ( !grid.isPrepared() ) {
-//			prepare(grid); // prepare hinters to process this grid
-//		}
 		// make all caches refresh
 		grid.hintNumberReset();
 
@@ -1064,7 +1059,7 @@ public final class LogicalSolver {
 			// getHints from each wanted hinter that's still enabled
 			if ( logTimes ) { // very verbose
 				if ( !timeHintersNoisily(wanted, grid, accu, usage) ) {
-					return carp("Hint gone AWOL", grid, true);
+					return carp("Hint AWOL", grid, true);
 				}
 			} else { // the normal path
 				if ( !timeHintersQuitely(wanted, grid, accu, usage) ) {
@@ -1077,7 +1072,7 @@ public final class LogicalSolver {
 			// apply may throw UnsolvableException from Cell.set
 			apply(hint, now-start, grid, usage, logHints, isNoisy);
 			start = now;
-		} // wend
+		}
 		// puzzle solved, so tidy-up now
 		after();
 		if ( isNoisy ) {
@@ -1204,13 +1199,6 @@ public final class LogicalSolver {
 			hint.hinter.setIsEnabled(false);
 		}
 		grid.hintNumberIncrement();
-		// rebuild before validate for BruteForce.
-//		grid.rebuildAllRegionsS__t();
-// done above with grid.isInvalidated() so this is just silly.
-//		// detect invalid grid, meaning a hinter is probably borken!
-//		final AHint problem = validateGrid(grid, false);
-//		if ( problem != null )
-//			throw new UnsolvableException("Houston: "+problem);
 		return numElims;
 	}
 
@@ -1426,7 +1414,6 @@ public final class LogicalSolver {
 	public void close() throws java.io.IOException {
 		// report if we're not in the GUI (ie batch, test-cases, or whatever).
 		// If we're in the GUI then report if we're -ea (used by techies).
-		// IGNORE IDE WARNING: Assert condition produces side effects
 		if ( Run.type!=Run.Type.GUI || Run.ASSERTS_ENABLED ) {
 			report();
 		}

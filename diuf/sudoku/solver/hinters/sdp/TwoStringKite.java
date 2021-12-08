@@ -45,7 +45,6 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import java.util.List;
 
 /**
  * TwoStringKite implements the TwoStringKite Sudoku solving technique.
@@ -192,8 +191,8 @@ public class TwoStringKite extends AHinter {
 	private AHint createHint(final Cell[] rowPair, final Cell[] colPair
 			, final Cell victim, final int v) {
 		// build a list of bases (the box), and a list of covers (row and col)
-		final List<ARegion> bases = Regions.list(rowPair[0].box);
-		final List<ARegion> covers = Regions.list(rowPair[1].row, colPair[0].col);
+		final ARegion[] bases = Regions.array(rowPair[0].box);
+		final ARegion[] covers = Regions.array(rowPair[1].row, colPair[0].col);
 		// build the hightlighted (green) Cell->Values
 		final Pots greens = new Pots(v, rowPair[1], colPair[1]);
 		// build the "fins" (blue) Cell->Values

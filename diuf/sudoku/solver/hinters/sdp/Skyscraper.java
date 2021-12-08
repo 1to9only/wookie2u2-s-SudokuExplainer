@@ -44,7 +44,6 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import java.util.List;
 
 /**
  * Skyscraper implements the Skyscraper Sudoku solving technique.
@@ -77,7 +76,7 @@ import java.util.List;
  */
 public class Skyscraper extends AHinter {
 
-	// the "other" type of region for row and col, box exists but is never used
+	// the "other" type of region for row and col (box is never used)
 	private static final int[] OTHER_TYPE = {0, 2, 1};
 
 	/**
@@ -193,7 +192,7 @@ public class Skyscraper extends AHinter {
 						if ( ( (r0==pB[0].regions[oT] && (o=1)==1) // "other" end is 1
 							|| (r1==pB[1].regions[oT] && (o=0)==0) ) // "other" end is 0
 						  // and the "other" end is NOT in same col/row,
-						  // else it's an X-Wing, which is not my problem
+						  // else it's a Swampfish, which is not my problem
 						  && pA[o].regions[oT] != pB[o].regions[oT]
 						  // and there are eliminations: common buddies of
 						  // the-other-ends-of-the-two-pairs which maybe v
@@ -202,16 +201,10 @@ public class Skyscraper extends AHinter {
 							// FOUND a Skyscraper!
 							// build the removable (red) potentials
 							final Pots reds = new Pots(v, victims.cellsA(grid));
-// clean removes an elimination that doesn't exist in the grid, ie this maybe
-// has already been removed. I don't understand why such bad-elims occur, but
-// this deals with them, it's just a bit slow.
-//							if ( reds.clean() ) {
-								result = true;
-								if ( accu.add(createHint(reds, v, o, pA, pB
-										, rT, oT)) ) {
-									return result;
-								}
-//							}
+							result = true;
+							if ( accu.add(createHint(reds, v, o, pA, pB, rT, oT)) ) {
+								return result;
+							}
 						}
 					}
 				}
@@ -237,17 +230,11 @@ public class Skyscraper extends AHinter {
 		// workout "this" end from the "other" end
 		final int t = o==0 ? 1 : 0;
 		// build the regions
-		final List<ARegion> bases = Regions.list(pA[t].regions[rT]
-											   , pB[t].regions[rT]);
-		final List<ARegion> covers = Regions.list(pA[o].regions[oT]
-												, pB[o].regions[oT]);
+		final ARegion[] bases = Regions.array(pA[t].regions[rT], pB[t].regions[rT]);
+		final ARegion[] covers = Regions.array(pA[o].regions[oT], pB[o].regions[oT]);
 		// build the hightlighted (green) potential values map Cells->Value
-		final Pots greens = new Pots();
-		final Integer sv = VSHFT[v];
-		greens.put(pA[0], sv);
-		greens.put(pA[1], sv);
-		greens.put(pB[0], sv);
-		greens.put(pB[1], sv);
+		final Cell[] corners = new Cell[]{pA[0], pA[1], pB[0], pB[1]};
+		final Pots greens = new Pots(corners, VSHFT[v], false);
 		// build and return the hint
 		return new SkyscraperHint(this, v, bases, covers, reds, greens);
 	}

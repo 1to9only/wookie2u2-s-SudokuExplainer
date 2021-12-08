@@ -2190,11 +2190,85 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 // 		}
 // 	}
 
-	// Q: I know knuffink!
-	// A: Yep.
+//	// Q: I know knuffink!
+//	// A: Yep.
+// 	public static void main(String[] args) {
+// 		try {
+//			System.out.println(Integer.toString(42, 2));
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//	// ========================================================================
+//
+//	// Q: How do AlsChain's IAS's grow?
+//	// A: Bigger arrays grow more slowly, ie in more increments
+//	// size 1..13 : 0, 1, 2, 4, 7, 11, 17, 26, 40, 61, 92, 139, 209, 209
+//	// size 14+   : 0, 1, 2, 3, 4, 5, 7, 9, 11, 14, 17, 21, 26, 32, 39, 47, 57, 69, 83, 100, 121, 146, 176, 212, 212
+//
+//	// java.util.ArrayList growth factor is 1.5, which seems like overkill.
+//	// The IAS doesn't need to grow often, so it should grow well, mimimising
+//	// the fat inherent in the system.
+//	// formula: (int)(n*factor) + 1
+//	// product: 0,1,2,4,7,11,14,17,21,26,32,39,47,58,70,85,103,124,149,179
+//	private static double factor(final int n) {
+//		if ( n > 13 ) // the larger the array the more the fat costs.
+//			return 1.2D; // grow by just 20% at a time (reducing fat)
+//		return 1.5D; // grow early by 50% at a time
+//	}
+//
+//	// growIas grows the IAS[cnt] array, and returns a new array, so it's as if
+//	// the AIOOBE never happened.
+//	// @param size of the required cached array.
+//	private static int grow(final int size, final int oldN) {
+//		final double factor = factor(size);
+//		assert factor > 1.0D;
+//		final int newN = (int)(oldN*factor) + 1;
+//		assert newN > oldN;
+//		System.out.print(", "+newN);
+//		return newN;
+//	}
+//
+// 	public static void main(String[] args) {
+// 		try {
+//			final int size = 13;
+//			int i = 0;
+//			System.out.print(i);
+//			while ( i < 200 ) {
+//				i = grow(size, i);
+//			}
+//			System.out.println(", "+i);
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+	// ========================================================================
+
+	// Q: HOW Big are the IASs?
+	// A: Big enough: 15,747 * 4 bytes per int = 63k
+	private static final int[] IAS_CAPACITY = {
+		   0, 88, 76, 87, 67, 65, 67, 70, 66, 64
+		, 60, 56, 77, 58, 51, 35, 45, 28, 28, 33
+		, 21, 22, 21, 21, 15, 15, 26, 14, 11,  8
+ 		,  5, 13,  6, 10,  4,  8,  2,  4,  0,  2
+		,  2,  2,  0,  0,  0,  2,  0,  0,  0,  0
+		,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+		,  0,  0,  0,  0,  0
+	};
+
  	public static void main(String[] args) {
  		try {
-			System.out.println(Integer.toString(42, 2));
+			int sum = 0;
+			for ( int i=0; i<IAS_CAPACITY.length; ++i ) {
+				if ( i>0 && i % 10 == 0 )
+					System.out.println();
+				System.out.format(", %3d", i*IAS_CAPACITY[i]);
+				sum += i*IAS_CAPACITY[i];
+			}
+			System.out.println();
+			System.out.println(sum);
  		} catch (Exception ex) {
  			ex.printStackTrace(System.out);
  		}

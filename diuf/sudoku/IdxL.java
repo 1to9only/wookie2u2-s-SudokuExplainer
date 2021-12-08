@@ -7,6 +7,7 @@
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.utils.IFilter;
 
 /**
  * IdxL: A Lockable Idx extends Idx to add a lock() and unlock() method so that
@@ -246,6 +247,12 @@ public class IdxL extends Idx implements Cloneable {
 	public IdxL addAll(Cell[] cells) {
 		checkLock();
 		return (IdxL)super.addAll(cells);
+	}
+
+	@Override
+	public IdxL read(final Cell[] cells, final IFilter<Cell> f) {
+		checkLock();
+		return (IdxL)super.read(cells, f);
 	}
 
 	@Override

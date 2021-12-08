@@ -50,8 +50,8 @@ final class NoDoubleValuesHint extends WarningHint implements IPretendHint {
 
 	// override getBases to show the GUI user the naughty region
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(invalidRegion);
+	public ARegion[] getBases() {
+		return Regions.array(invalidRegion);
 	}
 
 	// everything-else is handled by WarningHint, especially toStringImpl.

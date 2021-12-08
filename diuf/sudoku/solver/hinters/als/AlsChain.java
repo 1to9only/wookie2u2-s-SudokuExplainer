@@ -31,13 +31,13 @@
 package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.Indexes.IFIRST;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
-import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.Tech;
-import static diuf.sudoku.Tech.ALS_CHAIN_TECHS;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHIFTED;
@@ -50,8 +50,8 @@ import static diuf.sudoku.solver.hinters.Validator.isValid;
 import static diuf.sudoku.solver.hinters.Validator.prevMessage;
 import static diuf.sudoku.utils.Html.colorIn;
 import diuf.sudoku.utils.Log;
+import static java.lang.System.arraycopy;
 import java.util.Arrays;
-import java.util.EnumSet;
 
 /**
  * AlsChain implements the Almost Locked Set XY-Chain Sudoku solving technique.
@@ -78,188 +78,161 @@ import java.util.EnumSet;
  * which sees all occurrences of z in both the first and the last ALS. And that
  * my friends is AlsChaining in a nutshell. Sounds simple enough. sigh.
  *
- * Note that no AlsChain (unlike AlsXz) is double-linked.
+ * Note that AlsChain can't pull off AlsXz's double-linked stunt.
  * </pre>
  * <pre>
- * KRC 2021-10-24 08:56 WTF: Looks like FASTARSISED is SLOWER. sigh.
+ * KRC 2021-10-28 Implemented DUD_BRANCH so now use Tech.ALS_Chain only, with
+ * degree = 32, so I search all possible combinations of from 4 upto 32 ALSs,
+ * looking for a loop back to the start ALS.
  *
- * FASTARDISED = false:
- *   9,016,839,860    8177      1,102,707    2102      4,289,647 ALS_XZ
- *   6,577,266,674    6847        960,605    2824      2,329,060 ALS_Wing
- *  18,379,324,267    4616      3,981,656    1622     11,331,272 ALS_Chain
- *  77,624,485,963 all hinters total
+ * KRC 2021-10-31 Discovered max shortest path to a top1465 hint is 26, so
+ * reduced Tech.ALS_Chain.degree to 26; so it'll still find-em it'll just take
+ * longer, but it won't report 32 when 26 does the job. What I really want is
+ * an AlsChain algorithm that always finds the shortest possible path first.
  *
- * FASTARDISED = true:
- *   9,067,563,182    8180      1,108,504    2098      4,322,003 ALS_XZ
- *   6,664,236,989    6854        972,313    2837      2,349,043 ALS_Wing
- *  19,303,552,970    4616      4,181,878    1614     11,960,069 ALS_Chain
- *  79,108,654,187 all hinters total is 1.484 seconds slower!
+ * KRC 2021-11-04 rccCache: drop IAS. count-only. drop TMP_RCCS. Down to 27.629
+ * seconds, which I think is probably about as good as it gets.
  *
- * FASTARDISED is slower so I should blow it away, but I'm reluctant to do so
- * until I understand why FASTARDISED is slower, coz it goes against everything
- * I think I know about efficient programming. Apparently I know nothing, which
- * can't be true, coz I know enough to question whether or not I know nothing.
- *
- * I ran both versions through the profiler, which is utterly useless coz this
- * code is more efficient than the profiler, skewing times heavily towards the
- * FASTARDISED version because it has less methods. 80 secs vs 8 secs. sigh.
- *
- * I need to determine where the FASTARDISED version spends its time, to guess
- * where we are wasting time, so I build-in profiler code: COUNTS and NANOS.
- *
- * KRC 2021-10-25 I'm still dissatisfied with AlsChain. In the latest batch run
- * the time/elim of AlsChain is on par with UnaryChain, which will find most
- * AlsChains, so I think that now finally it's at a usable performance level.
- * If you want faster solving drop AlsChain. The chainers tend to find solvier
- * hints than AlsChain, so that if you drop AlsChain the number of calls to
- * AlsWing actually drops, because more effective hints are found more often.
- * If you want a faster AlsChain then LENGTH=4, and drop the length increase,
- * and all the TIMEOUT stuff, so number of elims drops-back to ~1000 IIRC.
- *
- * KRC 2021-10-26 I've just built DiufSudoku_V6_30.178.2021-10-26 including the
- * new ALS_Chain_4..7 techs, and AlsChain has reverted to seeking all AlsChains
- * of size 4..degree, so the TechSelectDialog selects ONE ALS_Chain at a time.
- * The CACHE is back, to speed it up, back to near where it was when I spat the
- * dummy and went back to torts, to make sense of ALS-land, which I have done.
- * This isn't perfect, but unarguably complete and correct code is vaporware.
- * No matter what you do, there are compromises. The lesser embarrassment wins.
- * I just wish I could explain why the CACHE looses a few hints. sigh.
+ * KRC 2021-11-04 Dropped fastardised version coz it saves only about a second,
+ * and therefore just isn't worth the fuss.
  * </pre>
  *
  * @author Keith Corlett 2020 May 24
  */
 public final class AlsChain extends AAlsHinter
-		implements diuf.sudoku.solver.hinters.IReporter
 {
-	@Override
-	public void report() {
-//		Log.teeln("\n"+Log.me()+": HIT_RATES:");
-//		diuf.sudoku.utils.MyArrays.hitRate(Log.out, HITS, CCOUNTS);
-//		Log.teeln("\n"+Log.me()+": CCOUNT_SIZE_MAXS="+Arrays.toString(CCOUNT_SIZE_MAXS));
-//		Log.teeln("\n"+Log.me()+": RCOUNTS="+Arrays.toString(RCOUNTS));
-		if ( hasGrown ) {
-			Log.teeln(Log.me()+": private static final int[] IAS_SIZES = "+Arrays.toString(IAS_SIZES).replaceFirst("\\[","{").replaceFirst("]","};"));
-		}
-	}
-//	private static final int[] CCOUNT_SIZE_MAXS = new int[64];
-//	private static final int[] RCOUNTS = new int[2]; // [893024, 6981566] = 12.79%
+//	@Override
+//	public void report() {
+//		Log.teeln(Log.me()+": "+Arrays.toString(COUNTS));
+//	}
+//	private static final long[] COUNTS = new long[7];
+//	// 1#top1465.d5.mt exponent 46,969,528,320,000 = 5*11*13*1*5*8*9*10*4*2*9*11*9*8*10*8*4
 
-	// This setting effects Run.Type.Batch only.
-	// true uses searchFast which uses recurseFast, which are fastardised to
-	//      reduce batch times only, which is Poor Form but it is what it is.
-	// false uses the original version of search and recurse, like the GUI,
-	//      They're slower so, because of TIMEOUTs, find less AlsChains.
-	// See class comments!
-	static final boolean FASTARDISED = true; // @check true
+	// FASTARDISATION: TIMEOUT is how long findHints runs before it gives-up.
+	private static final int TIMEOUT = 1000; // milliseconds
 
-	// true injects details into AlsChainHint's
-	// package visible to read in AlsChainHint
-	static final boolean DEBUG_MODE = false;
+	// FASTARDISATION: RCC_CACHE[alsIndex][prevCand] contains rcc-indexes for
+	// alsIndex having cands other than prevCand. It makes each SUBSEQUENT
+	// request for each [alsIndex][prevCand] faster.
+	private static final int[][][] RCC_CACHE = new int[MAX_ALSS][VALUE_CEILING][];
 
-	// we've already found too many bloody hints, so we stop here.
-	private static class OverflowException extends RuntimeException {
-		private static final long serialVersionUID = 4539675628269L;
-	}
+	// FASTARDISATION: RCC_CACHE[*][0] is otherwise unused, so it's ALL array.
+	private static final int ALL = 0;
 
-	// TIMEOUTS contains the timeout for each degree.
-	// * In the past 16 ms was the longest it took to do ALS_Chain_4.
-	// * Now 20 ms is the longest it takes to do ALS_Chain_4, which isn't good,
-	//   but having to prime the cache slows it down a bit, so it's acceptable.
-	//   I want ALS_Chain_4 to always complete, except if it's really slow.
-	// * It gets exponentially slower as length increases, so:
-	//   * I give 5 twice 4
-	//   * I give 6 three times 5
-	//   * I give 7 four times 6
-	// * The first AlsChain (presumably ALS_Chain_4) disables ALL AlsChains
-	//   upon timeout, others disable themselves only upon timeout.
-	private static final int[] TIMEOUTS = {
-	//  0  1  2  3   4   5    6    7 // degree
-		0, 0, 0, 0, 20, 40, 120, 240 // timeout (milliseconds), harsh on 7's
-	};
+	// FASTARDISATION: there is one only empty rcc-indexes-array
+	private static final int[] EMPTY = new int[0];
 
-	// is this the first AlsChain to run, in order to SetUp the CACHE
-	private static Tech firstWantedAlsChainTech() {
-		final EnumSet<Tech> wantedTechs = THE_SETTINGS.getWantedTechs();
-		for ( int i=0; i<ALS_CHAIN_TECHS.length; ++i )
-			if ( wantedTechs.contains(ALS_CHAIN_TECHS[i]) )
-				return ALS_CHAIN_TECHS[i];
-		return null;
-	}
+	// FASTARDISATION: the .cands of each rccs (coz that's all I need)
+	private static final int[] RCC_CANDS = new int[MAX_RCCS];
 
-	// is this the last AlsChain to run, in order to CleanUp the CACHE
-	private static Tech lastWantedAlsChainTech() {
-		final EnumSet<Tech> wantedTechs = THE_SETTINGS.getWantedTechs();
-		for ( int i=ALS_CHAIN_TECHS.length-1; i>-1; --i )
-			if ( wantedTechs.contains(ALS_CHAIN_TECHS[i]) )
-				return ALS_CHAIN_TECHS[i];
-		return null;
+	// FASTARDISATION: does this alsIndex have any related Rcc's? Just 12.79%
+	// of top1465s ALSs are viable branches (rest may still be leafs), so the
+	// other 87.21% waste my time. This is a fast way to ignore them.
+	private static final boolean[] ANY_RELATED_RCCS = new boolean[MAX_ALSS];
+
+	// FASTARDISATION: does alsIndex NOT hint for this firstAls/firstCand?
+	// so if DUD_LEAF[alsIndex] then alss[alsIndex] does NOT hint for current
+	// firstAls and firstCand, so there's not point repeatedly searching it,
+	// because it's still going to NOT hint.
+	private static final boolean[] DUD_LEAF = new boolean[MAX_ALSS];
+
+	// FASTARDISATION: When a branch (an ALS) is searched and found to NOT hint
+	// it's pointless searching it again in this startAls/startCand so remember
+	// it's a DUD, so that future rccCache calls return EMPTY. We record each
+	// DUD as we ascend back-up the call stack, "pruning off" the whole path.
+	// This is more efficient because it mitigates the exponential growth in
+	// workload as the length of the chain increases, finding the same hints in
+	// about a third of the time. I'm proud of working this out for myself.
+	// HACK: clear DUD_BRANCH per startAls finds 10 less elims in half time.
+	// FASTARDISED FASTARDISATION: boolean[] instead of boolean[][] to call
+	// System.arraycopy ONCE, instead of 512 times; reducing Stackwork which
+	// adds-up coz I'm cleared far too often, still.
+	private static final boolean[] DUD_BRANCH = new boolean[MAX_ALSS*REGION_SIZE];
+
+	// FASTARDISED FASTARDISATION: array-lookup is faster than multiplication,
+	// so do all multiplications ONCE; all because java lacks a System.memset.
+	// I'm really scraping the bottom of the jar here, looking for the last 5%.
+	private static final int[] ALS_BASE = new int[MAX_ALSS];
+	static {
+		for ( int i=1; i<MAX_ALSS; ++i )
+			ALS_BASE[i] = i * REGION_SIZE;
 	}
 
-	// The chain* arrays are parallel arrays, each of which holds an attribute
+	// FASTARDISED FASTARDISATION: System.arraycopy is faster than Arrays.fill,
+	// especially for very large arrays. Just pissed coz System.memset is MIA.
+	private static final boolean[] DUD_DONOR = new boolean[MAX_ALSS*REGION_SIZE];
+
+	// FASTARDISATION: first index of Rcc's that're related to each Als.
+	private static int[] rccsStart;
+	// FASTARDISATION: ceiling for the rcc-index (lastValidRccIndex+1).
+	// nb: these arrays aren't mine, so they're set and forgotten in findHints,
+	// else I hold the whole RccFinder in memory (it's static anyway, putz).
+	private static int[] rccsEnd;
+
+	// ------------------------------------------------------------------------
+	// FASTARDISATION: chain* arrays are parallel arrays, each is an attribute
 	// of a virtual ChainEntry struct: the ALSs (et al) that are in the chain.
-	// Parallel-arrays for speed: array-lookup faster than struct.deref, but
-	// parallel-arrays do more array-lookups, so adding attrs eventually makes
-	// a struct faster, despite deref imposts. My cross-over is 7 attrs.
-	// For 4 attrs I use parallel arrays, because it's (usually) faster.
+	// chainAlss contains the Almost Locked Sets that are in the current chain.
+	// Each possible ALS is tried in the attempt to eliminate buddies shared
+	// with the startAls, ergo all possible paths are explored.
 	private final Als[] chainAlss;
+	// An RCC Restricted Common Candidate is a link between two ALSs, on one or
+	// occasionally two common candidates, which all see each other, and do not
+	// appear in the physical overlap, if any, of the two ALSs; so that each RC
+	// value must be in this ALS or that ALS, but never both. This is essential
+	// to how ALS-chains work. A value is effectively pushed along the chain
+	// (knocking-over each ALS in turn) because an ALS may have just ONE value
+	// eliminated before it goes invalid because it has insufficient values to
+	// fill its cells. This works in both directions, hence if we can loop back
+	// to the start ALS we know that one of these two ALSs must contain the
+	// common candidate/s, eliminating those value/s from any common buddies.
 	private final Rcc[] chainRccs;
-	// entries are back-linked, [1] -back-> [0], chainCands[0] not used
+	// a bitset of used candidate value, so 1 set bit in pos 0..8 meaning 1..9.
+	// ALSs are back-linked: chainsAlss[1] -chainCands[1]-> chainAlss[0];
+	//                       chainsAlss[2] -chainCands[2]-> chainAlss[1];
+	//                       ... and so on ...
+	// hence chainCands[0] is unused coz chainAlss[0] (first) has no backlink
 	private final int[] chainCands;
 	// indices of all cells in the-chain-so-far
 	private final Idx[] chainSoFar;
 	// for debugging only
 	private final int[] chainRccIndexes;
-
-	// These methods help the swap between parallel-arrays and a ChainEntry[].
-	// They help, but they're not the whole hog.
+	// These methods localise swap from ChainEntry[] to parallel-arrays.
+	// They help, a bit, but they're not the whole hog.
 	private void chainClear() {
 		Arrays.fill(chainAlss, null);
 		Arrays.fill(chainRccs, null);
 		Arrays.fill(chainCands, 0);
 		chainSoFar[0] = null;
-		for ( int i=1; i<degree; ++i ) {
+		for ( int i=1; i<degree; ++i )
 			chainSoFar[i].clear();
-		}
-//		for ( int i=0; i<CCOUNT_SIZE_MAXS.length; ++i ) {
-//			if ( CCOUNT_SIZES[i] > CCOUNT_SIZE_MAXS[i] ) {
-//				CCOUNT_SIZE_MAXS[i] = CCOUNT_SIZES[i];
-//			}
-//		}
 	}
-
 	private Als[] chainAlss(int size) {
 		return Arrays.copyOf(chainAlss, size);
 	}
-
 	private int[] chainValues(int size) {
 		final int[] result = new int[size];
-		for ( int i=0; i<size; ++i ) {
+		for ( int i=0; i<size; ++i )
 			result[i] = VFIRST[chainCands[i]];
-		}
 		return result;
 	}
-
 	private Rcc[] chainRccs(int size) {
 		return Arrays.copyOf(chainRccs, size);
 	}
-
 	// RETAIN: for debugging only, which I need to make sense of it all
 	private int[] chainRccIndexes(int size) {
 		return Arrays.copyOf(chainRccIndexes, size);
 	}
+	// ------------------------------------------------------------------------
 
-	/** indices of cells from which we can remove this z-value */
+	// indices of cells from which we can remove this z-value
 	private final Idx victims = new Idx();
-	/** the removable (red) potentials (Cell=>Cands) */
+
+	// the removable (red) potentials (Cell=>Cands)
 	private final Pots reds = new Pots();
-	/** the last valid chain index, ie degree - 1 */
+
+	// the last valid chain index, ie degree - 1
 	private final int last;
-	/** is this the first wanted AlsChain instance? */
-	private final boolean meFirst;
-	/** is this the last wanted AlsChain instance? */
-	private final boolean meLast;
-	/** the TIMEOUT for this degree (in current Run.type: generate differs) */
-	private final int timeout;
 
 	// --------------------------------------------------
 	// these fields are all set and cleared by findHints
@@ -276,7 +249,7 @@ public final class AlsChain extends AAlsHinter
 	private Rcc[] rccs;
 	// Almost Locked Sets: 2 cells sharing 3 maybes, 3 cells 4 maybes, ...
 	private Als[] alss;
-	// the hints-accumulator to which I add hints
+	// the hint accumulator, to which I add hints
 	private IAccumulator accu;
 	// is it a SingleHintsAccumulator, ergo are we in the batch
 	private boolean oneOnly;
@@ -286,32 +259,18 @@ public final class AlsChain extends AAlsHinter
 	private int firstUsableCands;
 	// --------------------------------------------------
 
-	public AlsChain(Tech tech) {
-		super(tech, true, true, true, false);
-		chainAlss = new Als[degree];
+	public AlsChain() {
+		super(Tech.ALS_Chain, true, true, true, false);
+		chainAlss = new Als[degree]; // currently 26 (longest according to GUI)
 		chainRccs = new Rcc[degree];
 		chainCands = new int[degree];
 		chainSoFar = new Idx[degree];
 		chainRccIndexes = new int[degree];
 		// nb: chainSoFar[0] is set to als.idx on the fly
-		for ( int i=1; i<degree; ++i ) {
+		for ( int i=1; i<degree; ++i )
 			chainSoFar[i] = new Idx();
-		}
 		// the last valid index in the chain* arrays
 		last = degreeMinus1;
-		// how many milliseconds does findHints run before pulling the pin
-		timeout = TIMEOUTS[degree];
-		if ( THE_SETTINGS.getWantedTechs().contains(tech) ) {
-			// work-around the no other constructor params issue.
-			// nb: this is ALWAYS true in GUI and batch.
-			meFirst = tech == firstWantedAlsChainTech();
-			meLast = tech == lastWantedAlsChainTech();
-		} else {
-			// work-around test-cases not being wanted techs.
-			// performance of test-cases matters not anyway.
-			// nb: only ALS_Chain_4 is currently tested.
-			meFirst = meLast = true;
-		}
 	}
 
 	@Override
@@ -327,51 +286,11 @@ public final class AlsChain extends AAlsHinter
 		AlsChain.rccsStart = rccFinder.getStarts();
 		AlsChain.rccsEnd = rccFinder.getEnds();
 		try {
-			// all instances of AlsChain share a static rcc-indexes-cache
-			if ( meFirst ) {
-				rccCacheSetup(rccs, numRccs);
-				for ( int i=0; i<numAlss; ++i )
-					if ( ANY_RELATED_RCCS[i] = rccsEnd[i]-rccsStart[i] > 0 )
-						alsCeiling = i;
-//				// DEBUG
-//				int cnt = 0;
-//				for ( int i=0; i<alsCeiling; ++i )
-//					if ( ANY_RELATED_RCCS[i] )
-//						++cnt;
-//				RCOUNTS[0] += cnt;
-//				RCOUNTS[1] += numRccs;
-			}
-			if ( FASTARDISED && Run.type==Run.Type.Batch ) {
-				// searchFast is faster coz it doesn't deal with the case that
-				// an Rcc has two usableCands, which only happens in Shft-F5,
-				// AFAIK. It crashes if it hits an Rcc with two usableCands.
-				// It's been fastardised, so it's completely unmaintainable.
-				//
-				// To be crystal clear, searchFast crashes when it encounters
-				// an Rcc with VSIZE[usableCands] > 1.
-				//
-				// Two usableCands only occurs on an Rcc with two RC-values (ie
-				// v2!=0) and the previous link value (prevCand) is neither of
-				// those two RCs. I do NOT understand why this never happens in
-				// the batch, but I have confirmed it multiple times using "my"
-				// hinters prior to AlsChain. It's unsafe if you're playing, so
-				// probably best to switch-off FASTARDISED.
-				//
-				// If you make searchFast handle 2 usableCands it'll be slower,
-				// but as reliable as the normal version. The probability of
-				// hinting via 0.11*~5% of Rccs is tiny, with a tiny effect on
-				// the results, it can't crash, that's all. But it will be
-				// substantially slower coz 99.99% of Rccs will still have just
-				// 1 usableCands, despite having all the plumbing for multiple.
-				searchFast();
-			} else {
-				// the "normal" search method is fast enough, and less insane,
-				// but it still uses the CACHE, which is pretty crazy.
-				search();
-			}
-			if ( accu.size() > 1 ) { // batch NEVER
+			// set-up the rcc-indexes cache
+			rccCacheSetup(rccs, numRccs);
+			search(numAlss);
+			if ( accu.size() > 1 ) // batch NEVER
 				accu.sort(null);
-			}
 			return accu.size() > 0;
 		} catch ( OverflowException eaten ) { // too many hints
 			return true;
@@ -383,51 +302,60 @@ public final class AlsChain extends AAlsHinter
 			this.accu = null;
 			AlsChain.rccsEnd = null;
 			AlsChain.rccsStart = null;
-			// all instances of AlsChain share a static rcc-indexes-cache
-			if ( meLast ) {
-				rccCacheCleanup();
-			}
+			// clean-up rcc-indexes-cache
+			rccsStart = null;
+			rccsEnd = null;
 		}
 	}
 
 	/**
 	 * Search the grid for AlsChains. I add the first two ALSs to the chain,
-	 * then call recurse to add the third-onwards.
-	 *
-	 * @param numAlss
+	 * then I call recurse to add the third ALS onwards.
 	 */
-	private void search() {
-		Rcc rcc;
-		Idx firstIdx;
-		int[] kids;
+	private void search(final int numAlss) {
+		Rcc rcc; // the current Restricted Common Candidate
+		Als secondAls; // the second Als is chainAlss[1]
+		int[] kids; // indexes of rccs that're related to this ALS
 		int i1,i2 // alss-index of first and second als
-		  , j,J // rccs-index and rccs-index-ceiling
-		  , firstMaybes; // 
+		  , j,lastJ // rccs-index and rccs-index-ceiling
+		  , firstMaybes // the maybes of the firstAls
+		  , i; // the ubiqitious index
+		// presume that no hints will be found
 		boolean any = false;
-		final long begin = System.currentTimeMillis();
+		// for the timeout mechanism
+		final long stop = System.currentTimeMillis() + TIMEOUT;
+		// set-up ANY_RELATED_RCCS
+		for ( i=0; i<numAlss; ++i )
+			ANY_RELATED_RCCS[i] = rccsEnd[i] - rccsStart[i] > 0;
 		// foreach ALS, which I use ONLY to look-up the-rccs-for-this-als
-		for ( i1=0; i1<alsCeiling; ++i1 ) {
-			firstAls = chainAlss[0] = alss[i1];
-			firstMaybes = firstAls.maybes;
-			firstIdx = chainSoFar[0] = firstAls.idx;
+		for ( i1=0; i1<numAlss; ++i1 ) {
 			// foreach firstRcc in rccs-related-to-the-firstAls
 			if ( ANY_RELATED_RCCS[i1] ) {
-				for ( j=rccsStart[i1],J=rccsEnd[i1]; j<J; ++j ) {
-					i2 = (rcc=rccs[j]).related;
-					if ( ANY_RELATED_RCCS[i2] ) {
+				firstAls = chainAlss[0] = alss[i1];
+				firstMaybes = firstAls.maybes;
+				chainSoFar[0] = firstAls.idx;
+// HACK: half time for 10 less elims: reset DUD_BRANCH per firstAls ONLY.
+				arraycopy(DUD_DONOR, 0, DUD_BRANCH, 0, DUD_DONOR.length);
+				for ( j=rccsStart[i1],lastJ=rccsEnd[i1]-1; ; ) {
+					// rcc.related is the index of our second ALS
+					if ( ANY_RELATED_RCCS[rccs[j].related] ) {
+						i2 = (rcc=rccs[j]).related;
 						// both of the first-two ALSs come from the firstRcc, but
 						// only the second ALS "uses" a candidate (first doesn't)
 						chainRccIndexes[0] = chainRccIndexes[1] = j; // for debugging only
 						chainRccs[0] = chainRccs[1] = rcc;
-						// rcc.related is the index of the second ALS
 						// chainAlss[1] is the second ALS
-						chainAlss[1] = alss[i2];
-						// my idx is the aggregate of all ALSs so far.
-						// nb: firstIdx was set in i-loop
-						chainSoFar[1].setOr(firstIdx, chainAlss[1].idx);
+						secondAls = chainAlss[1] = alss[i2];
+						// chainSoFar[1] is the aggregate of both ALSs so far
+						chainSoFar[1].setOr(chainSoFar[0], secondAls.idx);
 						// foreach cand (usually one, just ~5% have two)
 						for ( int usedCand : VSHIFTED[rcc.cands] ) {
-							if ( (kids=rccCache(i2, usedCand)) != EMPTY_RCCS ) {
+							if ( (kids=rccCache(i2, usedCand)) != EMPTY ) {
+								// reset DUD_LEAF for firstAls/firstCand
+								Arrays.fill(DUD_LEAF, false);
+// CORRECT: double time for 10 more elims.
+//								// reset DUD_BRANCH per firstAls/firstCand
+//								arraycopy(DUD_DONOR, 0, DUD_BRANCH, 0, DUD_DONOR.length);
 								chainCands[1] = usedCand;
 								firstUsableCands = firstMaybes & ~usedCand;
 								if ( (any|=recurse(kids, usedCand, 2)) && oneOnly )
@@ -435,10 +363,12 @@ public final class AlsChain extends AAlsHinter
 							}
 						}
 					}
-					if ( System.currentTimeMillis() - begin > timeout ) {
-						timeout(i1);
+					if ( System.currentTimeMillis() > stop ) {
+						timeout(i1, numAlss);
 						return;
 					}
+					if ( ++j > lastJ )
+						break;
 				}
 			}
 		}
@@ -464,33 +394,32 @@ public final class AlsChain extends AAlsHinter
 	 * @param n the number of ALSs in chainAlss when you call me (2)
 	 * @return any hint/s found
 	 */
-	private boolean recurse(final int[] relatedRccIndexes, final int prevCand, final int n) {
-		assert relatedRccIndexes != EMPTY_RCCS;
+	private boolean recurse(final int[] relatedRccIndexes, final int prevCand
+			, final int n) {
+		assert relatedRccIndexes != EMPTY;
 		Rcc rcc; // the current Rcc we're processing
 		final int m = n - 1;
 		boolean result = false;
 		for ( int i : relatedRccIndexes ) {
 			rcc = rccs[i];
-			// the rccCache does "rcc.cands & ~prevCand != 0" for me
-			assert (rcc.cands & ~prevCand) != 0;
-			if ( noLoop(alss[rcc.related].idx, m) ) {
+			if ( noLoop(alss[rcc.related].idx, m)
+			  // rccCache fails to do this in Shft-F5, so I must ignore them.
+			  && (rcc.cands & ~prevCand) != 0
+			) {
 				chainRccs[n] = rcc;
 				chainRccIndexes[n] = i; // for debugging only
 				// handle multiple usableCands, one-at-a-time
-				for ( int usedCand : VSHIFTED[rcc.cands & ~prevCand] ) {
-					chainCands[n] = usedCand;
-					if ( (result|=process(alss[rcc.related], usedCand, n)) && oneOnly ) {
+				for ( int usedCand : VSHIFTED[rcc.cands & ~prevCand] )
+					if ( (result|=process(rcc.related, chainCands[n]=usedCand, n))
+					  && oneOnly )
 						return result;
-					}
-				}
 			}
 		}
 		return result;
 	}
 
 	/**
-	 * Returns does 'als' NOT make a loop out of the chain?
-	 * Ergo is the bastard ok?
+	 * Does 'als' NOT make a loop out of the chain? Ergo is als ok?
 	 *
 	 * @param alsIdx to test
 	 * @param m last valid index in the chain (ie n - 1)
@@ -498,62 +427,74 @@ public final class AlsChain extends AAlsHinter
 	 */
 	private boolean noLoop(final Idx alsIdx, final int m) {
 		// if the previous chainSoFar containsAll als cells
-		if ( chainSoFar[m].hasAll(alsIdx) ) {
-			for ( int i=m; i>-1; --i ) {
-				if ( chainAlss[i].idx.inbread(alsIdx) ) {
+		if ( chainSoFar[m].hasAll(alsIdx) )
+			// previous ALS always related, so most likely to form a loop
+			for ( int i=m; i>-1; --i )
+				if ( chainAlss[i].idx.inbread(alsIdx) )
 					return false;
-				}
-			}
-		}
 		return true;
 	}
 
 	/**
 	 * Process this Als, only called in the multi-RC-value loop, ie rarely.
 	 *
-	 * @param als the "related" Als to process
-	 * @param usedCand the cand that is currently used (from usableCands)
+	 * @param alsIndex the index in alss of the Almost Locked Set to process
+	 * @param usedCand the cand that's currently used (one of the usableCands);
+	 *  ie a bitset of the RC-value linking the current ALS to the previous ALS
+	 *  in the chain. This RC-value is excluded from the z-values linking this
+	 *  ALS back-to the firstAls, and is unavailable as the next link value so
+	 *  that each link value is distinct, so that the chain of ALSs all fall
+	 *  down like dominoes, in either direction, forming a possible AlsChain
 	 * @param n the number of ALS's already in chainAlss when you call me
 	 * @return any hint/s found?
 	 */
-	private boolean process(final Als als, final int usedCand, final int n) {
-		// presume no hints will be found, coz it's a good assumption: there's
-		// 561,613 hinter-calls finding 105,731 hints, ergo a 20% hit-rate, so
-		// four out of five times you call a hinter it finds nothing, but note
-		// that some hinters are much hintier than others. ALS_Chain_7, just
-		// for instance, is a hintless pig whajusneedsit some shoootin.
+	private boolean process(final int alsIndex, final int usedCand, final int n) {
+		// presume no hints will be found. It's a good assumption. sigh.
 		boolean result = false;
-		// if there are degree ALSs in the chain
-		// nb: this was n > 2, but I've split 4, 5, 6, and 7 each into there
-		// own tech so that users can tap-out at the maximum chain length by
-		// deselecting the longer techs, so this approach PRESUMES that if you
-		// use AlsChain5 you also use AlsChain4, if that's not the case then
-		// you should put this back to n > 2, then AlsChain5 also finds 4s!
-		// and pretty obviously 7 finds 4s, 5s, 6s, and 7s, it just takes ages!
-		if ( n > 2 ) {
+		// if there's atleast 4 ALSs in the chain
+		if ( n > 2 // nb: n is a 0-based index, so >=3 is 4 in the chain
+		  // and this Als is NOT already known to not hint against the current
+		  // firstAls/firstCand, to save repeatedly searching multiple z-values
+		  // when the same als is found by another possible path through the
+		  // intermediate ALSs. This is a bit faster.
+		  // HACK: clear DUD_LEAF only when firstAls changes. Correctness needs
+		  // a reset whenever firstAls or firstCand changes, but firstCand may
+		  // change thousands-of-times more often, so reset per firstAls ONLY
+		  // takes half the time and finds just 10 less elims, a bargain, so da
+		  // hack is in: not perfect, just fast, and still useful.
+		  && !DUD_LEAF[alsIndex]
+		) {
+			final Als als = alss[alsIndex];
 			final int zs = firstUsableCands & als.maybes & ~usedCand;
 			if ( zs!=0 && firstAls.buds.intersects(als.buds) ) {
-				for ( int z : VALUESES[zs] ) {
-					if ( victims.setAndAny(firstAls.vBuds[z], als.vBuds[z]) ) {
+				for ( int z : VALUESES[zs] )
+					if ( victims.setAndAny(firstAls.vBuds[z], als.vBuds[z]) )
 						result |= reds.upsertAll(victims, grid, z);
-					}
-				}
-				if ( result ) {
+				if ( result )
 					result = hint(als, n);
-				}
 			}
+			// remember that als is NOT an AlsChain with firstAls/firstCand
+			if ( !result )
+				DUD_LEAF[alsIndex] = true;
 		}
 		// if the chain isn't full
 		if ( n < last
 		  // and there are any related Rccs
-		  && ANY_RELATED_RCCS[als.index] ) {
-			// and this Als has related Rccs with OTHER candidate values
-			final int[] kids = rccCache(als.index, usedCand);
-			if ( kids != EMPTY_RCCS ) {
+		  && ANY_RELATED_RCCS[alsIndex] ) {
+			// and als has related Rccs with candidates OTHER THAN usedCand
+			final int[] kids = rccCache(alsIndex, usedCand);
+			if ( kids != EMPTY ) {
 				// then recurse to add the next (n+1) als
-				chainAlss[n] = als;
-				chainSoFar[n].setOr(chainSoFar[n-1], als.idx);
-				result |= recurse(kids, usedCand, n+1);
+				chainSoFar[n].setOr(chainSoFar[n-1], (chainAlss[n]=alss[alsIndex]).idx);
+				// remember branch doesn't hint, to avoid searching it again in
+				// this firstAls/firstCand. This stops workload growing expone-
+				// ntially, which is much faster, especially for longer chains.
+				// Prior it was too slow with 7 alss in a chain, now it's fast
+				// enough for hobiwans max 32 alss. This may be a "meh" to you,
+				// but not to me. I'm proud of working it out for myself.
+				if ( !(result |= recurse(kids, usedCand, n+1)) )
+					// * slow, but faster than resetting an array-of-arrays.
+					DUD_BRANCH[ALS_BASE[alsIndex]+IFIRST[usedCand]] = true;
 			}
 		}
 		return result;
@@ -567,25 +508,20 @@ public final class AlsChain extends AAlsHinter
 	 * @return was the hint added?
 	 */
 	private boolean hint(final Als als, final int n) {
+		assert !reds.isEmpty();
 		// adding the last als to the chain is delayed until we hint!
 		chainAlss[n] = als;
 		chainSoFar[n].setOr(chainSoFar[n-1], als.idx);
-		final int[] rcs; if(DEBUG_MODE) rcs=chainRccIndexes(n+1); else rcs=null;
-		final AlsChainHint hint = new AlsChainHint(this
-			, reds.copyAndClear()
-			, chainAlss(n+1)
-			, chainValues(n+1)
-			, chainRccs(n+1)
-			, rcs  // chainRccIndexes in DEBUG_MODE, else null
-			, ""); // debugMessage
+		final int[] rcis = AlsChainDebug.HINTS ? chainRccIndexes(n+1) : null;
+		final AlsChainHint hint = new AlsChainHint(this, reds.copyAndClear()
+			, chainAlss(n+1), chainValues(n+1), chainRccs(n+1), rcis, "");
 		if ( ALS_VALIDATES && !isValid(grid, hint.reds) && !handle(hint) )
 			return false; // without adding it!
 		accu.add(hint);
 		// Avoid sans-TIMEOUT OutOfMemoryError: confusing coz search/recurse
 		// don't use "new", so it must be too many hints, so stop at 64 hints.
-		if ( accu.size() > 63 ) {
+		if ( accu.size() > 63 )
 			throw new OverflowException();
-		}
 		return true; // regardless of what accu.add says (handled up the stack)
 	}
 
@@ -612,346 +548,79 @@ public final class AlsChain extends AAlsHinter
 		}
 	}
 
-	private void timeout(final int alsIndex) {
+	// Disable the bastard
+	private void timeout(final int alsIndex, final int numAlss) {
 		setIsEnabled(false);
-		Log.format("TIMEOUT: %s: %d milliseconds exceeded in %d/%s i=%d/%d DISABLED!\n"
-				, tech, timeout, grid.hintNumber, grid.source(), alsIndex, alsCeiling);
+		Log.format("TIMEOUT: %s DISABLED! %d ms exceeded in %s at i=%d/%d\n"
+				, tech.name(), TIMEOUT, grid.place(), alsIndex, numAlss);
 	}
 
-	// ============================= FASTARDISED ==============================
-
-	/**
-	 * Search the grid for AlsChains. I add the first two ALSs to the chain,
-	 * then call recurse to add the third-onwards.
-	 * <p>
-	 * fastardised: no methods, no variables, no continue. Idx's exploded to
-	 * reimplement all operations inline. I call recurseFast that only handles
-	 * batch-runs where usableCands always contains 1 set bit, so it's faster.
-	 *
-	 * @param numAlss
-	 */
-	private void searchFast() {
-		Rcc rcc;
-		Idx firstIdx, alsIdx;
-		int[] ua, kids;
-		int ui, ul, usedCand, i1,i2, j, J, firstMaybes;
-		final long begin = System.currentTimeMillis();
-		final Idx secondIdx = chainSoFar[1];
-		// presume that no hints will be found
-		boolean any = false;
-		// foreach ALS, which I use ONLY to look-up the-rccs-for-this-als
-		for ( i1=0; i1<alsCeiling; ++i1 ) {
-			firstAls = chainAlss[0] = alss[i1];
-			firstMaybes = firstAls.maybes;
-			firstIdx = chainSoFar[0] = firstAls.idx;
-			if ( ANY_RELATED_RCCS[i1] ) {
-				// foreach firstRcc in rccs-related-to-the-firstAls
-				for ( j=rccsStart[i1],J=rccsEnd[i1]; j<J; ++j ) {
-					// both of the first-two ALSs come from the firstRcc, but
-					// only the second ALS "uses" a candidate (first doesn't)
-					chainRccIndexes[0] = chainRccIndexes[1] = j; // for debugging only
-					rcc = chainRccs[0] = chainRccs[1] = rccs[j];
-					// rcc.related is the index of the second ALS
-					// chainAlss[1] is the second ALS
-					i2 = rcc.related;
-					if ( ANY_RELATED_RCCS[i2] ) {
-						chainAlss[1] = alss[i2];
-						// chainSoFar is the aggregate of all ALSs so far
-						secondIdx.a0 = firstIdx.a0 | (alsIdx=chainAlss[1].idx).a0;
-						secondIdx.a1 = firstIdx.a1 | alsIdx.a1;
-						secondIdx.a2 = firstIdx.a2 | alsIdx.a2;
-						// foreach cand (usually one, just ~5% have v2!=0)
-						for ( ua=VSHIFTED[rcc.cands],ul=ua.length-1,ui=0; ; ) {
-							if ( (kids=rccCache(i2, (usedCand=ua[ui]))) != EMPTY_RCCS ) {
-								chainCands[1] = usedCand;
-								firstUsableCands = firstMaybes & ~usedCand;
-								if ( (any|=recurseFast(kids, usedCand, 2)) && oneOnly )
-									return;
-							}
-							if ( ++ui > ul )
-								break;
-						}
-					}
-				}
-				if ( System.currentTimeMillis() - begin > timeout ) {
-					timeout(i1);
-					return;
-				}
-			}
-		}
-	}
-
-	/**
-	 * Recurse explores all possible combinations of ALSs at and to the right
-	 * of index 'n' in the chain.
-	 * <p>
-	 * fastardised: I'm hammered so no methods, no variables, no continue.
-	 * Idx's exploded to reimplement all operations inline. It's OK to call
-	 * methods in order to hint, because it's rare. I handle only the use-case
-	 * where usableCands contains just 1 set bit, ergo there are NEVER multiple
-	 * usableCands in the batch or the test-cases, but the test-cases follow da
-	 * normal path, as per the GUI, because I reckon the GUI (all users) needs
-	 * testing more than the batch (techies only) does.
-	 * <p>
-	 * Verify the batch by running AlsChainBatchTest manually.
-	 * Ctrl-F6 runs AlsChainTest, which tests the GUI version.
-	 *
-	 * @param srcAlsIndex the index of my sourceAls in the alss-array
-	 * @param prevCand a bitset of the value used to form the previous link
-	 * @param n the number of ALSs in chainAlss when you call me (2)
-	 * @return any hint/s found
-	 */
-	private boolean recurseFast(final int[] relatedRccs, final int prevCand, final int n) {
-		assert relatedRccs != EMPTY_RCCS;
-		Rcc rcc; // the current Restricted Common Candidate
-		Als als; // the alss[rcc.related] we're processing
-		Idx t0, t1; // temporary Idx pointers
-		int[] za, kids; // array of the z-values to examine for elimination
-		int usableCands // bitset of RC-value/s that can be used in this rcc
-		  , i0, i1, i2 // Idx intersection exploded
-		  , zs // bitset of the z-values to examine for elimination
-		  , zl,zi // za.length-1, za index
-		  , ai; // als.index = rcc.related
-		boolean ok; // pursue this als?
-		// pre-existing cells in the chain (ie asat the previous level)
-		final Idx chainBefore = chainSoFar[n-1];
-		// presume that no hints will be found
-		boolean result = false;
-		// cache nothing! numRefs reduces so it cannot pay back, I think.
-		for ( int i : relatedRccs ) {
-			// the rccCache does "rcc.cands & ~prevCand != 0" for me
-			assert (rccs[i].cands & ~prevCand) != 0;
-			ok = true;
-			if ( (chainBefore.a0 & (t0=alss[rccs[i].related].idx).a0) == t0.a0
-			  && (chainBefore.a1 & t0.a1) == t0.a1
-			  && (chainBefore.a2 & t0.a2) == t0.a2
-			) {
-				for ( int j=0; j<n; ++j ) {
-					// nb: t0 has already been set in the above if
-					if ( ( (i0=(t1=chainAlss[j].idx).a0 & t0.a0) == t0.a0
-						 & (i1=t1.a1 & t0.a1) == t0.a1
-						 & (i2=t1.a2 & t0.a2) == t0.a2 )
-					  || ( i0==t1.a0 && i1==t1.a1 && i2==t1.a2 )
-					) {
-						ok = false;
-						break;
-					}
-				}
-			}
-			if ( ok ) {
-				rcc = chainRccs[n] = rccs[i];
-				chainRccIndexes[n] = i; // for debugging only
-				// nb: always 1 usableCands, so usableCands is THE usedCand.
-				usableCands = chainCands[n] = rcc.cands & ~prevCand;
-				assert VSIZE[usableCands] == 1;
-				ai = rcc.related;
-				als = alss[ai];
-				// if there are atleast 4 ALSs in the chain
-				if ( n > 2 // nb: n is a 0-based index
-				  && (zs=firstUsableCands & als.maybes & ~usableCands) != 0
-				  && ( (t1=firstAls.buds).a0 & (t0=als.buds).a0
-				     | (t1.a1 & t0.a1)
-				     | (t1.a2 & t0.a2) ) != 0
-				) {
-					for ( ok=false,za=VALUESES[zs],zl=za.length-1,zi=0; ; ) {
-						if ( ( (i0=(t1=firstAls.vBuds[za[zi]]).a0 & (t0=als.vBuds[za[zi]]).a0)
-							 | (i1=t1.a1 & t0.a1)
-							 | (i2=t1.a2 & t0.a2) ) != 0
-						) {
-							ok |= reds.upsertAll(victims.set(i0,i1,i2), grid, za[zi]);
-						}
-						if ( ++zi > zl ) {
-							break;
-						}
-					}
-					if ( ok && (result|=hint(als, n)) && oneOnly ) {
-						break;
-					}
-				}
-				// if the chain is not yet full
-				if ( n < last
-				  && ANY_RELATED_RCCS[ai]
-				  // and this ALS has kids (relatedRccs)
-				  && (kids=rccCache(ai, usableCands)) != EMPTY_RCCS
-				) {
-					// add this ALS (n) to the chain
-					chainAlss[n] = als;
-					(t0=chainSoFar[n]).a0 = chainBefore.a0 | (t1=als.idx).a0;
-					t0.a1 = chainBefore.a1 | t1.a1;
-					t0.a2 = chainBefore.a2 | t1.a2;
-					// recurse to add the next (n+1) ALS to the chain
-					if ( (result|=recurseFast(kids, usableCands, n+1)) && oneOnly )
-						break;
-				}
-			}
-		}
-		return result;
-	}
-
-	// The CACHE is a FASTARDISATION. It's rcc-indexes by [alsIndex][prevCand]
-	// having cands other than prevCand. It's static, shared by all instances
-	// of AlsChain, so each SUBSEQUENT request for an [ai][pc] is faster.
-	//
-	// The downside is the FIRST [ai][pc] request is slower coz each sub-array
-	// is created, and creating arrays in Java is slow. But there tends to be
-	// many subsequent [ai][pc] requests, so it's ~30% faster overall.
-	//
-	// The other downside is RAM usage. The CACHE array is pretty big: MAX_ALSS
-	// is 512 (currently) and VALUE_CEILING is 9, and 512 * 9 = 4608, and each
-	// element there-in is itself an array of upto 49 rcc-indexes. Most of this
-	// sparse-array remains empty, even when "full", and ~40% are EMPTY_RCCS.
-	//
-	// The CACHE is shared by all instances of AlsChain, so the hit-rate rises.
-	private static final int[][][] CACHE = new int[MAX_ALSS][VALUE_CEILING][];
-	// a temporary rcc-indexes-array to populate and then copy-off when we know
-
-	// how many there are
-	private static final int[] TMP_RCCS = new int[64]; // observed 49
-
-	// there is one only empty rcc-indexes-array
-	private static final int[] EMPTY_RCCS = new int[0];
-
-	// the .cands of each rccs (coz that's all I need)
-	private static final int[] CACHE_RCC_CANDS = new int[MAX_RCCS];
-
-	// rccsStart contains the first index of Rcc's that're related to each Als.
-	// rccsEnd contains the ceiling for the rcc-index (last-valid-index+1).
-	// nb: these arrays aren't mine, so they're set and forgotten in findHints,
-	// else I hold the whole RccFinder in memory (it's static anyway, putz).
-	private static int[] rccsStart;
-	private static int[] rccsEnd;
-
-	// does this alsIndex have any related Rcc's? Just 12.79% of top1465s Als's
-	// are viable branches (the rest may be viable leafs), so seeking branches
-	// from the other 87.21% is a waste of time, this is the fastest way (short
-	// of weeding the alss array) I can think of to ignore them. It MIGHT be
-	// faster to weed! I'll have to check. But first performance-test this.
-	private static final boolean[] ANY_RELATED_RCCS = new boolean[MAX_ALSS];
-	private static int alsCeiling;
-
-	// setup the CACHE, and all of his messy friends
+	// Setup the rccs-cache
 	private static void rccCacheSetup(final Rcc[] rccs, final int numRccs) {
-//		Arrays.fill(CCOUNT_SIZES, 0);
 		for ( int i=0; i<numRccs; ++i )
-			CACHE_RCC_CANDS[i] = rccs[i].cands;
-		// clear the CACHE, yes, really, in a Setup method, for realz.
+			RCC_CANDS[i] = rccs[i].cands;
 		for ( int i=0; i<MAX_ALSS; ++i )
-			Arrays.fill(CACHE[i], null);
-		Arrays.fill(IAS_CNTS, 0);
+			Arrays.fill(RCC_CACHE[i], null);
 	}
 
-//	private static final int[][] HITS = new int[MAX_ALSS][VALUE_CEILING];
-//	private static final int[][] CCOUNTS = new int[MAX_ALSS][VALUE_CEILING];
-//	private static final int[] CCOUNT_SIZES = new int[64];
-
-	// CACHE[*][0] is otherwise unused, so it's the ALL array.
-	private static final int ALL = 0;
-
-	// rccCache is called by recurseFast and process to fetch the indexes of
-	// rccs that are related to the given alsIndex having cands other than
-	// prevCand. This is supposed to be faster, but its doubtful despite high
-	// hit-rates, coz creating new arrays is slow.
-	// PRE: cacheEnds[ai]-cacheStarts[ai] > 0; or don't bother calling me
-	// @param ai alsIndex the index of the source ALS in the alss array
-	// @param pc previousCand and we need cands other than previousCand
+	/**
+	 * rccCache is called by process and recurseFast to fetch indexes of rccs
+	 * that are related to the given ai (alsIndex) with cands OTHER THAN pc
+	 * (prevCand).
+	 * <p>
+	 * rccCache is faster, but FMS its complicated, which I must apologise for.
+	 * It turned into War and Peace while I wasn't looking. I tried to KISS it,
+	 * but simplicity is at odds with speed, which we need, coz it's hammered!
+	 * <p>
+	 * PRE: cacheEnds[ai]-cacheStarts[ai] > 0; or don't bother calling me.
+	 *
+	 * @param ai alsIndex: the index of the source ALS in the alss array
+	 * @param pc prevCand: we need rccs with cands other than pc, so each link
+	 *  in the chain has a different value, so that these ALSs fall over like
+	 *  dominoes, in either direction
+	 * @return indexes of rccs related to ai having cands other than pc
+	 */
 	private static int[] rccCache(final int ai, final int pc) {
-		// prevCand is ONE value only
+		assert rccsEnd[ai]-rccsStart[ai] > 0;
 		assert VSIZE[pc] == 1 : "prevCand="+pc;
-//		++CCOUNTS[ai][VFIRST[pc]];
-		// first try the cache
-		int[] result = CACHE[ai][VFIRST[pc]];
-		if ( result != null ) {
-//			++HITS[ai][VFIRST[pc]];
-			return result;
-		}
-		// cache miss, so count em, and copy em to TMP_RCCS
-		int cnt = 0;
-		// foreach rccIndex in starts[alsIndex]..ends[alsIndex]
-		for ( int i=rccsStart[ai],I=rccsEnd[ai]-1; ; ) {
-			if ( (CACHE_RCC_CANDS[i] & ~pc) != 0 )
-				TMP_RCCS[cnt++] = i;
-			if ( ++i > I )
-				break;
-		}
-//		++CCOUNT_SIZES[cnt];
-		// if that's NONE of them
-		if ( cnt == 0 ) {
-			return CACHE[ai][VFIRST[pc]] = EMPTY_RCCS;
-		}
-		// if that's ALL of them
-		if ( cnt == rccsEnd[ai]-rccsStart[ai] ) {
-//			++CCOUNTS[ai][0];
-			if ( CACHE[ai][ALL] != null ) {
-				// and the ALL array already exists
-//				++HITS[ai][0];
-				return CACHE[ai][VFIRST[pc]] = CACHE[ai][ALL];
-			} else {
-				// stash em in the ALL array as well
-				try {
-					result = CACHE[ai][ALL] = CACHE[ai][VFIRST[pc]] = IAS[cnt][IAS_CNTS[cnt]++];
-				} catch (ArrayIndexOutOfBoundsException ex) {
-					result = CACHE[ai][ALL] = CACHE[ai][VFIRST[pc]] = grow(cnt);
-				}
-				System.arraycopy(TMP_RCCS, 0, result, 0, cnt);
-				return result;
-			}
-		}
-		// so that must be SOME of them
-		try {
-			result = CACHE[ai][VFIRST[pc]] = IAS[cnt][IAS_CNTS[cnt]++];
-		} catch (ArrayIndexOutOfBoundsException ex) {
-			result = CACHE[ai][VFIRST[pc]] = grow(cnt);
-		}
-		System.arraycopy(TMP_RCCS, 0, result, 0, cnt);
+		if ( DUD_BRANCH[ALS_BASE[ai]+IFIRST[pc]] )
+			return EMPTY;
+		return rccCacheGet(ai, pc, VFIRST[pc], RCC_CACHE[ai]);
+	}
+
+	private static int[] rccCacheGet(final int ai, final int pc, final int pv
+			, final int[][] alsCache) {
+		if ( alsCache[pv] != null )
+			return alsCache[pv];
+		return rccCacheSet(ai, pc, pv, alsCache, rccsStart[ai], rccsEnd[ai]);
+	}
+
+	private static int[] rccCacheSet(final int ai, final int pc, final int pv
+			, final int[][] alsCache, final int start, final int end) {
+		int i=start, size=0;
+		for ( ; i<end; ++i )
+			if ( (RCC_CANDS[i] & ~pc) != 0 )
+				size++;
+		if ( size == 0 )
+			return alsCache[pv] = EMPTY;
+		final boolean isAll = size==end-start;
+		if ( isAll && alsCache[ALL]!=null )
+			return alsCache[pv] = alsCache[ALL];
+		final int[] result;
+		if ( isAll )
+			result = alsCache[ALL] = alsCache[pv] = new int[size];
+		else
+			result = alsCache[pv] = new int[size];
+		size = 0;
+		for ( i=start; i<end; ++i )
+			if ( (RCC_CANDS[i] & ~pc) != 0 )
+				result[size++] = i;
 		return result;
 	}
-	// These sizes are top1465.d5.mt maximums using ALS_Chain_4, ALS_Chain_5,
-	// ALS_Chain_6, and then ALS_Chain_7, and a good Generator session. They'll
-	// probably never need grow again (give it a week), but now there's fat, so
-	// if you like, reduce-em all to 10 and let-em grow into your ALS_Chain_*
-	// and your puzzles in a batch run, then copy-paste the IAS_SIZES line out
-	// of the bottom of the log over this line, so YOUR SudokuExplainer is
-	// setup specifically for how YOU use it, with no (or little) extra fat.
-	// If the whole concept annoys you then replace this mess with an array of
-	// 64 ArrayList<int[]>, and good luck to you, or just use new int[]'s, like
-	// I did before I went mental and wrote the IAS, which probably uses so
-	// much RAM it's slowing down the other hinters more than it's speeding-up
-	// this one. It doesn't pay to be TOO greedy.
-	private static final int[] IAS_SIZES = {0, 106, 89, 102, 80, 78, 72, 70, 79, 70, 67, 64, 115, 91, 61, 85, 80, 47, 65, 44, 24, 31, 25, 47, 25, 20, 38, 17, 38, 16, 10, 16, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 0, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	private static final int[] IAS_CNTS = new int[IAS_SIZES.length];
-	private static final int[][][] IAS = new int[IAS_SIZES.length][][];
-	static {
-		for ( int i=0; i<IAS_SIZES.length; ++i ) {
-			IAS[i] = new int[IAS_SIZES[i]][];
-			for ( int j=0; j<IAS_SIZES[i]; ++j ) {
-				IAS[i][j] = new int[i];
-			}
-		}
-	}
 
-	// the grow method grows the IAS[cnt] array to 1.5 times it's existing size
-	// and then returns IAS[cnt][IAS_CNTS[cnt]++], so it's as if the AIOOBE did
-	// not happen, a new array has been created and returned.
-	private static int[] grow(final int cnt) {
-		int[][] tmp = IAS[cnt]; // a handle to the existing array-of-arrays
-		final int oldSize = IAS[cnt].length;
-		// 1.5 is the same growth factor as java.util.ArrayList
-		int newSize = (int)(oldSize*1.5) + 1;
-		if (newSize < 10)
-			newSize = 10;
-		Log.println("GROW: "+Log.me()+": AIS["+cnt+"] from "+oldSize+" to "+newSize);
-		IAS_SIZES[cnt] = newSize;
-		hasGrown = true;
-		IAS[cnt] = new int[newSize][cnt]; // I replace existing array-of-arrays
-		System.arraycopy(tmp, 0, IAS[cnt], 0, oldSize); // and copy tmp to it
-		return IAS[cnt][IAS_CNTS[cnt]++]; // then return the new array
-	}
-	private static boolean hasGrown = false;
-
-	// these arrays MUST be forgotten at clean-up, after the last AlsChain.
-	private static void rccCacheCleanup() {
-		rccsStart = null;
-		rccsEnd = null;
+	// we've already found too many bloody hints, so we stop here.
+	private static class OverflowException extends RuntimeException {
+		private static final long serialVersionUID = 4539675628269L;
 	}
 
 }

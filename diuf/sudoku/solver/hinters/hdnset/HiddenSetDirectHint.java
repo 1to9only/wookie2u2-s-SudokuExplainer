@@ -41,7 +41,7 @@ public final class HiddenSetDirectHint extends AHint  {
 			, Pots orangePots, Pots redPots, ARegion region, int valueToSet
 			, Cell cellToSet) {
 		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots, null
-				, orangePots, null, Regions.list(region), null);
+				, orangePots, null, Regions.array(region), null);
 		this.cells = cells;
 		this.hdnSetValues = hdnSetValues;
 		this.region = region;
@@ -76,14 +76,14 @@ public final class HiddenSetDirectHint extends AHint  {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "HiddenSetDirectHint.html"
-				, NUMBER_NAMES[hdnSetValuesArray.length-2]	// {0}
-				, Frmu.csv(cells)				//  1
-				, Frmt.and(hdnSetValuesArray)	//  2
-				, region.id						//  3
-				, getHintTypeName()				//  4
-				, cell.id						//  5
-				, Integer.toString(value)		//  6
-				, reds.toString()			//  7
+			, NUMBER_NAMES[hdnSetValuesArray.length-2]	// {0}
+			, Frmu.csv(cells)				//  1
+			, Frmt.and(hdnSetValuesArray)	//  2
+			, region.id						//  3
+			, getHintTypeName()				//  4
+			, cell.id						//  5
+			, Integer.toString(value)		//  6
+			, reds.toString()				//  7
 		);
 	}
 

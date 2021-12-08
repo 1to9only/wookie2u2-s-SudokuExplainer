@@ -218,6 +218,7 @@ public final class ChainerUnary extends ChainerBase {
 	) {
 		// Y Cycles can only start if cell has 2 maybes
 		assert isXChain || anOn.cell.size==2;
+		// @todo faster if cycles was an Ass[] instead of a Collection.
 		final List<Ass> cycles = new LinkedList<>();
 		if ( doCycle(anOn, onToOn, onToOff, isXChain, isYChain, effects, cycles) )
 			for ( Ass dstOn : cycles ) // Bidirectional Cycle found

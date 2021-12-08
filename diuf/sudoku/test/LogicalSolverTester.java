@@ -61,19 +61,17 @@ import java.util.Map.Entry;
  * </ul>
  *
  * @author Keith Corlett: based on Juillerat. I doubt 50 chars remain, but the
- *  basic structure does, and that's the hard part, so credit where it's due.
+ *  basic structure does, and that was the hard part, so credit where it's due.
+ *  Kudos to Juillerat. mistakes are mine. KRC.
  */
 public final class LogicalSolverTester {
 
 	// Assholometer: Should we hack the s__t out of s__t to make s__t faster?
 	private static final boolean IS_HACKY = THE_SETTINGS.getBoolean(Settings.isHacky);
 
-	// KRC 2021-06-20 I'm trying to find my misplaced towel
-	// When 1 puzzle is reprocessed print hint.toHtml to stdout (very verbose),
-	// so that I can see all occurrences of misplaced towel in a puzzle.
-	// WARNING: Search KrakenFisherman for Run.Type.Batch and comment-out if
-	// you want Krakens. There may be other cases where it skips s__t in batch.
-	private static final boolean PRINT_HINT_HTML = false; // #check false
+	// KRC 2021-06-20 When 1 puzzle is reprocessed print hint.toHtml to stdout
+	// to spot towel misplacements. public to read in KrakenFisherman.
+	public static final boolean PRINT_HINT_HTML = false; // #check false
 
 	// KRC 2020-08-20 888#top1465.d5.mt siamese bug: SIAMESE_LOCKING=true makes
 	// LogicalSolverTester behave like GUI, to find SiameseLocking test-cases.
@@ -163,6 +161,7 @@ public final class LogicalSolverTester {
 			// new BruteForce -> new HintsApplicumulator ->
 			// if AHint.printHintHtml then new SB, so SummaryHint.toString()
 			// contains a list of the hints that have already been applied.
+			// WARN: search PRINT_HINT_HTML to comment out other stuff.
 			if ( PRINT_HINT_HTML ) {
 				if ( pids!=null && pids.length==1 ) {
 					AHint.printHintHtml = true; // this is insanely verbose
@@ -203,13 +202,13 @@ public final class LogicalSolverTester {
 
 			if ( pids!=null && pids.length>0 ) { // RETEST SPECIFIC PUZZLE/S
 				UsageMap totalUsageMap = new UsageMap();
+				final boolean logIt = pids.length==1; // ONE exception
 				for ( int pid : pids ) { // pids are 1 based
 //					// -REDO dis/enable wantedHinters to what hinted last-time.
 //					if ( redo )
 //						logicalSolver.reconfigureToUse(hintyHinters[pid-1]);
 					System.out.println("processing pid "+pid+" ...");
-					final boolean logIt = false && pids.length==1;
-					process(readALine(inputFile, pid), totalUsageMap, logIt, logIt); // ONE exception
+					process(readALine(inputFile, pid), totalUsageMap, logIt, logIt);
 					// print running-total usages (for A*E monitoring)
 					printTotalUsageMap(totalUsageMap);
 				}

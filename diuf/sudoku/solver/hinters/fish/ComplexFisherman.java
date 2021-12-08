@@ -48,8 +48,12 @@ import static diuf.sudoku.Regions.ROW_COL_MASK;
 import static diuf.sudoku.Regions.ROW_MASK;
 import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
+import diuf.sudoku.Values;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.LogicalSolver;
+import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.Validator;
@@ -983,8 +987,8 @@ public class ComplexFisherman extends AHinter
 		}
 
 		// get the regions from the used boolean arrays
-		final List<ARegion> basesL = Regions.used(basesUsed, grid);
-		final List<ARegion> coversL = Regions.used(coversUsed, grid);
+		final ARegion[] basesL = Regions.used(basesUsed, grid);
+		final ARegion[] coversL = Regions.used(coversUsed, grid);
 
 		// a corner is a candidate in a base and a cover (ie not fins).
 		final Idx cornerIdx = new Idx(vsM0 & ~fins.a0
@@ -1004,6 +1008,22 @@ public class ComplexFisherman extends AHinter
 		final Pots blue = new Pots(exoFinsIdx.cellsA(grid), v);
 		// endoFins = purple
 		final Pots purple = new Pots(endoFinsIdx.cellsA(grid), v);
+//		// Q: Can endoFins be set?
+//		// A: No.
+//		// Q: Is that only if the endoFin seesAll the exoFins?
+//		// A: No, so I'll be ____ed if I know what they're on about.
+//		if ( !purple.isEmpty() ) {
+//			final int[] solution = grid.getSolution();
+//			if ( solution != null ) {
+//				purple.entrySet().forEach((e) -> {
+//					final Cell pc = e.getKey();
+//					if ( pc.buds.hasAll(exoFinsIdx)
+//					  && solution[pc.i] != VFIRST[e.getValue()] ) {
+//						throw new AssertionError("Bad endoFin: e="+e.getKey()+"->"+Values.toString(e.getValue())+" != "+solution[e.getKey().i]);
+//					}
+//				});
+//			}
+//		}
 		// sharks = yellow
 		final Pots yellow;
 		if ( sharks.none() )
@@ -1022,10 +1042,8 @@ public class ComplexFisherman extends AHinter
 		// paint endo-fins purple, not corners (green) or exo-fins (blue).
 		purple.removeFromAll(green, blue);
 
-		final String tag = EMPTY_STRING; // debug message
-
 		final AHint myHint = new ComplexFishHint(this, type, isSashimi, v
-			, basesL, coversL, reds, green, blue, purple, yellow, tag);
+			, basesL, coversL, reds, green, blue, purple, yellow, "");
 
 		if ( Validator.COMPLEX_FISHERMAN_VALIDATES ) {
 			// only needed for Franken and Mutant, but just check all

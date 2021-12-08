@@ -23,7 +23,6 @@ import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
 
 /**
  * A Siamese Locking Hint is the merger of two or three Pointing or Claiming
@@ -95,13 +94,13 @@ public class SiameseLockingHint extends AHint  {
 	}
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(base);
+	public ARegion[] getBases() {
+		return Regions.array(base);
 	}
 
 	@Override
-	public List<ARegion> getCovers() {
-		return Regions.list(cover);
+	public ARegion[] getCovers() {
+		return Regions.array(cover);
 	}
 
 	@Override

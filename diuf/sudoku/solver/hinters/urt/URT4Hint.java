@@ -13,8 +13,6 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
-import java.util.List;
-
 
 public final class URT4Hint extends AURTHint {
 
@@ -24,10 +22,10 @@ public final class URT4Hint extends AURTHint {
 	private final int valueToRemove;
 	private final Grid.ARegion region;
 
-	public URT4Hint(UniqueRectangle hinter, List<Cell> loop, int lockVal
+	public URT4Hint(UniqueRectangle hinter, Cell[] loop, int loopSize, int lockVal
 			, int valueToRemove, Pots redPots, Cell c1, Cell c2
 			, ARegion region) {
-		super(4, hinter, loop, lockVal, valueToRemove, redPots);
+		super(4, hinter, loop, loopSize, lockVal, valueToRemove, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
 		this.lockVal = lockVal;
@@ -36,21 +34,21 @@ public final class URT4Hint extends AURTHint {
 	}
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(region);
+	public ARegion[] getBases() {
+		return Regions.array(region);
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "URT4Hint.html"
-			, getTypeName()		//{0}
-			, lockVal			// 1
-			, valueToRemove		// 2
-			, Frmu.csv(loop)	// 3
-			, c1.id				// 4
-			, c2.id				// 5
-			, region.id			// 6
-			, reds.toString()// 7
+			, getTypeName()				//{0}
+			, lockVal					// 1
+			, valueToRemove				// 2
+			, Frmu.csv(loopSize, loop)	// 3
+			, c1.id						// 4
+			, c2.id						// 5
+			, region.id					// 6
+			, reds.toString()			// 7
 		);
 	}
 }

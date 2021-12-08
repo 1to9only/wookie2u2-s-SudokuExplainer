@@ -27,7 +27,7 @@ public class SueDeCoqHint extends AHint  {
 	public SueDeCoqHint(AHinter hinter, Pots reds, Pots greens, Pots blues
 			, Pots purples, ARegion base, ARegion cover) {
 		super(hinter, reds, greens, null, blues
-				, Regions.list(base), Regions.list(cover));
+				, Regions.array(base), Regions.array(cover));
 		this.purples = purples;
 	}
 

@@ -15,7 +15,6 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
-import java.util.List;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import java.util.Collection;
@@ -32,8 +31,8 @@ public class TwoStringKiteHint extends AHint  {
 	private final int v; // the TwoStringKite value
 	private final Cell[] rowPair;
 	private final Cell[] colPair;
-	public TwoStringKiteHint(AHinter hinter, int v, List<ARegion> bases
-			, List<ARegion> covers, Pots greens, Pots blues, Pots reds
+	public TwoStringKiteHint(AHinter hinter, int v, ARegion[] bases
+			, ARegion[] covers, Pots greens, Pots blues, Pots reds
 			, Cell[] rowPair, Cell[] colPair) {
 		super(hinter, reds, greens, null, blues, bases, covers);
 		this.v = v;
@@ -73,15 +72,15 @@ public class TwoStringKiteHint extends AHint  {
 		Cell redCell = reds.firstCell();
 		return Html.produce(this, "TwoStringKiteHint.html"
 			, Integer.toString(v)	//{0}
-			, covers.get(0).id				// 1
-			, covers.get(1).id				// 2
-			, bases.get(0).id				// 3
-			, redCell.id					// 4
-			, rowPair[0].id					// 5
-			, rowPair[1].id					// 6
-			, colPair[0].id					// 7
-			, colPair[1].id					// 8
-			, reds.toString()			// 9
+			, covers[0].id			// 1
+			, covers[1].id			// 2
+			, bases[0].id			// 3
+			, redCell.id			// 4
+			, rowPair[0].id			// 5
+			, rowPair[1].id			// 6
+			, colPair[0].id			// 7
+			, colPair[1].id			// 8
+			, reds.toString()		// 9
 		);
 	}
 

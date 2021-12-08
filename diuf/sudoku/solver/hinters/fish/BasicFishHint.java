@@ -21,13 +21,10 @@ import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.MyLinkedList;
-import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.ON;
-
 
 /**
  * A BasicFishHint is raised by the BasicFisherman (and BasicFisherman). It's
@@ -59,7 +56,7 @@ public final class BasicFishHint extends AHint implements IChildHint {
 	 * @param debugMessage appears in the hint below the title
 	 */
 	public BasicFishHint(AHinter hinter, Pots reds, int v, Pots greens
-			, String debugMessage, List<ARegion> bases, List<ARegion> covers) {
+			, String debugMessage, ARegion[] bases, ARegion[] covers) {
 		super(hinter, AHint.INDIRECT, null, 0, reds, greens, null, null, bases
 				, covers);
 		this.valueToRemove = v;
@@ -85,7 +82,6 @@ public final class BasicFishHint extends AHint implements IChildHint {
 			, IAssSet parentOffs) {
 		MyLinkedList<Ass> result = null; // created on demand
 		// make basesAndCovers null safe
-		final Collection<ARegion> bases = this.bases;
 		if ( bases == null )
 			return result;
 		final int v = this.valueToRemove;

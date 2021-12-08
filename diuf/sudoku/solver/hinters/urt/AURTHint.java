@@ -15,11 +15,11 @@ import diuf.sudoku.utils.Frmt;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Log;
+import diuf.sudoku.utils.MyArrays;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -29,8 +29,7 @@ import java.util.Set;
 public abstract class AURTHint extends AHint  {
 
 	// Sorts the hints by difficulty, type ascending
-	public static final Comparator<AURTHint> BY_DIFFICULTY_DESC_TYPE_INDEX_ASC
-			= (AURTHint h1, AURTHint h2) -> {
+	public static final Comparator<AURTHint> BY_ORDER = (AURTHint h1, AURTHint h2) -> {
 		final double d1 = h1.getDifficulty();
 		final double d2 = h2.getDifficulty();
 		if (d1 < d2)
@@ -40,18 +39,18 @@ public abstract class AURTHint extends AHint  {
 		return h1.typeIndex - h2.typeIndex;
 	};
 
-	protected final List<Cell> loop;
+	protected final Cell[] loop;
 	protected final int loopSize;
 	protected final int v1;
 	protected final int v2;
 	protected final int typeIndex;
 
-	public AURTHint(int typeIndex, UniqueRectangle hinter, List<Cell> loop
+	public AURTHint(int typeIndex, UniqueRectangle hinter, Cell[] loop, int loopSize
 			, int v1, int v2, Pots redPots) {
 		super(hinter, redPots);
 		this.typeIndex = typeIndex;
 		this.loop = loop;
-		this.loopSize = loop.size();
+		this.loopSize = loopSize;
 		this.v1 = v1;
 		this.v2 = v2;
 	}
@@ -64,9 +63,9 @@ public abstract class AURTHint extends AHint  {
 	@Override
 	public Pots getGreens(int viewNum) {
 		if ( greenPots == null ) {
-			Pots pots = new Pots(loop.size(), 1F);
-			for ( Cell c : loop )
-				pots.put(c, VSHFT[v1]|VSHFT[v2]); // orange
+			Pots pots = new Pots(loopSize, 1F);
+			for ( int i=0; i<loopSize; ++i )
+				pots.put(loop[i], VSHFT[v1]|VSHFT[v2]); // orange
 			pots.removeAll(reds);
 			greenPots = pots;
 		}
@@ -77,12 +76,11 @@ public abstract class AURTHint extends AHint  {
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
 		try {
-			final List<Cell> loop = this.loop;
 			final int n = this.loopSize;
 			final Collection<Link> links = new ArrayList<>(n); // the result
 			for ( int i=0; i<n; ++i ) {
-				Cell curr = loop.get(i);
-				Cell next = loop.get((i+1) % n);
+				Cell curr = loop[i];
+				Cell next = loop[(i+1) % n];
 				links.add(new Link(curr, 0, next, 0));
 			}
 			return links;
@@ -133,7 +131,7 @@ public abstract class AURTHint extends AHint  {
 	@Override
 	public String toStringImpl() {
 		return Frmt.getSB().append(getHintTypeName())
-		  .append(COLON_SP).append(Frmu.csv(loop))
+		  .append(COLON_SP).append(Frmu.csv(loopSize, loop))
 		  .append(ON).append(v1).append(AND).append(v2)
 		  .toString();
 	}
@@ -147,7 +145,7 @@ public abstract class AURTHint extends AHint  {
 		AURTHint other = (AURTHint)o;
 		if (this.loopSize != other.loopSize)
 			return false;
-		return this.loop.containsAll(other.loop);
+		return MyArrays.containsAll(this.loop, this.loopSize, other.loop, other.loopSize);
 	}
 
 	@Override

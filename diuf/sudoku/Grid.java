@@ -961,10 +961,14 @@ public final class Grid {
 
 	/** Get a String of the source-file and lineNumber of this grid. */
 	public String source() {
-		if ( source==null ) {
+		if ( source == null )
 			return "IGNOTO";
-		}
 		return source.toString();
+	}
+
+	/** Get a String containing "hintNumber/[lineNumber#]fileName" */
+	public String place() {
+		return ""+hintNumber+"/"+source();
 	}
 
 	/**
@@ -1946,23 +1950,27 @@ public final class Grid {
 	private int emptiesHN;
 	private long emptiesPid;
 
-	/**
-	 * Returns a new Idx of empty cells that are accepted by the
-	 * {@code IFilter<Cell>},
-	 * which is typically implemented by a lambda expression.
-	 * <p>
-	 * I'm inordinately proud of this method. I reckon it's pretty clever.
-	 * The techies who implemented closures are bloody geniuses.
-	 *
-	 * @param f typically a lambda expression implementing IFilter<Cell> accept,
-	 *  but any implementation of IFilter<Cell> will do nicely. Remember that
-	 *  all cells passed to your filter are empty, ie have value == 0
-	 * @return a new Idx (not the cached empties Idx) containing filtered
-	 *  indices
-	 */
-	public Idx getEmptiesWhere(IFilter<Cell> f) {
-		return getEmpties().where(cells, f);
-	}
+// not_used: inefficient: faster to getEmpties and filter yourself, rather than
+// double-looping to filter-out whatever it is that 'f' filters out. The where
+// method has to go back to the grid, using forEach, which involves demangling
+// the idx and dereferencing each cell, so it's a bit slow Redge.
+//	/**
+//	 * Returns a new Idx of empty cells that are accepted by the
+//	 * {@code IFilter<Cell>},
+//	 * which is typically implemented by a lambda expression.
+//	 * <p>
+//	 * I'm inordinately proud of this method. I reckon it's pretty clever.
+//	 * The techies who implemented closures are bloody geniuses.
+//	 *
+//	 * @param f typically a lambda expression implementing IFilter<Cell> accept,
+//	 *  but any implementation of IFilter<Cell> will do nicely. Remember that
+//	 *  all cells passed to your filter are empty, ie have value == 0
+//	 * @return a new Idx (not the cached empties Idx) containing filtered
+//	 *  indices
+//	 */
+//	public Idx getEmptiesWhere(IFilter<Cell> f) {
+//		return getEmpties().where(cells, f);
+//	}
 
 	/**
 	 * Add indices of cells in this grid that're accepted by IFilter<Cell> 'f'
@@ -1990,6 +1998,8 @@ public final class Grid {
 		return getBivalueImpl(false);
 	}
 
+	public static final IFilter<Cell> BIV_FILTER = (c)->c.size==2;
+
 	/**
 	 * Get an Idx of cells in this grid with maybesSize == 2.
 	 * <p>
@@ -2005,15 +2015,11 @@ public final class Grid {
 	 */
 	public Idx getBivalueImpl(boolean force) {
 		if ( bivs == null ) {
-			bivs = new IdxL();
-			readBivs();
-			bivs.lock();
+			bivs = new IdxL().read(cells, BIV_FILTER).lock();
 			bivsHN = hintNumber;
 			bivsPid = pid;
 		} else if ( bivsHN!=hintNumber || bivsPid!=pid || force ) {
-			bivs.unlock();
-			readBivs();
-			bivs.lock();
+			bivs.unlock().clear().read(cells, BIV_FILTER).lock();
 			bivsHN = hintNumber;
 			bivsPid = pid;
 		}
@@ -2026,32 +2032,32 @@ public final class Grid {
 	private void readBivs() {
 		for ( int i=0; i<GRID_SIZE; ++i ) {
 			if ( cells[i].size == 2 ) {
-				// if it's rooted then rebuild and go again from the top
-				if ( cells[i].value != 0 ) {
-					lastChanceBivs();
-					return;
-				}
+//				// if it's rooted then rebuild and go again from the top
+//				if ( cells[i].value != 0 ) {
+//					lastChanceBivs();
+//					return;
+//				}
 				bivs.add(i);
 			}
 		}
 	}
-
-	// rebuild and try again before "I just want my Mom!"
-	private void lastChanceBivs() {
-// WARN: rooted hinter sends puzzle invalid, so I restore maybes -> rooted ->
-// restored -> rooted -> Oh bugger! Traffic lights.
-//		rebuildMaybes();
-		rebuild();
-		for ( int i=0; i<GRID_SIZE; ++i ) {
-			if ( cells[i].size == 2 ) {
-				// if it's rooted then this time it's REALLY rooted!
-				if ( cells[i].value != 0 ) {
-					throw new UnsolvableException("I just want my Mom!");
-				}
-				bivs.add(i);
-			}
-		}
-	}
+//
+//	// rebuild and try again before "I just want my Mom!"
+//	private void lastChanceBivs() {
+//// WARN: rooted hinter sends puzzle invalid, so I restore maybes -> rooted ->
+//// restored -> rooted -> Oh bugger! Traffic lights.
+////		rebuildMaybes();
+//		rebuild();
+//		for ( int i=0; i<GRID_SIZE; ++i ) {
+//			if ( cells[i].size == 2 ) {
+//				// if it's rooted then this time it's REALLY rooted!
+//				if ( cells[i].value != 0 ) {
+//					throw new UnsolvableException("I just want my Mom!");
+//				}
+//				bivs.add(i);
+//			}
+//		}
+//	}
 
 	/**
 	 * Returns a new array of the value of each of the 81 cells in this Grid.
@@ -2376,7 +2382,7 @@ public final class Grid {
 		public final int x;
 
 		/**
-		 * indexInRegion is my index in my regions cells array (not to be
+		 * indexIn contains my index in my regions cells array (not to be
 		 * confused with my indice in my regions idx, which I've just done).
 		 */
 		public final int[] indexIn = new int[3];
@@ -3396,15 +3402,15 @@ public final class Grid {
 		 * garbage arrays, which must be collected. NEVER call me in a tight
 		 * loop: use another at method!
 		 *
-		 * @param bits {@code int} a bitset of the indexes to get, where the
+		 * @param indexes {@code int} a bitset of the indexes to get, where the
 		 * position (from the right) of each set (1) bit denotes the index in
 		 * this.cells array of a Cell to retrieve.
 		 * @return a new {@code Cell[]}.
 		 */
-		public Cell[] atNew(final int bits) {
-			final int n = ISIZE[bits];
+		public Cell[] atNew(final int indexes) {
+			final int n = ISIZE[indexes];
 			final Cell[] array = new Cell[n];
-			final int cnt = at(bits, array);
+			final int cnt = at(indexes, array);
 			assert cnt == n;
 			return array;
 		}
@@ -3455,15 +3461,15 @@ public final class Grid {
 		 * <p>
 		 * This version of at is preferred for use in a loop.
 		 *
-		 * @param bits {@code int} a bitset of the indexes to get, where the
-		 * position (from the right) of each set (1) bit denotes the index in
-		 * this.cells array of a Cell to retrieve.
+		 * @param indexes a bitset of the indexes to get, where the position
+		 *  (from right) of each set (1) bit denotes the index in this.cells
+		 *  array of a Cell to retrieve.
 		 * @param array Cell[] the cells array to populate.
 		 * @return the number of cells in the array.
 		 */
-		public int at(final int bits, final Cell[] array) {
+		public int at(final int indexes, final Cell[] array) {
 			int cnt = 0;
-			for ( int i : INDEXES[bits] ) {
+			for ( int i : INDEXES[indexes] ) {
 				array[cnt++] = this.cells[i];
 			}
 			return cnt;
@@ -3523,32 +3529,34 @@ public final class Grid {
 		}
 
 		/**
-		 * Returns a new LinkedList of the cells in this region other than
+		 * Repopulate result with the cells in this region other than
 		 * those in the given excluded collection.
 		 * <p>
 		 * WARN: I return new {@code LinkedList<Cell>()} so call me sparingly,
 		 * like during hint creation; not as part of your bloody search, which
 		 * will hammer the s__t out of me, coz I'm not really up for it.
 		 *
-		 * @param excluded the {@code Iterable<Cell>} cells to be excluded
-		 * @return a new {@code LinkedList<Cell>()} so call me sparingly!
+		 * @param excluded the cells to be excluded
+		 * @param numExcluded the number of cells in excluded
+		 * @param result the cells array to add cells to
+		 * @return number of cells added to result
 		 */
-		public LinkedList<Cell> otherThan(final Iterable<Cell> excluded) {
-			final LinkedList<Cell> result = new LinkedList<>();
+		public int otherThan(final Cell[] excluded, final int numExcluded, final Cell[] result) {
+			int i, cnt=0;
 			CELL: for ( final Cell cell : cells ) {
 				// NB: use == instead of equals; they're the SAME instances.
 				// NB: an iterator is fast enough here, but only because I'm
 				// only called when creating a hint, ie not too often. If you
 				// ever hammer this method then pass an Idx with O(1) contains
 				// and I'd better take an array and return it's new size. sigh.
-				for ( Cell x : excluded ) {
-					if ( x == cell ) {
+				for ( i=0; i<numExcluded; ++i ) {
+					if ( excluded[i] == cell ) {
 						continue CELL;
 					}
 				}
-				result.add(cell);
+				result[cnt++] = cell;
 			}
-			return result;
+			return cnt;
 		}
 
 		/**

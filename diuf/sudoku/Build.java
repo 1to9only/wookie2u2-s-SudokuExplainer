@@ -691,6 +691,21 @@ package diuf.sudoku;
  *			into my three minute window, to keep the GUI "pretty snappy".
  * 6.30.180 2021-10-28 10:10:10 AlsChain has ANY_RELATED_RCCS and alsCeiling,
  *			so it's a tad faster. The hunter, is still endlessly seeking.
+ * 6.30.181 2021-10-30 14:52:01 AlsChain DUD_BRANCH pruned when branch known to
+ *			not hint in [alsIndex][prevCand], cutting exponential work. I'm a
+ *			bit proud of this. BigWings bug: Grid.getBivalue didn't clear Idx.
+ *			My bad! How embarassment! Head reshrunk.
+ * 6.30.182 2021-11-01 16:27:02 KrakenFisherman is much faster. sigh.
+ * 6.30.183 2021-11-02 20:25:03 eradicating Collections in favour of arrays,
+ *			especially the bases and covers in the hints.
+ * 6.30.184 2021-11-04 12:40:04 Remove IAS from AlsChain.
+ * 6.30.185 2021-11-04 18:37:05 HACK: Reset DUD_BRANCH per startAls instead of
+ *			per startAls/startCand (ie FAR less often) to find 10 less elims in
+ *			about half of the time.
+ * 6.30.186 2021-11-06 11:06:06 The final development build, so bug fixes only
+ *			from here on. AlsChain is about 1.5 secs faster. Chainer cache now
+ *			refreshes when a cell is set, to avert REALLY funny looking hints.
+ *			Also dropped BUG in favour of Coloring/GEM which are better value.
  * </pre>
  *
  * @author Keith Corlett 2013 - 2021
@@ -708,10 +723,10 @@ public final class Build {
 	 * BUILD increments every other time.
 	 * </pre>
 	 */
-	public static final String VERSION = "6.30.180";
+	public static final String VERSION = "6.30.186";
 
 	/** The date and time I BUILT this build. */
-	public static final String BUILT = "2021-10-28 10:10:10";
+	public static final String BUILT = "2021-11-06 11:06:06";
 
 	/** Application Title and Version (for presentation). */
 	public static final String ATV = TITLE + " " + VERSION;

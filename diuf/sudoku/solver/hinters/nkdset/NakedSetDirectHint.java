@@ -16,23 +16,21 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.IN;
 
-
 public final class NakedSetDirectHint extends AHint  {
 
-	private final List<Cell> nkdSetCells;
-	private final Values nkdSetValues;
+	private final Cell[] nkdSetCells;
+	private final int nkdSetValues;
 	private final ARegion region;
 
 	public NakedSetDirectHint(
 			  AHinter hinter
 			, Cell cellToSet, int valueToSet
-			, List<Cell> nkdSetCells // the naked-set cells
-			, Values nkdSetValues // the naked-set values
+			, Cell[] nkdSetCells // an array of the naked-set cells (I store a list)
+			, int nkdSetValues // the naked-set values
 			, Pots orangePots // the naked-set cells => all of each cells values
 			, Pots redPots // cell=>values to be removed, ie all other cells in
 						   // in the region which maybe the nkSetValues (!empty)
@@ -41,7 +39,7 @@ public final class NakedSetDirectHint extends AHint  {
 		// this "Direct" hint is rendered INDIRECT so it's grouped with the
 		// other indirect hint types in the GUI's HintsTree; and it has redPots.
 		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots, null
-				, orangePots, null, Regions.list(region), null);
+				, orangePots, null, Regions.array(region), null);
 		this.nkdSetCells = nkdSetCells;
 		this.nkdSetValues = nkdSetValues;
 		this.region = region;
@@ -75,7 +73,7 @@ public final class NakedSetDirectHint extends AHint  {
 	public String toStringImpl() {
 		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
 		  .append(Frmu.csv(nkdSetCells)).append(COLON_SP)
-		  .append(Frmu.csv(nkdSetValues)).append(IN).append(region.id)
+		  .append(Values.csv(nkdSetValues)).append(IN).append(region.id)
 		  .toString();
 	}
 
@@ -83,13 +81,13 @@ public final class NakedSetDirectHint extends AHint  {
 	public String toHtmlImpl() {
 		return Html.produce(this, "NakedSetDirectHint.html"
 			, NUMBER_NAMES[degree-2]	// {0}
-			, Frmu.csv(nkdSetCells)	//  1
-			, Frmu.csv(nkdSetValues)	//  2
+			, Frmu.csv(nkdSetCells)		//  1
+			, Values.csv(nkdSetValues)	//  2
 			, region.id					//  3
 			, getHintTypeName()			//  4
 			, cell.id					//  5
 			, Integer.toString(value)	//  6
-			, reds.toString()		//  7
+			, reds.toString()			//  7
 		);
 	}
 }

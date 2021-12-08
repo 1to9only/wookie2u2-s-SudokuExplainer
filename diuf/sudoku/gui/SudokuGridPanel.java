@@ -228,7 +228,7 @@ public class SudokuGridPanel extends JPanel {
 
 	private Set<Cell> auqaBGCells;
 	private Set<Cell> pinkBGCells;
-	private Collection<ARegion> pinkos;
+	private ARegion[] pinkos;
 	private Set<Cell> redBGCells;
 	private Set<Cell> greenBGCells;
 	private Set<Cell> orangeBGCells;
@@ -239,8 +239,8 @@ public class SudokuGridPanel extends JPanel {
 	// cells potential-values to paint larger
 	private Pots results;
 	private int resultColor;
-	private Collection<ARegion> bases;
-	private Collection<ARegion> covers;
+	private ARegion[] bases;
+	private ARegion[] covers;
 	private Als[] alss;
 	private Collection<Link> links;
 	private Idx[][] supers;
@@ -665,7 +665,7 @@ public class SudokuGridPanel extends JPanel {
 	}
 
 	/** Set the regions to be outlined in pink. */
-	void setPinkos(Collection<ARegion> pinkRegions) {
+	void setPinkos(ARegion[] pinkRegions) {
 		this.pinkos = pinkRegions;
 	}
 
@@ -755,12 +755,12 @@ public class SudokuGridPanel extends JPanel {
 	}
 
 	/** Set the bases (the blues). */
-	void setBases(Collection<ARegion> bases) {
+	void setBases(ARegion[] bases) {
 		this.bases = bases;
 	}
 
 	/** Set the covers (the greens). */
-	void setCovers(Collection<ARegion> covers) {
+	void setCovers(ARegion[] covers) {
 		this.covers = covers;
 	}
 
@@ -887,6 +887,17 @@ public class SudokuGridPanel extends JPanel {
 		if ( alss != null ) {
 			// paint the background of ALS cells only
 			paintAlss(g, alss);
+			// if any ALS is selected then
+			final int i = selectedAlsIndex;
+			if ( i > -1 ) {
+				if ( i >= alss.length ) {
+					// selection invalid, so unselect it
+					selectedAlsIndex = -1;
+				} else {
+					// repaint the selected ALS over the top of the others.
+					paintAls(g, alss[i], i % ALS_COLORS.length);
+				}
+			}
 		} else {
 			// paint regions for non-ALS's
 			paintRegions(g, covers, COLOR_COVER_BORDER, COLOR_COVER_BG);
@@ -946,7 +957,7 @@ public class SudokuGridPanel extends JPanel {
 	// makes the grid background go Color for an eigth of a second
 	private void flashBackground(Color c) {
 		if ( fillBGColor == c )
-			return; // trying to step these running into each other
+			return; // trying to stop these running into each other
 		fillBGColor = c;
 		repaint();
 		SwingUtilities.invokeLater(new Runnable() {
@@ -1004,7 +1015,7 @@ public class SudokuGridPanel extends JPanel {
 
 	private void paintRegions(
 			  final Graphics g
-			, final Collection<ARegion> regions
+			, final ARegion[] regions
 			, final Color borderColor
 			, final Color backgroundColor // null means no shading
 	) {
@@ -1023,6 +1034,45 @@ public class SudokuGridPanel extends JPanel {
 			}
 		}
 	}
+	
+	private boolean isSelected(final Als als) {
+		final int sai = selectedAlsIndex;
+		if ( sai > -1 ) {
+			if ( sai < alss.length ) {
+				if ( als == alss[sai] ) {
+					return true;
+				}
+			} else { // clear invalid
+				selectedAlsIndex = -1;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Paint the given ALS using color 'i'.
+	 *
+	 * @param g the Graphics to paint on
+	 * @param als the ALS to paint
+	 * @param i the ALS_COLORS/ALS_BG_COLORS index, ie
+	 *  {@code alsIndex % ALS_COLORS.length} to avert AIOOBE.
+	 */
+	private void paintAls(final Graphics g, final Als als, final int i) {
+		// foreGroundColor
+		final Color fgc = i==-1 ? Color.YELLOW : ALS_COLORS[i];
+		// null backgroundColor: I paint backgrounds of my cells.
+		paintRegions(g, als.regions(), fgc, null);
+		for ( Cell cell : als.idx.cells(grid.cells) ) {
+			// paint the cell background
+			g.setColor(i==-1 ? Color.YELLOW : ALS_BG_COLORS[i]);
+			g.fillRect(byCOS[cell.x]+2, byCOS[cell.y]+2, COS-4, COS-4);
+			// paint the cell foreground
+			g.setColor(fgc);
+			for ( int v : VALUESES[cell.maybes] ) {
+				paintMaybe3D(g, cell, v, smallFont2);
+			}
+		}
+	}
 
 	/**
 	 * paint the ALSs, if any, in me the SudokuGridPanel. Note that alss may be
@@ -1036,27 +1086,47 @@ public class SudokuGridPanel extends JPanel {
 		if ( alss.length > ALS_COLORS.length )
 			Log.println("WARN: paintAlss: more alss than ALS_COLORS!");
 		int i = 0; // the color index
-		for ( Als als : alss ) {
+		for ( final Als als : alss ) {
 			if ( als != null ) { // the last als may be null. sigh.
-				// null backgroundColor: I paint backgrounds of my cells.
-				paintRegions(g, als.regions(), ALS_COLORS[i], null);
-				for ( Cell cell : als.idx.cells(grid.cells) ) {
-					// paint the cell background
-					g.setColor(ALS_BG_COLORS[i]);
-					g.fillRect(byCOS[cell.x]+2, byCOS[cell.y]+2, COS-4, COS-4);
-					// paint the foreground
-					g.setColor(ALS_COLORS[i]);
-					for ( int v : VALUESES[cell.maybes] ) {
-						paintMaybe3D(g, cell, v, smallFont2);
-					}
-				}
+				paintAls(g, als, i);
 				// prevent AIOOBE if there's ever more alss than ALS_COLORS by
 				// making the color index wrap around to zero. If you see two
 				// blue ALSs then add another ALS_COLORS and ALS_BG_COLORS.
 				i = (i+1) % ALS_COLORS.length;
 			}
 		}
+		// paint the selected one again!
+		i = selectedAlsIndex;
+		if ( i > -1 ) {
+			// paint cells of the selectedAls YELLOW
+			paintAls(g, alss[i], -1);
+			// wait a while then repaint alss again "normally".
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					try{Thread.sleep(333);}catch(InterruptedException eaten){}
+					selectedAlsIndex = -1;
+					repaint();
+				}
+			});
+		}
 	}
+
+	/**
+	 * Double-click on the ALS-ID (ie the a in (a)) in the hint detail area to
+	 * repaint this ALS over the others, so that you can see the bastard.
+	 *
+	 * @param i the index of this als in hint.alss
+	 */
+	void selectAls(final int i) {
+		if ( i>-1 && i<alss.length ) {
+			selectedAlsIndex = i;
+		} else {
+			selectedAlsIndex = -1;
+		}
+		repaint();
+	}
+	private int selectedAlsIndex = -1; // NONE
 
 	/**
 	 * This is an intermediate step to translate the array of Cell=>Values into

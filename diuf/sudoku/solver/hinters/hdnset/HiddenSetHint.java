@@ -30,7 +30,6 @@ import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.IN;
 
-
 /**
  * Hidden Set (Pair, Triple, Quad) Hint.
  *
@@ -53,7 +52,7 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 	public HiddenSetHint(AHinter hinter, Cell[] cells, int hdnSetValues
 			, Pots greenPots, Pots redPots, ARegion region
 			, int hdnSetRegionIdxBits) {
-		super(hinter, redPots, greenPots, null, null, Regions.list(region)
+		super(hinter, redPots, greenPots, null, null, Regions.array(region)
 				, null);
 		this.cells = cells;
 		this.hdnSetRegionIdxBits = hdnSetRegionIdxBits;

@@ -18,14 +18,11 @@ import diuf.sudoku.utils.Html;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.IN;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.SO;
-import static diuf.sudoku.utils.Frmt.CSP;
-
 
 /**
  * Region Chain hint.
@@ -79,8 +76,8 @@ public final class RegionReductionHint extends AChainingHint {
 	}
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(region);
+	public ARegion[] getBases() {
+		return Regions.array(region);
 	}
 
 	ARegion getRegion() {

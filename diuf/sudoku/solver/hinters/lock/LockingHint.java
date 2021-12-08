@@ -59,7 +59,7 @@ public final class LockingHint extends AHint implements IChildHint {
 			, Pots redPots, ARegion base, ARegion cover
 			, String debugMessage) {
 		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null, null
-				, Regions.list(base), Regions.list(cover));
+				, Regions.array(base), Regions.array(cover));
 		this.valueToRemove = valueToRemove;
 		this.cellSet = greenPots.keySet();
 		this.base = base;

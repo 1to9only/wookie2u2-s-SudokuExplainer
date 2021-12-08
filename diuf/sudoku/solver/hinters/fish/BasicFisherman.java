@@ -21,16 +21,14 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * BasicFisherman implements the basic Fish Sudoku solving technique.
  * <p>
  * A basic fish has N (degree) regions (bases) which together have N places for
  * the Fish Candidate Value (v), so v is locked into the intersections of bases
- * and covers (the cross regions) eliminating all other places from the covers.
+ * and the cross regions (covers) eliminating all other places from the covers.
  * The "basic" means "not complex", ie no "fins" (extra v's in the bases).
  * <p>
  * Bases are rows, and covers are cols; and then<br>
@@ -53,8 +51,7 @@ import java.util.List;
  * 47,147,634	  17204	         2,740	    607	        77,673	Swampfish
  * 57,888,900	  14690	         3,940	    226	       256,145	Swordfish
  * 6.30.161 2021-08-11 11:14:41 BasicFisherman1 now faster than BasicFisherman.
- * So after this release the old BasicFisherman class was removed, and the new
- * BasicFisherman1 was renamed BasicFisherman (as was always the plan).
+ * So after this release BasicFisherman1 replaces BasicFisherman.
  * </pre>
  *
  * @author Keith Corlett 2021-05-01
@@ -70,7 +67,7 @@ public class BasicFisherman extends AHinter {
 	/**
 	 * indexes contains the index-in-bases of each base in the current Fish.
 	 * <p>
-	 * This array is half "the stack", concurrent with vs.
+	 * This array is half "the stack", concurrent with vs. <br>
 	 * [1] is the first base. [0] is just a stopper.
 	 */
 	private final int[] indexes;
@@ -83,7 +80,7 @@ public class BasicFisherman extends AHinter {
 	 * contains the distinct regions-indexes of v's in all bases in this Fish,
 	 * which we search for eliminations: any/all v's in covers and not bases.
 	 * <p>
-	 * This array is half "the stack", concurrent with indexes.
+	 * This array is half "the stack", concurrent with indexes. <br>
 	 * [1] is the first base. [0] is just a stopper.
 	 */
 	private final int[] vs;
@@ -216,14 +213,14 @@ public class BasicFisherman extends AHinter {
 								coverVs.or(covers[i].idxs[v]);
 							}
 						}
-						// if there are any v's in covers and not bases
-						// then any remaining coverVs are our victims
+						// if there are any v's in covers excluding bases
+						// then they are victims
 						if ( coverVs.andNot(baseVs).any() ) {
 							// FOUND a Fish, with eliminations!
 							final Pots reds = new Pots();
 							reds.upsertAll(coverVs, grid, v);
 							final AHint hint = createHint(v, reds
-									, Regions.list(degree, covers, vees));
+									, Regions.array(degree, covers, vees));
 							result = true;
 							if ( accu.add(hint) ) {
 								return result; // exit-early
@@ -250,25 +247,20 @@ public class BasicFisherman extends AHinter {
 	 * @param covers a List of cover regions in this fish
 	 * @return a new BasicFishHint, always.
 	 */
-	private AHint createHint(final int v, final Pots reds
-			, final List<ARegion> covers) {
-		// get highlighted (green) potentials = the corners
+	private AHint createHint(final int v, final Pots reds, final ARegion[] covers) {
+		// highlight v's in bases green
 		final Pots greens = new Pots();
+		final Cell[] cells = grid.cells;
 		final int sv = VSHFT[v];
+		baseVs.forEach((i)->greens.put(cells[i], sv));
+		// highlight the base regions blue (the covers are green)
+		final ARegion[] baseA = new ARegion[degree];
+		int cnt = 0;
 		for ( int i=1; i<degreePlus1; ++i ) {
-			for ( Cell cc : bases[indexes[i]-1].cells ) {
-				if ( (cc.maybes & VSHFT[v]) != 0 ) {
-					greens.put(cc, sv);
-				}
-			}
-		}
-		// get a List of the base regions in this fish
-		final List<ARegion> baseL = new ArrayList<>(degree);
-		for ( int i=1; i<degreePlus1; ++i ) {
-			baseL.add(bases[indexes[i]-1]);
+			baseA[cnt++] = bases[indexes[i]-1];
 		}
 		// create and return the new hint
-		return new BasicFishHint(this, reds, v, greens, "", baseL, covers);
+		return new BasicFishHint(this, reds, v, greens, "", baseA, covers);
 	}
 
 }

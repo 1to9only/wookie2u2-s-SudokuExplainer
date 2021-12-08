@@ -9,19 +9,20 @@ package diuf.sudoku;
 import java.util.Iterator;
 
 /**
- * A 0-based (standard) Bitset of 32 bits. The position of each set bit
- * represents the indice of a cell in a region. Note that the "shape" of the
- * region (ie if it's a Box, Row, or Col) does not matter.
- *
- * The interface is similar to {@code java.util.Set<Integer>} which isn't
- * implemented because this is a Set of ints and for performance we need to
- * avoid the overheads of boxing/unboxing the ints to/from Integers.
- *
- * Thanks to Stack Overflow for answers to many questions, including:
- * http://stackoverflow.com/questions/1092411/java-checking-if-a-bit-is-0-or-1-in-a-long
- *
+ * Indexes are region indexes, ergo places in a region which maybe a value.
+ * <p>
+ * Indexes is a 0-based (standard) Bitset of 32 bits. The position of each
+ * set (1) bit represents the indice of a cell in a region. The "shape" of
+ * the region (ie if it's a Box, Row, or Col) doesn't matter.
+ * <p>
+ * The interface is inspired by {@code java.util.Set<Integer>} which is NOT
+ * implemented because this is a Set of ints and performance dictates that
+ * we avoid the overheads of boxing/unboxing the ints to/from Integers.
+ * <p>
  * This is free open-source software. Use and adapt it as you like, but you
- * accept all responsibility for any fallout.
+ * accept ALL responsibility.
+ * <p>
+ * Thanks to Stack Overflow contributors for answers to so many questions.
  *
  * @author Keith Corlett 2013 August
  */

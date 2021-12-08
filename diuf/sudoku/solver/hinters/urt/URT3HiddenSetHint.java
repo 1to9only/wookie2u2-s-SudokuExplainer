@@ -15,8 +15,6 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSIZE;
-import java.util.List;
-
 
 public final class URT3HiddenSetHint extends AURTHint {
 
@@ -35,11 +33,11 @@ public final class URT3HiddenSetHint extends AURTHint {
 	// think of to do so. If you've got better ideas then go for it.
 	private final int degree;
 
-	public URT3HiddenSetHint(UniqueRectangle hinter, List<Cell> loop
+	public URT3HiddenSetHint(UniqueRectangle hinter, Cell[] loop, int loopSize
 			, int v1, int v2, Pots redPots, Cell c1, Cell c2
 			, int extraValues, int hdnSetValues, ARegion region
 			, Indexes hdnSetIdxs) {
-		super(3, hinter, loop, v1, v2, redPots);
+		super(3, hinter, loop, loopSize, v1, v2, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
 		this.extraValues = extraValues;
@@ -76,8 +74,8 @@ public final class URT3HiddenSetHint extends AURTHint {
 	private Pots orangePots;
 
 	@Override
-	public List<ARegion> getBases() {
-		return Regions.list(region);
+	public ARegion[] getBases() {
+		return Regions.array(region);
 	}
 
 	@Override
@@ -102,18 +100,18 @@ public final class URT3HiddenSetHint extends AURTHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "URT3HiddenSetHint.html"
-				, getTypeName()								//{0}
-				, v1										// 1
-				, v2										// 2
-				, Frmu.csv(loop)							// 3
-				, c1.id										// 4
-				, c2.id										// 5
-				, Values.orString(extraValues)				// 6
-				, GROUP_NAMES[VSIZE[hdnSetValues]-2]		// 7
-				, Frmu.and(region.atNew(hdnSetIdxsArray))	// 8
-				, Values.andString(hdnSetValues)			// 9
-				, region.id									//10
-				, reds.toString()							//11
+			, getTypeName()								//{0}
+			, v1										// 1
+			, v2										// 2
+			, Frmu.csv(loopSize, loop)					// 3
+			, c1.id										// 4
+			, c2.id										// 5
+			, Values.orString(extraValues)				// 6
+			, GROUP_NAMES[VSIZE[hdnSetValues]-2]		// 7
+			, Frmu.and(region.atNew(hdnSetIdxsArray))	// 8
+			, Values.andString(hdnSetValues)			// 9
+			, region.id									//10
+			, reds.toString()							//11
 		);
 	}
 }

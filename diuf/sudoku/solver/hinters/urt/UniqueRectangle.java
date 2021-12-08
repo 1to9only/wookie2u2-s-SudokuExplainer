@@ -31,8 +31,8 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.Permutations;
-import diuf.sudoku.utils.MyArrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -87,20 +87,35 @@ public final class UniqueRectangle extends AHinter
 	// startCell. It's a field rather than parameters because it doesn't
 	// change during recursion, so there's no point in passing it (or v1
 	// and v2) down the stack.
-	private int v1v2;
+	private int cands;
 	// working storage for current loop.
-	private final ArrayList<Cell> workLoop = new ArrayList<>(16); // guess 16 // observed 6
+	private static final int LOOP_SIZE = 16; // guess 16
+	private final Cell[] workLoop = new Cell[LOOP_SIZE];
+	private int workLoopSize;
 	// fast workLoop.contains(cell)
 	private final boolean[] isInWorkLoop = new boolean[GRID_SIZE];
 	// the collection of loops found to date.
-	private final ArrayList<ArrayList<Cell>> loops = new ArrayList<>(32); // guess 32 // observed 12
+	private static final int MAX_LOOPS = 16; // guess 16 // observed 12
+	private final Cell[][] loops = new Cell[MAX_LOOPS][];
+	private final int[] loopSizes = new int[MAX_LOOPS];
+	// the number of loops currently in the loops array
+	private int numLoops;
 	// the cells in this loop with extra (not v1 or v2) values.
-	private final ArrayList<Cell> extraCells = new ArrayList<>(4);
+	private final Cell[] extraCells = new Cell[4];
+	private int numExtraCells;
 	// the indices of each potential value 1..9 in the current grid
 	private Idx[] idxs;
+	// An Idx of the workLoop
+	private final Idx workLoopIdx = new Idx();
+	// Idx's of the loops
+	private final Idx[] loopsIdxs = new Idx[MAX_LOOPS];
+	// THE common regions array (re-used rather than create junk collections)
+	private final ARegion[] cmnRgns = new ARegion[2];
 
 	public UniqueRectangle() {
 		super(Tech.URT);
+		for ( int i=0; i<MAX_LOOPS; ++i )
+			loopsIdxs[i] = new Idx();
 	}
 
 //	@Override // IReporter
@@ -118,14 +133,38 @@ public final class UniqueRectangle extends AHinter
 		clean();
 	}
 
+	private void clearLoops() {
+		if ( numLoops > 0 ) {
+			numLoops = 0;
+			Arrays.fill(loops, null);
+			Arrays.fill(loopSizes, 0);
+		}
+	}
+
+	private void clearExtraCells() {
+		if ( numExtraCells > 0 ) {
+			numExtraCells = 0;
+			Arrays.fill(extraCells, null);
+		}
+	}
+
+	private void clearWorkLoop() {
+		if ( workLoopSize > 0 ) {
+			workLoopSize = 0;
+			Arrays.fill(workLoop, null);
+			Arrays.fill(isInWorkLoop, false);
+		}
+	}
+
 	// nb: called "manually" at the end of getHints.
 	private void clean() {
-		hintsSet.clear();
-		workLoop.clear();
-		loops.clear();
-		extraCells.clear();
 		startCell = null;
 		idxs = null;
+		hintsSet.clear();
+		clearExtraCells();
+		clearWorkLoop();
+		clearLoops();
+		Arrays.fill(cmnRgns, null);
 		Cells.cleanCasA();
 	}
 
@@ -141,7 +180,7 @@ public final class UniqueRectangle extends AHinter
 				final int n = list.size();
 				if ( result=(n > 0) ) {
 					if ( n > 1 ) {
-						list.sort(AURTHint.BY_DIFFICULTY_DESC_TYPE_INDEX_ASC);
+						list.sort(AURTHint.BY_ORDER);
 					}
 					for ( AURTHint hint : list ) {
 						if ( accu.add(hint) ) {
@@ -159,20 +198,22 @@ public final class UniqueRectangle extends AHinter
 	}
 
 	private ArrayList<AURTHint> search(Grid grid) {
+		Cell[] loop;
+		Cell c1, c2;
+		int loopSize, extraVs, numExtraVs;
 		this.hintsSet.clear();
-		int v1, v2;
+		int v1, v2, i, j;
 		for ( Cell cell : grid.cells ) {
 			if ( cell.size == 2 ) {
 				v1 = VFIRST[cell.maybes];
 				v2 = VFIRST[cell.maybes & ~VSHFT[v1]];
-//				assert v1>=1 && v1<=9;
-//				assert v2>=1 && v2<=9;
-//				assert v2>v1;
-				loops.clear();
-				workLoop.clear();
-				MyArrays.clear(isInWorkLoop);
+				assert v1>=1 && v1<=9;
+				assert v2>=1 && v2<=9;
+				assert v2>v1;
+				clearLoops();
+				clearWorkLoop();
 				this.startCell = cell;
-				this.v1v2 = cell.maybes;
+				this.cands = cell.maybes;
 				// starting at startCell, find all loops of cells that maybe v1
 				// and v2 in grid, which have atmost 2 extra (not v1 or v2) vs.
 				// recurseLoops returns "Are there any loops?"
@@ -186,70 +227,52 @@ public final class UniqueRectangle extends AHinter
 				// param extraVs = 0 meaning none, yet. Each descent has it's
 				//       own extraVals variable, localising it; so that when we
 				//       pop-up out of each recursion extraVals returns to what
-				//       it was when we were last at this level in the callstack.
+				//       it was when we were last at this level in callstack.
 				//       This really is devilishly clever. I like it.
 				// param x = 2 is essential for algorithmic correctness, it's a
 				//       parameter because it's decremented in the descent, but
-				//       returns to it's previous value in each recursive ascent.
+				//       returns to its previous value in each recursive ascent
 				if ( recurseLoops(cell, -1, 0, 2) ) {
-					// now look for hints in the loops
-					for ( ArrayList<Cell> loop : loops ) { // probably unique.
+					// look for hints in the loops
+					for ( i=0; i<numLoops; ++i ) {
+						loop = loops[i];
+						loopSize = loopSizes[i];
 						// get cells in loop with extra (not v1 or v2) values.
 						// It's a field so no recreate, and no pass around.
 						// nb: all cells in loop maybe v1 and v2
-						extraCells.clear();
-						for ( Cell c : loop ) {
-							if ( c.size > 2 ) {
-								extraCells.add(c);
-							}
-						}
-						final int numExtraCells = extraCells.size();
-						// the type of URT possible depends mainly on numExtraCells
-						if ( numExtraCells == 1 ) {
+						clearExtraCells();
+						for ( j=0; j<loopSize; ++j )
+							if ( loop[j].size > 2 )
+								extraCells[numExtraCells++] = loop[j];
+						// type of URT possible mostly depends on numExtraCells
+						if ( numExtraCells == 1 )
 							// Try a type-1 hint
-							hintsSet.add(createType1Hint(v1, v2, loop));
-						} else if ( numExtraCells == 2 ) {
+							hintsSet.add(createType1Hint(v1, v2, loop, loopSize));
+						else if ( numExtraCells == 2 ) {
 							// Type 2 or 3 or 4 is possible
-							Cell c1=extraCells.get(0), c2=extraCells.get(1);
+							c1 = extraCells[0];
+							c2 = extraCells[1];
 							// a bitset of the extra values
-							final int extraVs = (c1.maybes | c2.maybes)
-											  & ~VSHFT[v1] & ~VSHFT[v2];
+							extraVs = (c1.maybes|c2.maybes) & ~VSHFT[v1]
+									& ~VSHFT[v2];
 							// the number of extra values
-							final int numExtraVs = VSIZE[extraVs];
+							numExtraVs = VSIZE[extraVs];
 							if ( numExtraVs == 1 ) { // Try type 2 hint
-								hintsSet.add(createType2OrHiddenHint(grid, v1, v2, loop));
+								hintsSet.add(createType2OrHiddenHint(grid
+										, v1, v2, loop, loopSize));
 							} else if ( numExtraVs >= 2 ) { // Try type 3 hint
-								hintsSet.addAll(createMultipleType3Hints(grid, v1, v2
-										, c1, c2, loop));
+								hintsSet.addAll(createMultipleType3Hints(grid
+										, v1, v2, c1, c2, loop, loopSize));
 							}
 							// Try type 4 hint
-							hintsSet.add(createType4Hint(loop, c1, c2, v1, v2));
+							hintsSet.add(createType4Hint(loop, loopSize
+									, c1, c2, v1, v2));
 						} else if ( numExtraCells > 2 ) {
 							// only Type 2 or Hidden Unique Rectangle possible
-							hintsSet.add(createType2OrHiddenHint(grid, v1, v2, loop));
+							hintsSet.add(createType2OrHiddenHint(grid, v1, v2
+									, loop, loopSize));
 						} else {
-							// Bad number (presumably 0) of rescue cells! This
-							// Sudoku has two solutions, so not my problem, so
-							// just log it. I think this CANT happen, coz grid
-							// has 1 solution to get here, so chase these down.
-							// This goes off in generate! BFIIK!
-							if ( Run.type != Run.Type.Generator ) {
-								Log.teeln();
-								Log.teef("%s: Bad number of rescue cells!\n", getClass().getSimpleName());
-								Log.teeln("    numExtraCells = "+numExtraCells);
-								Log.teeln("    extraCells = "+Frmu.toFullString(extraCells));
-								Log.teeln("    loop = "+Frmu.toFullString(loop));
-								Log.teeln("    cell = "+cell.toFullString());
-								Log.teeln("    v1 = "+v1);
-								Log.teeln("    v2 = "+v2);
-								Log.teeln();
-								Log.teeln(grid);
-								Log.teeln();
-								Log.teeTrace(new Throwable());
-								Log.teeln();
-								// for LogicalSolverTester
-								java.awt.Toolkit.getDefaultToolkit().beep();
-							}
+							badRescue(loop, loopSize, cell, v1, v2, grid);
 							return null;
 						}
 					} // next loop
@@ -257,6 +280,31 @@ public final class UniqueRectangle extends AHinter
 			}
 		} // next cell
 		return new ArrayList<>(hintsSet);
+	}
+
+	private void badRescue(final Cell[] loop, final int loopSize
+			, final Cell cell, final int v1, final int v2, final Grid grid) {
+		// Bad number (presumably 0) of rescue cells! This Sudoku has two
+		// solutions, so not my problem, so just log it. I think this CAN'T
+		// happen, coz grid has 1 solution to get here, so chase these down.
+		// This goes off in generate! BFIIK!
+		if ( Run.type != Run.Type.Generator ) {
+			Log.teeln();
+			Log.teef("%s: Bad number of rescue cells!\n", getClass().getSimpleName());
+			Log.teeln("numExtraCells = "+numExtraCells);
+			Log.teeln("extraCells = "+Frmu.toFullString(", ", numExtraCells, extraCells));
+			Log.teeln("loop = "+Frmu.toFullString(", ", loopSize, loop));
+			Log.teeln("cell = "+cell.toFullString());
+			Log.teeln("v1 = "+v1);
+			Log.teeln("v2 = "+v2);
+			Log.teeln();
+			Log.teeln(grid);
+			Log.teeln();
+			Log.teeTrace(new Throwable());
+			Log.teeln();
+			// for LogicalSolverTester
+			java.awt.Toolkit.getDefaultToolkit().beep();
+		}
 	}
 
 	/**
@@ -296,38 +344,45 @@ public final class UniqueRectangle extends AHinter
 	 *  extraVs allowed in the loop. nXs starts at 2, and is decremented as we
 	 *  extend the loop, while it stays above 0 (or VSIZE[extraVs]==1).
 	 */
-	private boolean recurseLoops(Cell cc, int prevRti, int extraVs, int x) {
+	private boolean recurseLoops(final Cell cc, final int prevRti, int extraVs
+			, final int x) {
 //++numFindLoops; // observed 14,521 calls in 1 analyse of 1 puzzle
-		workLoop.add(cc);
+		workLoop[workLoopSize++] = cc;
 		isInWorkLoop[cc.i] = true;
 		ARegion r; // region
 		Cell c; // cell
 		int maybes // c.maybes
 		  , rti // regionTypeIndex
-		  , ci;  // cellIndex
+		  , ci // cellIndex
+		  , i; // the ubiqitious index
+		boolean ok; // are we good?
 		// presume that no loops will be found
 		boolean result = false;
 		for ( rti=0; rti<Grid.NUM_REGION_TYPES; ++rti ) { // BOX, ROW, COL
 			// skip if the current rti equals the previous region type
 			if ( (r=cc.regions[rti]).typeIndex != prevRti ) {
 				for ( ci=0; ci<REGION_SIZE; ++ci ) { // 2*9=18 * 14,521=261,378
-					if ( (c=r.cells[ci])==startCell && workLoop.size()>3 ) {
+					if ( (c=r.cells[ci])==startCell && workLoopSize>3 ) {
 						// loop closed: store if valid and not already exists.
-						// NB: contains is slow (can be done faster) but there
-						// aren't many loops, so you could save a half a second
-						// on top1465, or possibly nothing. I haven't bothered.
-						// The code works without this check, but even the slow
-						// contains impl is faster than checking multiples of
-						// the same loop for Hidden URT's (so if Hidden URTs
-						// are dropped then also drop the contains check).
-						if ( isValid(workLoop) && !loops.contains(workLoop) ) {
-							result = loops.add(new ArrayList<>(workLoop));
+						if ( isValid(workLoop, workLoopSize) ) {
+							workLoopIdx.set(workLoop, workLoopSize);
+							for ( ok=true,i=0; i<numLoops; ++i )
+								if ( loopsIdxs[i].hasAll(workLoopIdx) ) {
+									ok = false;
+									break;
+								}
+							if ( ok ) {
+								loopsIdxs[numLoops].set(workLoopIdx);
+								loopSizes[numLoops] = workLoopSize;
+								loops[numLoops++] = Arrays.copyOf(workLoop, workLoopSize);
+								result = true;
+							}
 						}
 					// skip if cell may NOT be both v1 and v2
 					//      or is already in workLoop
-					} else if ( (c.maybes & v1v2)==v1v2 && !isInWorkLoop[c.i] ) {
+					} else if ( (c.maybes & cands)==cands && !isInWorkLoop[c.i] ) {
 						// mutate my local extraVs, to build-it-up as we go
-						extraVs |= (maybes=c.maybes) & ~v1v2;
+						extraVs |= (maybes=c.maybes) & ~cands;
 						// continue this search:
 						// if cell has two maybes: v1 and v2 (no extras);
 						// or cell has extra values and the maximum number of
@@ -338,7 +393,7 @@ public final class UniqueRectangle extends AHinter
 						if ( VSIZE[maybes]==2 || x>0 || VSIZE[extraVs]==1
 						  // * Hidden Unique Rectangles are 4 cells (no loops)
 						  //   having atleast one extraVs (do the rest later)
-						  || (workLoop.size()<4 && VSIZE[extraVs]>0) ) {
+						  || (workLoopSize<4 && VSIZE[extraVs]>0) ) {
 							result |= recurseLoops(c, r.typeIndex, extraVs
 									, VSIZE[maybes]>2 ? x-1 : x);
 						}
@@ -347,8 +402,8 @@ public final class UniqueRectangle extends AHinter
 			} // next cell in region
 		} // next region of currCell
 		// rollback
-		Cell lastAdded = workLoop.remove(workLoop.size() - 1);
-		isInWorkLoop[lastAdded.i] = false;
+		isInWorkLoop[cc.i] = false;
+		--workLoopSize;
 		return result;
 	}
 
@@ -361,10 +416,11 @@ public final class UniqueRectangle extends AHinter
 	 * (with at most two having extraVs), so I don't check it.
 	 *
 	 * @param grid the grid
-	 * @param loop the cells of the loop
+	 * @param workLoop the cells of the loop
+	 * @param workLoopSize the number of cells in the loop
 	 * @return whether the given loop is a candidate for a unique loop
 	 */
-	private boolean isValid(List<Cell> loop) {
+	private boolean isValid(final Cell[] workLoop, final int workLoopSize) {
 		// we build two sets: odds and evens. The first cell is an even, the
 		// second is an odd, and so on around the loop. Then we check that
 		// the two sets contain exactly the same regions.
@@ -372,13 +428,11 @@ public final class UniqueRectangle extends AHinter
 		try {
 			Set<ARegion> set;
 			boolean isEven = true;
-			for ( Cell cell : loop ) {
+			for ( int i=0; i<workLoopSize; ++i ) {
 				set = isEven ? evens : odds;
-				for ( ARegion r : cell.regions ) {
-					if ( !set.add(r) ) { // add only (no update).
+				for ( ARegion r : workLoop[i].regions )
+					if ( !set.add(r) ) // add only (no update).
 						return false; // "I told him we've already got one"
-					}
-				}
 				isEven = !isEven;
 			}
 			// Each region has been visited once with each parity (or never)
@@ -395,16 +449,16 @@ public final class UniqueRectangle extends AHinter
 	private final Set<ARegion> evens = new RegionSet();
 	private final Set<ARegion> odds = new RegionSet();
 
-	private AURTHint createType1Hint(int v1, int v2, ArrayList<Cell> loop) {
-		Cell rescueCell = extraCells.get(0);
+	private AURTHint createType1Hint(int v1, int v2, Cell[] loop, int loopSize) {
+		Cell rescueCell = extraCells[0];
 		Pots redPots = new Pots(rescueCell, VSHFT[v1]|VSHFT[v2], false);
-		return new URT1Hint(this, loop, v1, v2, redPots, rescueCell);
+		return new URT1Hint(this, loop, loopSize, v1, v2, redPots, rescueCell);
 	}
 
 	private AURTHint createType2OrHiddenHint(Grid grid, int v1, int v2
-			, ArrayList<Cell> loop) {
+			, Cell[] loop, int loopSize) {
 		// cellsWithExtraValuesArray := extraCells list
-		final Cell[] xCells = extraCells.toArray(new Cell[extraCells.size()]);
+		final Cell[] xCells = Arrays.copyOf(extraCells, numExtraCells);
 		// get the extra values: loop-cells maybes except v1 and v2
 		int extraVs = 0;
 		for ( Cell c : xCells ) {
@@ -429,7 +483,7 @@ public final class UniqueRectangle extends AHinter
 			// build the removable (red) potentials
 			final Pots reds = new Pots(extraV, extraBuds.cellsA(grid));
 			// build and return the hint
-			return new URT2Hint(this, loop, v1, v2, reds, xCells, extraV);
+			return new URT2Hint(this, loop, loopSize, v1, v2, reds, xCells, extraV);
 		} else {
 			// Hidden Unique Rectangle
 			// This code relies on the rather odd A,B,D,C order! loop contains
@@ -437,24 +491,24 @@ public final class UniqueRectangle extends AHinter
 			// from A (a bivalue cell), then find B in the same box, then D in
 			// the same row-or-col, and finally C in the same col-or-row.
 			// NB: 468 Hidden URT's in top1465, so it's worth the hastle.
-//			final Cell A = loop.get(0); // the start cell
-			final Cell B = loop.get(1);
-			final Cell D = loop.get(2); // NOTE: D and C out of order (above).
-			final Cell C = loop.get(3);
+//			final Cell A = loop[0]; // the start cell
+			final Cell B = loop[1];
+			final Cell D = loop[2]; // NOTE: D and C out of order (above).
+			final Cell C = loop[3];
 			// A is a or b only, B and C require 1-or-more extra values;
 			// and D has no constraint (it's allowed 0-or-more extra values).
 			if ( B.size>2 && C.size>2 ) {
 				// Are B and D the only places for 'a' (v1) in a common region;
 				//         OR (the only places for 'b' (v2) in a common region
 				//             and if so we swap v1 and v2, to make v1 'a')
-				List<ARegion> bases = null;
+				ARegion[] bases = null;
 				int l=0, e=0; // locked-in value, eliminatable value
 				int n = Regions.common(B, D, cmnRgns);
 				for ( int i=0; i<n; ++i ) {
 					// we know that both B and D maybe v1, so just check that
 					// r has ONLY these two places for v1.
 					if ( cmnRgns[i].ridx[v1].size == 2 ) {
-						bases = Regions.list(cmnRgns[i]);
+						bases = Regions.array(cmnRgns[i]);
 						l = v1;
 						e = v2;
 						break;
@@ -462,7 +516,7 @@ public final class UniqueRectangle extends AHinter
 					// we know that both B and D maybe v2, so check that r has
 					// ONLY two places for v2. Note that l=v2 and e=v1.
 					if ( cmnRgns[i].ridx[v2].size == 2 ) {
-						bases = Regions.list(cmnRgns[i]);
+						bases = Regions.array(cmnRgns[i]);
 						l = v2;
 						e = v1;
 						break;
@@ -470,13 +524,13 @@ public final class UniqueRectangle extends AHinter
 				}
 				if ( bases != null ) {
 					// are C and D the only places for 'l' in a common region
-					List<ARegion> covers = null;
+					ARegion[] covers = null;
 					n = Regions.common(C, D, cmnRgns);
 					for ( int i=0; i<n; ++i ) {
 						// we know that both C and D maybe 'l', so just check
 						// that r has ONLY these two places for 'l'.
 						if ( cmnRgns[i].ridx[l].size == 2 ) {
-							covers = Regions.list(cmnRgns[i]);
+							covers = Regions.array(cmnRgns[i]);
 							break;
 						}
 					}
@@ -485,19 +539,17 @@ public final class UniqueRectangle extends AHinter
 						// get the removable (red) potentials
 						final Pots reds = new Pots(D, e);
 						// build and return the hint: bases BD, and covers CD
-						return new URTHiddenHint(this, loop, l, e, reds
-							, bases, covers);
+						return new URTHiddenHint(this, loop, loopSize, l, e
+								, reds, bases, covers);
 					}
 				}
 			}
 		}
 		return null;
 	}
-	// THE common regions array (re-used rather than create junk collections)
-	private final ARegion[] cmnRgns = new ARegion[2];
 
 	private List<AURTHint> createMultipleType3Hints(Grid grid, int v1, int v2
-			, Cell c1, Cell c2, ArrayList<Cell> loop) {
+			, Cell c1, Cell c2, Cell[] loop, int loopSize) {
 		final List<AURTHint> hints = new LinkedList<AURTHint>() {
 			private static final long serialVersionUID = 10948320L;
 			/** Note that add ignores nulls! */
@@ -515,8 +567,8 @@ public final class UniqueRectangle extends AHinter
 		// which case we search both common regions for Naked and Hidden Sets
 		// NOTE: this code is executed rarely enough for us to get away with
 		// creating a new Collection on each invocation, but it's not ideal.
-		final List<ARegion> cmnRgns = commonRegions(grid, c1, c2);
-		if ( cmnRgns.isEmpty() ) {
+		final List<ARegion> commonRegions = commonRegions(grid, c1, c2);
+		if ( commonRegions.isEmpty() ) {
 			return hints; // an empty list
 		}
 		// look for Naked and Hidden sets.
@@ -524,16 +576,16 @@ public final class UniqueRectangle extends AHinter
 			// create here with the setSize, which is OK coz we're rare.
 			int[] maybes = new int[n];
 			// foreach region that contains both c1 and c2
-			for ( ARegion r : cmnRgns ) { // 1 or 2 of them
+			for ( ARegion r : commonRegions ) { // 1 or 2 of them
 				// look for Naked Sets
 				if ( n*2 <= r.emptyCellCount ) {
 					lookForNakedSets(n, extraVs, c1, c2, maybes, r, loop
-							, v1, v2, hints);
+							, loopSize, v1, v2, hints);
 				}
 				// look for Hidden Sets
 				if ( n*2<r.emptyCellCount && n-2<=numRmvVs ) {
 					lookForHiddenSets(n, numRmvVs, r.indexOf(c2), extraVs
-							, c1, c2, r, loop, v1, v2, hints);
+							, c1, c2, r, loop, loopSize, v1, v2, hints);
 				}
 			} // next common region
 		} // for degree
@@ -577,7 +629,7 @@ public final class UniqueRectangle extends AHinter
 	 */
 	private void lookForNakedSets(int n, final int extraVals
 			, Cell c1, Cell c2, int[] maybes, ARegion region
-			, ArrayList<Cell> loop, int v1, int v2
+			, Cell[] loop, int loopSize, int v1, int v2
 			, final Collection<AURTHint> hints) {
 		// We look at each combination of $degree cells in this region which
 		// includes c1 but not c2
@@ -619,8 +671,8 @@ public final class UniqueRectangle extends AHinter
 			  && (cmnMaybes=Values.common(maybes, n)) != 0 )
 				// naked set found, but does it eliminate anything?
 				// note that hints.add ignores nulls
-				hints.add(createType3NakedSetHint(loop, v1, v2, extraVals
-						, region, c1, c2, otherCells, cmnMaybes));
+				hints.add(createType3NakedSetHint(loop, loopSize, v1, v2
+						, extraVals, region, c1, c2, otherCells, cmnMaybes));
 		} // next permutation
 	}
 
@@ -636,8 +688,8 @@ public final class UniqueRectangle extends AHinter
 		return foundIdxOfC1;
 	}
 
-	private AURTHint createType3NakedSetHint(List<Cell> loop, int v1, int v2
-			, int extraVals, ARegion region, Cell c1, Cell c2
+	private AURTHint createType3NakedSetHint(Cell[] loop, int loopSize, int v1
+			, int v2, int extraVals, ARegion region, Cell c1, Cell c2
 			, Cell[] otherCells, int nkdSetVals) {
 		// Build removable potentials (as efficiently as possible)
 
@@ -658,7 +710,7 @@ public final class UniqueRectangle extends AHinter
 			}
 		if ( reds == null )
 			return null; // no eliminations! 90+% return here
-		return new URT3NakedSetHint(this, loop, v1, v2, reds, c1, c2
+		return new URT3NakedSetHint(this, loop, loopSize, v1, v2, reds, c1, c2
 				, extraVals, region, otherCells, nkdSetVals);
 	}
 
@@ -688,7 +740,7 @@ public final class UniqueRectangle extends AHinter
 	 */
 	private void lookForHiddenSets(int N, int numRmvVals, int idxOfC2
 			, final int extraVals, Cell c1, Cell c2, ARegion r
-			, ArrayList<Cell> loop, int v1, int v2
+			, Cell[] loop, int loopSize, int v1, int v2
 			, final Collection<AURTHint> hints
 	) {
 		// constants
@@ -724,15 +776,16 @@ public final class UniqueRectangle extends AHinter
 			if ( VSIZE[bits] == N )
 				// Hidden set found, but does it remove any maybes?
 				// nb: hints.add ignores nulls (it'll just return false)
-				hints.add( createType3HiddenSetHint(loop, v1, v2, extraVals
-						, Values.bitset(hdnSetVals), r, c1, c2, new Indexes(bits)) );
+				hints.add(createType3HiddenSetHint(loop, loopSize, v1, v2
+						, extraVals, Values.bitset(hdnSetVals), r, c1, c2
+						, new Indexes(bits)));
 		} // next permutation
 	}
 
-	private AURTHint createType3HiddenSetHint(final List<Cell> loop
-			, final int v1, final int v2, final int extraVals
-			, final int hdnSetValues, final ARegion r, final Cell c1
-			, final Cell c2, final Indexes hdnSetIdxs) {
+	private AURTHint createType3HiddenSetHint(final Cell[] loop
+			, final int loopSize, final int v1, final int v2
+			, final int extraVals, final int hdnSetValues, final ARegion r
+			, final Cell c1, final Cell c2, final Indexes hdnSetIdxs) {
 		// remove c1 and c2 from hdnSetIdxs
 		// nb: hdnSetIdxs is MINE (it was created in the call to me).
 		hdnSetIdxs.remove(r.indexOf(c1));
@@ -748,7 +801,7 @@ public final class UniqueRectangle extends AHinter
 			}
 		if ( reds == null )
 			return null;
-		return new URT3HiddenSetHint(this, loop, v1, v2, reds, c1, c2
+		return new URT3HiddenSetHint(this, loop, loopSize, v1, v2, reds, c1, c2
 				, extraVals, hdnSetValues, r, hdnSetIdxs);
 	}
 
@@ -760,7 +813,7 @@ The first URT Type 4
 24   	        481,100	25	 182	  2	Unique Rectangle              	Unique Rectangle type 4: H3, I3, I9, H9 on 3 and 4 (I3-4, I9-4)
 */
 	// Note that SE's Type 4 includes Uniqueness Test 6.
-	private AURTHint createType4Hint(List<Cell> loop, Cell c1, Cell c2
+	private AURTHint createType4Hint(Cell[] loop, int loopSize, Cell c1, Cell c2
 			, int v1, int v2) {
 		// Look for v1 or v2 locked in the region common to c1 and c2. The
 		// value that's locked into a region can be removed from cells with
@@ -803,13 +856,13 @@ The first URT Type 4
 		// either r1==null or r2==null, but not both
 		// nb: Executed rarely, so terniaries are fast enough.
 		ARegion region = r1!=null ? r1 : r2;
-		int lockValue  = r1!=null ? v1 : v2;
-		int vToRemove  = r1!=null ? v2 : v1;
+		int lockValue = r1!=null ? v1 : v2;
+		int vToRemove = r1!=null ? v2 : v1;
 		Pots redPots = new Pots();
 		redPots.put(c1, VSHFT[vToRemove]);
 		redPots.put(c2, VSHFT[vToRemove]);
-		return new URT4Hint(this, loop, lockValue, vToRemove, redPots, c1, c2
-				, region);
+		return new URT4Hint(this, loop, loopSize, lockValue, vToRemove
+				, redPots, c1, c2, region);
 	}
 	private final UrtCellSet cs = new UrtCellSet();
 

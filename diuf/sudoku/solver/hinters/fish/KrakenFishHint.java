@@ -53,28 +53,20 @@ public class KrakenFishHint extends AHint  {
 
 	private final ComplexFishHint cause;
 	private final Type hType;
-//not used
-//	private final Values valsToRemove;
 	private final List<Ass> chains;
-//not used
-//	private final Idx fins;
 	KrakenFishHint(AHinter hinter
 			, Pots reds
 			, ComplexFishHint cause
-//			, Values valsToRemove
 			, Type type
 			, List<Ass> chains
-//			, Idx fins
 	) {
 		super(hinter, reds);
 		this.cause = cause;
 		this.hType = type;
-//		this.valsToRemove = valsToRemove;
 		this.chains = chains;
-//		this.fins = fins;
 		cleanPots();
 	}
-	
+
 	// needed to squeeze the bloody hint toString!
 	@Override
 	public boolean isKraken() {
@@ -119,12 +111,12 @@ public class KrakenFishHint extends AHint  {
 	}
 
 	@Override
-	public List<ARegion> getBases() {
+	public ARegion[] getBases() {
 		return cause.bases;
 	}
 
 	@Override
-	public List<ARegion> getCovers() {
+	public ARegion[] getCovers() {
 		return cause.covers;
 	}
 
