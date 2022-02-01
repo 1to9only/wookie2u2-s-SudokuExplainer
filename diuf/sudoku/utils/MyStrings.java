@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -205,7 +205,7 @@ public final class MyStrings {
 		return s;
 	}
 
-	/** 
+	/**
 	 * Wrap the String 's' into lines of maximum 'len' on spaces.
 	 *
 	 * @param s to be word-wrapped
@@ -216,8 +216,13 @@ public final class MyStrings {
 		int n = s.length();
 		if ( n < len )
 			return s;
-		final StringBuilder sb = new StringBuilder(n + n/80*NL.length() + 1);
-		// wrap at the last space before len in s
+		// len-6 is len-12/2, where 12 is arbitraryModalMaxWordLength, ie the
+		// length of the longest words that one typically knows how to spell.
+		// It's only a StringBuilder starting capacity so don't overthink it.
+		final StringBuilder sb = new StringBuilder(n + n/(len-6)*NL.length() + 1);
+		// replace the last space before len in s with a NL,
+		// and s becomes the remainder of the string,
+		// and around we go again.
 		for ( int i=len; i>0 && n>len; --i ) {
 			if ( s.charAt(i) == ' ' ) {
 				sb.append(s.substring(0, i)).append(NL);

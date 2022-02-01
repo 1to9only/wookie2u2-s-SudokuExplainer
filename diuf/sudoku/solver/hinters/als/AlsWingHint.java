@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -39,7 +39,6 @@ public class AlsWingHint extends AHint  {
 	private final int y;
 	private final String zs;
 	private final Rcc[] rcs; // for DEBUG_MODE only (normally null)
-	String debugMessage; // set by AlsWing directly AFTER AlsWingHint created
 
 	public AlsWingHint(final AHinter hinter, final Pots reds, final Als a
 			, final Als b, final Als c, final int x, final int y
@@ -107,13 +106,11 @@ public class AlsWingHint extends AHint  {
 			return als.format();
 		}
 	}
-	
+
 	@Override
 	public String toHtmlImpl() {
 		if ( AlsWing.DEBUG_MODE ) {
-			debugMessage = Html.colorIn("<p><b2>"+java.util.Arrays.toString(rcs)+"</b2>");
-		} else {
-			debugMessage = "";
+			setDebugMessage(Html.colorIn("<p><b2>"+java.util.Arrays.toString(rcs)+"</b2>"));
 		}
 		return Html.produce(this, "AlsWingHint.html"
 			, format(a)+" on x="+Integer.toString(x)	//{0}

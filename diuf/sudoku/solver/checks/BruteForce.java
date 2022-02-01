@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.checks;
@@ -27,21 +27,34 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * BruteForce implements the OneSolution Sudoku solving technique, which
- * determines: Does this Sudoku have one-and-only-one solution.
+ * BruteForce implements the NotOneSolution Sudoku solving technique, which
+ * determines: Does this Sudoku have one-and-only-one solution. This is Donald
+ * Knuths algorithm for recursively guessing cell-values, which is FAST!
  * <p>
- * BruteForce is Donald Knuths algorithm for recursively guessing cell-values,
- * which is frightfully FAST! <br>
- * We solve the puzzle twice: once forwards (using smallest potential value of
- * each cell-value guessed), and once backwards (largest); and if those two
- * solutions are equal then the puzzle has a unique solution, ergo it's valid. <br>
- * If, however, the puzzle has zero or multiple solutions (ergo invalid) then
+ * We solve the puzzle twice:<ul>
+ * <li>once forwards (smallest potential value), and
+ * <li>once backwards (largest potential value); and
+ * <li>if those two solutions are the same then <br>
+ * the puzzle has a unique solution, ie the puzzle is valid.
+ * <li>If however the puzzle has zero or many solutions then <br>
  * we add a WarningHint (or a subtype thereof) to the IAccumulator.
+ * </ul>
+ * Be warned that in practice, invalid puzzle often means the solver is broken.
+ * Ie BruteForce or one of the fourQuickFoxes doesn't work properly anymore,
+ * probably due to a recent change, so most recently modified first. Obviously
+ * this only applies if you KNOW the puzzles you're testing ARE valid. Puzzles
+ * produced by the Generator are often invalid (many solutions), coz it removes
+ * each clue (in a random order) to see if that makes the puzzle invalid.
  * <p>
- * The handling of the solution (presuming there is one) is a bit interesting.
- * We solve the puzzle twice in order to validate it, so we definitely don't
- * want to wait for it to be solved again if/when we want the solution, instead
- * we cache the correct value of each cell in the {@link Grid#solution} field.
+ * The handling of the solution (for valid puzzles) is interesting. We solve
+ * the puzzle twice in order to validate it, so we definitely don't want to
+ * wait for it to be solved again if/when we want that solution, instead we
+ * cache the correct value of each cell in the {@link Grid#solution} field, so
+ * a valid Sudoku Grid contains it's own solution, for future reference by the
+ * Validator, et al. I feel the weird, the weird for speed.
+ * <p>
+ * nb: I kept renaming this class, but returned to BruteForce, because it's
+ * effectively a proper noun to algorithm afficionados, apparently. My bad!
  */
 public final class BruteForce extends AWarningHinter {
 
@@ -91,8 +104,8 @@ public final class BruteForce extends AWarningHinter {
 	// @param isStringy = true to enbuffenate hints toFullString. // for debug!
 	//        isStringy = false to not waste time enbuffenating. // normal use!
 	//  the passed AHint.printHintHtml is only true in LogicalSolverTester when
-	//  the compile-time constant PRINT_HINT_HTML is true and we re-process ONE
-	//  puzzle, because output is too verbose for "normal" use, and its slower.
+	//  Run.PRINT_HINT_HTML is true and we re-process ONE puzzle, coz output is
+	//  too verbose for "normal" use (could fill C: which is PANIC).
 	// @param isAutosolving = true, so it'll set any subsequent singles coz it
 	//  can do it faster than THE_SINGLES, coz Cell.set has less area to search
 	//  (20 siblings, verses 81 cells) for the next cell to set. This also
@@ -207,7 +220,7 @@ public final class BruteForce extends AWarningHinter {
 	}
 
 	/**
-	 * Does this grid have a single solution? ie is this a valid Sudoku?.
+	 * Produce a WarningHint unless this Sudoku has one-and-only-one solution.
 	 * <p>
 	 * If the Sudoku has:
 	 * <ul>

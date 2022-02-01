@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -21,18 +21,19 @@ package diuf.sudoku.solver.hinters.als;
 public class AlsHelper {
 
 	/**
-	 * Return the hint.alss index of alsId in a..z,aa..az.
-	 * <p>
-	 * In current practice, the highest known used alsId is 'x'.
+	 * Return the hint.alss index of alsId in a..z,aa..az,
+	 * but the highest alsId that is currently used is 'x'.
 	 *
 	 * @param alsId a..z,aa..az
-	 * @return index 0..52, but current highest for 'x' is 24
+	 * @return index 0..52, else -1 (NONE) meaning invalid alsId
 	 */
-	public static int alsIndex(String alsId) {
+	public static int alsIndex(final String alsId) {
 		try {
-			int i = alsId.charAt(0) - 'a';
-			if ( alsId.length() == 2 )
-				i = i*26 + (alsId.charAt(1) - 'a');
+			if ( alsId.length() != 2 )
+				return -1; // NONE
+			final int i = (alsId.charAt(0) - 'a')*26 + (alsId.charAt(1) - 'a');
+			if ( i<0 || i>52 )
+				return -1; // NONE
 			return i;
 		} catch (Exception eaten) {
 			return -1; // NONE
@@ -50,7 +51,8 @@ public class AlsHelper {
 	 * @param i
 	 * @return
 	 */
-	public static String alsId(int i) {
+	public static String alsId(final int i) {
+		assert i > -1;
 		if ( i < 26 )
 			return ""+((char)('a'+i)); // a..z
 		// beyond 52 breaks these labels (my max is 32)

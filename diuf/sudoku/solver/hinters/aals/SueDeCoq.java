@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * This class is based on HoDoKu's MiscellaneousSolver, by Bernhard Hobiger.
@@ -38,6 +38,7 @@ import diuf.sudoku.Grid.Box;
 import static diuf.sudoku.Grid.CELL_IDXS;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
+import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Values;
@@ -57,16 +58,16 @@ import diuf.sudoku.solver.hinters.AHinter;
  * The author of SueDeCoq gave it a long esoteric name, so folks just called it
  * after it's author, which stuck, so SueDeCoq it is. Personally, I just love
  * the name SueDeCoq, and we're just kicking off on sueing cocks, but then I'm
- * Australian, and I advise you to completely disregard the collective opinions
- * of a whole nation wall to wall with convicted convicts, except probably Gus,
- * which is exactly why he spends more time in jail. Nicking someone else's
- * country tends to leave an ugly mark in your soul, and your kids, and there
- * kids, and there kids... So obviously the only workable solution is to totes
- * blame some other bastard, and jail them all. It can't be MY fault. Simples!
+ * Australian, and I advise you to completely disregard the collective opinion
+ * of a whole nation of convicted convicts, except maybe Gus, which is exactly
+ * why he's in jail. Nicking someone's land leaves an ugly mark on your soul,
+ * and your kids, and there kids, and so on; so the only solution is to totes
+ * blame the other bastard, and kill them all. It can't be MY fault. Simples!
+ * There is no them ya ____ing moron! There is only us, such as we are.
  * <p>
  * WARNING: I implemented SueDeCoq to understand it, but I can't, so SueDeCoq
- * almost certainly has bugs. You have been warned. There's a few SueDeCoq's in
- * top1465, ie they're pretty rare, or this code is defective. sigh.
+ * almost certainly has bugs. You have been warned. There's a few SueDeCoqs in
+ * top1465, ie they're pretty rare; and this code may well be deficient. Sigh.
  *
  * @author Keith Corlett 2021 Jan
  */
@@ -91,9 +92,9 @@ public class SueDeCoq extends AHinter {
 	private final Idx lineAllIdx = new Idx();
 	/** All indices in the current box (empty cells only). */
 	private final Idx boxAllIdx = new Idx();
-	/** All final indices in the current intersection (empty cells only). */
+	/** All indices in the current intersection (empty cells only). */
 	private final Idx interAllIdx = new Idx();
-	/** The 2 or 3 empty cells in this intersection between line and box. */
+	/** The 2 or 3 empty cells in the intersection between line and box. */
 	private final int[] intersection = new int[3];
 	/** All indices only in line: line empties - intersection. */
 	private final Idx lineOnlyIdx = new Idx();
@@ -155,35 +156,30 @@ public class SueDeCoq extends AHinter {
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
 		// WARN: A single exit method, to clean-up the grid field.
-		boolean result;
-		this.grid = grid;
-//		this.maybes = grid.maybes();
-		this.maybes = grid.maybes;
-		this.accu = accu;
-		this.onlyOne = accu.isSingle();
+		final boolean result;
 		try {
-			if ( onlyOne ) {
-				result = search(grid.rows) || search(grid.cols);
-			} else {
-				result = search(grid.rows) | search(grid.cols);
-			}
+			this.grid = grid;
+			this.maybes = grid.maybes;
+			this.accu = accu;
+			result = (this.onlyOne = accu.isSingle())
+					? search(grid.rows) || search(grid.cols)
+					: search(grid.rows) | search(grid.cols);
 		} finally {
 			// clean-up after myself
 			this.grid = null;
 			this.accu = null;
 			this.line = null;
 			this.box = null;
-			Cells.cleanCasA();
 		}
 		return result;
 	}
 
 	/**
-	 * Searches each intersection of the given {@code lines} with the boxes,
+	 * Search each intersection of the given {@code lines} with the boxs,
 	 * delegating the search to {@link #searchInter}.
 	 *
-	 * @param lines array of regions to examine: grid.rows or grid.cols
-	 * @return
+	 * @param lines to examine: grid.rows or grid.cols
+	 * @return any hint/s found?
 	 */
 	private boolean search(ARegion[] lines) {
 		// examine each intersection between lines and boxs
@@ -192,31 +188,29 @@ public class SueDeCoq extends AHinter {
 		// presume that no hints will be found
 		boolean result = false;
 		// foreach row/col
-		for ( ARegion l : lines ) {
+		for ( ARegion l : lines )
 			// nb: in SueDeCoq each line has 0 or >= 2 empty cells, because
 			// HiddenSingle is mandatory, and it knocks-off the 1's, so that
 			// setAndAny is equivalent to setAndMany, it's just a bit faster.
 			// nb: we start with "All" sets of the empty cells in the regions,
 			// which searchInter then reduces down to "Act" sets of cells in
 			// the "actual" current sets. Clear?
-			if ( lineAllIdx.setAndAny((line=l).idx, empties) ) {
+			if ( lineAllIdx.setAndAny((line=l).idx, empties) )
 				// foreach intersecting box (each box this row/col crosses)
-				for ( Box b : l.intersectingBoxs ) {
-					// if theres many (> 1) empty cells in intersection
+				for ( Box b : l.intersectingBoxs )
+					// if theres 2+ empty cells in intersection
 					if ( interAllIdx.setAndMany(lineAllIdx
 							, boxAllIdx.setAnd((box=b).idx, empties))
-					  // and search the intersecting cells (2 or 3 of them)
-					  && searchInter()
-					) {
-						// we found a SueDeCoq (don't hold your breath)
-						result = true;
-						if ( onlyOne ) {
-							return result;
-						}
-					}
-				}
-			}
-		}
+					  // search the intersecting cells (2 or 3 of them)
+					  && (result |= searchInter())
+					  // we found a SueDeCoq
+					  && onlyOne )
+						return result;
+		// above result logic is a bit interesting. If onlyOne then the first
+		// result returns, else onlyOne is evalutated repeatedly once the first
+		// hint is found, but is still false, so doesn't return; then when we
+		// get down here result is true, so it works despite being more than a
+		// little convoluted; hence this explanation.
 		return result;
 	}
 
@@ -252,8 +246,9 @@ public class SueDeCoq extends AHinter {
 		// build a bitset of the combined maybes of cells in boxAllIdx,
 		// for efficient repeated reading down in checkLine.
 		i1 = 0; // hijack i1 as cands
-		for ( int i : boxAllIdx.toArrayB() ) {
-			i1 |= maybes[i];
+		try ( final IALease lease = boxAllIdx.toArrayLease() ) {
+			for ( int i : lease.array )
+				i1 |= maybes[i];
 		}
 		boxAllCands = i1;
 		// indices of the 2 or 3 empty cells in the intersection of line & box

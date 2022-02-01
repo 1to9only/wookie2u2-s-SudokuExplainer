@@ -32,12 +32,25 @@ My initial focus was TOO performance-centric.
 The downside is that some of the slower techs are unwanted, by default, so
 they're there if you're interested, but not slowing you down if you're not.
 <p>
-<b>Sudoku Explainer</b> analyses "the worlds hardest Sudoku puzzle" (according
-to conceptis.com) in 27 minutes with everything enabled (and unhacked) on my i7,
-but with my preferred solving techniques selected (see the Solving Techniques
-section below) it takes about 6 seconds, which is only 270 times faster, so slow
-Tech selection hurts. SE has a wheel alignment problem. Mutants are best left
-alone. Damn the Kraken!
+<b>Sudoku Explainer</b> analyses The Worlds Hardest Sudoku Puzzle according to
+conceptis.com in 27 minutes with everything enabled (and unhacked) on my i7, but
+with my preferred solving techniques "wanted" it takes just 4.3 seconds, which
+is only 373 times faster, so slow Techs hurt.
+<p>
+This is how Sudoku Explainer ships, with my current settings file.
+<p>
+Select everything except:<ul>
+<li>All Jellyfish are slow, and the buggers sting.
+<li>HiddenQuad is poor value.
+<li>Penties are degenerates.
+<li>Sue your own DeCoq, mines busy doing push-ups in the long grass.
+<li>The complex fish: Franken, Mutant and Kraken (nuts!) are ALL over-rated.
+<li>SE has a truly awful wheel Alignment problem, taking ages to resolve.
+<li>And finally Nishio is a bit wiffio.
+<li>Explanations (such as they are) are in the Selecting Solving Techniques
+ section (below).
+<li>Repeating: This is how SE ships, with my current settings file.
+</ul>
 <pre>
 THE hardest Sudoku puzzle (conceptis.com)
 
@@ -66,8 +79,8 @@ typo. A reload could be handy later, so don't forget to save. Ctrl-S now.
 <p>
 Press F7 to validate: ie check that this puzzle has one and only one solution.
 I've seen insufficient clues in published Sudoku's; just some moron rushing to
-meet a publication deadline, armed with zero understanding of Sudoku, the force,
-algebra, and/or the ability to nut-out how to tie ones own shoelaces.
+meet a publication deadline, armed with zero comprehension of Sudoku, algebra,
+logic, the force, and/or the ability to workout how to tie ones own shoelaces.
 <p>
 If you hold down the left-mouse-button over the row labels it highlights all
 occurrences of that number, making patterns a bit easier to see. Drag the row
@@ -83,9 +96,11 @@ and read the advanced stuff when you get bored.
 <p>
 <h2>Advanced Stuff</h2>
 <p>
-More "advanced" Sudokuists will want to remove maybes, aka potential values, or
-candidates. That's those small grey digits in the empty cells. If you don't see
-any small grey digits goto the Options menu and select "Show maybes".
+More "advanced" Sudokuists will want to remove maybes, as in cell "may be" this
+value. Maybes are also commonly called potential values, or candidates. No
+matter what you call them, they're displayed as small grey digits in the "empty"
+cells. An empty cell is a cell whose value is yet to be determined. If you don't
+see any small grey digits goto the Options menu and select "Show&nbsp;maybes".
 <p>
 To remove a maybe right click on the small grey digit; or using the keyboard:
 select the cell with the arrow keys and then Ctrl-digit. Do the same to restore
@@ -95,13 +110,20 @@ You'll notice that <b>Sudoku Explainer</b> enforces the basic rule of Sudoku:
 <i>"There will be one-and-only-one instance of each value in each region"</i>.
 So when you punch a 7 into a cell then all the 7's disappear from the maybes of
 other cells in the box (the 3x3 block), row (horizontal), and col (vertical),
-and no matter what you do you can't get them back, unless you zap that 7.
+and no matter what you do you can't get them back, until you zap that 7, when
+they all reappear magically.
 <p>
 To zap the 7 click on the cell and press the 0 key, or delete, or the space bar.
 <p>
 Sudoku puzzle books are all a bit soft (it's an expert scale) so just seeing the
 maybes could get you unstuck; but if not then press F5 to find a hint. Then you
 can just press enter to apply that hint and get next, and next... Solvered!
+<p>
+FYI, my mom does Sudokus. Occasionally she get's stuck. I punch it in and step
+through the solution, and then mark-up her Sudoku book with any hints which are
+harder than HiddenPair. That's usually enough to get her going again. She has no
+idea how much harder Sudokus can get than the published garbage (nothing above
+medium, ergo you're still on your P's in the expert world).
 <p>
 <h3>Buttons</h3>
 The following "frequently used" <b>buttons</b> are arranged along the bottom
@@ -112,21 +134,24 @@ of the form (I never use the buttons, or the menus. I hope they still work):
   (simplest possible) step in solving the puzzle. Click the [Solve step] button
   again to apply the selected hint, and get the next one; or just double-click
   on the hint in the hints tree, or click in the hintsTree (to select it) and
-  press enter. That's how to watch a Sudoku puzzle being solved: Just Keep
-  Pressing Enter! which takes all the fun out of it really, except that SE
-  solves any Sudoku puzzle, even really <i>really</i> <i><b>really</b></i> hard
-  ones (like conceptis's above). My challenge is to solve all <u>possible</u>
-  Sudoku puzzles as simply as possible to provide a step-by-step explanation;
-  and do it all as quickly as possible; just because Sudoku was there.
+  press enter. That's how to watch a Sudoku puzzle being solved: <b>Just Keep
+  Pressing Enter!</b> which takes all the fun out of it really, except that SE
+  solves ANY Sudoku puzzle, even really <i>really</i> <i><b>really</b></i> hard
+  ones (like conceptis's above). My challenge is to solve all possible Sudoku
+  puzzles as simply and quickly as possible, and provide a step-by-step
+  explanation of that solution, just because it was there (Hillary E.),
+  all whilst not taking ones self too seriously (Adams D.). Just be glad I'm not
+  (currently) disennotenating your PH.
  <li><b>Get next hint</b> to get hints again without applying the current one.
-  Why would you do that? Because there's a button for it, obviously!<br>
+  Why would you do that? Because there's a button for it, obviously!
  <li><b>Apply hint</b> to apply the current hint, without getting the next one.
   You can select multiple hints in the HintsTree and apply them all with this
   button; or Just Press Enter! Dunno why you'd actually do that, but it is
-  possible, because there's a button for it, which is nice really, isn't it.
+  possible, because there's a button for it, which is nice really, isn't it?
  <li><b>Get all hints</b> which can be applied to the current grid. Hold down
   the shift key to get even more hints, but be forewarned, this can take a
-  minute (or three) on my i7 UNLESS you've sorted-out your wanted Techs!
+  minute (or three) on my i7 UNLESS you sort-out your wanted bloody Techs!
+  There's more on this later. More on. Get it? Sigh. My bad. Soz.
 </ul>
 <p>
 <h3>Controls worth a blurb</h3><ul>
@@ -140,12 +165,13 @@ of the form (I never use the buttons, or the menus. I hope they still work):
   20,000+ hints when Filter hints is unselected, which "bogs" the GUI.<ul>
   <li>The Filter hints routine checks "does this hint do anything new", so when
   all of a more complex hints actions (cells set and maybes eliminated) are
-  already covered by simpler hints then the more complex hint is suppressed,
-  reducing hints, so that the ____ing GUI doesn't bog-down.
+  already covered by simpler hints/hinters then the more complex hint gets
+  suppressed, reducing hints, so that the ____ing GUI doesn't bog-down. Have I
+  mentioned that GUIs just ___ me?
   <li>Filter hints also effects the order in which hints are displayed:<ul>
-   <li>when <b>on</b>: it's most-effective (max eliminations) then simplest first, but
+   <li>when <b>on</b>: it's most-effective (max elims) then simplest first, but
    <li>when <b>off</b> hints are not sorted, so they're displayed in the order
-    that they were found, meaning (arbitrarily) least-complex to most-complex. <br>
+    that they were found, meaning (more-or-less) by complexity. <br>
 	But Shft-F5 can bog the GUI. Just be patient. Horses for courses.
   </ul>
   <li>Filter hints also switches on/off the Siamese Locking search:<ul>
@@ -153,18 +179,16 @@ of the form (I never use the buttons, or the menus. I hope they still work):
     looks for "siamese" locking and uses the HiddenPair/Triple hinters to locate
     <u>all</u> possible eliminations, and if they're more it "upgrades" the hint,
 	which is all very nice; but
-   <li>It's a bit slow Redge (It's under the bonnet son), so this "nice" feature
-	is switched-off when you switch-<b>off</b> Filter hints.
+   <li>It's a bit slow Redge (It's under the bonnet son), so this "nice to have"
+	feature is disabled when you switch-<b>off</b> Filter hints.
   </ul>
-  <li>For a while Filter Hints also defeated the turbo, but that's history.
+  <li>Filter Hints also used-to defeat the turbo, but that's history.
   <li>A large Aligned*Exclusion hint takes upto like 10 seconds to DOM-parse
    because of profligate use of color tags. A GUI programmer with HTML/styles
    could help here. I would not have a clue what a style is. I don't have any.
   <li>Did I mention that I ____ing hate GUI's? Can you imagine why? If it were
-   up to me the whole world would be in text... 
-   <pre><tt>The Full Matrix: In cinemas next Tuesday!
-   This month in Spenthouse: Mind Madonna's Bits!
-   This month in The Squigler: Reeves meets a Scott!</tt></pre>
+   up to me the whole world would be in text...
+   <pre><tt>The Full Matrix: In cinemas next Tuesday.</tt></pre>
  </ul>
 </ul>
 <p>
@@ -177,10 +201,14 @@ of the form (I never use the buttons, or the menus. I hope they still work):
   depending on the difficulty of the puzzle and which Solving Techniques you've
   got enabled (some are MUCH slower than others).
  <li><b>File menu ~ Generate</b> to generate new Sudoku puzzles. I warn you that
-  my generate is poor compared to the best, but it's good for simpler puzzles.
- <li><b>File menu ~ Recent Files</b> to go back in time.
- <li><b>File menu ~ Reload</b> (Alt-F-R) or just Ctrl-R reloads the saved puzzle
-  from disk, which I find handy.
+  SE's generator is a joke to the boffins, but it's good enough for simpler
+  puzzles, that might even be solvable by normal people. Generating hard Sudokus
+  is one of those problems that's only available to pepes who find combinatorial
+  mathematics so easy they qualify as astro-pysicists instead, then wind-up
+  analysing DNA, coz it's REALLY ____ing interesting. Pun intended. Go Cleetus?
+ <li><b>File menu ~ Recent Files</b> (Ctrl-M) to go back in time.
+ <li><b>File menu ~ Reload</b> (Alt-F R, or just Ctrl-R) reloads the currently
+  loaded puzzle from disk, which I find handy, to back the truck right up.
  <li><b>File menu ~ log View</b> for techies: view hints of a type in the .log
   of a previous LogicalSolverTester run, to re/exercise the hinter/s and/or see
   how hinttype/s look in GUI.
@@ -208,129 +236,171 @@ of the form (I never use the buttons, or the menus. I hope they still work):
   to the puzzle, it's just <b>a</b> (not THE) simplest recipe using the enabled
   Solving Techniques. There may be other shorter recipes that don't increase the
   difficulty. I'm not seeking the shortest simplest path, just the simplest;
-  because that's simpler. Yeah? <i>A*</i>ing chumpy edges scares me.
+  because that's simpler. <i>A*</i>ing chumpy edges scares me. I don't have the
+  reddies for a super-computer.
 </ul>
 <p>
 <h3>Selecting Solving Techniques</h3><ul>
  <li><b>Options ~ Solving techniques...</b> allows you to select which Sudoku
-  solving techniques are considered when seeking the next hint, and are also
-  used in F9 Analyse:<ul>
+  solving techniques are used to find hints, and in F9 Analyse, and the batch
+  (see below):<ul>
    <li>Naked and Hidden Singles are mandatory, so there CheckBoxes are checked
-	and disabled. It makes eff-all sense trying to solve Sudokus without them,
-	so they're mandatory.
-   <li>Dynamic Plus is a bit of a catch-all. It only misses on expert puzzles.
-	Nested Unary is slower, but it ALWAYS hints, so I use both as catch-alls,
-	that is I always have them both enabled. The remainder of Nested* can go.
-	They're never executed unless you Shft-F5, to get MORE hints.
+	and disabled. It just makes eff-all sense trying to solve Sudokus without
+	singles, so they're both mandatory.
    <li><i>Direct*</i> are useless, but which I mean when unwanted ALL hints are
 	still found by there non-direct equivalents. Direct just runs the same
 	algorithm twice on each pass, to show hintier ones sooner, which is really
-	just a waste of time, unless it isn't because that's what you really want.
-   <li>Choosing BUG, Coloring, XColoring, Medusa3D, and/or GEM (Graded Equinox
-	Marks) is pretty complicated, so here's the break down:<ul>
-	<li>BUG (Bivalue Umbilical Grave) is a Grand-daddy solving technique; which
-	 might reasonably now be regarded as "deprecated" because it ambulates with
-	 a Zimmer frame, but it still sort-of-works, sometimes, eventually.
-	<li>Coloring does Simple (2 sets) and Multi (3+ sets) Coloring . It's faster
-     and finds more hints than BUG. It's the ONLY coloring technique searching
-	 multiple (3+) color-sets. If Coloring is unwanted then multiple color-set
-	 hints are be found by the Unary Chainer, if wanted. Multi-Coloring hints
-	 are NOT sought by any of XColoring, Medusa3D, or GEM. Coloring implements
-	 the ONLY Multi-Coloring. You should use Coloring!
+	just a waste of time, unless it isn't because that's what you want. <br>
+	Note: Direct* hinters are NEVER used in the batch, even when wanted in GUI.
+   <li>Choosing Coloring, XColoring, Medusa3D, and/or GEM (Graded Equivalence
+	Marks) is a bit complicated, so here's a break down:<ul>
+	<li>BUG (Bivalue Universal Grave) is history. It has been removed. He was
+	 too slow.
+	<li>Coloring does basic SimpleColoring and the ONLY MultiColoring.
+	 SimpleColoring uses 2 coloring sets; and
+	 MultiColoring uses 3-or-more coloring sets.
+	 If Coloring is unwanted then multiple color-sets are found by Unary Chainer.
+	 MultiColoring (3+) are NOT sought by any of XColoring, Medusa3D, or GEM.
+	 Coloring does the ONLY MultiColoring, so I always use it.
 	<li>XColoring (Extended Coloring) finds more Simple Coloring hints, some of
-	 which GEM misses, so I still use it. XColoring, being more complex, is a
-	 bit slower than Coloring. So be it.
-	<li>Medusa3D finds even more Simple Coloring hints than XColoring, using
-	 value-cell sets, but is thereby a bit slower again. Medusa3D finds a subset
-	 of GEM hints, and finds less eliminations in the same grid so Medusa3D is
-	 counter-productive with GEM.
-	<li>GEM (Graded Equivalence Marks) is the "ultimate" in Simple Coloring. It
-	 finds a superset of Medusa3D's hints, and is actually a bit faster than
-	 Medusa3D in this implementation, but is MUCH faster on a ns/elim basis coz
-	 it finds so-many-more cells to set.
-	<li>So to find the simplest hint as quickly as possible I recommend using
-	 Coloring, XColoring, and GEM together:<ul>
-	 <li>Coloring does the ONLY Multi-Coloring.
-	 <li>XColoring hits a few that GEM (by design) misses.
-	 <li>GEM for ultimate Simple-Coloring.
-	 <li>but any combo of BUGs/Colorings are fast enough in practice.
+	 which GEM misses, by design, so I always use it. XColoring, being a bit
+	 more complex, is a bit slower than Coloring. Meh!
+	<li>DROP Medusa3D. It finds a subset of GEM hints and will produce less
+	 elims in the same grid, which then prevents GEM finding the hint, hence
+	 Medusa3D is actually counter-productive when used with GEM. Medusa3D is
+	 SimpleColoring with extra rules on top of XColoring, to find more elims,
+	 but still not quite as many as GEM. Don't use it!
+	<li>GEM (Graded Equivalence Marks) is the "ultimate" in SimpleColoring.
+	 It finds a superset of Medusa3D's hints. It's a bit faster than Medusa3D in
+	 this implementation, but is MUCH MUCH faster on a ns/elim basis because it
+	 finds MANY MANY more cells to set.
+	<li>So to find the simplest hint as quickly as possible I use Coloring,
+	  XColoring, and GEM together:<ul>
+	 <li>Coloring does the ONLY MultiColoring.
+	 <li>XColoring finds a few that GEM (by design) misses.
+	 <li><b>DROP</b> Medusa3D coz it impinges some GEM hints.
+	 <li>GEM for the ultimate SimpleColoring.
+	 <li>Note that GEM should find all SimpleColoring, but Coloring finds the
+	  basic ones faster, and counter-intuitively GEM's performance actually
+	  improves when you present it with a grid that contains no basic coloring
+	  problems. An observation for which I'm too dumb to see an explanation.
+	 <li>Any combinations of Coloring/s is fast enough in practice.
 	</ul>
-    <li>Opportunities for improvement:<ul>
+	<li>Opportunities for GEM-provement (now THAT'S a dad joke!):<ul>
 	 <li>The GEM spec says the color-chart is re-usable; which I have not
 	  implemented, coz I'm lazy, so there's an opportunity.
 	 <li>A public color-chart could also be used as a trip-wire-network: if any
 	  fully colored cell-value is set subsequently then all cell-values and ons
-	  of that color could also be set, but I haven't, to keep it simple.
+	  of that color could also be set, which I haven't, coz I'm lazy/stupid.
 	 </ul>
    </ul>
    <li>Naked Pent and Hidden Pent are both degenerate, which means that every
 	hint is the agglomerate of two simpler techniques. In practice this means
 	they don't hint, because we execute solving techniques in (approximate)
 	increasing order of complexity.
-   <li>Finned Jellyfish are just a tad slow, so I usually drop them, but you
-	can use them if you're more patient than I am. Most people are. sigh.
-   <li>Mutant Swampfish is degenerate to Finned and Franken Swampfish, so if
-	you really want Mutant Swampfish then unwant Finned and Franken Swampfish,
-	but be warned that Mutant means slow, and it finds no more Swampfish; so I
-	never use Mutant anything, nor Krakens, for basically the same reason.<ul>
-   <li>The same partially applies to Mutant Swordfish and Mutant Jellyfish.
-    Mutant searches all Finned and Franken combos with the Mutant-only combos.
-	<li>if you want Mutants then drop Finned and Franken, but be prepared to wait.
-    <li>I use Finned and sometimes Franken. Bugger the Mutant and his Kraken!
-    <li><b>WARNING:</b> Mutant Jellyfish are FAR TOO SLOW (top1465 20 minutes).
-    <li><b>WARNING:</b> Kraken Jellyfish are FAR TOO SLOW (top1465 9 minutes).
+   <li>The Fish Saga (by I.P. Knightly; illustrated by Betty Wont): <ul>
+	<li>Finned Jellyfish are just a tad slow, so I usually drop them, but you
+	 can use them if you're more patient than I am. Most people are. Sigh. In
+	 fact <u>ALL</u> Jellyfish are a bit slow, so I drop them.
+	<li>Mutant Swampfish is degenerate to Finned and Franken Swampfish, so if
+	 you really want Mutant Swampfish then unwant Finned and Franken Swampfish,
+	 but be warned that Mutant means slow, and it finds no more Swampfish; so I
+	 never use Mutant anything, nor Krakens, for basically the same reason.
+	<li>The same partially applies to Mutant Swordfish and Mutant Jellyfish.
+	 Mutant searches all Finned and Franken combos with the Mutant-only combos.
+	<li>Krakens are ____ing mental! Adjuncting Chaining to Fish and pretending
+	 that the resulting abortion is simpler than Chaining is an oxymoron. It
+	 simply cannot be true, therefore Krakens should not exist, but they do, so
+	 they're there, so you can use them if you like, but I don't, because EVERY
+	 Kraken hint can be found faster by a Chainer, so Krakens are
+	 assbackwards-degenerates, AND they're VERY ____ing slow at it. Kill
+	 McKraken! Ignore me. I'm just a cranky old carmudgeon, when struck.
+	<li>I use Finned Swamp and Sword (Jellies are all too slow).
+	<li>if you want Frankens then drop Finneds, but be patient.
+	<li>if you want Mutants then drop Finneds and Frankens, but be more patient.
+	<li>Bugger the Kraken! He always was an idiot.
+	<li><b>WARNING:</b> Kraken Jellyfish are FAR TOO SLOW (top1465 9 minutes).
+	<li><b>WARNING:</b> Mutant Jellyfish are FAR TOO SLOW (top1465 20 minutes).
    </ul>
-   <li><b>Aligned Ally</b> (one up from Diagon Ally;-) is a cluster____ of
-	insanity that I have, as yet, been unable implement adequately:<ul>
-	<li><i>Aligned Pair</i> is fast enough,
-	<li><i>Aligned Triple</i> is fast enough,
-	<li><i>Aligned Quad</i> is acceptable,
-	<li><i>Aligned Pent</i> is acceptable (I go unhacked),
-	<li><i>Aligned Hex</i> is barely acceptable (I go unhacked),
-	<li><i>Aligned Sept</i> is too slow unhacked, and acceptable hacked but then
-	 hints very rarely. sigh.
-	<li><b>WARNING:</b> <i>Aligned Oct, Nona and Dec</i> correct are so slow there's
-	 an APB out on them from the <i>School of Incontinent Geoalgorithmic Heuristics</i>
-	 at the <i>Stanley College of Advanced Ministerial Masturbation and Earwax Removal</i>.
-	<li><b>WARNING:</b> Aligned Dec correct runs for a <b>____ING DAY</b>!
+   <li><b>Aligned Ally</b> (one up from Diagon Ally;-) is slow. That is: I have,
+	as yet, been unable to make the big ones fast-enough:<ul>
+	<li><i>Aligned Pair</i> is fast enough, but finds no hints in top1465, when
+	 using my preferred hinters.
+	<li><i>Aligned Triple</i> is fast enough, but scarce,
+	<li><i>Aligned Quad</i> is acceptable, but scarce,
+	<li><i>Aligned Pent</i> is (barely) acceptable correct, but scarce,
+	<li><i>Aligned Hex</i> is border-line correct, but go correct if at all,
+	<li><i>Aligned Sept</i> is too slow correct, so use the hacked version
+	 if-at-all, which hints very rarely, so don't bother. sigh.
+	<li><b>WARNING:</b> Aligned Oct, Nona and Dec correct are so slow there's an
+	 APB out on them from the <i>School of Incontinent Geoalgorithmic Heuristics</i>
+	 at the <i>Stanley College of Advanced Manual Masturbation and Earwax Removal</i>
+	 so if you use these and you don't want to wait all day then use the bloody
+	 hacked version, if-at-all. Sigh.
+	<li><b>WARNING:</b> Aligned Dec correct runs for ever (like about a day) all
+	 by itself, so don't use it, at all, ever. Even the hacked version takes
+	 ages. A10E is too slow to be allowed. Don't use it: EVER! Sigh.
 	<li>Any suggestion on how to do Aligned Exclusion faster is most welcome.
-	<li>I recommend dropping A*E. They're too slow, because they're too rare.
-	 If you must use A*E then A-6E are fast enough. A7+E hacked, if at all.
+	<li>I recommend dropping A*E. They're all slow, because they're rare. If
+	 you must use A*E then A2..6E are fast enough. A7+E hacked, if at all. A10E
+	 just needs shootin.
 	</ul>
+   <li>Dynamic Plus is a mostly-catch-all. It only misses on expert puzzles.
+	Nested Unary is slower, but it ALWAYS hints, so use them both as catch-alls.
+   <li>Drop the remainder of Nested*. They're never executed unless you Shft-F5,
+	to get MORE hints, in which case they're both "fast enough". Patience. But
+	if you're impatient and you're NOT an expert then drop Nested Unary. If a
+	puzzle fails to solve then the GUI just says it failed to solve, which to me
+	means panic-stations (I broke it), but to you just means that your preferred
+	software vendor is a moron, which he is, so that worked-out rather nicely.
    <li><b>Whips &amp; Chainers:</b><ul>
 	<li>The <b>Chainers</b> are now so fast compared to the A*E debacle that I
-	 really don't know why you'd disable them, except maybe Nested* if you never
-	 do REALLY hard puzzles and you're impatient with Shift-F5. I always use all
-	 the Chainers, but sometimes disable all Nested except Nested Unary.
-	<li><i>Unary Chain</i> would be better named Unary Chains and Bidirectional
-	 Cycles, but that's just too bloody long. Dynamic Chain finds Unary Chains,
-	 but not Bidirectional Cycles, which are "pretty rare" anyways.
+	 really don't know why you'd disable them, except maybe Nested* if you're
+	 NOT into expert puzzles and you're impatient with Shift-F5. I use all the
+	 basic Chainers, and sometimes disable Nested*, coz I'm too impatient.
+	<li><i>Unary Chain</i> would be better named Bidirectional Cycles and Unary
+	 Chains, but that's just too bloody long. Dynamic Chain finds Unary Chains,
+	 but not Bidirectional Cycles which are "fairly rare" with my preferred
+	 hinters (Coloring) anyways, so no never you mind Uncle Arthur.
 	<li><i>Nishio Chain</i> is when an assumption has contradictory effects,
 	 hence the assumption must be wrong.<ul>
-	 <li>Some time ago Nishio performance degraded markedly, for some reasons
-	  that I do not understand, so there's a mystery and an opportunity here.
-	  I've just been blaming the bloody JIT compiler. A miserable excuse.
+	 <li>Some time ago Nishio performance degraded markedly, and I know not why,
+	  so here's an opportunity. I blame the JIT compiler: a poor excuse. I have,
+	  as yet, been unable to determine that the problem is in order to fix it.
+	  It also manifests that Nicholas Juillerat, whom I have torn large strips
+	  off, is extremely competant at the part of the problem that really engages
+	  him: chaining. Myself, not so much. I broke it making it faster, so now it
+	  isn't. Twas ever thus. Sigh. But atleast I'm up-front about it.
 	 </ul>
-	<li><i>Multiple Chain</i> starts from a cell with two <i>or more</i> maybes.
-	 If you unwant Multiple then Dynamic takes longer, which is faster overall;
-	 but there's no distinction between static and dynamic chaining, so hints
-	 are incorrectly rated harder than they really are.
-	<li><i>Dynamic Chain</i> removes maybes from the grid to track the effects of
-	 each assumption, playing "who's your daddy" with Assumptions. sigh. Dynamic
-	 Chain finds Unary Chains (but not Cycles) and Multiple Chains. I use Dynamic.
+	<li><i>Multiple Chain</i> starts from a cell with two <i>or more</i> maybes,
+	 or a region with more than two places. If you unwant Multiple then Dynamic
+	 takes longer, which is faster overall; but there's no distinction between
+	 static and dynamic, so hints are reported as harder than they actually are.
+	<li><i>Dynamic Chain</i> removes maybes from the grid to track each effects
+	 of each assumption, playing "who's your daddy" with Ass's. Dynamic Chain
+	 finds Unary Chains (but not Cycles) and Multiple Chains. Use it!
 	<li><i>Dynamic Plus</i> applies the Four Quick Foxes (Locking, NakedPair,
-	 HiddenPair, Swampfish) on top of dynamic chains.<br>
-	 This only fails to find a hint on expert level puzzles. Normal people can
-	 rely on it to always find a hint.
-	<li><i>Nested Unary</i> always (AFAIK) hints, even on the worlds hardest
-	 puzzle (above). "Normal" people will simply never use it, except when they
-	 copy-paste the above puzzle to test there theory that I'm completely full
-	 of s__t. It's impossible to lick your own elbow!
-	<li><i>Nested Multiple/Dynamic/Plus Chains</i> aren't ever used in anger.
-	 They exist solely for the amusement of afficionados. You can see them with
-	 Shift-F5; just be patient.
-	<li>I normally run with Nested Multiple/Dynamic/Plus disabled, coz Nested
-	 Unary always, AFAIK, hints, as my catch-all.
+	 HiddenPair, and Swampfish) on top of dynamic chains. It only misses on
+	 expert puzzles. It always hints on "normal" puzzles (for normal people).
+	<li>NOTE: When Generator is set to IDKFA it accepts "harder" Dynamic Chains
+	 in place of Dynamic Plus, coz they're really rare, and you probably don't
+	 want to wait all day for one to be randomly generated, so I tap-out early.
+	 My bad! Soz. But you can fix it (relatively easily) if you care; where-as
+	 most folks can't, if the situation was reversed. Occasionally IDKFA still
+	 fails to generate, even given 16K opportunities. Maybe 32K might be better?
+	 Except we're already waiting half the day (ergo about 5 minutes, which is
+	 already a long durry break). I have back-up IDFKA's to replenish the
+	 PuzzleCache.
+	<li><i>Nested Unary</i> always hints, AFAIK, even on "The Worlds Hardest
+	 Sudoku Puzzle" (above). Normal people will never use it, except when they
+	 copy-paste the above puzzle to test the theory that I'm completely full of
+	 s__t. It's impossible to lick your own elbow!
+	<li>NOTE: SE has only ever generated ONE puzzle requiring Nested Unary. They
+	 are quite a bit rarer than rockin' horse s__t, and much firmer.
+	<li>I usually run with Nested Multiple/Dynamic/Plus disabled. They're never
+	 used in anger. They exist solely for the amusement of afficionados. You can
+	 see them with Shift-F5; just be patient. There retardation of Shft-F5 is
+	 the sole cause of there untimely demise. And good riddance! Sigh.
 	</ul>
   </ul>
 </ul>
@@ -340,47 +410,45 @@ of the form (I never use the buttons, or the menus. I hope they still work):
  but they're ____all use. Just use the hints. I wrote the cheats just to write
  some obfuscated code, because s__t wasn't complicated enough already, so I
  complicated it some more, and then decomplicated it, because I can't ever make
- up my mind about anything, because made-up minds are fascile. Learn. Grow.
- Adapt.
+ up my mind about anything, because made-up minds s__t me. Learn. Grow. Adapt.
 <li><b>LogicalSolverTester</b> If you want an itemised solution then run the
- LogicalSolverTester over the puzzle and look at the log file. That's why I
- haven't bothered with it in the GUI. I figure most users don't want it, and
- those that do also want a batch. LST solves a MagicTour (.mt) file containing
- multiple (upto 9999) puzzles, just to see how quickly we can do it; and has
- verbose logging to show all the hints used to solve each puzzle, which is how
- I find puzzles for my test-cases. You can also now Shft-F9 for verbose analyse
+ LogicalSolverTester (aka the batch) over the puzzle and look at the log file.
+ That's why I haven't bothered with it in the GUI. I figure most users don't
+ want it, and those that do also want a batch. LST solves a MagicTour (.mt) file
+ containing many (upto 9999) puzzles, just to see how quickly we can do it; and
+ has verbose logging to show all the hints used to solve each puzzle, which is
+ how I find test-case puzzles. You can also now Shft-F9 for verbose analyse
  (in the GUI log-file) or even Alt-F9 for super-verbose (individual hinters).
+<li>The GUI has a "Log View" option in the File menu. It retrieves the grid that
+ produced the hint (by Java regular expression) to display the hint in the GUI,
+ to view hints by type when you're working on a hinter, and especially on the
+ display of hints in the GUI.
 <li><b>top1465</b> My "standard" test data file is top1465.d5.mt. It contains
  1465 Sudoku puzzles in "approximate" order of hardest to easiest. I need a
  variety of puzzles to exercise my hinters, and a "standard" for comparative
  performance testing:<ul>
  <li>All timings are on an ~2900 Mhz intel i7 notebook solving top1465.d5.mt.
  <li>As a baseline, the original Juillerat implementation took 22 minutes.
- <li>In accuracy (default) mode, with all hinters enabled (all A*E hacked)
-  mine took 37 minutes. So SE has a wheel alignment problem! Sigh. BIG Sigh.
- <li>so I <b>disable</b> all but "the original" hinters and it takes 1:33 which
-  is "fast enough" in my humble opinion. Anything under 4 minutes feels "pretty
-  snappy" in the GUI, but three minutes is nicer. Under 10 minutes still feels
-  OK to me. I reckon under 20 minutes would be "acceptable" to most users, but
-  beyond that it really starts to feel like someone's nicked your lunch-money.
- <li>Asat 2021-07-10 my "preferred" hinters also take 1:33, which is nice.
-  See the "Selecting Solving Techniques" section above. 
- <li>Sticking turbo=true in DiufSudoku_Settings.txt produced a 1:05 pass, but
-  it blows my head-gasket. Ergo I reckon turbo is cheating, but what a cheat!
+ <li>In accuracy (default) mode, with all hinters enabled (all A*E hacked) SE
+  took 37 minutes. So SE has a wheel alignment problem! BIG Sigh.
+ <li>With my preferred hinters, my current (2021-12-31) "par" is 1:22, at whence
+  the whole GUI feels nice and snappy, but anything under 4:00 feels OK. I guess
+  even 20:00 might be acceptable, just occasionally gluey.
  <li><b>diuf.sudoku.BuildTimings</b> contains the hinters-summary of previous
-  batch .logs, to see if we're progressing through time. Or ask a physicist.
+  batch .logs, to see if we're progressing through time. Ask a physicist.
  </ul>
 <li><b>RecursiveSolverTester</b> is fast. It's Knuth's recursive algorithm plus
  Four Quick Foxes plus Cell.set(AUTOSOLVE=true) equals top1465 in 916 ms; which
- is paramount to FTL-travel, IMHO. All I did was tune-it-up. Note that this is
- (I presume) not repeatable in the current version, because Cell.set is now
- "non-aggressive". The "aggressive" version is still available to techies only
- via a the hard-coded Grid.AUTOSOLVE switch.
+ is paramount to FTL-travel, IMHO; hence IDKFA rates an FTL licence. All we did
+ was tune-it-up a bit. This is (I presume) not repeatable in released codebase,
+ because Cell.set is now "non-aggressive". The "aggressive version" is available
+ to techies only, just don't forget to put it back coz it reports elims badly.
 <li><b>Test-cases</b> I should also mention test-cases. There are test-cases.
  No guarantees on quality. Minimal and optimistic. Less code equals more speed.
  My bug-bear with test-cases is that they're commonly harder to change than the
- code, so test-cases are only for people who make up there minds, there-after
- refusing to adapt, denying the necessity of doing so.
+ code, so automated-test-cases are only for people-who-make-up-there-minds,
+ there-after refusing to learn/adapt, denying the necessity of doing so. Simple
+ is good.
 </ul>
 </body>
 </html>

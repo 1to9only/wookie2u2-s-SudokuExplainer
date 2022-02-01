@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -15,9 +15,7 @@ import diuf.sudoku.solver.hinters.aals.*;
 import diuf.sudoku.solver.hinters.align.*;
 import diuf.sudoku.solver.hinters.align2.*;
 import diuf.sudoku.solver.hinters.als.*;
-import diuf.sudoku.solver.hinters.bug.*;
-import diuf.sudoku.solver.hinters.chain.ChainerMulti;
-import diuf.sudoku.solver.hinters.chain.ChainerUnary;
+import diuf.sudoku.solver.hinters.chain.*;
 import diuf.sudoku.solver.hinters.color.*;
 import diuf.sudoku.solver.hinters.fish.*;
 import diuf.sudoku.solver.hinters.hdnset.*;
@@ -37,27 +35,28 @@ import java.util.EnumSet;
 import java.util.List;
 
 /**
- * A Tech(nique) is a Sudoku solving technique, which is a light place-holder
- * for a heavy implementation of this technique, ergo a hinter. In theory, a
- * hinter implements a technique, and conversely a technique is implemented by
- * a hinter, but it is not that simple in reality. sigh.
+ * A Tech(nique) is a Sudoku solving technique, which is a light-weight place
+ * holder for a possibly heavy implementation of this technique, ergo a hinter.
+ * In theory, a hinter implements a technique, and conversely a technique is
+ * implemented by a hinter, but it's not always that simple in practice.
  * <p>
- * So Tech is a set of Sudoku solving techniques. Most hinters implement a
- * single Sudoku solving technique (I call these "simple" hinters), but some
- * hinters (like MultipleChainer) implement several techniques (I call these
- * "complex" hinters), because implementing these techniques separately is
- * harder and/or slower. Also, some techniques have multiple implementations,
- * but when this occurs I split the technique into multiple Tech's (eg BigWings
- * vs S/T/U/V/WXYZ_Wing) to allow the user to choose between implementations.
+ * So Tech is a Set of Sudoku solving techniques, implemented as an Enum. Most
+ * hinters implement a single Sudoku solving technique as described previously.
+ * I call these simple hinters, and the rest complex. Some hinters (such as
+ * MultipleChainer) implement several solving techniques, because implementing
+ * them separately is harder and/or slower. Some techniques have multiple
+ * implementations, but whenever this occurs I split the Tech into multiple
+ * Tech's (for example BigWings vs S/T/U/V/WXYZ_Wing) allowing the user to
+ * choose between implementations, not just techniques.
  * <p>
- * It's called Tech because the word Technique is too long to type many times,
- * and has three F's and a silent Q. All reasonable people hate Q's, and there
- * smelly U-ism. It's a little-known fact that most people are unaware of there
- * innate Queue-Biff-Phobia. Jumping around in time may also cause Biff-Phobia,
- * but alternate facts remain stubbornly non-conjugative, such that any and all
- * attempts to construct a reality from alternate facts ends in selfextinction.
- * Some folks suffer quince allergies, other folks are just allergic to bloody
- * quinces. Say no more.
+ * It's Tech coz Technique is too long, and has three F's and a silent Q. All
+ * the smart people hate Q's, and there smelly U-ism. It's a little-known fact
+ * that most people are unaware of there innate Queue-Biff-Phobia. Time travel
+ * may also cause Biff-Phobia, but alternate facts still remain stubbornly
+ * non-conjugative, such that any and all attempts to construct a reality from
+ * alternate facts is likely to end in selfextinction. Some folks suffer quince
+ * allergies, other folks are just allergic to bloody quinces. Virjuice anyone?
+ * Say no more. Basically, I just like short names (with long explanations).
  * <p>
  * LogicalSolver constructor has two 'want' methods. The first is "normal": it
  * takes an IHinter (an instance of a class implementing IHinter to actually
@@ -67,12 +66,12 @@ import java.util.List;
  * and adds that to the 'wanted' List; which saves constructing hinters (which
  * may be a heavy process) that aren't wanted, and therefore won't be used.
  * <p>
- * As it works-out "simple" hinters are want(Tech)'d but many "complex" hinters
- * are created manually and want(IHinter)'d. sigh. Also my Four Quick Foxes are
- * created individually and perversely added with "complex" want(IHinter).
- * Basically, I did all this just coz I can, and to avoid heavy constructors
- * which are then not used; So caveat emptor: I did this coz I wanted to, and
- * for a reason, but my reasoning, as always, is questionable.
+ * As it works-out most "simple" hinters are want(Tech)'d, and most "complex"
+ * hinters are created manually and want(IHinter)'d. The Four Quick Foxes, that
+ * are included in the "basics", are created individually and perversely added
+ * with the "complex" want(IHinter). Basically, I did all this coz I can, and
+ * to avoid heavy constructors which are then not used. So caveat emptor: I did
+ * this coz I wanted to, and for a reason, but my reasoning is not inviolate.
  * <p>
  * The constructor of each subtype of AHinter passes a Tech down-to AHinter to
  * identify the implemented Sudoku solving technique, it's degree, and base
@@ -90,12 +89,15 @@ import java.util.List;
  * Yes, it's a cluster____, but it's an organic cluster____ that's been allowed
  * to evolve by adapting to complications as they arise. Da problem with design
  * is you decide BEFORE you see da consequences, hence all "real" solutions are
- * evolutions. You can't design a "real" solution.
- * <p>
- * <b>WARNING:</b> DO NOT rename Tech or Netbeans goes straight to hell in
+ * evolutions. You can't design "real" solutions, they must evolve through
+ * experience.
+ * <pre>
+ * Design -&gt; Implement -&gt; Design -&gt; Implement, in an endless loop.
+ * </pre>
+ * <b>WARNING:</b> DO NOT rename Tech or Netbeans goes straight to hell in a
  * hand-basket! Delete C:/Users/User/AppData/Local/NetBeans/Cache/8.2/*.*
  * <p>
- * <b>WARNING:</b> External code does tech.name().startsWith("Whatever") to
+ * <b>WARNING:</b> Some code does tech.name().startsWith("Whatever") to
  * determine types, so be real-bloody-careful changing names. Test everything!
  * <p>
  * <b>WARNING:</b> The TechSelectDialog displays Techs in the order given here,
@@ -123,13 +125,13 @@ public enum Tech {
 	// validator has a Tech so it works a lot like a hinter, except it produces
 	// a hint when there's a problem (not an elimination).
 	// puzzleValidators (run once, after puzzle is loaded)
-	, TooFewClues		(0.0, 0, InsufficientClues.class, F)
-	, TooFewValues		(0.0, 0, InsufficientValues.class, F)
+	, TooFewClues		(0.0, 0, TooFewClues.class, F)
+	, TooFewValues		(0.0, 0, TooFewValues.class, F)
 	, NotOneSolution	(0.0, 0, BruteForce.class, F)
 	// gridValidators (run repeatedly, after each hint.apply)
-	, MissingMaybes		(0.0, 0, NoMissingMaybes.class, F)
-	, DoubleValues		(0.0, 0, NoDoubleValues.class, F)
-	, HomelessValues		(0.0, 0, NoHomelessValues.class, F)
+	, MissingMaybes		(0.0, 0, MissingMaybes.class, F)
+	, DoubleValues		(0.0, 0, DoubleValues.class, F)
+	, HomelessValues		(0.0, 0, HomelessValues.class, F)
 
 	// Easy
 	// directs
@@ -138,116 +140,124 @@ public enum Tech {
 	, HiddenSingle		(1.2, 1, HiddenSingle.class, F)
 
 	// Medium
-	, Locking			(2.0, 1, Locking.class, T, "OR Locking Basic", F)
-	, LockingBasic		(2.0, 1, LockingGen.class, F, "OR Locking", F)
 	// NB: constructor does name().startsWith("Direct")
-	, DirectNakedPair	(2.1, 2, NakedSetDirect.class)
-	, DirectHiddenPair	(2.2, 2, HiddenSetDirect.class)
-	, DirectNakedTriple	(2.3, 3, NakedSetDirect.class)
-	, DirectHiddenTriple	(2.4, 3, HiddenSetDirect.class)
+	, DirectNakedPair	(2.0, 2, NakedSetDirect.class)
+	, DirectHiddenPair	(2.1, 2, HiddenSetDirect.class)
+	, DirectNakedTriple	(2.2, 3, NakedSetDirect.class)
+	, DirectHiddenTriple	(2.3, 3, HiddenSetDirect.class)
+	, Locking			(2.4, 1, Locking.class, T, "OR Locking Basic", F)
+	, LockingBasic		(2.5, 1, LockingGen.class, F, "OR Locking", F)
 
 	// Hard
-	, NakedPair			(2.50, 2, NakedSet.class)
-	, HiddenPair		(2.55, 2, HiddenSet.class)
-	, NakedTriple		(2.60, 3, NakedSet.class)
-	, HiddenTriple		(2.65, 3, HiddenSet.class)
+	, NakedPair			(3.0, 2, NakedSet.class)
+	, HiddenPair		(3.1, 2, HiddenSet.class)
+	, NakedTriple		(3.2, 3, NakedSet.class)
+	, HiddenTriple		(3.3, 3, HiddenSet.class)
 	// Fish should have Fish names, not Wing names (confusing); so
 	// Yoda raises Luke's X-Wing from a Tatooen swamp => Swampfish
-	, Swampfish			(2.70, 2, BasicFisherman.class) // aka X-Wing
-	, TwoStringKite		(2.80, 4, TwoStringKite.class)
+	, Swampfish			(3.4, 2, BasicFisherman.class) // aka X-Wing
+	, TwoStringKite		(3.5, 4, TwoStringKite.class)
+	, W_Wing			(3.6, 4, WWing.class)
+	, XY_Wing			(3.7, 2, XYWing.class)
+	, Skyscraper		(3.8, 4, Skyscraper.class)
+	, EmptyRectangle		(3.9, 4, EmptyRectangle.class)
 
 	// Fiendish
-	, XY_Wing			(3.00, 2, XYWing.class)
-	, XYZ_Wing			(3.05, 3, XYWing.class)
-	, W_Wing			(3.10, 4, WWing.class)
-	, Swordfish			(3.20, 3, BasicFisherman.class)
-	, Skyscraper		(3.30, 4, Skyscraper.class)
-	, EmptyRectangle		(3.35, 4, EmptyRectangle.class)
+	, XYZ_Wing			(4.0, 3, XYWing.class)
+	, Swordfish			(4.1, 3, BasicFisherman.class)
 	// NB: Coloring/GEM find all Jellyfish, so run before them if at all.
-	, Jellyfish			(3.40, 4, BasicFisherman.class, F, "DROP for speed: Coloring/GEM harder but faster per elim", F)
+	, NakedQuad			(4.2, 4, NakedSet.class)
+	, Jellyfish			(4.3, 4, BasicFisherman.class, F, "DROP: just a bit rare (5 in top1465)", F)
+	, HiddenQuad		(4.4, 4, HiddenSet.class, F, "DROP: rare (2 in top1465) so a bit slow", F)
 	// FYI: Larger (5+) Fish are all DEGENERATE (comprised of simpler hints)
-//	, BUG				(3.50, 0, BUG.class, F,       "DROP (Bivalue Universal Grave) is old and slow", F)
-	, Coloring			(3.52, 0, Coloring.class, T,  "KEEP only Multi-Coloring, basic Simple-Coloring", F)
-	, XColoring			(3.54, 0, XColoring.class, T, "KEEP extended Simple-Coloring hits when GEM misses", F)
-	, Medusa3D			(3.56, 0, Medusa3D.class, F,  "DROP Medusa is counter-productive with GEM", F)
-	, GEM				(3.58, 0, GEM.class, T,       "KEEP (Graded Equivalence Marks) ultimate Coloring", F)
-	, NakedQuad			(3.60, 4, NakedSet.class)
-	, HiddenQuad		(3.62, 4, HiddenSet.class)
-	, NakedPent			(3.64, 5, NakedSet.class, F,  "DROP DEGENERATE to Pair/Triple/Quad", F)
-	, HiddenPent			(3.66, 5, HiddenSet.class, F, "DROP DEGENERATE to Pair/Triple/Quad", F)
-	, URT				(3.70, 0, UniqueRectangle.class, T, "Unique Rectangles and loops", F)
+	, Coloring			(4.5, 0, Coloring.class, T,  "KEEP SimpleColoring and the ONLY MultiColoring", F)
+	, XColoring			(4.6, 0, XColoring.class, T, "KEEP SimpleColoring+ hits when GEM misses (by design)", F)
+	, Medusa3D			(4.7, 0, Medusa3D.class, F,  "DROP SimpleColoring++ counter-productive with GEM", F)
+	, GEM				(4.8, 0, GEM.class, T,       "KEEP SimpleColoring+++ Graded Equivalence Marks", F)
+	, URT				(4.9, 0, UniqueRectangle.class, T, "Unique RecTangles and loops", F)
+
+	// Airotic
 	// BigWings is S+T+U+V+WXYZ_Wing: slower, but faster over-all with ALS_*.
-	, BigWings			(3.80, 0, BigWings.class, T, "or individual S/T/U/V/WXYZ Wing", F)
-	, WXYZ_Wing			(3.81, 3, BigWing.class, F, "or Big Wings", F) // 3 Cell ALS + bivalue
-	, VWXYZ_Wing		(3.82, 4, BigWing.class, F, "or Big Wings", F) // 4 Cell ALS + bivalue
-	, UVWXYZ_Wing		(3.83, 5, BigWing.class, F, "or Big Wings", F) // 5 Cell ALS + bivalue
-	, TUVWXYZ_Wing		(3.84, 6, BigWing.class, F, "or Big Wings", F) // 6 Cell ALS + bivalue
-	, STUVWXYZ_Wing		(3.85, 7, BigWing.class, F, "or Big Wings", F) // 7 Cell ALS + bivalue // SLOW'ish
+	// difficulty + 0.1 foreach als-cell beyond 3.
+	, BigWings			(5.0, 0, BigWings.class, T, "or individual S/T/U/V/WXYZ Wing", F)
+	, WXYZ_Wing			(5.0, 3, BigWing.class, F, "or Big Wings", F) // 3 Cell ALS + bivalue
+	, VWXYZ_Wing		(5.1, 4, BigWing.class, F, "or Big Wings", F) // 4 Cell ALS + bivalue
+	, UVWXYZ_Wing		(5.2, 5, BigWing.class, F, "or Big Wings", F) // 5 Cell ALS + bivalue
+	, TUVWXYZ_Wing		(5.3, 6, BigWing.class, F, "or Big Wings", F) // 6 Cell ALS + bivalue
+	, STUVWXYZ_Wing		(5.4, 7, BigWing.class, F, "or Big Wings", F) // 7 Cell ALS + bivalue // SLOW'ish
+	, NakedPent			(5.6, 5, NakedSet.class, F,  "DROP: degenerate", F)
+	, HiddenPent			(5.7, 5, HiddenSet.class, F, "DROP: degenerate", F)
 
-	// Nightmare
-	, FinnedSwampfish	(4.0, 2, ComplexFisherman.class) // with Sashimi
-	, FinnedSwordfish	(4.1, 3, ComplexFisherman.class)
-	, FinnedJellyfish	(4.2, 4, ComplexFisherman.class, F, null, F) // a bit slow
-	, DeathBlossom		(4.3, 0, DeathBlossom.class) // stem.maybe->ALS
-	, ALS_XZ			(4.4, 0, AlsXz.class)	 // 2 ALSs in a Chain
-	, ALS_Wing			(4.5, 0, AlsWing.class)	 // 3 ALSs in a Chain
-	, ALS_Chain			(4.6,26, AlsChain.class) // 4..26 ALSs in a Chain
-	, SueDeCoq			(4.8, 0, SueDeCoq.class, F) // AALSs // a bit slow
-	, FrankenSwampfish	(5.0, 2, ComplexFisherman.class, F, null, F) // OK
-	, FrankenSwordfish	(5.1, 3, ComplexFisherman.class, F, null, F) // OK
-	, FrankenJellyfish	(5.2, 4, ComplexFisherman.class, F, "DROP SLOW: 45 seconds", F) // SLOW
-	// WARNING: Mutants are too slow to be allowed! Krakens aren't far behind.
-	, KrakenSwampfish	(5.3, 2, KrakenFisherman.class, F, null, F) // OK
-	, MutantSwampfish	(5.4, 2, ComplexFisherman.class, F, "DROP DEGENERATE to Finned/Franken Swampfish", T)
-	, KrakenSwordfish	(5.5, 3, KrakenFisherman.class, F,  "SLOWish: 30 seconds", F)
-	, MutantSwordfish	(5.6, 3, ComplexFisherman.class, F, "DROP SLOW: 2 minutes", F)
-	, KrakenJellyfish	(5.8, 4, KrakenFisherman.class, F,  "DROP TOO SLOW: 6 minutes", T)
-	, MutantJellyfish	(5.9, 4, ComplexFisherman.class, F, "DROP TOO SLOW: 20 minutes", T)
+	// Fishalsic
+	, FinnedSwampfish	(6.0, 2, ComplexFisherman.class, T, "Now with Sashimi!", F)
+	, FinnedSwordfish	(6.1, 3, ComplexFisherman.class, T, "Now with Sashimi!", F)
+	, FinnedJellyfish	(6.2, 4, ComplexFisherman.class, F, "DROP: a bit slow", F)
+	, DeathBlossom		(6.3, 0, DeathBlossom.class) // 2or3 stem.maybes -> ALS
+	, ALS_XZ			(6.4, 0, AlsXz.class)		 // 2 ALSs in a Chain
+	, ALS_Wing			(6.5, 0, AlsWing.class)		 // 3 ALSs in a Chain
+	, ALS_Chain			(6.6,26, AlsChain.class)	 // 4+ ALSs in a Chain
+	, SueDeCoq			(6.7, 0, SueDeCoq.class, F, "DROP: a bit slow", F) // AALSs
+	, FrankenSwampfish	(6.8, 2, ComplexFisherman.class, F, "DROP: a bit slow", F) // OK
+	, FrankenSwordfish	(6.9, 3, ComplexFisherman.class, F, "DROP: a bit slow", F) // OK
+	, FrankenJellyfish	(7.0, 4, ComplexFisherman.class, F, "DROP: SLOW 45 seconds", F) // SLOW
+	, KrakenSwampfish	(7.1, 2, KrakenFisherman.class, F,  "DROP: Krakens are nuts!", F) // OK
+	, MutantSwampfish	(7.2, 2, ComplexFisherman.class, F, "DROP: degenerate", T)
+	, KrakenSwordfish	(7.3, 3, KrakenFisherman.class, F,  "DROP: SLOW 30 seconds and Krakens are nuts!", F)
+	, MutantSwordfish	(7.4, 3, ComplexFisherman.class, F, "DROP: SLOW 2 minutes", F)
+	// WARNING: Kraken and Mutant Jellyfish are too slow to be allowed!
+	, KrakenJellyfish	(7.5, 4, KrakenFisherman.class, F,  "DROP: TOO SLOW 6 minutes and Krakens are nuts!", T)
+	, MutantJellyfish	(7.6, 4, ComplexFisherman.class, F, "DROP: FAR TOO SLOW 20 minutes", T)
 
-	// Diabolical
+	// Ligature: Aligned Ally, one up from Diagon Ally.
 	// NB: constructor does name().startsWith("Aligned")
 	// A234E are all off to new school, yeah!
-	, AlignedPair		(6.0, 2, AlignedExclusion.class, F)	// OK
-	, AlignedTriple		(6.1, 3, AlignedExclusion.class, F)	// a tad slow
-	, AlignedQuad		(6.2, 4, AlignedExclusion.class, F)	// a bit slow
+	, AlignedPair		(8.0, 2, AlignedExclusion.class, F, "DROP: Rare with my preferred hinters", F)	// OK
+	, AlignedTriple		(8.1, 3, AlignedExclusion.class, F, "DROP: A tad slow", F)
+	, AlignedQuad		(8.2, 4, AlignedExclusion.class, F, "DROP: A bit slow", F)
 	// A5678910E old-school _2H is the "registered" implementation
-	, AlignedPent		(6.3, 5, Aligned5Exclusion_2H.class, F, "DROP SLOW: 1 minute correct", F)
-	, AlignedHex		(6.4, 6, Aligned6Exclusion_2H.class, F, "DROP SLOW: 3 minutes correct", F)
-	, AlignedSept		(6.5, 7, Aligned7Exclusion_2H.class, F, "DROP TOO SLOW: 6 minutes correct", T)
-	, AlignedOct			(6.6, 8, Aligned8Exclusion_2H.class, F, "DROP FAR TOO SLOW: 19 minutes correct", T)
-	, AlignedNona		(6.7, 9, Aligned9Exclusion_2H.class, F, "DROP WAY TOO SLOW: 3 hours correct", T)
-	, AlignedDec			(6.8,10,Aligned10Exclusion_2H.class, F, "DROP CONSERVATIVE: 6 hours correct", T)
+	, AlignedPent		(8.3, 5, Aligned5Exclusion_2H.class, F, "DROP: SLOW 1 minute correct", F)
+	, AlignedHex		(8.4, 6, Aligned6Exclusion_2H.class, F, "DROP: SLOW 3 minutes correct", F)
+	// WARNING Aligned 7, 8, 9, and especially 10 are too slow to be allowed!
+	, AlignedSept		(8.5, 7, Aligned7Exclusion_2H.class, F, "DROP: TOO SLOW 6 minutes correct", T)
+	, AlignedOct			(8.6, 8, Aligned8Exclusion_2H.class, F, "DROP: FAR TOO SLOW 19 minutes correct", T)
+	, AlignedNona		(8.7, 9, Aligned9Exclusion_2H.class, F, "DROP: WAY TOO SLOW 3 hours correct", T)
+	, AlignedDec			(8.8,10, Aligned10Exclusion_2H.class, F, "DROP: CONSERVATIVE 6 hours correct", T)
+
+	// Diabolical
 	// chains			 diff,dg, className,          Multi,Dynam,Nishi,want
 	// forcing chains on a single value               M,D,N,w
-	, UnaryChain		( 7.0, 0, ChainerUnary.class, F,F,F,T) // OK
+	, UnaryChain		( 9.0, 0, ChainerUnary.class, F,F,F,T) // OK
 	// contradictory consequences of a single (bad) assumption.
 	// NB: ChainerMulti Tech.className's are NOT used. Retained anyway. sigh.
-	, NishioChain		( 7.5, 0, ChainerMulti.class, F,T,T,T) // a tad slow
+	, NishioChain		(10.0, 0, ChainerMulti.class, F,T,T,T) // a tad slow
 	// forcing chains from multiple values/places.
-	, MultipleChain		( 8.0, 0, ChainerMulti.class, T,F,F,T) // OK
+	, MultipleChain		(11.0, 0, ChainerMulti.class, T,F,F,T) // OK
 	// forcing chains including consequences (aka a forcing net)
 	// NB: all subsequent chainers are implicitly "dynamic"
-	, DynamicChain		( 8.5, 0, ChainerMulti.class, T,T,F,T) // OK
+	, DynamicChain		(12.0, 0, ChainerMulti.class, T,T,F,T) // OK
 
 	// IDKFA (ironic)
-	// NOTE: There's issues generating IDKFA: it'll find Diabolical instead.
+	// NOTE: IDKFAs are rare, so randomly generating one takes ages, if at all.
 	// dynamic chaining using the Four Quick Foxes
-	, DynamicPlus		( 9.0, 1, ChainerMulti.class, T,T,F,T) // SLOW near catch-all
+	, DynamicPlus		(15.0, 1, ChainerMulti.class, T,T,F,T) // SLOW near catch-all
 	// NB: constructor does name().startsWith("Nested")
 	// dynamic chaining using a UnaryChainer
-	, NestedUnary		( 9.5, 2, ChainerMulti.class, T,T,F,T)  // SLOW catch-all
+	, NestedUnary		(20.0, 2, ChainerMulti.class, T,T,F,T)  // SLOW catch-all
 	// dynamic chaining using a MultipleChainer
-	, NestedMultiple		(10.0, 3, ChainerMulti.class, T,T,F,F) // SLOW
+	, NestedMultiple		(25.0, 3, ChainerMulti.class, T,T,F,F) // SLOW
 	// dynamic chaining using a DynamicChainer
-	, NestedDynamic		(10.5, 4, ChainerMulti.class, T,T,F,F) // SLOW
+	, NestedDynamic		(30.0, 4, ChainerMulti.class, T,T,F,F) // SLOW
 	// dynamic chaining using a DynamicPlus chainer
-	, NestedPlus			(11.0, 5, ChainerMulti.class, T,T,F,F) // BUGS!
+	, NestedPlus			(35.0, 5, ChainerMulti.class, T,T,F,F) // BUGS!
+	// note that difficulty isn't proportional, just increasing.
+	// Generating a puzzle that contains a NestedPlus hint is impossible.
+	// It is NOT 35 times harder than a NakedSingle, it is impossible.
 	;
 
 	/**
-	 * An array of those Tech implemented by ChainerMulti.
+	 * Techs implemented by the ChainerMulti class.
 	 */
-	public static final Tech[] MULTI_CHAINERS = new Tech[] {
+	public static final Tech[] MULTI_CHAINER_TECHS = {
 		  NishioChain
 		, MultipleChain
 		, DynamicChain
@@ -256,6 +266,17 @@ public enum Tech {
 		, NestedMultiple
 		, NestedDynamic
 		, NestedPlus
+	};
+
+	/**
+	 * Techs implemented by the BigWing class.
+	 */
+	public static final Tech[] BIG_WING_TECHS = {
+		  WXYZ_Wing
+		, VWXYZ_Wing
+		, UVWXYZ_Wing
+		, TUVWXYZ_Wing
+		, STUVWXYZ_Wing
 	};
 
 	/**
@@ -269,11 +290,9 @@ public enum Tech {
 	 */
 	public static EnumSet<Tech> where(final EnumSet<Tech> techs, final IFilter<Tech> f) {
 		final EnumSet<Tech> result = EnumSet.noneOf(Tech.class);
-		for ( final Tech t : techs ) {
-			if ( f.accept(t) ) {
+		for ( final Tech t : techs )
+			if ( f.accept(t) )
 				result.add(t);
-			}
-		}
 		return result;
 	}
 
@@ -302,14 +321,15 @@ public enum Tech {
 	}
 
 	/**
-	 * Build a String (a comma-separated list) of the names of these 'techs'.
+	 * Returns CSV of tech names.
+	 *
 	 * @param techs to get the names of
-	 * @return CSV of the names of these 'techs'
+	 * @return a Comma Separated Values String of the names of these 'techs'
 	 */
-	public static String names(final Tech[] techs) {
+	public static String techNames(final Tech[] techs) {
 		final StringBuilder sb = new StringBuilder(techs.length*22);
 		boolean first = true;
-		for ( final Tech tech : techs ) {
+		for ( Tech tech : techs ) {
 			if(first) first=false; else sb.append(CSP);
 			sb.append(tech.name());
 		}
@@ -325,9 +345,8 @@ public enum Tech {
 	public static Tech[] array(final List<Tech> techs) {
 		final Tech[] result = new Tech[techs.size()];
 		int cnt = 0;
-		for ( final Tech tech : techs ) {
+		for ( Tech tech : techs )
 			result[cnt++] = tech;
-		}
 		return result;
 	}
 
@@ -339,40 +358,42 @@ public enum Tech {
 	 */
 	public static ArrayList<Tech> list(final Tech[] techs) {
 		final ArrayList<Tech> result = new ArrayList<>(techs.length);
-		for ( final Tech tech : techs ) {
+		for ( Tech tech : techs )
 			result.add(tech);
-		}
 		return result;
 	}
 
 	/**
-	 * Translate this Tech name into English by:
+	 * Translate this Tech name into words by:
 	 * <pre>
 	 * inserting a space before each capital,
 	 *       and replacing underscore with a space;
 	 * but consecutive capitals remain unchanged,
 	 *     as do those following an underscore.
+	 *
+	 * So, words are split-up:
+	 * EmptyRectangle -> Empty Rectangle
+	 *
+	 * And we handle acronyms with an underscore:
+	 * XY_Wing -> XY Wing
 	 * </pre>
 	 *
 	 * @return the given Tech.name(), in English
 	 */
-	private static String english(final String techName) {
+	private static String wordonate(final String techName) {
 		final char[] src = techName.toCharArray();
 		final char[] dst = new char[src.length*2];
 		int i = 0; // index in the dst array (the write pointer)
 		char p = 0; // the previous character in src
-		for ( final char c : src ) { // the current character in src
-			if ( p != 0
-			  && p != '_'
+		for ( char c : src ) { // the current character in src
+			if ( p != 0 && p != '_'
 			  && !Character.isUpperCase(p)
-			  && Character.isUpperCase(c) ) {
+			  && Character.isUpperCase(c) )
 				dst[i++] = ' ';
-			}
-			if ( c == '_' ) {
+			if ( c == '_' )
 				dst[i++] = ' ';
-			} else {
+			else
 				dst[i++] = c;
-			}
 			p = c;
 		}
 		return new String(dst, 0, i);
@@ -384,7 +405,7 @@ public enum Tech {
 	 * True for most Tech's. False for:<ul>
 	 * <li>LockingBasic (Locking is faster)
 	 * <li>S/T/U/V/WXYZ-Wing (BigWings faster over-all)
-	 * <li>BUG and Medusa3D (use Coloring, XColoring, and GEM)
+	 * <li>Medusa3D (use Coloring, XColoring, and GEM)
 	 * <li>Franken, Mutant and Kraken *fish (too slow)
 	 * <li>Aligned Exclusion (too slow to far too slow)
 	 * </ul>
@@ -411,7 +432,7 @@ public enum Tech {
 	 * where degree is the number of cells in the set.
 	 *
 	 * Fisherman implements: Swampfish=2, Swordfish=3, Jellyfish=4
-	 * where degree is the number of base (and therefore cover) regions.
+	 * where degree is the number of base (and cover) regions.
 	 * </pre>
 	 */
 	public final int degree;
@@ -459,10 +480,7 @@ public enum Tech {
 		this.degree = degree;
 		this.isDirect = name().startsWith("Direct");
 		this.isAligned = name().startsWith("Aligned");
-		if ( clazz == null )
-			this.className = null;
-		else
-			this.className = clazz.getName();
+		this.className = clazz==null ? null : clazz.getName();
 		this.defaultWanted = defaultWanted;
 
 		this.isChainer = false;
@@ -518,12 +536,24 @@ public enum Tech {
 	 * @return the JCheckBox.text for this Tech.
 	 */
 	public String text() {
-		if ( text == null ) {
-			text = dbl(difficulty)+SP+english(name());
-		}
+		if ( text == null )
+			text = dbl(difficulty)+SP+wordonate(name());
 		return text;
 	}
 	private String text;
+
+	/**
+	 * Returns is this Tech in techs?
+	 *
+	 * @param techs
+	 * @return is this Tech in the given 'techs' array.
+	 */
+	public boolean in(final Tech[] techs) {
+		for ( Tech tech : techs )
+			if ( this == tech )
+				return true;
+		return false;
+	}
 
 	// DO NOT USE: Just access the name attribute directly.
 	@Override

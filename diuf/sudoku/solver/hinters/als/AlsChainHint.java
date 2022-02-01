@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -57,20 +57,21 @@ public class AlsChainHint extends AHint  {
 	final int[] values;
 	final Rcc[] rccs;
 	final int[] rccIndexes;
-	// package visible to be modified by AlsChain AFTER hint is constructed
-	String debugMessage;
 
-	public AlsChainHint(final AHinter hinter, final Pots reds, final Als[] alss
-			, final int[] values, final Rcc[] rccs
+	public AlsChainHint(
+			  final AHinter hinter
+			, final Pots reds
+			, final Als[] alss
+			, final int[] values
+			, final Rcc[] rccs
 			, final int[] rccIndexes // pass me !null to turn on DEBUG
-			, final String debugMessage) {
+	) {
 		// nb: what are normally greens are oranges here
 		super(hinter, reds);
 		this.alss = alss;
 		this.values = values;
 		this.rccs = rccs;
 		this.rccIndexes = rccIndexes;
-		this.debugMessage = debugMessage;
 	}
 
 	@Override
@@ -154,7 +155,7 @@ public class AlsChainHint extends AHint  {
 	}
 
 	private String getAlssString() {
-		// NOTE: This HTML appears inside a PRE-block.
+		// NOTE: The HTML produced here appears inside a PRE-block.
 		int i = 0 // als index
 		  , c; // color index is 1..5 inclusive
 		String label;
@@ -168,11 +169,8 @@ public class AlsChainHint extends AHint  {
 			if ( als != null ) {
 				// Html.colorIn has 7 <b*> colors, aligned with SudokuGridPanel
 				// ALS_COLORS/ALS_BG_COLORS, so the ALS-string and the grid-ALS
-				// are the same color, to assist comprehensibility, which is an
-				// issue: AlsChains skirt MY limit, and I'm a smart-bastard, so
-				// I guess most folks won't groc ALSs at all, even when they're
-				// lookin at 'em. Same Color helps to look at 'em, a bit. sigh.
-				// nb: I arbitrarily determined that beyond 6 is TOO SLOW.
+				// are the same color for readability, which is still an issue,
+				// so double-click on the alsId to highlight this ALS in grid.
 				c = (i%7) + 1;
 				label = AlsHelper.alsId(i);
 				sb.append("    (").append(label).append(") ")
@@ -198,9 +196,9 @@ public class AlsChainHint extends AHint  {
 				++i;
 			}
 		}
-		// remove the trailing NL (or you can't see whole hint of long chain)
+		// remove the trailing NL
 		sb.setLength(sb.length()-1);
-		// colorIn manually coz that's done in load and cached, not in format.
+		// colorIn coz that's usually cached in load (not in format/produce).
 		return Html.colorIn(sb.toString());
 	}
 

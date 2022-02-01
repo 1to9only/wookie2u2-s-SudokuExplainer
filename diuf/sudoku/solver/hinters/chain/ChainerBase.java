@@ -1,39 +1,37 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.chain;
 
 import diuf.sudoku.Ass;
+import diuf.sudoku.Ass.Cause;
+import static diuf.sudoku.Ass.Cause.CAUSE_FOR;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
+import diuf.sudoku.Run;
+import diuf.sudoku.SourceID;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Indexes.ISHFT;
 import static diuf.sudoku.Indexes.IFIRST;
-import diuf.sudoku.Run;
 import static diuf.sudoku.Settings.THE_SETTINGS;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.ICleanUp;
-import diuf.sudoku.solver.hinters.Validator;
+import static diuf.sudoku.solver.hinters.Validator.*;
 import static diuf.sudoku.utils.Frmt.OR;
 import static diuf.sudoku.utils.Frmt.PLUS;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMySet;
-import diuf.sudoku.utils.Hash;
 import diuf.sudoku.utils.Log;
-import java.util.Collection;
 import java.util.Iterator;
-import static diuf.sudoku.Ass.Cause.CAUSE_FOR;
-import diuf.sudoku.SourceID;
 
 /**
  * ChainerBase is an abstract engine for searching a Grid for forcing chains.
@@ -117,9 +115,6 @@ abstract class ChainerBase extends AHinter
 //		}
 //	}
 
-	/** a local shortcut to Hash's LSH8, used in Ass hashCodes. */
-	protected static final int[] LSH8 = Hash.LSH8;
-
 	/**
 	 * If true the typeID field (\\d) is included in the hint-type.
 	 * This is for developers to back-trace where a hint came from,
@@ -143,7 +138,7 @@ abstract class ChainerBase extends AHinter
 	 * I retain a list of hints.
 	 */
 	private final HintCache cache;
-	
+
 	/**
 	 * The number of set cells in the grid when that cache was filled, so that
 	 * we can force-refresh the cache each time a cell is set, so that we never
@@ -184,7 +179,7 @@ abstract class ChainerBase extends AHinter
 	 * @param noCache true only when this is an imbedded hinter, ie is nested
 	 * inside another hinter.
 	 */
-	protected ChainerBase(Tech tech, boolean noCache) {
+	protected ChainerBase(final Tech tech, final boolean noCache) {
 		super(tech);
 		assert tech.isChainer;
 		this.isMultiple	 = tech.isMultiple;
@@ -203,6 +198,18 @@ abstract class ChainerBase extends AHinter
 		else
 			cache = new HintCacheBasic();
 		assert degree>=0 && degree<=5;
+	}
+
+	/** Do other possible positions for this value get "off"ed. */
+	protected boolean isXChain;
+	protected void setIsXChain(final boolean isXChain) {
+		this.isXChain = isXChain;
+	}
+
+	/** Do other potential values of this cell get "off"ed. */
+	protected boolean isYChain;
+	protected void setIsYChain(final boolean isYChain) {
+		this.isYChain = isYChain;
 	}
 
 //not_used
@@ -230,7 +237,7 @@ abstract class ChainerBase extends AHinter
 	 * @param grid Grid to search
 	 * @param hints HintCache to add hints to.
 	 */
-	protected abstract void findChainHints(Grid grid, HintCache hints);
+	protected abstract void findChainHints(final Grid grid, final HintCache hints);
 
 	/**
 	 * {@inheritDoc}
@@ -241,7 +248,7 @@ abstract class ChainerBase extends AHinter
 	 * Note that hints are cached locally.
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		assert grid != null;
 		assert accu != null;
 
@@ -275,7 +282,7 @@ abstract class ChainerBase extends AHinter
 					accu.add(cached);
 				}
 		}
-		
+
 		// remember these for next time
 		cacheSource = grid.source;
 		cacheNumSet = grid.numSet;
@@ -285,7 +292,7 @@ abstract class ChainerBase extends AHinter
 		// implemented by my subtypes to find the bloody hints.
 		findChainHints(grid, cache);
 
-		if ( Validator.CHAINER_VALIDATES ) {
+		if ( VALIDATE_CHAINER ) {
 			// valid nested hints, they've got problems!
 			if ( tech.isNested  )
 				validateTheHints(grid, cache);
@@ -330,10 +337,10 @@ abstract class ChainerBase extends AHinter
 	 * @param anOn an "on" assumption to find the "off" effects of
 	 * @param isYChain true means that all other potential values of this cell
 	 * get "off"ed
-	 * @param effects the Collection of Assumptions to populate with "off"s
 	 */
-	protected void onToOffs(Ass anOn, boolean isYChain, Collection<Ass> effects) {
-		assert anOn.isOn && effects.isEmpty();
+	protected void onToOffs(final Ass anOn) {
+		assert anOn.isOn;
+		ew = er = 0;
 		final Cell cell = anOn.cell;
 		final int value = anOn.value;
 		final int sv = VSHFT[value]; // shiftedValue
@@ -342,29 +349,47 @@ abstract class ChainerBase extends AHinter
 			final int ovb; // otherValuesBits
 			// nb: "empty test" for dynamic mode where grid has naked singles
 			if ( (ovb=cell.maybes & ~sv) != 0 )
-				for ( int v : VALUESES[ovb] )
-					effects.add(new Ass(cell, v, false, anOn, Cause.NakedSingle
-							, "the cell can contain only one value"));
+				for ( int v : VALUESES[ovb] ) {
+					effects[ew] = new Ass(cell, v, false, anOn
+							, Cause.NakedSingle
+							, "the cell can contain only one value");
+					ew = (ew+1) % E_MASK;
+					assert ew != er;
+				}
 		}
 		// Rule 2: X-Chain: other possible positions for value get "off"ed.
 		// NB: done this way because we need to know which region we're in;
 		// and it is faster to "repeat" the "same" code three times. YMMV.
 		for ( Cell sib : cell.box.cells )
-			if ( (sib.maybes & sv)!=0 && sib!=cell )
-				effects.add(new Ass(sib, value, false, anOn
-						, Cause.CAUSE_FOR[Grid.BOX]
-						, "the value can occur only once in the box"));
+			if ( (sib.maybes & sv)!=0 && sib!=cell ) {
+				effects[ew] = new Ass(sib, value, false, anOn
+					, Cause.CAUSE_FOR[Grid.BOX]
+					, "the value can occur only once in the box");
+				ew = (ew+1) % E_MASK;
+				assert ew != er;
+			}
 		for ( Cell sib : cell.row.cells )
-			if ( (sib.maybes & sv)!=0 && sib!=cell )
-				effects.add(new Ass(sib, value, false, anOn
+			if ( (sib.maybes & sv)!=0 && sib!=cell ) {
+				effects[ew] = new Ass(sib, value, false, anOn
 						, Cause.CAUSE_FOR[Grid.ROW]
-						, "the value can occur only once in the row"));
+						, "the value can occur only once in the row");
+				ew = (ew+1) % E_MASK;
+				assert ew != er;
+			}
 		for ( Cell sib : cell.col.cells )
-			if ( (sib.maybes & sv)!=0 && sib!=cell )
-				effects.add(new Ass(sib, value, false, anOn
+			if ( (sib.maybes & sv)!=0 && sib!=cell ) {
+				effects[ew] = new Ass(sib, value, false, anOn
 						, Cause.CAUSE_FOR[Grid.COL]
-						, "the value can occur only once in the col"));
+						, "the value can occur only once in the col");
+				ew = (ew+1) % E_MASK;
+				assert ew != er;
+			}
 	}
+	// circular-array replaces Queue, for speed.
+	protected static final int E_SIZE = 32;
+	protected static final int E_MASK = E_SIZE - 1;
+	protected final Ass[] effects = new Ass[E_SIZE];
+	protected int ew, er;
 
 	/**
 	 * MultipleChainer overrides this method; UnaryChainer just retains this
@@ -401,7 +426,6 @@ abstract class ChainerBase extends AHinter
 		// NB: this implementation never invoked. MultipleChainer overrides me.
 	}
 
-	//<NO_WRAPPING comment="Line wrapping is far too much of a pain in the ass here, so I have not bothered. Get over it.">
 	/**
 	 * Calculates the direct "on" effects of "anOff".
 	 * Note that either isXChain or isYChain (or both) must be true.
@@ -409,36 +433,34 @@ abstract class ChainerBase extends AHinter
 	 * <p>HAMMERED: called 31,758,114 times in top1465
 	 *
 	 * @param anOff the "off" Assumption to find the effects of.
-	 * @param prntOffs the Set of parent "off" Assumptions (each complete with
+	 * @param rents the Set of parent "off" Assumptions (each complete with
 	 *  its parents), from which I fetch the parents of the Asses I create
 	 * @param isXChain true means if there are only 2 possible positions for
 	 *  anOff.value in the region, then the other position gets "on"ed?
 	 * @param isYChain true means if there are only 2 potential values for
 	 *  anOn.cell then the other value gets "on"ed?
-	 * @param effects the Collection of Assumptions to populate
-	 * @return did we find any Ons? (just a bit faster than !effects.isEmpty())
+	 * @return any found? (about a third of offs cause an on)
 	 */
-	protected boolean offToOns(
-		  Ass anOff, IAssSet prntOffs
-		, boolean isXChain, boolean isYChain
-		, Collection<Ass> effects
-	) {
+	protected boolean offToOns(final Ass anOff, final IAssSet rents) {
 		assert !anOff.isOn;
 		assert isXChain || isYChain;
-		assert effects.isEmpty();
+		er = ew = 0;
 		final Cell cell = anOff.cell;
 		boolean result = false;
 
 		// Rule 1: Y-Chain: if there are only two potential values for this
 		// cell then the other value gets "on"ed.
-		Ass effectOn; //effectOn and his parent.
 		if ( isYChain && cell.size==2 ) {
-			result |= effects.add(effectOn = new Ass(cell, anOff.otherValue(), true, anOff, Cause.NakedSingle, ONLYVALUE));
+			final Ass on = effects[ew] = new Ass(cell, anOff.otherValue(), true
+					, anOff, Cause.NakedSingle, ONLYVALUE);
+			ew = (ew+1) & E_MASK;
+			assert ew != er;
+			result = true;
 			// add any erased parents of eOn to eOn (only in MultipleChainer)
 			if ( isDynamic )
 				// call-back MultipleChainer coz it has the current grid
 				// and the initial grid, which I do not have access to.
-				addHiddenParentsOfCell(effectOn, cell, prntOffs);
+				addHiddenParentsOfCell(on, cell, rents);
 		}
 
 		// Rule 2: X-Chain: if there are only two positions for this value in
@@ -450,43 +472,25 @@ abstract class ChainerBase extends AHinter
 		for ( int rti=0; rti<3; ++rti ) { // regionTypeIndex: BOX, ROW, COL
 			// skip unless there are 2 possible positions for value in region
 			if ( cell.regions[rti].ridx[v].size == 2 ) {
-//				final ARegion region; // the current region which contains this cell
-//				final int places; // indexes of cells in region which maybe v (current grid)
-//				final Cell otherCell; // the other cell in this region which maybe v
-				// This cluster____ was brought you by the word SPEED and the number 42.
-				// Create the effectOn Assumption and add it to effects list
-				// with inline otherCell = anOff.otherCellIn(region), a method
-				// which calls 1-or-2 methods, each calling a method, which is
-				// all a bit slow Redge, and so has been "inlined", for speed.
-				// HAMMERED: top1465 ACCURACY: 209,704,756 iterations
-				// BUT IT'S INCOMPREHENSIBLE, SO THIS LINE DOES:
-				// (1) region = cell.regions[rti]; // not cached above coz hit rate too low.
-				// (2) places = region.ridx[v].bits; // region.cells indexes of cell which maybe v
-				// (3) otherCell = region.cells[IFIRST[places & ~ISHFT[cell.indexIn[rti]]]]; // the cell at the first [places except me] in this region
-				// (4) effectOn = new Ass(otherCell, v, true, anOff, region.cause, ONLYPOS[rti]);
-				// NOTES: Created Cell.indexIn and Indexes.IFIRST arrays
-				// especially for this cluster____; and promulgated for speed.
-				// The Indexes.IFIRST array was built for this also. It has the
-				// results of Integer.numberOfTrailingZeros(i).
-				// Likewise Cause.CAUSE_FOR_REGION_TYPE was created for me, and
-				// my ONLYPOS array interns each String rather than building an
-				// individual String on the fly a total of 209,704,756 times.
-				// Array look-ups are fast. More thunk, less work, more speed!
-				final ARegion region = cell.regions[rti];
-				final int places = region.ridx[v].bits;
-				final int myIndex = cell.indexIn[rti];
-				final Cell otherCell = region.cells[IFIRST[places & ~ISHFT[myIndex]]];
-				effectOn = new Ass(otherCell, v, true, anOff, CAUSE_FOR[rti], ONLYPOS[rti]);
-				result |= effects.add(effectOn);
-				// Dynamic: effectOn.parents += Ass's that erased this value in this region.
+				// Create the effectOn Ass and add to effects
+				final ARegion r = cell.regions[rti]; // cellsRegion
+				final int p = r.ridx[v].bits; // places
+				final int i = cell.indexIn[rti]; // indexOfCellInRegion
+				final Cell oc = r.cells[IFIRST[p & ~ISHFT[i]]]; // otherCell
+				final Ass on = effects[ew] = new Ass(oc, v, true
+						, anOff, CAUSE_FOR[rti], ONLYPOS[rti]);
+				ew = (ew+1) & E_MASK;
+				assert ew != er;
+				result = true;
+				// Dynamic: on.parents += Ass's erasing value in region.
 				if ( isDynamic ) // ie I am a MultipleChainer in dynamic mode
-					// call-back my MultipleChainer subclass because it has the current and initial grids, to which I have no access.
-					addHiddenParentsOfRegion(otherCell.i, rti, v, places, region, prntOffs, effectOn);
+					// call-back my MultipleChainer subclass because it has the
+					// current and initial grids, to which I have no access.
+					addHiddenParentsOfRegion(oc.i, rti, v, p, r, rents, on);
 			}
 		} // next regionTypeIndex
 		return result;
 	}
-	//</NO_WRAPPING>
 	// use only interned (static final) strings in assumptions, so we store
 	// an address rather than a copy of the string in each assumption.
 	private static final String ONLYVALUE =
@@ -506,7 +510,8 @@ abstract class ChainerBase extends AHinter
 	 */
 	static Ass getSource(Ass target) {
 		Ass a = target;
-		while ( a.parents!=null && a.parents.size>0 )
+//		while ( a.parents!=null && a.parents.size>0 )
+		while ( a.parents!=null )
 			a = a.parents.first.item;
 		return a;
 	}
@@ -533,8 +538,8 @@ abstract class ChainerBase extends AHinter
 			if ( hint == null ) {
 				// should never happen! Never say never.
 				Log.println("ChainerBase.validateTheHints:");
-				Log.println("null hint!");
-				it.remove(); // all I can do it skip it. Sigh.
+				Log.println("IMPOSSIBLE: hint is null!");
+				it.remove(); // skip it
 			} else if ( hint.value!=0 && hint.cell!=null ) {
 				int sv = solution[hint.cell.i];
 				if ( hint.value != sv ) {
@@ -542,15 +547,15 @@ abstract class ChainerBase extends AHinter
 					Log.println("ChainerBase.validateTheHints:");
 					Log.println("Invalid hint ("+problem+"): "+hint.toFullString());
 					Log.println("Invalid grid:\n"+grid);
-					it.remove(); // all I can do it skip it. Sigh.
+					it.remove(); // skip it
 				}
 			} else if ( hint.reds!=null && !hint.reds.isEmpty() ) {
-				if ( !Validator.isValid(grid, hint.reds) ) {
-					String problem = "invalidity: "+Validator.invalidity;
+				if ( !validOffs(grid, hint.reds) ) {
+					String problem = "invalidity: "+invalidity;
 					Log.println("ChainerBase.validateTheHints:");
 					Log.println("Invalid hint ("+problem+"): "+hint.toFullString());
 					Log.println("Invalid grid:\n"+grid);
-					it.remove(); // all I can do it skip it. Sigh.
+					it.remove(); // skip it
 				}
 			} else {
 				// This should never happen. Every hint eliminates a cell value
@@ -559,7 +564,7 @@ abstract class ChainerBase extends AHinter
 				Log.println("Dodgy: MIA "+hint.cell+PLUS+hint.value+OR+hint.reds);
 				Log.println("Dodgy hint: No elims in: "+hint.toFullString());
 				Log.println("Dodgy grid:\n"+grid);
-				it.remove(); // all I can do it skip it. Sigh.
+				it.remove(); // skip it
 			}
 		}
 	}

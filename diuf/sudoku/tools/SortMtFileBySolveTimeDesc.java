@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -21,11 +21,11 @@ import java.util.regex.Pattern;
 
 
 /**
- * SortMtFileBySolveTimeDesc produces an .mt file sorted by the solve-time 
+ * SortMtFileBySolveTimeDesc produces an .mt file sorted by the solve-time
  * descending (slowest to fastest) from a LogicalSolverTester logFile.
  * <p>
  * This program is why the original puzzle (not the solution) is printed at the
- * end of the puzzle-summary-line in the logFile. Another reminder that one 
+ * end of the puzzle-summary-line in the logFile. Another reminder that one
  * f__ks with the logFile format at ones peril.
  * <p>
  * It shouldn't matter which Log.MODE the logFile is in, because I only look at
@@ -35,8 +35,8 @@ import java.util.regex.Pattern;
  */
 public class SortMtFileBySolveTimeDesc {
 
-	private static final File INPUT_LOG_FILE = new File(IO.HOME+"top1465.d5.log");
-	private static final File OUTPUT_MT_FILE = new File(IO.HOME+"top1465.d6.mt");
+	private static final File INPUT_LOG_FILE = new File(IO.HOME+"top1465.d6.2022-01-01.08-28-09.log");
+	private static final File OUTPUT_MT_FILE = new File(IO.HOME+"top1465.d7.mt");
 
 	public static void main(String[] args) {
 		final Pattern puzzleSummaryLinePattern = Pattern.compile("^ *\\d+\t.*[.123456789]{"+GRID_SIZE+"}$");
@@ -45,17 +45,29 @@ public class SortMtFileBySolveTimeDesc {
 			LinkedList<PuzzleLine> puzzleList = new LinkedList<>();
 			String line;
 			while ( (line=reader.readLine()) != null ) {
-				if ( line.charAt(0)==' '
+				if ( line.length()>0 && line.charAt(0)==' '
 				  && puzzleSummaryLinePattern.matcher(line).matches() ) {
-					//dumpLine(line);
 					String[] fields = line.split(" *\t *", REGION_SIZE);
 					int puzzleNumber = Integer.parseInt(fields[0].trim());
 					assert puzzleNumber>0 && puzzleNumber<10000;
 					long solveTimeNanos = Long.parseLong(fields[1].replaceAll(",", ""));
 					assert solveTimeNanos>0 && solveTimeNanos<120000000000L; // 2 minutes
+					// last "\t" is missing, so divide on " +"
 					String contents = fields[8];
-					assert contents.length() == GRID_SIZE;
-					puzzleList.add(new PuzzleLine(puzzleNumber, solveTimeNanos, contents));
+					int sp = contents.indexOf(' ');
+					if ( sp > -1 )
+						contents = contents.substring(sp+1).trim();
+					if ( contents.length() != GRID_SIZE ) {
+//						System.out.println(line.replaceAll(" *\t *", "|"));
+//						System.out.println(contents);
+//						for ( int i=0; i<fields.length; ++i )
+//							System.out.println("fields "+i+": "+fields[i]);
+						dumpLine(line);
+						break;
+					} else {
+						assert contents.length() == GRID_SIZE;
+						puzzleList.add(new PuzzleLine(puzzleNumber, solveTimeNanos, contents));
+					}
 				}
 			}
 			PuzzleLine[] puzzleArray = puzzleList.toArray(new PuzzleLine[puzzleList.size()]);
@@ -67,37 +79,37 @@ public class SortMtFileBySolveTimeDesc {
 		}
 	}
 
-//	private static void dumpLine(String line) {
-//		String myLine = line.replaceAll(TAB, SPACE); // tabs ____ this all up.
-//		System.out.println(myLine);
-//		// print a line containing the index of the start of each word.
-//		boolean prevIsWhitespace = true; // is the previous char tab or space
-//		int i = 0; // the 0 based index of char c in line
-//		int goQuiteUntil = -1; // the i at which we start to print spaces again
-//		for ( char c : myLine.toCharArray() ) {
-//			if ( c==' ' ) {
-//				System.out.print(' ');
-//				prevIsWhitespace = true;
-//			} else if ( prevIsWhitespace ) {
-//				System.out.print(i);
-//				goQuiteUntil = i + numberOfDigitsIn(i) - 1;
-//				prevIsWhitespace = false;
-//			} else if ( i>goQuiteUntil )
-//				System.out.print(' ');
-//			++i;
-//		}
-//		System.out.println();
-//		System.out.println();
-//	}
-//
-//	private static int numberOfDigitsIn(int i) {
-//		int count = 1;
-//		while ( i > 10 ) {
-//			++count;
-//			i/=10;
-//		}
-//		return count;
-//	}
+	private static void dumpLine(String line) {
+		String myLine = line.replaceAll("\t", " "); // tabs ____ this all up.
+		System.out.println(myLine);
+		// print a line containing the index of the start of each word.
+		boolean prevIsWhitespace = true; // is the previous char tab or space
+		int i = 0; // the 0 based index of char c in line
+		int goQuiteUntil = -1; // the i at which we start to print spaces again
+		for ( char c : myLine.toCharArray() ) {
+			if ( c==' ' ) {
+				System.out.print(' ');
+				prevIsWhitespace = true;
+			} else if ( prevIsWhitespace ) {
+				System.out.print(i);
+				goQuiteUntil = i + numberOfDigitsIn(i) - 1;
+				prevIsWhitespace = false;
+			} else if ( i>goQuiteUntil )
+				System.out.print(' ');
+			++i;
+		}
+		System.out.println();
+		System.out.println();
+	}
+
+	private static int numberOfDigitsIn(int i) {
+		int count = 1;
+		while ( i > 10 ) {
+			++count;
+			i/=10;
+		}
+		return count;
+	}
 
 	private static class PuzzleLine {
 		public static final Comparator<PuzzleLine> BY_SOLVE_TIME_NANOS_DESC

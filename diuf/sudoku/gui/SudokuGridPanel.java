@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -55,6 +55,7 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import static diuf.sudoku.Grid.ROW_OF;
 import static diuf.sudoku.Grid.SQRT;
+import static diuf.sudoku.Grid.BY9;
 
 
 /**
@@ -89,14 +90,18 @@ public class SudokuGridPanel extends JPanel {
 	private static final Color COLOR_BLACK = new Color(0, 0, 0);
 	private static final Color COLOR_PURPLE	= new Color(220, 5, 220);
 	private static final Color COLOR_BROWN	= new Color(150, 75, 0);
-	private static final Color COLOR_DARK_BLUE = Color.BLUE.darker();
+	private static final Color COLOR_BLUE_DARK = Color.BLUE.darker();
 	private static final Color COLOR_LEGEND	= new Color(0, 32, 64);
-	private static final Color COLOR_LIGHT_BLUE	= new Color(216, 230, 255);
+	private static final Color COLOR_BLUE_LIGHT	= new Color(216, 230, 255);
 
+	// CYAN is for the ALS's only, everything else is "AQUA".
+	private static final Color COLOR_CYAN = Color.CYAN;
+	// use a darker cyan foreground color, else the digits "look funny"
+	private static final Color COLOR_CYAN_DARK = COLOR_CYAN.darker();
 	// the aqua (bluey green) foreground color
 	private static final Color COLOR_AQUA = new Color(192, 255, 255);
 	// the dark aqua foreground color
-	private static final Color COLOR_AQUA_DARK = new Color(0, 153, 153);
+	private static final Color COLOR_AQUA_DARK = COLOR_AQUA.darker();
 	// the dark yellow/green forground color
 	private static final Color COLOR_YELLOW_DARK = new Color(204, 204, 0);
 	// the pink cell foreground color
@@ -130,20 +135,20 @@ public class SudokuGridPanel extends JPanel {
 	private static final Color[] ALS_COLORS = {
 			  COLOR_BASE_BORDER // blue
 			, COLOR_COVER_BORDER // green
-			, COLOR_AQUA_DARK
-			, COLOR_YELLOW_DARK
 			, COLOR_BROWN
+			, COLOR_CYAN // nb cyan instead of aqua which is too close to green
 			, COLOR_PURPLE
-			, COLOR_LIGHT_BLUE
+			, COLOR_YELLOW_DARK
+			, COLOR_BLUE_LIGHT
 	};
 	// ALS region bacground colors
 	private static final Color[] ALS_BG_COLORS = {
 			  COLOR_BASE_BG // blue
 			, COLOR_COVER_BG // green
-			, COLOR_AQUA_BG
-			, COLOR_YELLOW_BG
 			, COLOR_BROWN_BG
+			, COLOR_AQUA_BG
 			, COLOR_PURPLE_BG
+			, COLOR_YELLOW_BG
 			, COLOR_LIGHT_BLUE_BG
 	};
 
@@ -524,7 +529,7 @@ public class SudokuGridPanel extends JPanel {
 						case KeyEvent.VK_UP:    y=y==0 ? M : (y+M)%N; break;
 						case KeyEvent.VK_DOWN:  y=y==M ? 0 : (y+1)%N; break;
 						}
-						setSelectedCell(grid.cells[y*N+x]);
+						setSelectedCell(grid.cells[BY9[y]+x]);
 					}
 					e.consume();
 				} else if ( key==KeyEvent.VK_DELETE
@@ -616,7 +621,7 @@ public class SudokuGridPanel extends JPanel {
 		if(cx<0||cx>8) return null;
 		final int cy = (y - V_GAP) / COS;
 		if(cy<0||cy>8) return null;
-		return grid.cells[cy*N+cx];
+		return grid.cells[BY9[cy]+cx];
 	}
 
 	private boolean in(final int i, final int min, final int ceiling) {
@@ -631,7 +636,7 @@ public class SudokuGridPanel extends JPanel {
 		final int cy = (y - V_GAP) / COS;
 		if ( cx<0||cx>8 || cy<0||cy>8 )
 			return 0;
-		assert in(cy*N+cx, 0, 81);
+		assert in(BY9[cy]+cx, 0, 81);
 		// substract cell's top-left corner
 		x = x - byCOS[cx] - H_GAP;
 		y = y - byCOS[cy] - V_GAP;
@@ -785,8 +790,7 @@ public class SudokuGridPanel extends JPanel {
 	}
 
 	/**
-	 * Clears the focused cell,
-	 * and if 'isSelection' then clears the selectedCell.
+	 * Clears focusedCell, and if isSelection then also clears selectedCell.
 	 */
 	void clearSelection(boolean isSelection) {
 		this.focusedCell = null;
@@ -887,17 +891,6 @@ public class SudokuGridPanel extends JPanel {
 		if ( alss != null ) {
 			// paint the background of ALS cells only
 			paintAlss(g, alss);
-			// if any ALS is selected then
-			final int i = selectedAlsIndex;
-			if ( i > -1 ) {
-				if ( i >= alss.length ) {
-					// selection invalid, so unselect it
-					selectedAlsIndex = -1;
-				} else {
-					// repaint the selected ALS over the top of the others.
-					paintAls(g, alss[i], i % ALS_COLORS.length);
-				}
-			}
 		} else {
 			// paint regions for non-ALS's
 			paintRegions(g, covers, COLOR_COVER_BORDER, COLOR_COVER_BG);
@@ -1005,7 +998,7 @@ public class SudokuGridPanel extends JPanel {
 				g.setColor(Color.black);
 			} else {
 				lineWidth = 2;
-				g.setColor(COLOR_DARK_BLUE);
+				g.setColor(COLOR_BLUE_DARK);
 			}
 			offset = lineWidth / 2;
 			g.fillRect(byCOS[i]-offset, 0-offset, lineWidth, MY_SIZE+lineWidth);
@@ -1054,20 +1047,44 @@ public class SudokuGridPanel extends JPanel {
 	 *
 	 * @param g the Graphics to paint on
 	 * @param als the ALS to paint
-	 * @param i the ALS_COLORS/ALS_BG_COLORS index, ie
-	 *  {@code alsIndex % ALS_COLORS.length} to avert AIOOBE.
+	 * @param c the color index, for ALS_COLORS/ALS_BG_COLORS, ie
+	 *  {@code alsIndex % ALS_COLORS.length} to avert AIOOBE;
+	 *  or special case -1 to "flash highlight" this ALS in YELLOW.
 	 */
-	private void paintAls(final Graphics g, final Als als, final int i) {
-		// foreGroundColor
-		final Color fgc = i==-1 ? Color.YELLOW : ALS_COLORS[i];
-		// null backgroundColor: I paint backgrounds of my cells.
-		paintRegions(g, als.regions(), fgc, null);
-		for ( Cell cell : als.idx.cells(grid.cells) ) {
+	private void paintAls(final Graphics g, final Als als, final int c) {
+		// the foreGroundColor switches-up to yellow when c is -1 (selected)
+		final Color fgc = c==-1 ? Color.YELLOW : ALS_COLORS[c];
+		// Draw ALS border inside the black region border, in a finer pen. The
+		// problem is avoiding overpaints, so draw INSIDE da region border, but
+		// region borders are not all the same width, so compromise by partly
+		// overPainting the thicker-black border between boxs, but MUST start
+		// at 1 to catch the edge of grey border between cols/rows, so for a
+		// narrower line retard terminus rather than advancing origin.
+		// FYI: Draw inside da region border to reduce overpainting. It used to
+		// paint over the whole thicker-black-inter-box-border, but then we see
+		// only the last border at each intersection between ALS regions, which
+		// are many, so now we avert the whole problem, so that the user sees a
+		// pointer to each ALS, whose cells may still overlap, so da user still
+		// needs to select each ALS to examine it, so this just helps not Cures
+		// the problem. Road to Nowhere. Plantpot. Chapman's Bridge. Desperado.
+		// Dueling Dalton. Dueling Bangos! 42. Sigh.
+		final ARegion region = als.region;
+		if ( region != null ) {
+			final Bounds b = bounds[region.index];
+			g.setColor(fgc); // solid color
+			for ( int s=1; s<4; ++s ) // thrice: 1, 2, 3
+				g.drawRect(b.x+s, b.y+s, b.w-s*2, b.h-s*2);
+		}
+		// paint each cell in this ALS
+		for ( Cell cell : als.idx.cellsNew(grid.cells) ) {
 			// paint the cell background
-			g.setColor(i==-1 ? Color.YELLOW : ALS_BG_COLORS[i]);
+			g.setColor(c==-1 ? Color.YELLOW : ALS_BG_COLORS[c]);
 			g.fillRect(byCOS[cell.x]+2, byCOS[cell.y]+2, COS-4, COS-4);
+			// use a darker aqua foreground color, else the digits "look funny"
+			// but retain aqua border-color to match the hint-html-text, which
+			// is strange, but works. I should move aqua away from green. Sigh.
+			g.setColor(fgc==COLOR_CYAN ? COLOR_CYAN_DARK : fgc);
 			// paint the cell foreground
-			g.setColor(fgc);
 			for ( int v : VALUESES[cell.maybes] ) {
 				paintMaybe3D(g, cell, v, smallFont2);
 			}
@@ -1085,16 +1102,17 @@ public class SudokuGridPanel extends JPanel {
 		// If you're seeing this then add another ALS_COLORS and ALS_BG_COLORS.
 		if ( alss.length > ALS_COLORS.length )
 			Log.println("WARN: paintAlss: more alss than ALS_COLORS!");
-		int i = 0; // the color index
-		for ( final Als als : alss ) {
-			if ( als != null ) { // the last als may be null. sigh.
-				paintAls(g, als, i);
-				// prevent AIOOBE if there's ever more alss than ALS_COLORS by
-				// making the color index wrap around to zero. If you see two
-				// blue ALSs then add another ALS_COLORS and ALS_BG_COLORS.
-				i = (i+1) % ALS_COLORS.length;
-			}
+		int i = 1; // the alss index, skip the first ALS, for now.
+		for ( ; i<alss.length; ++i ) {
+			// the last ALS may be null. sigh.
+			if ( alss[i] == null ) 
+				break;
+			paintAls(g, alss[i], i % ALS_COLORS.length);
 		}
+		// paint the first ALS last, so that the first ALS is always on top,
+		// and the last ALS is the one underneath it... they rarely overlap.
+		paintAls(g, alss[0], 0);
+
 		// paint the selected one again!
 		i = selectedAlsIndex;
 		if ( i > -1 ) {
@@ -1109,6 +1127,17 @@ public class SudokuGridPanel extends JPanel {
 					repaint();
 				}
 			});
+		}
+		// if any ALS is selected then
+		// nb: I don't understand this, and I wrote it. GUI's just shit me!
+		if ( i > -1 ) {
+			if ( i >= alss.length ) {
+				// selection invalid, so unselect it
+				selectedAlsIndex = -1;
+			} else {
+				// repaint the selected ALS over the top of the others.
+				paintAls(g, alss[i], i % ALS_COLORS.length);
+			}
 		}
 	}
 

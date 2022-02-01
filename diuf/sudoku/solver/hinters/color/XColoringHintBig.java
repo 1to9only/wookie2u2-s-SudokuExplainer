@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
@@ -61,8 +61,8 @@ public class XColoringHintBig extends AHint  {
 			this.greenCellIds = colorSet[0].ids();
 			this.blueCellIds = colorSet[1].ids();
 		} else { // MedusaColoring
-			this.greenCellIds = greens.cells();
-			this.blueCellIds = blues.cells();
+			this.greenCellIds = greens.ids();
+			this.blueCellIds = blues.ids();
 		}
 		this.cause = cause;
 		this.resultColor = resultColor;

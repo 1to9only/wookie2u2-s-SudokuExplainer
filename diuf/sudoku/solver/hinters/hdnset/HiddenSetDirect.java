@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.hdnset;
@@ -45,6 +45,7 @@ public final class HiddenSetDirect extends HiddenSet {
 	 */
 	public HiddenSetDirect(Tech tech) {
 		super(tech);
+		assert tech.isDirect;
 		assert tech.name().startsWith("DirectHidden"); // DirectHidden
 		assert degree >=2 && degree <= 3; // Pair or Triple
 	}
@@ -70,8 +71,8 @@ public final class HiddenSetDirect extends HiddenSet {
 	@Override
 	protected AHint createHint(final ARegion r, int values, int indexes
 			, Pots reds) {
-		// build the highlighted (green) Cell=>Values
-		final Pots greens = new Pots(r.cells, indexes, values, F, F);
+		// build the highlighted (orange) Cell=>Values
+		final Pots oranges = new Pots(r.cells, indexes, values, F, F);
 		// build an array of the cells in this hidden set (for the hint)
 		final Cell[] cells = r.atNew(indexes);
 		int bits;
@@ -86,8 +87,10 @@ public final class HiddenSetDirect extends HiddenSet {
 		for ( int v : VALUESES[VALL & ~values] ) {
 			if ( VSIZE[bits=r.ridx[v].bits & ~indexes] == 1 ) {
 				// this aligned set causes a Hidden Single
+				final Cell cellToSet = r.cells[IFIRST[bits]];
+				final Pots greens = new Pots(cellToSet, v);
 				return new HiddenSetDirectHint(this, cells, values, greens
-						, reds, r, v, r.cells[IFIRST[bits]]);
+						, oranges, reds, r, v, cellToSet);
 			}
 		}
 		return null; // No hidden single found

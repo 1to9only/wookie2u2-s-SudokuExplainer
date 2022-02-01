@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.chain;
@@ -40,7 +40,7 @@ public final class ChainerHacu implements IAccumulator {
 	private final Grid initGrid;
 	private final Grid currGrid;
 	private final IAssSet parentOffs;
-	private final List<Ass> effects;
+	private final List<Ass> results;
 
 	/**
 	 * Constructor.
@@ -50,13 +50,13 @@ public final class ChainerHacu implements IAccumulator {
 	 * @param rents the parent Ass's in which I find the parents of each Ass
 	 *  that I create, each having it's own parents, and therefore forming a
 	 *  backward-chain, where each node only knows it's parent/s.
-	 * @param effects the Ass List to which I add
+	 * @param results the Ass List to which I add
 	 */
-	public ChainerHacu(Grid ig, Grid cg, IAssSet rents, List<Ass> effects) {
+	public ChainerHacu(Grid ig, Grid cg, IAssSet rents, List<Ass> results) {
 		this.initGrid = ig;
 		this.currGrid = cg;
 		this.parentOffs = rents;
-		this.effects = effects;
+		this.results = results;
 	}
 
 	@Override
@@ -105,7 +105,7 @@ public final class ChainerHacu implements IAccumulator {
 			nestedChain = null;
 		for ( java.util.Map.Entry<Cell,Integer> e : redPots.entrySet() )
 			for ( int v : VALUESES[e.getValue()] )
-				result |= effects.add(new Ass(e.getKey(), v, false, parents
+				result |= results.add(new Ass(e.getKey(), v, false, parents
 						, Cause.Advanced, hint.toString() // explanation
 						, nestedChain));
 		return result;
@@ -139,12 +139,12 @@ public final class ChainerHacu implements IAccumulator {
 
 	@Override
 	public boolean any() {
-		return !effects.isEmpty();
+		return !results.isEmpty();
 	}
 
 	@Override
 	public int size() {
-		return effects.size();
+		return results.size();
 	}
 
 	@Override

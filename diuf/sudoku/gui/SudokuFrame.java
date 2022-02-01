@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -14,6 +14,7 @@ import diuf.sudoku.Run;
 import diuf.sudoku.Settings;
 import static diuf.sudoku.Settings.*;
 import diuf.sudoku.Tech;
+import diuf.sudoku.gen.Generator;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
@@ -28,6 +29,7 @@ import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.IAsker;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
+import diuf.sudoku.utils.StringPrintWriter;
 import java.awt.*;
 import static java.awt.Event.ALT_MASK;
 import java.awt.datatransfer.UnsupportedFlavorException;
@@ -40,8 +42,6 @@ import static java.awt.event.MouseEvent.BUTTON2;
 import static java.awt.event.MouseEvent.BUTTON3;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.security.AccessControlException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -110,6 +110,10 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	// with it being bigger (within reason) it just MUST be bounded.
 	private final static int MAX_VIEWS = 128;
 	private static final String[] VIEWS = new String[MAX_VIEWS];
+
+	// EmptyHint should flash past when tree cleared before hint-search.
+	private static final TreeModel EMPTY_TREE_MODEL
+			= new DefaultTreeModel(new HintNode(new EmptyHint()));
 
 	static {
 		for (int i = 0; i < MAX_VIEWS; ++i) {
@@ -434,11 +438,24 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		return true;
 	}
 
+	private static class EmptyHint extends AWarningHint implements IPretendHint {
+		public EmptyHint() {
+			super(new diuf.sudoku.solver.hinters.DummyHinter());
+		}
+		@Override
+		protected String toHtmlImpl() {
+			return ("<html><body>Coodies!</body></html>");
+		}
+		@Override
+		protected String toStringImpl() {
+			return "EmptyHint: is empty";
+		}
+	}
+
 	private final class HintsTreeCellRenderer implements TreeCellRenderer {
 
 		// this Renderer "wraps" a DefaultTreeCellRenderer to handle HintNodes
-		private final DefaultTreeCellRenderer DTCR
-				= new DefaultTreeCellRenderer();
+		private final DefaultTreeCellRenderer DTCR = new DefaultTreeCellRenderer();
 
 		public HintsTreeCellRenderer() {
 			DTCR.setLeafIcon(createImageIcon("Icon_Light.gif"));
@@ -448,9 +465,9 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		public Component getTreeCellRendererComponent(JTree tree, Object value
 				, boolean selected, boolean expanded, boolean leaf, int row
 				, boolean hasFocus) {
-			if (value instanceof HintNode) {
-				HintNode hn = (HintNode) value;
-				boolean isEmpty = !hn.isHintNode() && hn.getChildCount() == 0;
+			if ( value instanceof HintNode ) {
+				final HintNode hn = (HintNode)value;
+				final boolean isEmpty = !hn.hasHint() && hn.getChildCount()==0;
 				expanded |= isEmpty;
 				leaf &= !isEmpty;
 			}
@@ -549,19 +566,19 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	/**
-	 * and remove all hints from the given deadTech; and disable that hinter,
-	 * until a puzzle is re/loaded (prepare).
+	 * remove all hints from the given deadTech
+	 * and disable hinter until a puzzle is prepare'd.
 	 *
-	 * @param deadTech
+	 * @param dead the deceased Tech
 	 */
-	private void removeHintsAndDisableHinter(Tech deadTech) {
+	private void removeHintsAndDisableHinter(Tech dead) {
 		// disable the hinter; which is re-enabled by loading a puzzle
-		IHinter hinter = engine.solver.getWantedHinter(deadTech);
+		IHinter hinter = engine.solver.getWantedHinter(dead);
 		if ( hinter != null ) {
 			hinter.setIsEnabled(false);
 		}
 		// remove the hints
-		engine.removeHintsFrom(deadTech);
+		engine.removeHintsFrom(dead);
 	}
 
 	private JTree getHintsTree() {
@@ -593,17 +610,24 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
 					e.consume();
 				} else if ( keyCode == KeyEvent.VK_DELETE ) {
-					ArrayList<HintNode> hintNodes = getSelectedHintNodes();
-					if ( hintNodes!=null && !hintNodes.isEmpty() ) {
-						hintsTree.clearSelection();
+					final ArrayList<HintNode> hintNodes = getSelectedHintNodes();
+					hintsTree.clearSelection();
+					if ( hintNodes==null || hintNodes.isEmpty() ) {
+						engine.beep();
+					} else {
 						// disable this hinter
-						Tech deadTech = hintNodes.get(0).getHint().hinter.tech;
-						removeHintsAndDisableHinter(deadTech);
-						// clear the hintsTree
-						hintsTree.setModel(new DefaultTreeModel(null));
-						repaint();
-						// get hints again now that this hinter is disabled
-						getAllHintsInBackground(e.isShiftDown(), e.isControlDown());
+						final Tech dead = hintNodes.get(0).getHint().hinter.tech;
+						// NEVER disable Naked/Hidden Singles (mandatory)
+						if ( dead==Tech.NakedSingle || dead==Tech.HiddenSingle ) {
+							engine.beep();
+						} else {
+							removeHintsAndDisableHinter(dead);
+							// clear the hintsTree
+							hintsTree.setModel(EMPTY_TREE_MODEL);
+							repaint();
+							// get hints again now that this hinter is disabled
+							getAllHintsInBackground(e.isShiftDown(), e.isControlDown());
+						}
 					}
 					e.consume();
 				}
@@ -707,6 +731,13 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		Log.whinge("GUI Error!", ex);
 	}
 
+	public static String stackTrace(Exception ex) {
+		final StringPrintWriter writer = new StringPrintWriter();
+		ex.printStackTrace(writer);
+		writer.flush();
+		return writer.toString();
+	}
+
 	/**
 	 * Displays the stackTrace of the given Exception in the hintDetailArea and
 	 * prints it to the standard-error stream.
@@ -715,24 +746,16 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 */
 	public void displayError(Exception ex) {
 		// wait for stdout so stderr doesn't interleave
-		try {
-			Thread.sleep(1);
-		} catch (InterruptedException eaten) {
-		}
+		try{Thread.sleep(1);} catch (InterruptedException eaten) {}
 		System.err.println();
 		System.err.flush();
 		ex.printStackTrace(System.err);
 		System.err.println();
 		System.err.flush();
-		// get html of the stack trace
-		StringWriter sw = new StringWriter();
-		PrintWriter pw = new PrintWriter(sw);
-		ex.printStackTrace(pw);
-		pw.flush();
-		String html = "<html><body><font color=\"red\"><pre>"
-				+ sw.toString()
-				+ "</pre></font></body></html>";
-		setHintDetailArea(html);
+		// html of the stack trace
+		setHintDetailArea("<html><body><font color=\"red\"><pre>"
+				+ stackTrace(ex)
+				+ "</pre></font></body></html>");
 		engine.beep();
 	}
 
@@ -1235,7 +1258,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				public void actionPerformed(ActionEvent e) {
 					GenerateDialog dialog = generateDialog;
 					if (dialog == null) {
-						dialog = GenerateDialog.getInstance();
+						dialog = GenerateDialog.getGenerateDialog();
 						dialog.pack();
 						// top-right
 						dialog.setLocation(getToolkit().getScreenSize().width
@@ -1652,7 +1675,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		// stuff, but the GUI looks simple and vanilla, so that c___ts can work
 		// out how to use the bastard!
 		// BTW: create method shftCtrl (or whatever) if/when you use it.
-		toolsMenu.add(ctrl('R', getMitResetPotentials()));
+		toolsMenu.add(ctrl('#', getMitResetPotentials()));
 		toolsMenu.add(ctrl('D', getMitClearHints()));
 		toolsMenu.addSeparator();
 		toolsMenu.add(norm(KeyEvent.VK_F2, getMitSolveStep()));
@@ -1678,7 +1701,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private JMenuItem getMitResetPotentials() {
 		if (mitResetPotentialValues == null) {
 			mitResetPotentialValues = newJMenuItem("Reset potential values"
-					, KeyEvent.VK_R
+					, KeyEvent.VK_NUMBER_SIGN // #
 					, "Recompute the remaining potential values for"
 					 +" the empty cells");
 			mitResetPotentialValues.addActionListener(new ActionListener() {
@@ -1913,11 +1936,13 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		final Runnable analyser = new Runnable() {
 			@Override
 			public void run() {
+				if ( Generator.isGeneratorRunning() )
+					return;
 				try {
 					long start = System.nanoTime();
 					boolean myLogHints = logging != Logging.NORMAL;
 					boolean myLogHinters = logging == Logging.HINTERS;
-					Run.stopGenerate = false;
+					Run.setStopGenerate(false);
 					engine.analysePuzzle(myLogHints, myLogHinters);
 					Log.teef("Analyse took %,d ns\n", System.nanoTime() - start);
 					hintsTreeRequestFocus();

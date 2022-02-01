@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.hdnset;
@@ -44,16 +44,14 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 	private final int[] hdnSetValuesArray;
 	private final ARegion region;
 
-	/** Used by Locking */
+//	/** Used by Locking */
 	public final int hdnSetValues;
-	/** Used by Locking */
-	public final Idx hdnSetIdx;
+//	public final Idx hdnSetIdx; unused
 
-	public HiddenSetHint(AHinter hinter, Cell[] cells, int hdnSetValues
-			, Pots greenPots, Pots redPots, ARegion region
-			, int hdnSetRegionIdxBits) {
-		super(hinter, redPots, greenPots, null, null, Regions.array(region)
-				, null);
+	public HiddenSetHint(final AHinter hinter, final Cell[] cells
+			, final int hdnSetValues, final Pots greens, final Pots reds
+			, final ARegion region, final int hdnSetRegionIdxBits) {
+		super(hinter, reds, greens, null, null, Regions.array(region), null);
 		this.cells = cells;
 		this.hdnSetRegionIdxBits = hdnSetRegionIdxBits;
 		this.hdnSetValues = hdnSetValues;
@@ -62,7 +60,7 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 			: "hdnSetValuesArray "+java.util.Arrays.toString(hdnSetValuesArray)
 			+" length "+hdnSetValuesArray.length+" != degree "+degree;
 		this.region = region;
-		this.hdnSetIdx = Idx.of(cells);
+//		this.hdnSetIdx = Idx.of(cells); unused
 	}
 
 	@Override
@@ -77,13 +75,13 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 	 *
 	 * @param initGrid the initial Grid (without erasures when isDynamic)
 	 * @param currGrid the current Grid (with erasures when isDynamic)
-	 * @param prntOffs a complete Set of the parent Off assumptions
+	 * @param rents a complete Set of the parent Off assumptions
 	 * @return a List of the Off assumptions which must be true before this
 	 *  hint becomes applicable; ie the s__t that caused me
 	 */
 	@Override
-	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
-			, IAssSet prntOffs) {
+	public MyLinkedList<Ass> getParents(final Grid initGrid, final Grid currGrid
+			, final IAssSet rents) {
 		final MyLinkedList<Ass> result = new MyLinkedList<>(); // the result
 		final Cell[] ic = initGrid.cells; // initialCells
 		final Cell[] rc = this.region.cells; // regionCells (in current grid)
@@ -103,7 +101,7 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 					// if this initGrid.cell maybe this hidden-set-value
 					if ( (initBits & VSHFT[v=vs[j]]) != 0
 					  // and a parent-off exists for this cell-value
-					  && (p=prntOffs.getAss(cc, v)) != null )
+					  && (p=rents.getAss(cc, v)) != null )
 						// this parent must be true before I am applicable
 						result.add(p);
 		return result;
@@ -121,12 +119,12 @@ public final class HiddenSetHint extends AHint implements IChildHint {
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "HiddenSetHint.html"
-				, NUMBER_NAMES[degree-2]		// {0}
-				, Frmu.csv(cells)				//  1
-				, Frmt.and(hdnSetValuesArray)	//  2
-				, region.id						//  3
-				, getHintTypeName()				//  4
-				, reds.toString()			//  5
+			, NUMBER_NAMES[degree-2]		// {0}
+			, Frmu.csv(cells)				//  1
+			, Frmt.and(hdnSetValuesArray)	//  2
+			, region.id						//  3
+			, getHintTypeName()				//  4
+			, reds.toString()				//  5
 		);
 	}
 

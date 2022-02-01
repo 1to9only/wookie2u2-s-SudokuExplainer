@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -339,7 +339,7 @@ public class MyLinkedHashMap<K,V>
 	 *
 	 * @return the first key in this map.
 	 */
-	public K firstCell() {
+	public K firstKey() {
 		return keySet().iterator().next();
 	}
 
@@ -353,7 +353,7 @@ public class MyLinkedHashMap<K,V>
 	 * @return the first value in this map.
 	 */
 	public V firstValue() {
-		return get(firstCell());
+		return get(firstKey());
 	}
 
 	/**
@@ -364,21 +364,19 @@ public class MyLinkedHashMap<K,V>
 	public void clear() {
 		if ( size == 0 )
 			return;
-		// KRC: a dirty hack, for a tiny efficiency gain.
-		final int n = table.length;
-//		if ( (size<<1) >= n ) {
-			// table is at least half full, so blindly clear the whole table.
-			++modCount; // invalidates any existing iterators
-			final MyHashMap.Entry<K,V>[] myTable = table;
+		++modCount; // invalidate existing iterators
+		if ( size < 10 ) { // this breaks even at about a dozen
+			for ( K key=header.after.key; key!=null; key=header.after.key )
+				removeEntryForNotNullKey(key);
+		} else {
+			final MyHashMap.Entry<K,V>[] t = table;
+			final int n = t.length;
 			for ( int i=0; i<n; ++i )
-				myTable[i] = null;
-			header = new AnEntry<>(-1, null, null, null);
-			header.before = header.after = header;
-			size = 0;
-// this seems to be broken!
-//		} else // clear the linked-list.
-//			for ( K key=header.after.key; key!=null; key=header.after.key )
-//				removeEntryForNotNullKey(key);
+				t[i] = null;
+		}
+		header = new AnEntry<>(-1, null, null, null);
+		header.before = header.after = header;
+		size = 0;
 	}
 
 	/**

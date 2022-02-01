@@ -1,19 +1,20 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.solver.hinters.Validator;
 import diuf.sudoku.Grid;
-import static diuf.sudoku.Grid.NUM_REGIONS;
+import diuf.sudoku.Idx;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import java.util.Arrays;
+import static diuf.sudoku.solver.hinters.Validator.INVALIDITIES;
+import static diuf.sudoku.solver.hinters.Validator.VALIDATE_DEATH_BLOSSOM;
+import static diuf.sudoku.solver.hinters.Validator.VALIDATE_ALS;
 
 /**
  * AAlsHinter is the abstract ALS Hinter. I fetch ALSs and RCCs that are common
@@ -60,13 +61,35 @@ import java.util.Arrays;
  *  9,528,221,800  7175 1,327,975  3406   2,797,481 ALS-Wing      reuse both
  *  7,189,604,700  4435 1,621,105   567  12,680,078 ALS-Chain     gets both
  *  2,883,650,800  3975   725,446   166  17,371,390 Death Blossom reuse both
+ *
+ * 2021-12-29 14:19        total        getAlss         getRccs      remainder
+ * BigWings    :   3,664,925,100  3,162,836,400               0    502,088,700
+ * DeathBlossom:   9,903,029,600              0               0  9,903,029,600
+ * ALS_XZ      :  12,533,737,200  2,181,480,400  10,195,763,200    156,493,600
+ * ALS_Wing    :   8,825,495,300        741,200         428,600  8,824,325,500
+ * ALS_Chain   :  18,605,335,700        521,100  12,358,090,900  6,246,723,700
+ * NOTES:
+ * * All the ALS and RCC getters are fully optimised.
+ * * BigWings is fully optimised.
+ * * DeathBlossom is near my best. I tried inline Idx ops, but it was slower.
+ * * ALS_XZ time is 98.8% ALS and RCC getters.
+ * * ALS_Wing is fully optimised. I know not why it's slower than ALS_Chain.
+ *   As far as I'm concerned it can't be, but there's wiggle room here.
+ * * ALS_Chain now takes ~twice time for ~threeTimes hints; which is not bad
+ *   value, though I still wish it was faster.
+ * * so I'm done here, I think.
  * </pre>
  *
  * @author Keith Corlett 2020 May 24
  */
 abstract class AAlsHinter extends AHinter
-		implements diuf.sudoku.solver.hinters.IPreparer
+//		implements diuf.sudoku.solver.hinters.IReporter
 {
+//	@Override
+//	public void report() {
+//		diuf.sudoku.utils.Log.teeln(tech.name()+": alss="+getAlssTime+" rccs="+getRccsTime);
+//	}
+
 	/** the size of the fixed-size alss array: 512 */
 	protected static final int MAX_ALSS = 512; // Observed 283
 
@@ -136,20 +159,27 @@ abstract class AAlsHinter extends AHinter
 	/** include ALSs which include cells that are part of a Naked Set? */
 	protected final boolean allowNakedSets;
 	/** should I run getRccs; false means I pass you rccs=null in findHints */
-	protected final boolean findRCCs;
+	protected final boolean findRccs;
 	/** should getRccs do a fast forwardOnly search, or a full search? */
 	protected final boolean forwardOnly;
 
 	/** RCC_FINDER finds the Restricted Common Candidates between ALS's */
 	protected final RccFinder rccFinder;
 
-	// in findHints: if !allowNakedSets we call findNakedSets to set
-	// inNakedSet[region.index][cell.i]=true for each cell in a
-	// NakedPair/Triple/etc in each region;
-	// then recurseAlssNoNs ignores cell if inNakedSet[region.index][cell.i].
-	// NOTE: stripNakedSets now also calls findNakedSets to remove ALSs
-	// containing a cell in a NakedSet from the existing alsCache, for speed.
-	protected final boolean[][] inNakedSets;
+	// the actual constructor, which is wrapped for public presentation.
+	// Basically, you workout which rccFinder you want and then call me.
+	private AAlsHinter(final Tech tech, final boolean allowNakedSets
+			, final boolean findRccs, final RccFinder rccFinder
+			, final boolean allowOverlaps, final boolean forwardOnly) {
+		super(tech);
+		// getAlss params
+		this.allowNakedSets = allowNakedSets;
+		// getRccs params
+		this.findRccs = findRccs;
+		this.rccFinder = findRccs ? rccFinder : null;
+		this.allowOverlaps = findRccs ? allowOverlaps : UNUSED;
+		this.forwardOnly = findRccs ? forwardOnly : UNUSED;
+	}
 
 	/**
 	 * Construct a new abstract Almost Locked Set (ALS) hinter, whose findHints
@@ -170,7 +200,7 @@ abstract class AAlsHinter extends AHinter
 	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
 	 *  HdkAlsXyChain = false because naked sets stuff it all up, and I don't
 	 *  understand why!
-	 * @param findRCCs true for "normal" ALS-use, false to just fetch ALSs.<br>
+	 * @param findRccs true to fetch RCCs, false to just fetch the ALSs.<br>
 	 *  When false AAlsHinter does NOT run getRccs, so findHints rccs=null, and
 	 *  the following parameters (effecting getRccs) have no effect, so there's
 	 *  an UNUSED constant for use as a self-documenting parameter-value.
@@ -184,23 +214,11 @@ abstract class AAlsHinter extends AHinter
 	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
 	 *  HdkAlsXyChain = false to find more chains. It's slow anyway!
 	 */
-	public AAlsHinter(Tech tech, boolean allowNakedSets, boolean findRCCs
+	public AAlsHinter(Tech tech, boolean allowNakedSets, boolean findRccs
 			, boolean allowOverlaps, boolean forwardOnly) {
-		super(tech);
-		if ( this.allowNakedSets = allowNakedSets ) {
-			this.inNakedSets = null;
-		} else {
-			this.inNakedSets = new boolean[NUM_REGIONS][];
-		}
-		if ( this.findRCCs = findRCCs ) {
-			this.rccFinder = RccFinderFactory.get(forwardOnly, allowOverlaps);
-			this.allowOverlaps = allowOverlaps;
-			this.forwardOnly = forwardOnly;
-		} else {
-			this.rccFinder = null;
-			this.allowOverlaps = UNUSED;
-			this.forwardOnly = UNUSED;
-		}
+		this(tech, allowNakedSets, findRccs
+		, findRccs ? RccFinderFactory.get(forwardOnly, allowOverlaps) : null
+		, allowOverlaps, forwardOnly);
 //System.out.println("DEBUG: "+tech+" "+rccFinder);
 //DEBUG: ALS_XZ diuf.sudoku.solver.hinters.als.RccFinderForwardOnlyAllowOverlaps@56017d3c
 //DEBUG: ALS_Wing diuf.sudoku.solver.hinters.als.RccFinderForwardOnlyAllowOverlaps@56017d3c
@@ -208,51 +226,46 @@ abstract class AAlsHinter extends AHinter
 	}
 
 	/**
-	 * A simplified constructor for hinters that fetch ALSs only (no RCCs),
-	 * currently BigWings and DeathBlossom.
+	 * A simplified constructor for BigWings and DeathBlossom,
+	 * which fetch ALSs only, not RCCs.
 	 */
 	public AAlsHinter(Tech tech, boolean allowNakedSets) {
-		super(tech);
-		if ( this.allowNakedSets = allowNakedSets ) {
-			this.inNakedSets = null;
-		} else {
-			this.inNakedSets = new boolean[NUM_REGIONS][];
-		}
-		this.findRCCs = false;
-		this.rccFinder = null;
-		this.allowOverlaps = UNUSED;
-		this.forwardOnly = UNUSED;
+		this(tech, allowNakedSets, false, null, UNUSED, UNUSED);
 	}
 
 	/**
-	 * Prepare is called after the LogicalSolver is configured and before we
-	 * attempt to solve each Grid. It gives the LogicalSolver and it's hinters
-	 * a chance to prepare to solve this new Grid; as distinct from getHints on
-	 * probably-the-existing-grid. Also note that Grid now has an id field
-	 * which identifies the puzzle that's loaded into the grid
+	 * AAlsHinter actually implements IPrepare, but leaves the declaration
+	 * of {@code implements diuf.sudoku.solver.hinters.IReporter} up to each
+	 * of my subclasses, so that you can decide weather or not you can be
+	 * disabled, which is always nice.
+	 * <p>
+	 * The prepare method is called after the LogicalSolver is configured,
+	 * but before we attempt to solve each Grid. It gives the LogicalSolver
+	 * and each of it's hinters a chance to prepare to solve this new Grid;
+	 * as distinct from getHints on probably-the-existing-grid. Note that
+	 * Grid now has an id&nbsp;field to identify the puzzle that's loaded
+	 * into this grid.
+	 * <p>
+	 * This instance re-enables this hinter, in case it has been disabled,
+	 * and clears Validator.INVALIDITIES if the Validator is used.
 	 *
 	 * @param grid
 	 */
-	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {
 		// re-enable me, in case I went dead-cat in the last puzzle
 		setIsEnabled(true); // use the setter!
 		// if we're eradicating bugs from Als* or DeathBlossom hints
-		if ( Validator.ALS_VALIDATES || Validator.DEATH_BLOSSOM_VALIDATES ) {
+		if ( VALIDATE_ALS || VALIDATE_DEATH_BLOSSOM ) {
 			// clear out-dated invalidities at start of a new Grid.
-			Validator.INVALIDITIES.clear();
+			INVALIDITIES.clear();
 		}
 	}
 
 	/**
-	 * findHints is implemented by my subclasses to do the actual hint search.
-	 * I pass him everything I know, whether he uses it or not. But if nobody
-	 * uses something (like grid.idxs for example) then it might be an idea to
-	 * not calculate and pass it. Sigh.
-	 * <p>
-	 * This abstract method implements IHinter, because I am a partial AHinter.
-	 * I only exist because Netbeans likes it. If you remove this re-definition
-	 * everything still works.
+	 * findAlsHints is implemented by my subclasses to do the hint search.
+	 * I just pass him everything I know, whether he uses it or not. But if
+	 * nobody uses something (like grid.idxs for example) then it might be
+	 * an idea to not calculate it in the first place. Sigh.
 	 *
 	 * @param grid The Grid that we're solving
 	 * @param alss a fixed-array of the Almost Locked Sets
@@ -262,7 +275,7 @@ abstract class AAlsHinter extends AHinter
 	 * @param accu The IAccumulator to which we add any hints
 	 * @return true if a hint was found, else false
 	 */
-	protected abstract boolean findHints(final Grid grid
+	protected abstract boolean findAlsHints(final Grid grid
 			, final Als[] alss, final int numAlss
 			, final Rcc[] rccs, final int numRccs
 			, final IAccumulator accu);
@@ -277,30 +290,25 @@ abstract class AAlsHinter extends AHinter
 	 */
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-//if ( tech == Tech.ALS_Chain ) {
-//	Debug.breakpoint();
-//}
 		// LogicalSolver.solve doesn't disable hinters on da fly, only at start
-		if ( !isEnabled ) {
+		if ( !isEnabled )
 			return false;
-		}
 		// get the Almost Locked Sets (N cells with N+1 values between them)
 //		start = System.nanoTime();
 		getAlss(grid); // repopulates alss, sets numAlss
 //		tookAlss += System.nanoTime() - start;
 
-		// if findRCCs then get the Restricted Common Candidates of those ALSs
-		if ( findRCCs ) {
+		// if findRccs then get the Restricted Common Candidates of those ALSs
+		if ( findRccs )
 //			start = System.nanoTime();
 			// I've done my best to enspeedonate, but getRccs still TOO SLOW!
 			getRccs(); // repopulates rccs, sets numRccs
 //			tookRccs += System.nanoTime() - start;
-		} else {
+		else
 			numRccs = 0;
-		}
-		// call my subclasses "custom" findHints method to search the grid for
-		// instances of this specific pattern; raise a hint and add it to accu.
-		return findHints(grid, ALSS, numAlss, RCCS, numRccs, accu);
+		// call each of my subclasses findAlsHints method to search the grid
+		// for this specific als-pattern, raise hints, and add them to accu.
+		return findAlsHints(grid, ALSS, numAlss, RCCS, numRccs, accu);
 	}
 //	/** reported in {@link AlsChain} */
 //	protected long tookAlss=0L, tookRccs=0L;
@@ -323,7 +331,7 @@ abstract class AAlsHinter extends AHinter
 	 * @param grid
 	 */
 	void getAlss(final Grid grid) {
-//		final long start = System.nanoTime();
+//		final long start = System.nanoTime(); // DEBUG
 		if ( grid.hintNumber!=alssHn || grid.pid!=alssPid ) {
 			numAlss = ALS_FINDER.getAlss(grid, ALSS, allowNakedSets);
 			alssNs = allowNakedSets;
@@ -331,39 +339,38 @@ abstract class AAlsHinter extends AHinter
 			alssPid = grid.pid;
 			rccsDirty = true; // make getRccs refetch
 		} else if ( allowNakedSets != alssNs ) {
-			if ( allowNakedSets ) {
-				// have to re-fetch from the start
+			// if allowNakedSets has been turned ON then refetch all alss.
+			if ( allowNakedSets )
 				numAlss = ALS_FINDER.getAlss(grid, ALSS, allowNakedSets);
-			} else {
-				// remove ALSS containing a cell in a NakedSet
-				stripNakedSets(grid);
-			}
+			// else just remove ALSS containing a cell in a NakedSet
+			// no NakedSets means no need to filter them out
+			else if ( ALS_FINDER.setNakedSetIdxs(grid) )
+				filterOutNakedSets();
 			alssNs = allowNakedSets;
 			rccsDirty = true; // make getRccs refetch
 		}
-//		getAlssTime += System.nanoTime() - start;
+//		System.out.println(tech.name()+": allowNakedSets="+allowNakedSets+" getAlss took "+(System.nanoTime()-start)); // DEBUG
+//		getAlssTime += System.nanoTime() - start; // DEBUG
 	}
 //	protected long getAlssTime; // DEBUG
 
-	// remove ALSS containing a cell in a NakedSet
-	private void stripNakedSets(Grid grid) {
-		// set-up inNakedSets (27 * 81 = 2187 booleans)
-		// no NakedSets means there is no need to filter them out
-		if ( ALS_FINDER.setNakedSetIdxs(grid) ) {
-			int cnt = 0;
-			// temp array to hold ALSs with no cell in any NakedSet
-			final Als[] temp = new Als[numAlss];
-			for ( int i=0; i<numAlss; ++i ) {
-				final Als als = ALSS[i];
-				if ( als.idx.disjunct(ALS_FINDER.nakedSetIdxs[als.region.index]) ) {
-					temp[cnt++] = als;
-				}
-			}
-			// release memory back to system
-			Arrays.fill(this.inNakedSets, null);
-			// copy into the fixed-size array
-			System.arraycopy(temp, 0, ALSS, 0, numAlss=cnt);
-		}
+	// remove ALSS which contain a cell that is in a NakedSet in the als.region
+	private static void filterOutNakedSets() {
+		Als als;
+		int cnt = 0;
+		// cells in nakedSets in each region
+		final Idx[] nakedSetIdxs = ALS_FINDER.nakedSetIdxs;
+		// newAlss holds ALSs with no cell in a NakedSet
+		final Als[] newAlss = new Als[numAlss];
+		// foreach als (as found by a previous hinter)
+		for ( int i=0; i<numAlss; ++i )
+			// if als contains no cells that're in nakedSets in its region
+			if ( (als=ALSS[i]).idx.disjunct(nakedSetIdxs[als.region.index]) )
+				// then add the bastard to the temp array, for now
+				newAlss[cnt++] = als;
+		// copy newAlss back over the fixed ALSS array
+		// and set numAlss to the possibly reduced cnt
+		System.arraycopy(newAlss, 0, ALSS, 0, numAlss=cnt);
 	}
 
 	/**
@@ -389,9 +396,7 @@ abstract class AAlsHinter extends AHinter
 	 * I'm only called locally. I'm package visible for the test-cases. sigh.
 	 */
 	void getRccs() {
-//if ( tech == Tech.ALS_Chain ) {
-//	Debug.breakpoint();
-//}
+//		final long start = System.nanoTime(); // DEBUG
 		// if allowOverlaps or forwardOnly has changed then refetch
 		if ( rccsDirty || rccsAO!=allowOverlaps || rccsFO!=forwardOnly ) {
 			numRccs = rccFinder.find(ALSS, numAlss, RCCS);
@@ -399,6 +404,9 @@ abstract class AAlsHinter extends AHinter
 			rccsAO = allowOverlaps;
 			rccsFO = forwardOnly;
 		}
+//		getRccsTime += System.nanoTime() - start; // DEBUG
+//		System.out.println(tech.name()+": allowNakedSets="+allowNakedSets+" getRccs took "+(System.nanoTime()-start)); // DEBUG
 	}
+//	protected long getRccsTime; // DEBUG
 
 }

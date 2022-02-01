@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -38,15 +38,8 @@ class RccHint extends AHint {
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
 		final Collection<Link> result = new LinkedList<>();
-		final Als smee = alss[0];
-		final Als next = alss[1];
-		for ( int v : VALUESES[rcc.cands] ) {
-			for ( int s : smee.vs[v].toArrayA() ) {
-				for ( int d : next.vs[v].toArrayB() ) {
-					result.add(new Link(s, v, d, v));
-				}
-			}
-		}
+		for ( int v : VALUESES[rcc.cands] )
+			alss[0].vs[v].forEach((s)->alss[1].vs[v].forEach((d)->result.add(new Link(s, v, d, v))));
 		return result;
 	}
 
@@ -63,5 +56,5 @@ class RccHint extends AHint {
 	protected String toStringImpl() {
 		return "Rcc: "+rcc;
 	}
-	
+
 }

@@ -1,22 +1,19 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.fish;
 
 import diuf.sudoku.Ass;
 import diuf.sudoku.Grid;
-import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
 import static diuf.sudoku.utils.Frmt.AND;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
@@ -149,18 +146,10 @@ public class KrakenFishHint extends AHint  {
 			// Unusually, use a distinct-set instead of list, otherwise the
 			// grid disappears under a plethora of extraneous duplicate links.
 			final Set<Link> links = new MyLinkedHashSet<>(512);
-			chains.forEach((target) -> {
-				getAncestorsList(target).stream()
-					.filter((c) -> ( c!=null
-								  && c.parents!=null
-								  && c.parents.size>0 ))
-					.forEachOrdered((c) -> {
-						c.parents.forEach((p) -> {
-							// p for parent, c for child
-							links.add(new Link(p, c));
-						});
-					});
-			});
+			// p for parent, c for child
+			chains.forEach((target) -> getAncestorsList(target).stream()
+				.filter((c) -> c!=null && c.parents!=null)
+				.forEachOrdered((c) -> c.parents.forEach((p) -> links.add(new Link(p, c)))));
 			return links;
 		} catch (Throwable ex) {
 			// I'm only ever called in the GUI, so just log it.
@@ -170,13 +159,13 @@ public class KrakenFishHint extends AHint  {
 	}
 
 	// append a line of HTML to sb for each chain
-	private StringBuilder appendChains(StringBuilder sb) {
+	private StringBuilder appendChains(final StringBuilder sb) {
 		final int initialLength = sb.length();
 		try {
 			// kf2: each target ass is the same elimination, but the chain to
 			// get there differs, each ending in one of the fin (blue) cells.
 			final Set<String> set = new MyLinkedHashSet<>(512);
-			StringBuilder line = new StringBuilder(128); // just a guess
+			final StringBuilder line = new StringBuilder(128); // just a guess
 			int len; // we need an arbitrary max chain length, apparently
 			for ( Ass target : chains ) {
 				if ( target == null )

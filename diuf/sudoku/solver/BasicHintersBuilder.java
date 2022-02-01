@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -28,18 +28,20 @@ import java.util.EnumMap;
 public class BasicHintersBuilder {
 
 	/**
-	 * Populates 'basics' with new basic hinters and returns it.
+	 * Populates 'basics' with new basic hinters and returns it. Note that the
+	 * "basic hinters" are always constructed, for use in the chainers, even if
+	 * they're not wanted by the user in the GUI.
 	 * <p>
-	 * This is a method coz test-cases need a way to construct basic hinters,
-	 * but LogicalSolverBuilder is package-visible by design (it'd need to be
-	 * be public in order to expose me) so LogicalSolverBuilder calls this
-	 * static method on LogicalSolver which CAN expose it to the test-cases.
+	 * This method is in it's own public class because the test-cases require a
+	 * way to construct basic hinters. LogicalSolverBuilder is package-visible
+	 * by design (it'd need to be be public in order to expose this method) so
+	 * LogicalSolverBuilder calls this static method on BasicHintersBuilder
+	 * which CAN also expose it to the test-cases.
 	 *
-	 * @param basics to (re)populate
-	 * @return the given basics, (re)populated with new basic hinters
+	 * @return new basic hinters in an {@code EnumMap<Tech,IHinter>}.
 	 */
-	public static EnumMap<Tech,IHinter> build(
-			final EnumMap<Tech,IHinter> basics) {
+	public static EnumMap<Tech,IHinter> build() {
+		final EnumMap<Tech,IHinter> basics = new EnumMap<>(Tech.class);
 		basics.put(Tech.NakedSingle, new NakedSingle());
 		basics.put(Tech.HiddenSingle, new HiddenSingle());
 		basics.put(Tech.Locking, new Locking());

@@ -1,14 +1,16 @@
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
 import diuf.sudoku.IdxL;
+import diuf.sudoku.IntArrays.IALease;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.utils.Permutations;
 import java.util.Arrays;
+import static diuf.sudoku.IntArrays.iaLease;
 
 /**
  * AlsFinderPlain is the simplest-possible AlsFinder. Iterating Permutations
@@ -58,7 +60,7 @@ final class AlsFinderPlain extends AlsFinder {
 	// this is a field only for performance, to create them ONCE.
 	private final AlsArraySet[] sets = new AlsArraySet[DEGREE_CEILING];
 	// an array of cells having size 2..degree+1
-	private final Cell[] sized = new Cell[9];
+	private final Cell[] sized = new Cell[REGION_SIZE];
 
 	public AlsFinderPlain() {
 		// sets are by size, and size is 2..degree-1
@@ -75,9 +77,8 @@ final class AlsFinderPlain extends AlsFinder {
 	int getAlss(final Grid grid, final Als[] alss, final boolean allowNakedSets) {
 		// ANSI-C style variables, to minimise stack-work
 		// reference-type is implementation-type because I use array field.
-		AlsArraySet set;
-		int[] pa // the permutations array (degree sized)
-		    , maybes; // maybes of sized cells, coincident with 'sized'
+		AlsArraySet alsSet;
+		int[] mb; // maybes of sized cells, coincident with 'sized'
 		int i // ubiqituous index
 		  , D // maximum number of cells in an ALS
 		  , d // degree: the size of each ALS
@@ -87,7 +88,7 @@ final class AlsFinderPlain extends AlsFinder {
 		  , m // combination of maybes of these cells
 		  , n; // number of cells in region having size 2..degree+1
 		// local stack-references for speed
-		final AlsArraySet[] sets = this.sets;
+		final AlsArraySet[] alsSets = this.sets;
 		final Cell[] sized = this.sized;
 		// the number of ALS's found (my return value)
 		int result = 0;
@@ -103,26 +104,22 @@ final class AlsFinderPlain extends AlsFinder {
 		// foreach region in the grid (boxs, rows, cols)
 		for ( ARegion r : grid.regions ) {
 			// are there any nakedSets in this region?
-			if ( !allowNakedSets ) {
+			if ( !allowNakedSets )
 				noDirt = (dirt=nakedSetIdxs[r.index]).none();
-			}
 			// D is the maximum number of cells in each ALS + 1 (ceiling),
 			// which is capped at 8 coz we never use ALS's bigger than 7, and
 			// my max-ALS-size is numEmpties-1 coz numEmpties is always an LS.
 			D = r.emptyCellCount;
-			if ( D > DEGREE_CEILING ) {
+			if ( D > DEGREE_CEILING )
 				D = DEGREE_CEILING;
-			}
 			// foreach degree: the number of cells in each ALS
 			// d = the current degree
 			// c = floor for number of sized cells (one less than d)
 			// e = number of maybes in an ALS (one more than d)
 			// f = one more than that, to use < instead of <=
 			for ( c=1,d=2,e=3,f=4; d<D; c=d,d=e,e=f++ ) {
-				// the permutations array
-				pa = Idx.IAS_A[d];
 				// the alsSet for this degree
-				set = sets[d];
+				alsSet = alsSets[d];
 				// get region.cells with size 2..d+1; an ALS of d cells can't
 				// contain a cell with more than d+1 maybes, so ignore them.
 				// NOTE: There is confusion over whether we need >= d or > d
@@ -132,53 +129,51 @@ final class AlsFinderPlain extends AlsFinder {
 				// that makes AlsXzTest fail, and I don't understand why.
 				if ( (n=r.sized(f, sized)) > c
 				  // if any nakedSets in region then ignore there cells
-				  && ( noDirt || (n=clean(dirt, sized, n)) > c ) ) {
+				  && ( noDirt || (n=clean(dirt, sized, n)) > c ) )
 					// read maybes of sized, to not derefence repeatedly,
 					// because the number of permutations is exponential.
-					maybes = Idx.IAS_B[n];
-					maybes[0] = sized[0].maybes;
-					maybes[1] = sized[1].maybes;
-					for ( i=2; i<n; ++i ) {
-						maybes[i] = sized[i].maybes;
-					}
-					// foreach distinct combo of d among n cells in region,
-					// which of each wich has 2..d+1 maybes (minus nakedSets)
-					for ( int[] perm : new Permutations(n, pa) ) {
-						// build m = the aggregate of maybes in 'perm' cells.
-						// do the first two cells and tap-out if theres already
-						// too many maybes (for speed).
-						if ( VSIZE[m=maybes[perm[0]] | maybes[perm[1]]] < f ) {
-							// or-in maybes of remainder of degree cells
-							for ( i=2; i<d; ++i ) {
-								m |= maybes[perm[i]];
+					try ( final IALease mbLease = iaLease(n);
+						  final IALease paLease = iaLease(d) ) {
+						mb = mbLease.array; // maybes
+						mb[0] = sized[0].maybes;
+						mb[1] = sized[1].maybes;
+						for ( i=2; i<n; ++i )
+							mb[i] = sized[i].maybes;
+						// foreach distinct combo of d among n cells in region,
+						// which of each wich has 2..d+1 maybes (minus nakedSets)
+						for ( int[] pa : new Permutations(n, paLease.array) )
+							// build m = the aggregate of maybes in 'perm' cells.
+							// do the first two cells and tap-out if theres already
+							// too many maybes (for speed).
+							if ( VSIZE[m=mb[pa[0]]|mb[pa[1]]] < f ) {
+								// or-in maybes of remainder of degree cells
+								for ( i=2; i<d; ++i )
+									m |= mb[pa[i]];
+								// if there's 1 more maybe than cells then
+								if ( VSIZE[m] == e )
+									// create a new Als and add to sets[size]
+									// nb: Plain algorithm produces NO duplicates,
+									//     so add doesn't check, so I'm faster.
+									alsSet.add(new Als(IdxL.of(sized, pa, d), m, r));
 							}
-							// if there's 1 more maybe than cells then
-							if ( VSIZE[m] == e ) {
-								// create a new Als and add to sets[size]
-								// nb: Plain algorithm produces NO duplicates,
-								//     so add doesn't check, so I'm faster.
-								set.add(new Als(IdxL.of(sized, perm, d), m, r));
-							}
-						}
 					}
-				}
 			}
 		}
 		// add each als to the alss array, and computeFields of each
 		for ( d=2; d<DEGREE_CEILING; ++d ) { // degree
 			// downside of generics: array is an Object[] so we must cast each
 			// Object back to Als before we use it.
-			final Object[] objects = (set=sets[d]).array;
-			for ( i=0,n=set.size; i<n; ++i ) {
+			final Object[] objects = (alsSet=alsSets[d]).array;
+			for ( i=0,n=alsSet.size; i<n; ++i ) {
 				alss[result] = ((Als)objects[i]).computeFields(grid, result);
 				++result;
 			}
 			// and clear this set (sets is a field for performance)
-			set.clear();
+			alsSet.clear();
 		}
 		// clean-up: a cell reference holds the whole grid in memory
 		Arrays.fill(sized, null);
-		Cells.cleanCasA();
+//		Cells.cleanCasA();
 		return result;
 	}
 

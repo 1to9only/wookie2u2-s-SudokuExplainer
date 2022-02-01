@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.hdnset;
@@ -18,9 +18,11 @@ import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.utils.Permutations;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.hinters.chain.ChainerHintsAccumulator;
 
 /**
  * Implementation of the Hidden Set Sudoku solving technique:
@@ -75,7 +77,9 @@ public class HiddenSet extends AHinter {
 	}
 
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
+		// chainer never uses direct mode
+		assert !tech.isDirect || !(accu instanceof ChainerHintsAccumulator);
 		// if accu.isSingle then it wants oneOnly hint
 		final boolean oneOnly = accu.isSingle();
 		// presume that no hint will be found
@@ -101,7 +105,7 @@ public class HiddenSet extends AHinter {
 	 * @param accu the implementation of IAccumulator to which I add hints
 	 * @return were any hint/s found?
 	 */
-	public boolean search(ARegion r, Grid grid, IAccumulator accu) {
+	public boolean search(final ARegion r, final Grid grid, final IAccumulator accu) {
 		// presume that no hint will be found
 		boolean result = false;
 		// we need atleast 3 empty cells in the region for a Hidden Pair
@@ -152,10 +156,11 @@ public class HiddenSet extends AHinter {
 						for ( i=0; i<degree; ++i )
 							cands |= VSHFT[candidates[perm[i]]];
 						// WTF: seen 1 in Generate
-// never happens: code retained just in case it ever happens again.
-//						if ( VSIZE[cands] != degree )
-//							throw new UnsolvableException("Eel vomit!");
-// techies only: in Generate but not in the batch.
+// KEEP this comment
+// no happen: code retained just in case it ever happens again.
+// it happened again, in Generate, so throw UE: puzzle ____ed
+						if ( VSIZE[cands] != degree )
+							throw new UnsolvableException();
 						assert VSIZE[cands] == degree : "VSIZE[cands]="+VSIZE[cands]+" != degree="+degree;
 						// foreach cell in the hidden set which has maybes
 						// other than the hidden set values, eliminate all
@@ -169,7 +174,7 @@ public class HiddenSet extends AHinter {
 						// if any eliminations then create and add hint
 						if ( any ) {
 							// FOUND HiddenSet! (about 80% skip)
-							// NOTE: HiddenSetDirect overrides createHint.
+							// NOTE WELL: HiddenSetDirect overrides createHint.
 							final AHint hint = createHint(r, cands, indexes
 									, reds.copyAndClear());
 							if ( hint != null ) {
@@ -193,7 +198,7 @@ public class HiddenSet extends AHinter {
 	/**
 	 * Create and return a new AHint, else null meaning none.
 	 * <p>
-	 * Note: createHint is protected coz it's overridden by HiddenSetDirect.
+	 * <b>NOTE WELL:</b> HiddenSetDirect overrides createHint.
 	 *
 	 * @param r the region that we're searching
 	 * @param values a bitset of the values in the hidden set
@@ -207,8 +212,7 @@ public class HiddenSet extends AHinter {
 		final Pots greens = new Pots(r.cells, indexes, values, F, F);
 		// build an array of the cells in this hidden set (for the hint)
 		final Cell[] cells = r.atNew(indexes);
-		return new HiddenSetHint(this, cells, values, greens, reds, r
-				, indexes);
+		return new HiddenSetHint(this, cells, values, greens, reds, r, indexes);
 	}
 
 }

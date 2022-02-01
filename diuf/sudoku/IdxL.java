@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -56,23 +56,20 @@ public class IdxL extends Idx implements Cloneable {
 	}
 	public static IdxL of(Cell[] cells, int n) {
 		final IdxL result = new IdxL();
-		for ( int i=0; i<n; ++i ) {
+		for ( int i=0; i<n; ++i )
 			result.add(cells[i].i);
-		}
 		return result;
 	}
 	public static IdxL of(final Cell[] cells, final int[] indexes) {
 		final IdxL result = new IdxL();
-		for ( int i : indexes ) {
+		for ( int i : indexes )
 			result.addOK(cells[i].i);
-		}
 		return result;
 	}
 	public static IdxL of(final Cell[] cells, final int[] indexes, final int n) {
 		final IdxL result = new IdxL();
-		for ( int i=0; i<n; ++i ) {
+		for ( int i=0; i<n; ++i )
 			result.add(cells[indexes[i]].i);
-		}
 		return result;
 	}
 
@@ -94,10 +91,17 @@ public class IdxL extends Idx implements Cloneable {
 		super(a0, a1, a2);
 	}
 
+	/**
+	 * You clone an IdxL BECAUSE it's locked, hence I return an IdxL that is
+	 * unlocked.
+	 *
+	 * @return a copy of this IdxL that is unlocked, so that you can modify it
+	 *  without changing me.
+	 */
 	@Override
 	public IdxL clone() {
 		IdxL copy = (IdxL)super.clone();
-		copy.isLocked = false; // you clone an Idx BECAUSE it's locked!
+		copy.isLocked = false;
 		return copy;
 	}
 
@@ -174,6 +178,36 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
+	public boolean setAny(int m0, int m1, int m2) {
+		checkLock();
+		return super.setAny(m0, m1, m2);
+	}
+
+	@Override
+	public IdxL set(Cell[] cells, int n) {
+		checkLock();
+		return (IdxL)super.set(cells, n);
+	}
+
+	@Override
+	public IdxL set(boolean[] bits) {
+		checkLock();
+		return (IdxL)super.set(bits);
+	}
+
+	@Override
+	public IdxL set(int[] indices) {
+		checkLock();
+		return (IdxL)super.set(indices);
+	}
+
+	@Override
+	public IdxL set(Cell[] cells) {
+		checkLock();
+		return (IdxL)super.set(cells);
+	}
+
+	@Override
 	public IdxL setAnd(Idx aa, Idx bb) {
 		checkLock();
 		return (IdxL)super.setAnd(aa, bb);
@@ -186,9 +220,9 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
-	public IdxL setOr(Idx aa, Idx bb) {
+	public boolean setAndMany(Idx aa, Idx bb) {
 		checkLock();
-		return (IdxL)super.setOr(aa, bb);
+		return super.setAndMany(aa, bb);
 	}
 
 	@Override
@@ -201,6 +235,66 @@ public class IdxL extends Idx implements Cloneable {
 	public IdxL setAndNot(Idx aa, Idx bb, Idx cc) {
 		checkLock();
 		return (IdxL)super.setAndNot(aa, bb, cc);
+	}
+
+	@Override
+	public IdxL setOr(Idx aa, Idx bb) {
+		checkLock();
+		return (IdxL)super.setOr(aa, bb);
+	}
+
+	@Override
+	public IdxL setAllExcept(Idx excluded) {
+		checkLock();
+		return (IdxL)super.setAllExcept(excluded);
+	}
+
+	@Override
+	public boolean setAndNotAny(Idx aa, Idx bb) {
+		checkLock();
+		return super.setAndNotAny(aa, bb);
+	}
+
+	@Override
+	public boolean setAndNotAny(Idx aa, Idx bb, Idx cc) {
+		checkLock();
+		return super.setAndNotAny(aa, bb, cc);
+	}
+
+	@Override
+	public boolean setAndAny(Idx aa, Idx bb, Idx cc) {
+		checkLock();
+		return super.setAndAny(aa, bb, cc);
+	}
+
+	@Override
+	public boolean setAndMin(Idx aa, Idx bb, int min) {
+		checkLock();
+		return super.setAndMin(aa, bb, min);
+	}
+
+	@Override
+	public IdxL setExcept(Idx src, int indice) {
+		checkLock();
+		return (IdxL)super.setExcept(src, indice);
+	}
+
+	@Override
+	public int poll() {
+		checkLock();
+		return super.poll();
+	}
+
+	@Override
+	public void removeAll(Iterable<Cell> cells) {
+		checkLock();
+		super.removeAll(cells);
+	}
+
+	@Override
+	public Idx removeAll(Cell[] cells) {
+		checkLock();
+		return super.removeAll(cells);
 	}
 
 	@Override
@@ -272,6 +366,12 @@ public class IdxL extends Idx implements Cloneable {
 	}
 
 	@Override
+	public boolean andAny(Idx other) {
+		checkLock();
+		return super.andAny(other);
+	}
+
+	@Override
 	public IdxL and(Idx aa, Idx bb) {
 		checkLock();
 		return (IdxL)super.and(aa, bb);
@@ -297,10 +397,8 @@ public class IdxL extends Idx implements Cloneable {
 
 	@Override
 	public String toString() {
-		if ( true ) // @check true
-			return super.toString();
-		else // debug only
-			return (isLocked?"LOKD ":"OPEN ") + super.toString();
+		return super.toString();
+//		return (isLocked?"LOKD ":"OPEN ") + super.toString();
 	}
 
 }

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -31,6 +31,7 @@ package diuf.sudoku.utils;
  * questions.
  */
 
+import diuf.sudoku.tools.AMyMap;
 import static diuf.sudoku.utils.Frmt.EQUALS;
 import java.io.IOException;
 import java.io.Serializable;

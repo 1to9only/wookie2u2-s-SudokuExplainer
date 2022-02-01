@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -19,6 +19,8 @@ import diuf.sudoku.Settings;
 import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.gen.PuzzleCache.staticInitialiser;
+import static diuf.sudoku.gui.RecentFiles.getRecentFiles;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
@@ -143,6 +145,11 @@ public final class SudokuExplainer implements Closeable {
 		if ( theInstance == null ) {
 			assert Log.out != null;
 			theInstance = new SudokuExplainer();
+			// start generator factory running, if DiufSudoku_Generated.txt
+			// is incomplete, ie doesn't have a puzzle for every difficulty
+			// EXCEPT IDKFA simply because they take too long to generate.
+			// The Generator doesn't play nice with GUI getHint/analyse/etc.
+			staticInitialiser();
 		}
 		return theInstance;
 	}
@@ -152,7 +159,7 @@ public final class SudokuExplainer implements Closeable {
 	// nb: Log.log is ALWAYS set before we invoke the constructor.
 	private SudokuExplainer() {
 		// get mostRecent file
-		this.recentFiles = RecentFiles.getInstance();
+		this.recentFiles = getRecentFiles();
 		final SourceID pid = recentFiles.mostRecent(); // nullable
 		// we need a grid, so we always start with an empty one.
 		grid = new Grid();
@@ -272,6 +279,8 @@ public final class SudokuExplainer implements Closeable {
 
 	@SuppressWarnings("fallthrough")
 	private void addFilteredHint(AHint hint) {
+		if ( hintsFiltered == null ) // BFIIK, but the list appears to be null
+			hintsFiltered = new ArrayList<>(128);
 		hintsFiltered.add(hint);
 		switch( hint.type ) {
 		case AHint.INDIRECT:
@@ -623,7 +632,7 @@ public final class SudokuExplainer implements Closeable {
 			boolean needRepaintHints = (hintsFiltered != null);
 			clearHints(false);
 			this.selectedHints.clear();
-			if (needRepaintHints) {
+			if ( needRepaintHints ) {
 				repaintHintsTree();
 				repaintHints();
 			}
@@ -1253,7 +1262,7 @@ public final class SudokuExplainer implements Closeable {
 			if ( hintsAll==null || hintsAll.isEmpty() )
 				return false;
 			final StringBuilder sb = new StringBuilder(hintsAll.size() * AHint.CHARS_PER_HINT);
-			hintsAll.forEach((h)-> sb.append(h.hinter.tech.name()).append(TAB)
+			hintsAll.forEach((h) -> sb.append(h.hinter.tech.name()).append(TAB)
 					.append(h.toFullString()).append(NL));
 			GridClipboard.copyTo(sb.toString());
 			return true;

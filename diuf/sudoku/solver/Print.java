@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -10,15 +10,14 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Run;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyStrings;
+import diuf.sudoku.utils.StringPrintWriter;
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 
 /**
  * Static helper methods to format and print AHints to System.out by default.
  * <p>
  * Packaging: Not sure where I belong. I'm not model, nor interface; more of an
- * iodel: a bridge between an interface and the model; a models interface; a
+ * indel: a bridge between an interface and the model; a models interface; a
  * thing that presents stuff. I'll never really understand MVC. Too many things
  * that don't really fit in any category, so usually end-up in the controller,
  * simply because it knows about both the model and interface. I want an
@@ -34,16 +33,22 @@ import java.io.StringWriter;
  */
 public class Print {
 
-	public static String PUZZLE_SUMMARY_HEADERS;
+	// use sparingly (slow): new StringWriter and PrintWriter per call,
+	// which is exactly the minimum I want the only place I'm using it.
+	// Performance requires an instance of a Print class: not this!
+	public static String format(final String frmt, final Object... args) {
+		final StringPrintWriter writer = new StringPrintWriter();
+		writer.format(frmt, args);
+		writer.flush();
+		return writer.toString();
+	}
 
+	public static String PUZZLE_SUMMARY_HEADERS;
 	public static void initialise() {
-		//nb: use StringWriter coz PrintWriter.toString is Object.toString
-		final StringWriter sw = new StringWriter();
-		final PrintWriter pw = new PrintWriter(sw);
-		pw.format("\n%5s\t%17s\t%17s\t%5s\t%5s\t%5s\t%4s\t%7s\t%s\n"
-				, "", "time (ns)", "average (ns)", "calls"
+		PUZZLE_SUMMARY_HEADERS = format(
+				  "\n%5s\t%17s\t%17s\t%5s\t%5s\t%5s\t%5s\t%7s\t%s\n"
+				, "", "time(ns)", "average (ns)", "calls"
 				, "hints", "elims", "maxD", "ttlDiff", "hinter");
-		PUZZLE_SUMMARY_HEADERS = sw.toString();
 	}
 
 	public static void grid(final PrintStream out, final Grid grid) {

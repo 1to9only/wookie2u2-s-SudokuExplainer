@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align;
@@ -13,7 +13,6 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.GRID_SIZE;
 import static diuf.sudoku.Grid.MAX_EMPTIES;
-import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALL;
@@ -72,35 +71,35 @@ import static diuf.sudoku.utils.Frmt.SP;
  * I tried it on JUST the first 10 puzzles in top1465.d5.mt, ie the 10 hardest.
  * It broke the alignments in my log-file format. Don't try this at home kids.
  * <pre>
- *         time (ns) call        ns/call  elim         ns/elim  hinter
- *        67,918,215  374        181,599     7       9,702,602	Unique Rectangle
- *        11,942,059  371         32,188     2       5,971,029	Bi-Uni Grave
- *       178,670,580  370        482,893     1     178,670,580	Aligned Pair
- *     1,253,588,590  369      3,397,259     7     179,084,084	Aligned Triple
- *    72,313,949,523  364    198,664,696     7  10,330,564,217	Aligned Quad
- * 1,386,712,870,155  360  3,851,980,194    10 138,671,287,015	Aligned Pent for JUST the hardest 10 puzzles
- *     1,717,099,794  352      4,878,124  2778         618,106	Unary Chain
- *       465,149,482  243      1,914,195    14      33,224,963	Nishio Chain
- *       863,660,012  230      3,755,043   270       3,198,740	Multiple Chain
- *     1,540,880,976  116     13,283,456   316       4,876,205	Dynamic Chain
- *       132,454,495    2     66,227,247    20       6,622,724	Dynamic Plus
+ *          time(ns) call        ns/call  elim         ns/elim hinter
+ *        67,918,215  374        181,599     7       9,702,602 Unique Rectangle
+ *        11,942,059  371         32,188     2       5,971,029 Bi-Uni Grave
+ *       178,670,580  370        482,893     1     178,670,580 Aligned Pair
+ *     1,253,588,590  369      3,397,259     7     179,084,084 Aligned Triple
+ *    72,313,949,523  364    198,664,696     7  10,330,564,217 Aligned Quad
+ * 1,386,712,870,155  360  3,851,980,194    10 138,671,287,015 Aligned Pent for JUST the hardest 10 puzzles
+ *     1,717,099,794  352      4,878,124  2778         618,106 Unary Chain
+ *       465,149,482  243      1,914,195    14      33,224,963 Nishio Chain
+ *       863,660,012  230      3,755,043   270       3,198,740 Multiple Chain
+ *     1,540,880,976  116     13,283,456   316       4,876,205 Dynamic Chain
+ *       132,454,495    2     66,227,247    20       6,622,724 Dynamic Plus
  * 1,465,348,355,039 (24 minutes) for the first 5 puzzles in top1465.d5.mt
  * </pre>
  * <p>
  * KRC 2019-09-06 14:24:00 AlignedPents are still really really really slow!
  * <pre>
- *         time (ns) call        ns/call  elim         ns/elim  hinter
- *        31,509,483  28      1,125,338	      0	             0	Aligned Pair
- *       157,317,150  28      5,618,469	      0	             0	Aligned Triple
- *     9,741,985,017  28    347,928,036	      0	             0	Aligned Quad
- *   246,579,104,988  28  8,806,396,606	      0	             0	Aligned Pent
- *       105,989,194  28      3,785,328	      2	    52,994,597	Unary Chain
- *        76,448,024  26      2,940,308	      1	    76,448,024	Nishio Chain
- *        83,186,175  25      3,327,447	     13	     6,398,936	Multiple Chain
- *       222,494,125  21     10,594,958	     38	     5,855,108	Dynamic Chain
- *       202,620,648   1    202,620,648	     10	    20,262,064	Dynamic Plus
- *   257,232,115,627 just for 5#top1465.d5.mt; for which A5E doesn't find a hint
- *   and displays the worst observed performance of 14 seconds per call. Sheesh!
+ *          time(ns) call        ns/call  elim        ns/elim hinter
+ *        31,509,483   28      1,125,338     0              0 Aligned Pair
+ *       157,317,150   28      5,618,469     0              0 Aligned Triple
+ *     9,741,985,017   28    347,928,036     0              0 Aligned Quad
+ *   246,579,104,988   28  8,806,396,606     0              0 Aligned Pent
+ *       105,989,194   28      3,785,328     2     52,994,597 Unary Chain
+ *        76,448,024   26      2,940,308     1     76,448,024 Nishio Chain
+ *        83,186,175   25      3,327,447    13      6,398,936 Multiple Chain
+ *       222,494,125   21     10,594,958    38      5,855,108 Dynamic Chain
+ *       202,620,648    1    202,620,648    10     20,262,064 Dynamic Plus
+ * 257,232,115,627 just for 5#top1465.d5.mt; for which A5E doesn't find a hint
+ * and displays the worst observed performance of 14 seconds per call. Sheesh!
  * </pre>
  * <hr><p>
  * KRC 2019-09-07ish I've tried an AlignedPentExclusion class, which used same
@@ -275,7 +274,7 @@ import static diuf.sudoku.utils.Frmt.SP;
  * </pre>
  */
 public abstract class AAlignedSetExclusionBase extends AHinter
-		implements diuf.sudoku.solver.hinters.IPreparer
+		implements diuf.sudoku.solver.hinters.IPrepare
 {
 	/**
 	 * Set this ALLWAYS if you want the HitSet to always save, even when hits
@@ -451,7 +450,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 	 * <p>
 	 * <pre>
 	 * This method is always called by LogicalSolvers prepare method
-	 *   (foreach wantedHinter which implements IPreparer)
+	 *   (foreach wantedHinter which implements IPrepare)
 	 * which is called by LogicalSolvers solve and getAllHints methods,
 	 *   and by SudokuExplainers recreateLogicalSolver method.
 	 * </pre>
@@ -1239,7 +1238,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 			for ( Cell cell : cells ) {
 				// left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24 and
 				// cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.
-				hc = (hc<<shift) ^ cell.hashCode;
+				hc = (hc<<shift) ^ cell.i;
 				mb += cell.maybes;
 			}
 			this.hc = hc;
@@ -1314,7 +1313,7 @@ public abstract class AAlignedSetExclusionBase extends AHinter
 			for ( Cell cell : cells ) {
 				// left-shifting 3 caters for 8 cells in a set: 3 * 8 = 24
 				// and cell.hashCode is 8 bits, so 24 + 8 = 32 = perfect.
-				hc = (hc<<shift) ^ cell.hashCode;
+				hc = (hc<<shift) ^ cell.i;
 				mb += cell.maybes;
 			}
 			this.hc = hc;

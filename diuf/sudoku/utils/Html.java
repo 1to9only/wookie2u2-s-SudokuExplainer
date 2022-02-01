@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -183,10 +183,10 @@ public final class Html {
 	,"<k>", "<font color=\"#FF00FF\">" ,"</k>", "</font>" // 16 pink candi
 	,"<b1>","<font color=\"#0000A0\">" ,"</b1>","</font>" // 20 blue region
 	,"<b2>","<font color=\"#009000\">" ,"</b2>","</font>" // 24 green region
-	,"<b3>","<font color=\"#009090\">" ,"</b3>","</font>" // 28 dark aqua ALS
-	,"<b4>","<font color=\"#CCCC00\">" ,"</b4>","</font>" // 32 yellow ALS
-	,"<b5>","<font color=\"#964B00\">" ,"</b5>","</font>" // 36 brown ALS
-	,"<b6>","<font color=\"#DC05DC\">" ,"</b6>","</font>" // 40 purple SDC/ALS
+	,"<b3>","<font color=\"#964B00\">" ,"</b5>","</font>" // 36 brown ALS
+	,"<b4>","<font color=\"#009090\">" ,"</b3>","</font>" // 28 dark aqua ALS
+	,"<b5>","<font color=\"#DC05DC\">" ,"</b6>","</font>" // 40 purple SDC/ALS
+	,"<b6>","<font color=\"#CCCC00\">" ,"</b4>","</font>" // 32 yellow ALS
 	,"<b7>","<font color=\"#000000\">" ,"</b7>","</font>" // 44 light blue ALS // black coz D8E6FF is unreadable
 	};
 

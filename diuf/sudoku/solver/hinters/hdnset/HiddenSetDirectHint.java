@@ -29,40 +29,30 @@ import static diuf.sudoku.utils.Frmt.IN;
 public final class HiddenSetDirectHint extends AHint  {
 
 	private final Cell[] cells; // cells in this Hidden Set
-	private final int[] hdnSetValuesArray;
 	private final ARegion region;
+	private final int[] hdnSetValuesArray;
 
-	/** Used by Locking. */
-	public final int hdnSetValues;
-	/** Used by Locking. */
-	public final Idx hdnSetIdx;
+//	/** Used by Locking. */
+//	public final Idx hdnSetIdx;
+//	public final int hdnSetValues;
 
 	public HiddenSetDirectHint(AHinter hinter, Cell[] cells, int hdnSetValues
-			, Pots orangePots, Pots redPots, ARegion region, int valueToSet
-			, Cell cellToSet) {
-		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots, null
-				, orangePots, null, Regions.array(region), null);
+			, Pots greens, Pots oranges, Pots reds, ARegion region
+			, int valueToSet, Cell cellToSet) {
+		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, reds, greens
+				, oranges, null, Regions.array(region), null);
 		this.cells = cells;
-		this.hdnSetValues = hdnSetValues;
 		this.region = region;
-		// Used by Locking.
 		this.hdnSetValuesArray = Values.toArrayNew(hdnSetValues);
-		// Used by Locking.
-		this.hdnSetIdx = Idx.of(cells);
+//		// Used by Locking.
+//		this.hdnSetIdx = Idx.of(cells);
+//		this.hdnSetValues = hdnSetValues;
 	}
 
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
 		return Collections.singleton(cell);
 	}
-
-	@Override
-	public Pots getGreens(int viewNum) {
-		if ( greenPots == null )
-			greenPots = new Pots(cell, value);
-		return greenPots;
-	}
-	private Pots greenPots;
 
 	@Override
 	public String toStringImpl() {

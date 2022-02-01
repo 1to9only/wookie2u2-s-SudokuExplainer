@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align;
@@ -30,8 +30,8 @@ import diuf.sudoku.solver.LogicalSolver;
  * of 9 Cells.
  */
 public final class Aligned9Exclusion_1C extends Aligned9ExclusionBase
-implements 
-		diuf.sudoku.solver.hinters.IPreparer,
+implements
+		diuf.sudoku.solver.hinters.IPrepare,
 		diuf.sudoku.solver.hinters.IReporter,
 		java.io.Closeable
 {
@@ -358,7 +358,7 @@ implements
 //												++maxMbs.pass;
 											}
 
-											// read common excluder cells from grid at idx08
+											// get the common excluder cells
 											if ( (numCmnExcls = idx08.cellsN(grid, cmnExcls)) == 1 ) {
 												cmnExclBits[0] = cmnExcls[0].maybes;
 												numCmnExclBits = 1;

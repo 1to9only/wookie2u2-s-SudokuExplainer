@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align2;
@@ -209,7 +209,7 @@ public final class AlignedExclusionHint extends AHint  {
 	public int hashCode() {
 		int result = reds.hashCode();
 		for ( Cell c : alignedSet )
-			result = result<<4 ^ c.hashCode;
+			result = result<<4 ^ c.i;
 		return result;
 	}
 
@@ -217,7 +217,7 @@ public final class AlignedExclusionHint extends AHint  {
 	public String toStringImpl() {
 		return Frmt.getSB().append(getHintTypeName())
 		  .append(COLON_SP).append(Frmu.csv(alignedSet))
-		  .append(ON).append(cmnExcluders)
+		  .append(ON).append(Frmu.ssv(cmnExcluders))
 		  .toString();
 	}
 
@@ -241,7 +241,7 @@ public final class AlignedExclusionHint extends AHint  {
 		switch ( cnt ) {
 		case 0: return ".";
 		case 1: {
-			final Cell c = dropped.firstCell();
+			final Cell c = dropped.firstKey();
 			cands = dropped.get(c);
 			final int n = VSIZE[cands];
 			final String candS = Values.andString(cands);
@@ -254,18 +254,21 @@ public final class AlignedExclusionHint extends AHint  {
 			return Html.colorIn(s);
 		}
 		default: {
-			String s = ", but ";
-			final Cell[] cs = Cells.array(dropped.keySet());
+			// size * 32 + 170 is approx trailing length
+			final StringBuilder sb = new StringBuilder((dropped.size()<<6) + 170);
+			sb.append(", but ");
+			final Cell[] keys = Cells.arrayNew(dropped.keySet());
 			for ( int i=0,m=cnt-1; i<cnt; ++i ) {
-				final Cell c = cs[i];
+				final Cell c = keys[i];
 				final String candS = Values.andString(dropped.get(c));
-				if(i>0) if(i<m) s+=", "; else s+=" and ";
-				s += "<g><b>"+c.id+"</b></g> maybe <b>"+candS+"</b>";
+				if(i>0) if(i<m) sb.append(", "); else sb.append(" and ");
+				sb.append("<g><b>").append(c.id).append("</b></g> maybe <b>")
+				  .append(candS).append("</b>");
 			}
-			s += " and none of the cells in the <g>aligned set</g> maybe"
+			sb.append(" and none of the cells in the <g>aligned set</g> maybe"
 			+" these values, so these cells are useless as excluder cells"
-			+", and are therefore disregarded.";
-			return Html.colorIn(s);
+			+", and are therefore disregarded.");
+			return Html.colorIn(sb.toString());
 		}
 		}
 	}
@@ -275,7 +278,8 @@ public final class AlignedExclusionHint extends AHint  {
 		final String excludedCombos;
 		try {
 			// 256 is just a guess, but observed to be big enough
-			excludedCombos = Html.colorIn(appendTo(new StringBuilder(256), excludedCombosMap).toString());
+			excludedCombos = Html.colorIn(appendTo(new StringBuilder(256)
+					, excludedCombosMap).toString());
 		} catch (IrrelevantHintException ex) { // from appendTo
 			// see IrrelevantHintException declaration for discussion
 			return Html.load(ex, "IrrelevantHintException.html");
@@ -287,9 +291,9 @@ public final class AlignedExclusionHint extends AHint  {
 			, GROUP_NAMES[degree-2]				//{0}
 			, Frmu.and(alignedSet)				// 1
 			, excludedCombos					// 2
-			, Frmu.and(reds.keySet())		// 3
+			, Frmu.and(reds.keySet())			// 3
 			, Values.csv(getRemovableValues())	// 4
-			, reds.toString()				// 5
+			, reds.toString()					// 5
 			, Frmu.ssv(cmnExcluders)			// 6
 			, droppedExcluders()				// 7
 		);

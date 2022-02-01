@@ -1,19 +1,17 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.single;
 
 import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VFIRST;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
-
 
 /**
  * Implementation of the NakedSingle Sudoku solving technique. A "naked single"
@@ -75,7 +73,8 @@ public final class NakedSingle extends AHinter {
 			if ( size[i] == 1 ) {
 				// then raise a hint setting this cell to that value
 				result = true;
-				if ( accu.add(new NakedSingleHint(this, grid.cells[i], VFIRST[grid.maybes[i]])) ) {
+				if ( accu.add(new NakedSingleHint(this, grid.cells[i]
+											, VFIRST[grid.maybes[i]])) ) {
 					return result;
 				}
 			}

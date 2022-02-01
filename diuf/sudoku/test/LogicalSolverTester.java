@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.test;
@@ -47,7 +47,6 @@ import java.util.Map.Entry;
  * this list. Ergo: Select everything, then untick this s__t!
  * <li>The Naked Single and Hidden Single hinters are permanently selected coz
  *  it just doesn't make any sense to try to solve a Sudoku without them.
- * <li>Drop BUG (Bivalue Universal Grave) and Medusa3D (counter-productive).
  * <li>Drop Naked and Hidden Pent (degenerate).
  * <li>Use BigWings instead of the individual S/T/U/V/WXYZ_Wing hinters (the
  *  individuals are actually faster, but BigWings is faster overall because it
@@ -64,14 +63,10 @@ import java.util.Map.Entry;
  *  basic structure does, and that was the hard part, so credit where it's due.
  *  Kudos to Juillerat. mistakes are mine. KRC.
  */
-public final class LogicalSolverTester {
+final class LogicalSolverTester {
 
 	// Assholometer: Should we hack the s__t out of s__t to make s__t faster?
 	private static final boolean IS_HACKY = THE_SETTINGS.getBoolean(Settings.isHacky);
-
-	// KRC 2021-06-20 When 1 puzzle is reprocessed print hint.toHtml to stdout
-	// to spot towel misplacements. public to read in KrakenFisherman.
-	public static final boolean PRINT_HINT_HTML = false; // #check false
 
 	// KRC 2020-08-20 888#top1465.d5.mt siamese bug: SIAMESE_LOCKING=true makes
 	// LogicalSolverTester behave like GUI, to find SiameseLocking test-cases.
@@ -106,7 +101,8 @@ public final class LogicalSolverTester {
 	}
 
 	/**
-	 * Solve some Sudoku puzzles logically. Output to stdout and inputFile.log.
+	 * Solve Sudokus logically to $input.log progress only to stdout.
+	 *
 	 * @param args the name of the *.mt input file (atleast) see USAGE.
 	 */
 	public static void main(String[] args) {
@@ -157,16 +153,13 @@ public final class LogicalSolverTester {
 			pids = null;
 		} else {
 			pids = Frmt.toIntArray(args); // may still be null
+			// printHintHtml is insanely verbose!
 			// do BEFORE new LogicalSolver because new LogicalSolver ->
 			// new BruteForce -> new HintsApplicumulator ->
 			// if AHint.printHintHtml then new SB, so SummaryHint.toString()
 			// contains a list of the hints that have already been applied.
 			// WARN: search PRINT_HINT_HTML to comment out other stuff.
-			if ( PRINT_HINT_HTML ) {
-				if ( pids!=null && pids.length==1 ) {
-					AHint.printHintHtml = true; // this is insanely verbose
-				}
-			}
+			AHint.printHintHtml = Run.PRINT_HINT_HTML && pids!=null && pids.length==1;
 		}
 
 		// get the output logFilename from the inputFilename
@@ -429,7 +422,7 @@ public final class LogicalSolverTester {
 		// search  ^\d+ +\t to find a hint detail line
 		// search: ^ +\d+\t to find a puzzle summary line
 		out.format("%-5s", "hid");			// hintCount (hint identifier)
-		out.format("\t%15s", "time (ns)");	// took
+		out.format("\t%15s", "time(ns)");	// took
 		out.format("\t%2s", "ce");			// countFilledCells
 		out.format("\t%4s", "mayb");		// countMaybes
 		out.format("\t%3s", "eli");			// numElims
@@ -449,7 +442,7 @@ public final class LogicalSolverTester {
 		out.format("\t%5d", calls);
 		out.format("\t%5d", hints);
 		out.format("\t%5d", elims);
-		out.format("\t%4.2f", maxDifficulty);
+		out.format("\t%5.2f", maxDifficulty);
 		out.format("\t%7.2f", ttlDifficulty);
 		out.format("\t%s", hinterName);
 		out.println();
@@ -476,7 +469,7 @@ public final class LogicalSolverTester {
 
 	private static void printHinterSummaryHeader(PrintStream out) {
 		// totalUsageMap: + 1 line per Hinter (summary) HEADER
-		out.format("%18s", "time (ns)");
+		out.format("%18s", "time(ns)");
 		out.format("\t%7s\t%14s", "calls", "time/call");
 		out.format("\t%7s\t%14s", "elims", "time/elim");
 		out.format("\t%s%s", "hinter", NL);
@@ -520,7 +513,7 @@ public final class LogicalSolverTester {
 		Log.teef("\t%5d", ttlCalls);
 		Log.teef("\t%5d", ttlHints);
 		Log.teef("\t%5d", ttlElims);
-		Log.teef("\t%4.2f", maxDifficulty); // upto 9.99, 10+ is disaligned!
+		Log.teef("\t%5.2f", maxDifficulty); // upto 9.99, 10+ is disaligned!
 		Log.teef("\t%7.2f", ttlDifficulty); // 100 hints * 9.99 = 999.00
 		Log.teef("\t%-20s", hardestHinter); // longest "Direct Hidden Triple" is 20 chars
 		Log.teef("\t%s", line.contents);

@@ -1,4 +1,5 @@
 //KRC 2021-10-19 class no longer used so commented out. Delete if you like.
+//AlsFinderPlain is simpler, and finds ALSs in the "correct" order. Sigh.
 //package diuf.sudoku.solver.hinters.als;
 //
 //import diuf.sudoku.Grid;
@@ -67,7 +68,7 @@
 //	// * AlsXz/Wing/Chain use 2..7
 //	// * BigWings: WXYZ=3, VWXYZ=4, UVWXYZ=5, TUVWXYZ=6, STUWXYZ=7
 //	private static final int DEGREE = 8; // was 9, but 8's never used!
-//	
+//
 //	// shorthand
 //	private static final boolean F = false;
 //
@@ -179,7 +180,7 @@
 //					// if existing + this cell together have <= degree+1 maybes
 //					if ( VSIZE[cands[i]=cands[h]|c.maybes] < dP2
 //					  // need degree cells to form an ALS, this is the (i+1)'th
-//					  && x[j].setAndMin(x[i], LATER_BUDS[c.i], dM1-i) 
+//					  && x[j].setAndMin(x[i], LATER_BUDS[c.i], dM1-i)
 //					) {
 //						// move right to als[i+1], to find next cell in ALS
 //						result |= recurse(j);

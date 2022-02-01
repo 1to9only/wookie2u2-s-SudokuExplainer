@@ -1,19 +1,22 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gen;
 
 import diuf.sudoku.Difficulty;
+import static diuf.sudoku.Difficulty.Diabolical;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.GRID_SIZE;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Run;
-import diuf.sudoku.gui.GenerateDialog;
+import static diuf.sudoku.gen.PuzzleCache.getPuzzleCache;
+import static diuf.sudoku.gui.GenerateDialog.getGenerateDialog;
 import diuf.sudoku.solver.LogicalSolver;
+import static diuf.sudoku.solver.LogicalSolver.ANALYSE_INTERRUPTED;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.checks.BruteForce;
@@ -55,14 +58,20 @@ public final class Generator {
 	public static final String FACTORY_THREAD_NAME = "SE_Factory";
 
 	// maximum number of tries generating a puzzle before giving-up.
-	// most folks won't wait this long.
-	private static final int MAX_TRIES = 4096;
+	// This limit is arbitrary. It's only so high to almost always
+	// generate a random IDKFA puzzle (they're rare) before giving-up.
+	public static final int MAX_TRIES = 512*1024;
 
-	// an arbitrary number of UsolvableExceptions are acceptable, but too many
+	// An arbitrary proportion of analyse failures are acceptable, but excess
 	// means one of the Four Quick Foxes is most-probably broken; either that
-	// or you've broken BruteForce; or you caught UnsolvableException as
-	// Exception and rethrown it, when the intended catch needs UnsolvableEx.
-	private static final int MAX_FAILURES = 512;
+	// or you broke BruteForce; or rethrown UnsolvableException as Exception.
+	// The catch REQUIRES an UnsolvableException. Sigh.
+	//
+	// If a puzzle does NOT validate then it doesn't count as a failure.
+	//
+	// Arbitrarily, 1 in 32 getDifficulty failures is acceptable, but beyond
+	// that one may be reasonably sure that ones s__t is completely ____ed.
+	public static final int MAX_FAILURES = MAX_TRIES>>5;
 
 	// NN is the number of cells in a grid: 9*9 = 81.
 	private static final int N = REGION_SIZE;
@@ -98,17 +107,17 @@ public final class Generator {
 		return indice;
 	}
 
-	/**
-	 * get the Difficulty for this target maximum-difficulty-of-a-puzzle
-	 * @param target the maximum of the hint difficulties in this puzzle
-	 * @return the first (lowest) Difficulty that covers this puzzle.
-	 */
-	private static Difficulty getDifficulty(double target) {
-		// Easy, Medium, Hard, Fiendish, Nightmare, Diabolical, IDKFA
-		for ( Difficulty d : Difficulty.values() )
-			if ( target < d.max )
-				return d;
-		return null;
+	public static boolean isGeneratorRunning() {
+		final Thread[] threads = new Thread[Thread.activeCount()];
+		for ( int i=0,n=Thread.enumerate(threads); i<n; ++i ) {
+			if ( GENERATOR_THREAD_NAME.equals(threads[i].getName()) )
+				return true;
+			if ( PRODUCE_THREAD_NAME.equals(threads[i].getName()) )
+				return true;
+			if ( FACTORY_THREAD_NAME.equals(threads[i].getName()) )
+				return true;
+		}
+		return false;
 	}
 
 	// my analyser generates random puzzles
@@ -120,36 +129,49 @@ public final class Generator {
 	// my cache of generated puzzles
 	private final PuzzleCache cache;
 
-	public static Generator getInstance() {
+	public static Generator getGenerator() {
 		if ( theInstance == null )
 			theInstance = new Generator();
 		return theInstance;
 	}
 	private static Generator theInstance;
 
+	private boolean troubleInParadise;
+	void setTroubleInParadise(boolean b) {
+		troubleInParadise = b;
+	}
+	boolean getAndResetTroubleInParadise() {
+		boolean result = troubleInParadise;
+		troubleInParadise = false;
+		return result;
+	}
+
 	private Generator() {
 		this.solver = LogicalSolverFactory.get();
 		this.analyser = new BruteForce(solver.getBasicHinters());
-		this.cache = new PuzzleCache();
+		this.cache = getPuzzleCache();
 	}
 
 	/** The "Stop" button stops generate.*/
 	public void interrupt() {
-		Run.stopGenerate = true;
+		Run.setStopGenerate(true);
 		java.awt.Toolkit.getDefaultToolkit().beep();
 	}
 
 	/**
-	 * Get a Sudoku grid from the cache matching the given parameters. Called
-	 * only by GenerateDialog.GeneratorThread.run()
+	 * Get a Sudoku grid from the cache matching the given parameters.
+	 * <p>
+	 * Called by {@link diuf.sudoku.gui.GenerateDialog.GeneratorThread#run()}
 	 * <p>
 	 * This implementation generates random puzzles until it hits one with a
 	 * difficulty between the given minD and maxD. Depending on the hardware,
-	 * generation of an IDKFA can take upto 10 minutes, ie too slow.
+	 * generation of an IDKFA can take upto like an hour, ie too slow. JAVA.EXE
+	 * (but not Netbeans VM) kills the generator thread; I suspect for safety
+	 * because the bastard overheats the CPU. Who knows. IDKFA. Sigh.
 	 *
-	 * @param syms {@code List<Symmetry>} used to strip cell
+	 * @param symetries {@code List<Symmetry>} used to strip cell
 	 *  values symmetrically.
-	 * @param diff Difficulty the desired degree of difficulty.
+	 * @param difficulty Difficulty the desired degree of difficulty.
 	 * @param isExact should the Difficulty minimum be respected?<br>
      * true  means only this Difficulty puzzles are acceptable.<br>
      * false means upto this Difficulty puzzles are acceptable.<br>
@@ -161,9 +183,9 @@ public final class Generator {
 	 * because there are no bones in ice-cream.
 	 * @return the generated grid.
 	 */
-	public Grid cachedGenerate(Symmetry[] syms, Difficulty diff, boolean isExact) {
+	public Grid cachedGenerate(final Symmetry[] symetries, final Difficulty difficulty, final boolean isExact) {
 		// cache's before calling-back my generate method.
-		return cache.generate(syms, diff, isExact);
+		return cache.generate(symetries, difficulty, isExact);
 	}
 
 	// This method recieves the call back from the cache to actually generate
@@ -173,26 +195,26 @@ public final class Generator {
 	// BUG: Sometimes generate IDKFA produces a Diabolical coz the actual hint
 	// difficulties of the two Difficulty's overlap, coz da actual diff grows,
 	// but it is still compared as if it were a "base" difficulty. sigh.
-	Grid generate(final PuzzleCache cache, final Symmetry[] symmetries
-			, final Difficulty target, final boolean isExact) {
+	Grid actuallyGenerate(final PuzzleCache cache, final Symmetry[] symmetries
+			, final Difficulty targetDifficulty, final boolean isExact) {
 		// one does NOT do null!
 		assert cache != null;
 		assert symmetries != null;
-		assert target != null;
+		assert targetDifficulty != null;
+		Run.setStopGenerate(false); // reset from last-time
 		Run.Type prevRunType = Run.setRunType(Run.Type.Generator);
-		Run.stopGenerate = false; // reset from last-time
 		Grid puzzle = null; // returned only if in target.min..target.max
 		try {
-			double d;
-			Difficulty difficulty;
+			double d; // the difficulty rating of this puzzle, as a double.
+			Difficulty difficulty; // the Difficulty of d, as a Difficulty.
 			// Diabolical+ are too slow with anything but Symmetry.None
-			final boolean small = target.ordinal() < Difficulty.Diabolical.ordinal();
+			final boolean small = targetDifficulty.ordinal() < Diabolical.ordinal();
 			final Symmetry[] syms = small ? symmetries : null;
 			Symmetry sym = small ? null : Symmetry.None;
-			final double minD = isExact ? target.min : 0.0D;
-			final double maxD = target.max;
+			final double minD = isExact ? targetDifficulty.min : 0.0D;
+			final double maxD = targetDifficulty.max; // ceiling, not max. Sigh.
 			assert minD < maxD; // maxD is exclusive, so they can't be equal
-			final int n = small ? syms.length : 1;
+			final int n = syms!=null ? syms.length : 1; // n is 1 for "large"
 			Random rnd = new Random();
 			int failures = 0; // number of analyse-failures
 			int tries = MAX_TRIES + 1;
@@ -200,7 +222,7 @@ public final class Generator {
 			for (;;) {
 				if ( --tries < 1 )
 					throw new TuringException(Log.me()+" exceeded "+MAX_TRIES);
-				if ( Run.stopGenerate ) {
+				if ( Run.stopGenerate() ) {
 					puzzle = null;
 					break; // interrupted
 				}
@@ -210,33 +232,43 @@ public final class Generator {
 				if ( puzzle == null ) {
 					break; // strip interrupted, or puzzle completely rooted
 				}
-				try {
-					solver.prepare(puzzle);
-					d = solver.analyseDifficulty(puzzle, maxD);
-					if ( d == 999.99 ) { // analyse interrupted
-						System.out.println(Log.me()+": Interrupted!");
-						puzzle = null;
-						break;
-					}
-					difficulty = getDifficulty(d);
-					cache.set(difficulty, puzzle);
-					if (Log.MODE >= Log.NORMAL_MODE) {
-						System.out.format("%4d\t%-20s\t%4.2f %-10s\t%s%s", tries, sym, d, difficulty, puzzle.toShortString(), NL);
-					}
-					if ( d>=minD && d<=maxD ) { // puzzle is pre-set
-						break;
-					}
-				} catch (UnsolvableException ex) {
-//// Silence: I Kill You! Don't tell the user you're incompetent, let them figure it out for themselves!
-//					++analyseFailures; // remove the below ++
-//					System.out.println(puzzle);
-//					System.out.println("WARN: "+analyseFailures+": "+ex);
-//					System.out.flush();
-//					ex.printStackTrace(System.out);
-					if ( ++failures > MAX_FAILURES ) {
-						Log.teeln(Log.me()+": GIVE-UP: "+MAX_FAILURES+" exceeded");
-						puzzle = null;
-						break;
+				// is it a valid Sudoku? if not it doesn't count as a failure
+				puzzle.rebuildMaybesAndS__t();
+				puzzle.rebuildIndexes(false);
+				if ( solver.validatePuzzleAndGrid(puzzle, false) == null ) {
+					try {
+						// prepare and solve, to findout how hard it is.
+						solver.prepare(puzzle);
+						d = solver.analyseDifficulty(puzzle, maxD);
+						if ( d == ANALYSE_INTERRUPTED ) {
+							System.out.println(Log.me()+": Interrupted!");
+							puzzle = null;
+							break;
+						}
+						difficulty = Difficulty.get(d);
+						cache.set(difficulty, puzzle);
+						if (Log.MODE >= Log.NORMAL_MODE) {
+							System.out.format("%4d\t%-20s\t%5.2f\t%-10s\t%s%s", tries, sym, d, difficulty, puzzle.toShortString(), NL);
+						}
+						if ( d>=minD && d<maxD ) { // puzzle is pre-set
+							break;
+						}
+					} catch (UnsolvableException ex) {
+// Don't tell da user you're incompetent, let em figure it out for themselves
+						++failures; // remove the below ++
+						Log.println(puzzle);
+						Log.println("WARN: analyse failure "+failures+": "+ex);
+// I wish there was an easy way to print-out DISTINCT stack traces.
+//						ex.printStackTrace(Log.out);
+						Log.out.flush();
+						if ( failures > MAX_FAILURES ) {
+							Log.teeln(Log.me()+": GIVE-UP: MAX_FAILURES="+MAX_FAILURES+" exceeded");
+							puzzle = null;
+							break;
+						}
+					} catch (Exception ex) {
+						setTroubleInParadise(true);
+						throw ex;
 					}
 				}
 				// recreate each time to generate more IDKFA's
@@ -246,9 +278,10 @@ public final class Generator {
 			Run.type = prevRunType;
 		}
 		try {
-			// if generate completed (ie it was NOT stopped)
-			if ( !Run.stopGenerate )
-				GenerateDialog.getInstance().generateCompleted();
+			if ( Run.stopGenerate() ) // stopped
+				getGenerateDialog().generateKilled();
+			else // completed
+				getGenerateDialog().generateCompleted();
 		} catch (Exception eaten) {
 			// Do nothing
 		}
@@ -290,7 +323,7 @@ public final class Generator {
 			// do while ( none removed OR all 81 have been tested )
 			anyRemoved = false;
 			do {
-				if ( Run.stopGenerate )
+				if ( Run.stopGenerate() )
 					return null; // user pressed Stop
 				// get the random index at this i
 				idx = idxs[i];

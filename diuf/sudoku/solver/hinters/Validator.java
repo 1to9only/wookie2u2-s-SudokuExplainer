@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters;
@@ -47,60 +47,70 @@ public class Validator {
 	// switch. It's done this way to make it easy to rip me out; and easy to
 	// find any usages before each release, and switch them off.
 	//
+	// USE STATIC PREDICATES: Put the VALIDATE_* flag in his own if-statement.
+	// Don't trust the compiler to demangle a mixed-predicate. I've confirmed
+	// all static predicate is faster, so I think he's evaluated at compile
+	// time, where a mixed predicate is evaluated at runtime, even though it's
+	// STATICALLY an oxymoron. For reasons I do NOT understand this seems to
+	// make a big difference to runtime. I suspect it's one out all out, that
+	// is, ALL compile-time switches are evalutated at runtime. Weird!
+	//
+	// Evalutated: Yep, I can't spell worth s__t! Precluding academia, unless
+	// I roll my own slepp-checker. Sigh. Just shoot me.
+	//
 	// Validator is not kosha so should NOT be used in a release! It would be
 	// best if Validator did not exist, but it does, but I am still determined
 	// not to rely upon this crutch in production. Using brute-force (solution)
 	// is poor form when calculating the solution. I would rather not solve a
 	// puzzle than rely on Validator to solve it.
 	//
-	// What Validator is useful for is telling me where I stuffed-up; it logs
-	// invalid hints, and suppresses apply, to reveal the pattern of bad hints,
-	// so that hopefully I can fix them.
+	// What Validator is for is to reveal a pattern in bad hints, to find the
+	// bug in the hinter (using the debugger on a dodgy case), and fix it.
 
 	/**
 	 * Does XColoring use Validator?
 	 */
-	public static final boolean XCOLORING_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_XCOLORING = false; // @check false
 
 	/**
-	 * Does MedusaColoring use Validator?
+	 * Does Medusa3D use Validator?
 	 */
-	public static final boolean MEDUSA_COLORING_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_MEDUSA = false; // @check false
 
 	/**
 	 * Does GEM (GradedEquivalenceMarks) use Validator?
 	 */
-	public static final boolean GEM_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_GEM = false; // @check false
 
 	/**
 	 * Does DeathBlossom use Validator?
 	 */
-	public static final boolean DEATH_BLOSSOM_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_DEATH_BLOSSOM = false; // @check false
 
 	/**
-	 * Do AlsWing and AlsChain use Validator?
+	 * Do AlsXz, AlsWing and AlsChain use Validator?
 	 */
-	public static final boolean ALS_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_ALS = false; // @check false
 
 	/**
 	 * Does ComplexFisherman (for Franken and Mutant only) use Validator?
 	 */
-	public static final boolean COMPLEX_FISHERMAN_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_COMPLEX_FISHERMAN = false; // @check false
 
 	/**
 	 * Does KrakenFisherman use Validator?
 	 */
-	public static final boolean KRAKEN_FISHERMAN_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_KRAKEN_FISHERMAN = false; // @check false
 
 	/**
 	 * Does AlignedExclusion use Validator?
 	 */
-	public static final boolean ALIGNED_EXCLUSION_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_ALIGNED_EXCLUSION = false; // @check false
 
 	/**
 	 * Does ChainerBase (for Nested hints only) use Validator?
 	 */
-	public static final boolean CHAINER_VALIDATES = false; // @check false
+	public static final boolean VALIDATE_CHAINER = false; // @check false
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// these fields are input for the valid method.
@@ -124,48 +134,45 @@ public class Validator {
 	public static String invalidity;
 
 	/**
-	 * Returns: Are all the eliminations in redPots (ie in the hint) valid? If
-	 * so return true, if something is wrong then return false. I'm using this
-	 * method to find all instances of dodgy bloody hints, so that I can try to
-	 * pin-down the commonality between them, so that I can work-out what's
-	 * wrong with my bloody code, and bloody-well fix it. This whole class is
-	 * NOT intended to ever be used in a production system. It's only a stop-
-	 * gap measure for debugging during development.
+	 * Returns: Are all redPots NOT the solution values. I use this method to
+	 * find dodgy hints, to pin-down the commonality between them, to work-out
+	 * what's wrong with my code, and fix it. This class is NOT intended for
+	 * use in prod, only for debugging during development.
 	 * <p>
-	 * NOTE: It's up to each of my callers to check it's *_VALIDATES setting
-	 * BEFORE calling isValid. To use isValid in a new class just add a new
-	 * static final boolean WHATEVER_VALIDATES setting to the Validator class.
-	 * This just to keeps all my s__t together, so that it's easier to throw
-	 * away the Validator if/when we're ever done with all these dodgy hints.
+	 * It's up to each of my callers to check it's VALIDATE_* setting BEFORE
+	 * calling me. To use me in a new class, you add to the Validator:
+	 * static final boolean VALIDATE_${CLASS_NAME} = true;
+	 * To keep my s__t together, to prevent Validator use in production.
+	 * See usages of any of the existing flags to see how it's done.
 	 *
 	 * @param grid that we're solving
 	 * @param redPots the hints eliminations to be validated
 	 * @return true if all eliminations are valid, else false (invalid hint).
 	 */
-	public static boolean isValid(Grid grid, Pots redPots) {
+	public static boolean validOffs(Grid grid, Pots redPots) {
 		// presume that the hint (ie redPots) is valid;
 		final int[] solution = grid.getSolution();
 		invalidity = EMPTY_STRING;
-		Cell cell;
-		for ( java.util.Map.Entry<Cell,Integer> e : redPots.entrySet() ) {
-			// if red-cell-values contains the value of this cell in solution
-			if ( (e.getValue() & VSHFT[solution[(cell=e.getKey()).i]]) != 0 ) {
-				// note the leading space before first: odd but works ok
-				invalidity += SP+cell.id+MINUS+solution[cell.i];
-			}
-		}
+		redPots.entrySet().stream()
+			// if red-values contains the value of this cell in solution
+			.filter((e) -> (e.getValue() & VSHFT[solution[e.getKey().i]]) != 0)
+			// note the leading space before first: odd but works ok
+			// Q: how is it OK to += a String in a lambda expression? It's a
+			// static reference, but it's NOT final or effectively final!
+			// Apparently I STILL don't understand lambda's rules. Sigh.
+			.forEachOrdered((e) -> invalidity+=SP+e.getKey().id+MINUS+solution[e.getKey().i]);
 		return invalidity.isEmpty();
 	}
 
 	// for use when invalid returns true: log s__t in a standard way.
 	// return was it reported, or swallowed as a repeat?
-	public static boolean report(String reporterName, Grid grid, Iterable<Als> alss) {
-		return report(reporterName, grid, diuf.sudoku.utils.Frmt.csvIt(alss));
+	public static boolean reportRedPots(String reporterName, Grid grid, Iterable<Als> alss) {
+		return reportRedPots(reporterName, grid, diuf.sudoku.utils.Frmt.csvIt(alss));
 	}
 
 	// for use when invalid returns true: log s__t in a standard way.
 	// return was it reported, or swallowed as a repeat?
-	public static boolean report(String reporterName, Grid grid, String badness) {
+	public static boolean reportRedPots(String reporterName, Grid grid, String badness) {
 		if ( INVALIDITIES.putIfAbsent(invalidity, PRESENT) == null ) {
 			Log.teef("%s\n", grid);
 			// NOTE: invalidity contains a leading space
@@ -177,11 +184,12 @@ public class Validator {
 	}
 	public static String prevMessage;
 
-	public static void clear() {
+	public static void clearValidator() {
 		INVALIDITIES.clear();
 	}
 
-	public static boolean isValidSetPots(Grid grid, Pots setPots) {
+	// does setPots contain only solution values.
+	public static boolean validOns(Grid grid, Pots setPots) {
 		invalidity = EMPTY_STRING;
 		final int[] solution = grid.getSolution();
 		// note the leading space before the first invalidity

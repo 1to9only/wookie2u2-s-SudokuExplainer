@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.sdp;
@@ -31,9 +31,10 @@ public class TwoStringKiteHint extends AHint  {
 	private final int v; // the TwoStringKite value
 	private final Cell[] rowPair;
 	private final Cell[] colPair;
-	public TwoStringKiteHint(AHinter hinter, int v, ARegion[] bases
-			, ARegion[] covers, Pots greens, Pots blues, Pots reds
-			, Cell[] rowPair, Cell[] colPair) {
+	public TwoStringKiteHint(final AHinter hinter, final int v
+			, final ARegion[] bases, final ARegion[] covers
+			, final Pots greens, final Pots blues, final Pots reds
+			, final Cell[] rowPair, final Cell[] colPair) {
 		super(hinter, reds, greens, null, blues, bases, covers);
 		this.v = v;
 		this.rowPair = rowPair;
@@ -43,7 +44,7 @@ public class TwoStringKiteHint extends AHint  {
 	@Override
 	public Collection<Link> getLinks(int viewNumUnused) {
 		final Collection<Link> links = new LinkedList<>();
-		final Cell victim = reds.firstCell();
+		final Cell victim = reds.firstKey();
 		links.add(new Link(rowPair[0], v, rowPair[1], v));
 		links.add(new Link(rowPair[1], v, victim, v));
 		links.add(new Link(colPair[0], v, colPair[1], v));
@@ -69,13 +70,13 @@ public class TwoStringKiteHint extends AHint  {
 
 	@Override
 	public String toHtmlImpl() {
-		Cell redCell = reds.firstCell();
+		final Cell victim = reds.firstKey();
 		return Html.produce(this, "TwoStringKiteHint.html"
 			, Integer.toString(v)	//{0}
 			, covers[0].id			// 1
 			, covers[1].id			// 2
 			, bases[0].id			// 3
-			, redCell.id			// 4
+			, victim.id				// 4
 			, rowPair[0].id			// 5
 			, rowPair[1].id			// 6
 			, colPair[0].id			// 7

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
@@ -11,6 +11,7 @@ import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Frmu;
@@ -45,9 +46,10 @@ public abstract class AURTHint extends AHint  {
 	protected final int v2;
 	protected final int typeIndex;
 
-	public AURTHint(int typeIndex, UniqueRectangle hinter, Cell[] loop, int loopSize
-			, int v1, int v2, Pots redPots) {
-		super(hinter, redPots);
+	public AURTHint(final int typeIndex, final AHinter hinter
+			, final Cell[] loop, final int loopSize, final int v1, final int v2
+			, final Pots reds) {
+		super(hinter, reds);
 		this.typeIndex = typeIndex;
 		this.loop = loop;
 		this.loopSize = loopSize;
@@ -152,7 +154,7 @@ public abstract class AURTHint extends AHint  {
 	public int hashCode() {
 		int result = 0;
 		for ( Cell c : loop )
-			result = result<<4 ^ c.hashCode;
+			result = result<<4 ^ c.i;
 		return result;
 	}
 }

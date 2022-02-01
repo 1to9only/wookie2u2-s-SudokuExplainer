@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align2;
@@ -98,11 +98,11 @@ class NonHinters {
 		// remember these for the presumed future call to put.
 		// nb: the cellStack always contains atleast 2 cells.
 		Cell c = cellStack[0].cell;
-		long hc = c.hashCode; // hashCode
+		long hc = c.i; // hashCode
 		long tm = c.maybes; // totalMaybes
 		for ( int i=1; i<degree; ++i ) {
 			c = cellStack[i].cell;
-			hc = (hc<<shift) ^ c.hashCode;
+			hc = (hc<<shift) ^ c.i;
 			tm += c.maybes;
 		}
 		// if the number of excluders has changed

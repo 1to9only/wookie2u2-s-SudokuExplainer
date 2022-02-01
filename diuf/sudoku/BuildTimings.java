@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -14,7 +14,7 @@ package diuf.sudoku;
  * Sudoku puzzles as simply, accurately, and quickly as possible.
  * <p>
  * That and it's just nice to remember stuff like it took Juillerat 17:48 to
- * solve 1465 puzzles; and my best is 01:30. So all it takes is the investment
+ * solve 1465 puzzles; and my best is 01:11. So all it takes is the investment
  * of years and years of hard complex bloody pernickety work, and you too can
  * claim to be a total, complete and utter time-wasting Putz! Nag! Putz! Nag!
  * <p>
@@ -103,7 +103,7 @@ package diuf.sudoku;
  * <p><hr><p>
  * <b>KRC 2019-08-14</b>
  * <pre>
- *       time (ns)  calls   time/call   elims    time/elim hinter
+ *        time(ns)  calls   time/call   elims    time/elim hinter
  *      19,761,810  44955         439  110970          178 Naked Single
  *      49,318,000  43524       1,133  447320          110 Hidden Single
  *     159,814,822  33015       4,840   19031        8,397 Naked Pair
@@ -143,7 +143,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2019-09-10</b> with A3E + A4E but NO A5E.
  * <pre>
- *        time (ns)  calls   time/call   elims      time/elim hinter
+ *         time(ns)  calls   time/call   elims      time/elim hinter
  *       21,198,622  42660         496  133810            158 Naked Single
  *       52,907,558  41305       1,280  357030            148 Hidden Single
  *      155,915,871  32947       4,732   32915          4,736 Direct Naked Pair
@@ -185,7 +185,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2019-09-24</b> with A3E, A4E, A5E.
  * <pre>
- *       time (ns) calls     time/call  elims   time/elim hinter
+ *        time(ns) calls     time/call  elims   time/elim hinter
  *      14,961,463 42576           351 135050         110 Naked Single
  *      45,516,188 41228         1,104 355750         127 Hidden Single
  *     156,016,062 32883         4,744  33694       4,630 Direct Naked Pair
@@ -234,7 +234,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2019-09-30</b> with A3E, A4E, A5E.
  * <pre>
- *       time (ns) calls  time/call  elims   time/elim hinter
+ *        time(ns) calls  time/call  elims   time/elim hinter
  *      18,052,498 46008        392 225530          80 Naked Single
  *      46,726,398 43738      1,068 391100         119 Hidden Single
  *     107,817,083 34911      3,088  26459       4,074 Point and Claim
@@ -275,7 +275,7 @@ package diuf.sudoku;
  * <b>KRC 2019-10-01</b> added A6E and A7E.
  * <pre>
  * top1465.d5.mt 2019-10-01 08:21:42
- *       time (ns)       calls  time/call elim     time/elim  hinter
+ *        time(ns)       calls  time/call elim     time/elim  hinter
  *   2,132,186,446       16090    132,516   29    73,523,670  Aligned Pair
  *  29,161,434,276       16061  1,815,667  557    52,354,460  Aligned Triple
  * 152,089,171,294  2:32 15561  9,773,740  821   185,248,686  Aligned Quad
@@ -289,7 +289,7 @@ package diuf.sudoku;
  * <b>KRC 2019-10-04</b> added A8E.
  * <pre>
  * top1465.d5.mt 2019-10-04.13-14-43
- *         time (ns) calls  time/call elim     time/elim  hinter
+ *          time(ns) calls  time/call elim     time/elim  hinter
  *     1,652,508,503 16109    102,582   30    55,083,616 Aligned Pair
  *    27,032,816,722 16079  1,681,249  569    47,509,343 Aligned Triple
  *   146,494,334,180 15567  9,410,569  892   164,231,316 Aligned Quad
@@ -306,7 +306,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2019-10-04</b> with A8E.
  * <pre>
- *       time (ns) calls  time/call  elims     time/elim hinter
+ *        time(ns) calls  time/call  elims     time/elim hinter
  *      33,377,414 46283        721 229270           145 Naked Single
  *      59,125,946 43987      1,344 391270           151 Hidden Single
  *     139,072,377 35131      3,958  26418         5,264 Point and Claim
@@ -340,7 +340,7 @@ package diuf.sudoku;
  * <b>KRC 2019-10-08</b> Hack: New -REDO argument to LogicalSolverTester parses
  * a previous logFile to see which hinters to apply to each puzzle.
  * <pre>
- *       time (ns) calls  time/call  elims   time/elim hinter
+ *        time(ns) calls  time/call  elims   time/elim hinter
  *      25,374,419 46276        548 229310         110 Naked Single
  *      61,138,533 43979      1,390 391240         156 Hidden Single
  *     135,930,629 35123      3,870  26414       5,146 Point and Claim
@@ -396,7 +396,7 @@ package diuf.sudoku;
  * profile size, even for an impatient old ass like me. FYI an instrumented
  * profiler creates loads of class files in the projects root directory.
  * <pre>
- *       time (ns)  calls   time/call   elims    time/elim hinter
+ *        time(ns)  calls   time/call   elims    time/elim hinter
  *      18,003,324  46276         389  229310           78 Naked Single
  *      41,436,472  43979         942  391240          105 Hidden Single
  *     110,432,012  35123       3,144   26414        4,180 Point and Claim
@@ -439,7 +439,7 @@ package diuf.sudoku;
  * log. It's a hack, reading a BIG part of the solution out of a previous log,
  * but it's DAMN fast!
  * <pre>
- *       time (ns)  calls   time/call   elims   time/elim hinter
+ *        time(ns)  calls   time/call   elims   time/elim hinter
  *      17,854,760  46283         385  229680          77 Naked Single
  *      24,843,818  43984         564  391290          63 Hidden Single
  *      77,482,611  35124       2,205   26408       2,934 Point and Claim
@@ -485,7 +485,7 @@ package diuf.sudoku;
  * Now I'm thinking of applying it to all the heavies, but I think we're going
  * to hit the law of diminishing returns. One can only try.
  * <pre>
- *      time (ns)  calls   time/call   elims    time/elim hinter
+ *       time(ns)  calls   time/call   elims    time/elim hinter
  *     14,316,641  46283         309  229680           62 Naked Single
  *     21,967,781  43984         499  391290           56 Hidden Single
  *     78,231,640  35124       2,227   26408        2,962 Point and Claim
@@ -539,7 +539,7 @@ package diuf.sudoku;
  * touch and go how often it should be checked. An enthusiast could dick around
  * with it to see what's actually fastest. I might even do that, but not today.
  * <pre>
- *      time (ns)  calls   time/call   elims   time/elim hinter
+ *       time(ns)  calls   time/call   elims   time/elim hinter
  *     22,234,202 114489         194  648190          34 Naked Single
  *     17,251,122  49670         347  157810         109 Hidden Single
  *     70,104,584  32258       2,173   22372       3,133 Point and Claim
@@ -599,7 +599,7 @@ package diuf.sudoku;
  * loop (DOG_1), the secondary loop (DOG_2) uses the actual cmnExcls.
  * <pre>
  * NOTE: This isn't a -REDO run
- *         time (ns)  calls  time/call  elims      time/elim hinter
+ *          time(ns)  calls  time/call  elims      time/elim hinter
  *        21,435,834 114489        187 648190             33 Naked Single
  *        16,829,092  49670        338 157810            106 Hidden Single
  *       203,824,105  33889      6,014   5629         36,209 Direct Naked Pair
@@ -658,7 +658,7 @@ package diuf.sudoku;
  * it's doing more of the work less often. It's 10 minutes faster overall.
  * <pre>
  * NOTE: This isn't a -REDO run
- *         time (ns)  calls  time/call  elims      time/elim hinter
+ *          time(ns)  calls  time/call  elims      time/elim hinter
  *        18,971,469 114489        165 648190             29 Naked Single
  *        20,160,898  49670        405 157810            127 Hidden Single
  *       198,482,285  33889      5,856   5629         35,260 Direct Naked Pair
@@ -703,7 +703,7 @@ package diuf.sudoku;
  * <b>KRC 2019-11-24</b> Made A*E faster again by checking if maybes are empty,
  * but only when they're likely to be empty.
  * <pre>
- *         time (ns)  calls  time/call  elims     time/elim hinter
+ *          time(ns)  calls  time/call  elims     time/elim hinter
  *        20,196,114 114489        176 648190            31 Naked Single
  *        21,152,471  49670        425 157810           134 Hidden Single
  *       194,793,610  33889      5,747   5629        34,605 Direct Naked Pair
@@ -754,7 +754,7 @@ package diuf.sudoku;
  * therefore this common excluder can not contribute to an exclusion... it's
  * just a waste of time, so we axe it.
  * <pre>
- *         time (ns)  calls  time/call  elims     time/elim hinter
+ *          time(ns)  calls  time/call  elims     time/elim hinter
  *        20,023,317 114489        174 648190            30 Naked Single
  *        14,854,987  49670        299 157810            94 Hidden Single
  *       196,145,151  33889      5,787   5629        34,845 Direct Naked Pair
@@ -801,7 +801,7 @@ package diuf.sudoku;
  * of the method, and by looping while the shiftedValue is less than or equal
  * to the cells-maybes-bits.
  * <pre>
- *         time (ns)  calls  time/call  elims     time/elim hinter
+ *          time(ns)  calls  time/call  elims     time/elim hinter
  *        23,496,086 114489        205 648190            36 Naked Single
  *        15,636,687  49670        314 157810            99 Hidden Single
  *       206,872,613  33889      6,104   5629        36,751 Direct Naked Pair
@@ -875,7 +875,7 @@ package diuf.sudoku;
  * limit, so let's arbitrarily choose an hour for the whole runtime; so we must
  * promulgate any learnings to the other A*E's also.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        21,616,737 118162         182 662380            32 Naked Single
  *        20,083,331  51924         386 162000           123 Hidden Single
  *        75,281,291  35724       2,107  26434         2,847 Point and Claim
@@ -926,7 +926,7 @@ package diuf.sudoku;
  * <b>KRC 2020-01-08</b> I just ran this for comparison with the above comment,
  * to assure myself that I'm making some progress.
  * <pre>
- *        time (ns)  calls   time/call  elims      time/elim hinter
+ *         time(ns)  calls   time/call  elims      time/elim hinter
  *       24,121,700 118162         204 662380             36 Naked Single
  *       22,203,700  51924         427 162000            137 Hidden Single
  *       74,208,900  35724       2,077  26434          2,807 Point and Claim
@@ -1003,7 +1003,7 @@ package diuf.sudoku;
  * slow... I'd happily accept an hour at this stage, and half an hour makes the
  * GUI "snappy". Tell him he's dreaming.
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        32,035,800 118246         270 662790             48 Naked Single
  *        25,956,200  51967         499 162220            160 Hidden Single
  *        89,852,600  35745       2,513  26393          3,404 Point and Claim
@@ -1049,7 +1049,7 @@ package diuf.sudoku;
  * The latest version takes 4 hours on top1465.d5.mt with A4567E_1C; which is
  * still still better than a poke in the eye with a blunt stick.
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        32,784,400 118223         277 662560             49 Naked Single
  *        22,201,900  51967         427 162410            136 Hidden Single
  *        95,370,400  35726       2,669  26393          3,613 Point and Claim
@@ -1098,7 +1098,7 @@ package diuf.sudoku;
  * speed things up a bit, but only for top1465.d5.mt.<br>
  * FYI: I'm comparing timings to those from <b>KRC 2019-11-29</b>.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      22,141,800 117572        188 660730             33 Naked Single
  *      16,793,300  51499        326 161830            103 Hidden Single
  *      70,924,500  35316      2,008  26402          2,686 Point and Claim
@@ -1139,7 +1139,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2020-01-20</b> Fixed broken A10E filters to get my hints back.<br>
  * <pre>
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      21,575,000 114640        188 648150            33 Naked Single
  *      15,683,600  49825        314 158220            99 Hidden Single
  *     166,378,500  34003      4,893   5615        29,631 Direct Naked Pair
@@ -1183,7 +1183,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2020-01-27</b> This is the fastest run (over-night).
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        22,434,000 118246         189 662790             33 Naked Single
  *        21,298,700  51967         409 162220            131 Hidden Single
  *        79,572,000  35745       2,226  26394          3,014 Point and Claim
@@ -1222,7 +1222,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2020-01-27</b> Made A7E_1C sorts aligned set by collisions (etc).<br>
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        34,225,800 118246         289 662790             51 Naked Single
  *        28,080,700  51967         540 162220            173 Hidden Single
  *        94,474,900  35745       2,643  26394          3,579 Point and Claim
@@ -1264,7 +1264,7 @@ package diuf.sudoku;
  * make them final back to "externalised" automatic variables (ie how you'd do
  * it in ANSI-C), and I ran it overnight. Bit of a difference, eh what?<br>
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        22,421,900 118246         189 662790             33 Naked Single
  *        19,859,200  51967         382 162220            122 Hidden Single
  *        72,107,900  35745       2,017  26394          2,731 Point and Claim
@@ -1307,7 +1307,7 @@ package diuf.sudoku;
  * and promulgated that to A7E_2H, but I'm not going to bother promulgating it
  * to the other A*Es (it's too much of a pain in the ass).
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        24,187,800 118252         204 662770             36 Naked Single
  *        22,835,100  51975         439 162240            140 Hidden Single
  *        77,656,900  35751       2,172  26397          2,941 Point and Claim
@@ -1351,7 +1351,7 @@ package diuf.sudoku;
  * of relatively simple filter changes, to repeat ancillary lessons, which
  * is really what I already knew: apply the most deterministic filter first.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        23,527,900 118252         198 662770            35 Naked Single
  *        20,585,400  51975         396 162240           126 Hidden Single
  *        78,363,500  35751       2,191  26397         2,968 Point and Claim
@@ -1402,7 +1402,7 @@ package diuf.sudoku;
  * These came out faster for the first 10 puzzles, which I presumed would be
  * representative of performance for all top1465. It isn't, apparently. Sigh.
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        26,092,700 118252         220 662770             39 Naked Single
  *        23,167,100  51975         445 162240            142 Hidden Single
  *        77,902,600  35751       2,179  26397          2,951 Point and Claim
@@ -1444,7 +1444,7 @@ package diuf.sudoku;
  * drops 7 hints: {@code 3/11 11/34 50/9 98/11 583/24 771/12 1120/90} and saves
  * nearly 8 minutes. Sounds like a fair trade.
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        23,564,100 118249         199 662770             35 Naked Single
  *        21,086,400  51972         405 162240            129 Hidden Single
  *        73,737,300  35748       2,062  26397          2,793 Point and Claim
@@ -1486,7 +1486,7 @@ package diuf.sudoku;
  * Hard to believe such a simple thing cost 3 minutes. There's a lesson. I shall
  * promulgate everywhere and rerun it tonight (I mean right now, really).
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        21,845,000 118249         184 662770            32 Naked Single
  *        18,750,200  51972         360 162240           115 Hidden Single
  *        67,992,000  35748       1,901  26397         2,575 Point and Claim
@@ -1525,7 +1525,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2020-02-03 07:28</b> Last nights re-run, as promised.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        21,136,100 118249         178 662770            31 Naked Single
  *        19,358,500  51972         372 162240           119 Hidden Single
  *        73,457,000  35748       2,054  26397         2,782 Point and Claim
@@ -1601,7 +1601,7 @@ package diuf.sudoku;
  * the any* technique to update the avb VIRTUAL array. It's time to release to
  * get a fresh 7z. Here's the latest timings.
  * <pre>
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      21,124,300 117579        179 660860            31 Naked Single
  *      19,452,300  51493        377 161700           120 Hidden Single
  *      73,166,300  35323      2,071  26406         2,770 Point and Claim
@@ -1646,7 +1646,7 @@ package diuf.sudoku;
  * <b>KRC 2020-02-04 16:50</b> A "correct" run after promulgating CC and any*.
  * I'm angling for the 100 minute barrier.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        21,308,500 118250         180 662780            32 Naked Single
  *        19,724,200  51972         379 162230           121 Hidden Single
  *        77,496,100  35749       2,167  26397         2,935 Point and Claim
@@ -1702,7 +1702,7 @@ package diuf.sudoku;
  * omits COLLISIONS! Declare ALL variables at start of method, no exclusions.
  * Stop at max successful alignedSetCount in ALL A*E's.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        20,189,900 118249         170 662770            30 Naked Single
  *        19,561,200  51972         376 162240           120 Hidden Single
  *        70,324,600  35748       1,967  26397         2,664 Point and Claim
@@ -1763,7 +1763,7 @@ package diuf.sudoku;
  * the smaller methods (isAnyAllowed3456/456/56/6) which are compiled to do the
  * bulk of the repetative work. I wish I could force methods to be JIT compiled!
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        36,732,400 118252         310 662770            55 Naked Single
  *        25,317,100  51975         487 162240           156 Hidden Single
  *        91,944,700  35751       2,571  26397         3,483 Point and Claim
@@ -1813,7 +1813,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2020-02-11 06:44</b> Promulgated isAnyAllowed* to A4E_1C and A8E_2H.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter              was
+ *          time(ns)  calls   time/call  elims     time/elim hinter              was
  *        20,803,200 118277         175 662610            31 Naked Single     662770
  *        19,931,000  52016         383 162370           122 Hidden Single    162240
  *        76,512,200  35779       2,138  26392         2,899 Point and Claim   26397
@@ -1854,7 +1854,7 @@ package diuf.sudoku;
  * <hr><p>
  * <b>KRC 2020-02-11 20:39</b> Promulgated isAnyAllowed* to A8E_1C.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        25,784,500 118368         217 662830            38 Naked Single
  *        21,664,000  52085         415 162520           133 Hidden Single
  *        80,647,100  35833       2,250  26359         3,059 Point and Claim
@@ -1907,7 +1907,7 @@ package diuf.sudoku;
  * <b>KRC 2020-02-12 09:50</b> A8E_1C uncomment is1AnyAllowed4567 is nearly 10
  * minutes faster, though one suspects this may not be stable!
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        27,341,500 118368         230 662830            41 Naked Single
  *        18,808,200  52085         361 162520           115 Hidden Single
  *        82,663,200  35833       2,306  26359         3,136 Point and Claim
@@ -1952,7 +1952,7 @@ package diuf.sudoku;
  * A8E_1C. This is the lead-up run, which sets the filters. Now I shall run it
  * again, to apply the filters.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        27,341,500 118368         230 662830            41 Naked Single
  *        18,808,200  52085         361 162520           115 Hidden Single
  *        82,663,200  35833       2,306  26359         3,136 Point and Claim
@@ -1997,7 +1997,7 @@ package diuf.sudoku;
  * I shall use the hacked version from now on. I've given up on trying to make
  * the correct version fast enough to be practicably usable. It's useless.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        23,336,760 118371         197 662920            35 Naked Single
  *        20,559,318  52079         394 162450           126 Hidden Single
  *        80,219,205  35834       2,238  26359         3,043 Point and Claim
@@ -2071,7 +2071,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-19.07-33-31.log
  * stdout  : progress only
  *
- *          time (ns) calls   time/call  elims      time/elim hinter
+ *           time(ns) calls   time/call  elims      time/elim hinter
  *        23,193,600 118400         195 662910             34 Naked Single
  *        15,290,300  52109         293 162500             94 Hidden Single
  *        81,468,400  35859       2,271  26332          3,093 Point and Claim
@@ -2162,7 +2162,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-21.15-57-17.log
  * stdout  : progress only
  *
- *         time (ns)  calls  time/call  elims     time/elim hinter
+ *          time(ns)  calls  time/call  elims     time/elim hinter
  *        21,411,700 118476        180 662940            32 Naked Single
  *        19,722,400  52182        377 162540           121 Hidden Single
  *        74,759,200  35928      2,080  26323         2,840 Point and Claim
@@ -2229,7 +2229,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-22.11-45-22.log
  * stdout  : progress only
  *
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      23,606,000 117534        200 660780          35 Naked Single
  *      17,130,500  51456        332 161600         106 Hidden Single
  *      75,288,800  35296      2,133  26413       2,850 Point and Claim
@@ -2305,7 +2305,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-25.19-19-02.log
  * stdout  : progress only
  *
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      34,019,900 117578        289 660850            51 Naked Single
  *      21,489,200  51493        417 161710           132 Hidden Single
  *      88,399,400  35322      2,502  26407         3,347 Point and Claim
@@ -2370,7 +2370,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-25.20-12-57.log
  * stdout  : progress only
  *
- *         time (ns)  calls  time/call  elims     time/elim hinter
+ *          time(ns)  calls  time/call  elims     time/elim hinter
  *        22,284,600 118476        188 662940            33 Naked Single
  *        20,401,200  52182        390 162540           125 Hidden Single
  *        76,038,800  35928      2,116  26323         2,888 Point and Claim
@@ -2451,7 +2451,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-26.15-14-15.log
  * stdout  : progress only
  *
- *          time (ns)  calls   time/call  elims      time/elim hinter
+ *           time(ns)  calls   time/call  elims      time/elim hinter
  *         22,376,000 118471         188 662950             33 Naked Single
  *         16,007,700  52176         306 162540             98 Hidden Single
  *         76,128,200  35922       2,119  26317          2,892 Point and Claim
@@ -2517,7 +2517,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-28.00-01-21.log
  * stdout  : progress only
  *
- *          time (ns)  calls   time/call  elims      time/elim hinter
+ *           time(ns)  calls   time/call  elims      time/elim hinter
  *         21,873,700 118471         184 662950             32 Naked Single
  *         20,669,000  52176         396 162540            127 Hidden Single
  *         72,714,600  35922       2,024  26317          2,763 Point and Claim
@@ -2582,7 +2582,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-28.08-39-30.log
  * stdout  : progress only
  *
- *         time (ns)  calls  time/call  elims     time/elim hinter
+ *          time(ns)  calls  time/call  elims     time/elim hinter
  *        24,174,300 118464        204 662890            36 Naked Single
  *        21,412,300  52175        410 162600           131 Hidden Single
  *        79,481,000  35915      2,213  26320         3,019 Point and Claim
@@ -2645,7 +2645,7 @@ package diuf.sudoku;
  * log 50  : c:/users/user/documents/netbeansprojects/diufsudoku/top1465.d5.2020-02-28.11-31-58.log
  * stdout  : progress only
  *
- *         time (ns)  calls  time/call  elims   time/elim hinter
+ *          time(ns)  calls  time/call  elims   time/elim hinter
  *        24,514,600 117533        208 660780          37 Naked Single
  *        18,853,800  51455        366 161600         116 Hidden Single
  *        74,383,600  35295      2,107  26413       2,816 Point and Claim
@@ -2688,7 +2688,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 2020-03-05 21:48:54</b> Stuck a filter HashSet in A*E
  * <pre>
- *         time (ns)  calls  time/call  elims     time/elim hinter
+ *          time(ns)  calls  time/call  elims     time/elim hinter
  *        25,354,900 117476        215 660640            38 Naked Single
  *        16,591,800  51412        322 161510           102 Hidden Single
  *        71,901,300  35261      2,039  26419         2,721 Point and Claim
@@ -2730,7 +2730,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 2020-03-06 21:59:55</b> Stuck a WindexSet in each A*E.
  * <pre>
- *         time (ns)  calls  time/call  elims   time/elim hinter
+ *          time(ns)  calls  time/call  elims   time/elim hinter
  *        22,951,900 118423        193 662880          34 Naked Single
  *        20,786,100  52135        398 162540         127 Hidden Single
  *        77,518,100  35881      2,160  26315       2,945 Point and Claim
@@ -2775,7 +2775,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 2020-03-09 ??:??:??</b> !IS_HACKY with A2345678910E_1C takes kenages.
  * <pre>
- *         time (ns)  calls     time/call  elims       time/elim hinter
+ *          time(ns)  calls     time/call  elims       time/elim hinter
  *        22,578,500 118471           190 662950              34 Naked Single
  *        16,599,500  52176           318 162540             102 Hidden Single
  *        74,717,500  35922         2,079  26317           2,839 Point and Claim
@@ -2830,7 +2830,7 @@ package diuf.sudoku;
  * Fixed AHint.hintNumber not incrementing in F5.
  * This run is !IS_HACKY A234E_1C + A5678910_2H (ie not hacky but all hacked).
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      34,925,362 117578        297 660850             52 Naked Single
  *      20,965,416  51493        407 161710            129 Hidden Single
  *      92,221,763  35322      2,610  26407          3,492 Point and Claim
@@ -2891,7 +2891,7 @@ package diuf.sudoku;
  * Might do the same with A987E, or not.
  * This run is IS_HACKY A5678910_1C (ie hacky with all correct).
  * <pre>
- *      time (ns)  calls  time/call  elims time/elim hinter
+ *       time(ns)  calls  time/call  elims time/elim hinter
  *     21,897,400 118445        184 662970        33 Naked Single
  *     20,521,600  52148        393 162470       126 Hidden Single
  *     76,385,000  35901      2,127  26306     2,903 Point and Claim
@@ -2944,7 +2944,7 @@ package diuf.sudoku;
  * (in wing package with XYWing and XYZWing, which it most resembles) is also
  * basically boosted "as is" from HoDoKu.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      21,940,700 118241        185 665300             32 Naked Single
  *      15,667,700  51711        302 163500             95 Hidden Single
  *      72,719,600  35361      2,056  26388          2,755 Point and Claim
@@ -2996,7 +2996,7 @@ package diuf.sudoku;
  * which would've been pretty useless anyway because I'm too stupid to follow
  * it.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      24,485,400 118234        207 665540             36 Naked Single
  *      19,110,900  51680        369 163380            116 Hidden Single
  *      72,631,900  35342      2,055  26345          2,756 Point and Claim
@@ -3057,7 +3057,7 @@ package diuf.sudoku;
  * variable number of core and finned bases, to find more hints. Updated
  * FinnedFishermanTest, and fixed hint-building.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      21,780,800 118249        184 665910             32 Naked Single
  *      19,870,500  51658        384 163290            121 Hidden Single
  *      65,540,100  35329      1,855  26312          2,490 Point and Claim
@@ -3109,7 +3109,7 @@ package diuf.sudoku;
  * <b>KRC 2020-04-11 16:32:02</b> HoDoKu SashimiFisherman first pass, finding
  * all Sashimi fish, and test cases.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      23,601,800 118256        199 665900             35 Naked Single
  *      16,299,700  51666        315 163450             99 Hidden Single
  *      68,917,000  35321      1,951  26318          2,618 Point and Claim
@@ -3164,7 +3164,7 @@ package diuf.sudoku;
  * <b>KRC 2020-04-21 23:17:03</b> HoDoKu AlmostLockedSets first pass, includes
  * ALS-XZ (suspect) and ALS-XY-Wing (broken).
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      21,594,500 118303        182 666740             32 Naked Single
  *      20,868,400  51629        404 164670            126 Hidden Single
  *      72,274,900  35162      2,055  26225          2,755 Point and Claim
@@ -3224,7 +3224,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.064 2020-04-30 10:41:04</b> HoDoKu AlmostLockedSets 2nd and 3rd
  * pass with ALS-XZ working properly and optimised + ALS-XY-Wing still broken.
  * <pre>
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      34,770,400 118679        292 672800            51 Naked Single
  *      21,433,000  51399        416 168230           127 Hidden Single
  *      77,544,700  34576      2,242  25991         2,983 Point and Claim
@@ -3285,7 +3285,7 @@ package diuf.sudoku;
  * code implementing ALS-XY-Wing and did the minimum required to get it working
  * in DIUF. It works AND it's faster than my hack implementation.
  * <pre>
- *        time (ns)  calls  time/call  elims      time/elim hinter
+ *         time(ns)  calls  time/call  elims      time/elim hinter
  *       33,287,597 120585        276 677400             49 Naked Single
  *       25,332,054  52845        479 172350            146 Hidden Single
  *       75,248,476  35610      2,113  25840          2,912 Point and Claim
@@ -3346,7 +3346,7 @@ package diuf.sudoku;
  * code implementing ALS-XY-Wing and did the minimum required to get it working
  * in DIUF. It works AND it's faster than my hack implementation.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      30,464,800 120309        253 676960             45 Naked Single
  *      21,961,200  52613        417 172150            127 Hidden Single
  *      75,860,500  35398      2,143  25832          2,936 Point and Claim
@@ -3403,7 +3403,7 @@ package diuf.sudoku;
  * hints which break the puzzle, which is total complete and utter HACK! Note
  * that HdkAlsXyWing also now relies on invalid coz it fail on 87#top1465.d5.mt.
  * <pre>
- *        time (ns)  calls  time/call  elims     time/elim hinter
+ *         time(ns)  calls  time/call  elims     time/elim hinter
  *       36,257,600 119593        303 678040            53 Naked Single
  *       20,590,300  51789        397 172260           119 Hidden Single
  *       74,956,800  34563      2,168  25855         2,899 Point and Claim
@@ -3460,7 +3460,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.068 2020-05-26 10:16:08</b> HdkAlsXyChain and HdkAlsXyWing now
  * both use clean to remove invalid eliminations and skip if redPots isEmpty.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      35,597,461 120289        295 677110             52 Naked Single
  *      21,887,978  52578        416 172730            126 Hidden Single
  *      75,928,861  35305      2,150  25863          2,935 Point and Claim
@@ -3526,7 +3526,7 @@ package diuf.sudoku;
  * HdkAlsXyChain by ignoring ALSs which contain a cell that is involved in any
  * actual Locked Set (a naked pair/triple/etc) in this region.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      34,401,500 120344        285 676940             50 Naked Single
  *      21,428,100  52650        406 172360            124 Hidden Single
  *      73,967,700  35414      2,088  25836          2,862 Point and Claim
@@ -3588,7 +3588,7 @@ package diuf.sudoku;
  * A few changes to hint text. Cleaned-up unused code in Grid and Idx, and need
  * to continue this search in all the other classes.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      34,077,800 120454        282 677160             50 Naked Single
  *      26,333,900  52738        499 172180            152 Hidden Single
  *      79,140,900  35520      2,228  25832          3,063 Point and Claim
@@ -3650,7 +3650,7 @@ package diuf.sudoku;
  * Also the GUI now flashes pink when it detects a busted grid. Also cleaned-up
  * Settings, and re-ordered the code in SudokuFrame. It was a dogs breakfast.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      15,966,500 119789        133      0              0 Lonely Naked Single
  *      36,379,200 119789        303 677550             53 Naked Single
  *      20,515,200  52034        394 171850            119 Hidden Single
@@ -3711,7 +3711,7 @@ package diuf.sudoku;
  * point where valid is no longer required, so I'm not too worried if it's a
  * bit slow Redge. Test-cases now all pass.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      32,372,785 119745        270 677770             47 Naked Single
  *      20,889,059  51968        401 171460            121 Hidden Single
  *      87,582,449  34822      2,515  24516          3,572 Point and Claim
@@ -3768,7 +3768,7 @@ package diuf.sudoku;
  * et al a bit faster by expediting at(Cell[] array, int[] idx) with a bit of
  * bit-twiddling which I then promulgated back into Idx.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      33,842,700 119745        282 677770             49 Naked Single
  *      20,229,600  51968        389 171460            117 Hidden Single
  *      75,999,400  34822      2,182  24516          3,099 Point and Claim
@@ -3823,7 +3823,7 @@ package diuf.sudoku;
  * build siblings in Grid constructor in BruteForce, also reduces memory usage.
  * Iterate Indexes.ARRAYS in region chains. Also some consistent naming.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      19,401,500 119709        162 677650          28 Naked Single
  *      13,538,900  51944        260 171470          78 Hidden Single
  *      49,628,300  34797      1,426  24511       2,024 Point and Claim
@@ -3875,7 +3875,7 @@ package diuf.sudoku;
  * from Sudoku Explainer turned out to be pretty easy. Making it run faster is
  * the difficult part. It's really really really hard! Seriously complex s__t.
  * <pre>
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      21,983,826 119877        183 679070            32 Naked Single
  *      16,080,886  51970        309 171480            93 Hidden Single
  *      49,943,360  34822      1,434  24526         2,036 Point and Claim
@@ -3937,7 +3937,7 @@ package diuf.sudoku;
  * to make HoDoKu faster, with some (but not much) success. The main snags are
  * repeated calls to "heavy" getters and Integer.compareTo(Integer). Sigh.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      20,627,400 119187        173 681060          30 Naked Single
  *      16,728,900  51081        327 172910          96 Hidden Single
  *      49,832,200  33790      1,474  24181       2,060 Point and Claim
@@ -4001,7 +4001,7 @@ package diuf.sudoku;
  * run: HoDoKu ClassNotFound, so can only run in situ now. I need a real
  * programmer to workout what's happened to the classpath. Blame Nutbeans!
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      19,947,100 119400        167 680640          29 Naked Single
  *      15,009,300  51336        292 173320          86 Hidden Single
  *      47,370,400  34004      1,393  24263       1,952 Point and Claim
@@ -4065,7 +4065,7 @@ package diuf.sudoku;
  * tool to help find the problem, instead of relying on backups too heavily.
  * Nutbeans has a history feature, but I find it useless.
  * <pre>
- *         time (ns)  calls  time/call  elims   time/elim hinter
+ *          time(ns)  calls  time/call  elims   time/elim hinter
  *        20,040,300 120288        166 678010          29 Naked Single
  *        15,874,800  52487        302 173070          91 Hidden Single
  *        49,530,600  35180      1,407  24623       2,011 Point and Claim
@@ -4124,7 +4124,7 @@ package diuf.sudoku;
  * stupid right now. But there was a nice tender lesso kiss on the tele and
  * that's always nice. So maybe I'll have another go at it tomorrow.
  * <pre>
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      18,985,500 120287        157 678010            28 Naked Single
  *      14,788,800  52486        281 173070            85 Hidden Single
  *      50,757,600  35179      1,442  24623         2,061 Point and Claim
@@ -4184,7 +4184,7 @@ package diuf.sudoku;
  * Dropped Nishio Chainer which took 4 seconds to produce 1 hint, and the
  * Franken Swordfish which took 21 seconds to produce 9 hints.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      18,959,500 120295        157 678570          27 Naked Single
  *      14,806,300  52438        282 172520          85 Hidden Single
  *      53,977,700  35186      1,534  24636       2,191 Point and Claim
@@ -4243,7 +4243,7 @@ package diuf.sudoku;
  * MORE eliminations even though it says it finds less because it adds elims to
  * HiddenSet hints, but keeps the search time. Not ideal.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      21,424,500 118507        180 678610          31 Naked Single
  *      17,745,300  50646        350 172480         102 Hidden Single
  *     111,278,700  33398      3,331  21041       5,288 Point and Claim
@@ -4304,7 +4304,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.084 2020-08-21 20:37:24</b> Discovered a bug in NakedSet, it was
  * falsely returning false after finding hints. Doh! How embarrassment!
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      20,387,800 118507        172 678610          30 Naked Single
  *      17,925,000  50646        353 172480         103 Hidden Single
  *     105,647,200  33398      3,163  21041       5,021 Point and Claim
@@ -4358,7 +4358,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.085 2020-08-31 17:39:25</b> Simplified colors by adding a getOrange
  * independent of getGreens and getReds. Fixed all test cases.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      41,209,600 118507        347 678610          60 Naked Single
  *      23,640,000  50646        466 172480         137 Hidden Single
  *     147,126,100  33398      4,405  21041       6,992 Point and Claim
@@ -4412,7 +4412,7 @@ package diuf.sudoku;
  * 3. Next I look at why it's now a minute and twenty-two seconds slower.
  *
  * Just confirming it was just a hot PC. Same code ran in 3:23 after cooldown.
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      19,016,700 118507        160 678610          28 Naked Single
  *      14,642,000  50646        289 172480          84 Hidden Single
  *     104,952,700  33398      3,142  21041       4,988 Point and Claim
@@ -4464,7 +4464,7 @@ package diuf.sudoku;
  * should NOT have released untested. That was a BIG mistake and I won't make it
  * again. Sigh. logView now takes a Java regex (was just a plain string).
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      37,937,600 118507        320 678610          55 Naked Single
  *      21,785,100  50646        430 172480         126 Hidden Single
  *     137,779,100  33398      4,125  21041       6,548 Point and Claim
@@ -4523,7 +4523,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.088 2020-09-07 11:20:28</b> Release coz I'm at the library and I can.
  * No notable changes to the best of my recollection.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      22,423,500 118507        189 678610          33 Naked Single
  *      15,103,700  50646        298 172480          87 Hidden Single
  *     114,933,000  33398      3,441  21041       5,462 Point and Claim
@@ -4579,7 +4579,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.089 2020-09-12 11:55:29</b> Bug fix: Subsequent views not shown for
  * RegionReductionHint and CellReductionHint.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      20,489,700 116248        176 666580          30 Naked Single
  *      16,534,800  49590        333 168900          97 Hidden Single
  *      99,902,100  32700      3,055   5855      17,062 Direct Naked Pair
@@ -4636,7 +4636,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.090 2020-09-24 13:30:30</b> Boosted ColoringSolver as color.Coloring.
  * Renamed package diuf.sudoku.solver.hinters.alshdk to als.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      18,818,600 116232        161 666640          28 Naked Single
  *      14,477,000  49568        292 168840          85 Hidden Single
  *      96,761,700  32684      2,960   5855      16,526 Direct Naked Pair
@@ -4699,7 +4699,7 @@ package diuf.sudoku;
  * still too slow for Mutant (not really useable). Stripped Kraken from hobiwan
  * code, which I plan to put in a KrakenFisherman class.
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        19,665,900 116246         169 666800             29 Naked Single
  *        15,775,500  49566         318 168720             93 Hidden Single
  *       125,091,200  32694       3,826   5823         21,482 Direct Naked Pair
@@ -4763,7 +4763,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.092 2020-10-11 18:46:32</b> Boost Kraken Fish from HoDoKuFisherman into
  * KrakenFisherman. It works, but it's so slow it won't even fit on one line.
  * <pre>
- *         time (ns)  calls     time/call  elims       time/elim hinter
+ *          time(ns)  calls     time/call  elims       time/elim hinter
  *        19,878,600 117278           169 670340              29 Naked Single
  *        15,549,000  50244           309 170540              91 Hidden Single
  *        94,570,900  33190         2,849   5878          16,088 Direct Naked Pair
@@ -4831,7 +4831,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.093 2020-10-14 18:03:33</b> New version of KrakenFisherman is twice as
  * fast as original, so now it's just very very slow.
  * <pre>
- *         time (ns)  calls   time/call  elims     time/elim hinter
+ *          time(ns)  calls   time/call  elims     time/elim hinter
  *        20,275,200 117261         172 670640            30 Naked Single
  *        15,190,800  50197         302 170260            89 Hidden Single
  *        97,453,300  33171       2,937   5868        16,607 Direct Naked Pair
@@ -4890,7 +4890,7 @@ package diuf.sudoku;
  * the code is not quite so mental. I probably haven't eradicated all of the
  * helper methods which supported interleaving and dis-interleaving regions.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      19,639,300 116340        168 666020          29 Naked Single
  *      14,726,300  49738        296 169180          87 Hidden Single
  *      99,450,900  32820      3,030   5812      17,111 Direct Naked Pair
@@ -4943,7 +4943,7 @@ package diuf.sudoku;
  * just fails like a bastard, so I feel totally inadequate, but none the less
  * I have given-up on it. So it's past time to ship it again.
  * <pre>
- *      time (ns)  calls  time/call  elims time/elim hinter
+ *       time(ns)  calls  time/call  elims time/elim hinter
  *     19,738,000 114601        172 661410        29 Naked Single
  *     14,260,000  48460        294 163590        87 Hidden Single
  *     91,136,500  32101      2,839   5926    15,379 Direct Naked Pair
@@ -5026,7 +5026,7 @@ package diuf.sudoku;
  * <p>
  * How hard's that sheep? That's a goat ya muppet! Sigh.
  * <pre>
- *         time (ns)  calls     time/call  elims       time/elim hinter
+ *          time(ns)  calls     time/call  elims       time/elim hinter
  *        20,296,200 117277           173 670290              30 Naked Single
  *        15,243,300  50248           303 170580              89 Hidden Single
  *        99,398,000  33190         2,994   5878          16,910 Direct Naked Pair
@@ -5095,7 +5095,7 @@ package diuf.sudoku;
  * from the als package; so they're gone now, except HdkAls becomes Als and the
  * DiufAls class is history.
  * <pre>
- *       time (ns)  calls   time/call  elims     time/elim hinter
+ *        time(ns)  calls   time/call  elims     time/elim hinter
  *      19,642,873 117227         167 670230            29 Naked Single
  *      14,733,129  50204         293 170320            86 Hidden Single
  *      97,894,052  33172       2,951   5867        16,685 Direct Naked Pair
@@ -5156,7 +5156,7 @@ package diuf.sudoku;
  * the best it can with what it's given. I'm a bit proud of Idx.untilFalse: I
  * worked-out how to early-exit from a forEach.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      21,350,000 116110        183 666180         32 Naked Single
  *      16,027,500  49492        323 168360         95 Hidden Single
  *      90,604,400  32656      2,774   5836     15,525 Direct Naked Pair
@@ -5205,7 +5205,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 2020-10-24 06:10</b> Here's da hinter summary of the overnight Big Fish run.
  * <pre>
- *         time (ns)  calls     time/call  elims       time/elim hinter
+ *          time(ns)  calls     time/call  elims       time/elim hinter
  *        19,916,500 117272           169 670290              29 Naked Single
  *        14,144,500  50243           281 170580              82 Hidden Single
  *        96,236,600  33185         2,900   5878          16,372 Direct Naked Pair
@@ -5286,7 +5286,7 @@ package diuf.sudoku;
  * {@link diuf.sudoku.solver.hinters.fish.KrakenFisherman#kt2Search}, plus bug
  * fixes from generate.
  * <pre>
- *         time (ns)  calls   time/call  elims       time/elim hinter
+ *          time(ns)  calls   time/call  elims       time/elim hinter
  *        21,819,590 117272         186 670290              32 Naked Single
  *        15,036,451  50243         299 170580              88 Hidden Single
  *        93,321,458  33185       2,812   5878          15,876 Direct Naked Pair
@@ -5353,7 +5353,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 2020-11-30 07:01</b> Disabled mutant hinters by commenting out Tech's.
  * <pre>
-         time (ns)	  calls	     time/call	  elims	     time/elim	hinter
+          time(ns)	  calls	     time/call	  elims	     time/elim	hinter
         32,559,400	 117263	           277	 670380	            48	Naked Single
         19,543,000	  50225	           389	 170470	           114	Hidden Single
        122,345,400	  33178	         3,687	   5878	        20,814	Direct Naked Pair
@@ -5412,7 +5412,7 @@ package diuf.sudoku;
  * A*E class implementing A5678910E, and another simpler one for A234E. The key
  * to this is the IntIntHashMap I wrote originally for HoDoKu.
  * <pre>
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      24,769,400 116325        212 666320             37 Naked Single
  *      18,831,700  49693        378 169200            111 Hidden Single
  *     102,668,300  32773      3,132   5845         17,565 Direct Naked Pair
@@ -5474,7 +5474,7 @@ package diuf.sudoku;
  * a stack in A*E (ala hobiwan) to remove most of the A*E classes, ie eliminate
  * my previous code-bloat.
  * <pre>
- *       time (ns)  calls   time/call  elims      time/elim hinter
+ *        time(ns)  calls   time/call  elims      time/elim hinter
  *      26,675,900 116154         229 665940             40 Naked Single
  *      18,455,300  49560         372 168790            109 Hidden Single
  *     113,502,400  32681       3,473   5847         19,412 Direct Naked Pair
@@ -5537,7 +5537,7 @@ package diuf.sudoku;
  * again for vals.
  * <pre>
  * The "old version" for comparison:
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      19,812,600 116122        170 666010             29 Naked Single
  *      14,401,500  49521        290 168620             85 Hidden Single
  *      91,215,500  32659      2,792   5847         15,600 Direct Naked Pair
@@ -5589,7 +5589,7 @@ package diuf.sudoku;
  * 1465  416,922,969,300 (06:56)  284,589,057
  *
  * The "new version" for edification:
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      22,967,700 116122        197 666010             34 Naked Single
  *      18,510,400  49521        373 168620            109 Hidden Single
  *     106,958,800  32659      3,275   5847         18,292 Direct Naked Pair
@@ -5654,7 +5654,7 @@ package diuf.sudoku;
  * original authors rewrite of Sudoku Explainer) who boosted them from
  * SudokuMonster.
  * <pre>
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      25,407,800 116225        218 666340            38 Naked Single
  *      15,228,900  49591        307 169120            90 Hidden Single
  *      99,431,500  32679      3,042   5821        17,081 Direct Naked Pair
@@ -5715,7 +5715,7 @@ package diuf.sudoku;
  * and got a pleasant surprise 21:45. Not too shabby, considering A10E used to
  * take over a day on it's own. Although it looks like Franken Fish is rooted!
  * <pre>
- *         time (ns)  calls   time/call  elims      time/elim hinter
+ *          time(ns)  calls   time/call  elims      time/elim hinter
  *        22,582,300 118513         190 669380             33 Naked Single
  *        14,262,600  51575         276 171100             83 Hidden Single
  *        98,986,000  34465       2,872   5958         16,613 Direct Naked Pair
@@ -5791,7 +5791,7 @@ package diuf.sudoku;
  * I've implemented SueDeCoq in the als package, and also tried but failed at
  * DeathBlossom.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      25,568,483 118498        215 669470          38 Naked Single
  *      16,842,581  51551        326 170730          98 Hidden Single
  *     112,048,091  34478      3,249   5947      18,841 Direct Naked Pair
@@ -5849,7 +5849,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.105 2021-01-12 10:05:45</b> Ship SueDeCoq. Failed at DeathBlossom.
  * This Run: hinters which take less than a tenth of a second per elimination.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      23,139,900 116228        199 666800         34 Naked Single
  *      17,816,600  49548        359 168700        105 Hidden Single
  *      91,213,000  32678      2,791   5826     15,656 Direct Naked Pair
@@ -5905,7 +5905,7 @@ package diuf.sudoku;
  * minute slower, but that's still OK coz I have no love for DeathBlossom, so
  * I won't be using it.
  * <pre>
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      23,094,400 117626        196 665680            34 Naked Single
  *      16,439,300  51058        321 169540            96 Hidden Single
  *      96,492,100  34104      2,829   5911        16,324 Direct Naked Pair
@@ -5968,7 +5968,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.107 2021-01-15 09:44:47</b> ship DeathBlossom today; now faster, and
  * with a better test-case.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      21,781,600 116300        187 666420          32 Naked Single
  *      16,307,400  49658        328 169330          96 Hidden Single
  *      94,181,300  32725      2,877   5834      16,143 Direct Naked Pair
@@ -6034,7 +6034,7 @@ package diuf.sudoku;
  * it's a hot afternoon so Im blaming HOT BOX SYNDROME, and releasing anyway.
  * SOLVED: LogicalAnalyserTest hung -> registry ALL wantedHinters.
  *
- *       time (ns)  calls  time/call  elims      time/elim hinter
+ *        time(ns)  calls  time/call  elims      time/elim hinter
  *      21,125,200 116292        181 667090             31 Naked Single
  *      16,621,500  49583        335 169080             98 Hidden Single
  *      92,180,800  32675      2,821   5868         15,709 Direct Naked Pair
@@ -6099,7 +6099,7 @@ package diuf.sudoku;
  * Wrote the BigWing class to succinctify it. Tried and mostly failed to make
  * Complex and KrakenFisherman faster.
  * <pre>
- *         time (ns)  calls   time/call  elims       time/elim hinter
+ *          time(ns)  calls   time/call  elims       time/elim hinter
  *        21,807,800 117269         185 670060              32 Naked Single
  *        14,422,400  50263         286 171070              84 Hidden Single
  *        95,343,600  33156       2,875   5894          16,176 Direct Naked Pair
@@ -6165,7 +6165,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.110 2021-02-17 14:31:50</b> Faster Complex and Kraken fisherman.
  * <pre>
-         time (ns)  calls   time/call  elims      time/elim hinter
+          time(ns)  calls   time/call  elims      time/elim hinter
         23,041,800 117429         196 669940             34 Naked Single
         15,788,100  50435         313 171300             92 Hidden Single
         94,973,800  33305       2,851   5870         16,179 Direct Naked Pair
@@ -6247,7 +6247,7 @@ package diuf.sudoku;
  * possible Sudoku puzzles, and to do so as quickly as possible; which is more
  * akin to NASA than to F1, so I just have to accept there tardiness, for now.
  * <pre>
- *       time (ns)  calls  time/call  elims     time/elim hinter
+ *        time(ns)  calls  time/call  elims     time/elim hinter
  *      34,997,400 118882        294 678290            51 Naked Single
  *      26,903,000  51053        526 172830           155 Hidden Single
  *     146,774,000  33770      4,346  21115         6,951 Locking
@@ -6305,7 +6305,7 @@ package diuf.sudoku;
  * remaining v in each effected box, so long as it also reduces the origin
  * cells box to one place for v, to form a "strong" (bidirectional) link.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      23,001,100 115665        198 653390          35 Naked Single
  *      16,205,100  50326        322 170750          94 Hidden Single
  *     105,393,800  33251      3,169  21067       5,002 Locking
@@ -6369,7 +6369,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.114 2021-03-22 12:04:54</b> GEM (Graded Equivalence Marks) is all-out
  * Coloring. It (51224) finds more hints than Medusa 3D Coloring (28599).
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      23,350,200 112996        206 633290          36 Naked Single
  *      16,677,900  49667        335 169160          98 Hidden Single
  *     105,741,100  32751      3,228  21013       5,032 Locking
@@ -6428,7 +6428,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.115 2021-03-24 08:53:55</b> GEM Mark 2 now finds more hints (75550)
  * than Mark 1 (51224). I'll actually release this build, I think, today.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      22,822,500 110005        207 613290          37 Naked Single
  *      15,779,200  48676        324 164590          95 Hidden Single
  *     105,890,200  32217      3,286  20946       5,055 Locking
@@ -6492,7 +6492,7 @@ package diuf.sudoku;
  * Also contradictions uses ons as well as colors, so finds 77283 vs 75550,
  * but it does take longer, about 2 seconds. sigh.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      21,321,900 109798        194 611860          34 Naked Single
  *      16,206,200  48612        333 164230          98 Hidden Single
  *     108,385,000  32189      3,367  20938       5,176 Locking
@@ -6553,7 +6553,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.117 2021-03-27 14:02:57</b> GEM mark 4, sets subsequent singles to find
  * 130790 eliminations verses 77283 previously, and GEM is 1.5 secs faster.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      21,006,000 104385        201 560460          37 Naked Single
  *      16,691,700  48339        345 162140         102 Hidden Single
  *     104,003,700  32125      3,237  20923       4,970 Locking
@@ -6608,7 +6608,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.118 2021-03-30 20:21:58</b> GEM mark 5 efficiency.
  * <pre>
- *         time (ns)  calls  time/call  elims   time/elim hinter
+ *          time(ns)  calls  time/call  elims   time/elim hinter
  *        21,249,200 104385        203 560460          37 Naked Single
  *        19,458,500  48339        402 162140         120 Hidden Single
  *       105,518,700  32125      3,284  20923       5,043 Locking
@@ -6664,7 +6664,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.119 2021-04-01 09:15:59</b> GEM mark 6 improved explanation.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      20,663,200 104385        197 560460          36 Naked Single
  *      18,123,800  48339        374 162140         111 Hidden Single
  *     103,570,900  32125      3,223  20923       4,950 Locking
@@ -6719,7 +6719,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.120 2021-04-04 06:11:00</b> GEM mark 7 more eliminations.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      22,321,000 102906        216 549570          40 Naked Single
  *      20,978,800  47949        437 161050         130 Hidden Single
  *     107,127,300  31844      3,364  20832       5,142 Locking
@@ -6783,7 +6783,7 @@ package diuf.sudoku;
  * GEM's test-cases are still broken. Hint-types changed coz of "upgrades".
  * I'll deal with it later: find some new "simple type" hints.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      20,272,200 100941        200 531210          38 Naked Single
  *      15,798,500  47820        330 159090          99 Hidden Single
  *     101,601,000  31911      3,183  20864       4,869 Locking
@@ -6842,7 +6842,7 @@ package diuf.sudoku;
  * Also fixed GEM test-cases so this is the last GEM build. I promise to take
  * some time off.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      36,417,200 101047        360 532930          68 Naked Single
  *      18,016,000  47754        377 159100         113 Hidden Single
  *     111,705,100  31844      3,507  20832       5,362 Locking
@@ -6901,7 +6901,7 @@ package diuf.sudoku;
  * addConsequentSingles use gemSolve which uses 9 HINTERS to solve most puzzles
  * in order to get seriously greedy about setting as many cells as possible.
  * <pre>
- *       time (ns) calls  time/call  elims   time/elim hinter
+ *        time(ns) calls  time/call  elims   time/elim hinter
  *      20,228,700 99146        204 516330          39 Naked Single
  *      17,943,500 47513        377 158210         113 Hidden Single
  *     108,333,300 31692      3,418  20771       5,215 Locking
@@ -6957,7 +6957,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.124 2021-04-11 09:26:04</b> GEM mark 11 uber greedy gemSolve using
  * additional hinters.
  * <pre>
- *       time (ns) calls  time/call  elims   time/elim hinter
+ *        time(ns) calls  time/call  elims   time/elim hinter
  *      19,389,500 98266        197 509030          38 Naked Single
  *      17,255,500 47363        364 157790         109 Hidden Single
  *     107,865,000 31584      3,415  20736       5,201 Locking
@@ -7019,7 +7019,7 @@ package diuf.sudoku;
  * still solve the puzzle, without GEM being so bloody greedy. I'm only doing
  * this because I'm an ornery old git who can't keep it simple.
  * <pre>
- *       time (ns) calls  time/call  elims   time/elim hinter
+ *        time(ns) calls  time/call  elims   time/elim hinter
  *      19,724,400 97192        202 500770          39 Naked Single
  *      17,047,700 47115        361 157410         108 Hidden Single
  *     102,781,200 31374      3,275  20683       4,969 Locking
@@ -7080,7 +7080,7 @@ package diuf.sudoku;
  * constraints on gemSolve's hinters, so GEM is now uber-greedy, and still
  * relatively fast. I'm building to clean-up the logs and create a back-up.
  * <pre>
- *      time (ns) calls  time/call  elims  time/elim hinter
+ *       time(ns) calls  time/call  elims  time/elim hinter
  *     18,156,600 86629        209 423870         42 Naked Single
  *     16,642,500 44242        376 149460        111 Hidden Single
  *    100,671,500 29296      3,436  20177      4,989 Locking
@@ -7128,7 +7128,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.127 2021-04-24 08:18:07</b> GEM mark 14 is not greedy.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      22,620,300 101549        222 553210          40 Naked Single
  *      17,785,700  46228        384 156010         114 Hidden Single
  *      94,835,100  30627      3,096   5884      16,117 Direct Naked Pair
@@ -7192,7 +7192,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.128 2021-05-04 14:37:08</b> No real changes, just cleaning up crap, and
  * building to release because I'm going shopping this afternoon.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,469,147 101571        201 553450         36 Naked Single
  *     17,987,166  46226        389 155970        115 Hidden Single
  *     86,628,008  30629      2,828   5884     14,722 Direct Naked Pair
@@ -7248,7 +7248,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.129 2021-05-13 10:25:09</b> Build for backup before I experiment with
  * some GUI changes. A non-release build, but all tests pass anyway.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     19,359,300 101570        190 553450         34 Naked Single
  *     17,683,800  46225        382 155970        113 Hidden Single
  *     87,421,200  30628      2,854   5884     14,857 Direct Naked Pair
@@ -7312,7 +7312,7 @@ package diuf.sudoku;
  * me, so I gave up. I still think it's possible for each control event-handler
  * to delegate to a "generic" form-level event handler, but I can't see HOW.
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      28,968,500 101535        285 552860          52 Naked Single
  *      24,499,500  46249        529 155910         157 Hidden Single
  *     108,106,700  30658      3,526   5884      18,372 Direct Naked Pair
@@ -7371,7 +7371,7 @@ package diuf.sudoku;
  * shopping today. I've been pissing-about with BasicFisherman to make it
  * faster than BasicFisherman, and failing. sigh.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,251,900 101447        199 553440         36 Naked Single
  *     15,889,800  46103        344 155980        101 Hidden Single
  *     85,186,000  30505      2,792   5884     14,477 Direct Naked Pair
@@ -7430,7 +7430,7 @@ package diuf.sudoku;
  * updating comments, hint explanations, and documentation. Still no comprende
  * why BigWing swaps x and z. It's nonsensical.
  * <pre>
- *       time (ns)  calls   time/call  elims      time/elim hinter
+ *        time(ns)  calls   time/call  elims      time/elim hinter
  *      18,828,900 102068         184 554470             33 Naked Single
  *      17,486,400  46621         375 157780            110 Hidden Single
  *      85,163,200  30843       2,761   5892         14,454 Direct Naked Pair
@@ -7488,7 +7488,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.133 2021-05-30 14:26:13</b> Build to clean-up logs and create backup.
  * I've just been pissin-about making SDP/ALS hinters faster.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      20,451,800 101355        201 553150         36 Naked Single
  *      15,323,000  46040        332 155710         98 Hidden Single
  *     120,608,400  30469      3,958   5859     20,585 Direct Naked Pair
@@ -7544,7 +7544,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.134 2021-06-01 17:56:14</b> Made all ALS hinters cache ALSs and RCCs,
  * saving 20 seconds on top1465.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,462,800 101274        202 553040         37 Naked Single
  *     15,617,100  45970        339 155610        100 Hidden Single
  *     90,144,000  30409      2,964   5871     15,354 Direct Naked Pair
@@ -7601,7 +7601,7 @@ package diuf.sudoku;
  * AlsFinder and RccFinder classes. It's actually a second slower, but it's
  * cleaner, so I'm keeping it anyway. sigh.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,088,400 101260        198 553810         36 Naked Single
  *     17,897,800  45879        390 155480        115 Hidden Single
  *     81,645,700  30331      2,691   5859     13,935 Direct Naked Pair
@@ -7652,7 +7652,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.136 2021-06-05 11:19:16</b> Split RccFinder on forwardOnly.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,146,800 101260        198 553810         36 Naked Single
  *     15,736,700  45879        343 155480        101 Hidden Single
  *     86,808,100  30331      2,862   5859     14,816 Direct Naked Pair
@@ -7785,7 +7785,7 @@ package diuf.sudoku;
  * 13. Ripped-out LogicalAnalyser.Mode because SPEED mode is never used, and
  *    doing so simplifies everything.
  *
- *      time (ns)  calls  time/call  elims time/elim hinter
+ *       time(ns)  calls  time/call  elims time/elim hinter
  *     19,369,213 103316        187 566410        34 Naked Single
  *     15,812,327  46675        338 159030        99 Hidden Single
  *    100,423,521  30772      3,263  20697     4,852 Locking
@@ -7865,7 +7865,7 @@ package diuf.sudoku;
  * Cell arrays on the fly, because Java's new array (and GC) is a bit slow.
  * </pre>
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,734,800 103583        200 566560         36 Naked Single
  *     15,952,500  46927        339 158800        100 Hidden Single
  *    101,514,400  31047      3,269  20755      4,891 Locking
@@ -7916,7 +7916,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.140 2021-06-19 12:06:20</b> Removed tech.nom. AHint.apply takes grid.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     18,605,628 103675        179 566410         32 NakedSingle
  *     17,692,755  47034        376 158930        111 HiddenSingle
  *    106,653,502  31141      3,424  20739      5,142 Locking
@@ -7970,7 +7970,7 @@ package diuf.sudoku;
  * in LogicalSolverTester log now in wantedHinters order. Replace keySet+get
  * with entrySet on all HashMaps. IMySet.visit. Split Frmu out of Frmt.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     22,378,929 103429        216 565210         39 NakedSingle
  *     19,233,942  46908        410 158700        121 HiddenSingle
  *    116,408,644  31038      3,750  20746      5,611 Locking
@@ -8041,7 +8041,7 @@ package diuf.sudoku;
  * Q: What do you get when you throw a dozen smart asses on a fire?
  * A: Burnt!
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,617,401 103429        170 565210         31 NakedSingle
  *     17,768,515  46908        378 158700        111 HiddenSingle
  *    106,920,164  31038      3,444  20746      5,153 Locking
@@ -8108,7 +8108,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.144 2021-06-25 19:36:24</b> Fixed bugs in jar runs without files.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      24,098,800 116010        207 661550         36 NakedSingle
  *      20,131,800  49855        403 161260        124 HiddenSingle
  *     119,240,500  33729      3,535  21653      5,506 Locking
@@ -8144,7 +8144,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.145 2021-06-27 22:23:25</b> Cheats obfiscated. One instance of each four
  * quick fox. Run TooFewClues and TooFewValues ONCE per puzzle.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     18,917,850 103646        182 566360         33 NakedSingle
  *     18,177,418  47010        386 158980        114 HiddenSingle
  *    110,691,015  31112      3,557  20737      5,337 Locking
@@ -8194,7 +8194,7 @@ package diuf.sudoku;
  * a bloody nightmare. I should port it to Logging, but I'm too lazy.
  * Constantised common strings, but it's no faster. sigh.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,358,800 105400        193 566380         35 NakedSingle
  *     16,155,300  48762        331 158960        101 HiddenSingle
  *     82,123,000  32866      2,498  24087      3,409 Locking
@@ -8243,7 +8243,7 @@ package diuf.sudoku;
  * maybesSize, with no Values instances. Sexy GRID_WATCH. Turbo. Fixed TreeSet
  * comparator in HintsListOrdered with toString.
  * <pre>
- *      time (ns) calls  time/call  elims  time/elim hinter
+ *       time(ns) calls  time/call  elims  time/elim hinter
  *     14,131,400 87511        161 471050         29 NakedSingle
  *     13,167,600 40406        325 142920         92 HiddenSingle
  *     61,236,600 26114      2,344  22440      2,728 Locking
@@ -8291,7 +8291,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.148 2021-07-09 06:25:28</b> Reapplied Grid.numSet and totalSize, change how
  * WWing works, simplified cell.set method, Cells and Regions test-cases.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,225,500 105664        163  56618        304 NakedSingle
  *     18,917,300  49046        385  15939      1,186 HiddenSingle
  *     77,840,200  33107      2,351  24127      3,226 Locking
@@ -8338,7 +8338,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.149 2021-07-09 17:45:29</b> Settings written-to/read-from file instead of
  * the Windows registry, using diuf.sudoku.utils.MyPreferences class.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,570,300 105664        166  56618        310 NakedSingle
  *     19,864,000  49046        405  15939      1,246 HiddenSingle
  *     80,675,500  33107      2,436  24127      3,343 Locking
@@ -8385,7 +8385,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.150 2021-07-12 09:58:30</b> Generate -> analyseDifficulty now validates,
  * and so rebuildMaybesAndS__t, solving all generate's index issues.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,363,600 105664        192  56618        359 NakedSingle
  *     20,333,700  49046        414  15939      1,275 HiddenSingle
  *     84,059,700  33107      2,539  24127      3,484 Locking
@@ -8434,7 +8434,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.151 2021-07-12 21:56:31</b> SiameseLocking factored-out of Locking, which
  * is now basically back to itself, and comprehensible.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     20,706,078 104096        198  56569        366 NakedSingle
  *     20,075,094  47527        422  15988      1,255 HiddenSingle
  *    151,846,967  31539      4,814  22805      6,658 Locking
@@ -8485,7 +8485,7 @@ package diuf.sudoku;
  * puzzle, or before analysing it in generate, but no more maintenance is
  * required, it maintains them itself, which is, surprisingly, no faster.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     16,050,100 104096        154  56569        283 NakedSingle
  *     18,394,200  47527        387  15988      1,150 HiddenSingle
  *    143,092,800  31539      4,537  22805      6,274 Locking
@@ -8556,7 +8556,7 @@ package diuf.sudoku;
  * there's MUCH less motivation for the user to press "Stop", so I'm past
  * caring that the Generator refuses to stop!
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     15,487,500 104096        148  56569        273 NakedSingle
  *     18,480,500  47527        388  15988      1,155 HiddenSingle
  *    144,843,500  31539      4,592  22805      6,351 Locking
@@ -8636,7 +8636,7 @@ package diuf.sudoku;
  * like to. Basically, generate should be a batch job, and the GUI just loads
  * pre-generated puzzles.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     16,744,500 104096        160  56569        296 NakedSingle
  *     18,075,300  47527        380  15988      1,130 HiddenSingle
  *    143,300,300  31539      4,543  22805      6,283 Locking
@@ -8737,7 +8737,7 @@ package diuf.sudoku;
  *    it up a bit, so now it's even more of a brain-bender. There's some clever
  *    ideas buried in all that obfuscation. It's still a pig though.
  *
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,826,800 104096        171  56569        315 NakedSingle
  *     19,350,600  47527        407  15988      1,210 HiddenSingle
  *    143,948,600  31539      4,564  22805      6,312 Locking
@@ -8798,7 +8798,7 @@ package diuf.sudoku;
  * now uses to get the RccFinder suitable for this Sudoku solving technique,
  * which boils down-to the two booleans: forwardOnly and allowOverlaps.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     16,816,123 104096        161  56569        297 NakedSingle
  *     21,018,731  47527        442  15988      1,314 HiddenSingle
  *    149,051,243  31539      4,725  22805      6,535 Locking
@@ -8851,7 +8851,7 @@ package diuf.sudoku;
  * lot of work to replace the {@code ArrayList<ArrayList<Cell>>} with a
  * {@code Set<Idx>} so I haven't bothered. I tried, so I know its lots of work.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     16,210,460 104096        155  56569        286 NakedSingle
  *     18,169,254  47527        382  15988      1,136 HiddenSingle
  *    150,451,158  31539      4,770  22805      6,597 Locking
@@ -8898,7 +8898,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.161 2021-08-12 12:57:42</b> BasicFisherman1 now faster than BasicFisherman.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     15,802,813 104096        151  56569        279 NakedSingle
  *     18,150,416  47527        381  15988      1,135 HiddenSingle
  *    149,079,592  31539      4,726  22805      6,537 Locking
@@ -8951,7 +8951,7 @@ package diuf.sudoku;
  * de-obfuscate Cheats, no pass Grid.idxs to ALS-hinters, LogicalSolverBuilder.
  * Build for back-up and to clean-up logs.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     16,592,100 105691        156  56621        293 NakedSingle
  *     18,746,800  49070        382  15934      1,176 HiddenSingle
  *     75,685,200  33136      2,284  24129      3,136 Locking
@@ -9000,7 +9000,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.164 2021-09-21 09:28:44</b> failed to speed-up AlsWing and AlsChain.
  * sigh. I build just to clean-up the log-files.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,843,700 105390        169  56406        316 NakedSingle
  *     17,856,700  48984        364  15919      1,121 HiddenSingle
  *     76,041,900  33065      2,299  24133      3,150 Locking
@@ -9050,7 +9050,7 @@ package diuf.sudoku;
  * but it's not right. It's faster, but relies on the Validator to suppress
  * invalid hints; so unusable. Build to clean-up old log-files.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,361,200 104239        166  58799        295 NakedSingle
  *     16,464,600  45440        362  16510        997 HiddenSingle
  *     64,499,200  28930      2,229  23694      2,722 Locking
@@ -9101,7 +9101,7 @@ package diuf.sudoku;
  * "basically fast enough", and any top1465 time under about three mins feels
  * "snappy enough" in the GUI (on an i7).
  * <pre>
- *       time (ns)  calls  time/call  elims   time/elim hinter
+ *        time(ns)  calls  time/call  elims   time/elim hinter
  *      18,704,000 105881        176  56291         332 NakedSingle
  *      18,413,700  49590        371  16013       1,149 HiddenSingle
  *      76,154,200  33577      2,268  24160       3,152 Locking
@@ -9151,7 +9151,7 @@ package diuf.sudoku;
  * find 1.5 times as many hints, by caching related RCC's by previousAlsIndex
  * and previousCandToExclude.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,544,700 105987        165  56524        310 NakedSingle
  *     18,564,800  49463        375  15994      1,160 HiddenSingle
  *     78,212,400  33469      2,336  24186      3,233 Locking
@@ -9223,7 +9223,7 @@ package diuf.sudoku;
  * And AlsChain wouldn't be so bloody slow.
  * But it's not an ideal world. sigh.
  *
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     18,218,300 105863        172  56423        322 NakedSingle
  *     19,212,000  49440        388  16003      1,200 HiddenSingle
  *     76,891,500  33437      2,299  24190      3,178 Locking
@@ -9275,7 +9275,7 @@ package diuf.sudoku;
  * "fast" but is maintainable; so LENGTH=6, TIMEOUT=500 elims 1776 in 03:06,
  * and top1465 in about 3 mins still feels "pretty snappy" in the GUI, so OK.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      26,116,500 105794        246  56228        464 NakedSingle
  *      19,298,500  49566        389  15996      1,206 HiddenSingle
  *      78,615,800  33570      2,341  24145      3,255 Locking
@@ -9328,7 +9328,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.171 2021-10-18 19:02:51</b> in-lined everything in AlsChain again, for
  * speed, and it's about 20% faster than the nieve version.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      18,200,200 105780        172  56250        323 NakedSingle
  *      18,448,900  49530        372  16031      1,150 HiddenSingle
  *      77,611,500  33499      2,316  24132      3,216 Locking
@@ -9376,7 +9376,7 @@ package diuf.sudoku;
  * to 6, reinstated length loop and moved TIMEOUT=125 into i loop. This is both
  * faster and finds more elims.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      18,474,300 105735        174  56190        328 NakedSingle
  *      19,285,200  49545        389  15989      1,206 HiddenSingle
  *      79,179,200  33556      2,359  24144      3,279 Locking
@@ -9426,7 +9426,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.173 2021-10-20 10:21:53</b> Updated AlsWing and AlsXz with learnings
  * from AlsChain. They're both just a little faster, and cleaner, IMHO.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      17,893,100 105735        169  56190        318 NakedSingle
  *      19,362,300  49545        390  15989      1,210 HiddenSingle
  *      77,540,200  33556      2,310  24144      3,211 Locking
@@ -9480,7 +9480,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.174 2021-10-20 14:29:54</b> AlsChain.TIMEOUT from 125 to 16, which
  * costs 23 elims but saves 34 seconds.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,766,400 105677        168  56143        316 NakedSingle
  *     23,559,900  49534        475  15986      1,473 HiddenSingle
  *     76,017,800  33548      2,265  24143      3,148 Locking
@@ -9528,7 +9528,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.175 2021-10-21 09:30:55</b> Killed Idx.pots method coz mutating a param
  * is poor form: mutate THIS, not that, ergo Pots.upsertAll. My bad. Soz.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     18,129,400 105578        171  56090        323 NakedSingle
  *     18,820,600  49488        380  15983      1,177 HiddenSingle
  *     75,553,800  33505      2,255  24133      3,130 Locking
@@ -9578,7 +9578,7 @@ package diuf.sudoku;
  * the evidently more correct version.
  * <pre>
  * WARN: this log is from the hacked version, but I reverted it out.
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,561,057 105851        165  56371        311 NakedSingle
  *     18,463,712  49480        373  16008      1,153 HiddenSingle
  *     77,056,017  33472      2,302  24184      3,186 Locking
@@ -9631,7 +9631,7 @@ package diuf.sudoku;
  * correctness. I'd rather be consistently wrong than occassionaly right.
  * So that worked out rather well. Sighing lols.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     18,022,115 105750        170  56303        320 NakedSingle
  *     18,761,324  49447        379  16012      1,171 HiddenSingle
  *     77,761,638  33435      2,325  24167      3,217 Locking
@@ -9685,7 +9685,7 @@ package diuf.sudoku;
  * coz it's faster. RCC_CACHE is back for speed. TechSelectDialog selects one
  * ALS_Chain_* at a time.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      19,112,494 105766        180  56215        339 NakedSingle
  *      18,414,779  49551        371  16039      1,148 HiddenSingle
  *      78,258,065  33512      2,335  24136      3,242 Locking
@@ -9736,7 +9736,7 @@ package diuf.sudoku;
  * <p>
  * The hunter, endlessly seeking.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      18,363,661 105841        173  56290        326 NakedSingle
  *      18,194,394  49551        367  16038      1,134 HiddenSingle
  *      78,205,005  33513      2,333  24141      3,239 Locking
@@ -9792,7 +9792,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.180 2021-10-28 10:10:10</b> AlsChain has ANY_RELATED_RCCS and an
  * alsCeiling, so it's a tad faster. The hunter, is still endlessly seeking.
  * <pre>
- *       time (ns)  calls  time/call  elims  time/elim hinter
+ *        time(ns)  calls  time/call  elims  time/elim hinter
  *      15,701,900 105794        148  56254        279 NakedSingle
  *      18,587,500  49540        375  16033      1,159 HiddenSingle
  *      76,666,300  33507      2,288  24137      3,176 Locking
@@ -9844,7 +9844,7 @@ package diuf.sudoku;
  * BigWings bug: Grid.getBivalue forgot to clear Idx. Oops! How embarrassment!
  * That shrunk my head back down to size rather nicely. sigh.
  * <pre>
- *      time (ns)  calls  time/call elims  time/elim hinter
+ *       time(ns)  calls  time/call elims  time/elim hinter
  *     18,173,700 105764        171 56179        323 NakedSingle
  *     18,551,200  49585        374 16053      1,155 HiddenSingle
  *     78,393,100  33532      2,337 24124      3,249 Locking
@@ -9896,7 +9896,7 @@ package diuf.sudoku;
  * NOW 309,076,138,200 1467 210,685,847 35  8,830,746,805 faster caching
  * </pre>
  * <pre>
- *       time (ns)  calls   time/call  elims     time/elim hinter
+ *        time(ns)  calls   time/call  elims     time/elim hinter
  *      19,171,400 106095         180  56078           341 NakedSingle
  *      17,730,300  50017         354  16189         1,095 HiddenSingle
  *      76,246,400  33828       2,253  24093         3,164 Locking
@@ -9949,7 +9949,7 @@ package diuf.sudoku;
  * <b>KRC 6.30.183 2021-11-02 20:25:03</b> eradicating Collections in favour of
  * arrays, especially the bases and covers in the hints
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,365,831 105806        164  56202        308 NakedSingle
  *     18,635,382  49604        375  16059      1,160 HiddenSingle
  *     76,023,437  33545      2,266  24129      3,150 Locking
@@ -9995,7 +9995,7 @@ package diuf.sudoku;
  * <p>
  * <b>KRC 6.30.184 2021-11-04 12:40:04</b> Remove IAS from AlsChain.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     17,484,300 105724        165  56214        311 NakedSingle
  *     18,063,000  49510        364  16017      1,127 HiddenSingle
  *     81,971,000  33493      2,447  24137      3,396 Locking
@@ -10042,7 +10042,7 @@ package diuf.sudoku;
  * instead of per startAls/startCand (ie FAR less often) to find 10 less elims
  * in about half of the time.
  * <pre>
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     19,016,600 105784        179  56301        337 NakedSingle
  *     18,262,300  49483        369  15993      1,141 HiddenSingle
  *     78,102,800  33490      2,332  24136      3,235 Locking
@@ -10093,7 +10093,7 @@ package diuf.sudoku;
  * looking straight at you. That's it: BUG has to go!
  * <pre>
  * The final ALL HINTERS run:
- *         time (ns)  calls   time/call elims       time/elim hinter
+ *          time(ns)  calls   time/call elims       time/elim hinter
  *        27,855,300 111502         249 60579             459 NakedSingle
  *        19,471,300  50923         382 16506           1,179 HiddenSingle
  *        78,842,000  34417       2,290 24266           3,249 Locking
@@ -10165,7 +10165,7 @@ package diuf.sudoku;
  *    the end. The core BUG code is still there, just commented out.
  *
  * A "normal" time comparable run:
- *      time (ns)  calls  time/call  elims  time/elim hinter
+ *       time(ns)  calls  time/call  elims  time/elim hinter
  *     18,219,500 105141        173  55906        325 NakedSingle
  *     18,751,700  49235        380  16030      1,169 HiddenSingle
  *     75,740,900  33205      2,281  24081      3,145 Locking
@@ -10214,8 +10214,910 @@ package diuf.sudoku;
  * SE is my Telegraph Road. Mind over matter. Be persistant. I hope you find it
  * useful and edifying. Enjoy!
  * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.187 2021-11-12 09:33:07</b> Bug fixes.
+ * <p>
+ * I ran ALL HINTERS one last time to double-check that it all runs-through, ie
+ * all the springs don't come flying out of the box if/when a user wants some
+ * piece-of-s__t-hinter that should've been written-off years ago. Yes BUG, I'm
+ * looking straight at you. That's it: BUG has to go!
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,213,200 105141        163  55906        307 NakedSingle
+ *     18,510,200  49235        375  16030      1,154 HiddenSingle
+ *     73,503,000  33205      2,213  24081      3,052 Locking
+ *     71,928,200  21954      3,276   7870      9,139 NakedPair
+ *     71,086,400  19916      3,569   8201      8,668 HiddenPair
+ *    115,412,200  17864      6,460   1566     73,698 NakedTriple
+ *    108,512,300  17480      6,207    971    111,753 HiddenTriple
+ *     46,070,000  17293      2,664    646     71,315 Swampfish
+ *     53,048,100  17038      3,113   1149     46,168 TwoStringKite
+ *     77,120,700  15889      4,853    601    128,320 XY_Wing
+ *     70,346,200  15472      4,546    298    236,061 XYZ_Wing
+ *    107,799,300  15192      7,095    405    266,171 W_Wing
+ *     50,358,900  14898      3,380    350    143,882 Skyscraper
+ *     22,105,400  14715      1,502     49    451,130 EmptyRectangle
+ *     56,033,500  14666      3,820    227    246,843 Swordfish
+ *     77,777,400  14608      5,324     15  5,185,160 Jellyfish
+ *    326,140,900  14603     22,333    358    911,008 Coloring
+ *    865,554,500  14327     60,414   1076    804,418 XColoring
+ *  1,875,126,400  13979    134,138 137003     13,686 GEM
+ *    145,387,200  12516     11,616     93  1,563,303 NakedQuad
+ *    118,454,800  12500      9,476     11 10,768,618 HiddenQuad
+ *  1,468,199,000  12499    117,465   1023  1,435,189 URT
+ *  2,575,474,300  11787    218,501   2110  1,220,603 BigWings
+ *  1,148,774,700  10603    108,344    350  3,282,213 FinnedSwampfish
+ *  2,351,548,400  10301    228,283    308  7,634,897 FinnedSwordfish
+ *  5,572,018,900  10063    553,713   2585  2,155,519 DeathBlossom
+ *  8,803,552,900   7884  1,116,635   2047  4,300,709 ALS_XZ
+ *  6,507,006,300   6595    986,657   2752  2,364,464 ALS_Wing
+ * 13,016,909,000   4415  2,948,337   1758  7,404,385 ALS_Chain
+ *  7,113,063,200   3046  2,335,214    570 12,479,058 UnaryChain
+ *  5,316,552,500   2779  1,913,117   3490  1,523,367 MultipleChain
+ *  6,988,168,200   1341  5,211,161   6333  1,103,453 DynamicChain
+ *    113,369,700      3 37,789,900     30  3,778,990 DynamicPlus
+ * 65,342,125,900
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  84,029,300,800 (01:24)  57,357,884
+ * NOTES:
+ * 1. 1:24 is about a second faster than previous. Meh.
+ * 2. DiufSudoku_V6_30.187.2021-11-12.7z I do not plan to release this one.
+ * 3. Next more bug fixes, for a week or two.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.188 2021-11-25 20:15:07</b> Fixing bugs and oversights in
+ * NakedSetDirect, Regions.common, XColoring, AlsChain, and WWing.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     18,151,300 105909        171  56543        321 NakedSingle
+ *     18,888,400  49366        382  16117      1,171 HiddenSingle
+ *     75,607,200  33249      2,273  24090      3,138 Locking
+ *     77,545,300  21993      3,525   7851      9,877 NakedPair
+ *     72,495,300  19958      3,632   8210      8,830 HiddenPair
+ *    118,691,600  17903      6,629   1563     75,938 NakedTriple
+ *    112,876,700  17520      6,442    971    116,247 HiddenTriple
+ *     46,834,600  17333      2,702    644     72,724 Swampfish
+ *     55,298,600  17078      3,238   1154     47,919 TwoStringKite
+ *     77,570,400  15924      4,871    615    126,130 XY_Wing
+ *     70,270,500  15498      4,534    299    235,018 XYZ_Wing
+ *     90,716,900  15217      5,961    749    121,117 W_Wing
+ *     49,589,700  14689      3,375    330    150,271 Skyscraper
+ *     22,212,700  14517      1,530     48    462,764 EmptyRectangle
+ *     54,584,400  14469      3,772    227    240,459 Swordfish
+ *     77,026,800  14411      5,345     25  3,081,072 Jellyfish
+ *    329,969,100  14406     22,904    330    999,906 Coloring
+ *    867,308,200  14155     61,272   1060    818,215 XColoring
+ *  1,864,086,500  13810    134,980 129700     14,372 GEM
+ *    145,854,300  12413     11,750     93  1,568,325 NakedQuad
+ *    118,154,300  12397      9,530     11 10,741,300 HiddenQuad
+ *  1,461,910,600  12396    117,934   1013  1,443,149 URT
+ *  2,889,028,000  11690    247,136   2095  1,379,010 BigWings
+ *  1,154,353,800  10518    109,750    347  3,326,668 FinnedSwampfish
+ *  2,358,946,500  10218    230,861    307  7,683,864 FinnedSwordfish
+ *  6,091,556,700   9981    610,315   2546  2,392,598 DeathBlossom
+ *  9,181,884,900   7829  1,172,804   2036  4,509,766 ALS_XZ
+ *  6,518,115,400   6549    995,284   2720  2,396,365 ALS_Wing
+ * 13,197,529,800   4396  3,002,167   1749  7,545,757 ALS_Chain
+ *  7,209,142,300   3033  2,376,901    557 12,942,804 UnaryChain
+ *  5,446,163,000   2779  1,959,756   3490  1,560,505 MultipleChain
+ *  7,102,355,700   1341  5,296,312   6333  1,121,483 DynamicChain
+ *    142,842,800      3 47,614,266     30  4,761,426 DynamicPlus
+ * 67,117,562,300
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  85,521,047,100 (01:25)  58,376,141
+ * NOTES:
+ * 1. 1:25 is a second slower than previous. Meh.
+ * 2. DiufSudoku_V6_30.188.2021-11-25.7z I'll release this one. No rush.
+ * 3. Next nothing, unless I find something really bad, like WWing missing half
+ *    it's onions.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.189 2021-11-28 06:51:08</b> Fix two bugs in EmptyRectangle that
+ * missed hints, taking elims from 48 to 588, was 21ms now 85ms, so that is 12
+ * times the elims in about 4 times the time. Better.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,361,300 105891        163  56431        307 NakedSingle
+ *     18,236,300  49460        368  16142      1,129 HiddenSingle
+ *     79,524,100  33318      2,386  24098      3,300 Locking
+ *     76,427,000  22056      3,465   7860      9,723 NakedPair
+ *     69,947,100  20013      3,495   8221      8,508 HiddenPair
+ *    117,631,400  17954      6,551   1576     74,639 NakedTriple
+ *    104,443,200  17568      5,945    965    108,231 HiddenTriple
+ *     47,627,900  17382      2,740    650     73,273 Swampfish
+ *     53,020,600  17126      3,095   1141     46,468 TwoStringKite
+ *     77,384,700  15985      4,841    624    124,013 XY_Wing
+ *     56,193,700  15556      3,612    303    185,457 XYZ_Wing
+ *     84,946,000  15271      5,562    760    111,771 W_Wing
+ *     42,453,200  14742      2,879    315    134,772 Skyscraper
+ *     85,231,300  14577      5,846    588    144,951 EmptyRectangle
+ *     54,876,300  13989      3,922    215    255,238 Swordfish
+ *     74,184,500  13934      5,323     23  3,225,413 Jellyfish
+ *    310,716,700  13929     22,307    177  1,755,461 Coloring
+ *    849,947,200  13814     61,527    788  1,078,613 XColoring
+ *  1,821,695,200  13546    134,482 130711     13,936 GEM
+ *    144,184,800  12187     11,831     90  1,602,053 NakedQuad
+ *    110,812,800  12172      9,103     11 10,073,890 HiddenQuad
+ *  1,366,400,400  12171    112,266   1008  1,355,555 URT
+ *  2,806,193,200  11471    244,633   2079  1,349,780 BigWings
+ *  1,131,847,800  10310    109,781    217  5,215,888 FinnedSwampfish
+ *  2,354,278,800  10132    232,360    275  8,561,013 FinnedSwordfish
+ *  6,045,113,700   9926    609,018   2547  2,373,425 DeathBlossom
+ *  8,877,263,300   7776  1,141,623   1995  4,449,756 ALS_XZ
+ *  6,515,689,200   6516    999,952   2710  2,404,313 ALS_Wing
+ * 13,208,050,900   4368  3,023,821   1737  7,603,944 ALS_Chain
+ *  7,139,058,700   3013  2,369,418    554 12,886,387 UnaryChain
+ *  5,468,163,200   2762  1,979,783   3464  1,578,569 MultipleChain
+ *  7,114,971,500   1341  5,305,720   6333  1,123,475 DynamicChain
+ *    152,185,000      3 50,728,333     30  5,072,833 DynamicPlus
+ * 66,476,061,000
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  84,867,307,000 (01:24)  57,929,902
+ * NOTES:
+ * 1. 1:24 is a second faster than previous. Meh.
+ * 2. DiufSudoku_V6_30.189.2021-11-28.7z I'll release this one. No rush.
+ * 3. Next I seek more "my bads" by continueing to desk-check each hinter, but
+ *    everything from-here-down is beyond my brain: I can't hold it all in my
+ *    head at once, so desk-checking it is likely to be much less productive.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.190 2021-12-01 18:22:10</b> Fix ColoringHint. Check Coloring,
+ * XColoring, Medusa3D, and GEM. Check BigWing. Idx leases-out int-arrays.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,958,700 105891        169  56431        318 NakedSingle
+ *     17,796,300  49460        359  16142      1,102 HiddenSingle
+ *     80,211,800  33318      2,407  24098      3,328 Locking
+ *     77,750,200  22056      3,525   7860      9,891 NakedPair
+ *     70,182,600  20013      3,506   8221      8,536 HiddenPair
+ *    116,604,800  17954      6,494   1576     73,987 NakedTriple
+ *    107,763,800  17568      6,134    965    111,672 HiddenTriple
+ *     48,338,700  17382      2,780    650     74,367 Swampfish
+ *     52,151,400  17126      3,045   1141     45,706 TwoStringKite
+ *     79,670,800  15985      4,984    624    127,677 XY_Wing
+ *     55,540,500  15556      3,570    303    183,301 XYZ_Wing
+ *     85,282,600  15271      5,584    760    112,213 W_Wing
+ *     43,007,500  14742      2,917    315    136,531 Skyscraper
+ *     85,839,000  14577      5,888    588    145,984 EmptyRectangle
+ *     54,588,300  13989      3,902    215    253,899 Swordfish
+ *     76,285,400  13934      5,474     23  3,316,756 Jellyfish
+ *    293,783,300  13929     21,091    177  1,659,792 Coloring
+ *    846,106,600  13814     61,249    788  1,073,739 XColoring
+ *  1,871,539,800  13546    138,161 130711     14,318 GEM
+ *    141,629,800  12187     11,621     90  1,573,664 NakedQuad
+ *    113,591,700  12172      9,332     11 10,326,518 HiddenQuad
+ *  1,393,274,400  12171    114,474   1008  1,382,216 URT
+ *  2,788,395,400  11471    243,082   2079  1,341,219 BigWings
+ *  1,137,648,600  10310    110,344    217  5,242,620 FinnedSwampfish
+ *  2,381,760,600  10132    235,073    275  8,660,947 FinnedSwordfish
+ *  6,004,766,300   9926    604,953   2547  2,357,583 DeathBlossom
+ *  8,562,457,700   7776  1,101,139   1995  4,291,958 ALS_XZ
+ *  6,532,446,000   6516  1,002,523   2710  2,410,496 ALS_Wing
+ * 12,778,266,200   4368  2,925,427   1737  7,356,514 ALS_Chain
+ *  7,108,827,300   3013  2,359,385    554 12,831,818 UnaryChain
+ *  5,415,373,700   2762  1,960,671   3464  1,563,329 MultipleChain
+ *  6,991,002,500   1341  5,213,275   6333  1,103,900 DynamicChain
+ *    141,155,700      3 47,051,900     30  4,705,190 DynamicPlus
+ * 65,570,998,000
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  83,898,302,400 (01:23)  57,268,465
+ * NOTES:
+ * 1. 1:23 is a second faster than previous. Meh.
+ * 2. DiufSudoku_V6_30.190.2021-12-01.7z is OK to release. No rush.
+ * 3. Next I seek more "bad eggs".
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.191 2021-12-03 10:05:11</b> Eradicated semi-thunked crap from
+ * Locking and LockingSpeedMode, making them easier to follow.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,354,000 105891        163  56431        307 NakedSingle
+ *     18,346,000  49460        370  16142      1,136 HiddenSingle
+ *     78,191,800  33318      2,346  24098      3,244 Locking
+ *     78,500,400  22056      3,559   7860      9,987 NakedPair
+ *     70,253,300  20013      3,510   8221      8,545 HiddenPair
+ *    116,479,700  17954      6,487   1576     73,908 NakedTriple
+ *    106,223,700  17568      6,046    965    110,076 HiddenTriple
+ *     48,076,400  17382      2,765    650     73,963 Swampfish
+ *     53,485,500  17126      3,123   1141     46,875 TwoStringKite
+ *     79,863,200  15985      4,996    624    127,985 XY_Wing
+ *     59,423,300  15556      3,819    303    196,116 XYZ_Wing
+ *     85,214,500  15271      5,580    760    112,124 W_Wing
+ *     43,483,400  14742      2,949    315    138,042 Skyscraper
+ *     85,770,900  14577      5,883    588    145,868 EmptyRectangle
+ *     54,247,800  13989      3,877    215    252,315 Swordfish
+ *     74,936,800  13934      5,377     23  3,258,121 Jellyfish
+ *    296,480,500  13929     21,285    177  1,675,031 Coloring
+ *    863,796,500  13814     62,530    788  1,096,188 XColoring
+ *  1,872,592,700  13546    138,239 130711     14,326 GEM
+ *    144,186,300  12187     11,831     90  1,602,070 NakedQuad
+ *    113,040,400  12172      9,286     11 10,276,400 HiddenQuad
+ *  1,385,915,000  12171    113,870   1008  1,374,915 URT
+ *  2,767,546,000  11471    241,264   2079  1,331,190 BigWings
+ *  1,120,578,100  10310    108,688    217  5,163,954 FinnedSwampfish
+ *  2,320,187,300  10132    228,995    275  8,437,044 FinnedSwordfish
+ *  5,941,253,800   9926    598,554   2547  2,332,647 DeathBlossom
+ *  8,791,676,000   7776  1,130,616   1995  4,406,855 ALS_XZ
+ *  6,467,922,900   6516    992,621   2710  2,386,687 ALS_Wing
+ * 12,665,666,500   4368  2,899,648   1737  7,291,690 ALS_Chain
+ *  7,129,096,100   3013  2,366,112    554 12,868,404 UnaryChain
+ *  5,304,108,600   2762  1,920,386   3464  1,531,209 MultipleChain
+ *  6,988,971,200   1341  5,211,760   6333  1,103,579 DynamicChain
+ *    103,177,600      3 34,392,533     30  3,439,253 DynamicPlus
+ * 65,346,046,200
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  84,567,082,700 (01:24)  57,724,971
+ * NOTES:
+ * 1. 1:24 is a second slower than previous. Meh.
+ * 2. DiufSudoku_V6_30.191.2021-12-03.7z is OK to release. No rush.
+ * 3. Next I seek more "bad eggs", especially unused code. I used to have a
+ *    tool that found unused code. I'll update Java versions, and find a tool.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.192 2021-12-03 13:12:12</b> Removed Grid.Cell.hashCode using
+ * Grid.Cell.i (indice) instead coz it's a bit shorter, and more significant
+ * bits further left is more deterministic, ie reduces hash-collisions.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     19,329,600 105891        182  56431        342 NakedSingle
+ *     18,627,300  49460        376  16142      1,153 HiddenSingle
+ *     79,730,600  33318      2,393  24098      3,308 Locking
+ *     78,569,300  22056      3,562   7860      9,996 NakedPair
+ *     71,184,700  20013      3,556   8221      8,658 HiddenPair
+ *    120,628,200  17954      6,718   1576     76,540 NakedTriple
+ *    109,490,300  17568      6,232    965    113,461 HiddenTriple
+ *     49,216,100  17382      2,831    650     75,717 Swampfish
+ *     54,638,900  17126      3,190   1141     47,886 TwoStringKite
+ *     83,685,100  15985      5,235    624    134,110 XY_Wing
+ *     62,437,300  15556      4,013    303    206,063 XYZ_Wing
+ *     86,129,400  15271      5,640    760    113,328 W_Wing
+ *     48,683,000  14742      3,302    315    154,549 Skyscraper
+ *     86,691,700  14577      5,947    588    147,434 EmptyRectangle
+ *     55,527,800  13989      3,969    215    258,268 Swordfish
+ *     76,938,700  13934      5,521     23  3,345,160 Jellyfish
+ *    289,814,400  13929     20,806    177  1,637,369 Coloring
+ *    905,623,400  13814     65,558    788  1,149,268 XColoring
+ *  1,910,446,500  13546    141,033 130711     14,615 GEM
+ *    146,571,400  12187     12,026     90  1,628,571 NakedQuad
+ *    114,907,200  12172      9,440     11 10,446,109 HiddenQuad
+ *  1,381,972,100  12171    113,546   1008  1,371,004 URT
+ *  2,868,242,200  11471    250,042   2079  1,379,625 BigWings
+ *  1,140,600,800  10310    110,630    217  5,256,224 FinnedSwampfish
+ *  2,373,491,900  10132    234,256    275  8,630,879 FinnedSwordfish
+ *  6,010,499,000   9926    605,530   2547  2,359,834 DeathBlossom
+ *  8,660,773,600   7776  1,113,782   1995  4,341,239 ALS_XZ
+ *  6,488,495,300   6516    995,778   2710  2,394,278 ALS_Wing
+ * 12,800,400,500   4368  2,930,494   1737  7,369,257 ALS_Chain
+ *  7,154,836,500   3013  2,374,655    554 12,914,867 UnaryChain
+ *  5,356,004,400   2762  1,939,176   3464  1,546,190 MultipleChain
+ *  7,089,654,100   1341  5,286,841   6333  1,119,477 DynamicChain
+ *    152,296,800      3 50,765,600     30  5,076,560 DynamicPlus
+ * 65,946,138,100
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  85,650,041,000 (01:25)  58,464,191
+ * NOTES:
+ * 1. 1:25 is a second slower than previous. Meh. I don't care! Really. Sigh.
+ *    Anything under 1:30 is bloody fine with me. Honest. BIG Sigh.
+ * 2. DiufSudoku_V6_30.192.2021-12-03.7z is OK to release. No rush.
+ * 3. Next I seek more "bad eggs", especially unused code. I used to have a
+ *    tool that found unused code. I'll update Java versions, and find a tool.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.193</b> It's a bust! So it got the chop.
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.194 2021-12-04 08:00:14</b> Chainers use circular-arrays instead
+ * of Queues. They make chainers about 10% faster, but're unmaintainable, so do
+ * this at home folks, not in a real system, unless you really want to. Sigh.
+ * Also, ChainerUnary and ChainerMulti now have Ctrl-F6 tests-cases.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     18,515,600 105891        174  56431        328 NakedSingle
+ *     18,972,100  49460        383  16142      1,175 HiddenSingle
+ *     79,054,300  33318      2,372  24098      3,280 Locking
+ *     76,663,900  22056      3,475   7860      9,753 NakedPair
+ *     72,607,500  20013      3,628   8221      8,831 HiddenPair
+ *    118,186,600  17954      6,582   1576     74,991 NakedTriple
+ *    111,694,300  17568      6,357    965    115,745 HiddenTriple
+ *     48,037,300  17382      2,763    650     73,903 Swampfish
+ *     53,926,700  17126      3,148   1141     47,262 TwoStringKite
+ *     79,794,900  15985      4,991    624    127,876 XY_Wing
+ *     62,787,100  15556      4,036    303    207,218 XYZ_Wing
+ *     86,036,700  15271      5,633    760    113,206 W_Wing
+ *     48,712,900  14742      3,304    315    154,644 Skyscraper
+ *     88,832,700  14577      6,094    588    151,076 EmptyRectangle
+ *     53,666,100  13989      3,836    215    249,609 Swordfish
+ *     73,935,300  13934      5,306     23  3,214,578 Jellyfish
+ *    284,915,000  13929     20,454    177  1,609,689 Coloring
+ *    879,099,200  13814     63,638    788  1,115,608 XColoring
+ *  1,915,865,900  13546    141,434 130711     14,657 GEM
+ *    145,178,100  12187     11,912     90  1,613,090 NakedQuad
+ *    116,490,200  12172      9,570     11 10,590,018 HiddenQuad
+ *  1,389,512,400  12171    114,165   1008  1,378,484 URT
+ *  2,767,943,300  11471    241,299   2079  1,331,382 BigWings
+ *  1,151,118,100  10310    111,650    217  5,304,691 FinnedSwampfish
+ *  2,344,856,200  10132    231,430    275  8,526,749 FinnedSwordfish
+ *  5,998,775,600   9926    604,349   2547  2,355,231 DeathBlossom
+ *  8,533,215,100   7776  1,097,378   1995  4,277,300 ALS_XZ
+ *  6,493,028,600   6516    996,474   2710  2,395,951 ALS_Wing
+ * 12,733,247,600   4368  2,915,120   1737  7,330,597 ALS_Chain
+ *  6,431,402,400   3013  2,134,551    554 11,609,029 UnaryChain
+ *  4,858,514,800   2762  1,759,056   3464  1,402,573 MultipleChain
+ *  6,558,154,000   1341  4,890,495   6333  1,035,552 DynamicChain
+ *    137,418,900      3 45,806,300     30  4,580,630 DynamicPlus
+ * 63,830,159,400
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  83,156,894,800 (01:23)  56,762,385
+ * NOTES:
+ * 1. 1:23 is two seconds faster than previous, but is it worth all the mess?
+ * 2. DiufSudoku_V6_30.194.2021-12-04.7z is OK to release. No rush.
+ * 3. Next I seek more "bad eggs", especially unused code. I used to have a
+ *    tool that found unused code. I'll update Java versions, and find a tool.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.195 2021-12-06 10:55:15</b> Use circular-arrays instead of
+ * Queues for the local On and Off Queues in ChainerMulti.doChains.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     15,285,500  87724        174  47072        324 NakedSingle
+ *     15,535,600  40652        382  14386      1,079 HiddenSingle
+ *     61,995,100  26266      2,360  22422      2,764 Locking
+ *     67,625,600  16116      4,196   7060      9,578 NakedPair
+ *     57,213,400  14442      3,961   7799      7,335 HiddenPair
+ *     94,252,700  12611      7,473   1444     65,271 NakedTriple
+ *     86,414,700  12295      7,028    913     94,649 HiddenTriple
+ *     39,529,700  12133      3,258    459     86,121 Swampfish
+ *     37,718,700  11975      3,149    915     41,222 TwoStringKite
+ *     59,326,300  11060      5,364    455    130,387 XY_Wing
+ *     44,165,600  10750      4,108    223    198,052 XYZ_Wing
+ *     75,683,400  10543      7,178    595    127,198 W_Wing
+ *     37,522,600  10139      3,700    267    140,534 Skyscraper
+ *     69,906,500  10002      6,989    450    155,347 EmptyRectangle
+ *     50,989,800   9552      5,338    177    288,077 Swordfish
+ *     74,457,500   9516      7,824     16  4,653,593 Jellyfish
+ *    286,739,900   9513     30,141    129  2,222,789 Coloring
+ *    667,067,400   9436     70,693    536  1,244,528 XColoring
+ *  1,548,194,900   9253    167,318  78869     19,629 GEM
+ *    126,237,900   8376     15,071     82  1,539,486 NakedQuad
+ *     93,958,700   8363     11,235     11  8,541,700 HiddenQuad
+ *  1,145,999,100   8362    137,048    846  1,354,608 URT
+ *  2,140,466,400   7786    274,912   1677  1,276,366 BigWings
+ *    910,848,000   6895    132,102    180  5,060,266 FinnedSwampfish
+ *  1,984,501,300   6748    294,087    222  8,939,195 FinnedSwordfish
+ *  5,128,031,200   6586    778,626   1829  2,803,734 DeathBlossom
+ *  7,372,687,300   5065  1,455,614   1615  4,565,131 ALS_XZ
+ *  4,824,854,500   4084  1,181,404   1991  2,423,332 ALS_Wing
+ *  8,740,603,100   2540  3,441,182   1142  7,653,768 ALS_Chain
+ *  3,774,464,500   1667  2,264,225    403  9,365,916 UnaryChain
+ *  2,443,300,700   1493  1,636,504    142 17,206,342 NishioChain
+ *  2,565,839,100   1360  1,886,646   1908  1,344,779 MultipleChain
+ *  1,118,138,600    586  1,908,086 167448      6,677 DynamicChainT
+ *     33,340,400      3 11,113,466   1800     18,522 DynamicPlusT
+ * 45,792,895,700
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  63,846,932,100 (01:03)  43,581,523
+ * NOTES:
+ * 1. 1:03 is fast, but that's with the hair-dryer, so ney come in ye pant.
+ * 2. DiufSudoku_V6_30.195.2021-12-06.7z unreleasable: VALIDATE_XCOLORING=true.
+ * 3. Next find more "bad eggs", especially unused code. I need a tool. Sigh.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.196 2021-12-08 06:12:16</b> Wee fixes to Coloring, XColoring and
+ * AlsChain.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     20,608,900 105806        194  56327        365 NakedSingle
+ *     18,474,200  49479        373  16124      1,145 HiddenSingle
+ *     84,228,400  33355      2,525  24100      3,494 Locking
+ *     77,776,500  22087      3,521   7866      9,887 NakedPair
+ *     72,716,600  20041      3,628   8221      8,845 HiddenPair
+ *    119,100,400  17981      6,623   1601     74,391 NakedTriple
+ *    109,430,000  17590      6,221    969    112,930 HiddenTriple
+ *     48,798,500  17404      2,803    644     75,774 Swampfish
+ *     52,163,200  17154      3,040   1129     46,203 TwoStringKite
+ *     84,159,500  16025      5,251    637    132,118 XY_Wing
+ *     62,277,600  15589      3,994    301    206,902 XYZ_Wing
+ *     89,505,900  15306      5,847    763    117,307 W_Wing
+ *     41,742,800  14771      2,825    320    130,446 Skyscraper
+ *     87,988,400  14604      6,024    572    153,825 EmptyRectangle
+ *     54,509,700  14032      3,884    218    250,044 Swordfish
+ *    295,645,600  13974     21,156    183  1,615,549 Coloring
+ *    862,782,500  13856     62,267    686  1,257,700 XColoring
+ *  1,882,535,400  13608    138,340 132157     14,244 GEM
+ *    146,817,400  12245     11,989     90  1,631,304 NakedQuad
+ *    113,925,900  12230      9,315     11 10,356,900 HiddenQuad
+ *  1,401,177,500  12229    114,578   1013  1,383,195 URT
+ *  2,829,613,800  11525    245,519   2109  1,341,685 BigWings
+ *  1,151,690,600  10348    111,295    212  5,432,502 FinnedSwampfish
+ *  2,373,589,100  10174    233,299    269  8,823,751 FinnedSwordfish
+ *  6,117,707,500   9973    613,427   2530  2,418,066 DeathBlossom
+ *  8,705,525,300   7841  1,110,257   2011  4,328,953 ALS_XZ
+ *  6,513,629,900   6570    991,420   2738  2,378,973 ALS_Wing
+ * 12,905,287,200   4406  2,929,025   1747  7,387,113 ALS_Chain
+ *  6,695,450,700   3042  2,201,002    554 12,085,651 UnaryChain
+ *  4,049,384,200   2791  1,450,872    188 21,539,277 NishioChain
+ *  4,467,747,200   2612  1,710,469   3459  1,291,629 MultipleChain
+ *  5,966,255,200   1250  4,773,004   6035    988,608 DynamicChain
+ *    122,750,700      3 40,916,900     30  4,091,690 DynamicPlus
+ * 67,624,996,300
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  86,992,541,900 (01:26)  59,380,574
+ * <pre>
+ * NOTES:
+ * 1. 1:26 is 3 seconds slower than best, but this one uses NishioChain.
+ * 2. DiufSudoku_V6_30.196.2021-12-08.7z is OK to release. No rush.
+ * 3. Next I seek more "bad eggs".
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.197 2021-12-16 04:52:17</b> Fix bugs, and bring UniqueRectangle
+ * upto date.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,450,900 106032        164  56542        308 NakedSingle
+ *     18,019,400  49490        364  16174      1,114 HiddenSingle
+ *     75,364,600  33316      2,262  24075      3,130 Locking
+ *     76,745,900  22062      3,478   7884      9,734 NakedPair
+ *     71,171,700  20013      3,556   8228      8,649 HiddenPair
+ *    118,316,300  17949      6,591   1595     74,179 NakedTriple
+ *    106,631,900  17559      6,072    979    108,919 HiddenTriple
+ *     46,042,800  17371      2,650    652     70,617 Swampfish
+ *     50,878,900  17114      2,972   1149     44,281 TwoStringKite
+ *     80,697,800  15965      5,054    625    129,116 XY_Wing
+ *     61,236,200  15535      3,941    308    198,818 XYZ_Wing
+ *     87,140,200  15245      5,715    766    113,760 W_Wing
+ *     41,640,300  14711      2,830    314    132,612 Skyscraper
+ *     87,735,500  14547      6,031    582    150,748 EmptyRectangle
+ *     53,525,400  13965      3,832    216    247,802 Swordfish
+ *    281,187,500  13909     20,216    175  1,606,785 Coloring
+ *    868,606,600  13794     62,969    795  1,092,586 XColoring
+ *  1,860,950,100  13522    137,623 129237     14,399 GEM
+ *    146,291,800  12173     12,017     92  1,590,128 NakedQuad
+ *  1,388,196,900  12158    114,179    907  1,530,536 URT
+ *  2,751,222,500  11513    238,966   2076  1,325,251 BigWings
+ *  1,148,007,800  10354    110,875    218  5,266,090 FinnedSwampfish
+ *  2,384,030,800  10175    234,302    280  8,514,395 FinnedSwordfish
+ *  6,373,652,800   9966    639,539   2543  2,506,351 DeathBlossom
+ *  8,733,043,700   7821  1,116,614   1995  4,377,465 ALS_XZ
+ *  6,636,041,300   6560  1,011,591   2713  2,446,015 ALS_Wing
+ * 12,824,417,800   4411  2,907,371   1756  7,303,199 ALS_Chain
+ *  6,534,257,200   3032  2,155,098    568 11,503,973 UnaryChain
+ *  4,762,527,800   2776  1,715,607   3475  1,370,511 MultipleChain
+ *  6,406,347,100   1344  4,766,627   6363  1,006,812 DynamicChain
+ *    104,446,800      3 34,815,600     30  3,481,560 DynamicPlus
+ * 64,195,826,300
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  83,203,219,200 (01:23)  56,794,006
+ * NOTES:
+ * 1. 1:23 is back to best, three seconds faster than previous, sans Nishio. I
+ *    have been "fixing" UniqueRectangle, which's down about 100 elims. I think
+ *    that what I've done is correct, but I've really made no attempt to verify
+ *    that is in fact correct. I'm just winging it. Sigh.
+ * 2. DiufSudoku_V6_30.197.2021-12-16.7z is OK to release. No rush.
+ * 3. Next I seek more "bad eggs".
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.198 2021-12-18 11:25:18</b> Endless Pissing About. BigWing speed
+ * and move and rename Idx visitor interfaces.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,851,300 105885        168  56360        316 NakedSingle
+ *     18,731,400  49525        378  16152      1,159 HiddenSingle
+ *     78,991,700  33373      2,366  24071      3,281 Locking
+ *     75,678,700  22112      3,422   7891      9,590 NakedPair
+ *     70,830,600  20058      3,531   8233      8,603 HiddenPair
+ *    115,952,300  17990      6,445   1621     71,531 NakedTriple
+ *    106,061,000  17595      6,027    986    107,566 HiddenTriple
+ *     47,501,800  17406      2,729    643     73,875 Swampfish
+ *     49,595,200  17155      2,891   1137     43,619 TwoStringKite
+ *     79,250,500  16018      4,947    632    125,396 XY_Wing
+ *     60,479,600  15584      3,880    306    197,645 XYZ_Wing
+ *     88,330,000  15296      5,774    772    114,417 W_Wing
+ *     42,326,200  14753      2,868    319    132,684 Skyscraper
+ *     87,008,000  14587      5,964    566    153,724 EmptyRectangle
+ *     55,649,900  14021      3,969    219    254,109 Swordfish
+ *    284,022,400  13962     20,342    178  1,595,631 Coloring
+ *    872,636,900  13846     63,024    692  1,261,035 XColoring
+ *  1,874,521,900  13595    137,883 131495     14,255 GEM
+ *    145,320,200  12245     11,867     92  1,579,567 NakedQuad
+ *  1,442,381,400  12230    117,937    905  1,593,791 URT
+ *    296,125,000  11585     25,561    796    372,016 WXYZ_Wing
+ *    424,288,400  11084     38,279    856    495,664 VWXYZ_Wing
+ *    495,451,500  10634     46,591    372  1,331,858 UVWXYZ_Wing
+ *    381,281,900  10448     36,493     81  4,707,183 TUVWXYZ_Wing
+ *    192,566,100  10402     18,512      8 24,070,762 STUVWXYZ_Wing
+ *  1,160,044,000  10398    111,564    213  5,446,215 FinnedSwampfish
+ *  2,420,293,900  10223    236,749    275  8,801,068 FinnedSwordfish
+ *  8,690,797,800  10019    867,431   2533  3,431,029 DeathBlossom
+ *  9,051,060,200   7886  1,147,737   2012  4,498,538 ALS_XZ
+ *  6,614,201,400   6614  1,000,030   2744  2,410,423 ALS_Wing
+ * 13,080,431,200   4447  2,941,405   1770  7,390,074 ALS_Chain
+ *  6,914,907,400   3060  2,259,773    568 12,174,132 UnaryChain
+ *  4,109,940,800   2804  1,465,742    187 21,978,293 NishioChain
+ *  4,631,395,900   2626  1,763,669   3470  1,334,696 MultipleChain
+ *  6,157,667,300   1253  4,914,339   6065  1,015,279 DynamicChain
+ *    118,572,700      3 39,524,233     30  3,952,423 DynamicPlus
+ * 70,352,146,500
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  90,213,694,100 (01:30)  61,579,313
+ * NOTES:
+ * 1. 1:30 is 7 seconds above par but uses 5 BigWing instead of BigWings, which
+ *    is actually faster for not using the ALS-cache, but doesn't use ALS-cache
+ *    so DeathBlossom has to prime the cache, and consequently takes longer,
+ *    hence BigWings is preferred, because it's faster overall. Sigh.
+ * 2. DiufSudoku_V6_30.198.2021-12-18.7z is OK to release. No rush.
+ * 3. Next I still seek "bad eggs" but not finding much. I reckon it's about as
+ *    good as I can make it. Another might do orders of magnitude better.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.199 2021-12-24 05:59:19</b> Reorder Techs to run faster hinters
+ * first which forces a rejig of Difficulty's to reduce largest, so I went the
+ * whole hog and split Techs into 10 Difficulty, for a nicer Generator. Also
+ * Generator hits a BFIIK bug on Lockings grid field, so I removed the field.
+ * This piece of s__t really is NOT very reliable. Poorly engineered. Sigh.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,505,500 106001        165  56528        309 NakedSingle
+ *     18,686,600  49473        377  16188      1,154 HiddenSingle
+ *     76,574,500  33285      2,300  24073      3,180 Locking
+ *     78,083,700  22035      3,543   7879      9,910 NakedPair
+ *     70,866,400  19986      3,545   8223      8,618 HiddenPair
+ *    118,060,400  17926      6,585   1595     74,019 NakedTriple
+ *    106,508,500  17536      6,073    981    108,571 HiddenTriple
+ *     46,891,900  17348      2,703    640     73,268 Swampfish
+ *     49,766,100  17094      2,911   1145     43,463 TwoStringKite
+ *     93,921,700  15949      5,888    906    103,666 W_Wing
+ *     71,258,400  15321      4,651    529    134,703 XY_Wing
+ *     43,308,600  14968      2,893    319    135,763 Skyscraper
+ *     89,226,300  14802      6,027    586    152,263 EmptyRectangle
+ *     52,148,600  14216      3,668    267    195,313 XYZ_Wing
+ *     54,034,400  13966      3,868    216    250,159 Swordfish
+ *    282,028,200  13910     20,275    175  1,611,589 Coloring
+ *    899,167,200  13795     65,180    795  1,131,027 XColoring
+ *  1,875,817,400  13523    138,713 129237     14,514 GEM
+ *  1,362,008,400  12174    111,878    908  1,500,009 URT
+ *    135,972,000  11528     11,794     91  1,494,197 NakedQuad
+ *  2,852,636,000  11513    247,775   2076  1,374,102 BigWings
+ *  1,140,731,500  10354    110,173    218  5,232,713 FinnedSwampfish
+ *  2,373,017,800  10175    233,220    280  8,475,063 FinnedSwordfish
+ *  6,473,106,800   9966    649,519   2543  2,545,460 DeathBlossom
+ *  8,796,405,400   7821  1,124,716   1995  4,409,225 ALS_XZ
+ *  6,566,347,800   6560  1,000,967   2713  2,420,327 ALS_Wing
+ * 12,816,889,000   4411  2,905,665   1756  7,298,911 ALS_Chain
+ *  6,523,024,500   3032  2,151,393    568 11,484,198 UnaryChain
+ *  4,718,613,800   2776  1,699,788   3475  1,357,874 MultipleChain
+ *  6,414,501,800   1344  4,772,694   6363  1,008,093 DynamicChain
+ *    112,813,100      3 37,604,366     30  3,760,436 DynamicPlus
+ * 64,329,922,300
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  82,910,858,800 (01:22)  56,594,442
+ * NOTES:
+ * 1. 1:22 is a second under par, which is about what I'd expect from putting
+ *    the-faster-less-used-hinters before slower ones.
+ * 2. DiufSudoku_V6_30.199.2021-12-24.7z is OK to release. No rush.
+ * 3. Next I shall extract white phosporous from dog s__t in order to build my
+ *    own 81 bit semiconductors (3 9-bit bytes is an int, 3 of them is a long),
+ *    in order to REALLY kick Sudoku's ass. Please don't feed them after dark,
+ *    never get them wet, and don't take them seriously. Nor me. Sigh smile.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.200 2021-12-27 07:11:20</b> faster BigWings. new IntArrays.
+ * Chainers isX/YChain fields. Remove CASs from Cells.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     19,237,300 106001        181  56528        340 NakedSingle
+ *     18,299,900  49473        369  16188      1,130 HiddenSingle
+ *     77,698,500  33285      2,334  24073      3,227 Locking
+ *     79,194,900  22035      3,594   7879     10,051 NakedPair
+ *     71,449,300  19986      3,574   8223      8,688 HiddenPair
+ *    117,319,700  17926      6,544   1595     73,554 NakedTriple
+ *    107,689,600  17536      6,141    981    109,775 HiddenTriple
+ *     45,190,600  17348      2,604    640     70,610 Swampfish
+ *     49,128,900  17094      2,874   1145     42,907 TwoStringKite
+ *     93,397,000  15949      5,855    906    103,087 W_Wing
+ *     72,078,100  15321      4,704    529    136,253 XY_Wing
+ *     48,622,900  14968      3,248    319    152,422 Skyscraper
+ *     92,284,500  14802      6,234    586    157,482 EmptyRectangle
+ *     53,895,500  14216      3,791    267    201,855 XYZ_Wing
+ *     52,716,200  13966      3,774    216    244,056 Swordfish
+ *    276,537,300  13910     19,880    175  1,580,213 Coloring
+ *    861,886,900  13795     62,478    795  1,084,134 XColoring
+ *  1,838,092,600  13523    135,923 129237     14,222 GEM
+ *  1,350,888,700  12174    110,965    908  1,487,762 URT
+ *    137,006,800  11528     11,884     91  1,505,569 NakedQuad
+ *  2,650,495,500  11513    230,217   2076  1,276,731 BigWings
+ *  1,124,440,000  10354    108,599    218  5,157,981 FinnedSwampfish
+ *  2,342,677,400  10175    230,238    280  8,366,705 FinnedSwordfish
+ *  6,581,696,800   9966    660,415   2543  2,588,162 DeathBlossom
+ *  8,681,504,500   7821  1,110,024   1995  4,351,631 ALS_XZ
+ *  6,594,637,200   6560  1,005,280   2713  2,430,754 ALS_Wing
+ * 12,848,937,200   4411  2,912,930   1756  7,317,162 ALS_Chain
+ *  6,761,683,300   3032  2,230,106    568 11,904,372 UnaryChain
+ *  4,850,240,300   2776  1,747,204   3475  1,395,752 MultipleChain
+ *  6,273,320,000   1344  4,667,648   6363    985,906 DynamicChain
+ *    120,168,500      3 40,056,166     30  4,005,616 DynamicPlus
+ * 64,292,415,900
+ * pzls     total (ns) (mm:ss)   each (ns)
+ * 1465 82,361,085,600 (01:22)  56,219,171
+ * NOTES:
+ * 1. 1:22 is same as last time, so I think I can move "par" downto 1:22. These
+ *    changes are mostly about better RAM usage, which I hoped would be faster.
+ *    I'd also hoped that isX/YChain fields would be faster. They aren't, which
+ *    is a disappointment, so I might revert this change in a future release.
+ * 2. DiufSudoku_V6_30.200.2021-12-27.7z is OK to release. No rush.
+ * 3. Next I keep hunting my bads. There's lots of silly code in SE. The more I
+ *    look at it the less I like it. I prefer HoDoKu, despite its slow nets.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.201 2021-12-27 12:21:21</b> Cells and IntArrays use MyArrayList
+ * instead of an Iterator.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,753,500 106001        167  56528        314 NakedSingle
+ *     18,778,700  49473        379  16188      1,160 HiddenSingle
+ *     77,412,000  33285      2,325  24073      3,215 Locking
+ *     76,924,700  22035      3,491   7879      9,763 NakedPair
+ *     72,840,800  19986      3,644   8223      8,858 HiddenPair
+ *    120,357,300  17926      6,714   1595     75,459 NakedTriple
+ *    105,933,000  17536      6,040    981    107,984 HiddenTriple
+ *     47,588,300  17348      2,743    640     74,356 Swampfish
+ *     50,079,400  17094      2,929   1145     43,737 TwoStringKite
+ *     93,489,500  15949      5,861    906    103,189 W_Wing
+ *     70,465,700  15321      4,599    529    133,205 XY_Wing
+ *     45,301,500  14968      3,026    319    142,010 Skyscraper
+ *     90,506,000  14802      6,114    586    154,447 EmptyRectangle
+ *     57,288,900  14216      4,029    267    214,565 XYZ_Wing
+ *     54,173,400  13966      3,878    216    250,802 Swordfish
+ *    268,552,800  13910     19,306    175  1,534,587 Coloring
+ *    853,750,100  13795     61,888    795  1,073,899 XColoring
+ *  1,841,118,900  13523    136,147 129237     14,246 GEM
+ *  1,381,736,900  12174    113,499    908  1,521,736 URT
+ *    136,986,200  11528     11,882     91  1,505,342 NakedQuad
+ *  2,655,209,100  11513    230,627   2076  1,279,002 BigWings
+ *  1,130,100,400  10354    109,146    218  5,183,946 FinnedSwampfish
+ *  2,346,156,800  10175    230,580    280  8,379,131 FinnedSwordfish
+ *  6,545,876,600   9966    656,820   2543  2,574,076 DeathBlossom
+ *  8,624,637,400   7821  1,102,753   1995  4,323,126 ALS_XZ
+ *  6,502,186,400   6560    991,186   2713  2,396,677 ALS_Wing
+ * 12,783,065,300   4411  2,897,997   1756  7,279,649 ALS_Chain
+ *  6,732,295,900   3032  2,220,414    568 11,852,633 UnaryChain
+ *  4,956,096,800   2776  1,785,337   3475  1,426,214 MultipleChain
+ *  6,354,195,000   1344  4,727,823   6363    998,616 DynamicChain
+ *    121,309,800      3 40,436,600     30  4,043,660 DynamicPlus
+ * 64,232,167,100
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  82,396,745,100 (01:22)  56,243,512
+ * NOTES:
+ * 1. 1:22 is actually about 35ms slower, which is a real disappointment. I had
+ *    hoped it would be half-a-second faster, but I'll stick with it, to let it
+ *    bed in, before I decide, but watch this space. java.util is so highly
+ *    optimised that any replacement (without the proprietory opts) is slower.
+ * 2. DiufSudoku_V6_30.201.2021-12-27.7z is OK to release. No rush.
+ * 3. Next I keep hunting stuff to fix and improve.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.202 2021-12-28 11:33:22</b> Chainers need not check for empty
+ * parents list because the rule is parents is null or populated, NEVER empty.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     19,166,200 106001        180  56528        339 NakedSingle
+ *     20,584,900  49473        416  16188      1,271 HiddenSingle
+ *     79,768,000  33285      2,396  24073      3,313 Locking
+ *     80,881,800  22035      3,670   7879     10,265 NakedPair
+ *     73,297,600  19986      3,667   8223      8,913 HiddenPair
+ *    119,703,800  17926      6,677   1595     75,049 NakedTriple
+ *    108,934,900  17536      6,212    981    111,044 HiddenTriple
+ *     46,895,200  17348      2,703    640     73,273 Swampfish
+ *     50,164,400  17094      2,934   1145     43,811 TwoStringKite
+ *     98,154,700  15949      6,154    906    108,338 W_Wing
+ *     76,741,400  15321      5,008    529    145,068 XY_Wing
+ *     49,892,700  14968      3,333    319    156,403 Skyscraper
+ *     99,370,200  14802      6,713    586    169,573 EmptyRectangle
+ *     61,649,900  14216      4,336    267    230,898 XYZ_Wing
+ *     55,497,400  13966      3,973    216    256,932 Swordfish
+ *    292,240,600  13910     21,009    175  1,669,946 Coloring
+ *    920,777,400  13795     66,747    795  1,158,210 XColoring
+ *  1,991,403,000  13523    147,260 129237     15,408 GEM
+ *  1,404,554,500  12174    115,373    908  1,546,866 URT
+ *    143,809,000  11528     12,474     91  1,580,318 NakedQuad
+ *  2,798,773,700  11513    243,096   2076  1,348,156 BigWings
+ *  1,184,556,200  10354    114,405    218  5,433,744 FinnedSwampfish
+ *  2,487,535,200  10175    244,475    280  8,884,054 FinnedSwordfish
+ *  7,042,097,300   9966    706,612   2543  2,769,208 DeathBlossom
+ *  9,138,927,900   7821  1,168,511   1995  4,580,916 ALS_XZ
+ *  6,882,784,400   6560  1,049,204   2713  2,536,964 ALS_Wing
+ * 13,893,220,600   4411  3,149,675   1756  7,911,856 ALS_Chain
+ *  6,807,379,400   3032  2,245,177    568 11,984,822 UnaryChain
+ *  4,956,697,400   2776  1,785,553   3475  1,426,387 MultipleChain
+ *  6,702,997,800   1344  4,987,349   6363  1,053,433 DynamicChain
+ *    128,042,500      3 42,680,833     30  4,268,083 DynamicPlus
+ * 67,816,500,000
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  86,602,089,900 (01:26)  59,114,054
+ * NOTES:
+ * 1. 1:26 is 4 seconds over par, which is a worry, but all hinters (not just
+ *    the ones I've changed) are slower so I blame hot box syndrome, where the
+ *    CPU slows itself down instead of overheating, despite the fact that it's
+ *    only about 25c today, which is "not at all hot" in my mind. Sigh.
+ * 2. DiufSudoku_V6_30.202.2021-12-29.7z is OK to release. No rush.
+ * 3. Next I look for more stuff to fix.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.203 2021-12-31 13:42:24</b> DeathBlossom is a little bit faster.
+ * It now uses parallel arrays to hold als-fields in the alssByValue array, to
+ * save dereferencing them 270/85/30 million times, which was a bit slow Redge.
+ * Recurse now also builds-up the dbIdx, commonCands and freeCands fields as it
+ * calls itself, instead of setting local vars from which "old" values must be
+ * removed. DeathBlossomData is history. Repeated dereferencing wasted time. It
+ * was a mistake. My bad!
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     18,979,600 106001        179  56528        335 NakedSingle
+ *     20,073,700  49473        405  16188      1,240 HiddenSingle
+ *     76,640,700  33285      2,302  24073      3,183 Locking
+ *     75,230,400  22035      3,414   7879      9,548 NakedPair
+ *     72,129,600  19986      3,609   8223      8,771 HiddenPair
+ *    116,220,900  17926      6,483   1595     72,865 NakedTriple
+ *    106,949,700  17536      6,098    981    109,021 HiddenTriple
+ *     48,055,200  17348      2,770    640     75,086 Swampfish
+ *     49,115,500  17094      2,873   1145     42,895 TwoStringKite
+ *     95,928,300  15949      6,014    906    105,881 W_Wing
+ *     74,738,600  15321      4,878    529    141,282 XY_Wing
+ *     46,473,100  14968      3,104    319    145,683 Skyscraper
+ *    106,189,200  14802      7,173    586    181,210 EmptyRectangle
+ *     61,505,000  14216      4,326    267    230,355 XYZ_Wing
+ *     54,548,600  13966      3,905    216    252,539 Swordfish
+ *    276,249,800  13910     19,859    175  1,578,570 Coloring
+ *    881,117,600  13795     63,872    795  1,108,324 XColoring
+ *  1,863,363,000  13523    137,792 129237     14,418 GEM
+ *  1,370,673,900  12174    112,590    908  1,509,552 URT
+ *    136,418,400  11528     11,833     91  1,499,103 NakedQuad
+ *  2,659,068,300  11513    230,962   2076  1,280,861 BigWings
+ *  1,236,009,000  10354    119,375    218  5,669,766 FinnedSwampfish
+ *  2,682,150,900  10175    263,602    280  9,579,110 FinnedSwordfish
+ *  4,653,150,100   9966    466,902   2543  1,829,787 DeathBlossom
+ *  8,802,086,700   7821  1,125,442   1995  4,412,073 ALS_XZ
+ *  6,472,043,300   6560    986,591   2713  2,385,567 ALS_Wing
+ * 12,937,551,600   4411  2,933,020   1756  7,367,626 ALS_Chain
+ *  6,466,455,800   3032  2,132,736    568 11,384,605 UnaryChain
+ *  4,711,879,800   2776  1,697,363   3475  1,355,936 MultipleChain
+ *  6,355,866,800   1344  4,729,067   6363    998,878 DynamicChain
+ *    119,115,400      3 39,705,133     30  3,970,513 DynamicPlus
+ * 62,645,978,500
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  81,099,071,100 (01:21)  55,357,727
+ * NOTES:
+ * 1. 1:21 is a second under par, but DeathBlossom is what I've changed and it
+ *    was 7.042 and is now 4.653 which is about 2.4 seconds faster, so I know
+ *    not what's going on with the rest of it, but it'll come good again.
+ * 2. DiufSudoku_V6_30.203.2021-12-31.7z is OK to release. No rush.
+ * 3. Next I find more of my badness, and fix it.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.204 2022-01-01 10:11:24</b> RccFinders idx caching. Promoted
+ * NakedQuad and HiddenQuad.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,737,100 105881        167  56359        314 NakedSingle
+ *     18,851,300  49522        380  16180      1,165 HiddenSingle
+ *     78,801,200  33342      2,363  24077      3,272 Locking
+ *     78,676,500  22083      3,562   7880      9,984 NakedPair
+ *     74,550,400  20032      3,721   8228      9,060 HiddenPair
+ *    118,265,500  17968      6,582   1621     72,958 NakedTriple
+ *    108,568,100  17573      6,178    968    112,157 HiddenTriple
+ *     47,730,000  17388      2,744    624     76,490 Swampfish
+ *     46,507,000  17141      2,713   1131     41,120 TwoStringKite
+ *     97,512,500  16010      6,090    914    106,687 W_Wing
+ *     76,727,600  15373      4,991    535    143,416 XY_Wing
+ *     46,639,200  15017      3,105    324    143,948 Skyscraper
+ *     99,522,100  14849      6,702    569    174,907 EmptyRectangle
+ *     61,045,400  14280      4,274    262    232,997 XYZ_Wing
+ *     55,882,100  14035      3,981    219    255,169 Swordfish
+ *    163,945,600  13976     11,730     94  1,744,102 NakedQuad
+ *     78,743,000  13960      5,640     18  4,374,611 Jellyfish
+ *    130,109,200  13956      9,322     12 10,842,433 HiddenQuad
+ *    286,207,800  13954     20,510    175  1,635,473 Coloring
+ *    915,349,000  13840     66,137    692  1,322,758 XColoring
+ *  1,954,226,200  13589    143,809 131243     14,890 GEM
+ *  1,398,916,500  12240    114,290    908  1,540,656 URT
+ *  2,761,153,900  11593    238,174   2107  1,310,466 BigWings
+ *  1,280,419,400  10418    122,904    213  6,011,358 FinnedSwampfish
+ *  2,782,086,200  10243    271,608    275 10,116,677 FinnedSwordfish
+ *  4,879,096,300  10039    486,014   2530  1,928,496 DeathBlossom
+ *  8,912,592,800   7908  1,127,035   2013  4,427,517 ALS_XZ
+ *  6,645,076,800   6633  1,001,820   2753  2,413,758 ALS_Wing
+ * 12,951,348,300   4457  2,905,844   1775  7,296,534 ALS_Chain
+ *    790,701,600   3065    257,977     15 52,713,440 SueDeCoq
+ *  6,923,654,500   3062  2,261,154    571 12,125,489 UnaryChain
+ *  4,287,998,800   2803  1,529,789    187 22,930,474 NishioChain
+ *  4,799,561,200   2625  1,828,404   3471  1,382,760 MultipleChain
+ *  6,226,839,700   1251  4,977,489   6045  1,030,081 DynamicChain
+ *    139,567,500      3 46,522,500     30  4,652,250 DynamicPlus
+ * 69,334,610,300
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  88,143,351,600 (01:28)  60,166,110
+ * NOTES:
+ * 1. 1:28 is 7 seconds over par, but I've reinstated all the hinters that I'd
+ *    previously dropped for being "a bit slow". They're still a bit slow but
+ *    there's no point pushing the batch below about 3:00. In the GUI I'll wait
+ *    a few milliseconds for a more accurate answer to the question "What's the
+ *    next simplest available hint?". Basically, I wait for hinters that take
+ *    upto 100ms per elimination in the batch. If I can't bring a hinter under
+ *    100ms/elim, then he gets the chop, so the GUI is snappy enough. Simples.
+ * 2. DiufSudoku_V6_30.204.2022-01-01.7z is OK to release. Soon.
+ * 3. Next I find some more stupidity, and fix it.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.204 2022-01-01 10:11:24</b> RccFinders idx caching. Promoted
+ * NakedQuad and HiddenQuad.
+ * <b>KRC 6.30.205 2022-01-06 16:36:25</b> ChainerUnary seeks only XY-Cycles
+ * and XY-Chains. MyLinkedHashMap.clear uses the linked list on small maps.
+ * IDKFA is now DynamicPlus+ only (not high DynamicChain).
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,815,500 105881        168  56359        316 NakedSingle
+ *     18,619,700  49522        375  16180      1,150 HiddenSingle
+ *     80,833,600  33342      2,424  24077      3,357 Locking
+ *     75,950,000  22083      3,439   7880      9,638 NakedPair
+ *     72,453,800  20032      3,616   8228      8,805 HiddenPair
+ *    118,851,800  17968      6,614   1621     73,320 NakedTriple
+ *    107,087,500  17573      6,093    968    110,627 HiddenTriple
+ *     46,341,100  17388      2,665    624     74,264 Swampfish
+ *     47,110,400  17141      2,748   1131     41,653 TwoStringKite
+ *     96,336,300  16010      6,017    914    105,400 W_Wing
+ *     76,982,800  15373      5,007    535    143,893 XY_Wing
+ *     46,341,000  15017      3,085    324    143,027 Skyscraper
+ *    104,371,500  14849      7,028    569    183,429 EmptyRectangle
+ *     61,675,100  14280      4,318    262    235,401 XYZ_Wing
+ *     54,894,800  14035      3,911    219    250,661 Swordfish
+ *    163,309,300  13976     11,684     94  1,737,332 NakedQuad
+ *     76,930,900  13960      5,510     18  4,273,938 Jellyfish
+ *    129,064,200  13956      9,247     12 10,755,350 HiddenQuad
+ *    281,747,200  13954     20,191    175  1,609,984 Coloring
+ *    912,341,400  13840     65,920    692  1,318,412 XColoring
+ *  1,923,558,300  13589    141,552 131243     14,656 GEM
+ *  1,373,698,300  12240    112,230    908  1,512,883 URT
+ *  2,802,733,900  11593    241,760   2107  1,330,201 BigWings
+ *  1,252,447,000  10418    120,219    213  5,880,032 FinnedSwampfish
+ *  2,742,267,100  10243    267,721    275  9,971,880 FinnedSwordfish
+ *  4,897,177,300  10039    487,815   2530  1,935,643 DeathBlossom
+ *  8,991,515,000   7908  1,137,015   2013  4,466,723 ALS_XZ
+ *  6,714,289,400   6633  1,012,255   2753  2,438,899 ALS_Wing
+ * 13,069,468,300   4457  2,932,346   1775  7,363,080 ALS_Chain
+ *    786,451,900   3065    256,591     15 52,430,126 SueDeCoq
+ *  5,277,646,600   3062  1,723,594    571  9,242,813 UnaryChain
+ *  4,346,535,500   2803  1,550,672    187 23,243,505 NishioChain
+ *  4,813,564,900   2625  1,833,739   3471  1,386,794 MultipleChain
+ *  6,125,563,600   1251  4,896,533   6045  1,013,327 DynamicChain
+ *    114,519,000      3 38,173,000     30  3,817,300 DynamicPlus
+ * 67,820,494,000
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  86,836,365,500 (01:26)  59,273,969
+ * NOTES:
+ * 1. 1:26 is a couple of seconds faster, but ____ it, she'll have to do.
+ * 2. DiufSudoku_V6_30.205.2022-01-06.7z is OK to release. Soon.
+ * 3. Next I find some more of my own stupidity, and fix it.
+ * </pre>
  */
 final class BuildTimings {
-	// never called
-	private BuildTimings(){}
+
+	private BuildTimings() { } // Never used
+
 }

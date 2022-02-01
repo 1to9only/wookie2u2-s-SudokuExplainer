@@ -1,29 +1,35 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
-import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.CSP;
+import static diuf.sudoku.utils.Frmt.NL;
 import static diuf.sudoku.utils.Frmt.dbl;
 import java.util.LinkedList;
 import java.util.List;
-import static diuf.sudoku.utils.Frmt.CSP;
 
 /**
  * The Difficulty enum is used only to generate Sudokus.
  * <p>
  * The Difficulty of a Sudoku Puzzle is closely aligned with the difficulty
- * field of the Tech(nique) enum, and there's a smattering of "custom"
+ * field of the Tech(nique) enum, and there's a random smatter of "custom"
  * {@code getDifficulty()} methods in various {@code *Hint} classes.
+ * All "custom" hints ADD difficult, they NEVER take it away, so a hinters
+ * difficulty is always atleast a floor for the difficulty of hints that it
+ * produces (most commonly ALL hints it produces ARE exactly that difficulty).
  * <p>
  * Each Difficulty category (ie this enum) is used to select/reject a puzzle
  * when generating in the {@link diuf.sudoku.gui.GenerateDialog}. The rest of
- * the code-base seems to be getting along fine without it, and I think it'd be
- * good if things stayed that way, considering how much of a pain-in-the-ass
- * maintaining the Difficulty boundaries has turned out to be.
+ * the code-base seems to be getting along fine without any Difficulty, and I
+ * personally think it'd be good if things stayed that way, considering how
+ * much of an utter-pain-in-the-ass maintaining the Difficulty boundaries has
+ * turned out to be. This pain has been mitigated by the adoption of the floor
+ * and ceiling Tech parameters to my constructor, so that my min and max are
+ * automatically the first and last+1 Tech.difficulty.
  * <p>
  * IDFKA is ironic! It's an acronym inherited from Doom meaning "I Don't Know
  * ____ All" [About Nothing]. It's ironic because IDKFA puzzles are about as
@@ -35,8 +41,10 @@ import static diuf.sudoku.utils.Frmt.CSP;
  * probably just ignore there existence, and work on forgiving me for being a
  * insufferable smartass. I hope I hurt your feelings, because I sure as hell
  * can't solve them, without a computer, so I feel bad about it, so don't feel
- * too bad about it. IDKFA puzzles are REALLY REALLY hard. That's all that
- * really needs saying. Forgive me. I'm not an ___hole really, just a smartass.
+ * too bad about it. IDKFA puzzles are REALLY REALLY hard, and so are REALLY
+ * REALLY rare, so are REALLY REALLY hard to generate randomly. That's all that
+ * really needs saying. Forgive me. I'm not an ___hole really, just a bit of a
+ * smartass.
  * <p>
  * Difficulty was exhumed to {@code diuf.sudoku} for public visibility.
  * Formerly Difficulty was an inner-class of the GenerateDialog.
@@ -53,18 +61,22 @@ import static diuf.sudoku.utils.Frmt.CSP;
  */
 public enum Difficulty {
 
-	//Name		(index, minDifficulty, maxDifficulty)
-	  Easy		(0.0,  1.5, "Testing 123")
-	, Medium	(1.5,  2.5, "L Plates")
-	, Hard		(2.5,  3.0, "P Plates")
-	, Fiendish	(3.0,  4.0, "Car Licence")
-	, Nightmare	(4.0,  6.0, "Truck Licence")
-	, Diabolical(6.0,  9.0, "Bus Licence")
-	, IDKFA		(9.0,100.0, "FTL Licence")
+	//nb: do NOT static import Tech.* coz there names collide with hinters,
+	// which seems to send generator, and possibly lambda's ____ing mental.
+	//Name		(floor,					ceiling,				licence)
+	  Easy		(null,					Tech.DirectNakedPair,	"Testing Testing 123")
+	, Medium	(Tech.DirectNakedPair,	Tech.NakedPair,			"L Plates")
+	, Hard		(Tech.NakedPair,		Tech.XYZ_Wing,			"P Plates")
+	, Fiendish	(Tech.XYZ_Wing,			Tech.BigWings,			"Car Licence")
+	, Airotic	(Tech.BigWings,			Tech.FinnedSwampfish,	"Air Licence")
+	, AlsFish	(Tech.FinnedSwampfish,	Tech.AlignedPair,		"Alice fishes?")
+	, Ligature	(Tech.AlignedPair,		Tech.UnaryChain,		"Aligned nonsense")
+	, Diabolical(Tech.UnaryChain,		Tech.DynamicPlus,		"NASA Licence")
+	, IDKFA		(Tech.DynamicPlus,		null,					"FTL Licence")
 	;
 
 	// Weird: Difficulty.values() reversed.
-	public static Difficulty[] reverseValues() {
+	public static Difficulty[] reverseDifficulties() {
 		final Difficulty[] values = values();
 		final int n = values.length;
 		final Difficulty[] result = new Difficulty[n];
@@ -73,23 +85,12 @@ public enum Difficulty {
 		return result;
 	}
 
-	// get an array of the Techs of this difficulty
-	public Tech[] techs() {
-		return Tech.array(techs(min, max));
-	}
-
 	// get a list of Tech's from min (inclusive) to less than max (exclusive)
 	public static List<Tech> techs(double min, double max) {
 		final List<Tech> results = new LinkedList<>();
-		for ( Tech tech : Tech.values() ) {
-			if ( tech.difficulty >= min
-			  && tech.difficulty < max
-			  // ignore Direct.* Tech's here, or categorisations go mental.
-			  && !tech.isDirect
-			) {
+		for ( Tech tech : Tech.values() )
+			if ( tech.difficulty>=min && tech.difficulty<max )
 				results.add(tech);
-			}
-		}
 		return results;
 	}
 
@@ -104,24 +105,67 @@ public enum Difficulty {
 		return sb.toString();
 	}
 
-	public final double min; // minimum difficulty
-	public final double max; // maximum difficulty
-	public final String html; // html describing this Difficulty in the GUI
-
-	private Difficulty(double min, double max, String licence) {
-		this.min = min;
-		this.max = max;
-		this.html = html(names(techs(min, max)), licence);
+	/**
+	 * get the Difficulty for this target maximum-difficulty-of-a-puzzle.
+	 *
+	 * @param targetMaxD the maximum of the hint difficulties in this puzzle. <br>
+	 *  If you pass me a targetMaxD >= 100.0D then I return IDKFA (hardest).
+	 * @return the lowest Difficulty whose max exceeds targetMaxD
+	 */
+	public static Difficulty get(double targetMaxD) {
+		for ( Difficulty d : values() )
+			if ( targetMaxD < d.max )
+				return d;
+		return IDKFA;
 	}
 
-	// html is NOT static in order to access the super.name() method,
-	// which is allowed, even when I'm called by the constructor.
-	private String html(String techNames, String licence) {
-		final String NL = System.lineSeparator();
-		return "<html><body>"+NL
-			+"<b>"+ordinal()+COLON_SP+name()+"</b> "+techNames+NL
-			+"<p><b>Rating</b>: "+dbl(min)+" - "+dbl(max)+" ["+licence+"]"+NL
-			+"</body></html>"+NL;
+	/**
+	 * minimum (floor) difficulty.
+	 */
+	public final double min;
+	/**
+	 * maximum (ceiling) difficulty.
+	 */
+	public final double max;
+	/**
+	 * just some silly text, to lighten the mood, and also a brain-hook.
+	 */
+	public final String licence;
+
+	private Difficulty(final Tech floor, final Tech ceil, final String licence) {
+		this.min = floor!=null ? floor.difficulty : 1.0; // Easy
+		this.max = ceil!=null ? ceil.difficulty : 100.0; // IDKFA
+		this.licence = licence;
 	}
+
+	/**
+	 * get techs in this Difficulty.
+	 *
+	 * @return an array of Tech that are contained in this Difficulty.
+	 */
+	public Tech[] techs() {
+		return Tech.array(techs(min, max));
+	}
+
+	/**
+	 * Get HTML describing this Difficulty.
+	 * <p>
+	 * The HTML string is cached, which is safe because Difficulty is invariant
+	 * by design, that is, all fields are immutable, ergo nothing changes. If
+	 * you introduce a mutable field then firstly don't, and secondly get rid
+	 * of the cache for HTML, and also blow your nose REALLY hard and then
+	 * double-check your hanky for s__t. Just don't. OK?
+	 *
+	 * @return HTML describing this Difficulty
+	 */
+	public String getHtml() {
+		if ( html == null )
+			html = "<html><body>"+NL
+				+"<b>"+ordinal()+" "+name()+"</b>: "+names(techs(min, max))+NL
+				+"<p><b>Rating</b>: "+dbl(min)+" - "+dbl(max)+" ["+licence+"]"+NL
+				+"</body></html>"+NL;
+		return html;
+	}
+	private String html;
 
 }

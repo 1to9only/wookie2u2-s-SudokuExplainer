@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -137,9 +137,19 @@ public abstract class AHint implements Comparable<AHint> {
 	public final ARegion[] bases; // regions to paint blue
 	public final ARegion[] covers; // regions to paint green
 
+	// various hint-HTML's display the debugMessage
+	public String debugMessage = "";
+	public void setDebugMessage(String msg) {
+		debugMessage = msg;
+	}
+
 	/** set true when {@link diuf.sudoku.solver.hinters.Validator#isValid}
 	 * finds elimination of this cells solution value, before toString. */
 	public boolean isInvalid;
+	public void setIsInvalid(boolean b) {
+		isInvalid = b;
+	}
+
 	/** {@link diuf.sudoku.solver.hinters.Validator#isValid} sets invalidity
 	 * to the WHOLE Logged line. */
 	public String invalidity;
@@ -316,10 +326,10 @@ public abstract class AHint implements Comparable<AHint> {
 
 	/** @return the id of the first Region, else null. */
 	protected String getFirstRegionId() {
-		ARegion[] rs = getBases();
-		if ( rs==null || rs.length<1 )
+		ARegion[] bases = getBases();
+		if ( bases==null || bases.length<1 )
 			return null;
-		return rs[0].id;
+		return bases[0].id;
 	}
 
 	/**
@@ -735,12 +745,12 @@ public abstract class AHint implements Comparable<AHint> {
 				// slow, but it's all I can think of. Random numbers are OUT!
 				hc = toString().hashCode();
 			else // a direct hint
-				hc = (value<<8) ^ cell.hashCode;
+				hc = (value<<7) ^ cell.i;
 		} else {
 			// indirect or "mixed" hint
 			hc = value; // may be 0
 			if ( cell != null )
-				hc = (hc<<8) ^ cell.hashCode;
+				hc = (hc<<7) ^ cell.i;
 			// nb: hc is still 0 for "normal" indirect hints,
 			// no matter coz redPots are deterministic (I think).
 			hc = (hc<<13) ^ reds.hashCode();

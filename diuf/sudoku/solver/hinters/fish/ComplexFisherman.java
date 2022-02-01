@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * Based on HoDoKu's FishSolver, so here's hobiwan's licence statement:
@@ -25,44 +25,28 @@
  */
 package diuf.sudoku.solver.hinters.fish;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.*;
 import diuf.sudoku.Grid.ARegion;
-import static diuf.sudoku.Grid.BOX;
-import static diuf.sudoku.Grid.BUDDIES;
-import static diuf.sudoku.Grid.COL;
 import diuf.sudoku.Grid.Cell;
-import static diuf.sudoku.Grid.NUM_REGIONS;
-import static diuf.sudoku.Grid.REGION_SIZE;
-import static diuf.sudoku.Grid.ROW;
-import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Idx.WORDS;
+import static diuf.sudoku.Idx.WORDS_SIZE;
 import static diuf.sudoku.Idx.WORD_MASK;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
-import static diuf.sudoku.Regions.BOX_MASK;
-import static diuf.sudoku.Regions.COL_MASK;
-import static diuf.sudoku.Regions.REGION_TYPE;
-import static diuf.sudoku.Regions.ROW_COL_MASK;
-import static diuf.sudoku.Regions.ROW_MASK;
+import static diuf.sudoku.Regions.*;
 import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
-import diuf.sudoku.Values;
-import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.LogicalSolver;
-import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.Validator;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.solver.hinters.Validator.*;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import diuf.sudoku.utils.Log;
 import static java.lang.Integer.bitCount;
-import java.util.Arrays;
-import java.util.List;
+import static java.util.Arrays.fill;
 
 /**
  * ComplexFisherman implements Basic Fish (commented-out), Franken Fish, and
@@ -239,35 +223,32 @@ public class ComplexFisherman extends AHinter
 		return result;
 	}
 
-	// WORDS_* are Idx.WORDS with 9..72 added to them, to precalculate once
-	// instead of adding BILLIONS of times in anyCommonBuddies. These extra
-	// fields use heaps of RAM, but still save 17 seconds on top1465. They're
-	// local so that if ComplexFisherman is not used (as is common) then the
-	// class is never referenced, so these statics are not created. That's part
-	// of the reasoning behind Tech: a light place-holder for a heavy class.
-	// Idx might be faster if it did this, but it'd probably be slower overall
-	// coz of all the extra RAM tied-up in these array-of-arrays. So to be
-	// clear, these exist only for speed, and pay-back coz they're hammered!
-	private static final int[][] WORDS_09 = new int[1<<9][]; // WORDS +  9
-	private static final int[][] WORDS_18 = new int[1<<9][]; // WORDS + 18
-	private static final int[][] WORDS_27 = new int[1<<9][]; // WORDS + 27
-	private static final int[][] WORDS_36 = new int[1<<9][]; // WORDS + 36
-	private static final int[][] WORDS_45 = new int[1<<9][]; // WORDS + 45
-	private static final int[][] WORDS_54 = new int[1<<9][]; // WORDS + 54
-	private static final int[][] WORDS_63 = new int[1<<9][]; // WORDS + 63
-	private static final int[][] WORDS_72 = new int[1<<9][]; // WORDS + 72
+	// WORDS_* are Idx.WORDS with 9,18..72 added to them, to do so ONCE instead
+	// of adding BILLIONS of times in anyCommonBuddies. These fields use heaps
+	// of RAM, but save 17 seconds on top1465. Local so if ComplexFisherman is
+	// not used (as is common) it's not referenced, so its statics don't exist.
+	// That's the reasoning behind Tech: a light place-holder for a heavy impl.
+	// Idx might be faster with these, but it'd be slower overall coz of all da
+	// extra RAM tied-up. So to be crystal clear, these exist only for speed,
+	// and pay-back (in ComplexFisherman) because they are ____ing hammered!
+	private static final int[][] WORDS_09 = new int[WORDS_SIZE][]; //WORDS +  9
+	private static final int[][] WORDS_18 = new int[WORDS_SIZE][]; //WORDS + 18
+	private static final int[][] WORDS_27 = new int[WORDS_SIZE][]; //WORDS + 27
+	private static final int[][] WORDS_36 = new int[WORDS_SIZE][]; //WORDS + 36
+	private static final int[][] WORDS_45 = new int[WORDS_SIZE][]; //WORDS + 45
+	private static final int[][] WORDS_54 = new int[WORDS_SIZE][]; //WORDS + 54
+	private static final int[][] WORDS_63 = new int[WORDS_SIZE][]; //WORDS + 63
+	private static final int[][] WORDS_72 = new int[WORDS_SIZE][]; //WORDS + 72
 	static {
-		int[] a;
-		for ( int i=0; i<WORDS.length; ++i ) {
-			a = WORDS[i];
-			WORDS_09[i] = plus(a, 9);
-			WORDS_18[i] = plus(a, 18);
-			WORDS_27[i] = plus(a, 27);
-			WORDS_36[i] = plus(a, 36);
-			WORDS_45[i] = plus(a, 45);
-			WORDS_54[i] = plus(a, 54);
-			WORDS_63[i] = plus(a, 63);
-			WORDS_72[i] = plus(a, 72);
+		for ( int i=0; i<WORDS_SIZE; ++i ) {
+			WORDS_09[i] = plus(WORDS[i],  9);
+			WORDS_18[i] = plus(WORDS[i], 18);
+			WORDS_27[i] = plus(WORDS[i], 27);
+			WORDS_36[i] = plus(WORDS[i], 36);
+			WORDS_45[i] = plus(WORDS[i], 45);
+			WORDS_54[i] = plus(WORDS[i], 54);
+			WORDS_63[i] = plus(WORDS[i], 63);
+			WORDS_72[i] = plus(WORDS[i], 72);
 		}
 	}
 
@@ -391,8 +372,8 @@ public class ComplexFisherman extends AHinter
 	// these fields are set by findHints (values rely on parameters)
 	/** The Grid to search for Fish hint/s. */
 	private Grid grid;
-	/** The cells array of the Grid to search for Fish hint/s. */
-	private Cell[] cells;
+	/** grid.cells to search */
+	private Cell[] gridCells;
 	/** The IAccumulator to which I add hint/s. */
 	private IAccumulator accu;
 
@@ -433,7 +414,7 @@ public class ComplexFisherman extends AHinter
 	@Override
 	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		this.grid = grid;
-		this.cells = grid.cells;
+		this.gridCells = grid.cells;
 		this.accu = accu;
 		this.oneOnly = accu.isSingle();
 		int pre = accu.size();
@@ -442,7 +423,7 @@ public class ComplexFisherman extends AHinter
 // templates are useless because EVERYthing passes!
 //			final Idx[]	deletables = Run.templates.getDeletables(grid);
 //			int done=0, skip=0;
-			for ( int v=1; v<VALUE_CEILING; ++v ) {
+			for ( v=1; v<VALUE_CEILING; ++v ) {
 //				// skip if no idxs[v] are deletable
 //				if ( deletables[v].andAny(idxs[v]) ) {
 //					++done;
@@ -450,7 +431,6 @@ public class ComplexFisherman extends AHinter
 //					++skip;
 //					continue;
 //				}
-				this.v = v;
 				this.idx = idxs[v];
 				this.idx0 = idx.a0;
 				this.idx1 = idx.a1;
@@ -468,9 +448,9 @@ public class ComplexFisherman extends AHinter
 			}
 		} finally {
 			this.grid = null;
-			this.cells = null;
+			this.gridCells = null;
 			this.accu = null;
-			Cells.cleanCasA();
+//			Cells.cleanCasA();
 		}
 		return accu.size() > pre;
 	}
@@ -504,7 +484,7 @@ public class ComplexFisherman extends AHinter
 		cB.index = 0;
 		cB.prevIndex = -1;
 		// clear in case we exited-early last time
-		Arrays.fill(basesUsed, false);
+		fill(basesUsed, false);
 		usedBaseTypes[BOX]=usedBaseTypes[ROW]=usedBaseTypes[COL] = 0;
 
 		// try all combinations of base regions
@@ -646,7 +626,7 @@ public class ComplexFisherman extends AHinter
 		cC.index = 0;
 		cC.prevIndex = -1; // meaning none
 		// clean-up from last time, in case we returned.
-		Arrays.fill(coversUsed, false);
+		fill(coversUsed, false);
 		// foreach each distinct combo of covers
 //<HAMMERED comment="BILLIONS: No continue, label, var, terniary, method">
 		for (;;) {
@@ -791,9 +771,9 @@ public class ComplexFisherman extends AHinter
 	 * IE: {@code fins.set(f0,f1,f2).commonBuddies(buds).and(vs).any()} <br>
 	 * sets {cb0,cb1,cb2} to buddies of all fins {f0,f1,f2} and returns any? <br>
 	 * <p>
-	 * For speed, anyCommonBuddies is stackframeless and exploded (verbose).
-	 * I'm about 17% faster overall than Idx.commonBuddies, which is quite a
-	 * significant improvement, but comes at the cost of inflexibility.
+	 * Fastardised: anyCommonBuddies is stackframeless and exploded (verbose).
+	 * I make ComplexFisherman about 17% faster than using Idx.commonBuddies,
+	 * which is a significant improvement, but costs inflexibility.
 	 * <p>
 	 * PLEASE EXPLAIN: cb0,cb1,cb2 is an Idx of commonBuddies, set to indices
 	 * in the grid that maybe v, then we boolean-and that set with the buddies
@@ -803,44 +783,41 @@ public class ComplexFisherman extends AHinter
 	 * <p>
 	 * The aspect that makes a mess is doing it all as fast as possible, which
 	 * boils down to minimising the amount of repetitious work, which is where
-	 * WORDS_09 (et al) come in: we've already pre-added the distance from the
-	 * start of the grid to each-word-we-are-reading, just to save doing these
+	 * WORDS_09 etc come in: we've already pre-added the distance from the
+	 * start of the grid to each-word-we-read, to save doing the equivalent
 	 * additions billions of times.
 	 * <p>
-	 * Programmers find brevity and flexibility convenient, so we must rejig
-	 * our brains to seek performance, which can be rather inconvenient. Speed
-	 * costs inflexibility. But what is the probability that this will need to
-	 * change? Speed vs Flex. Cheese. Cracker. Balance. That's all I'm saying.
-	 * <p>
-	 * I'm proud of this method, because it's FAST, even though it's ugly.
+	 * Programmers find brevity and flexibility convenient. We must rejig our
+	 * brains to seek performance, which can get messy. Real speed is often
+	 * inflexible; but how likely is it to NEED to change?
 	 *
-	 * @return commonBuddies {fields: cb0,cb1,cb2} is not empty,
+	 * @return commonBuddies {fields: cb0,cb1,cb2} is not empty, <br>
 	 *  ie do the fin/s have any common buddy/s that maybe v?
 	 */
 	private boolean anyCommonBuddies() {
 		// set the common buddies to indices of cells in grid which maybe v
 		cb0=idx0; cb1=idx1; cb2=idx2;
-		// if the top third of fins index is notEmpty
+		// if any top third of fins
 		if ( f0 != 0 ) {
-			// if the first row (9 bits) of fins index is notEmpty
+			// if any in the first row (first 9 bits) of fins
 			if ( (n=(word=WORDS[f0 & WORD_MASK]).length) != 0 )
 				// foreach fin in first row (ie set (1) bit in this word)
 				for ( i=0; i<n; ++i )
 					// bail if (cmnBuds &= buddies-of-this-fin) isEmpty
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
-			// the second 9 bits (WORDS_09 values pre-moved down to second row)
+			// if any second 9 bits (WORDS_09 values pre-moved to second row)
 			if ( (n=(word=WORDS_09[(f0>>9) & WORD_MASK]).length) != 0 )
 				for ( i=0; i<n; ++i )
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
-			// the third 9 bits (making 27 bits, which is a third of a Grid)
+			// if any third 9 bits (making 27 bits: a third of the Grid)
 			if ( (n=(word=WORDS_18[(f0>>18) & WORD_MASK]).length) != 0 )
 				for ( i=0; i<n; ++i )
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
 		}
-		// the middle third of fins index
+		// the middle third of fins
 		if ( f1 != 0 ) {
 			if ( (n=(word=WORDS_27[f1 & WORD_MASK]).length) != 0 )
 				for ( i=0; i<n; ++i )
@@ -855,7 +832,7 @@ public class ComplexFisherman extends AHinter
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
 		}
-		// the bottom third of fins index
+		// the bottom third of fins
 		if ( f2 != 0 ) {
 			if ( (n=(word=WORDS_54[f2 & WORD_MASK]).length) != 0 )
 				for ( i=0; i<n; ++i )
@@ -870,7 +847,7 @@ public class ComplexFisherman extends AHinter
 					if ( ((cb0&=(bf=BUDDIES[word[i]]).a0) | (cb1&=bf.a1) | (cb2&=bf.a2)) == 0 )
 						return false;
 		}
-		return true; // commonBuddies {cb0,cb1,cb2} is not empty
+		return true; // the fin/s have common buddy/s that maybe v
 	}
 	// common buddies of all fins (an Idx)
 	private int cb0,cb1,cb2;
@@ -913,35 +890,33 @@ public class ComplexFisherman extends AHinter
 		// throw IllegalStateException if reds come-out empty.
 		if ( MIA_REDS ) {
 			final int sv = VSHFT[v]; // bitset of the Fish candidate value
-			// skip if there's no deletes and no sharks.
+			// we need deletes and/or sharks.
 			if ( deletes.none() && sharks.none() ) {
 				carp("no deletes and no sharks");
 				return null; // pre-tested by each call so shouldn't occur
 			}
 			// check that each delete exists
 			if ( deletes.any() ) { // there may occasionally only be sharks
-				deletes.forEach(cells, (c) -> {
-					if ( (c.maybes & sv) != 0 ) {
-						reds.put(c, sv);
-					} else { // the "missing" delete was NOT added
-						carp("MIA delete: "+c.toFullString()+MINUS+v);
-					}
+				deletes.forEach(gridCells, (cell) -> {
+					if ( (cell.maybes & sv) != 0 )
+						reds.put(cell, sv);
+					else // the "missing" delete was NOT added
+						carp("MIA delete: "+cell.toFullString()+MINUS+v);
 				});
 			}
 			// check that each shark exists
 			if ( sharks.any() ) { // there's usually only deletes
 				// foreach shark (cannibalistic) cell in grid.cells
-				sharks.forEach(cells, (c) -> {
-					if ( (c.maybes & sv) != 0 ) {
-						reds.put(c, sv);
-					} else { // the "missing" shark was NOT added
-						carp("MIA shark: "+c.toFullString()+MINUS+v);
-					}
+				sharks.forEach(gridCells, (cell) -> {
+					if ( (cell.maybes & sv) != 0 )
+						reds.put(cell, sv);
+					else // the "missing" shark was NOT added
+						carp("MIA shark: "+cell.toFullString()+MINUS+v);
 				});
 			}
-			// red (eliminated) Pots cannot be null or empty
+			// red (eliminated) Pots cannot be empty
 			if ( reds.isEmpty() ) {
-				throw new IllegalStateException("null/empty reds!"); // should never happen
+				throw new IllegalStateException("empty reds!"); // never
 			}
 		} else {
 			// normal operation: just add the deletes and sharks to reds,
@@ -950,9 +925,8 @@ public class ComplexFisherman extends AHinter
 				reds.upsertAll(deletes, grid, v);
 			if ( sharks.any() )
 				reds.upsertAll(sharks, grid, v);
-			if ( reds.isEmpty() ) {
+			if ( reds.isEmpty() )
 				return null; // should never happen. Never say never.
-			}
 		}
 
 		baseMask = Regions.types(basesUsed);
@@ -1003,11 +977,11 @@ public class ComplexFisherman extends AHinter
 
 		// the Fish candidate as a Values
 		// corners = green
-		final Pots green = new Pots(cornerIdx.cellsA(grid), v);
+		final Pots green = new Pots(cornerIdx, grid, v);
 		// exoFins = blue
-		final Pots blue = new Pots(exoFinsIdx.cellsA(grid), v);
+		final Pots blue = exoFinsIdx.any() ? new Pots(exoFinsIdx, grid, v) : null;
 		// endoFins = purple
-		final Pots purple = new Pots(endoFinsIdx.cellsA(grid), v);
+		final Pots purple = endoFinsIdx.any() ? new Pots(endoFinsIdx, grid, v) : null;
 //		// Q: Can endoFins be set?
 //		// A: No.
 //		// Q: Is that only if the endoFin seesAll the exoFins?
@@ -1026,30 +1000,31 @@ public class ComplexFisherman extends AHinter
 //		}
 		// sharks = yellow
 		final Pots yellow;
-		if ( sharks.none() )
-			yellow = null;
-		else {
-			yellow = new Pots(sharks.cellsA(grid), v);
+		if ( sharks.any() ) {
+			yellow = new Pots(sharks, grid, v);
 			// paint all sharks yellow (except eliminations which stay red)!
 			if ( !yellow.isEmpty() ) {
 				yellow.removeFromAll(green, blue, purple);
 			}
+		} else {
+			yellow = null;
 		}
 
 		// paint all eliminations red (including sharks)!
 		reds.removeFromAll(green, blue, purple, yellow);
 
 		// paint endo-fins purple, not corners (green) or exo-fins (blue).
-		purple.removeFromAll(green, blue);
+		if ( purple != null )
+			purple.removeFromAll(green, blue);
 
 		final AHint myHint = new ComplexFishHint(this, type, isSashimi, v
-			, basesL, coversL, reds, green, blue, purple, yellow, "");
+			, basesL, coversL, reds, green, blue, purple, yellow);
 
-		if ( Validator.COMPLEX_FISHERMAN_VALIDATES ) {
+		if ( VALIDATE_COMPLEX_FISHERMAN ) {
 			// only needed for Franken and Mutant, but just check all
-			if ( !Validator.isValid(grid, myHint.reds) ) {
-				myHint.isInvalid = true;
-				Validator.report(tech.name(), grid, myHint.toFullString());
+			if ( !validOffs(grid, myHint.reds) ) {
+				myHint.setIsInvalid(true);
+				reportRedPots(tech.name(), grid, myHint.toFullString());
 				// See in GUI, but they cause deadCat's in the batch.
 				if ( Run.type == Run.Type.Batch ) {
 					return null;

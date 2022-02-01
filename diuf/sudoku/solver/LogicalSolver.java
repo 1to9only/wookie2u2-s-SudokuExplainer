@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -23,7 +23,6 @@ import diuf.sudoku.solver.hinters.single.*;
 import diuf.sudoku.utils.*;
 import static diuf.sudoku.utils.Frmt.*;
 import static diuf.sudoku.utils.MyStrings.BIG_BFR_SIZE;
-// JAPI
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -56,7 +55,6 @@ import java.util.Set;
  *  XYZ-Wing, W-Wing, Swordfish, Skyscraper, and Empty Rectangle
  * <li>drop Jellyfish finds none if you follow this spec to the letter.
  *  In fact all *Jellyfish are pretty slow, so drop them all for speed.
- * <li>drop BUG (replaced by Coloring) and Medusa3D (replaced by GEM)
  * <li>keep Coloring (only Multi), XColoring (GEM misses), and GEM (ultimate)
  * <li>keep Naked/Hidden Quad
  * <li>drop Naked/Hidden Pent they're degenerate, which means all patterns they
@@ -201,6 +199,10 @@ public final class LogicalSolver {
 	 * with {@link LogicalAnalyser}, so that one solve runs at a time. */
 	public static final Object ANALYSE_LOCK = new Object();
 
+	/** Returned by {@link #analyseDifficulty(diuf.sudoku.Grid, double) }
+	 * when the process was interrupted by the user. */
+	public static final double ANALYSE_INTERRUPTED = 999.99; // an impossibly high number
+
 	/**
 	 * Constructs and returns a new instance of ${className} which implements
 	 * the given 'tech', passing the 'tech' if the constructor takes it.
@@ -307,10 +309,10 @@ public final class LogicalSolver {
 	// that can be quickly proven invalid.
 
 	/** puzzle validator: Does this puzzle have at least 17 clues?. */
-	private final InsufficientClues tooFewClues = new InsufficientClues();
+	private final TooFewClues tooFewClues = new TooFewClues();
 
 	/** puzzle validator: Does this puzzle contain 8 values?. */
-	private final InsufficientValues tooFewValues = new InsufficientValues();
+	private final TooFewValues tooFewValues = new TooFewValues();
 
 	/** puzzle validator: Does this puzzle have ONE solution? <br>
 	 * NB: BruteForce uses the basic hinters, so constructed after them. */
@@ -327,9 +329,9 @@ public final class LogicalSolver {
 
 	/** gridValidators check the Sudoku grid is still valid after each hint. */
 	private final IHinter[] gridValidators = new IHinter[] {
-		  new NoDoubleValues()	 // one value per box, row, col
-		, new NoMissingMaybes()	 // no value and no maybes
-		, new NoHomelessValues() // no places for unplaced value
+		  new DoubleValues()	 // one value per box, row, col
+		, new MissingMaybes()	 // no value and no maybes
+		, new HomelessValues() // no places for unplaced value
 	};
 
 	/** All of the validators. */
@@ -399,8 +401,7 @@ public final class LogicalSolver {
 		// bruteForce uses the "basic hinters", so it's creation is delayed,
 		// which in turn delays creation of all dependant artifacts. sigh.
 		bruteForce = new BruteForce(basics);
-		unsolvableHint = new WarningHint(bruteForce, "Unsolvable"
-				, "NoSolution.html");
+		unsolvableHint = new WarningHint(bruteForce, "Unsolvable", "Unsolvable.html");
 		puzzleValidators = new IHinter[] {
 			  tooFewClues		// minimum 17 clues
 			, tooFewValues		// minimum 8 values
@@ -610,7 +611,7 @@ public final class LogicalSolver {
 			}
 			// run prepare AFTER validators and BEFORE wantedHinters
 			if ( !grid.isPrepared() ) { // once on each grid
-				prepare(grid); // prepare wanted IPreparer's to process grid
+				prepare(grid); // prepare wanted IPrepare's to process grid
 			}
 			any = getAllHints(wanted, grid, accu, !wantMore, logHints);
 			// revert to standard locking
@@ -768,28 +769,19 @@ public final class LogicalSolver {
 	 *  stop at if exceeded
 	 * @return The puzzles difficulty if it's below the given <tt>maxD</tt>,
 	 *  else the arbitrary high value Difficulty.IDKFA.max, currently 100.0.
-	 * @throws InterruptException from AHinter.interrupt() back-up to generate.
+	 * @throws HinterruptException from AHinter.interrupt() back-up to generate.
 	 */
 	public double analyseDifficulty(final Grid gridParam, final double maxD) {
 		double pd = 0.0D; // puzzleDifficulty, my result
 		final Grid grid = new Grid(gridParam);
 		final IAccumulator accu = new SingleHintsAccumulator();
 		// re-enable all hinters just in case we hit a deadCat last time
-		if ( anyDisabled ) {
-			for ( IHinter hinter : wanted ) {
+		if ( anyDisabled )
+			for ( IHinter hinter : wanted )
 				hinter.setIsEnabled(true);
-			}
-		}
 		deadCats.clear(); // deal with eliminationless hints
 		grid.hintNumberReset(); // Start from the start
-		grid.rebuildMaybesAndS__t();
-		grid.rebuildIndexes(false);
 		enableKrakens(false, 3); // disable KrakenSwordfish and KrakenJellyfish
-		if ( validatePuzzleAndGrid(grid, false) != null ) {
-			throw new UnsolvableException(grid.invalidity == null
-					? "ugly: not one solution" // 0 or 2 (or more) solutions
-					: "fart: "+grid.invalidity);
-		}
 //collect hints in-case it goes Unsolvable
 //StringBuilder sb = new StringBuilder(8192);
 		for ( int pre=grid.totalSize,now; pre>0; pre=now ) { // ie !isFull
@@ -807,15 +799,15 @@ public final class LogicalSolver {
 				if ( hd>pd && (pd=hd)>=maxD ) {
 					return pd; // max target difficulty EXCLUSIVE exceeded
 				}
-				try {
+//				try {
 					hint.applyQuitely(false, grid); // NO_AUTOSOLVE
-				} catch (UnsolvableException ex) {
-					if ( Run.type != Run.Type.Generator ) {
-						Log.teeln(Log.me()+": "+ex);
+//				} catch (UnsolvableException ex) {
+//					if ( Run.type != Run.Type.Generator ) {
+//						Log.teeln(Log.me()+": "+ex);
 //						Log.teeln(sb);
-					}
-					throw ex;
-				}
+//					}
+//					throw ex;
+//				}
 				// deal with deadCats: eliminationless hints.
 				if ( (now=grid.totalSize)==pre && !deadCats.add(hint) ) {
 					anyDisabled = true;
@@ -824,7 +816,7 @@ public final class LogicalSolver {
 			} else {
 				Log.teeln("analyseDifficulty: No hint found in grid:");
 				Log.teeln(grid);
-				pd = 999.99; // an impossibly large puzzleDifficulty
+				pd = ANALYSE_INTERRUPTED; // an impossibly large puzzleDifficulty
 				break;
 			}
 		}
@@ -1081,45 +1073,62 @@ public final class LogicalSolver {
 		return true;
 	}
 
-	// getHints from each hinter quitely (the normal path).
+	/**
+	 * timeHintersQuitely calls findHints on each hinter quitely, which is the
+	 * normal path, as apposed to timeHintersNoisily which is, umm, noisy.
+	 *
+	 * @param hinters
+	 * @param grid
+	 * @param accu
+	 * @param usage
+	 * @return
+	 * @throws HinterruptException if the Generator is stopped by the user.
+	 */
 	private boolean timeHintersQuitely(final IHinter[] hinters, final Grid grid
 			, final IAccumulator accu, final UsageMap usage) {
 		long start;
 		boolean any = false;
 		for ( IHinter hinter : hinters ) {
+			if ( Run.stopGenerate() )
+				throw new HinterruptException();
 			if ( hinter.isEnabled() ) {
 				start = System.nanoTime();
 				any = hinter.findHints(grid, accu);
 				usage.addon(hinter, 1, 0, 0, System.nanoTime() - start);
-				if ( any ) {
+				if ( any )
 					return any;
-				}
-			}
-			if ( Run.stopGenerate ) {
-				throw new InterruptException();
 			}
 		}
 		return any;
 	}
-	// getHints from each hinter noisily, logging the execution time of every
-	// single bloody hinter (far too verbose for batch top1465)
+
+	/**
+	 * getHints from each hinter noisily, logging the execution time of every
+	 * single bloody hinter, which is far too verbose for batch on top1465, so
+	 * currently used only for a single puzzle re-run in LogicalSolverTester.
+	 *
+	 * @param hinters
+	 * @param grid
+	 * @param accu
+	 * @param usage
+	 * @return
+	 * @throws HinterruptException if the Generator is stopped by the user.
+	 */
 	private boolean timeHintersNoisily(final IHinter[] hinters, final Grid grid
 			, final IAccumulator accu, final UsageMap usage) {
 		long start, took;
 		boolean any = false;
 		for ( IHinter hinter : hinters ) {
+			if ( Run.stopGenerate() )
+				throw new HinterruptException();
 			if ( hinter.isEnabled() ) {
 				start = System.nanoTime();
 				any = hinter.findHints(grid, accu);
 				took = System.nanoTime() - start;
 				usage.addon(hinter, 1, 0, 0, took);
 				Log.teef("\t%,14d\t%s\n", took, hinter);
-				if ( any ) {
+				if ( any )
 					return any;
-				}
-			}
-			if ( Run.stopGenerate ) {
-				throw new InterruptException();
 			}
 		}
 		return any;
@@ -1234,7 +1243,7 @@ public final class LogicalSolver {
 		if ( grid==null || grid.isPrepared() ) {
 			return; // safety first!
 		}
-		for ( IPreparer prepper : getPreppers(wanted) ) {
+		for ( IPrepare prepper : getPreppers(wanted) ) {
 			try {
 				prepper.prepare(grid, this);
 			} catch (Exception ex) {
@@ -1245,27 +1254,27 @@ public final class LogicalSolver {
 	}
 
 	/**
-	 * Get the cached {@code LinkedList<IPreparer>} from hinters.
+	 * Get the cached {@code LinkedList<IPrepare>} from hinters.
 	 * <p>
 	 * The preppers-cache is created ONCE, first-time only.
 	 *
 	 * @param hinters the wantedHinters list
-	 * @return A cached {@code LinkedList<IPreparer>}
+	 * @return A cached {@code LinkedList<IPrepare>}
 	 */
-	private LinkedList<IPreparer> getPreppers(final IHinter[] hinters) {
-		LinkedList<IPreparer> preppers = preppersCache;
+	private LinkedList<IPrepare> getPreppers(final IHinter[] hinters) {
+		LinkedList<IPrepare> preppers = preppersCache;
 		if ( preppers == null ) {
 			preppers = new LinkedList<>();
 			for ( IHinter hinter : hinters ) {
-				if ( hinter instanceof IPreparer ) {
-					preppers.add((IPreparer)hinter);
+				if ( hinter instanceof IPrepare ) {
+					preppers.add((IPrepare)hinter);
 				}
 			}
 			preppersCache = preppers;
 		}
 		return preppers;
 	}
-	private LinkedList<IPreparer> preppersCache; // defaults to null
+	private LinkedList<IPrepare> preppersCache; // defaults to null
 
 	/**
 	 * Get the solution to this puzzle as soon as possible (ie guessing
@@ -1383,6 +1392,7 @@ public final class LogicalSolver {
 	 * }}</pre>
 	 */
 	public void report() {
+//		Log.teeln("Idx MAX_SIZE="+java.util.Arrays.toString(Idx.MAX_SIZE));
 		for ( IHinter h : wanted ) {
 			if ( h instanceof IReporter ) {
 				try {

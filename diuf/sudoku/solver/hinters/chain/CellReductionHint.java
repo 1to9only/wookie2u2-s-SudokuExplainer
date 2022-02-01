@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.chain;
@@ -95,7 +95,7 @@ public final class CellReductionHint extends AChainingHint {
 		// Fix "mad" assertions in Nesting (master) CellReductionHints
 		Ass found = null;
 		// if no ancestor found || orig isn't even on the right bloody cell!
-		if ( orig==null || (orig.cell.hashCode != srcCell.hashCode) )
+		if ( orig==null || (orig.cell.i != srcCell.i) )
 			found = recurseSource(target, srcCell);
 		// We'll settle for orig if it's the best we can do, even if it's null!
 		if ( found != null )

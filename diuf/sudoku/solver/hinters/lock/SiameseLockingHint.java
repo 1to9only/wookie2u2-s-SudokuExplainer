@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
@@ -18,7 +18,6 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
@@ -33,7 +32,7 @@ import static diuf.sudoku.utils.Frmt.AND;
  *
  * @author Keith Corlett 2020 June 18
  */
-public class SiameseLockingHint extends AHint  {
+public final class SiameseLockingHint extends AHint  {
 
 	final boolean isPointing;
 	final int maybesToRemove;

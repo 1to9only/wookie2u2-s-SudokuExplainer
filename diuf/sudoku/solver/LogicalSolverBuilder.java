@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -33,12 +33,8 @@ import java.util.List;
 class LogicalSolverBuilder {
 
 	/**
-	 * true uses the new align2 package, which is slower than the original
-	 * align package for large (5+) aligned sets. align2 is my attempt to
-	 * eradicate all of that ugly "boiler-plate" code, but I failed to achieve
-	 * acceptable performance without it. sigh. A "real techie" could generate
-	 * code that "exactly fits" each aligned exclusion set to beat my boiler
-	 * plate attempt. I think it's also an interesting problem for the AI guys.
+	 * true uses the new align2 package (development only). align2 eradicates
+	 * all that boiler-plate code, but it's much slower for 5+ aligned sets.
 	 */
 	private static final boolean USE_NEW_ALIGN2 = false; //@check false
 
@@ -64,14 +60,21 @@ class LogicalSolverBuilder {
 	private final EnumSet<Tech> unwanted = EnumSet.noneOf(Tech.class);
 
 	/**
-	 * A set of "basic hinters" (the Four Quick Foxes, et al).
-	 */
-	private final EnumMap<Tech,IHinter> basics = new EnumMap<>(Tech.class);
-
-	/**
 	 * My clone of THE_SETTINGS, set in the constructor, and read elsewhere.
 	 */
 	private Settings settings;
+
+	/**
+	 * A set of "basic hinters" (the Four Quick Foxes, et al).
+	 */
+	private final EnumMap<Tech,IHinter> basics;
+
+	public LogicalSolverBuilder() {
+		// populate my EnumMap of "basic hinters" Tech=>IHinter
+		// I create the "basic" hinters even if they're not wanted,
+		// ergo I presume that these hinters will always be wanted.
+		this.basics = BasicHintersBuilder.build();
+	}
 
 	/**
 	 * build is used <u>ONLY</u> by {@link LogicalSolverFactory}, so there's
@@ -191,11 +194,6 @@ class LogicalSolverBuilder {
 			throw new RuntimeException("THE_SETTINGS.clone() failed", ex);
 		}
 
-		// populate my EnumMap of "basic hinters" Tech=>IHinter
-		// I create the "basic" hinters even if they're not wanted,
-		// ergo I presume that these hinters will always be wanted.
-		BasicHintersBuilder.build(basics);
-
 		// fetch wantedTechs for my "want" methods
 		wantedTechs = settings.getWantedTechs();
 
@@ -227,6 +225,8 @@ class LogicalSolverBuilder {
 		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		// Locking XOR LockingGen (mandatory: not neither, nor both).
 		// nb: SiameseLocking is swapped-in for Locking, if wanted.
+		// nb: The GUI and batch both use whichever is specified here.
+		// nb: BruteForce always uses LockingSpeedMode, regardless.
 		if ( !want(basics.get(Tech.Locking)) ) { // Pointing and Claiming
 			wanted.add(new LockingGen()); // No differentiation (slower)
 		}
@@ -237,33 +237,31 @@ class LogicalSolverBuilder {
 		want(basics.get(Tech.NakedTriple));	// 3 cells with only 3 maybes
 		want(basics.get(Tech.HiddenTriple));	// same 3 places for 3 values in a region
 		want(basics.get(Tech.Swampfish));	// same 2 places in 2 rows/cols
-		want(Tech.TwoStringKite); // box and 2 biplace regions
+		want(Tech.TwoStringKite);	// box and 2 biplace regions
+		want(Tech.W_Wing);			// biplace row/col and 2 bivalue cells
+		want(Tech.XY_Wing);			// 3 bivalue cells
+		want(Tech.Skyscraper);		// 2 biplace rows/cols get bent
+		want(Tech.EmptyRectangle);	// box and biplace row/col
 
 		// Fiendish
-		want(Tech.XY_Wing);		// 3 bivalue cells
 		want(Tech.XYZ_Wing);	// trivalue + 2 bivalues
-		want(Tech.W_Wing);		// biplace row/col and 2 bivalue cells
-		want(Tech.Skyscraper);	// 2 biplace rows/cols get bent
-		want(Tech.EmptyRectangle); // box and biplace row/col
 		want(Tech.Swordfish);	// same 3 places in 3 rows/cols
-		// NB: Coloring/GEM find all Jellyfish, so run before them if at all.
+		// do Naked/HiddenQuad before Jellyfish: 4 coincident lines
+		want(Tech.NakedQuad);	// 4 cells with only 4 maybes
 		want(Tech.Jellyfish);	// same 4 places in 4 rows/cols
-
-		// Nightmare
+		want(Tech.HiddenQuad);	// same 4 places for 4 values in a region
+		// NB: Coloring/GEM find all Jellyfish, so run before them if at all.
 		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		// XColoring, Medusa3D, and GEM sometimes set cell values directly,
 		// but most-times they just eliminate maybes.
 		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//		want(Tech.BUG);			// Bivalue Universal Grave (stoneage coloring)
 		want(Tech.Coloring);	// 2 color-sets and the ONLY 3+ color-sets
 		want(Tech.XColoring);	// 2 color-sets with cheese
 		want(Tech.Medusa3D);	// 2 color-sets with cheese and pickles
-		want(Tech.GEM);			// 2 color-sets with the lot (?bacon?)
-		want(Tech.NakedQuad);	// 4 cells with only 4 maybes
-		want(Tech.HiddenQuad);	// same 4 places for 4 values in a region
-		want(Tech.NakedPent);	// DEGENERATE 5 values in 5 cells
-		want(Tech.HiddenPent);	// DEGENERATE 5 places for 5 values in a region
+		want(Tech.GEM);			// 2 color-sets with the lot, and bacon
 		want(Tech.URT); // UniqueRectangle/loop: a rectangle/loop of 2 values
+
+		// Air
 		// BigWings XOR individual S/T/U/V/WXYZ-Wing@check
 		if ( !want(Tech.BigWings) ) { // All the below BigWing (faster overall)
 			want(Tech.WXYZ_Wing);	  // 3 cell ALS + bivalue cell
@@ -272,19 +270,19 @@ class LogicalSolverBuilder {
 			want(Tech.TUVWXYZ_Wing);  // 6 cell ALS + bivalue cell
 			want(Tech.STUVWXYZ_Wing); // 7 cell ALS + bivalue cell
 		}
-		want(Tech.FinnedSwampfish); // OK always includes Sashimi's
-		want(Tech.FinnedSwordfish); // OK
-		want(Tech.FinnedJellyfish); // SLOW (just)
-		// NB: many XZs are DBs, and many DBs are XZs, so order is unclear.
-		// XZ easier lacking stem, but DB faster coz of stem. I do DB then XZ
-		// simply because its faster overall this way.
-		want(Tech.DeathBlossom); // OK // stem of 2/3 maybes + 2/3 ALSs
-		want(Tech.ALS_XZ);		 // OK // a chain of 2 ALSs, with cheese
-		want(Tech.ALS_Wing);	 // OK // a chain of 3 ALSs, with pickles
-		want(Tech.ALS_Chain);	 // OK // a chain of 4..26 ALSs
-		want(Tech.SueDeCoq);	 // OK // Almost Almost Locked Sets
+		// nb: BigWings gets alss that DB reuses (filtered to !allowNakedSets)
+		want(Tech.NakedPent);  // DEGENERATE 5 values in 5 cells
+		want(Tech.HiddenPent); // DEGENERATE 5 places for 5 values in region
 
-		// Diabolical
+		// Fish/ALS
+		want(Tech.FinnedSwampfish); // includes Sashimi's
+		want(Tech.FinnedSwordfish); // includes Sashimi's
+		want(Tech.FinnedJellyfish); // SLOW (just)
+		want(Tech.DeathBlossom); // stem of 2/3 maybes + 2/3 ALSs
+		want(Tech.ALS_XZ);		 // a chain of 2 ALSs, with cheese
+		want(Tech.ALS_Wing);	 // a chain of 3 ALSs, with pickles
+		want(Tech.ALS_Chain);	 // a chain of 4..26 ALSs
+		want(Tech.SueDeCoq);	 // Almost Almost Locked Sets (Sigh)
 		// These complex Fish are nasty. Don't use Jellyfish, esp nasty ones!
 		want(Tech.FrankenSwampfish);	 // NONE (DEGENATE to Finned, WTF?)
 		want(Tech.FrankenSwordfish);	 // OK
@@ -322,7 +320,7 @@ class LogicalSolverBuilder {
 		//   eff-all about solving Sudokus, and probably other things besides.
 		//   Solving one of these manually may take years.
 		want(Tech.UnaryChain);
-		for ( Tech tech : Tech.MULTI_CHAINERS ) {
+		for ( Tech tech : Tech.MULTI_CHAINER_TECHS ) {
 			if ( wantedTechs.contains(tech) ) {
 				wanted.add(new ChainerMulti(tech, basics));
 			} else {
@@ -460,7 +458,7 @@ class LogicalSolverBuilder {
 			case AlignedQuad:
 				// the registered Impl's are the old-school ones!
 				return want(tech);
-			// user chooses if A5+E is _2H hacked or _1C correct
+			// user chooses if A5..10E is _2H hacked or _1C correct
 			case AlignedPent:
 			case AlignedHex:
 			case AlignedSept:
@@ -474,8 +472,8 @@ class LogicalSolverBuilder {
 					// so read "isa${degree}ehacked" and swap over to the _1C
 					// correct version if that's what the user wants, but the
 					// default for all A5+E is true (hacked), else too slow.
-					final String hacked = "isa"+tech.degree+"ehacked";
-					if ( !settings.getBoolean(hacked, true) ) {
+					final String setting = "isa"+tech.degree+"ehacked";
+					if ( !settings.getBoolean(setting, true) ) {
 						className = className.replaceFirst("_2H", "_1C");
 					}
 					final IHinter hinter = constructHinter(tech, className);

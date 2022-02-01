@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
+import static diuf.sudoku.Tech.techNames;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import static diuf.sudoku.utils.Frmt.PERIOD;
@@ -28,123 +29,117 @@ import java.util.prefs.BackingStoreException;
 public final class Settings implements Cloneable {
 
 	/**
-	 * DEFAULT_DEFAULT_SETTINGS is contents of the default IO.SETTINGS file.
+	 * When Sudoku Explainer is distributed as "just the .jar file" without a
+	 * DiufSudoku_Settings.txt file (not how it's designed to be distributed)
+	 * it creates it's own settings file, presuming the file is writable.
 	 * <p>
-	 * When Sudoku Explainer is distributed as "just the .jar file" (which is
-	 * not how it's designed to be distributed) it runs despite not having a
-	 * Settings-file, because it creates it's own (presuming file is writable)
-	 * and continues anyway; failing that it resorts to the default-setting for
-	 * each setting as it's gotten from Settings; so <b>WARNING</b> there are
-	 * multiple levels of defaults, so to change a default-setting you need to
-	 * change it here and everywhere that setting is gotten from Settings,
-	 * which I admit is an un-dry pain-in-the-ass, but there you have it.
+	 * Failing that it resorts to the default-setting for each setting as it's
+	 * gotten from Settings; so there are multiple levels of defaults, so to
+	 * change a default-setting you change it here and everywhere that setting
+	 * is gotten from Settings, which is a pain, but it is what it is.
 	 */
-	private static final String DEFAULT_DEFAULT_SETTINGS = // @check updated?
+	private static final String DEFAULT_SETTINGS = // @check updated?
+// settings
+"lookAndFeelClassName=#NONE#\n" +
+"x=0\n" +
+"y=0\n" +
+"width=1024\n" +
+"height=1024\n" +
+"mod=-2147483647\n" +
 "isFilteringHints=true\n" +
 "isAntialiasing=true\n" +
 "isShowingMaybes=true\n" +
 "isHacky=false\n" +
-"isGreenFlash=false\n" +
-"isa4ehacked=false\n" +
-"isa5ehacked=false\n" +
-"isa6ehacked=false\n" +
-"isa7ehacked=false\n" +
-"isa8ehacked=false\n" +
-"isa9ehacked=false\n" +
-"isa10ehacked=false\n" +
-"lookAndFeelClassName=#NONE#\n" +
-"Analysis=true\n" +
-"TooFewClues=false\n" +
-"TooFewValues=false\n" +
-"OneSolution=false\n" +
-"NoMissingMaybes=false\n" +
-"NoDoubleValues=false\n" +
-"NoHomelessValues=false\n" +
-"LonelySingle=false\n" +
-"NakedSingle=true\n" +
-"HiddenSingle=true\n" +
-"Locking=true\n" +
-"LockingBasic=false\n" +
-"DirectNakedPair=false\n" +
-"DirectHiddenPair=false\n" +
-"DirectNakedTriple=false\n" +
-"DirectHiddenTriple=false\n" +
-"NakedPair=true\n" +
-"HiddenPair=true\n" +
-"NakedTriple=true\n" +
-"HiddenTriple=true\n" +
-"Swampfish=true\n" +
-"TwoStringKite=true\n" +
-"XY_Wing=true\n" +
-"XYZ_Wing=true\n" +
-"W_Wing=false\n" +
-"Swordfish=true\n" +
-"Skyscraper=true\n" +
-"EmptyRectangle=true\n" +
-"Jellyfish=false\n" +
-"BUG=false\n" +
-"Coloring=true\n" +
-"XColoring=true\n" +
-"Medusa3D=false\n" +
-"GEM=true\n" +
-"NakedQuad=true\n" +
-"HiddenQuad=true\n" +
-"NakedPent=false\n" +
-"HiddenPent=false\n" +
-"BigWings=true\n" +
-"WXYZ_Wing=false\n" +
-"VWXYZ_Wing=false\n" +
-"UVWXYZ_Wing=false\n" +
-"TUVWXYZ_Wing=false\n" +
-"STUVWXYZ_Wing=false\n" +
-"URT=true\n" +
-"FinnedSwampfish=true\n" +
-"FinnedSwordfish=true\n" +
-"FinnedJellyfish=false\n" +
-"ALS_XZ=true\n" +
-"ALS_Wing=true\n" +
-"ALS_Chain=true\n" +
-"DeathBlossom=true\n" +
-"SueDeCoq=false\n" +
-"FrankenSwampfish=false\n" +
-"FrankenSwordfish=false\n" +
-"FrankenJellyfish=false\n" +
-"KrakenSwampfish=false\n" +
-"MutantSwampfish=false\n" +
-"KrakenSwordfish=false\n" +
-"MutantSwordfish=false\n" +
-"KrakenJellyfish=false\n" +
-"MutantJellyfish=false\n" +
-"AlignedPair=false\n" +
-"AlignedTriple=false\n" +
-"AlignedQuad=false\n" +
-"AlignedPent=false\n" +
-"AlignedHex=false\n" +
-"AlignedSept=false\n" +
-"AlignedOct=false\n" +
-"AlignedNona=false\n" +
-"AlignedDec=false\n" +
-"UnaryChain=true\n" +
-"NishioChain=true\n" +
-"MultipleChain=true\n" +
-"DynamicChain=true\n" +
-"DynamicPlus=true\n" +
-"NestedUnary=true\n" +
-"NestedMultiple=false\n" +
-"NestedDynamic=false\n" +
-"NestedPlus=false\n" +
-"mod=-2147483647\n" +
-"x=0\n" +
-"y=0\n" +
-"width=1024\n" +
-"height=1024\n";
+"isGreenFlash=true\n" +
+// validators
+Tech.Analysis.name()+"=true\n" +
+Tech.TooFewClues.name()+"=true\n" +
+Tech.TooFewValues.name()+"=true\n" +
+Tech.NotOneSolution.name()+"=true\n" +
+Tech.MissingMaybes.name()+"=true\n" +
+Tech.DoubleValues.name()+"=true\n" +
+Tech.HomelessValues.name()+"=true\n" +
+// Sudoku solving techniques
+Tech.LonelySingle.name()+"=false\n" +
+Tech.NakedSingle.name()+"=true\n" +
+Tech.HiddenSingle.name()+"=true\n" +
+Tech.Locking.name()+"=true\n" +
+Tech.LockingBasic.name()+"=false\n" +
+Tech.DirectNakedPair.name()+"=false\n" +
+Tech.DirectHiddenPair.name()+"=false\n" +
+Tech.DirectNakedTriple.name()+"=false\n" +
+Tech.DirectHiddenTriple.name()+"=false\n" +
+Tech.NakedPair.name()+"=true\n" +
+Tech.HiddenPair.name()+"=true\n" +
+Tech.NakedTriple.name()+"=true\n" +
+Tech.HiddenTriple.name()+"=true\n" +
+Tech.Swampfish.name()+"=true\n" +
+Tech.TwoStringKite.name()+"=true\n" +
+Tech.XY_Wing.name()+"=true\n" +
+Tech.XYZ_Wing.name()+"=true\n" +
+Tech.W_Wing.name()+"=true\n" +
+Tech.Swordfish.name()+"=true\n" +
+Tech.Skyscraper.name()+"=true\n" +
+Tech.EmptyRectangle.name()+"=true\n" +
+Tech.Jellyfish.name()+"=false\n" +
+Tech.Coloring.name()+"=true\n" +
+Tech.XColoring.name()+"=true\n" +
+Tech.Medusa3D.name()+"=false\n" +
+Tech.GEM.name()+"=true\n" +
+Tech.NakedQuad.name()+"=true\n" +
+Tech.HiddenQuad.name()+"=true\n" +
+Tech.NakedPent.name()+"=false\n" +
+Tech.HiddenPent.name()+"=false\n" +
+Tech.BigWings.name()+"=true\n" +
+Tech.WXYZ_Wing.name()+"=false\n" +
+Tech.VWXYZ_Wing.name()+"=false\n" +
+Tech.UVWXYZ_Wing.name()+"=false\n" +
+Tech.TUVWXYZ_Wing.name()+"=false\n" +
+Tech.STUVWXYZ_Wing.name()+"=false\n" +
+Tech.URT.name()+"=true\n" +
+Tech.FinnedSwampfish.name()+"=true\n" +
+Tech.FinnedSwordfish.name()+"=true\n" +
+Tech.FinnedJellyfish.name()+"=false\n" +
+Tech.DeathBlossom.name()+"=true\n" +
+Tech.ALS_XZ.name()+"=true\n" +
+Tech.ALS_Wing.name()+"=true\n" +
+Tech.ALS_Chain.name()+"=true\n" +
+Tech.SueDeCoq.name()+"=false\n" +
+Tech.FrankenSwampfish.name()+"=false\n" +
+Tech.FrankenSwordfish.name()+"=false\n" +
+Tech.FrankenJellyfish.name()+"=false\n" +
+Tech.KrakenSwampfish.name()+"=false\n" +
+Tech.MutantSwampfish.name()+"=false\n" +
+Tech.KrakenSwordfish.name()+"=false\n" +
+Tech.MutantSwordfish.name()+"=false\n" +
+Tech.KrakenJellyfish.name()+"=false\n" +
+Tech.MutantJellyfish.name()+"=false\n" +
+Tech.AlignedPair.name()+"=false\n" +
+Tech.AlignedTriple.name()+"=false\n" +
+Tech.AlignedQuad.name()+"=false\nisa4ehacked=false\n" +
+Tech.AlignedPent.name()+"=false\nisa5ehacked=true\n" +
+Tech.AlignedHex.name()+"=false\nisa6ehacked=true\n" +
+Tech.AlignedSept.name()+"=false\nisa7ehacked=true\n" +
+Tech.AlignedOct.name()+"=false\nisa8ehacked=true\n" +
+Tech.AlignedNona.name()+"=false\nisa9ehacked=true\n" +
+Tech.AlignedDec.name()+"=false\nisa10ehacked=true\n" +
+Tech.UnaryChain.name()+"=true\n" +
+Tech.NishioChain.name()+"=true\n" +
+Tech.MultipleChain.name()+"=true\n" +
+Tech.DynamicChain.name()+"=true\n" +
+Tech.DynamicPlus.name()+"=true\n" +
+Tech.NestedUnary.name()+"=true\n" +
+Tech.NestedMultiple.name()+"=false\n" +
+Tech.NestedDynamic.name()+"=false\n" +
+Tech.NestedPlus.name()+"=false\n" +
+"";
 
 	// open MyPreferences(file), which is NEVER null but may be empty.
 	private static MyPreferences open(File file) {
 		// if the file doesn't exist save the default default settings to it
 		if ( !file.exists() ) {
 			try {
-				IO.save(DEFAULT_DEFAULT_SETTINGS, file);
+				IO.save(DEFAULT_SETTINGS, file);
 			} catch (Exception ex) {
 				// nb: can't use Log here, coz it uses Settings (chicken/egg)
 				System.err.println("Settings.open: failed to create: "+file);
@@ -352,7 +347,7 @@ public final class Settings implements Cloneable {
 				return true;
 			}
 		}
-		System.out.println("MIA: Any of "+Tech.names(techs));
+		System.out.println("MIA: Any of "+techNames(techs));
 		return false;
 	}
 

@@ -1,14 +1,13 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Values.VALUESES;
-import static diuf.sudoku.Values.VSIZE;
 import static diuf.sudoku.solver.hinters.als.AAlsHinter.MAX_RCCS;
 import diuf.sudoku.utils.Log;
 
@@ -35,7 +34,7 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 		    , avAll // a.vAll: indices of cells which maybe v in ALS a + buds
 			, bvs // b.vs: indices of cells which maybe v in ALS b
 		    , bvAll; // a.vAll: indices of cells which maybe v in ALS b + buds
-		Idx aidx // a.idx: indices of cells in ALS a
+		Idx ai // a.idx: indices of cells in ALS a
 		  , av // a.vs[v]: indices of cells in ALS a which maybe v
 		  , avA // a.vAll[v]: indices of cells which maybe v in ALS a + buddies
 		  , bidx // b.*: is re-used for all of b's Idx's (currently three)
@@ -45,6 +44,7 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 		  , aMaybes // a.maybes: all potential values of cells in ALS a
 		  , j // the index in the alss array of ALS b
 		  , vi,vn,v // index into vs, vs.length, and the value at vs[vi]
+		  , ai0,ai1,ai2 // a.idx exploded
 		  , bv0,bv1,bv2 // bothVs //inline for speed: call no methods
 		  , v1, v2 // first and occassional second RC-value
 		  ;
@@ -56,7 +56,7 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 			a = alss[i];
 			avAll = a.vAll;
 			avs = a.vs;
-			aidx = a.idx;
+			ai0=(ai=a.idx).a0; ai1=ai.a1; ai2=ai.a2;
 			aMaybes = a.maybes;
 			// foreach ALS again (a full n*n search)
 			for ( j=0; j<numAlss; ++j ) {
@@ -64,9 +64,9 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 				if ( (aMaybes & alss[j].maybes) != 0
 				  // and the two ALSs do NOT physically overlap
 				  // which also supresses j == i
-				  && ( ( (aidx.a0 & (bidx=alss[j].idx).a0)
-					   | (aidx.a1 & bidx.a1)
-					   | (aidx.a2 & bidx.a2) ) == 0 )
+				  && ( ((bidx=alss[j].idx).a0 & ai0)
+					 | (bidx.a1 & ai1)
+					 | (bidx.a2 & ai2) ) == 0
 				) {
 					// foreach common value
 					for ( v1 = v2 = 0
@@ -83,7 +83,7 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 						if ( ((bv0=(av=avs[v=vs[vi]]).a0 | (bv=bvs[v]).a0) & (avA=avAll[v]).a0 & (bidx=bvAll[v]).a0) == bv0
 						  && ((bv1 = av.a1 | bv.a1) & avA.a1 & bidx.a1) == bv1
 						  && ((bv2 = av.a2 | bv.a2) & avA.a2 & bidx.a2) == bv2
-						) {
+						)
 							if ( any ) {
 								v2 = v;
 								break;
@@ -91,10 +91,8 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 								v1 = v;
 								any = true;
 							}
-						}
-						if ( ++vi == vn ) {
+						if ( ++vi == vn )
 							break;
-						}
 					}
 					if ( any ) {
 						any = false;

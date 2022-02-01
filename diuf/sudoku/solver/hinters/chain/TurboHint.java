@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.chain;
@@ -18,11 +18,8 @@ import diuf.sudoku.utils.Html;
 import java.util.Map;
 
 /**
- * A TurboHint is raised when chaining solves the whole puzzle by
- * assuming one cell-value. This happens often in DynamicChain and
- * less so in DynamicPlus, and less so in DynamicChain, and so on,
- * and the ChainerUnary hasn't even heard of a turbo. City life
- * has made him a bit slow Marge.
+ * A TurboHint is raised when chaining solves the whole puzzle by assuming one
+ * cell-value. This happens in DynamicPlus, and less so in DynamicChain.
  *
  * @author Keith Corlett 2021-07-03
  */

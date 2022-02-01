@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -9,7 +9,6 @@ package diuf.sudoku.solver.hinters.als;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Run.ASSERTS_ENABLED;
 import static diuf.sudoku.Values.VALUESES;
-import static diuf.sudoku.Values.VSIZE;
 import static diuf.sudoku.solver.hinters.als.AAlsHinter.MAX_RCCS;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
@@ -51,8 +50,8 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 			, bvs // b.vs: indices of cells which maybe v in ALS b
 		    , avAll // a.vAll: indices of cells which maybe v in ALS a + buds
 		    , bvAll; //b.vAll: indices of cells which maybe v in ALS b + buds
-		Idx aI // a.idx: indices of cells in ALS a
-		  , bI // b.idx: indices of cells in ALS b
+		Idx ai // a.idx: indices of cells in ALS a
+		  , bi // b.idx: indices of cells in ALS b
 		  , av // a.vs[v]: indices of cells in ALS a which maybe v
 		  , bv // b.vs[v]: indices if cells in ALS b which maybe v
 		  , avA // a.vAll[v]: indices of cells which maybe v in ALS a + buddies
@@ -62,14 +61,14 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 		  , j // the index in the alss array of ALS b
 		  , cc // commonCands: candidates shared by ALS a and ALS b (inc v1&2)
 		  , vi,vl,v // va index, va.length-1, value at va[vi]
+		  , ai0,ai1,ai2 // a.idx exploded
 		  , ol0,ol1,ol2 // overlap exploded
 		  , ev0,ev1,ev2 // eitherVs exploded
-		  , i
 		  , v1, v2 // first and occassional second RC-value
-		  , howManyKids
 		  ;
 		boolean any = false; // any RCC for this pair of ALSs?
-		int numRccs = 0; // number RCC's found so far.
+		int numRccs = 0 // number RCC's found so far.
+		  , i = 0;
 		// the last valid alss index, for a fast STOPPER test in inner ALS loop
 		final int last = numAlss - 1;
 		// harder to debug without clearing rccs first, which is otherwise
@@ -78,17 +77,14 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 			Arrays.fill(rccs, null);
 		}
 		// foreach ALS a
-		for ( i = 0
-			; //NO_STOPPER
-			; //NO_INCREMENT
-		) {
+		for (;;) {
 			// foreach ALS b (a full n*n search)
 			for (
 				// starts and ends are used in AlsChain only
 				starts[i] = numRccs,
 				avAll = (a=alss[i]).vAll,
 				avs = a.vs,
-				aI = a.idx,
+				ai0=(ai=a.idx).a0, ai1=ai.a1, ai2=ai.a2,
 				aMaybes = a.maybes,
 				j = 0 // FIRST
 				; //NO_STOPPER
@@ -104,15 +100,16 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 //				// java bug: do NOT inline this statement
 //				cc = (aMaybes & alss[j].maybes);
 //				if ( VSIZE[cc] > 1
-				  // and j and i are not the same ALS index
-				  && j != i
+// this is unnecessary because the no v's in overlap excludes them
+//				  // and j and i are not the same ALS index
+//				  && j != i
 				) {
 					// if these two ALSs do NOT overlap (ol* reused, if any).
 					// MAGNITUDE: There are about 250 million ALS pairs with a
 					// billion cmnMaybes, and about 20% of pairs overlap.
-					if ( ( (ol0=aI.a0 & (bI=alss[j].idx).a0)
-						 | (ol1=aI.a1 & bI.a1)
-						 | (ol2=aI.a2 & bI.a2) ) == 0
+					if ( ( (ol0=(bi=alss[j].idx).a0 & ai0)
+						 | (ol1=bi.a1 & ai1)
+						 | (ol2=bi.a2 & ai2) ) == 0
 					) {
 //						++COUNTS[0]; // 191,662,530
 						// there is no overlap, so there is no point checking
@@ -132,8 +129,7 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 							// if all v's in either ALS see each other
 							if ( ((ev0=(av=avs[v=va[vi]]).a0 | (bv=bvs[v]).a0) & (avA=avAll[v]).a0 & (bvA=bvAll[v]).a0) == ev0
 							  && ((ev1=av.a1 | bv.a1) & avA.a1 & bvA.a1) == ev1
-							  && ((ev2=av.a2 | bv.a2) & avA.a2 & bvA.a2) == ev2
-							) {
+							  && ((ev2=av.a2 | bv.a2) & avA.a2 & bvA.a2) == ev2 )
 								if ( any ) {
 									v2 = v;
 									break;
@@ -141,10 +137,8 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 									v1 = v;
 									any = true;
 								}
-							}
-							if ( ++vi > vl ) {
+							if ( ++vi > vl )
 								break;
-							}
 						}
 						if ( any ) {
 							any = false;
@@ -178,8 +172,7 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 							  // and all v's in both ALSs see each other
 							  && (ev0 & (avA=avAll[v]).a0 & (bvA=bvAll[v]).a0) == ev0
 							  && (ev1 & avA.a1 & bvA.a1) == ev1
-							  && (ev2 & avA.a2 & bvA.a2) == ev2
-							) {
+							  && (ev2 & avA.a2 & bvA.a2) == ev2 )
 								if ( any ) {
 									v2 = v;
 									break;
@@ -187,10 +180,8 @@ public class RccFinderAllAllowOverlaps extends RccFinderAbstractIndexed {
 									v1 = v;
 									any = true;
 								}
-							}
-							if ( ++vi > vl ) {
+							if ( ++vi > vl )
 								break;
-							}
 						}
 						if ( any ) {
 							any = false;

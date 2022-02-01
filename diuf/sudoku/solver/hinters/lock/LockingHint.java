@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
@@ -43,7 +43,6 @@ public final class LockingHint extends AHint implements IChildHint {
 	final ARegion base;
 	final ARegion cover;
 	final boolean isPointing; //true=Pointing, false=Claiming
-	String debugMessage;
 
 	/**
 	 * Construct a new LockingHint.
@@ -53,11 +52,9 @@ public final class LockingHint extends AHint implements IChildHint {
 	 * @param redPots the removable (red) potential values.
 	 * @param base is the region to highlight in blue.
 	 * @param cover is the region to highlight in green.
-	 * @param debugMessage appears in the hint below the title
 	 */
 	public LockingHint(AHinter hinter, int valueToRemove, Pots greenPots
-			, Pots redPots, ARegion base, ARegion cover
-			, String debugMessage) {
+			, Pots redPots, ARegion base, ARegion cover) {
 		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null, null
 				, Regions.array(base), Regions.array(cover));
 		this.valueToRemove = valueToRemove;
@@ -65,23 +62,18 @@ public final class LockingHint extends AHint implements IChildHint {
 		this.base = base;
 		this.cover = cover;
 		this.isPointing = base instanceof Box;
-		this.debugMessage = debugMessage;
 	}
 
 	/**
-	 * Returns an idx of the cells in this hint.
-	 * <p>
-	 * Note that idx is only called by Locking.mergeSiameseHints and
-	 * SiameseLockingHint constructor; ie only in GUI, so speed not critical.
-	 * @return
+	 * Returns a cached idx of the cells in this hint.
+	 *
+	 * @return a cached idx of the cells in this hint
 	 */
 	public Idx idx() {
-		if ( idx == null )
+		if ( idx == null ) {
 			idx = new Idx();
-		else
-			idx.clear();
-		for ( Cell cell : cellSet )
-			idx.add(cell.i);
+			cellSet.forEach((c) -> idx.add(c.i));
+		}
 		return idx;
 	}
 	private Idx idx; // cellSet index cache
@@ -160,7 +152,7 @@ public final class LockingHint extends AHint implements IChildHint {
 	public int hashCode() {
 		int result = 0;
 		for ( Cell c : cellSet )
-			result = result<<4 ^ c.hashCode;
+			result = result<<4 ^ c.i;
 		result = result<<4 ^ valueToRemove;
 		return result;
 	}

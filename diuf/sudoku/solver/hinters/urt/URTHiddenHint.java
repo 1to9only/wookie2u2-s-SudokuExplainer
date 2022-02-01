@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
@@ -10,7 +10,9 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Regions;
 import static diuf.sudoku.Values.VSHFT;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 
@@ -21,25 +23,25 @@ import diuf.sudoku.utils.Html;
  */
 public final class URTHiddenHint extends AURTHint {
 
-	private final ARegion[] myBases; // the B -> D edge of the rectangle
-	private final ARegion[] myCovers; // the C -> D edge of the rectangle
-	public URTHiddenHint(UniqueRectangle hinter, Cell[] loop, int loopSize
-			, int l, int e // lockedInValue, eliminatableValue
-			, Pots redPots, ARegion[] bases, ARegion[] covers) {
+	private final ARegion base; // the B -> D edge of the rectangle
+	private final ARegion cover; // the C -> D edge of the rectangle
+	public URTHiddenHint(final AHinter hinter, final Cell[] loop, final int n
+			, final int v1, final int v2, final Pots reds, final ARegion base
+			, final ARegion cover) {
 		// Type 7 is a Hidden Unique Rectangle (aka Unique Rectangle Hidden)
-		super(7, hinter, loop, loopSize, l, e, redPots);
-		myBases = bases;
-		myCovers = covers;
+		super(7, hinter, loop, n, v1, v2, reds);
+		this.base = base;
+		this.cover = cover;
 	}
 
 	@Override
 	public ARegion[] getBases() {
-		return myBases;
+		return Regions.array(base);
 	}
 
 	@Override
 	public ARegion[] getCovers() {
-		return myCovers;
+		return Regions.array(cover);
 	}
 
 	@Override

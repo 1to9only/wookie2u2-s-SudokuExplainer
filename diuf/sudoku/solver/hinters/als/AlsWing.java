@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * This is a localised-copy of the HoDoKu code which implements ALS-XY-Wing.
@@ -37,13 +37,13 @@ import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.hinters.Validator;
-import static diuf.sudoku.solver.hinters.Validator.ALS_VALIDATES;
-import static diuf.sudoku.solver.hinters.Validator.isValid;
 import static diuf.sudoku.solver.hinters.Validator.prevMessage;
+import static diuf.sudoku.solver.hinters.Validator.reportRedPots;
 import static diuf.sudoku.utils.Html.colorIn;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
+import static diuf.sudoku.solver.hinters.Validator.VALIDATE_ALS;
+import static diuf.sudoku.solver.hinters.Validator.validOffs;
 
 /**
  * AlsWing implements the Almost Locked Set Wing Sudoku solving technique.
@@ -107,22 +107,19 @@ public final class AlsWing extends AAlsHinter
 	 * * allowNakedSets = true my Almost Locked Sets include cells that are
 	 *   part of a Locked Set in the region.
 	 *   WARNING: If you set this false then you also need to uncomment code!
-	 * * findRCCs = true run getRccs to find the common values connecting ALSs
+	 * * findRccs = true run getRccs to find the common values connecting ALSs
 	 * * allowOverlaps = true the ALSs are allowed to physically overlap
 	 * * forwardOnly = true do a forward only search for RCCs
 	 * </pre>
 	 */
 	public AlsWing() {
-		// WARNING: you need to uncomment code if you change allowNakedSets!
-		super(Tech.ALS_Wing, true, true, true, true); // AlsFinderForwardOnlyAllowOverlaps
+		super(Tech.ALS_Wing, true, true, true, true);
 		assert allowOverlaps; // else you need to uncomment code
+		assert allowNakedSets; // else you need to uncomment code
 	}
 
-	// findHints was boosted mainly from HoDoKu AlsSolver.getAlsXYWingInt
-	// DESIGN: I tried splitting-out searching of ALSs into a search method,
-	// but it's significantly slower with the extra stack-work, so reverted.
 	@Override
-	protected boolean findHints(final Grid grid
+	protected boolean findAlsHints(final Grid grid
 			, final Als[] alss, final int numAlss
 			, final Rcc[] rccs, final int numRccs
 			, final IAccumulator accu) {
@@ -144,7 +141,6 @@ public final class AlsWing extends AAlsHinter
 		boolean ok = false; // are there three ALSs, then any eliminations
 		Als a=null, b=null, c=null; // the three ALSs
 		final int lastRcc = numRccs - 1; // index of the last rcc
-		final Idx victims = this.victims; // cells eliminated from
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach rcc except the last
@@ -197,8 +193,7 @@ public final class AlsWing extends AAlsHinter
 							// victims: externals seeing all zs in both ALSs
 							if ( ( (i0=(aB=a.vBuds[za[zi]]).a0 & (bB=b.vBuds[za[zi]]).a0)
 								 | (i1=aB.a1 & bB.a1)
-								 | (i2=aB.a2 & bB.a2) ) != 0
-							) {
+								 | (i2=aB.a2 & bB.a2) ) != 0 ) {
 								ok |= reds.upsertAll(victims.set(i0,i1,i2), grid, za[zi]);
 							}
 						}
@@ -210,8 +205,10 @@ public final class AlsWing extends AAlsHinter
 							// nb: swap b and c, which are misnamed above.
 							final AlsWingHint hint = new AlsWingHint(this
 								, reds.copyAndClear(), a, c, b, v1, B.v1, rcs);
-							if ( ALS_VALIDATES && !isValid(grid, hint.reds) ) {
-								ok = handle(hint, grid, Arrays.asList(a, b, c));
+							if ( VALIDATE_ALS ) {
+								if ( !validOffs(grid, hint.reds) ) {
+									ok = handle(hint, grid, Arrays.asList(a, b, c));
+								}
 							}
 							if ( ok ) {
 								ok = false;
@@ -233,10 +230,10 @@ public final class AlsWing extends AAlsHinter
 	}
 
 	private boolean handle(AlsWingHint hint, Grid grid, Iterable<Als> alss) {
-		Validator.report(tech.name(), grid, alss);
+		reportRedPots(tech.name(), grid, alss);
 		if ( Run.type==Run.Type.GUI && Run.ASSERTS_ENABLED ) {
-			hint.isInvalid = true;
-			hint.debugMessage = colorIn("<p><r>"+prevMessage+"</r>");
+			hint.setIsInvalid(true);
+			hint.setDebugMessage(colorIn("<p><r>"+prevMessage+"</r>"));
 			return true;
 		}
 		// GUI without -ea, test-cases, batch

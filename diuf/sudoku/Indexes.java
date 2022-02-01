@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
+import static java.lang.Integer.numberOfTrailingZeros;
 import java.util.Iterator;
 
 /**
@@ -66,7 +67,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 		for ( int i=0; i<ARRAY_SIZE; ++i) {
 			INDEXES[i] = toValuesArrayNew(i);
 //			SHIFTED[i] = toShiftedArray(i);
-			IFIRST[i] = Integer.numberOfTrailingZeros(i);
+			IFIRST[i] = numberOfTrailingZeros(i);
 		}
 	}
 
@@ -100,13 +101,13 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 */
 	static int[] toValuesArrayNew(int bits) {
 		final int n = Integer.bitCount(bits);
-		final int[] array = new int[n];
+		final int[] result = new int[n];
 		int cnt = 0;
 		for ( int i=0; cnt<n; ++i )
 			if ( (bits & (1<<i)) != 0 )
-				array[cnt++] = i;
+				result[cnt++] = i;
 		assert cnt == n; // even if they're both 0
-		return array;
+		return result;
 	}
 
 	/**
@@ -146,7 +147,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	/**
 	 * Constructs a new Indexes Set containing the given raw 'bits'.
-	 * 
+	 *
 	 * @param bits to set (a left-shifted bitset).
 	 */
 	public Indexes(int bits) {
@@ -158,7 +159,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * <p>Now only used in test-cases, for readability. Angry people use the
 	 * bits constructor.
 	 * <p>EG: {@code Indexes idxs = new Indexes(0,1,2,3,8);}
-	 * 
+	 *
 	 * @param indexes {@code int...} an arguments array of "normal" (not
 	 * left-shifted) indexes.
 	 */
@@ -170,7 +171,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	/**
 	 * Constructs a new Indexes Set containing the digits in 's'.
-	 * 
+	 *
 	 * @param s String of digits EG: "01238" to set.
 	 */
 	public Indexes(String s) {
@@ -180,7 +181,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	/**
 	 * Copy-con: Constructs a new Indexes Set containing the indexes in 'src'.
-	 * 
+	 *
 	 * @param src {@code Indexes} to copy.
 	 */
 	public Indexes(Indexes src) {
@@ -212,7 +213,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	}
 
 	/**
-	 * Set this Indexes to the given bits, and look-up the size.
+	 * Set this Indexes to the given bitset, looking-up the size.
 	 *
 	 * @param bitset
 	 */
@@ -360,7 +361,7 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 * indexes that are in this Indexes Set, and return the count; and also
 	 * zeros the remainder of the array.
 	 * <p>
-	 * Prefer this method to the no-arg {@link #toArray()} in a loop because
+	 * Prefer this method to the no-arg {@link #toArrayNew()} in a loop because
 	 * it is MUCH faster to not create a garbage-array for each element. Just
 	 * because you have a garbage-collection-service do NOT expect them to
 	 * empty your industrial-bin three times a bloody second! Use your head!
@@ -405,10 +406,10 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	 *
 	 * @return a new {@code int[]} array.
 	 */
-	public int[] toArray() {
-		final int[] array = new int[size()];
-		toArray(array);
-		return array;
+	public int[] toArrayNew() {
+		final int[] result = new int[size()];
+		toArray(result);
+		return result;
 	}
 
 	// ---------------- toString ----------------

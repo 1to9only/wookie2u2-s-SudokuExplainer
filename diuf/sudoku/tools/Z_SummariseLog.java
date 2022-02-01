@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -64,7 +64,7 @@ public class Z_SummariseLog {
 				String inputLine = it.previous();
 				if ( inputLine.indexOf('#') > -1 )
 					throw new RuntimeException("Oops: found # while backing-up from BOF for a line starting with \"        time (ns)\"");
-				if ( inputLine.startsWith("        time (ns)") ) {
+				if ( inputLine.startsWith("         time(ns)") ) {
 					it.remove(); // remove this line
 					it.previous(); // and the blank line before it.
 					it.remove();

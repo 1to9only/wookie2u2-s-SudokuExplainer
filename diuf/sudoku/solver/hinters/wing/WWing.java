@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * The algorithm for the WWing solving technique was boosted by Keith Corlett
@@ -31,11 +31,11 @@
  */
 package diuf.sudoku.solver.hinters.wing;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
@@ -44,126 +44,130 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 
-
 /**
  * WWing Implements the W-Wing Sudoku solving technique.
  * <p>
- * A W-Wing is a pair of cells (not in a single region) with the same two
- * maybes having a strong link between them.
+ * A WWing is a pair of cells (not in a single region) with the same two maybes
+ * having a strong link between them. That link is a region with two places for
+ * one of these two values, and each cell in that region sees one of the two
+ * bivalued cells.
  * <p>
  * KRC 2021-08-19 tried everything I can think of to speed this up, but no joy.
  * bivi Idx reduces bivs*81 to bivs*bivs but its slower, even with local Idx's,
  * which I don't really understand. It's faster to just iterate grid.cells.
+ * 2021-11-25 Search for a biplace region on BOTH values of the bivalued cells.
  */
-public final class WWing extends AHinter
-//		implements diuf.sudoku.solver.IReporter
-{
+public final class WWing extends AHinter {
+
+	// a fast way to get the other array index, of a bivalue cells maybes.
+	// 1 is the OPPOSITE of 0; and 0 is the OPPOSITE of 1.
+	private static final int[] OPPOSITE = {1, 0};
+
+	private Grid grid;
+	private ARegion[] regions;
 
 	public WWing() {
 		super(Tech.W_Wing);
 	}
 
-//	@Override
-//	public void report() {
-//		diuf.sudoku.utils.Log.teef("// "+tech.name()+" pass victims %d of %d, empty %d of %d\n"
-//				, victPass,victCnt, emptyPass,emptyCnt);
-//	}
-
-	private void clean() {
-		Cells.cleanCasA();
-		Cells.cleanCasB();
-	}
-
 	@Override
 	public boolean findHints(Grid grid, IAccumulator accu) {
-		AHint hint; // The hint, if we ever find one
+		Idx t0, t1;
 		int[] vA; // an array to read values from a Values bitset
-		// indices of cells which maybe each value 1..9
 		final Idx[] idxs = grid.idxs;
-		final Idx bud0 = this.bud0; // indices of buds of cA which maybe v0
-		final Idx bud1 = this.bud1; // indices of buds of cA which maybe v1
-		final Idx victims = this.victims; // indices of removable (red) cells
-		// presume that no hint will be found
+		final Cell[] cells = grid.cells;
+		AHint hint = null;
 		boolean result = false;
-		// foreach bivalue cell in the grid
-		for ( Cell cA : grid.cells ) {
-			// if cellA has 2 maybes
-			if ( cA.size == 2
-			  // and a tautology, to set vA
-			  && (vA=VALUESES[cA.maybes]) != null
-			  // and cellA has buddies that maybe both v0 and v1
-			  && bud0.setAndAny(cA.buds, idxs[vA[0]])
-			  && bud1.setAndAny(cA.buds, idxs[vA[1]])
-			) {
-				// find a "pair" cell (with same 2 maybes)
-				for ( Cell cB : grid.cells ) {
-					if ( cB.maybes==cA.maybes && cB!=cA ) {
-						// ok, we have a pair, but do they eliminate anything?
-						// victims := siblings of A and B which maybe v0 or v1
-						if ( victims.setAndAny(bud0, cB.buds)
-						  // search reds for a strong link
-						  && (hint=check(grid, vA, cA, cB, victims)) != null
-						) {
-							result = true;
-							if ( accu.add(hint) ) {
-								clean();
-								return result;
+		this.grid = grid;
+		this.regions = grid.regions;
+		try {
+			for ( Cell cA : cells ) {
+				if ( cA.size == 2 ) {
+					vA = VALUESES[cA.maybes];
+//					budA0.setAnd(cA.buds, idxs[vA[0]]);
+					budA0.a0 = (t0=cA.buds).a0 & (t1=idxs[vA[0]]).a0;
+					budA0.a1 = t0.a1 & t1.a1;
+					budA0.a2 = t0.a2 & t1.a2;
+//					budA1.setAnd(cA.buds, idxs[vA[1]]);
+					budA1.a0 = (t0=cA.buds).a0 & (t1=idxs[vA[1]]).a0;
+					budA1.a1 = t0.a1 & t1.a1;
+					budA1.a2 = t0.a2 & t1.a2;
+					for ( Cell cB : cells ) {
+						if ( cB.maybes==cA.maybes && cB!=cA ) {
+							if ( victims.setAndAny(budA0, cB.buds)
+							  && (hint=prove(cA, cB, vA, 1)) != null ) {
+								result = true;
+								if ( accu.add(hint) ) {
+									return result;
+								}
+								hint = null;
 							}
-							hint = null;
-						}
-						if ( victims.setAndAny(bud1, cB.buds)
-						  // search reds for a strong link
-						  && (hint=check(grid, vA, cA, cB, victims)) != null
-						) {
-							result = true;
-							if ( accu.add(hint) ) {
-								clean();
-								return result;
+							if ( victims.setAndAny(budA1, cB.buds)
+							  && (hint=prove(cA, cB, vA, 0)) != null ) {
+								result = true;
+								if ( accu.add(hint) ) {
+									return result;
+								}
+								hint = null;
 							}
-							hint = null;
 						}
 					}
 				}
 			}
+		} finally {
+			this.grid = null;
+			this.regions = null;
 		}
-		clean();
 		return result;
 	}
 	// buddies of cellA which maybe 0=v0, 1=v1
-	private final Idx bud0 = new Idx();
-	private final Idx bud1 = new Idx();
+	private final Idx budA0 = new Idx();
+	private final Idx budA1 = new Idx();
 	private final Idx victims = new Idx();
 
-	// check for W-Wing in cA's regions on values
-	private AHint check(Grid grid, final int[] values, final Cell cA
-			, final Cell cB, final Idx victims) {
-		// seek the second value (not the first value, bfiik why)
+	/**
+	 * Prove isn't the normal "search" for victims; instead it builds the case
+	 * for conviction of the predetermined victims. So I seek a region with two
+	 * places for v (vA[i]), where both places see both cA and cB, one each, in
+	 * which case I return a hint, else (most commonly) I return null.
+	 *
+	 * @param cA the first bivalue Cell
+	 * @param cB the second bivalue Cell, with the same 2 maybes a cA
+	 * @param vA an array of the maybes of cA and cB
+	 * @param i the index of the maybe to check in vA, which is the opposite
+	 *  index to that of the victims. <br>
+	 *  If victims is set to the buddies of cA and cB on vA[0] then i is 1. <br>
+	 *  If victims is set to the buddies of cA and cB on vA[1] then i is 0.
+	 * @return a hint, if the case is proven, else null.
+	 */
+	private AHint prove(final Cell cA, final Cell cB, final int[] vA, final int i) {
+		Cell[] regionCells;
+		Cell wA, wB, c;
+		int j;
 		final int iA = cA.i;
 		final int iB = cB.i;
-		final int v1 = values[1];
-		final int sv1 = VSHFT[v1];
-		// the two wing cells required to complete the WWing pattern
-		Cell wA, wB;
-		// foreach region with 2 possible positions for v1
-		for ( ARegion region : grid.regions ) {
-			if ( region.ridx[v1].size == 2 ) {
-				// strong link; but does it fit? ie does this region contain
-				// two cells which maybe v that see both cellA and cellB?
-				wA = wB = null; // not found
-				for ( Cell c : region.cells ) {
-					if ( (c.maybes & sv1) != 0 ) {
-						// If 'c' sees BOTH bivalue cells it's NOT a WWing!
-						// This is handled sneakily with the if/elseIf.
-						if ( c.sees[iA] && c!=cB ) {
+		final int v = vA[i];
+		final int sv = VSHFT[v];
+		for ( ARegion r : regions ) {
+			if ( r.ridx[v].size == 2 ) {
+				regionCells = r.cells;
+				wA = wB = null;
+				for ( j=0; j<REGION_SIZE; ++j ) {
+					if ( (regionCells[j].maybes & sv) != 0 ) {
+						// if c sees BOTH bivs it's NOT a WWing
+						// Handled sneakily with the if/elseif.
+						if ( (c=regionCells[j]).sees[iA] && c!=cB ) {
 							wA = c;
-							if ( wB != null ) // W-Wing found!
-								return createHint(values, cA, cB, wA, wB
-										, victims.cellsA(grid));
+							if ( wB != null ) {
+								return createHint(vA[OPPOSITE[i]], vA[i]
+										, cA, cB, wA, wB);
+							}
 						} else if ( c.sees[iB] && c!=cA ) {
 							wB = c;
-							if ( wA != null ) // W-Wing found!
-								return createHint(values, cA, cB, wA, wB
-										, victims.cellsA(grid));
+							if ( wA != null ) {
+								return createHint(vA[OPPOSITE[i]], vA[i]
+										, cA, cB, wA, wB);
+							}
 						}
 					}
 				}
@@ -172,27 +176,14 @@ public final class WWing extends AHinter
 		return null;
 	}
 
-	private AHint createHint(int[] values, Cell cA, Cell cB, Cell wA, Cell wB
-			, final Cell[] victims) {
-		final int v0=values[0], v1=values[1];
-		// Check each victimCell maybe v0 by calculating everything and only
-		// then skipping when untrue; which works, but
-		// There MUST be a faster way!
-		final int sv0 = VSHFT[v0];
-		for ( Cell c : victims ) {
-			if ( (c.maybes & sv0) == 0 ) {
-				return null;
-			}
-		}
-		// build the highlighted (green) potential values
-		final Pots greenPots = new Pots(v1, cA,cB,wA,wB);
-		// build the fins (blue) potential values
-		final Pots bluePots = new Pots(v0, cA,cB);
-		// build the removeable (red) potential values
-		final Pots redPots = new Pots(v0, victims);
-		// build and return the hint
+	// A line of code so complex it has it's own method, rather than repeat it.
+	private AHint createHint(final int v0, int v1, final Cell cA, final Cell cB
+			, final Cell wA, final Cell wB) {
 		return new WWingHint(this, v0, v1, cA, cB, wA, wB
-				, greenPots, bluePots, redPots);
+				, new Pots(v1, cA,cB,wA,wB) // greens
+				, new Pots(cA,cB, v0) // blues
+				, new Pots(victims, grid, VSHFT[v0], F) // reds
+		);
 	}
 
 }

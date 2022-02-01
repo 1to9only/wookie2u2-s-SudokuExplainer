@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -71,6 +71,9 @@ public class Frmu {
 
 	// nb: Set binds before Collection to avert type-erasure problem
 	public static String csv(ARegion[] regions) {
+		// null regions causes a null String, not an NPE. Reasonable.
+		if ( regions == null )
+			return null;
 		return csv(getMySB(regions.length<<3), regions).toString();
 	}
 
@@ -107,7 +110,10 @@ public class Frmu {
 		for ( int i=0; i<n; ++i ) {
 			if(first) first=false; else sb.append(CSP);
 			try {
-				sb.append(i%2==0 ? b.next() : c.next());
+				if ( i%2 == 0 )
+					sb.append(b.next());
+				else
+					sb.append(c.next());
 			} catch (NoSuchElementException ex) {
 				// do nothing, just leave it blank
 			}
@@ -190,28 +196,32 @@ public class Frmu {
 		return toFullString(CSP, cells);
 	}
 
-	public static String csv(Cell c1) { return c1.id; }
-	public static String csv(Cell c1, Cell c2) { return c1.id+CSP+c2.id; }
-	public static String csv(Cell c1, Cell c2, Cell c3) { return c1.id+CSP+c2.id+CSP+c3.id; }
-	public static String csv(Cell[] cells) { return frmt(cells, cells.length, CSP, CSP); }
-	public static String csv(int n, Cell[] cells) { return frmt(cells, n, CSP, CSP); }
-	public static String ssv(Cell[] cells) { return frmt(cells, cells.length, SP, SP); }
-	public static String ssv(int n, Cell[] cells) { return frmt(cells, n, SP, SP); }
-	public static String and(Cell[] cells) { return frmt(cells, cells.length, CSP, AND); }
-	public static String and(Cell c1, Cell c2) { return c1.id+AND+c2.id; }
-	public static String or(Cell c1, Cell c2) { return c1.id+OR+c2.id; }
-	public static String or(Cell[] cells) { return frmt(cells, cells.length, CSP, OR); }
-	public static String frmt(Cell[] cells, int n, final String sep, final String lastSep) {
-		final StringBuilder sb = getMySB(128);
-		return append(sb, cells, n, sep, lastSep).toString();
+	public static String csv(final Cell c1) { return c1.id; }
+	public static String csv(final Cell c1, final Cell c2) { return c1.id+CSP+c2.id; }
+	public static String csv(final Cell c1, final Cell c2, final Cell c3) { return c1.id+CSP+c2.id+CSP+c3.id; }
+	public static String csv(final Cell[] cells) { return frmt(cells, cells.length, CSP, CSP); }
+	public static String csv(final int n, final Cell[] cells) { return frmt(cells, n, CSP, CSP); }
+	public static String ssv(final Cell[] cells) { return frmt(cells, cells.length, SP, SP); }
+	public static String ssv(final int n, final Cell[] cells) { return frmt(cells, n, SP, SP); }
+	public static String and(final Cell[] cells) { return frmt(cells, cells.length, CSP, AND); }
+	public static String and(final Cell c1, final Cell c2) { return c1.id+AND+c2.id; }
+	public static String or(final Cell c1, final Cell c2) { return c1.id+OR+c2.id; }
+	public static String or(final Cell[] cells) { return frmt(cells, cells.length, CSP, OR); }
+	public static String frmt(final Cell[] cells, final int n, final String sep, final String lastSep) {
+		return append(getMySB(128), cells, n, sep, lastSep).toString();
 	}
-	public static StringBuilder append(StringBuilder sb, Cell[] cells, int n, String sep, String lastSep) {
-		if(cells==null) return sb;
+	public static StringBuilder append(final StringBuilder sb, final Cell[] cells, final int n, final String sep, final String lastSep) {
+		if ( cells == null )
+			return sb;
 		for ( int i=0,m=n-1; i<n; ++i ) {
 			if ( cells[i] == null )
 				break; // it's a null terminated array
 			if ( i > 0 )
-				sb.append(i<m ? sep : lastSep);
+				// SPEED: NO TERNIARY!
+				if ( i < m )
+					sb.append(sep);
+				else
+					sb.append(lastSep);
 			sb.append(cells[i].id);
 		}
 		return sb;
@@ -234,9 +244,11 @@ public class Frmu {
 			if ( c==null)
 				break; // null terminated list!
 			if ( ++i > 1 )
-				// note: i<n only works coz i is 1-based and n is 0-based;
-				// but it works so don't ____ with it.
-				sb.append(i<n ? sep : lastSep);
+				// SPEED: NO TERNIARY!
+				if ( i < n )
+					sb.append(sep);
+				else
+					sb.append(lastSep);
 			sb.append(c.id);
 		}
 		return sb;
@@ -248,7 +260,11 @@ public class Frmu {
 		int i = 0;
 		for ( Cell c : cells ) {
 			if ( ++i > 1 )
-				sb.append(i<m ? sep : lastSep);
+				// SPEED: NO TERNIARY!
+				if ( i < m )
+					sb.append(sep);
+				else
+					sb.append(lastSep);
 			sb.append(c.toFullString());
 		}
 		return sb;
@@ -295,7 +311,11 @@ public class Frmu {
 		int i = 0;
 		for ( int v : VALUESES[bits] ) {
 			if ( ++i > 1 ) //nb: i is now effectively 1-based, so i<size is correct
-				sb.append(i<size ? sep : lastSep);
+				// SPEED: NO TERNIARY!
+				if ( i < size )
+					sb.append(sep);
+				else
+					sb.append(lastSep);
 			sb.append(v);
 		}
 		return sb;

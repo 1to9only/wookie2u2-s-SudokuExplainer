@@ -2,7 +2,7 @@
 ///*
 // * Project: Sudoku Explainer
 // * Copyright (C) 2006-2007 Nicolas Juillerat
-// * Copyright (C) 2013-2021 Keith Corlett
+// * Copyright (C) 2013-2022 Keith Corlett
 // * Available under the terms of the Lesser General Public License (LGPL)
 // */
 //package diuf.sudoku.tools;
@@ -93,7 +93,7 @@
 //					assert b.equals(puzzleData[1]);
 //
 //					// now read the hint-line from both readers, and diff them
-//					//hid  	      time (ns)	ce	mayb	eli	hinter                         	hint
+//					//hid  	       time(ns)	ce	mayb	eli	hinter                         	hint
 //					//33   	    753,915,642	22	 208	  1	Aligned Sept                  	Aligned Sept: A4, C4, B5, A6, G6, H6, I6 (B5-6)
 //					aHintLine = aRdr.readLine();
 //					//33   	     69,586,245	22	 208	  1	Unary Chain                   	Unary XY Chain: B4-7 (B4-7)

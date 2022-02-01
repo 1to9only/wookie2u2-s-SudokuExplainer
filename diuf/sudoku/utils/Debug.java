@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -32,6 +32,9 @@ public final class Debug {
 
 	/** @see Log.out, DevNull.out */
 	public static PrintStream out = System.out;
+
+	// switch this on/off to activate/deactive your breakpoints. It's faster!
+	public static boolean isOn;
 
 	/**
 	 * breakpoint() is a no-op for conditional breakpoints. The JIT compiler

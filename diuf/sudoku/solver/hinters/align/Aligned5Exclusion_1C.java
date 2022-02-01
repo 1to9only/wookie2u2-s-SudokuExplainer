@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align;
@@ -817,7 +817,7 @@ public final class Aligned5Exclusion_1C extends Aligned5ExclusionBase
 
 // Q: is using do30 and/or do40 actually any faster?
 // A: Yes, using both is fastest. From 23:35 down to 17:48 = 5:47 or 24.52% faster
-//            time (ns)  calls   time/call  elims    time/elim  hinter
+//             time(ns)  calls   time/call  elims    time/elim  hinter
 //none: 485,794,499,800  14729  32,982,178   1484  327,354,784  Aligned Pent
 //do30: 461,109,972,700  14729  31,306,264   1484  310,721,005  Aligned Pent
 //do40: 389,309,286,200  14729  26,431,481   1484  262,337,793  Aligned Pent

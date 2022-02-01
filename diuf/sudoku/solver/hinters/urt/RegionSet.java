@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
@@ -45,8 +45,28 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 	public int size;
 
 	/**
-	 * add is an addOnly: it ignores a request to add an existing region,
+	 * add is an addOnly: it ignores a request to add a pre-existing region,
 	 * returning false.
+	 * <p>
+	 * This differs from the Collections framework whose add methods overwrite
+	 * an existing element and return false anyway, which is just plain WRONG;
+	 * so you can stick Collections up your ass.
+	 * <p>
+	 * Collections add SHOULD have always been addOnly, but Collections is now
+	 * buried in it's own interfaces, which are impossible to change, having
+	 * all manor of implementations in the wild. I guess they were match-racing
+	 * ksh's HashTable; and that's how they do it, so that's how we do it, or
+	 * something like that.
+	 * <p>
+	 * add SHOULD have been called "indate" or "upsert", to insert or update,
+	 * but should it return false on update? I'm saying no, because the
+	 * collection has been modified, but I also admit my ignorance of the
+	 * reasoning (which I presume exists) behind why it's a Yes, so please go
+	 * right ahead and just ignore the ____ out me. Everyone else does. What
+	 * dear? Yes dear. My bad. I'll just proceed to suicide then shall I. Sigh.
+	 * <p>
+	 * If/when I ever write Kava I'll fix it. No JIT! Huh? What volcano? Fish.
+	 *
 	 * @param r the ARegion to add
 	 * @return was the region added
 	 */
@@ -56,6 +76,20 @@ class RegionSet extends AbstractSet<ARegion> implements Set<ARegion> {
 			return false; // "I told him we've already got one"
 		in[r.index] = true;
 		++size;
+		return true;
+	}
+
+	/**
+	 * addAll adds each ARegion in the array to this RegionSet, and returns
+	 * were	ALL regions added (no duplicates).
+	 *
+	 * @param a an array of ARegion to add
+	 * @return where ALL of the regions added (no duplicates)
+	 */
+	public boolean addAll(ARegion[] a) {
+		for ( ARegion r : a )
+			if ( !add(r) ) // add only (no update)
+				return false; // "I told him we've already got one"
 		return true;
 	}
 

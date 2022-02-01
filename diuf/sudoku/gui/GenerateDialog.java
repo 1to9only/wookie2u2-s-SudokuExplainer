@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -9,15 +9,22 @@ package diuf.sudoku.gui;
 import diuf.sudoku.Difficulty;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Tech.techNames;
 import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.gen.Generator;
-import diuf.sudoku.gen.PuzzleCache;
+import static diuf.sudoku.gen.Generator.FACTORY_THREAD_NAME;
+import static diuf.sudoku.gen.Generator.GENERATOR_THREAD_NAME;
+import static diuf.sudoku.gen.Generator.MAX_FAILURES;
+import static diuf.sudoku.gen.Generator.MAX_TRIES;
+import static diuf.sudoku.gen.Generator.PRODUCE_THREAD_NAME;
+import static diuf.sudoku.gen.Generator.getGenerator;
 import diuf.sudoku.gen.Symmetry;
+import diuf.sudoku.gen.Threads;
 import diuf.sudoku.io.IO;
-import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
+import static diuf.sudoku.utils.Frmt.lng;
 import diuf.sudoku.utils.Log;
-import diuf.sudoku.utils.MyStrings;
+import static diuf.sudoku.utils.MyStrings.wordWrap;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -26,7 +33,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
-import java.util.Arrays;
+import static java.util.Arrays.asList;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -42,10 +49,15 @@ import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import static javax.swing.JOptionPane.QUESTION_MESSAGE;
+import static javax.swing.JOptionPane.YES_NO_OPTION;
+import static javax.swing.JOptionPane.YES_OPTION;
+import static javax.swing.JOptionPane.showConfirmDialog;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
+import static javax.swing.SwingUtilities.invokeAndWait;
+import static javax.swing.SwingUtilities.invokeLater;
 
 /**
  * The GenerateDialog allows the user to provide the parameters required to
@@ -69,27 +81,30 @@ public final class GenerateDialog extends JDialog {
 
 	private static final String NL = System.lineSeparator();
 
-	// load the PuzzleCache when the GenerateDialog form is first loaded, to
-	// give him time to load/generate a cache of puzzles BEFORE you press the
-	// Generate button. This only matters the first time a machine loads the
-	// generate form, and most users will poke-around-a-bit before pressing
-	// generate for the first time, so I'm relying on that time to pre-cache,
-	// which'll probably work for everything except IDKFA, which should take
-	// upto around 3 minutes to generate. I hope nobody goes big first fast,
-	// but if they do then they'll just have to wait for generate. sigh.
-	static {
-		PuzzleCache.staticInitialiser();
-	}
+// now called in SudokuExplainer itself, to pre-arm.
+//	// load the PuzzleCache when the GenerateDialog form is first loaded, to
+//	// give him time to load/generate a cache of puzzles BEFORE you press the
+//	// Generate button. This only matters the first time a machine loads the
+//	// generate form, and most users will poke-around-a-bit before pressing
+//	// generate for the first time, so I'm relying on that time to pre-cache,
+//	// which'll probably work for everything except IDKFA, which should take
+//	// upto around 3 minutes to generate. I hope nobody goes big first fast,
+//	// but if they do then they'll just have to wait for generate. sigh.
+//	static {
+//		PuzzleCache.staticInitialiser();
+//	}
 
 	// Techs the user must want, for speed. Generate is too slow without these.
-	private static final Tech[] SPEED_TECHS = new Tech[] {
+	private static Tech[] speedTechs() {
+		return new Tech[] {
 			  Tech.NakedSingle
 			, Tech.HiddenSingle
 			, Tech.Locking
 			, Tech.NakedPair
 			, Tech.HiddenPair
 			, Tech.Swampfish // aka X-Wing, but I prefer a fish related name.
-	};
+		};
+	}
 
 	// Atleast one of these techs is required as a safety-net. DynamicPlus may
 	// miss on the hardest puzzles, but all the Nested hinters ALWAYS hint.
@@ -97,13 +112,74 @@ public final class GenerateDialog extends JDialog {
 	// Remember that safety-nets aren't called-upon until they're called-upon.
 	// NestedUnary takes about four times as long to ALWAYS hint, but good luck
 	// getting the bastard to run at all (with a sane Tech selection).
-	private static final Tech[] SAFETY_NETS = new Tech[] {
+	private static Tech[] safetyNets() {
+		return new Tech[] {
 			  Tech.DynamicPlus
 			, Tech.NestedUnary
 			, Tech.NestedMultiple
 			, Tech.NestedDynamic
 			, Tech.NestedPlus
-	};
+		};
+	}
+
+	private static String overrideTechsQuestion() {
+		return
+"Warning: not all the \"speed\" solving techniques are wanted.\n" +
+"\n" +
+"Solving a Sudoku takes much longer without all of these techniques, so Generate\n" +
+"struggles without them, taking ages, or it could even run for ever.\n" +
+"\n" +
+"Speed Techs: Want ALL of:\n" +
+techNames(speedTechs()) + "\n" +
+"These are for speed really, not safety, but tick bloody tock!\n" +
+"\n" +
+"Safety Nets: Want ONE of:\n" +
+techNames(safetyNets()) + "\n" +
+"ONE of these is needed for safety, else hard puzzles may not solve.\n" +
+"DynamicPlus covers normal puzzles; Nested* all cover ALL puzzles.\n" +
+"\n" +
+"Continue anyway?\n"
+;
+	}
+
+	private static String overrideIdkfaQuestion() {
+		return
+"Warning: IDKFA puzzles are REALLY rare!\n" +
+"\n" +
+"It'll take distant monarch ages to generate an IDKFA, so I advise you to just press \"No\"\n" +
+"and abandon all interest in the whole IDKFA thing. If you're dumb enough to press \"Yes\"\n" +
+"anyway then SE will try "+lng(MAX_TRIES)+" times (aborting at "+lng(MAX_FAILURES)+" failures) to generate an IDKFA\n" +
+"Sudoku that contains a DynamicPlus+ hint.\n" +
+"\n" +
+"The IDKFA Generator is hit and miss because SE generates \"random\" Sudoku puzzles\n" +
+"and DynamicPlus+ hints are really rare, so it'll most probably take ages to strike one.\n" +
+"\n" +
+"I don't really understand this, but when run in JAVA.EXE the \""+PRODUCE_THREAD_NAME+"\" thread\n" +
+"aborts after just a few minutes. I suspect that Winblows JAVA.EXE kills a daemon that\n" +
+"is overheating the CPU, for safety, which is safe, but also prevents SE from generating\n" +
+"an IDKFA. So, if you really want an IDKFA then run SE in JVM without a safety-net, as in\n" +
+"all IDEs (I think), Personally, I use Nutbeans. There are many differences between VM's\n" +
+"so it is probable that Nutbeans VM is saving me from myself in some other-way that\n" +
+"JAVA.EXE does not.\n" +
+"\n" +
+"IDKFA. That's my matra. Leaning into stupidity since 1972'ish. Who's going to be there\n" +
+"to clean-up the mess?\n" +
+"\n" +
+"So punk, the question is, have you got an hour, are you in an IDE, and are you currently\n" +
+"feeling Felix Felicis level (ie REALLY ____ing) lucky. I'd recommend a beer, or four!\n"
+;
+	}
+
+	private static String noWantedTechsMsg(final Tech[] techs) {
+		return
+"No Sudoku solving techniques are wanted that are in the selected difficulty,\n"
++"so generate would just run for-ever without producing a puzzle.\n"
++"\n"
++"Use Options menu ~ Solving techniques... to want one or more of: \n"
++wordWrap(techNames(techs), 80)+"\n"
++"or just choose another difficulty to generate.\n"
+;
+	}
 
 	private final SudokuFrame frame;
 	private final SudokuExplainer engine;
@@ -120,7 +196,7 @@ public final class GenerateDialog extends JDialog {
 	// a Set of the symettries selected for use.
 	private final EnumSet<Symmetry> selectedSyms = EnumSet.noneOf(Symmetry.class);
 
-	private Difficulty difficulty = Difficulty.Fiendish;
+	private Difficulty difficulty = Difficulty.Fiendish; // default selected
 	private boolean isExact = true;
 
 	private final List<Grid> sudokuList = new ArrayList<>();
@@ -129,10 +205,10 @@ public final class GenerateDialog extends JDialog {
 	private final JCheckBox[] chkSymmetries = new JCheckBox[Symmetry.ALL.length];
 
 	// it's safer to add/remove to/from a List, in case multiple are started.
-	private Queue<Thread> generatorThreads = new LinkedList<>();
+	private final Queue<Thread> generatorThreads = new LinkedList<>();
 
 	private static GenerateDialog theInstance;
-	public static final GenerateDialog getInstance() {
+	public static final GenerateDialog getGenerateDialog() {
 		if ( theInstance == null )
 			theInstance = new GenerateDialog();
 		return theInstance;
@@ -149,55 +225,36 @@ public final class GenerateDialog extends JDialog {
 		super(SudokuExplainer.getInstance().frame, false);
 		this.engine = SudokuExplainer.getInstance();
 		this.frame = engine.frame;
-		initParameters();
 		initGUI();
 	}
 
-	private void initParameters() {
-		selectedSyms.addAll(Arrays.asList(Symmetry.ALL));
-		sudokuList.add(engine.getGrid());
-	}
-
 	private boolean checkTechs() {
-		return THE_SETTINGS.allWanted(SPEED_TECHS)
-			&& THE_SETTINGS.anyWanted(SAFETY_NETS);
+		return THE_SETTINGS.allWanted(speedTechs())
+			&& THE_SETTINGS.anyWanted(safetyNets());
 	}
 
-	private static final String TECHS_QUESTION =
-"Warning: not all the \"speed\" solving techniques are wanted.\n" +
-"\n" +
-"Solving a Sudoku takes much longer without all of these techniques, so Generate\n" +
-"struggles without them, taking ages, or it could even run for ever.\n" +
-"\n" +
-"Speed Techs: Want ALL of:\n" +
-Tech.names(SPEED_TECHS) + "\n" +
-"These are for speed really, not safety, but tick bloody tock!\n" +
-"\n" +
-"Safety Nets: Want ONE of:\n" +
-Tech.names(SAFETY_NETS) + "\n" +
-"ONE of these is needed for safety, else hard puzzles may not solve.\n" +
-"DynamicPlus covers normal puzzles; Nested* all cover ALL puzzles.\n" +
-"\n" +
-"Continue anyway?";
+	private boolean ask(final String question) {
+		return YES_OPTION == showConfirmDialog(this, question, getTitle()
+				, YES_NO_OPTION, QUESTION_MESSAGE);
+	}
 
 	private boolean userOverridesTechs() {
-		return overriddenUnsafe
-			|| (overriddenUnsafe = JOptionPane.YES_OPTION ==
-				JOptionPane.showConfirmDialog(this, TECHS_QUESTION
-						, getTitle(), JOptionPane.YES_NO_OPTION
-						, JOptionPane.QUESTION_MESSAGE));
+		return unsafeOk
+			|| (unsafeOk = ask(overrideTechsQuestion()));
 	}
-	private boolean overriddenUnsafe = false;
+	private boolean unsafeOk = false;
 
-	private static final String BAD_TECHS_MESSAGE
-="No Sudoku solving techniques are wanted that are in the selected difficulty,"+NL
-+"so generate would just run for-ever without getting there."+NL
-+NL
-+"Use Options menu ~ Solving techniques... to want one or more of: "+NL
-+"#TECHS#"+NL
-+"or just choose another difficulty to generate.";
+	private boolean userOverridesIdfka() {
+		return idkfaOk
+			|| (idkfaOk = ask(overrideIdkfaQuestion()));
+	}
+	private boolean idkfaOk = false;
 
 	private void initGUI() {
+		// init contents
+		selectedSyms.addAll(asList(Symmetry.ALL));
+		sudokuList.add(engine.getGrid());
+
 		// This
 		setTitle("Generate Sudoku");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -249,13 +306,13 @@ Tech.names(SAFETY_NETS) + "\n" +
 					// and that a "safety-net" is wanted
 					if ( !checkTechs() && !userOverridesTechs() )
 						return;
+					// IDKFA's are rare, so take ages to generate randomly.
+					if ( difficulty==Difficulty.IDKFA && !userOverridesIdfka())
+						return;
 					// check that atleast one Tech of this difficulty is wanted
-					final Tech[] diffTechs = difficulty.techs();
-					if ( !THE_SETTINGS.anyWanted(diffTechs) ) {
-						String s = Tech.names(diffTechs);
-						s = MyStrings.wordWrap(s, 80);
-						s = BAD_TECHS_MESSAGE.replaceFirst("#TECHS#", s);
-						carp("Generate", s);
+					final Tech[] dts = difficulty.techs();
+					if ( !THE_SETTINGS.anyWanted(dts) ) {
+						carp("Generate", noWantedTechsMsg(dts));
 						return;
 					}
 					// start a new generatorThread
@@ -333,7 +390,7 @@ Tech.names(SAFETY_NETS) + "\n" +
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				difficulty = (Difficulty)cboDifficulty.getSelectedItem();
-				lblDescription.setText(difficulty.html);
+				lblDescription.setText(difficulty.getHtml());
 				selectSymmetries(difficulty);
 			}
 		});
@@ -371,10 +428,10 @@ Tech.names(SAFETY_NETS) + "\n" +
 		lblDescription.setText(
 				"<html><body><b>This</b><br>is just<br>a text.</body></html>");
 		lblDescription.setToolTipText("Explanation of the chosen difficulty");
-		SwingUtilities.invokeLater(new Runnable() {
+		invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				lblDescription.setText(difficulty.html);
+				lblDescription.setText(difficulty.getHtml());
 			}
 		});
 		final JPanel pnlDescription = new JPanel(new BorderLayout());
@@ -400,12 +457,34 @@ Tech.names(SAFETY_NETS) + "\n" +
 		});
 		optionPanel.add(chkAnalysis);
 
+		if ( Threads.exists(FACTORY_THREAD_NAME) ) {
+			btnGenerate.setEnabled(false);
+			// Log the "trouble". This is the only notification.
+			Log.teeln(FACTORY_THREAD_NAME+" running, so generate is disabled!");
+			// disable generate until factory finishes (one at a time!)
+			invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					for(;;) {
+						try{Thread.sleep(333);}catch(InterruptedException eaten){}
+						if ( !Threads.exists(FACTORY_THREAD_NAME) )
+							btnGenerate.setEnabled(true);
+					}
+				}
+				@Override
+				public String toString() {
+					return "GenerateEnabler";
+				}
+
+			});
+		}
+
 		// set the minimum size of the dialog, otherwise the dialog isn't tall
 		// enough to fit the maximum height of lblDesciption (which shrinks and
 		// grows as the description changes) so it and controls below it are
 		// pushed below the bottom of the dialog, which sux, especially when
 		// the user can't resize the dialog to fix it.
-		setMinimumSize(new Dimension(500, 500));
+		setMinimumSize(new Dimension(400, 400));
 		setResizable(false); // prevent user accidentally disappearing controls
 		pack();
 	}
@@ -417,16 +496,18 @@ Tech.names(SAFETY_NETS) + "\n" +
 		case Medium:
 		case Hard:
 		case Fiendish:
-			selectedSyms.addAll(Arrays.asList(Symmetry.ALL));
+			selectedSyms.addAll(asList(Symmetry.ALL));
 			break;
-		case Nightmare:
-			selectedSyms.addAll(Arrays.asList(Symmetry.ALL));
+		case Airotic:
+		case AlsFish:
+		case Ligature:
+			selectedSyms.addAll(asList(Symmetry.ALL));
 			selectedSyms.remove(Symmetry.Full_8); // basically impossible
 			break;
 		case Diabolical:
 			// basically impossible with 4 or 8
 			selectedSyms.clear();
-			selectedSyms.addAll(Arrays.asList(Symmetry.SMALLS));
+			selectedSyms.addAll(asList(Symmetry.SMALLS));
 			break;
 		case IDKFA:
 			// basically impossible with anything but none
@@ -457,7 +538,13 @@ Tech.names(SAFETY_NETS) + "\n" +
 	public void generateCompleted() {
 		generatorThreads.poll(); // remove the current generator thread
 		refreshSudokuPanel();
-		buttonSaysGenerate();
+		displayGenerateButton();
+	}
+
+	public void generateKilled() {
+		generatorThreads.poll(); // remove the current generator thread
+		refreshSudokuPanel();
+		displayGenerateButton();
 	}
 
 	public void stopGeneratorThread() {
@@ -467,7 +554,7 @@ Tech.names(SAFETY_NETS) + "\n" +
 			try {
 				gt.join(250); // wait a quarter second
 				refreshSudokuPanel();
-				buttonSaysGenerate();
+				displayGenerateButton();
 			} catch (InterruptedException ex) {
 				Log.teef(Log.me()+": interrupted");
 			}
@@ -487,39 +574,41 @@ Tech.names(SAFETY_NETS) + "\n" +
 	 * Thread that generates a new grid.
 	 */
 	private final class GeneratorThread extends Thread {
-		private final Symmetry[] syms;
-		private final Difficulty diff;
+		private final Symmetry[] symetries;
+		private final Difficulty difficulty;
 		private final boolean isExact;
-	    public GeneratorThread(Symmetry[] syms, Difficulty diff, boolean isExact) {
-			super(Generator.GENERATOR_THREAD_NAME);
-			this.syms = syms;
-			this.diff = diff;
+	    public GeneratorThread(Symmetry[] symetries, Difficulty difficulty, boolean isExact) {
+			super(GENERATOR_THREAD_NAME);
+			this.symetries = symetries;
+			this.difficulty = difficulty;
 			this.isExact = isExact;
 		}
 		@Override
 		public void interrupt() {
-			Generator.getInstance().interrupt();
+			getGenerator().interrupt();
 		}
 		@Override
 		public void run() {
 			try {
-				buttonSaysStop(); // change btnGenerate label to "Stop"
+				displayStopButton(); // btnGenerate says "Stop"
 				// fetch a puzzle from the cache
-				final Generator gen = Generator.getInstance();
-				final Grid puzzle = gen.cachedGenerate(syms, diff, isExact);
-				// display the puzzle in the GUI on the AWT thread
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						if ( puzzle != null ) {
+				final Generator gen = getGenerator();
+				final Grid puzzle = gen.cachedGenerate(symetries, difficulty, isExact);
+				if ( puzzle != null ) {
+					// display the puzzle in the GUI on the AWT thread
+					// nb: I know not why but a lambda does not work here, it
+					// appears to invalidate hinters array fields. Funky GC?
+					invokeLater(new Runnable() {
+						@Override
+						public void run() {
 							sudokuList.add(puzzle);
 							sudokuIndex = sudokuList.size() - 1;
 							refreshSudokuPanel(); // sets engine.grid
 							engine.saveFile(IO.GENERATED_FILE); // also adds to recentFiles, and catches IOException in a standard way
 							frame.setTitle(IO.GENERATED_FILE.getAbsolutePath());
 						}
-					}
-				});
+					});
+				}
 			} catch ( Exception ex ) {
 				Log.stackTrace(Log.me()+" hit a snag.", ex);
 			}
@@ -527,9 +616,9 @@ Tech.names(SAFETY_NETS) + "\n" +
 	}
 
 	// first update the GUI on the Swing thread
-	private void buttonSaysStop() {
+	private void displayStopButton() {
 		try {
-			SwingUtilities.invokeAndWait(new Runnable() { // NOTE: wait!
+			invokeAndWait(new Runnable() { // NOTE: wait!
 				@Override
 				public void run() {
 					engine.setGrid(new Grid()); // clear the grid
@@ -545,10 +634,10 @@ Tech.names(SAFETY_NETS) + "\n" +
 		}
 	}
 
-	public boolean doFinished = true;
-	private void buttonSaysGenerate() {
-		if ( doFinished ) {
-			SwingUtilities.invokeLater(new Runnable() {
+	public boolean doDone = true;
+	private void displayGenerateButton() {
+		if ( doDone ) {
+			invokeLater(new Runnable() {
 				@Override
 				public void run() {
 					if ( GenerateDialog.this.isVisible() ) {

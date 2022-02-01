@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -15,10 +15,9 @@ import diuf.sudoku.Run;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.AHinter;
 import static diuf.sudoku.utils.Frmt.EQUALS;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
 import static diuf.sudoku.utils.Frmt.IN;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * ADirectHint is an abstract class which extends AHint (the abstract hint) to
@@ -153,7 +152,7 @@ public abstract class ADirectHint extends AHint  {
 
 	@Override
 	public int hashCode() {
-		return cell.hashCode() ^ hinter.hashCode() ^ value;
+		return cell.i ^ hinter.hashCode() ^ value;
 	}
 
 	/**
@@ -174,4 +173,5 @@ public abstract class ADirectHint extends AHint  {
 			sb.append(IN).append(region.id);
 		return sb.toString();
 	}
+
 }

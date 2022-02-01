@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -10,13 +10,13 @@ import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.chain.AChainingHint;
+import diuf.sudoku.solver.hinters.chain.ChainerUnary;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import static diuf.sudoku.utils.Frmt.PLUS;
-import static diuf.sudoku.utils.Hash.LSH4;
-import static diuf.sudoku.utils.Hash.LSH8;
+import static diuf.sudoku.utils.Hash.ON_BIT;
+import static diuf.sudoku.utils.Hash.SHFT_V;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.ArrayList;
-
 
 /**
  * An Ass(umption) is an assumption that a Cell will/not be a value. The class
@@ -55,51 +55,28 @@ import java.util.ArrayList;
  */
 public class Ass {
 
-//public static long assConstructor1, assConstructor2, assConstructor3;
-//Sudoku Explainer 6.30.025 ran 2019-10-10.07-46-06
-//mode    : ACCURACY, NOT REDO, NOT STATS, Hacky, Hackier, Hackfect
-//input   : C:/Users/User/Documents/NetBeansProjects/DiufSudoku/top1465.d5.mt
-//  assConstructor1 =     28,085,467
-//  assConstructor2 =    821,422,631
-//  assConstructor3 =         23,651
-//  total           =    849,531,749 <<<======================================== S__T LOADS OF ASS!
-// pzls	       total (ns)	(mm:ss)	        each (ns)
-// 1465	2,340,199,543,783	(39: 0)	    1,597,405,831
-//
-//Sudoku Explainer 6.30.025 ran 2019-10-10.09-38-05
-//mode    : ACCURACY, REDO, NOT STATS, Hacky, Hackier, Hackfect
-//input   : C:/Users/User/Documents/NetBeansProjects/DiufSudoku/top1465.d5.mt
-//  assConstructor1 =     27,141,218
-//  assConstructor2 =    809,390,516
-//  assConstructor3 =         23,651
-//  total           =    836,555,385
-// pzls	       total (ns)	(mm:ss)	        each (ns)
-// 1465	  591,615,010,081	( 9:51)	      403,832,771 <<<<====================== DONE A LOT FASTER!
-
-//public static long ass2time;
-
-//not used: retained for documentation: HERE is how to make a hashCode.
-//Note that the hashCode field is now calculated in-situ everywhere it needs to
-//be, rather than waste time on a method call. This boat is right out.
-//	public static int hashCode(Cell cell, int value, boolean isOn) {
-//		return (isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
-//	}
-
-	public static int hashCode(int x, int y, int value, boolean isOn) {
-		// NOTE: terniaries are slow!
-		//return (isOn?4096:0) ^ LSH8[value] ^ LSH4[y] ^ x;
+	/**
+	 * This method exists to define how to calculate the hashCode for an Ass,
+	 * but it's not used (much) because calculating in-line is faster.
+	 *
+	 * @param indice the indice of the Cell in Grid.cells.
+	 * @param value the value of this assumption
+	 * @param isOn true means this an ON assumption, else OFF
+	 * @return an Ass.hashCode
+	 */
+	public static int hashCode(int indice, int value, boolean isOn) {
 		if ( isOn )
-			return 4096 ^ LSH8[value] ^ LSH4[y] ^ x;
-		return LSH8[value] ^ LSH4[y] ^ x;
+			return ON_BIT ^ SHFT_V[value] ^ indice;
+		return SHFT_V[value] ^ indice;
 	}
 
 	/**
-	 * Returns a new {@code ArrayList<Ass>} of my arguements array.
+	 * Returns a new {@code ArrayList<Ass>} of my arguments array.
 	 * @param asses to add to the new list
 	 * @return a new {@code ArrayList<Ass>}
 	 */
 	public static ArrayList<Ass> arrayList(Ass... asses) {
-		ArrayList<Ass> list = new ArrayList<>(asses.length);
+		final ArrayList<Ass> list = new ArrayList<>(asses.length);
 		for ( Ass ass : asses )
 			list.add(ass);
 		return list;
@@ -151,12 +128,12 @@ public class Ass {
 	public final AChainingHint nestedChain;
 
 	/**
-	 * hashCode of 12 bits which uniquely identifies this Ass. Uniqueness is
-	 * important because:<ul>
+	 * A hashCode which uniquely identifies this Ass. This matters because:<ul>
 	 * <li>(1) we rely upon that in equals; and</li>
-	 * <li>(2) Ass is used extensively as a HashMap key, so hashCode() must
-	 * be fast, and it's rightmost bits must be most deterministic in order
-	 * to differentiate Ass's in millions of very small HashMaps.</li>
+	 * <li>(2) Ass is used extensively as a HashMap key, so hashCode() needs to
+	 * be fast, so we always use the hashCode field instead, and it's rightmost
+	 * bits must be the most deterministic in order to differentiate Ass's in
+	 * small HashMaps.</li>
 	 * </ul>
 	 * <p>
 	 * The hashCode field is public final for speed. It's accessed directly by
@@ -193,13 +170,10 @@ public class Ass {
 		this.cell = cell;
 		this.value = value;
 		this.isOn = isOn;
-		// 1,2,4,8,16,32,64,128,256,512,1024,2048,4096 = 1<<12
-		// 1 2 3 4  5  6  7   8   9  10   11   12,  13
-		// NOTE: terniaries are slow!
 		if ( isOn )
-			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
+			hashCode = ON_BIT ^ SHFT_V[value] ^ cell.i;
 		else
-			hashCode = LSH8[value] ^ cell.hashCode;
+			hashCode = SHFT_V[value] ^ cell.i;
 		// parents is null until it is populated
 		parents = null;
 		this.cause = null;
@@ -229,11 +203,10 @@ public class Ass {
 		this.cell = cell;
 		this.value = value;
 		this.isOn = isOn;
-		// NOTE: terniaries are slow!
 		if ( isOn )
-			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
+			hashCode = ON_BIT ^ SHFT_V[value] ^ cell.i;
 		else
-			hashCode = LSH8[value] ^ cell.hashCode;
+			hashCode = SHFT_V[value] ^ cell.i;
 		// nullable non-final parents is 1.4 seconds faster top1465
 		if ( parent == null ) { // there are 4,024,758 null parents
 			parents = null;
@@ -282,11 +255,10 @@ public class Ass {
 		this.cell = cell;
 		this.value = value;
 		this.isOn = isOn;
-		// NOTE: terniaries are slow!
 		if ( isOn )
-			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
+			hashCode = ON_BIT ^ SHFT_V[value] ^ cell.i;
 		else
-			hashCode = LSH8[value] ^ cell.hashCode;
+			hashCode = SHFT_V[value] ^ cell.i;
 		parents = completeParents;
 		// NB: use addParent if nulls ever occur!
 		this.cause = cause;
@@ -310,12 +282,10 @@ public class Ass {
 		this.cell = cell;
 		this.value = value;
 		this.isOn = isOn;
-		// NOTE: terniaries are slow!
-		//this.hashCode = (isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
 		if ( isOn )
-			hashCode = 4096 ^ LSH8[value] ^ cell.hashCode;
+			hashCode = ON_BIT ^ SHFT_V[value] ^ cell.i;
 		else
-			hashCode = LSH8[value] ^ cell.hashCode;
+			hashCode = SHFT_V[value] ^ cell.i;
 		// Eff's have parents even if the given parent is null!
 		this.parents = new MyLinkedList<>();
 		if ( parent != null )
@@ -324,13 +294,6 @@ public class Ass {
 		this.explanation = null;
 		this.nestedChain = null;
 	}
-
-//KEEP4DOC: implemented in-line for speed in Chainer.doUnary
-//	/** @return flip().hashCode(); */
-//	public int conjugatesHashCode() {
-//		// NB: the isOn terniary is backwards
-//		return (!isOn?4096:0) ^ LSH8[value] ^ cell.hashCode;
-//	}
 
 	/**
 	 * Returns a new this with the isOn field negated.
@@ -356,20 +319,14 @@ public class Ass {
 		return VFIRST[cell.maybes];
 	}
 
-//KEEP_4_DOC: This method no longer used but retain as documentation.
-//	/** @return the other Cell in the given region which maybe this.value. */
-//	Cell otherCellIn(ARegion region) {
-//		Indexes riv = region.ridx[value];
-//		assert riv.size == 2;
-//		int i = riv.first();
-//		Cell otherCell = region.cells[i];
-//		if ( otherCell == cell )
-//			otherCell = region.cells[riv.next(i+1)];
-//		return otherCell;
-//	}
-
 	/**
 	 * Does this assumption have any parents?
+	 * <p>
+	 * The contract is that a parents list may be null but NEVER empty. An ass
+	 * that is created without a parent is given a null parents list, and then
+	 * the parents list is created if/when the first parent is added to it; to
+	 * save checking for an empty parents list BILLIONS of times.
+	 *
 	 * @return {@code parents!=null && parents.size()>0}
 	 */
 	public boolean hasParents() {
@@ -484,10 +441,10 @@ public class Ass {
 		return a.hashCode == hashCode;
 	}
 
-	/** @return {@code (isOn?1<<12:0)^value<<8^cell.hashCode}. See the class
-	 * comment for details of a good HashSet/Map initialCapacity. */
+	/** @return {@code (isOn?1<<11:0)^value<<7^cell.i} */
 	@Override
 	public int hashCode() {
 		return hashCode;
 	}
+
 }

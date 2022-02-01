@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -25,6 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import static diuf.sudoku.Grid.BY9;
 
 /**
  * GridLoader exposes a static load method that loads a Grid from any/all
@@ -207,30 +208,27 @@ class GridLoader {
 		}
 
 		private static void setClues(Grid grid, String line, int y) {
-			//assert line.matches("[1..9]{9}");
-			for ( int x=0; x<REGION_SIZE; ++x ) {
-				final char ch = line.charAt(x);
-				if ( ch>='1' && ch<='9' ) {
-					grid.cells[y*REGION_SIZE+x].set(ch-'0'); // NB: x,y (ie col,row)
-				}
-			}
+			char ch;
+			final int offset = BY9[y];
+			for ( int x=0; x<REGION_SIZE; ++x )
+				if ( (ch=line.charAt(x))>='1' && ch<='9' )
+					grid.cells[offset+x].set(ch-'0'); // NB: x,y (ie col,row)
 		}
 
 		private static boolean setMaybes(Grid grid, String line, int y) {
 			final String[] fields = line.split(COMMA, REGION_SIZE);
 			if ( fields.length != REGION_SIZE ) { // unexpected format
-				for ( int x=0,i; x<REGION_SIZE; ++x ) {
+				for ( int x=0,i; x<REGION_SIZE; ++x )
 					grid.maybes[i=y+x] = grid.cells[i].maybes = VALL;
-				}
 				return false;
 			}
 			Cell cell;
 			String field;
 			int m, i, n;
-			final int start = y * REGION_SIZE; // partial cell indice
+			final int offset = BY9[y]; // partial cell indice
 			final Cell[] cells = grid.cells;
 			for ( int x=0; x<REGION_SIZE; ++x ) {
-				if ( (cell=cells[start+x]).value == 0 ) {
+				if ( (cell=cells[offset+x]).value == 0 ) {
 					for ( m=i=0,field=fields[x],n=field.length(); i<n; ++i ) {
 						m |= VSHFT[field.charAt(i) - '0'];
 					}

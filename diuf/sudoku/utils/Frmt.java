@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -517,6 +517,10 @@ public final class Frmt {
 	public static DecimalFormat DOUBLE_FORMAT = new DecimalFormat("#0.00");
 	// dbl because it's short, and double is a reserved word.
 	public static String dbl(double d) { return DOUBLE_FORMAT.format(d); }
+
+	public static DecimalFormat LONG_FORMAT = new DecimalFormat("#,##0");
+	// lng because it's short, and long is a reserved word.
+	public static String lng(long l) { return LONG_FORMAT.format(l); }
 
 	// 132 spaces should be enough, I guess
 	public static final String SPACES = repeat(SP, 132);

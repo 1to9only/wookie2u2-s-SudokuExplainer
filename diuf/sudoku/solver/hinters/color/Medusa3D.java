@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
@@ -24,16 +24,18 @@ import static diuf.sudoku.Grid.CELL_IDS;
 import static diuf.sudoku.Grid.COL_OF;
 import static diuf.sudoku.Grid.ROW_OF;
 import static diuf.sudoku.Grid.VALUE_CEILING;
+import diuf.sudoku.IntArrays.IALease;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.hinters.IPreparer;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.Validator;
+import static diuf.sudoku.solver.hinters.Validator.invalidity;
+import static diuf.sudoku.solver.hinters.Validator.reportRedPots;
+import static diuf.sudoku.solver.hinters.Validator.reportSetPots;
 import static diuf.sudoku.solver.hinters.color.Words.*;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
@@ -42,6 +44,10 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Set;
+import static diuf.sudoku.solver.hinters.Validator.VALIDATE_MEDUSA;
+import static diuf.sudoku.solver.hinters.Validator.validOffs;
+import static diuf.sudoku.solver.hinters.Validator.validOns;
+import diuf.sudoku.solver.hinters.IPrepare;
 
 /**
  * Medusa3D implements the 3D Medusa Coloring Sudoku solving technique as
@@ -57,7 +63,7 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021-03-04
  */
-public class Medusa3D extends AHinter implements IPreparer
+public class Medusa3D extends AHinter implements IPrepare
 //		, diuf.sudoku.solver.IReporter
 {
 
@@ -116,18 +122,18 @@ public class Medusa3D extends AHinter implements IPreparer
 	private static final Comparator<ValueScore> VALUE_SCORE_DESCENDING =
 			(ValueScore a, ValueScore b) -> b.score - a.score;
 
-	// The grid we're processing is a field so there's no need to pass around.
+	// The grid to process (a field so no need to pass around).
 	private Grid grid;
-	// The cells of the grid we're processing
-	private Cell[] cells;
-	// The regions of the grid we're processing
-	private ARegion[] regions;
+	// The cells of grid to process
+	private Cell[] gridCells;
+	// The regions of grid to process
+	private ARegion[] gridRegions;
+	// indices of each value in grid to process
+	private Idx[] gridIdxs;
 	// the accumulator
 	private IAccumulator accu;
 	// accu.isSingle()
 	private boolean onlyOne;
-	// indices of cells in grid which maybe each value 1..9
-	private Idx[] idxs;
 
 	// A conjugatePair is the ONLY two cells in a region which maybe value
 	private final Cell[] conjugatePair = new Cell[2];
@@ -177,10 +183,7 @@ public class Medusa3D extends AHinter implements IPreparer
 				colors[c][v] = new Idx();
 			}
 		}
-		// Do we need to build the steps string to go in the hint? The steps
-		// Strings take ages to build (a minute per top1465 run) and we don't
-		// use it in the batch, only in the GUI and testcases. See the paint
-		// method for more.
+		// The batch doesn't want explanations, coz they're a bit slow.
 		this.wantWhy = Run.type != Run.Type.Batch;
 	}
 
@@ -231,11 +234,11 @@ public class Medusa3D extends AHinter implements IPreparer
 			return false;
 		}
 		this.grid = grid;
-		this.cells = grid.cells;
-		this.regions = grid.regions;
+		this.gridCells = grid.cells;
+		this.gridRegions = grid.regions;
+		this.gridIdxs = grid.idxs;
 		this.accu = accu;
 		this.onlyOne = accu.isSingle();
-		this.idxs = grid.idxs;
 		// presume that no hint will be found
 		boolean result = false;
 		try {
@@ -244,7 +247,7 @@ public class Medusa3D extends AHinter implements IPreparer
 			// WARNING: startingValues filters to score >= 7 coz that's the
 			// lowest score that hints in top1465. THIS MAY BE WRONG!!!
 			for ( int v : startingValues() ) {
-				for ( ARegion r : regions ) {
+				for ( ARegion r : gridRegions ) {
 					if ( r.ridx[v].size == 2
 					  && (result|=search(r, v)) && onlyOne ) {
 						return result;
@@ -256,10 +259,10 @@ public class Medusa3D extends AHinter implements IPreparer
 			result = true;
 		} finally {
 			this.grid = null;
-			this.cells = null;
-			this.regions = null;
+			this.gridCells = null;
+			this.gridRegions = null;
+			this.gridIdxs = null;
 			this.accu = null;
-			this.idxs = null;
 			this.cause = null;
 			this.region = null;
 		}
@@ -282,7 +285,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		// build-up a bitset of those values that're in 2+ conjugate pairs
 		int cands = 0;
 		for ( int v=1; v<VALUE_CEILING; ++v ) {
-			for ( ARegion r : regions ) {
+			for ( ARegion r : gridRegions ) {
 				if ( r.ridx[v].size == 2
 				  && ++scores[v].score > 1 ) {
 					cands |= VSHFT[v];
@@ -291,7 +294,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		}
 		// foreach bivalue cell
 		// increment score of each value with 2+ conjugate pairs
-		for ( Cell c : cells ) {
+		for ( Cell c : gridCells ) {
 			if ( c.size == 2 ) {
 				for ( int v : VALUESES[c.maybes & cands] ) {
 					++scores[v].score;
@@ -389,11 +392,10 @@ public class Medusa3D extends AHinter implements IPreparer
 				  // presuming opposite color isn't rooted too
 				  && (hint=createHintMulti(v, subtype)) != null ) {
 					// validate the hint
-					if ( Validator.MEDUSA_COLORING_VALIDATES ) {
-						if ( !Validator.isValidSetPots(grid, hint.getResults()) ) {
-							hint.isInvalid = true;
-							Validator.reportSetPots(tech.name()+"Multi", grid
-								, Validator.invalidity, hint.toFullString());
+					if ( VALIDATE_MEDUSA ) {
+						if ( !validOns(grid, hint.getResults()) ) {
+							hint.setIsInvalid(true);
+							reportSetPots(tech.name()+"Multi", grid, invalidity, hint.toFullString());
 							if ( Run.type != Run.Type.GUI ) {
 								hint = null;
 							}
@@ -422,10 +424,10 @@ public class Medusa3D extends AHinter implements IPreparer
 			//     then it can be eliminated.
 			if ( subtype==0 && (subtype=eliminations())!=0 ) {
 				hint = createHint(v, subtype);
-				if ( Validator.MEDUSA_COLORING_VALIDATES ) {
-					if ( !Validator.isValid(grid, hint.getReds(0)) ) {
-						hint.isInvalid = true;
-						Validator.report(tech.name(), grid, hint.toFullString());
+				if ( VALIDATE_MEDUSA ) {
+					if ( !validOffs(grid, hint.getReds(0)) ) {
+						hint.setIsInvalid(true);
+						reportRedPots(tech.name(), grid, hint.toFullString());
 						if ( Run.type != Run.Type.GUI ) {
 							hint = null;
 						}
@@ -619,6 +621,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		Cell cell; // the source cell
 		Cell cell2; // the cell to paint, if any
 		ARegion box; // shorthand for the box containing the cell to paint
+		int[] ciArray;
 		String why = null; // the reason we paint this cell-value this color
 		// foreach color
 		for ( int c=0; c<2; ++c ) { // GREEN, BLUE
@@ -626,38 +629,38 @@ public class Medusa3D extends AHinter implements IPreparer
 			// foreach value which has a cell painted thisColor
 			for ( int v : VALUESES[colorValues[c]] ) {
 				// foreach cell painted thisColor
-				for ( int ci : thisColor[v].toArrayA() ) { //source cell indice
-					// foreach of the four boxes effected by this source cell.
-					// See EFFECTED_BOXS for a definition there-of.
-					// i is the index in regions of the effected box
-					for ( int i : INDEXES[EFFECTED_BOXS[BOX_OF[ci]]] ) {
-						// if there's only one v remaining in the effected box,
-						// excluding this colors cells + there buddies.
-					    // NOTE: the buds method has an internal cache.
-						if ( tmp2.setAndNot(regions[i].idxs[v]
-										  , thisColor[v].plusBuds()).any()
-						  && tmp2.size() == 1
-						  // and get the cell to paint (NEVER null)
-						  && (cell2=cells[tmp2.peek()]) != null
-						  // the "shoot back" rule (see method comment block).
-						  && tmp3.setAndNot(regions[BOX_OF[ci]].idxs[v]
-										  , BUDDIES[cell2.i]).size() == 1
-						  // NB: no pre-check coz buds incl this colors cells
-						) {
-							cell = cells[ci]; // the source cell
-							box = regions[i]; // the effected box
-//// F1-3 leaves B3 only 3 in box 1, which leaves F1 only 3 in box 2, so B3-3
-//if ( v==3 && "F1".equals(cell.id) && "B3".equals(cell2.id) )
-//	Debug.breakpoint();
-							// we want explanation in GUI and testcases
-							if ( wantWhy ) {
-								why = CON[c]+cell.id+MINUS+v+COFF[c]+LEAVES
-								+cell2.id+ONLY+v+IN+box.id
-								+", which leaves "
-								+cell.id+ONLY+v+IN+cell.box.id
-								+COMMA_SO+CON[c]+cell2.id+MINUS+v+COFF[c]+NL;
+				try ( final IALease ciLease = thisColor[v].toArrayLease() ) {
+					ciArray = ciLease.array;
+					for ( int ci : ciArray ) { // source cell indice
+						// foreach of the four boxes effected by this source cell.
+						// See EFFECTED_BOXS for a definition there-of.
+						// i is the index in regions of the effected box
+						for ( int i : INDEXES[EFFECTED_BOXS[BOX_OF[ci]]] ) {
+							// if there's only one v remaining in the effected box,
+							// excluding this colors cells + there buddies.
+							// NOTE: the buds method has an internal cache.
+							if ( tmp2.setAndNot(gridRegions[i].idxs[v]
+											  , thisColor[v].plusBuds()).any()
+							  && tmp2.size() == 1
+							  // and get the cell to paint (NEVER null)
+							  && (cell2=gridCells[tmp2.peek()]) != null
+							  // the "shoot back" rule (see method comment block).
+							  && tmp3.setAndNot(gridRegions[BOX_OF[ci]].idxs[v]
+											  , BUDDIES[cell2.i]).size() == 1
+							  // NB: no pre-check coz buds incl this colors cells
+							) {
+								cell = gridCells[ci]; // the source cell
+								box = gridRegions[i]; // the effected box
+								// we want explanation in GUI and testcases
+								if ( wantWhy ) {
+									why = CON[c]+cell.id+MINUS+v+COFF[c]+LEAVES
+									+cell2.id+ONLY+v+IN+box.id
+									+", which leaves "
+									+cell.id+ONLY+v+IN+cell.box.id
+									+COMMA_SO+CON[c]+cell2.id+MINUS+v+COFF[c]+NL;
+								}
+								paint(c, v, cell2, false, why);
 							}
-							paint(c, v, cell2, false, why);
 						}
 					}
 				}
@@ -689,11 +692,11 @@ public class Medusa3D extends AHinter implements IPreparer
 		// NB: for now we just ASSUME that colors[goodColor] are "good", but
 		//     we double-check that when we're building the setPots for the
 		//     XColoringHintMulti, otherwise could get (rare) invalid hints.
-		for ( ARegion r : regions ) {
+		for ( ARegion r : gridRegions ) {
 			for ( int v : VALUESES[colorValues[c]] ) {
 				if ( tmp1.setAndMany(thisColor[v], r.idxs[v]) ) {
 					region = r;
-					cause = tmp1.toCellSet(grid);
+					cause = tmp1.toCellSet(gridCells);
 					goodColor = o;
 					// we want explanation in GUI and testcases
 					if ( wantWhy ) {
@@ -713,7 +716,7 @@ public class Medusa3D extends AHinter implements IPreparer
 			// foreach colorValue EXCEPT v1
 			for ( int v2 : VALUESES[colorValues[c] & ~VSHFT[v1]] ) {
 				if ( tmp1.setAndAny(thisColor[v1], thisColor[v2]) ) {
-					cell = cells[tmp1.peek()];
+					cell = gridCells[tmp1.peek()];
 					cause = Cells.set(cell);
 					// we want explanation in GUI and testcases
 					if ( wantWhy ) {
@@ -767,7 +770,7 @@ public class Medusa3D extends AHinter implements IPreparer
 		final Pots result = new Pots();
 		final Idx[] thisColor = colors[c];
 		for ( int v : VALUESES[colorValues[c]] ) {
-			thisColor[v].forEach(cells, (cc)->result.insert(cc, VSHFT[v])); // throws
+			thisColor[v].forEach(gridCells, (cc)->result.insert(cc, VSHFT[v])); // throws
 		}
 		return result;
 	}
@@ -804,103 +807,109 @@ public class Medusa3D extends AHinter implements IPreparer
 		boolean first = true;
 		// (a) Both colors in a cell eliminate all other values.
 		if ( tmp1.setAndAny(all[GREEN], all[BLUE]) ) {
-			for ( int i : tmp1.toArrayA() ) {
-				if ( cells[i].size > 2
-				  // get a bitset of all values of cells[i] that're green and blue.
-				  // There may be none, never multiple (contradictions pre-tested)
-				  // We need 1 green value and 1 blue value, to strip from pinks.
-				  // NOTE: VSIZE[0] == 0.
-				  && VSIZE[g=values(GREEN, i)] == 1
-				  && VSIZE[b=values(BLUE, i)] == 1
-				  // ensure that g and b are not equal (should NEVER be equal)
-				  && g != b
-				  // pinks is a bitset of "all other values" to be eliminated
-				  && (pinks=(cc=cells[i]).maybes & ~g & ~b) != 0
-				  // ignore already-justified eliminations (shouldn't happen here)
-				  && redPots.upsert(cc, pinks, false)
-				) {
-					// we want explanation in GUI and testcases
-					if ( wantWhy ) {
-						if ( first ) {
-							first = false;
-							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+			try ( final IALease allLease = tmp1.toArrayLease() ) {
+				for ( int i : allLease.array ) {
+					if ( gridCells[i].size > 2
+					  // get a bitset of all values of cells[i] that're green and blue.
+					  // There may be none, never multiple (contradictions pre-tested)
+					  // We need 1 green value and 1 blue value, to strip from pinks.
+					  // NOTE: VSIZE[0] == 0.
+					  && VSIZE[g=values(GREEN, i)] == 1
+					  && VSIZE[b=values(BLUE, i)] == 1
+					  // ensure that g and b are not equal (should NEVER be equal)
+					  && g != b
+					  // pinks is a bitset of "all other values" to be eliminated
+					  && (pinks=(cc=gridCells[i]).maybes & ~g & ~b) != 0
+					  // ignore already-justified eliminations (shouldn't happen here)
+					  && redPots.upsert(cc, pinks, false)
+					) {
+						// we want explanation in GUI and testcases
+						if ( wantWhy ) {
+							if ( first ) {
+								first = false;
+								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+							}
+							steps.append(cc.id).append(HAS_BOTH)
+							  .append(GON).append(Values.toString(g)).append(GOFF).append(AND)
+							  .append(BON).append(Values.toString(b)).append(BOFF).append(COMMA).append(ELIMINATING)
+							  .append(RON).append(ALL_OTHER_VALUES).append(ROFF).append(PERIOD)
+							  .append(NL);
 						}
-						steps.append(cc.id).append(HAS_BOTH)
-						  .append(GON).append(Values.toString(g)).append(GOFF).append(AND)
-						  .append(BON).append(Values.toString(b)).append(BOFF).append(COMMA).append(ELIMINATING)
-						  .append(RON).append(ALL_OTHER_VALUES).append(ROFF).append(PERIOD)
-						  .append(NL);
+						subtype |= 1;
 					}
-					subtype |= 1;
 				}
 			}
 		}
 		// (b) An uncolored v sees both colored v's.
 		for ( int v : VALUESES[paintedValues] ) {
-			tmp1.setOr(colors[GREEN][v], colors[BLUE][v]);
-			for ( int ii : tmp2.setAndNot(idxs[v], tmp1).toArrayA() ) {
-				if ( tmp3.setAndAny(BUDDIES[ii], colors[GREEN][v])
-				  && tmp4.setAndAny(BUDDIES[ii], colors[BLUE][v])
-				  // ignore already-justified eliminations
-				  && redPots.upsert(cells[ii], v)
-				) {
-					// we want explanation in GUI and testcases
-					if ( wantWhy ) {
-						int gc = closest(tmp3, COL_OF[ii], ROW_OF[ii]);
-						int bc = closest(tmp4, COL_OF[ii], ROW_OF[ii]);
-						if ( first ) {
-							first = false;
-							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+			tmp2.setAndNot(gridIdxs[v], tmp1.setOr(colors[GREEN][v], colors[BLUE][v]));
+			try ( final IALease vcLease = tmp2.toArrayLease() ) {
+				for ( int ii : vcLease.array ) {
+					if ( tmp3.setAndAny(BUDDIES[ii], colors[GREEN][v])
+					  && tmp4.setAndAny(BUDDIES[ii], colors[BLUE][v])
+					  // ignore already-justified eliminations
+					  && redPots.upsert(gridCells[ii], v)
+					) {
+						// we want explanation in GUI and testcases
+						if ( wantWhy ) {
+							int gc = closest(tmp3, COL_OF[ii], ROW_OF[ii]);
+							int bc = closest(tmp4, COL_OF[ii], ROW_OF[ii]);
+							if ( first ) {
+								first = false;
+								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+							}
+							steps.append(CELL_IDS[ii]).append(MINUS).append(v).append(SEES_BOTH)
+							  .append(GON).append(CELL_IDS[gc]).append(MINUS).append(v).append(GOFF).append(AND)
+							  .append(BON).append(CELL_IDS[bc]).append(MINUS).append(v).append(BOFF)
+							  .append(COMMA_SO).append(CELL_IDS[ii]).append(CANT_BE)
+							  .append(RON).append(v).append(ROFF).append(PERIOD).append(NL);
+							if ( links == null ) {
+								links = new LinkedList<>();
+							}
+							links.add(new Link(ii, v, gc, v));
+							links.add(new Link(ii, v, bc, v));
 						}
-						steps.append(CELL_IDS[ii]).append(MINUS).append(v).append(SEES_BOTH)
-						  .append(GON).append(CELL_IDS[gc]).append(MINUS).append(v).append(GOFF).append(AND)
-						  .append(BON).append(CELL_IDS[bc]).append(MINUS).append(v).append(BOFF)
-						  .append(COMMA_SO).append(CELL_IDS[ii]).append(CANT_BE)
-						  .append(RON).append(v).append(ROFF).append(PERIOD).append(NL);
-						if ( links == null ) {
-							links = new LinkedList<>();
-						}
-						links.add(new Link(ii, v, gc, v));
-						links.add(new Link(ii, v, bc, v));
+						subtype |= 2;
 					}
-					subtype |= 2;
 				}
 			}
 		}
 		// (c) An uncolored v sees a green, and has some other blue value.
 		for ( int v : VALUESES[paintedValues] ) {
-			tmp1.setOr(colors[GREEN][v], colors[BLUE][v]);
-			for ( int ii : tmp2.setAndNot(idxs[v], tmp1).toArrayA() ) {
-				for ( c=0; c<2; ++c ) {
-					// if cells[ii] sees a this-color value
-					if ( tmp3.setAndAny(BUDDIES[ii], colors[c][v])
-					  // and the opposite color (any value) contains ii
-					  && all[OPPOSITE[c]].has(ii)
-					  // ignore already-justified eliminations
-					  && redPots.upsert(cells[ii], v)
-					) {
-						// we want explanation in GUI and testcases
-						if ( wantWhy ) {
-							cc = cells[ii];
-							o = OPPOSITE[c];
-							int sibling = closest(tmp3, COL_OF[ii], ROW_OF[ii]);
-							int otherV = firstValue(o, ii);
-							if ( first ) {
-								first = false;
-								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+			tmp2.setAndNot(gridIdxs[v], tmp1.setOr(colors[GREEN][v], colors[BLUE][v]));
+			try ( final IALease vcLease = tmp2.toArrayLease() ) {
+				for ( int ii : vcLease.array ) {
+					for ( c=0; c<2; ++c ) {
+						// if cells[ii] sees a this-color value
+						if ( tmp3.setAndAny(BUDDIES[ii], colors[c][v])
+						  // and the opposite color (any value) contains ii
+						  && all[OPPOSITE[c]].has(ii)
+						  // ignore already-justified eliminations
+						  && redPots.upsert(gridCells[ii], v)
+						) {
+							// we want explanation in GUI and testcases
+							if ( wantWhy ) {
+								cc = gridCells[ii];
+								o = OPPOSITE[c];
+								int sibling = closest(tmp3, COL_OF[ii], ROW_OF[ii]);
+								int otherV = firstValue(o, ii);
+								if ( first ) {
+									first = false;
+									steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+								}
+								steps.append(CELL_IDS[ii]).append(SP).append(SEES).append(CON[c])
+								  .append(CELL_IDS[sibling]).append(MINUS).append(v)
+								  .append(COFF[c]).append(AND_HAS)
+								  .append(CON[o]).append(otherV).append(COFF[o])
+								  .append(", so it can't be ").append(RON).append(v).append(ROFF)
+								  .append(PERIOD).append(NL);
+								if ( links == null ) {
+									links = new LinkedList<>();
+								}
+								links.add(new Link(ii, v, sibling, v));
 							}
-							steps.append(CELL_IDS[ii]).append(SP).append(SEES).append(CON[c])
-							  .append(CELL_IDS[sibling]).append(MINUS).append(v)
-							  .append(COFF[c]).append(AND_HAS)
-							  .append(CON[o]).append(otherV).append(COFF[o])
-							  .append(", so it can't be ").append(RON).append(v).append(ROFF)
-							  .append(PERIOD).append(NL);
-							if ( links == null ) {
-								links = new LinkedList<>();
-							}
-							links.add(new Link(ii, v, sibling, v));
+							subtype |= 4;
 						}
-						subtype |= 4;
 					}
 				}
 			}
@@ -971,22 +980,24 @@ public class Medusa3D extends AHinter implements IPreparer
 	private int closest(final Idx idx, final int cx, final int cy) {
 		int closest = -1;
 		int minD = Integer.MAX_VALUE; // the distance to the closest cell
-		for ( int i : idx.toArrayB() ) {
-			final int y = Math.abs(ROW_OF[i] - cy);
-			final int x = Math.abs(COL_OF[i] - cx);
-			final int distance;
-			if ( y==0 ) {
-				distance = x;
-			} else if (x==0) {
-				distance = y;
-			} else { // Pythons theorum: square of ye hippopotamus = da sum of
-				// da squares of yon two sides, except in ye gannetorium where
-				// it remains indeterminate; mainly because of da bloody smell.
-				distance = (int)Math.sqrt((double)(x*x + y*y));
-			}
-			if ( distance < minD ) {
-				minD = distance;
-				closest = i;
+		try ( final IALease lease = idx.toArrayLease() ) {
+			for ( int i : lease.array ) {
+				final int y = Math.abs(ROW_OF[i] - cy);
+				final int x = Math.abs(COL_OF[i] - cx);
+				final int distance;
+				if ( y==0 ) {
+					distance = x;
+				} else if (x==0) {
+					distance = y;
+				} else { // Pythons theorum: square of ye hippopotamus = da sum of
+					// da squares of yon two sides, except in ye gannetorium where
+					// it remains indeterminate; mainly because of da bloody smell.
+					distance = (int)Math.sqrt((double)(x*x + y*y));
+				}
+				if ( distance < minD ) {
+					minD = distance;
+					closest = i;
+				}
 			}
 		}
 		return closest;

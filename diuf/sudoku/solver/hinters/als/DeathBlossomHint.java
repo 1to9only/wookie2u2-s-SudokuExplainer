@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -16,7 +16,6 @@ import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.IN;
 import static diuf.sudoku.utils.Frmt.COLON;
 import diuf.sudoku.utils.Frmu;
@@ -118,13 +117,12 @@ public class DeathBlossomHint extends AHint  {
 
 	@Override
 	public String toHtmlImpl() {
-		final String s; if(isInvalid) s="INVALID "; else s=EMPTY_STRING;
 		return Html.produce(this, "DeathBlossomHint.html"
 			, stem.toFullString()	//{0}
 			, coloredAlss()			// 1
 			, stem.id				// 2
 			, reds.toString()		// 3
-			, s						// 4
+			, ""					// 4 was isInvalid, now done generically
 		);
 	}
 

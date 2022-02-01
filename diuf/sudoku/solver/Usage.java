@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -30,7 +30,7 @@ import java.util.Map;
  * @author Keith Corlett 2017 Dec
  */
 public final class Usage {
-	
+
 	public String hinterName; // for LogicalSolverTester
 	public int calls, hints, elims;
 	public long time;
@@ -52,15 +52,15 @@ public final class Usage {
 
 	public void addonateSubHints(AHint hint, int numHints) {
 		String hintTypeName = hint.getHintTypeName();
-		double difficulty = hint.getDifficulty();
+		double d = hint.getDifficulty();
 		Pair<Integer,Double> existing = subHintsMap.get(hintTypeName);
 		if ( existing == null )
-			subHintsMap.put(hintTypeName, new Pair<>(numHints, difficulty));
+			subHintsMap.put(hintTypeName, new Pair<>(numHints, d));
 		else {
 			existing.a += numHints;
 			// Math.max is slower.
-			if ( difficulty > existing.b )
-				existing.b = difficulty;
+			if ( d > existing.b )
+				existing.b = d;
 		}
 	}
 

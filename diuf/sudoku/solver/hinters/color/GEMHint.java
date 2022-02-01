@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
@@ -14,6 +14,7 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.hinters.Validator;
+import static diuf.sudoku.solver.hinters.Validator.prevMessage;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
@@ -46,8 +47,8 @@ public class GEMHint extends AHint  {
 			this.greenCells = colorSet[0].ids();
 			this.blueCells = colorSet[1].ids();
 		} else {
-			this.greenCells = greens.cells();
-			this.blueCells = blues.cells();
+			this.greenCells = greens.ids();
+			this.blueCells = blues.ids();
 		}
 		this.steps = steps;
 		this.links = links;
@@ -86,12 +87,12 @@ public class GEMHint extends AHint  {
 	}
 
 	/**
-	 * @return Tech.GEM.difficulty plus an elimination bonus of number of 
+	 * @return Tech.GEM.difficulty plus an elimination bonus of number of
 	 * eliminations * 0.01.
 	 */
 	@Override
 	public double getDifficultyTotal() {
-		return getDifficulty() + (reds.totalSize() * 0.01);
+		return getDifficulty() + (reds.totalSize() * 0.1);
 	}
 
 	@Override
@@ -120,7 +121,7 @@ public class GEMHint extends AHint  {
 		sb.append("<html><body>").append(NL);
 		if ( isInvalid )
 			sb.append("<h2>").append("<r>INVALID</r> ").append(getHintTypeName()).append("</h2>").append(NL)
-			  .append("<r><b>").append(Validator.prevMessage).append("</b></r><p>").append(NL);
+			  .append("<r><b>").append(prevMessage).append("</b></r><p>").append(NL);
 		else
 			sb.append("<h2>").append(htmlHintTypeName()).append("</h2>").append(NL);
 	    sb.append("There are two extended coloring sets:<pre>").append(NL)

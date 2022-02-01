@@ -1,22 +1,21 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
 
+import diuf.sudoku.Cells;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSIZE;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 /**
  * The hint DTO for: Unique Rectangle Type 3 with Naked Set.
@@ -26,13 +25,13 @@ public final class URT3NakedSetHint extends AURTHint {
 	private final Cell c1;
 	private final Cell c2;
 	// values other than v1 and v2, the two values common to all cells in a URT
-	private final int extraVals;
+	private final int extraCands;
 	private final ARegion region;
 	// other cells of the naked set (not c1 or c2)
 	// nb: equals requires a Set!
-	private final Set<Cell> otherCellsSet;
+	private final Cell[] otherCells;
 	// values in the naked set
-	private final int nkdSetVals;
+	private final int nkdSetCands;
 
 	// local degree overridding AHint.degree is required because it's too damn
 	// difficult to set the inherited one to anything other than the default
@@ -50,22 +49,22 @@ public final class URT3NakedSetHint extends AURTHint {
 	 * @param redPots
 	 * @param c1
 	 * @param c2
-	 * @param extraVals
+	 * @param extraCands
 	 * @param region
 	 * @param otherCells WARNING: DO NOT STORE otherCells, IT IS CACHED!
-	 * @param nkdSetVals
+	 * @param nkdSetCands
 	 */
-	public URT3NakedSetHint(UniqueRectangle hinter, Cell[] loop, int loopSize
-			, int v1, int v2, Pots redPots, Cell c1, Cell c2, int extraVals
-			, ARegion region, Cell[] otherCells, int nkdSetVals) {
+	public URT3NakedSetHint(AHinter hinter, Cell[] loop, int loopSize
+			, int v1, int v2, Pots redPots, Cell c1, Cell c2, int extraCands
+			, ARegion region, Cell[] otherCells, int nkdSetCands) {
 		super(3, hinter, loop, loopSize, v1, v2, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
-		this.extraVals = extraVals;
+		this.extraCands = extraCands;
 		this.region = region;
-		this.otherCellsSet = new LinkedHashSet<>(Arrays.asList(otherCells));
-		this.nkdSetVals = nkdSetVals;
-		this.degree = VSIZE[nkdSetVals];
+		this.otherCells = otherCells.clone();
+		this.nkdSetCands = nkdSetCands;
+		this.degree = VSIZE[nkdSetCands];
 	}
 
 	@Override
@@ -82,10 +81,10 @@ public final class URT3NakedSetHint extends AURTHint {
 	public Pots getOranges(int viewNum) {
 		if ( orangePots == null ) {
 			Pots pots = new Pots();
-			pots.put(c1, extraVals);
-			pots.put(c2, extraVals);
-			for ( Cell c : otherCellsSet )
-				pots.upsert(c, nkdSetVals, false);
+			pots.put(c1, extraCands);
+			pots.put(c2, extraCands);
+			for ( Cell c : otherCells )
+				pots.upsert(c, nkdSetCands, false);
 			orangePots = pots;
 		}
 		return orangePots;
@@ -117,8 +116,8 @@ public final class URT3NakedSetHint extends AURTHint {
 		if ( this.region != other.region
 		  || this.degree != other.degree )
 			return false;
-		return this.nkdSetVals == other.nkdSetVals
-			&& this.otherCellsSet.equals(other.otherCellsSet);
+		return this.nkdSetCands == other.nkdSetCands
+			&& Cells.arraysEquals(otherCells, other.otherCells);
 	}
 
 	@Override
@@ -130,12 +129,13 @@ public final class URT3NakedSetHint extends AURTHint {
 			, Frmu.csv(loopSize, loop)		// 3
 			, c1.id							// 4
 			, c2.id							// 5
-			, Values.orString(extraVals)	// 6
+			, Values.orString(extraCands)	// 6
 			, GROUP_NAMES[degree-2]			// 7
-			, Frmu.and(otherCellsSet)		// 8
-			, Values.andString(nkdSetVals)	// 9
+			, Frmu.and(otherCells)			// 8
+			, Values.andString(nkdSetCands)	// 9
 			, region.id						//10
 			, reds.toString()				//11
 		);
 	}
+
 }

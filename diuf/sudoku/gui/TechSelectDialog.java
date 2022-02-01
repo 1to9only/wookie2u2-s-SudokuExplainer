@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -16,7 +16,6 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.util.EnumSet;
 import javax.swing.BorderFactory;
@@ -28,6 +27,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.border.TitledBorder;
 import static diuf.sudoku.utils.Frmt.SP;
+import static diuf.sudoku.Tech.BIG_WING_TECHS;
 
 /**
  * A JDialog for the user to de/select which Sudoku solving Tech(niques) are
@@ -40,9 +40,6 @@ import static diuf.sudoku.utils.Frmt.SP;
 class TechSelectDialog extends JDialog {
 
 	private static final long serialVersionUID = -7071292711961723801L;
-
-	private static final Tech[] BIG_WING = {Tech.WXYZ_Wing, Tech.VWXYZ_Wing
-			, Tech.UVWXYZ_Wing, Tech.TUVWXYZ_Wing, Tech.STUVWXYZ_Wing};
 
 	private final SudokuExplainer engine;
 	private final SudokuFrame parentFrame;
@@ -87,51 +84,41 @@ class TechSelectDialog extends JDialog {
 		wantedTechs = THE_SETTINGS.getWantedTechs();
 		int count = 0;
 		for ( final Tech tech : Tech.allHinters() ) { // no validators
-
 			boolean enable = true;
-			final JCheckBox chk = new JCheckBox();
-			chk.setText(tech.text());
-			chk.setToolTipText(tech.tip);
-
+			final JCheckBox checkBox = new JCheckBox();
+			checkBox.setText(tech.text());
+			checkBox.setToolTipText(tech.tip);
 			// "core" techs are always wanted, so the user can't unwant them.
+			// NB: You can't unwant the validators either.
 			switch (tech) {
 			case NakedSingle:
 			case HiddenSingle:
-				chk.setSelected(true);
-				chk.setEnabled(false);
+				checkBox.setSelected(true);
+				checkBox.setEnabled(false);
 				enable = false;
 				break;
 			}
-
-			// These techs appear on a new-line to organise techs logically
-			// on the screen. The logic is insanity to the uninitiated, but
-			// it isn't. Wait until you don't want to fix it (much) before
-			// you fix it (much); then you won't much want to (much) fix it
-			// (much), so you probably (not too much) won't (much) fix it
-			// (much). It's all a much of a muchness. Just don't go leaping
-			// straight for the clitoris, OK! Dems da rulez Macca!
-			// if we're not already on a new line
+			// if we're not already on a new line then
 			if ( count%NUM_COLS != 0 ) {
+				// each of these techs is the first on a line
+				// to organise techs into "logical blocks".
 				switch (tech) {
-				// the first tech in each "block" of techs.
 				case DirectNakedPair:
 				case DirectNakedTriple:
+				case Locking:
 				case NakedPair:
 				case NakedTriple:
 				case TwoStringKite:
 				case Skyscraper:
-				case XY_Wing:
 				case Swampfish:
 				case Swordfish:
-				case Jellyfish:
+				case Coloring:
 				case BigWings:
 				case FinnedSwampfish:
 				case FrankenSwampfish:
 				case KrakenSwampfish:
 				case KrakenSwordfish:
 				case KrakenJellyfish:
-//				case BUG:
-				case ALS_XZ:
 				case NakedQuad:
 				case NakedPent:
 				case URT:
@@ -153,23 +140,22 @@ class TechSelectDialog extends JDialog {
 					break;
 				}
 			}
-
+			// if this tech is to be enabled
 			if ( enable ) {
-				// select and add an action listener to the checkbox
-				chk.setSelected(wantedTechs.contains(tech));
-				chk.addActionListener(new ActionListener() {
-					@Override
-					public void actionPerformed(ActionEvent e) {
-						if ( chk.isSelected() ) {
-							// carp if toolTip is set and warning is true
-							if ( tech.warning && tech.tip!=null ) {
-								JOptionPane.showMessageDialog(TechSelectDialog.this
+				// set the CheckBoxs selected state
+				checkBox.setSelected(wantedTechs.contains(tech));
+				// add an action listener to the checkbox
+				checkBox.addActionListener((ActionEvent e) -> {
+					if ( checkBox.isSelected() ) {
+						// carp if toolTip is set and warning is true
+						if ( tech.warning && tech.tip!=null ) {
+							JOptionPane.showMessageDialog(TechSelectDialog.this
 									, tech.name()+SP+tech.tip
 									, "WARNING"
 									, JOptionPane.WARNING_MESSAGE
-								);
-							}
-							switch ( tech ) {
+							);
+						}
+						switch ( tech ) {
 							// Locking xor LockingBasic
 							case Locking:
 								unselect(Tech.LockingBasic);
@@ -177,12 +163,11 @@ class TechSelectDialog extends JDialog {
 							case LockingBasic:
 								unselect(Tech.Locking);
 								break;
-							// BigWings is prefered to individual BigWing's.
+								// BigWings is prefered to individual BigWing's.
 							case BigWings:
-								for ( Tech bw : BIG_WING )
-									unselect(bw);
+								unselect(BIG_WING_TECHS);
 								break;
-							// then selecting any BigWing unselects BigWings.
+								// then selecting any BigWing unselects BigWings.
 							case WXYZ_Wing:
 							case VWXYZ_Wing:
 							case UVWXYZ_Wing:
@@ -190,21 +175,20 @@ class TechSelectDialog extends JDialog {
 							case STUVWXYZ_Wing:
 								unselect(Tech.BigWings);
 								break;
-							// Medusa3d is counter-productive with GEM
+								// Medusa3d is counter-productive with GEM
 							case GEM:
 								unselect(Tech.Medusa3D);
 								break;
-							}
-							wantedTechs.add(tech);
-						} else
-							wantedTechs.remove(tech);
-					}
+						}
+						wantedTechs.add(tech);
+					} else
+						wantedTechs.remove(tech);
 				});
 			}
-			centerPanel.add(chk);
+			// add the checkBox to it's panel
+			centerPanel.add(checkBox);
 			++count;
-
-			// hacked checkbox to the right of each Large Aligned*Exclusion
+			// add a hacked checkbox to the right of each large A*E checkBox
 			switch ( tech ) {
 			case AlignedPent:
 			case AlignedHex:
@@ -256,11 +240,8 @@ class TechSelectDialog extends JDialog {
 	private static JCheckBox newHackBox(final String settingName) {
 		final JCheckBox box = new JCheckBox("hacked");
 		box.setSelected(THE_SETTINGS.getBoolean(settingName));
-		box.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				THE_SETTINGS.setBoolean(settingName, box.isSelected());
-			}
+		box.addActionListener((ActionEvent e) -> {
+			THE_SETTINGS.setBoolean(settingName, box.isSelected());
 		});
 		return box;
 	}
@@ -330,11 +311,8 @@ class TechSelectDialog extends JDialog {
 			btnOk = new JButton();
 			btnOk.setText("OK");
 			btnOk.setMnemonic(KeyEvent.VK_O);
-			btnOk.addActionListener(new java.awt.event.ActionListener() {
-				@Override
-				public void actionPerformed(java.awt.event.ActionEvent e) {
-					commit();
-				}
+			btnOk.addActionListener((java.awt.event.ActionEvent e) -> {
+				commit();
 			});
 		}
 		return btnOk;
@@ -358,10 +336,10 @@ class TechSelectDialog extends JDialog {
 		}
 		// BigWings (slower, but faster overall) XOR individual BigWing
 		if ( wantedTechs.contains(Tech.BigWings) ) {
-			for ( Tech t : BIG_WING ) {
+			for ( Tech t : BIG_WING_TECHS ) {
 				wantedTechs.remove(t);
 			}
-		} else if ( anyWanted(BIG_WING) ) {
+		} else if ( anyWanted(BIG_WING_TECHS) ) {
 			wantedTechs.remove(Tech.BigWings);
 		}
 		THE_SETTINGS.justSetWantedTechs(wantedTechs);
@@ -376,11 +354,9 @@ class TechSelectDialog extends JDialog {
 
 	// does wantedTechs.containsAny(techs)?
 	private boolean anyWanted(Tech... techs) {
-		for ( Tech t : techs ) {
-			if ( wantedTechs.contains(t) ) {
+		for ( Tech t : techs )
+			if ( wantedTechs.contains(t) )
 				return true;
-			}
-		}
 		return false;
 	}
 
@@ -410,12 +386,9 @@ class TechSelectDialog extends JDialog {
 			btnCancel = new JButton();
 			btnCancel.setText("Cancel");
 			btnCancel.setMnemonic(KeyEvent.VK_C);
-			btnCancel.addActionListener(new java.awt.event.ActionListener() {
-				@Override
-				public void actionPerformed(java.awt.event.ActionEvent e) {
-					TechSelectDialog.this.setVisible(false);
-					TechSelectDialog.this.dispose();
-				}
+			btnCancel.addActionListener((java.awt.event.ActionEvent e) -> {
+				TechSelectDialog.this.setVisible(false);
+				TechSelectDialog.this.dispose();
 			});
 		}
 		return btnCancel;

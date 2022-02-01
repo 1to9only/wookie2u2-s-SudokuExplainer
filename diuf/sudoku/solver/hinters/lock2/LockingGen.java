@@ -5,7 +5,6 @@
  */
 package diuf.sudoku.solver.hinters.lock2;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
@@ -16,12 +15,13 @@ import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 
 /**
- * LockingGen implements the LockingBasic Sudoku solving technique.
+ * LockingGen implements the Locking Generalised Sudoku solving technique.
  * <p>
  * Generalised Locking was originally intended to handle extra region types,
  * which I personally despise, because they make puzzles easier, which just
@@ -30,7 +30,7 @@ import diuf.sudoku.solver.hinters.AHinter;
  * an arch, unless it really needs it, or you just really want to (Adams D.).
  * <pre>
  * LockingGen does about the same job as Locking in about a tenth of the code.
- * I love it, but I don't use it because Locking is faster, despite being ugly.
+ * I love it, but I don't use it because Locking is faster, coz it's verbose.
  * Disregard the difference in reported numElims: Locking donates some of it's
  * eliminations to HiddenPair and HiddenTriple hints, in the siamese search.
  * 149,785,100  31539  4,749  22805    6,568 Locking            DOWN numElims
@@ -45,17 +45,22 @@ import diuf.sudoku.solver.hinters.AHinter;
  * using either in the GUI makes no discernable difference to response time.
  * Note that when LockingGen is used, it's used ONLY to findHints. BruteForce
  * still uses Locking, where it's speediness improves overall performance of
- * LogicalSolverTester, because it's totally ____ing hammered.
+ * BruteForce (esp in LogicalSolverTester) coz it's totally ____ing hammered.
  * ============================================================================
  * KRC 2020 Dec Boosted into DIUF SudokuExplainer. Need More Speed!
  * KRC 2021 Mar faster having removed eliminate method.
  * KRC 2021 Jul faster now there is no getIdxs.
+ * KRC 2021-11-21 avoid Cell[] with the new Pots(Idx, ...) Constr, the values
+ *                for which we already have. Simpler and faster.
  * </pre>
  *
  * @author Tarek Maani @SudokuMonster
  * @author Keith Corlett 2020 Dec Boosted into SE.
  */
 public class LockingGen extends AHinter {
+
+	// An idx of cells to eliminate from
+	private final Idx victims = new Idx();
 
 	public LockingGen() {
 		super(Tech.LockingBasic);
@@ -88,50 +93,46 @@ public class LockingGen extends AHinter {
 		final ARegion[] regions = grid.regions;
 		// presume that no hint will be found
 		boolean result = false;
-		try {
-			// foreach region in the grid
-			for ( i=0; i<NUM_REGIONS; ++i ) {
-				// dereference once, for speed (and brevity)
-				rio = (r=regions[i]).ridx;
-				cells = r.cells;
-				// foreach potential value
-				for ( v=1; v<VALUE_CEILING; ++v ) {
-					// if this region has 2..3 places for this value.
-					// 2 or 3 places in a region call all be in another region.
-					// 1 place is a hidden single, which is not my problem.
-					// 4 or more places cannot share another common region.
-					if ( (card=(riv=rio[v]).size)>1 && card<4 ) {
-						// find victims: grid.cells that are buddies of all
-						// cells in this region which maybe v, except those
-						// cells themselves.
-						// NB: buds excludes this cell itself, so "and"ing buds
-						// of each cell which maybe v in region retains only
-						// buds of all cells in another common region.
-						v0 = (idx=idxs[v]).a0;
-						v1 = idx.a1;
-						v2 = idx.a2;
-						for ( a=INDEXES[riv.bits],n=a.length,j=0; j<n; ++j ) {
-							v0 &= (buds=cells[a[j]].buds).a0;
-							v1 &= buds.a1;
-							v2 &= buds.a2;
-						}
-						if ( (v0|v1|v2) != 0 ) {
-							// FOUND a Locking
-							final AHint hint = new LockingGenHint(this
-								, new Pots(grid.cellsA(v0,v1,v2), v)
-								, r.atNew(riv.bits), v, r);
-							result = true;
-							if ( accu.add(hint) ) {
-								return result;
-							}
+		// foreach region in the grid
+		for ( i=0; i<NUM_REGIONS; ++i ) {
+			// dereference once, for speed (and brevity)
+			rio = (r=regions[i]).ridx;
+			cells = r.cells;
+			// foreach potential value
+			for ( v=1; v<VALUE_CEILING; ++v ) {
+				// if this region has 2..3 places for this value.
+				// 2 or 3 places in a region call all be in another region.
+				// 1 place is a hidden single, which is not my problem.
+				// 4 or more places cannot share another common region.
+				if ( (card=(riv=rio[v]).size)>1 && card<4 ) {
+					// find victims: grid.cells that are buddies of all
+					// cells in this region which maybe v, except those
+					// cells themselves.
+					// NB: buds excludes this cell itself, so "and"ing buds
+					// of each cell which maybe v in region retains only
+					// buds of all cells in another common region.
+					v0 = (idx=idxs[v]).a0;
+					v1 = idx.a1;
+					v2 = idx.a2;
+					for ( a=INDEXES[riv.bits],n=a.length,j=0; j<n; ++j ) {
+						v0 &= (buds=cells[a[j]].buds).a0;
+						v1 &= buds.a1;
+						v2 &= buds.a2;
+					}
+					if ( (v0|v1|v2) != 0 ) {
+						// FOUND a Locking Generalised
+						final AHint hint = new LockingGenHint(this
+							, new Pots(victims.set(v0,v1,v2), grid, v)
+							, r.atNew(riv.bits), v, r);
+						result = true;
+						if ( accu.add(hint) ) {
+							return result;
 						}
 					}
 				}
 			}
-			return result;
-		} finally {
-			Cells.cleanCasA();
 		}
+		return result;
 	}
 
 }

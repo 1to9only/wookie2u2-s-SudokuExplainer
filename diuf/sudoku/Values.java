@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -62,14 +62,14 @@ public final class Values implements Iterable<Integer> {
 	 */
 	public static int[] toValuesArrayNew(int bits) {
 		final int size = Integer.bitCount(bits); // Don't use SIZE array here!
-		int[] a = new int[size];
+		int[] result = new int[size];
 		int cnt = 0;
 		// nb: Don't use SHFT (as per normal) in case it doesn't exist yet
 		for ( int sv=1,i=1; sv<=bits; sv<<=1,++i )
 			if ( (bits & sv) != 0 ) // the sv bit is set in bits
-				a[cnt++] = i;
+				result[cnt++] = i;
 		assert cnt == size;
-		return a;
+		return result;
 	}
 
 	/**
@@ -86,14 +86,14 @@ public final class Values implements Iterable<Integer> {
 	 */
 	private static int[] toShiftedArrayNew(int bits) {
 		final int size = Integer.bitCount(bits); // Don't use SIZE array here!
-		int[] a = new int[size]; // array
+		int[] result = new int[size]; // array
 		int count = 0;
 		// nb: Don't use SHFT (as per normal) in case it doesn't exist yet
 		for ( int sv=1; sv<=bits; sv<<=1 ) // shiftedValue
 			if ( (bits & sv) != 0 ) // the sv bit is set in bits
-				a[count++] = sv;
+				result[count++] = sv;
 		assert count == size;
-		return a;
+		return result;
 	}
 
 	/**
@@ -225,35 +225,15 @@ public final class Values implements Iterable<Integer> {
 	/** The bits of all values (1,2,3,4,5,6,7,8,9) == 111,111,111 == 511 */
 	public static final int VALL = (1<<VALL_SIZE)-1;
 
-	/** An array of shifted bitset-values (faster than 1&lt;&lt;v-1) with a
-	 * representation of 0 (which isn't a value) but makes SHFT[1] the shifted
-	 * value of 1, as you'd expect. Ie: without 0 in the array you'd have to do
-	 * SHFT[value-1] instead of just SHFT[value], which'd suck even more than
-	 * this small brown lump of ____. */
+	/** An array of shifted bitset-values (faster than 1&lt;&lt;v-1), with a
+	 * representation of 0 (which isn't a value), but VSHFT[1] is the shifted
+	 * value of 1, as you'd expect. Without the useless VSHFT[0] you would have
+	 * to use VSHFT[v-1], which sux! Note that VSHFT[0] remains 0. */
 	public static final int[] VSHFT = new int[VALUE_CEILING]; // 10
 	/** An array of "negated" bitset-values (faster than ~(1&lt;&lt;v-1)) */
 	static {
 		for ( int v=MIN_VALUE; v<VALUE_CEILING; ++v )
 			VSHFT[v] = 1<<v-1;
-	}
-
-	/**
-	 * Returns a bitset containing the 'degree' values that are common to all
-	 * of these 'valueses', else 0. Also returns 0 if any 'valueses' has size
-	 * less than 2.
-	 *
-	 * @param valueses {@code Values[]}
-	 * @param degree the maximum size of a "common" values
-	 * @return the common Values (a new instance), else null
-	 */
-	public static int common(int[] valueses, int degree) {
-		int bits = 0;
-		for ( int values : valueses )
-			if ( VSIZE[values]<2 || VSIZE[bits|=values]>degree )
-				return 0;
-		if ( VSIZE[bits] == degree )
-			return bits;
-		return 0;
 	}
 
 	/** Creates a new filled (1,2,3,4,5,6,7,8,9) Values Set. */
@@ -276,36 +256,38 @@ public final class Values implements Iterable<Integer> {
 		return new Values(a.bits|b.bits, false);
 	}
 
-	/**
-	 * Return a new array of the values in bits: a Values.bits.
-	 * @param bits a bitset of values
-	 * @return a new array of the values in bits.
-	 */
-	public static int[] arrayOf(int bits) {
-		final int[] result = new int[VSIZE[bits]];
-		int cnt = 0;
-		for ( int v : VALUESES[bits] )
-			result[cnt++] = v;
-		// null terminate the array (if length > size)
-		if ( cnt < result.length )
-			result[cnt] = 0;
-		return result;
-	}
+//not_used 2021-12-01
+//	/**
+//	 * Return a new array of the values in bits: a Values.bits.
+//	 * @param bits a bitset of values
+//	 * @return a new array of the values in bits.
+//	 */
+//	public static int[] arrayOf(int bits) {
+//		final int[] result = new int[VSIZE[bits]];
+//		int cnt = 0;
+//		for ( int v : VALUESES[bits] )
+//			result[cnt++] = v;
+//		// null terminate the array (if length > size)
+//		if ( cnt < result.length )
+//			result[cnt] = 0;
+//		return result;
+//	}
 
-	/**
-	 * Return a new array of plain (unshifted) values of these 'n' 'cands'.
-	 *
-	 * @param cands an array of bitsets
-	 * @param n number of cands in cands
-	 * @return a new array of {@code VFIRST[cands[i]]} of each
-	 */
-	public static int[] toValues(final int[] cands, final int n) {
-		int[] result = new int[n];
-		for ( int i=0; i<n; ++i ) {
-			result[i] = VFIRST[cands[i]];
-		}
-		return result;
-	}
+//not_used 2021-12-01
+//	/**
+//	 * Return a new array of plain (unshifted) values of these 'n' 'cands'.
+//	 *
+//	 * @param cands an array of bitsets
+//	 * @param n number of cands in cands
+//	 * @return a new array of {@code VFIRST[cands[i]]} of each
+//	 */
+//	public static int[] toValues(final int[] cands, final int n) {
+//		int[] result = new int[n];
+//		for ( int i=0; i<n; ++i ) {
+//			result[i] = VFIRST[cands[i]];
+//		}
+//		return result;
+//	}
 
 	/**
 	 * Return a bitset of candidates in 's'.
@@ -812,11 +794,11 @@ public final class Values implements Iterable<Integer> {
 	 * @return
 	 */
 	public static int[] toArrayNew(final int bits) {
-		int[] array = new int[VSIZE[bits]];
+		int[] result = new int[VSIZE[bits]];
 		int i = 0;
 		for ( int v : VALUESES[bits] )
-			array[i++] = v;
-		return array;
+			result[i++] = v;
+		return result;
 	}
 
 	/**
@@ -829,9 +811,9 @@ public final class Values implements Iterable<Integer> {
 	 * @return a new {@code int[]} array.
 	 */
 	public int[] toArrayNew() {
-		int[] a = new int[size];
-		toArray(a);
-		return a;
+		int[] result = new int[size];
+		toArray(result);
+		return result;
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ toString & friends ~~~~~~~~~~~~~~~~~~~~~~~~~~

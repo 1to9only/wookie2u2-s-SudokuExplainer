@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.chain;
@@ -444,7 +444,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 			}
 		}
 		// HACK this is an on, my parents are offs, but his parents are ons.
-		if ( a.parents!=null && a.parents.size>0 )
+//		if ( a.parents!=null && a.parents.size>0 )
+		if ( a.parents!=null )
 			for ( Ass p : a.parents )
 				todo.addAll(p.parents); // no concurrent modification exceptions
 	}
@@ -453,7 +454,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 		Collection<Link> links = new ArrayList<>(64);
 		for ( Ass c : getAncestorsList(target) ) { // c for child
 			// nb: don't create an iterator for an empty list!
-			if ( c.parents!=null && c.parents.size>0 )
+//			if ( c.parents!=null && c.parents.size>0 )
+			if ( c.parents!=null )
 				for ( Ass p : c.parents ) // p for parent
 					links.add(new Link(p, c));
 		}
@@ -535,7 +537,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 		Cause cause = a.cause; // the type of thing that caused this Ass
 		if ( cause == null ) { // This is initial assumption
 			assert (this instanceof BidirectionalCycleHint)
-					|| (a.parents==null||a.parents.size==0); //!a.hasParents();
+//					|| (a.parents==null||a.parents.size==0); //!a.hasParents();
+					|| a.parents==null; //!a.hasParents();
 			if ( this instanceof CellReductionHint )
 				cause = Cause.NakedSingle;
 			else if ( this instanceof RegionReductionHint )
@@ -566,7 +569,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 		}
 		// this is an on, so my parents are offs, so there parents are ons.
 		// if parents is not null or empty. create no iterator for empty list!
-		if ( a.parents!=null && a.parents.size>0 )
+//		if ( a.parents!=null && a.parents.size>0 )
+		if ( a.parents!=null )
 			for ( Ass p : a.parents )
 				todo.addAll(p.parents); // no concurrent modification exceptions
 	}
@@ -685,10 +689,11 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	// parent of the given target Ass which sets the given srcCell.
 	protected Ass recurseSource(Ass target, Cell srcCell) {
 		if ( srcCell!=null && target!=null
-		  && target.parents!=null && target.parents.size>0 ) {
+//		  && target.parents!=null && target.parents.size>0 ) {
+		  && target.parents!=null ) {
 			Ass returned;
 			for ( Ass a : target.parents ) {
-				if ( a.isOn && a.cell.hashCode == srcCell.hashCode )
+				if ( a.isOn && a.cell.i == srcCell.i )
 					return a; // NB: We don't know what value we're look for!
 				if ( (returned=recurseSource(a, srcCell)) != null )
 					return returned;
@@ -774,7 +779,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 	private void recurseChainHtml(final Ass a, final List<Ass> ancestors
 			, final List<String> htmlLines, String path) { // path for debug only
 		// First add parent chains (DFS)
-		if ( a.parents!=null && a.parents.size>0 )
+//		if ( a.parents!=null && a.parents.size>0 )
+		if ( a.parents!=null )
 			for ( Ass p : a.parents )
 				recurseChainHtml(p, ancestors, htmlLines, path+=SP+p);
 		//System.out.println(path);
@@ -785,7 +791,8 @@ public abstract class AChainingHint extends AHint implements IChildHint {
 		// NB: LinkedLists O(n) indexOf is fast enough, coz n is < 100.
 		assert ancestors.size() < 101 : "You're gonna need a bigger boat.";
 		//maxAncestorsSize = Math.max(maxAncestorsSize, ancestors.size());
-		if ( a.parents!=null && a.parents.size>0 && ancestors.indexOf(a)==-1 ) { // O(n/2) ONCE
+//		if ( a.parents!=null && a.parents.size>0 && ancestors.indexOf(a)==-1 ) { // O(n/2) ONCE
+		if ( a.parents!=null && ancestors.indexOf(a)==-1 ) { // O(n/2) ONCE
 			final int n=htmlLines.size(), m=n-1;
 			// Add chain item for given assumption
 			line.setLength(0); // we're reusing a single buffer. lessG==lessGC.

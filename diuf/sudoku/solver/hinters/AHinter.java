@@ -1,17 +1,16 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters;
 
-import diuf.sudoku.solver.InterruptException;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
+import diuf.sudoku.solver.HinterruptException;
 import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.utils.Debug;
 
 /**
  * AHinter (the abstract Hinter) is the base-type for all classes whose
@@ -116,10 +115,16 @@ public abstract class AHinter implements IHinter {
 		index = i;
 	}
 
+	/**
+	 * The interrupt() method is called in hinters that run "for a while" to
+	 * break-out-of the search mid-grid, in order to stop the Generator quickly
+	 * enough to avoid giving the user the time/motivation to press the "Stop"
+	 * button again, which won't work, in fact it just starts another one.
+	 * Why the ____ did we decide on a "Start/Stop" button? ____ing Mental!
+	 */
 	protected final void interrupt() {
-		if ( Run.stopGenerate ) {
-			throw new InterruptException();
-		}
+		if ( Run.stopGenerate() )
+			throw new HinterruptException();
 	}
 
 	/**

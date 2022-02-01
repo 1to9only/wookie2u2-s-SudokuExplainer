@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
@@ -28,7 +28,7 @@ import java.util.List;
  *
  * @author Keith Corlett 2021-07-12.
  */
-public class SiameseLockingAccumulator implements IAccumulator {
+public final class SiameseLockingAccumulator implements IAccumulator {
 
 	private final SiameseLocking parent;
 	private final ArrayList<LockingHint> list = new ArrayList<>();

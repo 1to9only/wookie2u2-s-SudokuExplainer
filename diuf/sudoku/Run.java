@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -14,6 +14,13 @@ package diuf.sudoku;
  * @author Keith Corlett 2020 Mar 22
  */
 public final class Run {
+
+	// KRC 2021-06-20 When 1 puzzle is reprocessed print hint.toHtml to stdout
+	// for towel misplacement. Also read in KrakenFisherman.
+	// 2021-11-29 moved to Run from LogicalSolverTester coz main code may NEVER
+	// depend on test-anything, instead we push test-concerns into main code.
+	// Better still: test does nothing interesting. sigh.
+	public static final boolean PRINT_HINT_HTML = false; // #check false
 
 	public static final boolean ASSERTS_ENABLED;
 	static {
@@ -59,11 +66,23 @@ public final class Run {
 	 * LogicalSolverTester. Sigh.
 	 */
 	public static Type type = Type.TestCase;
-	
+
+	private static volatile boolean stopGenerate = false;
 	/**
-	 * Has {@link diuf.sudoku.gen.Generator#generate} been stopped by the user.
+	 * Set true when {@link diuf.sudoku.gen.Generator#generate} is stopped
+	 * by the user. Don't forget to reset before the next generate.
+	 * @param b
 	 */
-	public static volatile boolean stopGenerate = false;
+	public static void setStopGenerate(boolean b) {
+		stopGenerate = b;
+	}
+	/**
+	 * @return Has {@link diuf.sudoku.gen.Generator#generate} been stopped by
+	 * the user.
+	 */
+	public static boolean stopGenerate() {
+		return stopGenerate;
+	}
 
 // templates are useless because everything passes!
 //	/** The instance of templates referenced by everyone. This attribute is in

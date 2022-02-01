@@ -1,13 +1,14 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.nkdset;
 
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
@@ -22,25 +23,28 @@ import static diuf.sudoku.utils.Frmt.IN;
 
 public final class NakedSetDirectHint extends AHint  {
 
-	private final Cell[] nkdSetCells;
+	private final Idx nkdSetIdx;
 	private final int nkdSetValues;
 	private final ARegion region;
 
 	public NakedSetDirectHint(
-			  AHinter hinter
-			, Cell cellToSet, int valueToSet
-			, Cell[] nkdSetCells // an array of the naked-set cells (I store a list)
-			, int nkdSetValues // the naked-set values
-			, Pots orangePots // the naked-set cells => all of each cells values
-			, Pots redPots // cell=>values to be removed, ie all other cells in
-						   // in the region which maybe the nkSetValues (!empty)
-			, ARegion region
+			  AHinter hinter // pass me this, ie you, pinning me back to you
+			, Cell cellToSet // cell to set
+			, int valueToSet // value to set cell to
+			, Idx nkdSetIdx // an Idx of the NakedSet cells (stored)
+			, int nkdSetValues // a bitset of the NakedSet values
+			, Pots oranges // the NakedSet cells => all of each cells values
+			, Pots reds // cell=>values to be removed, ie all other cells in
+						// the region which maybe the nkdSetValues (!empty),
+						// where "other" means not the nkdSetCells. sigh.
+			, ARegion region // the region which contains the NakedSet
 	) {
-		// this "Direct" hint is rendered INDIRECT so it's grouped with the
-		// other indirect hint types in the GUI's HintsTree; and it has redPots.
-		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, redPots, null
-				, orangePots, null, Regions.array(region), null);
-		this.nkdSetCells = nkdSetCells;
+		// this "Direct" hint has eliminations, so is rendered INDIRECT and
+		// grouped with other indirect hint types in the GUI's HintsTree.
+		// No, it's not sane, but it does work, and that's what matters.
+		super(hinter, AHint.INDIRECT, cellToSet, valueToSet, reds, null
+				, oranges, null, Regions.array(region), null);
+		this.nkdSetIdx = nkdSetIdx;
 		this.nkdSetValues = nkdSetValues;
 		this.region = region;
 	}
@@ -72,7 +76,7 @@ public final class NakedSetDirectHint extends AHint  {
 	@Override
 	public String toStringImpl() {
 		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(Frmu.csv(nkdSetCells)).append(COLON_SP)
+		  .append(nkdSetIdx.csv()).append(COLON_SP)
 		  .append(Values.csv(nkdSetValues)).append(IN).append(region.id)
 		  .toString();
 	}
@@ -81,7 +85,7 @@ public final class NakedSetDirectHint extends AHint  {
 	public String toHtmlImpl() {
 		return Html.produce(this, "NakedSetDirectHint.html"
 			, NUMBER_NAMES[degree-2]	// {0}
-			, Frmu.csv(nkdSetCells)		//  1
+			, nkdSetIdx.csv()			//  1
 			, Values.csv(nkdSetValues)	//  2
 			, region.id					//  3
 			, getHintTypeName()			//  4

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -105,7 +105,7 @@ public final class LogicalAnalyser extends AWarningHinter {
 				ok = solver.solve(grid, usage, F, F, logHints, logTimes);
 			}
 			accu.add(ok? new AnalysisHint(this, usage): solver.unsolvableHint);
-		} catch (InterruptException ex) {
+		} catch (HinterruptException ex) {
 			return false;
 		} catch (Exception ex) {
 			StdErr.whinge(Log.me()+" exception", ex);

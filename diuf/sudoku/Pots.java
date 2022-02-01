@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -10,6 +10,7 @@ import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import static diuf.sudoku.Indexes.INDEXES;
 import static diuf.sudoku.Indexes.ISIZE;
+import diuf.sudoku.IntArrays.IALease;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
@@ -23,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import static diuf.sudoku.IntArrays.iaLease;
 
 /**
  * Pots means potential values: a set of cells, each mapped to its interesting
@@ -39,7 +41,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 
 	/** the size of smallest LinkedHashMap I create. */
 	public static final int MIN_CAPACITY = 8;
-	/** the EMPTY Pots is currently used only by test-cases. */
+	/** THE empty Pots (immutable please). */
 	public static final Pots EMPTY = new Pots(MIN_CAPACITY, 1F);
 
 	/**
@@ -128,12 +130,12 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 * Constructs a new Pots containing the given 'cell' => 'bits'.
 	 *
 	 * @param cell Cell to put.
-	 * @param bits a bitset of the values associated with cell
+	 * @param cands a bitset of the values associated with cell
 	 * @param dummy nothing to see here
 	 */
-	public Pots(final Cell cell, final int bits, final boolean dummy) {
+	public Pots(final Cell cell, final int cands, final boolean dummy) {
 		super(MIN_CAPACITY, 1F);
-		put(cell, bits);
+		put(cell, cands);
 	}
 
 	/**
@@ -141,16 +143,15 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 * <p>
 	 * This method takes {@code Cell a, Cell b} to avoid varargs overheads.
 	 *
-	 * @param value int to add to a new Values, which is put.
 	 * @param a the first cell to put.
 	 * @param b the second cell to put.
+	 * @param value int to add to a new Values, which is put.
 	 */
-	public Pots(final int value, final Cell a, final Cell b) {
+	public Pots(final Cell a, final Cell b, final int value) {
 		super(MIN_CAPACITY, 1F);
 		final int sv = VSHFT[value];
-		final Integer isv = sv;
-		if((a.maybes & sv)!=0) put(a, isv);
-		if((b.maybes & sv)!=0) put(b, isv);
+		if((a.maybes & sv)!=0) put(a, sv);
+		if((b.maybes & sv)!=0) put(b, sv);
 	}
 
 	/**
@@ -302,10 +303,10 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 */
 	public Pots(final Cell[] cells, final int cands, final boolean dummy) {
 		super(Math.max(MIN_CAPACITY,cells.length), 1F);
-		int myCands;
+		int mine;
 		for ( final Cell cell : cells ) {
-			if ( (myCands=cell.maybes & cands) != 0 ) {
-				put(cell, myCands);
+			if ( (mine=cell.maybes & cands) != 0 ) {
+				put(cell, mine);
 			}
 		}
 	}
@@ -329,16 +330,27 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	}
 
 	/**
-	 * Constructs a new Pots containing the given 'cells' => 'value'.
+	 * Construct a new Pots of idx cells in grid to cands.
 	 *
-	 * @param value to put
-	 * @param cells to put
+	 * @param idx indices of cells to add
+	 * @param grid whose cells are added
+	 * @param v the plain value to eliminate (not cands)
 	 */
-	public Pots(final int value, final Cell[] cells) {
-		final Integer cands = VSHFT[value];
-		for ( final Cell cell : cells ) {
-			put(cell, cands);
-		}
+	public Pots(final Idx idx, final Grid grid, final int v) {
+		upsertAll(idx, grid.maybes, grid.cells, VSHFT[v], false);
+	}
+
+	/**
+	 * Construct a new Pots of idx cells in grid to cands.
+	 *
+	 * @param idx indices of cells to add
+	 * @param grid whose cells are added
+	 * @param cands a bitset of the values to eliminate. The result contains
+	 *  only cands that exist in each cell
+	 * @param dummy says this method takes cands (not value)
+	 */
+	public Pots(final Idx idx, final Grid grid, final int cands, final boolean dummy) {
+		upsertAll(idx, grid.maybes, grid.cells, cands, dummy);
 	}
 
 	/**
@@ -351,52 +363,8 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 		// do nothing if others is null, and head-off adding myself to myself
 		if ( others==null || others==this )
 			return this;
-		others.entrySet().forEach((e) -> {
-			final Cell cell = e.getKey();
-			final Integer otherValues = e.getValue();
-			final Integer myExistingValues = get(cell);
-			if ( myExistingValues == null )
-				put(cell, otherValues);
-			else
-				put(cell, otherValues | myExistingValues);
-		});
+		others.entrySet().forEach((e) -> upsert(e.getKey(), e.getValue(), false));
 		return this;
-	}
-
-	/**
-	 * Construct a new Pots of idx cells in grid to cands.
-	 * 
-	 * @param idx indices of cells to add
-	 * @param grid whose cells are added
-	 * @param cands values to eliminate: the result contains only cands that
-	 *  exist in each cell
-	 * @param dummy says this method takes cands (not a value)
-	 */
-	public Pots(final Idx idx, final Grid grid, final int cands, final boolean dummy) {
-		upsertAll(idx, grid, cands, dummy);
-	}
-
-	/**
-	 * Add the given values to all the given cells. The values added are the
-	 * intersection of each cells maybes any the given Values. If there are
-	 * none then cell is skipped; and then we return "were any added".
-	 *
-	 * @param cells
-	 * @param bits
-	 * @return were any added
-	 */
-	public boolean addAll(Cell[] cells, int bits) {
-		int vs;
-		boolean any = false;
-		for ( Cell cell : cells ) {
-			if ( cell == null ) {
-				break; // null-terminated array. sigh.
-			}
-			if ( (vs=cell.maybes & bits) != 0 ) {
-				any |= put(cell, vs) == null;
-			}
-		}
-		return any;
 	}
 
 	/**
@@ -431,9 +399,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 * @return this Pots.
 	 */
 	public Pots putAll2(Map<? extends Cell, ? extends Integer> map) {
-		map.entrySet().forEach((e) -> {
-			put(e.getKey(), e.getValue()); // inserts new Values
-		});
+		map.entrySet().forEach((e) -> put(e.getKey(), e.getValue()));
 		return this;
 	}
 
@@ -510,31 +476,27 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	}
 
 	/**
-	 * Update-or-insert these 'bits' (a bitset of candidate values).
-	 * If 'cell' is already in this Pots then add bits to it's existing Values;
-	 * else (the cell is not in this Pots) then create a new instance of Values
-	 * containing the given 'bits'.
+	 * upsert: Update-or-insert these 'cands' (a bitset of candidate values).
+	 * If 'cell' is already in this Pots then add cands to it's values; else
+	 * (the cell is not in this Pots) then create a new entry of 'cell' to
+	 * the given 'cands'.
 	 *
 	 * @param cell the Cell to upsert to
-	 * @param cands the Values.bits to be upserted
+	 * @param cands a bitset of the values to be upserted
 	 * @param dummy just a marker parameter which differentiates this methods
 	 *  signature from all other method signatures in the Pots class.
 	 * @return true if this Pots was modified, so if the cell is added I always
 	 *  return true, but if another value is added to an existing cell then I
-	 *  return was the value actually added; ie I return false if the value was
-	 *  already in cells values. This allows you to keep count of the values
-	 *  actually added to a Pots using the upsert method; or you could just
-	 *  count the bastards afterwards. sigh.
+	 *  return was any value added; or conversely, I return false if the cell
+	 *  already exists and no new values are added to it.
 	 */
 	public boolean upsert(final Cell cell, final int cands, final boolean dummy) {
-		if ( cands == 0 ) {
+		if ( cands == 0 )
 			return false; // there are no values for this cell
-		}
-		final Integer existing;
-		if ( (existing=get(cell)) != null ) {
-			if ( (existing | cands) == existing ) {
+		final Integer existing = get(cell);
+		if ( existing != null ) {
+			if ( (existing | cands) == existing )
 				return false;
-			}
 			return put(cell, existing | cands) != null;
 		}
 		return addOnly(cell, cands);
@@ -581,7 +543,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 * @return any changes.
 	 */
 	public boolean upsertAll(final Idx idx, final Grid grid, final int v) {
-		return upsertAll(idx, grid, VSHFT[v], false);
+		return upsertAll(idx, grid.maybes, grid.cells, VSHFT[v], false);
 	}
 
 	/**
@@ -597,21 +559,38 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 * @return any changes.
 	 */
 	public boolean upsertAll(final Idx idx, final Grid grid, final int cands, final boolean dummy) {
-		final int[] maybes = grid.maybes;
-		final Cell[] cells = grid.cells;
-		upsertAllAny[0] = false;
-		idx.forEach((i) -> {
-			upsertAllAny[0] |= (maybes[i] & cands)!=0 && upsert(cells[i], cands, false);
-		});
-		return upsertAllAny[0];
+		return upsertAll(idx, grid.maybes, grid.cells, cands, dummy);
 	}
-	private final boolean[] upsertAllAny = new boolean[1];
+
+	/**
+	 * Upsert (update or insert) each cell in idx which maybe(v).
+	 * Update means v is added to the existing values for this Cell.
+	 * Insert means the cell is added with the given value.
+	 * If a cell in 'idx' is not maybe(v) then it's skipped.
+	 *
+	 * @param idx containing indices of cells to be (probably) added
+	 * @param maybes grid.maybes
+	 * @param cells grid.cells
+	 * @param cands bitset of values to add for each cell
+	 * @param dummy differentiate this cands version from the value version.
+	 * @return any changes.
+	 */
+	public boolean upsertAll(final Idx idx, final int[] maybes, final Cell[] cells, final int cands, final boolean dummy) {
+		any = false;
+		idx.forEach((i) ->
+			any |= (maybes[i] & cands)!=0 && upsert(cells[i], cands, false)
+		);
+		return any;
+	}
+	// lambas require "effectively final" variables, but we can still pass a
+	// field, and mutate it. I do not understand why/how this works. Sigh.
+	private boolean any;
 
 	/**
 	 * insert is the antithesis of upsert. It ONLY inserts the given cell in
 	 * this Pots (for creating a setPots). If the cell already exists then it
-	 * throws an IllegalStateException: "$cell+$existingValue+$newValue",
-	 * even if the new value is the same as the existing value!
+	 * throws a IToldHimWeveAlreadyGotOneException, even if the new value is
+	 * the same as the existing value!
 	 *
 	 * @param cell
 	 * @param values
@@ -619,7 +598,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	 *  in this Pots.
 	 */
 	public void insert(Cell cell, int values) {
-		Integer existing = get(cell);
+		final Integer existing = get(cell);
 		if ( existing != null )
 			throw new IToldHimWeveAlreadyGotOneException(cell.id+PLUS+existing+PLUS+Values.toString(values));
 		put(cell, values);
@@ -805,7 +784,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 		if ( n == 0 )
 			return "";
 		if ( n == 1 ) {
-			Cell cell = firstCell();
+			final Cell cell = firstKey();
 			return cell.id+MINUS+Values.toString(get(cell));
 		}
 		// select "A1-49" from this
@@ -828,8 +807,31 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 		return sb.toString();
 	}
 
-	public String cells() {
+	/**
+	 * Returns SSV (Space Separated Values) of the ID's of cells in this Pots.
+	 *
+	 * @return SSV of my cell-ids.
+	 */
+	public String ids() {
 		return Frmu.ssv(keySet());
+	}
+
+	/**
+	 * Returns an array of the indices of the cells in this Pots, for use with
+	 * the new Regions.common method, taking indices instead of having to worry
+	 * about holding cell references at all. I got there in the end. I am so
+	 * bright, just not THAT bright. Sigh.
+	 *
+	 * @return a lease over an int[] containing indices of cells in this Pots.
+	 */
+	public IALease leaseIndices() {
+		final int n = size();
+		final IALease lease = iaLease(n);
+		final int[] array = lease.array;
+		int cnt = 0;
+		for ( Cell c : keySet() )
+			array[cnt++] = c.i;
+		return lease;
 	}
 
 	/**
@@ -919,7 +921,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 //	}
 
 	/**
-	 * Translate this Pots into an array of Idx's, one per value.
+	 * Translate this Pots into an Idx per value.
 	 *
 	 * @param result Idx[VALUE_CEILING], one for each value 1..9 (0 is not referenced).
 	 */
@@ -946,7 +948,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 	}
 
 	public Grid grid() {
-		return firstCell().box.getGrid();
+		return firstKey().box.getGrid();
 	}
 
 	public static class IToldHimWeveAlreadyGotOneException extends IllegalStateException {

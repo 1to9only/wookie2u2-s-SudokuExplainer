@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align;
@@ -44,7 +44,7 @@ import diuf.sudoku.solver.LogicalSolver;
 public final class Aligned5Exclusion_2H extends Aligned5ExclusionBase
 implements
 		//diuf.sudoku.solver.IReporter,
-		diuf.sudoku.solver.hinters.IPreparer,
+		diuf.sudoku.solver.hinters.IPrepare,
 		java.io.Closeable
 {
 	// the minimim number of candidates to permute (process).

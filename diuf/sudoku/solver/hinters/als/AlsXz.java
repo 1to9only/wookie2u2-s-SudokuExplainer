@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * This class is inpired by hobiwan's HoDoKu. I didn't copy his code, just
@@ -31,7 +31,6 @@
 package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
@@ -40,13 +39,13 @@ import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.solver.hinters.Validator;
-import static diuf.sudoku.solver.hinters.Validator.ALS_VALIDATES;
-import static diuf.sudoku.solver.hinters.Validator.isValid;
 import static diuf.sudoku.solver.hinters.Validator.prevMessage;
+import static diuf.sudoku.solver.hinters.Validator.reportRedPots;
 import static diuf.sudoku.utils.Html.colorIn;
 import diuf.sudoku.utils.Log;
 import java.util.Arrays;
+import static diuf.sudoku.solver.hinters.Validator.VALIDATE_ALS;
+import static diuf.sudoku.solver.hinters.Validator.validOffs;
 
 /**
  * AlsXz implements the ALS-XZ (Almost Locked Set XZ) Sudoku solving technique.
@@ -99,7 +98,7 @@ public final class AlsXz extends AAlsHinter
 	 * * tech = Tech.ALS_XZ
 	 * * allowNakedSets = true my Almost Locked Sets include cells that are
 	 *   part of a Locked Set in the region.
-	 * * findRCCs = true run getRccs to find the common values connecting ALSs
+	 * * findRccs = true run getRccs to find the common values connecting ALSs
 	 * * allowOverlaps = true the ALSs are allowed to physically overlap
 	 * * forwardOnly = true do a forward only search for RCCs
 	 * </pre>
@@ -146,7 +145,7 @@ public final class AlsXz extends AAlsHinter
 	 * when the first hint is found)
 	 */
 	@Override
-	protected boolean findHints(final Grid grid
+	protected boolean findAlsHints(final Grid grid
 			, final Als[] alss, final int numAlss
 			, final Rcc[] rccs, final int numRccs
 			, final IAccumulator accu) {
@@ -164,13 +163,6 @@ public final class AlsXz extends AAlsHinter
 		boolean doubleLinked = false;
 		// are there any eliminations (either single or double linked)
 		boolean ok = false;
-		// these are for speed only: stack references to heap fields, because
-		// heap references seem to be slower than stack references, even if you
-		// can't create a simple struct on the heap in Java (you can in C#) coz
-		// in Java EVERYthing is blessed. If you demur then simply press Ctrl-E
-		// seven times. You can please some of the people some of the time.
-		final Idx victims = this.victims; // indices to eliminate from
-		final Pots reds = this.reds; // cell-values to eliminate
 		// presume that no hints will be found
 		boolean result = false;
 		// foreach rcc in rccs
@@ -238,13 +230,15 @@ public final class AlsXz extends AAlsHinter
 			}
 			if ( ok ) {
 				// AlsXz FOUND!
-				final AlsXzHint hint = createHint(grid, a, b, zsZapped
-						, rcc.v1, rcc.v2, doubleLinked);
+				final AlsXzHint hint = new AlsXzHint(this, a, rcc.v1, rcc.v2, b
+						, zsZapped, reds.copyAndClear(), doubleLinked);
 				zsZapped = 0;
 				doubleLinked = false;
 				// is it really ok?
-				if ( ALS_VALIDATES & !isValid(grid, hint.reds) ) {
-					ok = handle(hint, grid, Arrays.asList(a, b));
+				if ( VALIDATE_ALS ) {
+					if ( !validOffs(grid, hint.reds) ) {
+						ok = handle(hint, grid, Arrays.asList(a, b));
+					}
 				}
 				if ( ok ) {
 					ok = false;
@@ -262,56 +256,13 @@ public final class AlsXz extends AAlsHinter
 		return result;
 	}
 
-	/**
-	 * Create a new AlsXzHint.
-	 *
-	 * @param grid the grid
-	 * @param a first ALS
-	 * @param b second ALS
-	 * @param zsZapped bitset of z-values (non-RCs) removed by single-link
-	 * @param reds removable (red) potentials
-	 * @param v1 first RC value
-	 * @param v2 second RC value; 0 for none
-	 * @return
-	 */
-	private AlsXzHint createHint(Grid grid, Als a, Als b, int zsZapped, int v1
-			, int v2, boolean doubleLinked) {
-		// build highlighted (orange) Pots: vs in each ALS except zs.
-		final Pots oranges = new Pots();
-		for ( Cell c : a.cells(grid) ) {
-			oranges.put(c, c.maybes & ~zsZapped);
-		}
-		for ( Cell c : b.cells(grid) ) {
-			oranges.put(c, c.maybes & ~zsZapped);
-		}
-		// all removed values should always be red, but orange overwrites red,
-		// so remove reds from oranges, to cater for any double-linked elims.
-		// What I should do is change the painter, but I'm too scared because
-		// I have no idea what it'll do to other hint-types. IIRC orange splats
-		// red coz somebody relies on it, but I can't remember who, or why.
-		oranges.removeAll(reds);
-		// build the fin (blue) pots: ALL values removed from both ALSs.
-		// Blues are eliminated-values in the orange-cells; to show candidates
-		// which caused these eliminations. We get the values from redPots coz
-		// zsZapped may be 0 meaning that there is no Z value, ie all elims are
-		// X values from double-linked ALSs. This way we don't care where they
-		// are from: just all eliminated-values are painted blue.
-		final Pots blues = oranges.withBits(reds.valuesOf());
-		// remove any eliminations from the blues so that they appear RED.
-		blues.removeAll(reds);
-		// build the hint, and add it to the IAccumulator
-		// nb: reds field is copied-and-cleared, so validator uses hint.reds.
-		return new AlsXzHint(this, a, v1, v2, b, zsZapped, reds.copyAndClear()
-				, doubleLinked);
-	}
-
 	// Always report it, then throw or return true to add it
 	private boolean handle(AlsXzHint hint, Grid grid, Iterable<Als> alss) {
-		Validator.report(tech.name(), grid, alss);
+		reportRedPots(tech.name(), grid, alss);
 		if ( Run.type == Run.Type.GUI && Run.ASSERTS_ENABLED ) {
 			// techies: we're in the GUI in java -ea
-			hint.isInvalid = true;
-			hint.debugMessage = colorIn("<p><r>"+prevMessage+"</r>");
+			hint.setIsInvalid(true);
+			hint.setDebugMessage(colorIn("<p><r>"+prevMessage+"</r>"));
 			return true;
 		}
 		// else we're in a prod-GUI, or a test-case, or the batch

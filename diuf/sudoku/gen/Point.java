@@ -1,12 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gen;
 
-import static diuf.sudoku.Grid.REGION_SIZE;
+import static diuf.sudoku.Grid.BY9;
 
 /**
  * A Point is an x, y location (a row and col) in the Grid, in a Symmetry.
@@ -19,10 +19,10 @@ public final class Point {
 	public final int y;
 	public final int i;
 
-	public Point(int x, int y) {
+	public Point(final int x, final int y) {
 		this.x = x;
 		this.y = y;
-		this.i = y * REGION_SIZE + x;
+		this.i = BY9[y] + x;
 	}
 
 	// NOTE that Point.toString is only used in debug
@@ -39,4 +39,5 @@ public final class Point {
 		return ts;
 	}
 	private String ts;
+
 }

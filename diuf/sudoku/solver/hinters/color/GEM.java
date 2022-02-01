@@ -1,27 +1,31 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
 
-import diuf.sudoku.solver.hinters.IPreparer;
+// Rule: .* your own s__t. Never .* import anything you can't modify, but you
+// can .* import anything that you can modify to resolve any name-conflicts.
+import diuf.sudoku.*;
 import static diuf.sudoku.Grid.*;
 import static diuf.sudoku.Indexes.*;
 import static diuf.sudoku.Values.*;
-
-import diuf.sudoku.*;
 import diuf.sudoku.Grid.*;
+import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.solver.*;
 import diuf.sudoku.solver.accu.*;
 import diuf.sudoku.solver.hinters.*;
+import static diuf.sudoku.solver.hinters.Validator.*;
 import static diuf.sudoku.solver.hinters.color.Words.*;
 import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Log;
+import static java.lang.Integer.bitCount;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+//import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -37,16 +41,13 @@ import java.util.Set;
  * which should be perceived as an admission of a mental weakness on my part,
  * rather than a criticism of the publication. So in the end I gave-up trying
  * to implement the full GradedEquivalenceMarks and just did what makes sense
- * to me, which is pretty much 3DMedusa++, ergo 3DMedusa is 2 color-sets with
- * cheese and pickles, so I added each trimming that makes sense to me, piece
- * by piece, but the net-result is than I am unsure if I have implemented the
- * whole spec, or if there's condiment/s remaining.
- * <p>
- * It's a lot like extending your pool dunny into a shopping mall, and then
- * going to K-Mart anyway. sigh.
- * <p>
- * Developers please note that somebody who understands the spec may well get
- * many more eliminations by totally implementing the spec. I'm too stoopid!
+ * to me, which is pretty much 3DMedusa++, ergo 3DMedusa SimpleColoring with
+ * cheese and pickles, so I add each trimming that makes sense to me, piece by
+ * piece, but the net-result is that I'm unsure if I have implemented the whole
+ * GEM spec, or there may be unresolved condiment/s remaining; like upgrading
+ * your pool dunny into a shopping mall, and then going to K-Mart anyway. sigh.
+ * Somebody who understands the spec may well get more eliminations by actually
+ * implementing the spec. I'm too stoopid!
  * <p>
  * This implementation of GEM uses a different mark-up to the specification:
  * GREEN represents Parity 1, and BLUE represents Parity 2.
@@ -65,7 +66,9 @@ import java.util.Set;
  * colors   value       value       bidirectional links
  * ons      +           +           set when color is true
  * offs     -           -           eliminated by this color
- * * My markers are painted in the appropriate color to differentiate them!
+ * * My markers are painted in the appropriate color to differentiate them, so
+ *   if you're blue/green color-blind then change green to orange (or whatever)
+ *   and republish, coz what works for you will probably work for everybody.
  *
  * NOTES:
  * 1. The Par mark is just the value in GREEN/BLUE, using existing colors.
@@ -85,15 +88,15 @@ import java.util.Set;
  * the later "sibling promoters" whether or not they get full color, which is
  * what the original spec says. I just didn't listen.
  *
- * KRC 2021-03-22 09:58 I've found and fixed the last of my many mistakes, so
- * I must eat my words: the specification is NOT crap, I'm just stupid!
+ * KRC 2021-03-22 09:58 I've found and fixed the last of my many mistakes, so I
+ * must eat my words: the specification is NOT crap, I'm just stupid!
  * 1. We need to mark ONLY valid offs, not just mark all offs and then clean-up
  *    afterwards, because the clean-up removes more than it should. So never
  *    mark an off that's colors/ons the opposite color.
  * 2. When we paint a cell-value we remove any off of the opposite color.
  * 3. Also I put Type 4's above Type 3's to get a Type 4 to test, but Type 3
  *    is simpler, so I reverted, so Type 4's are now non-existant, but can,
- *    I believe, exist, even when there's no type 3.
+ *    I believe, exist, even when there's no type 3 in top1465.
  *
  * KRC 2021-03-24 08:45 I found "a few" extra hints from invalid ons which mean
  * the other color must be true.
@@ -107,9 +110,25 @@ import java.util.Set;
  *
  * @author Keith Corlett 2021-03-17
  */
-public class GEM extends AHinter implements IPreparer
-//		, diuf.sudoku.solver.IReporter
+public class GEM extends AHinter
+implements IPrepare
+//		, diuf.sudoku.solver.hinters.IReporter
 {
+//	@Override
+//	public void report() {
+//		Log.teef("\n%s: minContradiction=%d, minConfirmation=%d, minElimination=%d\n"
+//			, getClass().getSimpleName(), minContradiction, minConfirmation, minElimination);
+//		Log.teef("\n%s: minScore=%d\n", getClass().getSimpleName(), minScore);
+//		Log.teeln(tech.name()+": TIMES=" + Arrays.toString(TIMES));
+//	}
+//	private int minContradiction = Integer.MAX_VALUE;
+//	private int minConfirmation = Integer.MAX_VALUE;
+//	private int minElimination = Integer.MAX_VALUE;
+//	private int minScore = Integer.MAX_VALUE;
+//	private long[] TIMES = new long[10];
+	//             0            1            2            3           4          5            6            7          8
+	// 1,952,645,655, 166,440,244, 161,057,914, 551,059,499, 22,045,385, 7,177,886, 718,068,277, 197,793,402, 1,740,095, 0
+
 	// Should paintPromotions use the "shoot back" rule.
 	private static final boolean PROMOTIONS_SHOOTS_BACK = true;
 
@@ -130,18 +149,17 @@ public class GEM extends AHinter implements IPreparer
 	// they PREVENT you from seeing what the problem is. So you disable them
 	// and there's a car crash. Then you try a smash-up derby, and discover how
 	// much you like rubber bumpers; so it's all good.
-	private static final boolean CHECK_HINTS = true;
+	private static final boolean CHECK_HINTS = false;
 	// should we Log s__t when we CHECK_HINTS?
 	private static final boolean CHECK_NOISE = true;
 
 	/** GREEN and BLUE. */
-	private static final int GREEN = 0;
-	private static final int BLUE = 1;
+	private static final int G=0, B=1;
 	/** The second color: blue. */
 	/** names of the colors, in an array to select from. */
 	private static final String[] COLORS = {green, blue};
 	/** The opposite color. */
-	private static final int[] OPPOSITE = {BLUE, GREEN};
+	private static final int[] OPPOSITE = {B, G};
 	/** colors ON HTML tags. */
 	private static final String[] CON = {GON, BON};
 	/** colors OFF HTML tags. */
@@ -164,44 +182,45 @@ public class GEM extends AHinter implements IPreparer
 
 	/** thrown ONLY when a Type 2 hint has been found and added to accu. */
 	private static final StopException STOP_EXCEPTION = new StopException();
+
 	// this Object is every value in my hashes map, to use a Map as a Set.
 	private static final Object PRESENT = new Object();
 
 	/**
 	 * Create the array of arrays which is a colors, or supers, subs.
-	 * @param array
+	 * @param a
 	 */
-	private static void buildArray(Idx[][] array) {
+	private static void buildArray(final Idx[][] a) {
 		for ( int c=0; c<2; ++c )
 			for ( int v=1; v<VALUE_CEILING; ++v )
-				array[c][v] = new Idx();
+				a[c][v] = new Idx();
 	}
 
 	/**
 	 * Clear all the Idx's in the given array (both colors, all values).
 	 */
-	private static void clear(Idx[][] array) {
+	private static void clear(final Idx[][] a) {
 		for ( int c=0; c<2; ++c )
-			clear(array[c]);
+			clear(a[c]);
 	}
 
 	/**
 	 * Clear all the Idx's in the given array (all values).
 	 */
-	private static void clear(Idx[] array) {
+	private static void clear(final Idx[] a) {
 		for ( int v=1; v<VALUE_CEILING; ++v )
-			array[v].clear();
+			a[v].clear();
 	}
 
 	/**
 	 * Deep copy all the Idx's in the given array (both colors, all values).
 	 */
-	private static Idx[][] copy(Idx[][] array) {
-		Idx[][] copy = new Idx[2][VALUE_CEILING];
+	private static Idx[][] copy(final Idx[][] a) {
+		final Idx[][] result = new Idx[2][VALUE_CEILING];
 		for ( int c=0; c<2; ++c )
 			for ( int v=1; v<VALUE_CEILING; ++v )
-				copy[c][v] = new Idx(array[c][v]);
-		return copy;
+				result[c][v] = new Idx(a[c][v]);
+		return result;
 	}
 
 	/**
@@ -238,7 +257,7 @@ public class GEM extends AHinter implements IPreparer
 	 * 's' argument is MUCH slower than appending to an existing one; so use me
 	 * only when creating a hint, not in the why-string of the paint routines.
 	 */
-	private static String color(int c, String s) {
+	private static String color(final int c, final String s) {
 		if ( c<0 || c>1 ) // especially -1 (goodColor not found)
 			return s;
 		return CON[c] + s + COFF[c];
@@ -248,11 +267,11 @@ public class GEM extends AHinter implements IPreparer
 	 * Clear the given arrayOfArrays by nullifying each array, so that the GC
 	 * can clean-up any arrays there-in that were created on-the-fly.
 	 *
-	 * @param arrayOfArrays
+	 * @param as
 	 */
-	private static void clear(int[][] arrayOfArrays) {
-		for ( int i=0,n=arrayOfArrays.length; i<n; ++i )
-			arrayOfArrays[i] = null;
+	private static void clear(final int[][] as) {
+		for ( int i=0,n=as.length; i<n; ++i )
+			as[i] = null;
 	}
 
 	// ============================ instance stuff ============================
@@ -261,14 +280,18 @@ public class GEM extends AHinter implements IPreparer
 	// and also to to save passing everything around. For some reason creating
 	// an Idx is pretty slow: BFIIK, no arrays here.
 
-	// The grid we're processing is a field so there's no need to pass around.
+	// The grid to process (a field so there's no need to pass around).
 	private Grid grid;
+	// The cells in grid to process
+	private Cell[] gridCells;
+	// The regions in grid to process
+	private ARegion[] gridRegions;
+	// The indices of each value in grid to process
+	private Idx[] gridIdxs;
 	// the accumulator
 	private IAccumulator accu;
 	// accu.isSingle()
 	private boolean onlyOne;
-	// indices of cells in grid which maybe each value 1..9
-	private Idx[] vs;
 
 	// do we steps+=why (an explanation) to go in the hint?
 	private final boolean wantWhy;
@@ -327,8 +350,9 @@ public class GEM extends AHinter implements IPreparer
 			done[v] = new Idx();
 	}
 
-	/** The hashCode of each color, independent of it's color. */
-	private final Map<Long,Object> hashes = new HashMap<>(128, 0.75F);
+	/** A hashCode of each painted cell-set, all values, both colors. */
+	private final HashMap<Long,Object> hashes = new HashMap<>(128, 0.75F);
+//	private final LongHashSet hashes = new LongHashSet(); // 512 capacity: no growth!
 
 	// the (presumably) "good" color to display "results" in the hint.
 	private int goodColor;
@@ -342,15 +366,6 @@ public class GEM extends AHinter implements IPreparer
 	// and also any conclusions of contradictions/eliminations/confirmations.
 	// This is a persistant buffer for speed. Faster to re-use than grow new.
 	private final StringBuilder steps = new StringBuilder(STEPS_SIZE);
-
-	// A field to build the array once per instance, not during eliminations.
-	// They're only ints (not Cells) so cleanup not required, and any hangovers
-	// from the previous invocation don't effect the logic (they're skipped).
-	// Note that the actual arrays referenced by this array-of-arrays actually
-	// belong to the Idx's IAS (Integer ArrayS) cache, so toArray (et el) will
-	// interfere arbitrarily with uncoloredCandidates, so do not call them
-	// while uncoloredCandidates is in use.
-	private final int[][] uncoloredCandidates = new int[VALUE_CEILING][];
 
 	// score of values 1..9 (a field only to support reporting minScore, but it
 	// is also faster (I think) to not recreate the array for every call)
@@ -376,25 +391,14 @@ public class GEM extends AHinter implements IPreparer
 
 	/**
 	 * Prepare is called after puzzles loaded, but BEFORE the first findHints.
-	 * @param gridUnused
-	 * @param logicalSolverUnused
+	 * @param unused
+	 * @param unused2
 	 */
 	@Override
-	public void prepare(Grid gridUnused, LogicalSolver logicalSolverUnused) {
+	public void prepare(final Grid unused, final LogicalSolver unused2) {
 		// re-enable me, in case I went dead-cat in the last puzzle
 		setIsEnabled(true); // use the setter!
 	}
-
-//	@Override
-//	public void report() {
-//		Log.teef("\n%s: minContradiction=%d, minConfirmation=%d, minElimination=%d\n"
-//			, getClass().getSimpleName(), minContradiction, minConfirmation, minElimination);
-//		Log.teef("\n%s: minScore=%d\n", getClass().getSimpleName(), minScore);
-//	}
-//	private int minContradiction = Integer.MAX_VALUE;
-//	private int minConfirmation = Integer.MAX_VALUE;
-//	private int minElimination = Integer.MAX_VALUE;
-//	private int minScore = Integer.MAX_VALUE;
 
 	/**
 	 * Called by solve to find first/all 3D Medusa hints, if any, in this grid.
@@ -415,7 +419,7 @@ public class GEM extends AHinter implements IPreparer
 	 * @return were any hint/s found?
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		// deadCat disables a hinter DURING solve (which does disabled only
 		// BEFORE kick-off) so each hinter that's ever gone deadCat checks
 		// isEnabled itself. I'm re-enabled by the prepare method, so I'm down
@@ -426,9 +430,11 @@ public class GEM extends AHinter implements IPreparer
 			return false;
 		Cell cell;
 		this.grid = grid;
+		this.gridCells = grid.cells;
+		this.gridRegions = grid.regions;
+		this.gridIdxs = grid.idxs;
 		this.accu = accu;
 		this.onlyOne = accu.isSingle();
-		this.vs = grid.idxs;
 		// presume that no hint will be found
 		boolean result = false;
 		try {
@@ -442,15 +448,14 @@ public class GEM extends AHinter implements IPreparer
 			// upto ~7, where it starts missing too many eliminations.
 			for ( int i=0,n=startingValues(); i<n; ++i ) { // repopulate scores
 				final int v = scores[i].value;
-				for ( ARegion r : grid.regions ) {
-//if ( v==8 && r.id.equals("box 4") )
-//	diuf.sudoku.utils.Debug.breakpoint();
-					// if v has 2 possible positions in this region
+				for ( ARegion r : gridRegions ) {
+					// if v has two places in this region
 					if ( ( r.ridx[v].size == 2
 						// and we haven't already painted this cell-value.
 						&& !done[v].has((cell=r.first(v)).i)
 						// and the search finds something
-						&& ( result |= search(cell, v) ) // search disables me!
+						// nb: search may disable me!
+						&& ( result |= search(cell, v) )
 						// and we want onlyOne hint
 						&& onlyOne )
 					  || !isEnabled // or I'm now disabled!
@@ -472,8 +477,10 @@ public class GEM extends AHinter implements IPreparer
 			result = true;
 		} finally {
 			this.grid = null;
+			this.gridCells = null;
+			this.gridRegions = null;
 			this.accu = null;
-			this.vs = null;
+			this.gridIdxs = null;
 			this.cause = null;
 			this.region = null;
 		}
@@ -505,13 +512,13 @@ public class GEM extends AHinter implements IPreparer
 		// also build-up a bitset of the values in 2+ conjugate pairs
 		cands = 0;
 		for ( v=1; v<VALUE_CEILING; ++v )
-			for ( ARegion r : grid.regions )
+			for ( ARegion r : gridRegions )
 				if ( r.ridx[v].size == 2
 				  && ++scores[v].score > 1 )
 					cands |= VSHFT[v];
 		// foreach bivalue cell
 		// increment the score of each value with 2+ conjugate pairs
-		for ( Cell c : grid.cells )
+		for ( Cell c : gridCells )
 			if ( c.size == 2 ) {
 				values = VALUESES[c.maybes & cands];
 				for ( i=0,n=values.length; i<n; ++i )
@@ -532,7 +539,7 @@ public class GEM extends AHinter implements IPreparer
 
 //KEEP: used to get minScore to report and set the minimum score (above)
 //	// get the score for the given value
-//	private int getScore(int value) {
+//	private int getScore(final int value) {
 //		for ( int i=0; i<VALUE_CEILING; ++i )
 //			if ( scores[i].value == value )
 //				return scores[i].score;
@@ -547,7 +554,7 @@ public class GEM extends AHinter implements IPreparer
 	 * @param v the value to search for
 	 * @return were any hint/s found; noting only one Type 2 is ever found.
 	 */
-	private boolean search(Cell cell, int v) {
+	private boolean search(final Cell cell, final int v) {
 		AHint hint;
 		Long hash;
 		int subtype // sub-type of this hint
@@ -560,7 +567,7 @@ public class GEM extends AHinter implements IPreparer
 		clear(colors);
 		clear(ons);
 		clear(offs);
-		colorValues[GREEN]=colorValues[BLUE]=paintedValues = 0;
+		colorValues[G]=colorValues[B]=paintedValues = 0;
 		steps.setLength(0); // the painting steps, and conclusions if any
 		redPots.clear();
 		// Step 2: paint cells in the conjugate pair opposite colors.
@@ -587,8 +594,8 @@ public class GEM extends AHinter implements IPreparer
 		// and then any ons with colors siblings/cell-mates are painted.
 		try {
 			// paint this cell-value, and it's consequences, ...
-			paint(cell, v, GREEN, true, "Let's assume that "+cell.id+MINUS+v
-					+IS+CCOLORS[GREEN]+NL);
+			paint(cell, v, G, true, "Let's assume that "+cell.id+MINUS+v
+					+IS+CCOLORS[G]+NL);
 			// on/paint consequences, and there consequences, ...
 			while ( paintMonoBoxs() | paintPromotions() ) {
 				// do nothing, just go again
@@ -596,22 +603,24 @@ public class GEM extends AHinter implements IPreparer
 
 			// we search each value that was painted ONCE.
 			for ( int v1 : VALUESES[paintedValues] )
-				done[v1].or(colors[GREEN][v1]).or(colors[BLUE][v1]);
+				done[v1].or(colors[G][v1]).or(colors[B][v1]);
 
 			// we search each distinct both-color-sets ONCE.
 			// nb: these hashes are 64 bits, to reduce collisions.
 			// nb: there's no distinction between green and blue in this hash
-			hash = hash(GREEN) | hash(BLUE);
-			if ( hashes.get(hash) != null )
+			hash = hash(colors[G], VALUESES[colorValues[G]])
+				 | hash(colors[B], VALUESES[colorValues[B]]);
+			// use addOnly!
+			if ( hashes.putIfAbsent(hash, PRESENT) != null )
+//			if ( hashes.add(hash) )
 				return false;
-			hashes.put(hash, PRESENT);
 
-			// sum the total number of cell-values colored.
-			// WARN: n limits are top1465 specific. They're probably too high
-			// for some puzzles. There is no theoretical basis for them, they
-			// are just what works for me. Remove this limit for correctness.
-			if ( (n = squash(GREEN, painted[GREEN])
-			        + squash(BLUE, painted[BLUE])) < 3 )
+			// my minimum colored cells is 3.
+			// WARN: This limit is top1465 specific. It's probably too high for
+			// some puzzles. There is no theoretical basis for this, it's just
+			// what works for me. Remove this limit for correctness.
+			if ( (n = countAll(colors[G], VALUESES[colorValues[G]], painted[G])
+				    + countAll(colors[B], VALUESES[colorValues[B]], painted[B])) < 3 )
 				return false; // too few cells painted
 
 			// Step 5: Analyse the cluster.
@@ -621,7 +630,7 @@ public class GEM extends AHinter implements IPreparer
 			if ( (subtype=contradictions()) != 0
 			  // presuming that the opposite color isn't rooted too (sigh)
 			  && (hint=createBigHint(v, subtype)) != null
-			  // validate the hint if Validator.GEM_VALIDATES
+			  // validate the hint if GEM_VALIDATES
 			  && validSetPots("Contradiction", hint)
 			) {
 				result = true;
@@ -642,9 +651,9 @@ public class GEM extends AHinter implements IPreparer
 				// search eliminations for confirmation that color is true.
 				hint = null;
 				// minConfirmation=11
-				if ( n > 10 &&
+				if ( n > 10
 				  // 5.3 promote "little" elimination hint to a big hint
-				  (mst=confirmations()) != 0
+				  && (mst=confirmations()) != 0
 				  && (hint=createBigHint(v, mst)) != null
 				) {
 					if ( validSetPots("Confirmation", hint) ) {
@@ -682,13 +691,11 @@ public class GEM extends AHinter implements IPreparer
 			// is ensure that cells are not overpainted. Care is required.
 			Log.println("WARN: GEM: Overpaint: "+ex.getMessage());
 			return false;
-// I think this is fixed!
-//		} catch ( NoBananasException ex ) {
-//			// for reasons I cannot fathom AlsChain* causes GEM to overpaint,
-//			// so when an overpaint occurs a hack is to give-up and temporarily
-//			// disable AlsChain, where the actual problem lies, apparently.
-//			Log.teeln("WARN: GEM disabled: Overpaint: "+ex.getMessage());
+// AlsChain is fixed, apparently, though I still don't understand the problem.
+//		} catch ( BadPaintException ex ) {
+//			// disable AlsChain which is da root cause of overpaints (I think).
 //			LogicalSolverFactory.get().disable(Tech.ALS_CHAIN_TECHS);
+//			Log.teeln("WARN: GEM Overpaint: Disabled ALS_Chain: "+ex.getMessage());
 //			return false;
 		}
 		return result;
@@ -696,27 +703,30 @@ public class GEM extends AHinter implements IPreparer
 
 	/**
 	 * Paint this cell this color, and all of it's consequences, recursively.
-	 * Where "all consequences" are two fold: (1) if this value has two places
-	 * in any of this cells box, row, or col, then the other place is painted
-	 * the opposite color; and (2) if the cell has just two potential values,
-	 * then other value is painted the other color. "Recursively" means this
-	 * search is applied to each painted cell; so that painting just one cell
-	 * has the effect of painting it and it's whole consequence tree.
-	 * <p>
+	 * <pre>
+	 * "Recursively" means these checks are applied to every painted cell, so a
+	 * request to paint a cell actually paints it and all of it's consequences.
+	 * Those "all consequences" are two-fold:
+	 * (1) if this value has two places in any of this cells regions, then the
+	 *     other place is painted the opposite color; and
+	 * (2) if the cell has two potential values, then the other value is
+	 *     painted the other color.
+	 * </pre>
 	 * WARNING: You check that the cell-value is not already painted this color
 	 * before calling paint, because building the why parameter is slow.
 	 * <p>
 	 * Paint implements Steps 2 to 4 of ./#XColoring.txt with a recursive DFS,
 	 * where the instructions imply a BFS, without saying so explicitly, which
-	 * is a warning. DFS is faster, but newbs tend to think in BFS. So being an
-	 * experienced programmer (ergo an old prick), I "fixed" it.
+	 * is a warning. DFS is faster, but newbs tend towards BFS, so being an old
+	 * prick (an experienced programmer), I "fixed" it, with my secret decoder
+	 * ring (an IQ that is actually enough to blow my own hat off, thanks Bob).
 	 * <pre>
 	 * 1. Paint the given cellValue the given color.
-	 * 2. If any region containing this cell except the given region (nullable)
-	 *    has two places for this value then paint the otherCell the opposite
-	 *    color; and recursively paint the consequences thereof.
-	 * 3. If biCheck and cell is bivalue then paint the otherValue the opposite
-	 *    color; and recursively paint the consequences thereof.
+	 * 2. If any of the three regions containing this cell except the given
+	 *    region (nullable) has two places for this value then paint the
+	 *    otherCell the opposite color; and recursively paint any consequences.
+	 * 3. If biCheck is true and cell is bivalue then paint the otherValue the
+	 *    opposite color; and recursively paint any consequences.
 	 * </pre>
 	 * Paint populates the two colors: GREEN and BLUE, by value;
 	 * and also populates the paintedValues bitset.
@@ -740,25 +750,26 @@ public class GEM extends AHinter implements IPreparer
 	 * instead of growing a new buffer EACH AND EVERY time with steps += why.
 	 * IMPROVED: The wantWhy field is set ONCE in the constructor.
 	 * <p>
-	 * SUGGESTION: run paint once silently and if hint found and we're in the
-	 * GUI (or testcases) then run it again with wantWhy true; we could even
-	 * keep our DFS for speed and use a new BFS for presentation. Not sure.
-	 * Not implemented coz I'm a lazy bastard.
+	 * SUGGEST: Problem is it takes ages building steps-SB, which is then used
+	 * one time in like 500; so to avoid building unused whys. Keep fast DFS
+	 * and write a new presentation BFS: If the DFS hints and wantWhy, then run
+	 * the new presentation BFS to produce a hint with an explanation. The DFS
+	 * results are sufficient for the batch, where wantWhy is false.
 	 *
-	 * @param cell the cell to paint, recursively
-	 * @param v the value to paint
-	 * @param c the color to paint this cell-value: GREEN or BLUE
+	 * @param cell cell to paint, recursively
+	 * @param v value to paint
+	 * @param c color to paint this cell-value: GREEN or BLUE
 	 * @param biCheck if true then I also paint the otherValue of each bivalue
-	 *  cell (cell.maybesSize==2) the opposite color, recursively. If false
-	 *  then skip step 3, because we already know it's a waste of time.
-	 * @param why a one-liner defining why this cell-value is painted this
-	 *  color.
+	 *  cell (cell.size==2) the opposite color, recursively. If false then skip
+	 *  step 3 as a waste of time.
+	 * @param why a one-liner defining why paint this cell-value?
 	 * @return any cells painted (always true, else throws)
 	 * @throws OverpaintException when a cell-value is painted in both colors.
 	 */
-	private boolean paint(Cell cell, int v, int c, boolean biCheck, String why)
+	private boolean paint(final Cell cell, final int v, final int c,
+			final boolean biCheck, String why)
 			throws OverpaintException
-//			, NoBananasException
+//			, BadPaintException
 	{
 		Cell otherCell; // the only other cell in this region which maybe v
 		int otherValue; // the only other value of this bivalue cell
@@ -770,8 +781,8 @@ public class GEM extends AHinter implements IPreparer
 		// If cell-value is already painted this color then you've broken the
 		// pre-test requirement, which is intended to reduce the time wasted
 		// building why-strings that are never used. Note that asserts effect
-		// developers only, who run with java -ea (enable assertions), so this
-		// situation never makes it through to test, let alone prod.
+		// developers only, who run with java -ea, so bad code NEVER makes it
+		// through to prod. Well, almost never, which is not never. Sigh.
 		assert !colors[c][v].has(i);
 
 		// If cell-value is already painted the opposite color then throw.
@@ -790,10 +801,10 @@ public class GEM extends AHinter implements IPreparer
 		// step; double-checking each fully before moving on.
 		if ( otherColor[v].has(i) ) {
 			throw new OverpaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
-//			throw new NoBananasException(cell.id+MINUS+v+" is already "+COLORS[o]);
+//			throw new BadPaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
 		}
 
-		// 1. Paint the given cell-value this color
+		// 1. Paint the given cell-value this color.
 		colors[c][v].add(i);
 		paintedValues |= colorValues[c] |= VSHFT[v];
 		// painting full-colors replaces the "on", if any
@@ -804,6 +815,7 @@ public class GEM extends AHinter implements IPreparer
 			why = null;
 		}
 
+		// Now we examine the consequences of painting 'cell' color 'c'.
 		// 2. Paint the other cell in each conjugate pair the opposite color
 		for ( ARegion r : cell.regions ) { // cell's box, row, col
 			if ( r.ridx[v].size == 2
@@ -843,26 +855,29 @@ public class GEM extends AHinter implements IPreparer
 	}
 
 	/**
+	 * paintMonoBoxs is a KRC original. There is no other explanation, so I've
+	 * done my best.
+	 * <p>
 	 * A "mono-box" is a box with only one place for v (a hidden single), which
 	 * also leaves the "causal box" with one place for v, constituting a strong
 	 * bidirectional link. If the link cannot be proven bidirectional then an
 	 * "on" is created, which allows the cell value to be set in the event that
-	 * this color is ALL true, but isn't engaged in further logic (exception:
-	 * "ons" ARE used in contradictions logic).
+	 * this color is proven ALL true, but is NOT used in any further logic,
+	 * with just one exception: "ons" ARE used in contradictions.
 	 * <p>
 	 * paintMonoBoxs differs from paintPromotions in its ability to discern the
 	 * strong link between these two cells. Promotions just "ons" it, leaving
-	 * it's promotion to chance, where-as I can "field promote" it.
+	 * it's promotion to chance, where-as paintMonoBoxs "field promotes" it.
 	 * <p>
 	 * The "shoot back" rule: We start with a cell in the grid that's painted
-	 * this color, called the source cell. We examine each of the 4 boxs
-	 * effected by the source cell (the 2 left/right, and 2 above/below).
+	 * this color, called the source cell. We examine each of the four boxs
+	 * effected by the source cell (two left/right, and two above/below).
 	 * If the effected box, minus buddies of all cells painted dis color leaves
 	 * ONE cell (a Hidden Single, called the suspect) in the effected box then
-	 * treat it, but how: colors or ons?
+	 * treat it, but how: colors or ons? To determine this we "shoot back".
 	 * <p>
-	 * We "shoot back": if the box containing the source cell, minus buddies of
-	 * the cell to paint (*1), leaves ONE cell in the box containing the source
+	 * Shoot back: if the box containing the source cell, minus buddies of the
+	 * cell to paint (*1), leaves ONE cell in the box containing the source
 	 * cell then paint the suspect because there's a bidirectional relationship
 	 * (a "strong" link) between da suspect and da source cell, succinctly:<br>
 	 * {@code if A is v then B is v AND CONVERSELY if B is v then A is v}<br>
@@ -880,9 +895,6 @@ public class GEM extends AHinter implements IPreparer
 	 * It's nice to turn a ____up into a win, but I worry about paintPromotions
 	 * not doing the SAME as me. It should, AFAIK, but still haven't chased it.
 	 * Even finding an example would be long tedious pernickety work.
-	 * <p>
-	 * paintMonoBoxs is a KRC original. There is no other explanation, so I've
-	 * done my best.
 	 *
 	 * @return any
 	 */
@@ -898,60 +910,63 @@ public class GEM extends AHinter implements IPreparer
 			final Idx[] thisColor = colors[c];
 			// foreach value which has a cell painted thisColor
 			for ( int v : VALUESES[colorValues[c]] ) {
-				// foreach cell painted thisColor (the source cell)
-				// ci is the indice of the source cell
-				for ( int ci : thisColor[v].toArrayA() ) {
-					// foreach of the four boxes effected by this source cell.
-					// ri is the index in grid.regions of the effected box.
-					for ( int ri : INDEXES[EFFECTED_BOXS[BOX_OF[ci]]] ) {
-						// if there's only one v remaining in the effected box,
-						// excluding this colors cells and there buddies.
-						// Call plusBuds repeatedly coz paint adds thisColor[v]
-						// underneath us; plusBuds caches for speed.
-						if ( tmp1.setAndNotAny(grid.regions[ri].idxs[v], thisColor[v].plusBuds())
-						  && tmp1.size() == 1
-						) {
-							c2 = grid.cells[tmp1.peek()]; // the cell to paint
-							c1 = grid.cells[ci]; // the source cell
-							sb = c1.box; // the box containing the source cell
-						    // the cell to paint needs a buddy in the box that
-						    // contains the source cell, else forget it (c2 is
-							// a Hidden Single from buddies of colors, ergo the
-							// cell to paint is nondeterministic, which is NOT
-							// what we want)
-							if ( sb.idxs[v].intersects(c2.buds)
-							  // and the "shoot back" rule
-							  && tmp2.setAndNot(sb.idxs[v], c2.buds).size() == 1
+				// foreach sourceCell whose v is painted thisColor
+				try ( final IALease ciLease = thisColor[v].toArrayLease() ) {
+					for ( int ci : ciLease.array ) { // ci is cell-indice
+						// foreach of the four boxes effected by this source cell.
+						// ebi effectedBoxIndex grid.regions index of effected box.
+						for ( int ebi : INDEXES[EFFECTED_BOXS[BOX_OF[ci]]] ) {
+							// if there's only one v remaining in the effected box,
+							// excluding this colors cells and there buddies.
+							// Call plusBuds repeatedly coz paint adds thisColor[v]
+							// underneath us; plusBuds caches for speed.
+							if ( tmp1.setAndNotAny(gridRegions[ebi].idxs[v], thisColor[v].plusBuds())
+							  && tmp1.size() == 1
 							) {
-								// a "strong" bidirectional link.
-								if ( wantWhy ) {
-									if ( first ) {
-										first = false;
-										why = MONOBOXS_LABEL;
-									} else {
-										why = "";
+								c2 = gridCells[tmp1.peek()]; // the cell to paint
+								c1 = gridCells[ci]; // the source cell
+								sb = c1.box; // the box containing the source cell
+								// the cell to paint needs a buddy in the box that
+								// contains the source cell, else forget it (c2 is
+								// a Hidden Single from buddies of colors, ergo the
+								// cell to paint is nondeterministic, which is NOT
+								// what we want)
+								if ( sb.idxs[v].intersects(c2.buds)
+								  // and the "shoot back" rule
+								  && tmp2.setAndNot(sb.idxs[v], c2.buds).size() == 1
+								) {
+									// a "strong" bidirectional link.
+									if ( wantWhy ) {
+										if ( first ) {
+											first = false;
+											why = MONOBOXS_LABEL;
+										} else {
+											why = "";
+										}
+										// nb: REGION_IDS are coincident with boxs
+										why += CON[c]+c1.id+MINUS+v+COFF[c]
+										+LEAVES+c2.id+ONLY+v+IN+REGION_IDS[ebi]
+										+", which leaves "+c1.id+ONLY+v+IN+sb.id
+										+PRODUCES+CON[c]+c2.id+MINUS+v+COFF[c]+NL;
 									}
-									why += CON[c]+c1.id+MINUS+v+COFF[c]
-									+LEAVES+c2.id+ONLY+v+IN+Grid.REGION_IDS[ri]
-									+", which leaves "+c1.id+ONLY+v+IN+sb.id
-									+PRODUCES+CON[c]+c2.id+MINUS+v+COFF[c]+NL;
-								}
-								// note that paint removes any pre-existing On
-								any |= paint(c2, v, c, false, why);
-							} else if ( !ons[c][v].has(c2.i) ) {
-								// a "weak" mono-directional link.
-								if ( wantWhy ) {
-									if ( first ) {
-										first = false;
-										steps.append(MONOBOXS_LABEL);
+									// note that paint removes any pre-existing On
+									any |= paint(c2, v, c, false, why);
+								} else if ( !ons[c][v].has(c2.i) ) {
+									// a "weak" mono-directional link.
+									if ( wantWhy ) {
+										if ( first ) {
+											first = false;
+											steps.append(MONOBOXS_LABEL);
+										}
+										// nb: REGION_IDS are coincident with boxs
+										steps.append(CON[c]).append(c1.id).append(MINUS).append(v).append(COFF[c])
+										  .append(LEAVES).append(c2.id).append(ONLY).append(v).append(IN).append(REGION_IDS[ebi])
+										  .append(PRODUCES).append(ON_MARKER).append(CON[c]).append(c2.id).append(PLUS).append(v).append(COFF[c])
+										  .append(NL);
 									}
-									steps.append(CON[c]).append(c1.id).append(MINUS).append(v).append(COFF[c])
-									  .append(LEAVES).append(c2.id).append(ONLY).append(v).append(IN).append(Grid.REGION_IDS[ri])
-									  .append(PRODUCES).append(ON_MARKER).append(CON[c]).append(c2.id).append(PLUS).append(v).append(COFF[c])
-									  .append(NL);
+									ons[c][v].add(c2.i);
+									onsValues[c] |= VSHFT[v];
 								}
-								ons[c][v].add(c2.i);
-								onsValues[c] |= VSHFT[v];
 							}
 						}
 					}
@@ -964,32 +979,61 @@ public class GEM extends AHinter implements IPreparer
 	/**
 	 * Calculate an uncached hash64 of a color (of the upto 9 Idx's).
 	 * <p>
-	 * Note that these hashes are now 64 bits, reducing collisions to 17.
-	 * I use the new hash64 method of Idx, which does NOT cache.
+	 * Note that these hashes are now 64 bits, reducing collisions to 17. I use
+	 * the new hash64 method of Idx, which does NOT cache. Each hash64 contains
+	 * the indices of cells whose v is painted this color, so the net result is
+	 * indices of all cells with any value painted this color, which is "mostly
+	 * distinct enough" to identify a painted-set. The low-17 of a2 and the
+	 * high-17 of a1 collide (both sets of cells use the same bits), so where a
+	 * collision occurs we wrongly skip the search, about one in 500 of which
+	 * produces a hint, so we're missing ? hints here. A few but insignificant.
+	 * <p>
+	 * Run the batch with/without hash-suppression to find out how many: <pre>
+	 *     with HS: 1,874,477,500  13546  138,378  130711  14,340  GEM
+	 *       no HS: 1,790,473,600  13546  132,177  130711  13,697  GEM
+	 *     fast HS: 1,788,628,200  13546  132,041  130711  13,683  GEM
+	 * LongHashSet: 1,804,973,600  13546  133,247  130711  13,808  GEM
+	 *    reverted: 1,815,852,100  13546  134,050  130711  13,892  GEM
+	 *  wrap count: 1,802,735,900  13546  133,082  130711  13,791  GEM
+	 *  inline 6.2: 1,768,956,182  13546  130,588  130711  13,533  GEM
+	 * </pre>
+	 * So it's faster WITHOUT hash-suppression, ie hash-suppression costs more
+	 * than it saves, so I comment-it-out for now, for future removal. The good
+	 * news is that hash-suppression misses 0 hints, despite collision problem.
+	 * So this whole cluster____ of complexity turned out to be a waste of time
+	 * but you never know if you never try. Maybe hash-suppression can be done
+	 * faster, but I know not how.
+	 * <pre>
+	 * 2021-11-30 09:44 "fast HS" does it all inline instead of call Idx.hash64
+	 * repeatedly, even though it's ludicrously complex, and saves just 114ms.
+	 * 2021-11-30 11:37 LongHashSet is slower, so revert to HashMap.
+	 * </pre>
 	 *
 	 * @param c the color: GREEN or BLUE
 	 * @return hash64 of colors[c][*]
 	 */
-	private long hash(int c) {
-		long hc = 0L;
-		Idx idx;
-		final Idx[] thisColor = colors[c];
-		for ( int v : VALUESES[colorValues[c]] )
-			hc |= Idx.hash64((idx=thisColor[v]).a0, idx.a1, idx.a2);
-		return hc;
+	private static long hash(final Idx[] thisColor, final int[] colorValues) {
+		Idx t; // temp Idx pointer to thisColor[v]
+		long result = 0L; // the hashCode
+		for ( int v : colorValues )
+			// This must be done in one line, for speed. Converting each int
+			// into a long makes it hard to follow. Suck it up princess. The
+			// technique is taken from Idx.hash64, which is now commented-out.
+			result |= (((long)(t=thisColor[v]).a2)<<37L) ^ (((long)t.a1)<<27L) ^ ((long)t.a0);
+		return result;
 	}
 
 	/**
 	 * Accumulate (or) the indices of all values of this color into result.
 	 *
 	 * @param c the color: GREEN or BLUE
-	 * @return result.cardinality (the number of indices in the result)
+	 * @return total number of indices in painted[c]
 	 */
-	private int squash(final int c, final Idx result) {
-		result.clear();
-		for ( int v : VALUESES[colorValues[c]] )
-			result.or(colors[c][v]);
-		return result.size();
+	private static int countAll(final Idx[] color, final int[] vs, final Idx idx) {
+		idx.clear();
+		for ( int v : vs )
+			idx.or(color[v]);
+		return idx.size();
 	}
 
 	/**
@@ -1011,10 +1055,8 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	private boolean paintPromotions() {
 		Cell cell;
-		int c, o, i, v;
-		final Cell[] cells = grid.cells;
-		final ARegion[] regions = grid.regions;
 		String why = null;
+		int c, o, i, v;
 		// presume that no cell-values will be promoted
 		boolean any = false, first = true;
 
@@ -1022,8 +1064,8 @@ public class GEM extends AHinter implements IPreparer
 		for ( c=0; c<2; ++c ) {
 			getValuesOffedFromEachCell(c); // repopulate OFF_VALS
 			for ( i=0; i<GRID_SIZE; ++i )
-				if ( cells[i].size == VSIZE[OFF_VALS[i]] + 1 ) {
-					v = VFIRST[cells[i].maybes & ~OFF_VALS[i]];
+				if ( gridCells[i].size == VSIZE[OFF_VALS[i]] + 1 ) {
+					v = VFIRST[gridCells[i].maybes & ~OFF_VALS[i]];
 					// pre-check it's not already painted for speed
 					if ( !colors[c][v].has(i)
 					  // and it's not already an On
@@ -1046,14 +1088,14 @@ public class GEM extends AHinter implements IPreparer
 		// 1b. The only un-off'ed place for a value in a region is an "on".
 		for ( c=0; c<2; ++c )
 			for ( int v1 : VALUESES[colorValues[c]] )
-				for ( ARegion r : regions )
+				for ( ARegion r : gridRegions )
 					if ( tmp1.setAndAny(offs[c][v1], r.idx)
 					  && tmp2.setAndNot(r.idxs[v1], tmp1).size() == 1
 					  && !colors[c][v1].has(i=tmp2.peek())
 					  // pre-check it's not already painted for speed
 					  && !ons[c][v1].has(i)
 					) {
-						cell = cells[i];
+						cell = gridCells[i];
 						if ( wantWhy ) {
 							if ( first ) {
 								first = false;
@@ -1070,82 +1112,98 @@ public class GEM extends AHinter implements IPreparer
 		// 2a. If an on sees (same v, OPPOSITE color) a colors then paint it.
 		for ( c=0; c<2; ++c ) {
 			o = OPPOSITE[c];
-			for ( int v1 : VALUESES[onsValues[c]] )
-				for ( int ii : ons[c][v1].toArrayA() )
-					if ( tmp1.setAndAny(BUDDIES[ii], colors[o][v1])
-					  // pre-check it's not already painted for speed
-					  && !colors[c][v1].has(ii) ) {
-						cell = cells[ii];
-						if ( wantWhy ) {
-							if ( first ) {
-								first = false;
-								steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
-							}
-							why = SEES+A+CCOLORS[o]+PRODUCES
-								+CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
-						}
-						any |= paint(cell, v1, c, T, why);
-					}
-		}
-
-		// 2b. If an on has an OPPOSITE colored cell-mate (of another value)
-		//     then paint it.
-		squash(GREEN, painted[GREEN]); // all-values painted green
-		squash(BLUE, painted[BLUE]); // all-values painted blue
-		for ( c=0; c<2; ++c ) {
-			o = OPPOSITE[c];
-			for ( int v1 : VALUESES[colorValues[c]] )
-				if ( tmp2.setAndAny(ons[c][v1], painted[o]) )
-					for ( int ii : tmp2.toArrayA() )
-						// cheeky way to do other color has another value:
-						// if cell-in-other-color (already done above)
-						// and not other-color-this-value.contains(cell)
-						if ( !colors[o][v1].has(ii)
+			for ( int v1 : VALUESES[onsValues[c]] ) {
+				try ( final IALease lease = ons[c][v1].toArrayLease() ) {
+					for ( int ii : lease.array ) {
+						if ( tmp1.setAndAny(BUDDIES[ii], colors[o][v1])
 						  // pre-check it's not already painted for speed
 						  && !colors[c][v1].has(ii) ) {
-							cell = cells[ii];
+							cell = gridCells[ii];
 							if ( wantWhy ) {
 								if ( first ) {
 									first = false;
 									steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
 								}
-								why = HAS+A+CCOLORS[o]+PRODUCES
-									+ CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
+								why = SEES+A+CCOLORS[o]+PRODUCES
+									+CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
 							}
 							any |= paint(cell, v1, c, T, why);
 						}
+					}
+				}
+			}
+		}
+
+		// 2b. If an on has an OPPOSITE colored cell-mate (of another value)
+		//     then paint it.
+		countAll(colors[G], VALUESES[colorValues[G]], painted[G]);
+		countAll(colors[B], VALUESES[colorValues[B]], painted[B]);
+		for ( c=0; c<2; ++c ) {
+			o = OPPOSITE[c];
+			for ( int v1 : VALUESES[colorValues[c]] ) {
+				if ( tmp2.setAndAny(ons[c][v1], painted[o]) ) {
+					try ( final IALease lease = tmp2.toArrayLease() ) {
+						for ( int ii : lease.array ) {
+							// cheeky way to do other color has another value:
+							// if cell-in-other-color (already done above)
+							// and not other-color-this-value.contains(cell)
+							if ( !colors[o][v1].has(ii)
+							  // pre-check it's not already painted for speed
+							  && !colors[c][v1].has(ii) ) {
+								cell = gridCells[ii];
+								if ( wantWhy ) {
+									if ( first ) {
+										first = false;
+										steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
+									}
+									why = HAS+A+CCOLORS[o]+PRODUCES
+										+ CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
+								}
+								any |= paint(cell, v1, c, T, why);
+							}
+						}
+					}
+				}
+			}
 		}
 
 		// if on.buds leave ONE v in any box that's this color den paint da on.
 		// WTF: paintMonoBoxs finds Ons that this doesn't! Why? So use both.
 		// WEIRD: Start from the suspect On, and just shoot back.
-		if ( PROMOTIONS_SHOOTS_BACK )
+		if ( PROMOTIONS_SHOOTS_BACK ) {
 			// foreach color: GREEN, BLUE
-			for ( c=0; c<2; ++c )
+			for ( c=0; c<2; ++c ) {
 				// foreach value which has an On of this color
-				for ( int v1 : VALUESES[onsValues[c]] )
+				for ( int v1 : VALUESES[onsValues[c]] ) {
 					// foreach indice of the "suspect" On (to be painted)
-					for ( int ii : ons[c][v1].toArrayA() )
-						// foreach index of the possible source box
-						for ( int ri : INDEXES[EFFECTED_BOXS[BOX_OF[ii]]] )
-							// if ons buddies leave ONE v in the source box
-							if ( tmp1.setAndNotAny(grid.regions[ri].idxs[v1], BUDDIES[ii])
-							  && tmp1.size() == 1
-							  // and that source box v is this color
-							  && tmp1.intersects(colors[c][v1])
-							  // pre-check it's not already painted for speed
-							  // We need to check in here (not pre-check) incase
-							  // it's painted in this loop, otherwise we hit the
-							  // assert in paint in 63#top1465.d5.mt. sigh.
-							  && !colors[c][v1].has(ii)
-							) {
-								cell = cells[ii];
-								if ( wantWhy ) //      the source Cell id
-									why = "shoot back at "+Grid.CELL_IDS[tmp1.poll()]+PRODUCES
-										+ CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
-								any |= paint(cell, v1, c, T, why);
-								break; // first box only
+					try ( final IALease lease = ons[c][v1].toArrayLease() ) {
+						for ( int ii : lease.array ) {
+							// foreach index of the possible source box
+							for ( int ri : INDEXES[EFFECTED_BOXS[BOX_OF[ii]]] ) {
+								// if ons buddies leave ONE v in the source box
+								if ( tmp1.setAndNotAny(gridRegions[ri].idxs[v1], BUDDIES[ii])
+								  && tmp1.size() == 1
+								  // and that source box v is this color
+								  && tmp1.intersects(colors[c][v1])
+								  // pre-check it's not already painted for speed
+								  // We need to check in here (not pre-check) incase
+								  // it's painted in this loop, otherwise we hit the
+								  // assert in paint in 63#top1465.d5.mt. sigh.
+								  && !colors[c][v1].has(ii)
+								) {
+									cell = gridCells[ii];
+									if ( wantWhy ) //      the source Cell id
+										why = "shoot back at "+CELL_IDS[tmp1.poll()]+PRODUCES
+											+ CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
+									any |= paint(cell, v1, c, T, why);
+									break; // first box only
+								}
 							}
+						}
+					}
+				}
+			}
+		}
 
 		// clean-up any hangover on's that've been painted (should be a no-op)
 		for ( c=0; c<2; ++c )
@@ -1162,7 +1220,6 @@ public class GEM extends AHinter implements IPreparer
 						: "unclean: "+Idx.newAnd(ons[c][v1], colors[c][v1]);
 				ons[c][v1].andNot(colors[c][v1]);
 			}
-
 		return any;
 	}
 
@@ -1172,7 +1229,7 @@ public class GEM extends AHinter implements IPreparer
 	 *
 	 * @param c the color: GREEN or BLUE
 	 */
-	private void getValuesOffedFromEachCell(int c) {
+	private void getValuesOffedFromEachCell(final int c) {
 		final Idx[] thisOffs = offs[c]; // offs of this color
 		Arrays.fill(OFF_VALS, 0);
 		for ( int v : VALUESES[colorValues[c]] ) {
@@ -1208,9 +1265,10 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	private int contradictions() {
 		Cell cell; // cell to hint on
+		Idx t1, t2;
 		Idx buds; // buddies of thisColor[v]
 		Idx[] thisColor, thisOns, thisColorOns;
-		int c, cands, i;
+		int c, cands, i, a0,a1,a2;
 		// presume neither color is good (an invalid value)
 		goodColor = -1;
 
@@ -1232,7 +1290,7 @@ public class GEM extends AHinter implements IPreparer
 				for ( int v2 : VALUESES[cands & ~VSHFT[v1]] )
 					if ( tmp1.setAndAny(thisColorOns[v1], thisColorOns[v2]) ) {
 						// report first only (confusing if we show all)
-						cell = grid.cells[tmp1.peek()];
+						cell = gridCells[tmp1.peek()];
 						cause = Cells.set(cell);
 						goodColor = OPPOSITE[c];
 						if ( wantWhy )
@@ -1247,12 +1305,18 @@ public class GEM extends AHinter implements IPreparer
 
 			// If any combo of greens and ons (same value) in region
 			// then blue is true. (170 in top1465)
-			for ( int v : VALUESES[cands] )
-				for ( ARegion r : grid.regions )
+			for ( int v : VALUESES[cands] ) {
+				t1 = thisColorOns[v];
+				for ( ARegion r : gridRegions ) {
 					if ( r.ridx[v].size > 1
-					  && tmp2.setAndMany(thisColorOns[v], r.idx)
+// inlined for speed (this is the slow section, which is now just a bit faster)
+//					  && tmp2.setAndMany(thisColorOns[v], r.idx)
+					  && ( (a0 = t1.a0 & (t2=r.idx).a0)
+						 | (a1 = t1.a1 & t2.a1)
+						 | (a2 = t1.a2 & t2.a2) ) != 0
+					  && bitCount(a0)+bitCount(a1)+bitCount(a2) > 1
 					) {
-						cause = tmp2.toCellSet(grid);
+						cause = tmp2.set(a0,a1,a2).toCellSet(gridCells);
 						goodColor = OPPOSITE[c];
 						if ( wantWhy )
 							steps.append(NL)
@@ -1263,13 +1327,15 @@ public class GEM extends AHinter implements IPreparer
 							  .append(IS_TRUE).append(PERIOD).append(NL);
 						return SUBTYPE_3;
 					}
+				}
+			}
 
 			// If green off's all of a cells values then blue is true.
 			// RARE: 10 in top1465
 			countOffsInEachCell(c); // repopulates countOffs from offs
 			for ( i=0; i<GRID_SIZE; ++i )
-				if ( countOffs[i]>0 && countOffs[i]==grid.cells[i].size ) {
-					cell = grid.cells[i];
+				if ( countOffs[i]>0 && countOffs[i]==gridCells[i].size ) {
+					cell = gridCells[i];
 					cause = Cells.set(cell);
 					goodColor = OPPOSITE[c];
 					if ( wantWhy )
@@ -1286,12 +1352,12 @@ public class GEM extends AHinter implements IPreparer
 			// RARE: 3 in top1465
 			for ( int v : VALUESES[colorValues[c]] ) {
 				buds = thisColor[v].buds(true);
-				for ( ARegion r : grid.regions ) {
+				for ( ARegion r : gridRegions ) {
 					if ( r.ridx[v].size > 1
 					  && tmp1.setAnd(buds, r.idx).equals(r.idxs[v])
 					) {
 						region = r;
-						cause = tmp1.toCellSet(grid);
+						cause = tmp1.toCellSet(gridCells);
 						goodColor = OPPOSITE[c];
 						if ( wantWhy )
 							steps.append(NL)
@@ -1313,11 +1379,12 @@ public class GEM extends AHinter implements IPreparer
 	/**
 	 * Count the number of values off'd of each cell in the grid.
 	 */
-	private void countOffsInEachCell(int c) {
+	private void countOffsInEachCell(final int c) {
 		final Idx[] thisColorsOffs = offs[c];
 		Arrays.fill(countOffs, 0);
 		for ( int v=1; v<VALUE_CEILING; ++v )
-			thisColorsOffs[v].forEach((i)->++countOffs[i]);
+			if ( thisColorsOffs[v].any() )
+				thisColorsOffs[v].forEach((i)->++countOffs[i]);
 	}
 
 	/**
@@ -1327,7 +1394,7 @@ public class GEM extends AHinter implements IPreparer
 	 * <pre>
 	 * a) If all bar one value is eliminated from a cell, and the remaining
 	 *    cell-value is colored then that whole color is true.
-	 * b) when all but one value is eliminated from a region and the remaining
+	 * b) when all but one place is eliminated from a region and the surviving
 	 *    cell-value is colored then that whole color is true.
 	 * </pre>
 	 * NOTE: Don't use ons here! This is why ons are separate from colors.
@@ -1359,19 +1426,21 @@ public class GEM extends AHinter implements IPreparer
 		// RARE: 2 in top165
 		for ( int c=0; c<2; ++c ) {
 			for ( int v : VALUESES[colorValues[c]] ) {
-				for ( int i : colors[c][v].toArrayA() ) {
-					if ( (values=redPots.get(cell=grid.cells[i])) != null
-					  && VSIZE[values] == cell.size - 1
-					) {
-						if ( wantWhy )
-							steps.append(NL)
-							  .append(CONFIRMATION_LABEL).append(NL)
-							  .append(color(c, cell.id+MINUS+v))
-							  .append(" and all other values are eliminated")
-							  .append(COMMA_SO).append(CCOLORS[c])
-							  .append(IS_ALL_TRUE).append(NL);
-						goodColor = c;
-						return SUBTYPE_6; // continue on from existing subtypes
+				try ( final IALease lease = colors[c][v].toArrayLease() ) {
+					for ( int i : lease.array ) {
+						if ( (values=redPots.get(cell=gridCells[i])) != null
+						  && VSIZE[values] == cell.size - 1
+						) {
+							if ( wantWhy )
+								steps.append(NL)
+								  .append(CONFIRMATION_LABEL).append(NL)
+								  .append(color(c, cell.id+MINUS+v))
+								  .append(" and all other values are eliminated")
+								  .append(COMMA_SO).append(CCOLORS[c])
+								  .append(IS_ALL_TRUE).append(NL);
+							goodColor = c;
+							return SUBTYPE_6; // continue on from existing subtypes
+						}
 					}
 				}
 			}
@@ -1386,25 +1455,28 @@ public class GEM extends AHinter implements IPreparer
 			redPots.toIdxs(REDS);
 			for ( int c=0; c<2; ++c ) {
 				for ( int v : VALUESES[colorValues[c]] ) {
-					for ( int i : colors[c][v].toArrayA() ) { // indice of the cell to examine
-						// foreach of the 3 regions which contains this cell
-						for ( ARegion r : grid.cells[i].regions ) {
-							// if all bar one v in this region is a red
-							if ( tmp2.setAndAny(REDS[v], r.idx)
-							  && tmp2.size() == r.ridx[v].size - 1
-							  // and the only survivor is this cell
-							  && tmp3.setAndNot(r.idxs[v], tmp2).peek() == i
-							) {
-								if ( wantWhy )
-									steps.append(NL)
-									  .append(CONFIRMATION_LABEL).append(NL)
-									  .append(color(c, grid.cells[i].id+MINUS+v))
-									  .append(" and all other ").append(v).append(APOSTROPHE_S).append(IN).append(r.id)
-									  .append(" are eliminated, so ").append(CCOLORS[c])
-									  .append(IS_ALL_TRUE).append(NL);
-								goodColor = c;
-								region = r;
-								return SUBTYPE_7;
+					// foreach indice of cell to examine
+					try ( final IALease lease = colors[c][v].toArrayLease() ) {
+						for ( int i : lease.array ) {
+							// foreach of the 3 regions which contains this cell
+							for ( ARegion r : gridCells[i].regions ) {
+								// if all bar one v in this region is a red
+								if ( tmp2.setAndAny(REDS[v], r.idx)
+								  && tmp2.size() == r.ridx[v].size - 1
+								  // and the only survivor is this cell
+								  && tmp3.setAndNot(r.idxs[v], tmp2).peek() == i
+								) {
+									if ( wantWhy )
+										steps.append(NL)
+										  .append(CONFIRMATION_LABEL).append(NL)
+										  .append(color(c, gridCells[i].id+MINUS+v))
+										  .append(" and all other ").append(v).append(APOSTROPHE_S).append(IN).append(r.id)
+										  .append(" are eliminated, so ").append(CCOLORS[c])
+										  .append(IS_ALL_TRUE).append(NL);
+									goodColor = c;
+									region = r;
+									return SUBTYPE_7;
+								}
 							}
 						}
 					}
@@ -1422,15 +1494,15 @@ public class GEM extends AHinter implements IPreparer
 	 * @param subtype the subtype of the hint to create.
 	 * @return a new GEMHintMulti, or null meaning the hint is rooted.
 	 */
-	private AHint createBigHint(int value, int subtype) {
+	private AHint createBigHint(final int value, final int subtype) {
 		try {
-			final Pots setPots = squishSetPots(goodColor); //cell-values to set
-			addOns(setPots);
+			final Pots sets = squishSetPots(goodColor); // cell-values to set
+			addOns(sets);
 			final AHint hint = new GEMHintBig(this, value, new Pots(redPots)
-					, subtype, cause, goodColor, steps.toString(), setPots
-					, pots(GREEN), pots(BLUE) , region, copy(ons), copy(offs));
+					, subtype, cause, goodColor, steps.toString(), sets
+					, pots(G), pots(B) , region, copy(ons), copy(offs));
 			if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
-				if ( !cleanSetPots(setPots, hint) )
+				if ( !cleanSetPots(sets, hint) )
 					return null; // none remain once invalid removed
 			}
 			cause = null;
@@ -1447,23 +1519,25 @@ public class GEM extends AHinter implements IPreparer
 	/**
 	 * Add any ons to the given setPots, which is populated from colors.
 	 */
-	private void addOns(Pots setPots) {
+	private void addOns(final Pots setPots) {
 		Cell cell;
 		Integer values;
 		for ( int v=1; v<VALUE_CEILING; ++v ) {
 			if ( ons[goodColor][v].any() ) {
-				for ( int i : ons[goodColor][v].toArrayA() ) {
-					if ( (values=setPots.get(cell=grid.cells[i])) == null )
-						setPots.put(cell, VSHFT[v]);
-					else {
-						// colors MUST contain only one value
-						assert VSIZE[values] == 1;
-						// if colors-value != on-value then throw
-						if ( (values & VSHFT[v]) != 0 )
-							throw new Pots.IToldHimWeveAlreadyGotOneException(
-								"Off on: "+cell.id+" colors:"+Values.toString(values)+" != ons:"+v);
-						// if on-value == colors-value then just ignore the on.
-						// This should never happen but if it does, meh!
+				try ( final IALease lease = ons[goodColor][v].toArrayLease() ) {
+					for ( int i : lease.array ) {
+						if ( (values=setPots.get(cell=gridCells[i])) == null )
+							setPots.put(cell, VSHFT[v]);
+						else {
+							// colors MUST contain only one value
+							assert VSIZE[values] == 1;
+							// if colors-value != on-value then throw
+							if ( (values & VSHFT[v]) != 0 )
+								throw new Pots.IToldHimWeveAlreadyGotOneException(
+									"Off on: "+cell.id+" colors:"+Values.toString(values)+" != ons:"+v);
+							// if on-value == colors-value then just ignore the on.
+							// This should never happen but if it does, meh!
+						}
 					}
 				}
 			}
@@ -1481,11 +1555,11 @@ public class GEM extends AHinter implements IPreparer
 	 * @throws Pots.IToldHimWeveAlreadyGotOneException when second value added
 	 *  to a cell.
 	 */
-	private Pots squishSetPots(int c) throws Pots.IToldHimWeveAlreadyGotOneException {
+	private Pots squishSetPots(final int c) throws Pots.IToldHimWeveAlreadyGotOneException {
 		final Pots result = new Pots();
 		final Idx[] thisColor = colors[c];
 		for ( int v : VALUESES[colorValues[c]] )
-			thisColor[v].forEach(grid.cells, (cc) ->
+			thisColor[v].forEach(gridCells, (cc) ->
 				result.insert(cc, VSHFT[v]) // throws
 			);
 		return result;
@@ -1519,59 +1593,60 @@ public class GEM extends AHinter implements IPreparer
 		  , pinks // bitset of "all other values" to eliminate
 		  , c // color: the current color: GREEN or BLUE
 		  , o; // opposite: the other color: BLUE or GREEN
-		// per value 1..9: indices of v's that aren't painted either color
-		final int[][] unco = this.uncoloredCandidates;
 		int subtype = 0; // presume none
 		boolean first = true; // is this the first elimination
 
 		// (a) Both colors in one cell eliminates all other values.
-		for ( int i : tmp1.setAnd(painted[GREEN], painted[BLUE]).toArrayA() ) {
-			if ( grid.cells[i].size > 2
-			  // get a bitset of all values of cells[i] that're green and blue.
-		      // There may be none, never multiple (contradictions pre-tested)
-			  // We need 1 green value and 1 blue value, to strip from pinks.
-			  // NOTE: VSIZE[0] == 0.
-			  && VSIZE[g=values(GREEN, i)] == 1
-			  && VSIZE[b=values(BLUE, i)] == 1
-			  // ensure that g and b are not equal (should NEVER be equal)
-			  && g != b
-			  // pinkos is a bitset of "all other values" to be eliminated.
-			  && (pinks=(cc=grid.cells[i]).maybes & ~g & ~b) != 0
-			  // ignore already-justified eliminations (shouldn't happen here)
-			  && redPots.upsert(cc, pinks, false)
-			) {
-				if ( wantWhy ) {
-					if ( first ) {
-						first = false;
-						steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+		try ( final IALease lease = tmp1.setAnd(painted[G], painted[B]).toArrayLease() ) {
+			for ( int i : lease.array ) {
+				if ( gridCells[i].size > 2
+				  // get a bitset of all values of cells[i] that're green and blue.
+				  // There may be none, never multiple (contradictions pre-tested)
+				  // We need 1 green value and 1 blue value, to strip from pinks.
+				  // NOTE: VSIZE[0] == 0.
+				  && VSIZE[g=values(G, i)] == 1
+				  && VSIZE[b=values(B, i)] == 1
+				  // ensure that g and b are not equal (should NEVER be equal)
+				  && g != b
+				  // pinkos is a bitset of "all other values" to be eliminated.
+				  && (pinks=(cc=gridCells[i]).maybes & ~g & ~b) != 0
+				  // ignore already-justified eliminations (shouldn't happen here)
+				  && redPots.upsert(cc, pinks, false)
+				) {
+					if ( wantWhy ) {
+						if ( first ) {
+							first = false;
+							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+						}
+						steps.append(cc.id).append(HAS_BOTH)
+						  .append(GON).append(Values.toString(g)).append(GOFF)
+						  .append(AND).append(BON).append(Values.toString(b)).append(BOFF)
+						  .append(COMMA).append(ELIMINATING)
+						  .append(RON).append(ALL_OTHER_VALUES).append(ROFF).append(PERIOD)
+						  .append(NL);
 					}
-					steps.append(cc.id).append(HAS_BOTH)
-					  .append(GON).append(Values.toString(g)).append(GOFF)
-					  .append(AND).append(BON).append(Values.toString(b)).append(BOFF)
-					  .append(COMMA).append(ELIMINATING)
-					  .append(RON).append(ALL_OTHER_VALUES).append(ROFF).append(PERIOD)
-					  .append(NL);
+					subtype |= 1;
 				}
-				subtype |= 1;
 			}
 		}
 
 		// (b) An uncolored v sees both colored v's.
-		//<TO_ARRAY_SMART comment="weird">
-		tmp2.toArraySmartReset(); // weird: prepare to use toArraySmart
+		// Weird: retain the leases, and there arrays, for the next loop.
+		final IALease[] leases = new IALease[VALUE_CEILING];
 		for ( int v : VALUESES[paintedValues] ) {
-			tmp1.setOr(colors[GREEN][v], colors[BLUE][v]);
 			// weird: remember uncoloredCandidates for re-use in next loop
-			for ( int ii : (unco[v]=tmp2.setAndNot(vs[v], tmp1).toArraySmart()) ) {
-				if ( tmp3.setAndAny(BUDDIES[ii], colors[GREEN][v])
-				  && tmp4.setAndAny(BUDDIES[ii], colors[BLUE][v])
+			tmp2.setAndNot(gridIdxs[v], tmp1.setOr(colors[G][v], colors[B][v]));
+			leases[v] = tmp2.toArrayLease();
+			for ( int ii : leases[v].array ) {
+				if ( tmp3.setAndAny(BUDDIES[ii], colors[G][v])
+				  && tmp4.setAndAny(BUDDIES[ii], colors[B][v])
 				  // ignore already-justified eliminations
-				  && redPots.upsert(grid.cells[ii], v)
+				  && redPots.upsert(gridCells[ii], v)
 				) {
 					if ( wantWhy ) {
-						cc = grid.cells[ii]; // current cell
-						Cell gc = closest(tmp3, cc); // green cell seen
-						Cell bc = closest(tmp4, cc); // blue cell seen
+						cc = gridCells[ii]; // current cell
+						Cell gc = closest(tmp3, cc.x, cc.y); // green cell seen
+						Cell bc = closest(tmp4, cc.x, cc.y); // blue cell seen
 						if ( first ) {
 							first = false;
 							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
@@ -1589,20 +1664,20 @@ public class GEM extends AHinter implements IPreparer
 
 		// (c) v sees green, and has some other blue value.
 		for ( int v : VALUESES[paintedValues] ) {
-			// weird: uncoloredCandidates are set in the above loop
-			for ( int ii : unco[v] ) {
+			// weird: leases are set-up in the previous loop
+			for ( int ii : leases[v].array ) {
 				for ( c=0; c<2; ++c ) {
 					// if cells[ii] sees a this-color v
 					if ( tmp3.setAndAny(BUDDIES[ii], colors[c][v])
 					  // and the opposite color (any value) contains ii
 					  && painted[OPPOSITE[c]].has(ii)
 					  // ignore already-justified eliminations
-					  && redPots.upsert(grid.cells[ii], v)
+					  && redPots.upsert(gridCells[ii], v)
 					) {
 						if ( wantWhy ) {
-							cc = grid.cells[ii];
+							cc = gridCells[ii];
 							o = OPPOSITE[c];
-							Cell sib = closest(tmp3, cc); // the seen cell
+							Cell sib = closest(tmp3, cc.x, cc.y); // the seen cell
 							int otherV = firstValue(o, ii);
 							if ( first ) {
 								first = false;
@@ -1619,29 +1694,32 @@ public class GEM extends AHinter implements IPreparer
 				}
 			}
 		}
-		// weird: release memory in any unco arrays created on the fly
-		if ( tmp2.usedNew )
-			clear(unco);
-		//</TO_ARRAY_SMART>
+		// weird: release the leases
+		for ( IALease lease : leases)
+			if ( lease != null )
+				lease.close();
+		Arrays.fill(leases, null);
 
 		// (d) off'ed by both colors.
 		for ( int v=1; v<VALUE_CEILING; ++v ) {
-			if ( tmp1.setAndAny(offs[GREEN][v], offs[BLUE][v]) ) {
-				for ( int ii : tmp1.toArrayA() ) {
-					// ignore already-justified eliminations
-					if ( redPots.upsert(grid.cells[ii], v) ) {
-						if ( wantWhy ) {
-							cc = grid.cells[ii];
-							if ( first ) {
-								first = false;
-								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+			if ( tmp1.setAndAny(offs[G][v], offs[B][v]) ) {
+				try ( final IALease lease = tmp1.toArrayLease() ) {
+					for ( int ii : lease.array ) {
+						// ignore already-justified eliminations
+						if ( redPots.upsert(gridCells[ii], v) ) {
+							if ( wantWhy ) {
+								cc = gridCells[ii];
+								if ( first ) {
+									first = false;
+									steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+								}
+								steps.append(cc.id).append(MINUS).append(v)
+								  .append(" is eliminated in both ").append(CCOLORS[G]).append(AND).append(CCOLORS[B])
+								  .append(COMMA_SO).append(cc.id).append(CANT_BE).append(RON).append(v).append(ROFF)
+								  .append(PERIOD).append(NL);
 							}
-							steps.append(cc.id).append(MINUS).append(v)
-							  .append(" is eliminated in both ").append(CCOLORS[GREEN]).append(AND).append(CCOLORS[BLUE])
-							  .append(COMMA_SO).append(cc.id).append(CANT_BE).append(RON).append(v).append(ROFF)
-							  .append(PERIOD).append(NL);
+							subtype |= 8;
 						}
-						subtype |= 8;
 					}
 				}
 			}
@@ -1658,9 +1736,10 @@ public class GEM extends AHinter implements IPreparer
 	 * @return a bitset of painted values
 	 */
 	private int values(final int c, final int i) {
+		final Idx[] thisColor = colors[c];
 		int result = 0;  // NOTE: VSIZE[0] == 0
 		for ( int v : VALUESES[colorValues[c]] )
-			if ( colors[c][v].has(i) )
+			if ( thisColor[v].has(i) )
 				result |= VSHFT[v];
 		return result;
 	}
@@ -1674,7 +1753,7 @@ public class GEM extends AHinter implements IPreparer
 	 * @param ii the cell index
 	 * @return the first value of ii that's painted the opposite color
 	 */
-	private int firstValue(int o, int ii) {
+	private int firstValue(final int o, final int ii) {
 		for ( int v : VALUESES[colorValues[o]] )
 			if ( colors[o][v].has(ii) )
 				return v;
@@ -1690,34 +1769,34 @@ public class GEM extends AHinter implements IPreparer
 	 *
 	 * @param idx {@code tmp3.setAndAny(BUDDIES[ii], colors[c][v])} the buddies
 	 * of the target cell which are painted this color.
-	 * @param target {@code cc = grid.cells[ii]} the target bloody cell.
+	 * @param x {@code cc.x} the col of target cell
+	 * @param y {@code cc.y} the row of target cell
 	 * @return the closest cell (or null if I'm rooted)
 	 */
-	private Cell closest(Idx idx, Cell target) {
-		Cell closest = null;
-		int minD = Integer.MAX_VALUE; // the distance to the closest cell
-		// nb: caller uses toArraySmart, so I must avoid toArrayA/B. I'm only
-		// called when we're hinting (rarely) so my performance isn't an issue,
-		// whereas search performance is, so I just use a new array each time.
-		for ( int i : idx.toArrayNew() ) {
-			final Cell c = grid.cells[i];
-			final int dy = Math.abs(c.y - target.y);
-			final int dx = Math.abs(c.x - target.x);
-			final int distance;
-			if ( dy == 0 )
-				distance = dx;
-			else if ( dx == 0 )
-				distance = dy;
-			else // Pythons theorum: the square of ye hippopotamus = da sum of
-				// da squares of yon two sides; except in ye gannetorium where
-				// it remains indeterminate because of the bloody smell.
-				distance = (int)Math.sqrt((double)(dx*dx + dy*dy));
-			if ( distance < minD ) {
-				minD = distance;
-				closest = grid.cells[i];
+	private Cell closest(final Idx idx, final int x, final int y) {
+		int closest = -1; // the indice of the closest cell
+		int minD = Integer.MAX_VALUE; // distance to the closest cell
+		try ( final IALease lease = idx.toArrayLease() ) {
+			for ( int i : lease.array ) {
+				final int distance;
+				if ( COL_OF[i] == x )
+					distance = Math.abs(ROW_OF[i] - y);
+				else if ( ROW_OF[i] == y )
+					distance = Math.abs(COL_OF[i] - x);
+				else { // pythagoras
+					final int dx = Math.abs(COL_OF[i] - x);
+					final int dy = Math.abs(ROW_OF[i] - y);
+					distance = (int)Math.sqrt((double)(dx*dx + dy*dy));
+				}
+				if ( distance < minD ) {
+					minD = distance;
+					closest = i;
+				}
 			}
 		}
-		return closest;
+		if ( closest == -1 )
+			return null;
+		return gridCells[closest];
 	}
 
 	/**
@@ -1734,14 +1813,14 @@ public class GEM extends AHinter implements IPreparer
 	 *  (upgraded) if CONSEQUENT_SINGLES_TOO and the eliminations leave a cell
 	 *  with one potential value, or a region with one place for a value.
 	 */
-	private AHint createHint(int value, int subtype) {
+	private AHint createHint(final int value, final int subtype) {
 //		int s = getScore(value);
 //		if ( s < minScore )
 //			minScore = s;
 		final Idx[] colorSet = null;
 		final Pots reds = new Pots(redPots);
-		final AHint hint = new GEMHint(this, value, reds, pots(GREEN)
-				, pots(BLUE), colorSet, steps.toString(), null, copy(ons)
+		final AHint hint = new GEMHint(this, value, reds, pots(G)
+				, pots(B), colorSet, steps.toString(), null, copy(ons)
 				, copy(offs));
 		if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
 			if ( !cleanRedPots(reds, hint) )
@@ -1759,10 +1838,11 @@ public class GEM extends AHinter implements IPreparer
 	 * @param c the color: GREEN or BLUE
 	 * @return a new Pots of Cell=>value's in all values of colors[color].
 	 */
-	private Pots pots(int c) {
+	private Pots pots(final int c) {
+		final Idx[] thisColor = colors[c];
 		final Pots result = new Pots();
 		for ( int v : VALUESES[colorValues[c]] )
-			result.upsertAll(colors[c][v], grid, v);
+			result.upsertAll(thisColor[v], grid, v);
 		return result;
 	}
 
@@ -1779,11 +1859,11 @@ public class GEM extends AHinter implements IPreparer
 	 * @param hint to validate
 	 * @return true is OK, false means do NOT add this hint.
 	 */
-	private boolean validEliminations(AHint hint) {
-		if ( Validator.GEM_VALIDATES ) {
-			if ( !Validator.isValid(grid, hint.getReds(0)) ) {
-				hint.isInvalid = true;
-				Validator.report(tech.name(), grid, hint.toFullString());
+	private boolean validEliminations(final AHint hint) {
+		if ( VALIDATE_GEM ) {
+			if ( !validOffs(grid, hint.getReds(0)) ) {
+				hint.setIsInvalid(true);
+				reportRedPots(tech.name(), grid, hint.toFullString());
 				if ( Run.type != Run.Type.GUI )
 					return false;
 			}
@@ -1805,12 +1885,11 @@ public class GEM extends AHinter implements IPreparer
 	 * @param hint to validate
 	 * @return true is OK, false means do NOT add this hint.
 	 */
-	private boolean validSetPots(String identifier, AHint hint) {
-		if ( Validator.GEM_VALIDATES ) {
-			if ( !Validator.isValidSetPots(grid, hint.getResults()) ) {
-				hint.isInvalid = true;
-				Validator.reportSetPots(tech.name()+identifier, grid
-					, Validator.invalidity, hint.toFullString());
+	private boolean validSetPots(final String identifier, final AHint hint) {
+		if ( VALIDATE_GEM ) {
+			if ( !validOns(grid, hint.getResults()) ) {
+				hint.setIsInvalid(true);
+				reportSetPots(tech.name()+identifier, grid, invalidity, hint.toFullString());
 				if ( Run.type != Run.Type.GUI )
 					return false;
 			}
@@ -1819,25 +1898,26 @@ public class GEM extends AHinter implements IPreparer
 	}
 
 	// HACK: clean non-solution values out of setPots
-	private boolean cleanSetPots(Pots sets, AHint hint) {
+	private boolean cleanSetPots(final Pots sets, final AHint hint) {
 		final int[] solution = grid.getSolution();
-		for ( java.util.Map.Entry<Cell,Integer> e : sets.entrySet() ) {
-			int v = VFIRST[e.getValue()]; // hintValue
-			Cell cell = e.getKey();
-			int expect = solution[cell.i];
-			if ( v != expect )
+		sets.entrySet().forEach((e) -> {
+			final Cell c = e.getKey();
+			final int v = VFIRST[e.getValue()]; // hintValue
+			final int expect = solution[c.i];
+			if ( v != expect ) {
 //				throw new UncleanException(
 				throw new UnsolvableException(
-						"Invalid SetPot: "+cell.id+PLUS+v+NOT_EQUALS+expect+NL
-						+grid+NL
-						+hint.toFullString()+NL
+					"Invalid Set: "+c.id+PLUS+v+NOT_EQUALS+expect+NL
+					+grid+NL
+					+hint.toFullString()+NL
 				);
-		}
+			}
+		});
 		return !sets.isEmpty(); // return anything remaining?
 	}
 
 	// HACK: clean solution values out of redPots
-	private boolean cleanRedPots(Pots reds, AHint hint) {
+	private boolean cleanRedPots(final Pots reds, final AHint hint) {
 		final int[] solution = grid.getSolution();
 		Iterator<Map.Entry<Cell,Integer>> it = reds.entrySet().iterator();
 		while ( it.hasNext() ) {
@@ -1852,7 +1932,7 @@ public class GEM extends AHinter implements IPreparer
 					if ( v == expect )
 						throw new UncleanException(
 //						throw new UnsolvableException(
-							"Invalid Elimination: "+cell.id+MINUS+v+" is solution value!"+NL
+							"Invalid Elim: "+cell.id+MINUS+v+" is solution value!"+NL
 							+grid+NL
 							+hint.toFullString()+NL
 						);
@@ -1870,7 +1950,7 @@ public class GEM extends AHinter implements IPreparer
 	private static class ValueScore {
 		public final int value;
 		public int score;
-		ValueScore(int value) {
+		ValueScore(final int value) {
 			this.value = value;
 		}
 		// debug only, not used in actual code
@@ -1887,15 +1967,15 @@ public class GEM extends AHinter implements IPreparer
 	/** A distinctive subtype of RuntimeException. */
 	private static final class OverpaintException extends IllegalStateException {
 		private static final long serialVersionUID = 720396129058L;
-		public OverpaintException(String msg) {
+		public OverpaintException(final String msg) {
 			super(msg);
 		}
 	}
 
 //	/** A distinctive subtype of RuntimeException. */
-//	private static final class NoBananasException extends IllegalStateException {
-//		private static final long serialVersionUID = 569081283059L;
-//		public NoBananasException(String msg) {
+//	private static final class BadPaintException extends IllegalStateException {
+//		private static final long serialVersionUID = 11107670454L;
+//		public BadPaintException(String msg) {
 //			super(msg);
 //		}
 //	}
@@ -1923,7 +2003,7 @@ public class GEM extends AHinter implements IPreparer
 	 */
 	private static class UncleanException extends RuntimeException {
 		private static final long serialVersionUID = 64099692026011L;
-		public UncleanException(String msg) {
+		public UncleanException(final String msg) {
 			super(msg);
 		}
 	}

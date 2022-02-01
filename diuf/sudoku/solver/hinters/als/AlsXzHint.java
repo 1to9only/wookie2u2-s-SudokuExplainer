@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -40,7 +40,6 @@ public class AlsXzHint extends AHint  {
 	private final int zsZapped; // bitset of z-values removed by single-link
 	private final boolean doubleLinked;
 	private final String rcValuesString;
-	String debugMessage; // set "manually" by AlsXz after the hint is created
 
 	public AlsXzHint(AHinter hinter, Als a, int v1, int v2, Als b, int zsZapped
 			, Pots reds, boolean doubleLinked) {
@@ -145,7 +144,6 @@ public class AlsXzHint extends AHint  {
 		final String zBlurb = zsZapped==0 ? ""
 				: "<br>and another (non-restricted) common candidate z = "
 				  +"<b>"+zsString+"</b>";
-		if(debugMessage==null) debugMessage = "";
 		return Html.produce(this, filename
 			, a.toString()		//{0}
 			, b.toString()		// 1

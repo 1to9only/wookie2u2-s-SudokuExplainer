@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
@@ -10,18 +10,16 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Grid.Col;
-import diuf.sudoku.Grid.Row;
+import diuf.sudoku.Indexes;
 import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VALUESES;
-import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.SummaryHint;
 import diuf.sudoku.solver.accu.HintsApplicumulator;
 import diuf.sudoku.solver.accu.IAccumulator;
+import static diuf.sudoku.solver.hinters.Slots.*;
 import diuf.sudoku.utils.Log;
-import diuf.sudoku.utils.MyHashMap;
 import diuf.sudoku.utils.MyLinkedHashMap;
+import java.util.Map;
 
 /**
  * LockingSpeedMode is unusual is that it extends the Locking hinter to apply
@@ -41,13 +39,13 @@ import diuf.sudoku.utils.MyLinkedHashMap;
  *
  * @author Keith Corlett 2021-07-11
  */
-public class LockingSpeedMode extends Locking {
+public final class LockingSpeedMode extends Locking {
 
 	/** The HintsApplicumulator to which I add all of my hints. */
 	private final HintsApplicumulator apcu;
 
 	/** each region of each effected cell, and it's maybes before elims. */
-	private final RegionQueue dirtyRegions;
+	private final RegionQueue dirtyRegions = new RegionQueue();
 
 	/**
 	 * The Locking "speed mode" Constructor. Used only by BruteForce, ie
@@ -65,15 +63,9 @@ public class LockingSpeedMode extends Locking {
 	 *
 	 * @param apcu HintsApplicumulator
 	 */
-	public LockingSpeedMode(HintsApplicumulator apcu) {
-		super();
+	public LockingSpeedMode(final HintsApplicumulator apcu) {
 		assert apcu != null;
 		this.apcu = apcu;
-		this.dirtyRegions = new RegionQueue();
-//		// speedMode is only for use by BruteForce.
-//		// asserts are for techies (who java -ea) and this is a constructor,
-//		// so not performance critical, but using Debug like this is a hack.
-//		assert Debug.isClassNameInTheCallStack(7, "BruteForce");
 	}
 
 	/**
@@ -82,9 +74,6 @@ public class LockingSpeedMode extends Locking {
 	 */
 	@Override
 	public void reset() {
-		// let it NPE if this Locking wasn't created with an apcu. If you
-		// make Locking Resetable it NPE's in LogicalSolver.reset, so do
-		// NOT make Locking Resetable!
 		apcu.numElims = 0;
 	}
 
@@ -109,29 +98,22 @@ public class LockingSpeedMode extends Locking {
 	 * @return
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
-		ARegion dr; // dirtyRegion
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
+		ARegion r;
 		dirtyRegions.clear(); // Bog roll!
-		final int preElims = apcu.numElims;
-		// note the bitwise-or operator (|) so they're both executed.
-		final boolean result = pointing(grid, apcu)
-							 | claiming(grid, apcu);
-		if ( result ) {
-			// re-process the dirty regions (not all regions twice, for speed).
-			MyHashMap.Entry<ARegion,Integer> e;
-			while ( (e=dirtyRegions.poll()) != null ) {
-				if ( (dr=e.getKey()) instanceof Box ) {
-					pointFrom((Box)dr, e.getValue(), grid);
-				} else { // Row or Col
-					claimFrom(dr, e.getValue(), grid);
-				}
-			}
-		}
-		final int myElims = apcu.numElims - preElims;
-		if ( myElims > 0 ) {
-			if ( accu.add(new SummaryHint(Log.me(), myElims, apcu)) ) {
-				return true;
-			}
+		final boolean result;
+		// to calculate numElims in SummaryHint
+		final int pre = apcu.numElims;
+		// NOTE: pass the apcu (not the normal accu, ya dumbass)
+		if ( result = super.findHints(grid, apcu) ) {
+			// re-process dirty regions (not all regions, for speed).
+			Map.Entry<ARegion,Integer> e;
+			while ( (e=dirtyRegions.poll()) != null )
+				if ( (r=e.getKey()) instanceof Box )
+					pointFrom((Box)r, e.getValue());
+				else // Row or Col
+					claimFrom(r, e.getValue());
+			accu.add(new SummaryHint(Log.me(), apcu.numElims-pre, apcu));
 		}
 		return result;
 	}
@@ -141,60 +123,25 @@ public class LockingSpeedMode extends Locking {
 	 *
 	 * @param box
 	 * @param cands
-	 * @param grid
 	 * @return
 	 */
-	private boolean pointFrom(final Box box, final int cands, final Grid grid) {
-		int card;
-		final Row[] rows = grid.rows;
-		final Col[] cols = grid.cols;
-		boolean result = false;
-		for ( int v : VALUESES[cands] )
-			if ( (card=box.ridx[v].size)>1 && card<4 ) {
-				final int b = box.ridx[v].bits;
-				if ( (b & ROW1) == b )
-					result |= pfElim(rows[box.top], box, v, card, grid);
-				else if ( (b & ROW2) == b )
-					result |= pfElim(rows[box.top + 1], box, v, card, grid);
-				else if ( (b & ROW3) == b )
-					result |= pfElim(rows[box.top + 2], box, v, card, grid);
-				else if ( (b & COL1) == b )
-					result |= pfElim(cols[box.left], box, v, card, grid);
-				else if ( (b & COL2) == b )
-					result |= pfElim(cols[box.left + 1], box, v, card, grid);
-				else if ( (b & COL3) == b )
-					result |= pfElim(cols[box.left + 2], box, v, card, grid);
-			}
-		return result;
-	}
-
-	/**
-	 * pfElim is called ONLY by above pointFrom, to do it's eliminations,
-	 * instead of hacking my way around repeating the same code repeatedly.
-	 * Note that I add my hints to the apcu.
-	 *
-	 * @param line is a row or a col
-	 * @param box is the Box
-	 * @param v is the value
-	 * @param card is the number of cells in the box which maybe v
-	 * @param grid currently only used for error messages.
-	 * @return
-	 */
-	private boolean pfElim(final ARegion line, final Box box, final int v
-			, final int card, final Grid grid) {
-		// if v's in line other than those in the line-box-intersection
-		if ( line.ridx[v].size > card ) {
-			final Cell[] cells;
-			if ( card == box.maybe(VSHFT[v], cells=new Cell[card]) ) {
-				final AHint hint = createHint(LockType.SiamesePointing
-						, box, line, cells, card, v, grid);
-				if ( hint != null ) {
-					apcu.add(hint);
-					return true;
+	private void pointFrom(final Box box, final int cands) {
+		int card, b;
+		ARegion line;
+		final Indexes[] bidx = box.ridx;
+		for ( int v : VALUESES[cands] ) {
+			if ( (card=bidx[v].size)>1 && card<4 ) {
+				b = bidx[v].bits;
+				for ( Slot slot : SLOTS ) {
+					if ( (b & slot.bits) == b ) {
+						line = slot.line(box);
+						if ( line.ridx[v].size > card )
+							apcu.add(createHint(box, line, card, v));
+						break;
+					}
 				}
 			}
 		}
-		return false;
 	}
 
 	/**
@@ -202,64 +149,60 @@ public class LockingSpeedMode extends Locking {
 	 *
 	 * @param line is the row/col to claim in
 	 * @param cands is the maybes to look at
-	 * @param grid is the grid to look in
 	 * @return any hints found?
 	 */
-	private boolean claimFrom(final ARegion line, final int cands, final Grid grid) {
-		Cell[] cells;
+	private void claimFrom(final ARegion line, final int cands) {
 		int card, b, offset;
-		boolean result = false;
-		for ( int v : VALUESES[cands] ) {
-			if ( (card=line.ridx[v].size)>1 && card<4 ) {
-				b = line.ridx[v].bits;
-				// note that ROW* also applies to cols (they're badly named).
-				if ( ( ((b & ROW1)==b && (offset=0)==0)
-					|| ((b & ROW2)==b && (offset=1)==1)
-					|| ((b & ROW3)==b && (offset=2)==2) )
-				  && line.crossingBoxs[offset].ridx[v].size > card
-				  && card == line.maybe(VSHFT[v], cells=new Cell[card])
-				) {
-					final AHint hint = createHint(LockType.SiameseClaiming
-							, line, line.crossingBoxs[offset], cells, card
-							, v, grid);
-					if ( hint != null ) {
-						result |= true; // never say never!
-						apcu.add(hint);
-					}
-				}
-			}
-		}
-		return result;
+		final Box[] coxs = line.crossingBoxs;
+		for ( int v : VALUESES[cands] )
+			if ( (card=line.ridx[v].size)>1 && card<4
+			  // nb: ROW* also applies to cols (they're badly named).
+			  && ( (((b=line.ridx[v].bits) & SLOT1)==b && (offset=0)==0)
+				|| ((b & SLOT2)==b && (offset=1)==1)
+				|| ((b & SLOT3)==b && (offset=2)==2) )
+			  && coxs[offset].ridx[v].size > card )
+				apcu.add(createHint(line, coxs[offset], card, v));
 	}
-
 
 	/**
 	 * Called only by Locking.createHint to allow it's subtype (me)
 	 * to handle each "new eliminations found" event.
 	 *
-	 * @param redPots
+	 * @param reds
 	 */
 	@Override
-	protected void eliminationsFound(Pots redPots) {
-		dirtyRegions.add(redPots.keySet());
+	protected void eliminationsFound(Pots reds) {
+		dirtyRegions.add(reds);
 	}
 
 	/**
-	 * {@link #dirtyRegions} is a MyLinkedHashMap plus add(cells) to upsert
-	 * (update or insert) all these cells and all of there maybes. Note that
-	 * we use MyLinkedHashMap's poll() method, which is not in java.util.Map.
+	 * {@link #dirtyRegions} is a MyLinkedHashMap plus add(Pots) which upserts
+	 * each cell and it's eliminated maybe/s.
+	 * <p>
+	 * NB: We use MyLinkedHashMap.poll, which is not in java.util.Map.
 	 */
 	private static class RegionQueue extends MyLinkedHashMap<ARegion, Integer> {
-		private static final long serialVersionUID = 1459048958903L;
-		// add's new cell.maybes to any existing ones for this cell.
-		void add(Iterable<Cell> cells) {
-			Integer existing;
-			for ( Cell cell : cells )
-				for ( ARegion r : cell.regions )
-					if ( (existing=super.get(r)) == null )
-						super.put(r, cell.maybes);
+		private static final long serialVersionUID = 1459048958904L;
+		// add's new eliminated cands to any existing ones for each region
+		// of each cell that has been eliminated from (reds are eliminations).
+		// nb: Pointlessly adds the region that was searched to find each elim,
+		// but I'm unable to preclude that region given only the elims; so that
+		// region will be searched again. No biggy, just a bit inefficient.
+		void add(final Pots reds) {
+			// NOTE: Do NOT use a lambda here. It seems to screw with my calls,
+			// or atleast behaviour is VERY odd/suspicious in the debugger, but
+			// pretty obviously that could JUST be the debugger. IDKFAAN.
+			for ( Map.Entry<Cell, Integer> e : reds.entrySet() ) {
+				final int cands = e.getValue();
+				final Cell cell = e.getKey();
+				for ( final ARegion r : cell.regions ) {
+					final Integer existing = get(r);
+					if ( existing != null )
+						put(r, existing | cands);
 					else
-						super.put(r, existing | cell.maybes);
+						put(r, cands);
+				}
+			}
 		}
 	}
 

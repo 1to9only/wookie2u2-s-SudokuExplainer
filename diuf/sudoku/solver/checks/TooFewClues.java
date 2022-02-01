@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.checks;
@@ -15,9 +15,9 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * A valid Sudoku has atleast 17 clues. If the grid contains less than 17
  * cells with a non-zero value then produce a warning hint.
  */
-public final class InsufficientClues extends AWarningHinter {
+public final class TooFewClues extends AWarningHinter {
 
-	public InsufficientClues() {
+	public TooFewClues() {
 		super(Tech.TooFewClues);
 	}
 

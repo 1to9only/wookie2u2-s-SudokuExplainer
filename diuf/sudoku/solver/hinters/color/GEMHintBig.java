@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
@@ -16,14 +16,13 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
-import diuf.sudoku.utils.Html;
-import java.util.List;
-import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import static diuf.sudoku.utils.Frmt.PLUS;
 import static diuf.sudoku.utils.Frmt.CSP;
+import diuf.sudoku.utils.Html;
+import java.util.Set;
 
 /**
  * GEMHintBig is GEM (Graded Equivalence Marks) Type 2+ (Multi) hints. It's
@@ -39,8 +38,6 @@ public class GEMHintBig extends AHint  {
 
 	private final int v;
 	private final int subtype;
-	private final String greenCellIds;
-	private final String blueCellIds;
 	private final Pots setPots;
 	private final Set<Cell> cause;
 	private final int resultColor;
@@ -49,18 +46,14 @@ public class GEMHintBig extends AHint  {
 	private final Idx[][] ons;
 	private final Idx[][] offs;
 
-	public GEMHintBig(AHinter hinter, int v, Pots redPots, int subtype
+	public GEMHintBig(AHinter hinter, int v, Pots reds, int subtype
 			, Set<Cell> cause, int resultColor, String steps, Pots setPots
 			, Pots greens, Pots blues, ARegion region, Idx[][] ons
 			, Idx[][] offs
 	) {
-		super(hinter, AHint.MULTI, null, 0
-		   , redPots, greens, null, blues
-		   , null, null);
+		super(hinter, AHint.MULTI, null, 0, reds, greens, null, blues, null, null);
 		this.v = v;
 		this.subtype = subtype;
-		this.greenCellIds = greens.cells();
-		this.blueCellIds = blues.cells();
 		this.cause = cause;
 		this.resultColor = resultColor;
 		this.steps = steps;
@@ -177,8 +170,8 @@ public class GEMHintBig extends AHint  {
 	@Override
 	protected String toStringImpl() {
 		return Frmt.getSB(64).append(getHintTypeName())
-		  .append(COLON_SP).append(greenCellIds)
-		  .append(CSP).append(blueCellIds)
+		  .append(COLON_SP).append(greens.ids())
+		  .append(CSP).append(blues.ids())
 		  .append(ON).append(v)
 		  .toString();
 	}
@@ -237,11 +230,11 @@ public class GEMHintBig extends AHint  {
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		return this == obj
-			|| ( obj != null
-			  && obj instanceof GEMHintBig
-			  && this.hashCode() == ((GEMHintBig) obj).hashCode() );
+	public boolean equals(Object o) {
+		return this == o
+			|| ( o != null
+			  && o instanceof GEMHintBig
+			  && this.hashCode() == ((GEMHintBig)o).hashCode() );
 	}
 	private int hc;
 

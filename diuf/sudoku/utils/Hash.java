@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -15,22 +15,12 @@ package diuf.sudoku.utils;
  */
 public final class Hash {
 
-	/** Constant to speed-up calculating Ass.hashCode.
-	 * <p>
-	 * NOTE: 4096 is hardcoded everywhere and I'm leaving it because it's
-	 * shorter and it is still searchable, so long as 4096 doesn't crop-up
-	 * anywhere else. Sigh.
-	 */
-	public static final int LSH12 = 1<<12; // 4096
+	/** The bit that differentiates an ON assumption from an OFF. Set is ON. */
+	public static final int ON_BIT = 1<<11; // 2048
 
-	/** 0-based left-shifted 8 places. */
-	public static final int[] LSH8 = new int[] {
-		0, 1<<8, 2<<8, 3<<8, 4<<8, 5<<8, 6<<8, 7<<8, 8<<8, 9<<8
-	};
-
-	/** 0-based left-shifted 4 places. */
-	public static final int[] LSH4 = new int[] {
-		0, 1<<4, 2<<4, 3<<4, 4<<4, 5<<4, 6<<4, 7<<4, 8<<4, 9<<4
+	/** The shift for values, currently 7 */
+	public static final int[] SHFT_V = new int[] {
+		0, 1<<7, 2<<7, 3<<7, 4<<7, 5<<7, 6<<7, 7<<7, 8<<7, 9<<7
 	};
 
 	// never used

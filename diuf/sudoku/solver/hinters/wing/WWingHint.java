@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.wing;
@@ -29,25 +29,25 @@ public final class WWingHint extends AHint  {
 
 	private final Cell cellA, cellB, wCellA, wCellB;
 	private final int value0, value1;
-	private final ARegion wABCommonRegion;
+	private final ARegion cr; // common region to wCellA and wCellB
 
 	public WWingHint(AHinter hinter, int value0, int value1
 			, Cell cellA, Cell cellB, Cell wCellA, Cell wCellB
-			, Pots greenPots, Pots bluePots, Pots redPots) {
-		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null
-				, bluePots, null, null);
+			, Pots greens, Pots blues, Pots reds) {
+		super(hinter, AHint.INDIRECT, null, 0, reds, greens, null
+				, blues, null, null);
 		this.value0 = value0;
 		this.value1 = value1;
 		this.cellA = cellA;
 		this.cellB = cellB;
 		this.wCellA = wCellA;
 		this.wCellB = wCellB;
-		this.wABCommonRegion = Regions.common(wCellA, wCellB);
+		this.cr = Regions.common(wCellA, wCellB);
 	}
 
 	@Override
 	public ARegion[] getBases() {
-		return Regions.array(wABCommonRegion);
+		return Regions.array(cr);
 	}
 
 	@Override
@@ -80,7 +80,7 @@ public final class WWingHint extends AHint  {
 			, wCellB.id						// 3
 			, Integer.toString(value0)		// 4
 			, Integer.toString(value1)		// 5
-			, wABCommonRegion				// 6
+			, cr							// 6
 			, Frmu.and(reds.keySet())		// 7
 			, reds.toString()				// 8
 		);

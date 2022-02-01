@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -10,7 +10,6 @@ import diuf.sudoku.solver.AHint;
 import java.util.LinkedList;
 import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
-
 
 /**
  * A tree node representing a hint in the hints tree
@@ -45,20 +44,20 @@ public final class HintNode extends DefaultMutableTreeNode {
 		return this.name;
 	}
 
-	public boolean isHintNode() {
+	public boolean hasHint() {
 		return this.hint != null;
 	}
 
 	@Override
 	public boolean getAllowsChildren() {
-		return !isHintNode();
+		return this.hint == null;
 	}
 
-	public HintNode getNodeFor(AHint hint) {
+	public HintNode getNodeFor(final AHint hint) {
 		if(hint == null) return null;
 		if(hint.equals(this.hint)) return this;
 		HintNode node;
-		for ( int i=0, n=getChildCount(); i<n; ++i )
+		for ( int i=0,n=getChildCount(); i<n; ++i )
 			if ( (node=((HintNode)getChildAt(i)).getNodeFor(hint)) != null )
 				return node;
 		return null;
@@ -104,4 +103,5 @@ public final class HintNode extends DefaultMutableTreeNode {
 	public String toString() {
 		return this.name;
 	}
+
 }

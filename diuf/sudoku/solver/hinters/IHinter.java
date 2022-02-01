@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters;
@@ -78,7 +78,7 @@ public interface IHinter {
 	 * accumulator; eventually returning "Were any hints found?" The GUI goes
 	 * this way when you Shift-F5 to find MORE hints.
 	 * <p>
-	 * NOTE: A hinter can declare itself to be an IPreparer, in which case it's
+	 * NOTE: A hinter can declare itself to be an IPrepare, in which case it's
 	 * prepare method is called after the puzzle is loaded into the Grid, but
 	 * BEFORE we attempt to solve the puzzle, to give each hinter a chance to
 	 * set-up for each puzzle.

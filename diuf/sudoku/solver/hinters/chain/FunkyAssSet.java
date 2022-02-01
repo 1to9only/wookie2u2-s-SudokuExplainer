@@ -1,14 +1,15 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.chain;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Ass;
-import diuf.sudoku.utils.Hash;
+import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.utils.Hash.ON_BIT;
+import static diuf.sudoku.utils.Hash.SHFT_V;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMySet;
 import diuf.sudoku.utils.MyFunkyLinkedHashSet;
@@ -30,19 +31,18 @@ import java.util.Collection;
  * 2021-07-20 Moved from diuf.suduku.utils because utils should remain
  * ignorant of application-types, so that it's portable between projects.
  */
-public class FunkyAssSet extends MyFunkyLinkedHashSet<Ass>
-		implements IAssSet {
-	
+public class FunkyAssSet extends MyFunkyLinkedHashSet<Ass> implements IAssSet {
+
 	/** the Ass.hashCode part for the given isOn. */
-	private final int isOnMask;
-	
+	private final int onBit;
+
 	/** Constructor.
 	 * @param initialCapacity the initial size of the Set.
 	 * @param loadFactor the size vs capacity factor.
 	 * @param isOn Does this Set contain "on"s or "off"s. */
 	public FunkyAssSet(int initialCapacity, float loadFactor, boolean isOn) {
 		super(initialCapacity, loadFactor);
-		this.isOnMask = isOn?4096:0;
+		this.onBit = isOn ? ON_BIT : 0;
 	}
 
 	/** This copy-constructor clears the given {@code IMySet<Ass> c} if
@@ -56,7 +56,7 @@ public class FunkyAssSet extends MyFunkyLinkedHashSet<Ass>
 	public FunkyAssSet(int initialCapacity, float loadFactor, boolean isOn
 			, IMySet<Ass> c, boolean isClearing) { // clears c
 		super(Math.max(initialCapacity,c.size()), loadFactor);
-		this.isOnMask = isOn?4096:0;
+		this.onBit = isOn ? ON_BIT : 0;
 		if ( isClearing ) // steal all from c
 			for ( Ass a=c.poll(); a!=null; a=c.poll() ) // removes head
 				add(a);
@@ -67,25 +67,41 @@ public class FunkyAssSet extends MyFunkyLinkedHashSet<Ass>
 	/**
 	 * A basic copy constructor to use FunkyAssSet in KrakenFisherman.
 	 * @param c
-	 * @param isOn 
+	 * @param isOn
 	 */
 	public FunkyAssSet(Collection<Ass> c, boolean isOn) {
 		super(c.size(), 0.75F);
-		this.isOnMask = isOn?4096:0;
+		this.onBit = isOn ? ON_BIT : 0;
 		addAll(c);
 	}
-	
-	/** Gets the Ass which has (Cell, value, and presumably this.isOn).
+
+	/**
+	 * Gets the Ass which has (Cell, value, and presumably this.isOn).
 	 * <p>
 	 * Specified by the {@code IAssSet} interface.
+	 *
 	 * @param cell the Cell
 	 * @param v the value
 	 * @return the complete Assumption, with ancestors.
 	 */
 	@Override
-	public Ass getAss(Grid.Cell cell, int v) {
-		// translate the cell and value into an Ass hashCode
-		return super.getAss(isOnMask ^ Hash.LSH8[v] ^ cell.hashCode);
+	public Ass getAss(Cell cell, int v) {
+		return getAss(cell.i, v);
+	}
+
+	/**
+	 * Gets the Ass which has (indice, value, and presumably this.isOn).
+	 * <p>
+	 * Specified by the {@code IAssSet} interface.
+	 *
+	 * @param indice the index of the cell in Grid.cells
+	 * @param v the value
+	 * @return the complete Assumption, with ancestors.
+	 */
+	@Override
+	public Ass getAss(int indice, int v) {
+		// translate indice and value into an Ass.hashCode
+		return super.getAss(onBit ^ SHFT_V[v] ^ indice);
 	}
 
 	/**

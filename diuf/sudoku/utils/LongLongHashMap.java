@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  *
  * Sudoku Explainer is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by the

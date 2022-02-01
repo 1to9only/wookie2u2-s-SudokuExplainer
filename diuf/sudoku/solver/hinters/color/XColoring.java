@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * This class is based on HoDoKu's SimpleColoring class, by Bernhard Hobiger,
@@ -30,39 +30,40 @@
  */
 package diuf.sudoku.solver.hinters.color;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.BUDDIES;
 import static diuf.sudoku.Grid.CELL_IDS;
-import static diuf.sudoku.Grid.CELLS_REGIONS;
-import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.RIBS;
 import static diuf.sudoku.Grid.VALUE_CEILING;
+import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.Idx;
 import static diuf.sudoku.Idx.IDX_SHFT;
-import diuf.sudoku.Indexes;
 import static diuf.sudoku.Indexes.INDEXES;
+import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
-import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.Validator;
+import static diuf.sudoku.solver.hinters.Validator.prevMessage;
+import static diuf.sudoku.solver.hinters.Validator.reportRedPots;
+import static diuf.sudoku.solver.hinters.Validator.reportSetPots;
 import diuf.sudoku.utils.Frmt;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import static diuf.sudoku.utils.Frmt.IN;
+import static diuf.sudoku.utils.Frmt.ON;
+import static diuf.sudoku.utils.Frmt.SP;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
-import static diuf.sudoku.utils.Frmt.IN;
-import static diuf.sudoku.utils.Frmt.ON;
-import diuf.sudoku.utils.Log;
-import static diuf.sudoku.utils.Frmt.SP;
-import java.util.LinkedHashSet;
+import static diuf.sudoku.solver.hinters.Validator.VALIDATE_XCOLORING;
+import static diuf.sudoku.solver.hinters.Validator.validOffs;
+import static diuf.sudoku.solver.hinters.Validator.validOns;
+import static java.lang.Integer.numberOfTrailingZeros;
 
 /**
  * XColoring implements the Extended Coloring Sudoku solving technique.
@@ -117,48 +118,64 @@ import java.util.LinkedHashSet;
  *
  * @author Keith Corlett 2021-02-27
  */
-public final class XColoring extends AHinter {
+public final class XColoring extends AHinter
+//		implements diuf.sudoku.solver.hinters.IReporter
+{
+//	@Override
+//	public void report() {
+//		diuf.sudoku.utils.Log.teeln(tech.name()+": COUNTS="+java.util.Arrays.toString(COUNTS));
+//	}
+//	private final long[] COUNTS = new long[10];
+
+	// 4.2: Do we seek multiple cells in a region are the same color.
+	// None in top1465, with "normal" Coloring first.
+	// nb: false just 50ms faster over top1465, which is undetectable in GUI.
+	private static final boolean DO_MULTIPLES = true;
 
 	/** The first and second colors. */
-	private static final int C1=0, C2=1;
+	private static final int GREEN=0, BLUE=1;
+	private static final String GREEN_TAG="green", BLUE_TAG="blue";
+	private static final String[] CC = {GREEN_TAG, BLUE_TAG}; // current color
+	private static final String[] OC = {BLUE_TAG, GREEN_TAG}; // opposite color
+
+	// the opposite color
+	private static final int[] OPPOSITE = {1, 0};
 
 	// the iceQ size and mask
 	private static final int Q_SIZE = 32;			// must be a power of 2
 	private static final int Q_MASK = Q_SIZE - 1;	// for this trick to work
 
-	// the opposite color
-	private static final int[] OPPOSITE = {1, 0};
-
-	// color names
-	private static final String GREEN="green", BLUE="blue";
-	private static final String[] CC = {GREEN, BLUE}; // this color
-	private static final String[] OC = {BLUE, GREEN}; // opposite color
-
 	// ============================== debug stuff =============================
 
-	// DEBUG=true prints the "coloring journey" to stdout.
-	private static final boolean DEBUG = false;
-	private static void debug(String s) {
-		if(DEBUG)System.out.println(s);
-	}
+//	// DEBUG=true prints the "coloring journey" to stdout.
+//	private static final boolean DEBUG = false;
+//	private static void debug(String s) {
+//		if(DEBUG)System.out.println(s);
+//	}
 
 	// ============================ instance stuff ============================
 
 	/** The grid to search. */
 	private Grid grid;
-
+	/** The cells in the grid to search. */
+	private Cell[] gridCells;
+	/** The regions in the grid to search. */
+	private ARegion[] gridRegions;
 	/** The indices of cells in grid which maybe each value 1..9. */
-	private Idx[] candidates;
+	private Idx[] gridIdxs;
 
 	/** The IAccumulator to which any hints found are added. */
 	private IAccumulator accu;
 
+	/** Should we accrue an explanation of coloring steps. */
+	private boolean wantWhy;
+
 	// Indice Color Element Queue:
 	// first index is the queue element index: 0..Q_SIZE-1
-	// second index is 0=indice(0..80), 1=color(0..1)
+	// second index is the color index, C1 or C2
 	private final int[][] iceQ = new int[Q_SIZE][];
 	// we reuse this ONE array to read the cells in an Idx
-	private final Cell[] cells = new Cell[81];
+	private final Cell[] myCells = new Cell[GRID_SIZE];
 	// we reuse this Pots rather than create one every time when we miss 99%.
 	private final Pots reds = new Pots();
 	// we reuse this Pots rather than create one every time when we miss 99%.
@@ -172,30 +189,62 @@ public final class XColoring extends AHinter {
 	// It's part of the hint-HTML.
 	private final StringBuilder steps = new StringBuilder(1024);
 
+	// it's faster to construct Idx's ONCE
+	// indices of cells which are this color
+	// * GREEN is 0 is the first color
+	// * BLUE is 1 is the second color
+	private final Idx green, blue;
+	private final Idx[] colorSets = {
+			  green = new Idx()
+			, blue = new Idx()
+	};
+	// both colors = colorSets[C1] | colorSets[C2]
+	private final Idx bothColors = new Idx();
+	// The Exception Cell, or X for short
+	private final Idx xSet = new Idx();
+	// buddies of this color | bothColors, and then it's reused for other stuff
+	private final Idx colorBuds = new Idx();
+	// the buddies of both colors
+	private final Idx tribe = new Idx();
+	// a temporary Idx: set, read, forget.
+	private final Idx tmp = new Idx();
+
+	// a bitset of indexes of regions that are "dirty", ergo a queue of regions
+	// to be reprocessed, added by search and read by pollDirtyRegions.
+	// NB: dirtyRegions finds 0 elims in top1465, so removed it, but take twice
+	// as long (a WTF), so I reinstated it, but it STILL takes twice. BIG WTF!
+	private int dirtyRegions;
+
 	public XColoring() {
 		super(Tech.XColoring);
 	}
 
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		// each hinter must enabled/disable itself to do it on the fly.
 		if ( !isEnabled ) {
 			return false;
 		}
 		this.grid = grid;
-		this.candidates = grid.idxs;
+		this.gridRegions = grid.regions;
+		this.gridCells = grid.cells;
+		this.gridIdxs = grid.idxs;
 		this.accu = accu;
+		// The batch doesn't want explanations. They're unused and slow.
+		this.wantWhy = Run.type != Run.Type.Batch;
 		boolean result;
 		try {
 			// find all/first X-Color hints
 			result = search();
 		} finally {
 			this.grid = null;
-			this.candidates = null;
+			this.gridRegions = null;
+			this.gridCells = null;
+			this.gridIdxs = null;
 			this.accu = null;
-			// each cell holds the whole grid, so forget all cells!
-			Arrays.fill(cells, null);
-			Cells.cleanCasA();
+			// each cell holds the whole grid
+			Arrays.fill(myCells, null);
+//			Cells.cleanCasA();
 		}
 		return result;
 	}
@@ -206,7 +255,7 @@ public final class XColoring extends AHinter {
 	 * @param s to append
 	 */
 	private void step(String s) {
-		debug(s);
+//		debug(s);
 		steps.append(s).append(NL);
 	}
 
@@ -218,15 +267,15 @@ public final class XColoring extends AHinter {
 	 * @return were any hint/s found?
 	 */
 	private boolean search() {
-		Cell cell; // If you need this explaining you're in the wrong codebase.
+		Cell cell; // If you need an explanation you're in the wrong codebase.
+		Idx buds; // an Idx of the buddies of the current cell.
 		AHint hint; // Similarly.
 		ARegion dr; // a dirty region, to be re-processed.
-		Indexes riv; // region.ridx[v]
 		Idx colorSet // current color (C1 or C2)
 		  , otherSet; // OPPOSITE color (C2 or C1)
-		int[] ice // indice color element: 0=indice, 1=color
-		    , rivs; // VALUESES[region.ridx[v].bits]
-		int r, w // iceQ read/write index
+		int[] ice // indice color element, indexes [indice][color]
+		    , riva; // VALUESES[region.ridx[v].bits]
+		int read, write // iceQ read/write index
 		  , i // the uniquitious general purpose index
 		  , n // the number of whatevers added to the array
 		  , a, b // the indices of the cells in this conjugate pair
@@ -235,81 +284,85 @@ public final class XColoring extends AHinter {
 		  , subtype // the hint type, if any
 		  , c // the indice into colorSet
 		  , o // the OPPOSITE_COLOR to c
-		  , oppositeColor // the other color
 		  , dri // dirty region index
 		  , resultColor; // the color to paint results in XColoringHintMulti
 		boolean any; // did we find any cells?
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach value
-		VALUES: for ( int v=1; v<VALUE_CEILING; ++v ) {
-			final int fsv = VSHFT[v]; // for lambda expressions. sigh.
-			debug(EMPTY_STRING);
-			debug(EMPTY_STRING);
-			debug("XColoring Value="+v);
-			debug("=================");
+		for ( int v=1; v<VALUE_CEILING; ++v ) {
+			final int fsv = VSHFT[v]; // finalShiftedValue, for lambdas. sigh.
+//			debug("");
+//			debug("");
+//			debug("XColoring Value="+v);
+//			debug("=================");
 			// foreach region in the grid
-			for ( ARegion region : grid.regions ) {
+			for ( ARegion r : gridRegions ) {
 				// with 2 places for v (ie a conjugate pair in region on v)
-				if ( (riv=region.ridx[v]).size == 2 ) {
+				if ( r.ridx[v].size == 2 ) {
 					// --------------------------------------------------------
 					// Step 1: Select a conjugate pair (the only two places for
 					// v in a region). Color the first C1, and second C2.
-					bothColors.set(region.idxs[v]);
+					bothColors.set(r.idxs[v]);
 					// region.ridx[v] contains 2 cells: 'a' and 'b'
 					// which we set in the 2 colorSets: green and blue
-					rivs = INDEXES[riv.bits];
-					colorSets[C1].clear().add(a = region.cells[rivs[0]].i);
-					colorSets[C2].clear().add(b = region.cells[rivs[1]].i);
-					debug(EMPTY_STRING);
-					debug("a="+a+", b="+b);
-					steps.setLength(0); // clear the steps string
-					step(Frmt.getSB(64).append("Step 1: Color conjugate pair: green=")
-					  .append(colorSets[C1].ids())
-					  .append(" and blue=").append(colorSets[C2].ids())
-					  .append(IN).append(region.id)
-					  .append(ON).append(v).toString());
+					riva = INDEXES[r.ridx[v].bits];
+					green.clear().add(a = r.cells[riva[0]].i);
+					blue.clear().add(b = r.cells[riva[1]].i);
+//					debug("");
+//					debug("a="+a+", b="+b);
+					if ( wantWhy ) {
+						steps.setLength(0); // clear the steps string
+						step(Frmt.getSB(64).append("Step 1: Color conjugate pair: green=")
+						  .append(green.ids())
+						  .append(" and blue=").append(blue.ids())
+						  .append(IN).append(r.id)
+						  .append(ON).append(v).toString());
+					}
 					// --------------------------------------------------------
 					// Step 2: Until no more new cells are colored, do:
 					// Find an uncolored conjugate of a colored cell
 					// and color it the OPPOSITE color.
 					any = false;
 					// initialise the Indice Color Element Queue
-					iceQ[0] = new int[]{a, C1};
-					iceQ[1] = new int[]{b, C2};
-					w = 2;
-					r = 0;
+					iceQ[0] = new int[]{a, GREEN};
+					iceQ[1] = new int[]{b, BLUE};
+					write = 2;
+					read = 0;
 					// nb: this is just iceQ.poll(), without a method call,
 					// which is the main reason why this mess is faster.
-					for ( ice=iceQ[r], iceQ[r]=null, r=(r+1)&Q_MASK;
+					for ( ice=iceQ[read], iceQ[read]=null, read=(read+1)&Q_MASK;
 						  ice!=null;
-						  ice=iceQ[r], iceQ[r]=null, r=(r+1)&Q_MASK
+						  ice=iceQ[read], iceQ[read]=null, read=(read+1)&Q_MASK
 					) {
 						// foreach region containing this cell
-						for ( ARegion rr : grid.cells[ice[0]].regions ) {
-							if ( rr.ridx[v].size == 2 ) {
-								// XColoring is first use of region.idxs
-								if ( rr.idxs[v].size() != 2 ) {
-									recover(rr, v);
-								}
+						for ( ARegion r2 : gridCells[ice[0]].regions ) {
+							if ( r2.ridx[v].size == 2 ) {
+//handle generate trouble, which has disappeared. I Still Have No Idea!
+//								// XColoring is first use of region.idxs
+//								if ( r2.idxs[v].size() != 2 ) {
+//									//recover(r2, v);
+//									throw new UnsolvableException();
+//								}
 								// and my conjugate is not colored
-								if ( !bothColors.has(conjugate=rr.idxs[v].otherThan(ice[0])) ) {
+								if ( !bothColors.has(conjugate=r2.idxs[v].otherThan(ice[0])) ) {
 									indice = ice[0];
 									color = ice[1];
-									step(Frmt.getSB(64).append("    Step 2: ")
-									  .append(CELL_IDS[indice]).append(" (")
-									  .append(CC[color]).append(") =conjugate=> ")
-									  .append(CELL_IDS[conjugate]).append(" (")
-									  .append(OC[color]).append(") in ")
-									  .append(rr.id).toString());
+									if ( wantWhy ) {
+										step(Frmt.getSB(64).append("    Step 2: ")
+										  .append(CELL_IDS[indice]).append(" (")
+										  .append(CC[color]).append(") =conjugate=> ")
+										  .append(CELL_IDS[conjugate]).append(" (")
+										  .append(OC[color]).append(") in ")
+										  .append(r2.id).toString());
+									}
 									// color it the OPPOSITE color
-									oppositeColor = OPPOSITE[color];
-									colorSets[oppositeColor].add(conjugate);
+									colorSets[OPPOSITE[color]].add(conjugate);
 									bothColors.add(conjugate);
 									// add this newly colored cell to the queue
-									iceQ[w]=new int[]{conjugate, oppositeColor};
-									w = (w+1) & Q_MASK;
-									assert w != r; // queue undersized
+									iceQ[write]=new int[]{conjugate, OPPOSITE[color]};
+									write = (write+1) & Q_MASK;
+									assert write != read; // queue undersized
 									any = true;
 								}
 							}
@@ -319,56 +372,64 @@ public final class XColoring extends AHinter {
 					// Step 3: Until no more new cells are colored, do: If all
 					// bar one (called X) v's in a region see cells of the same
 					// color then paint X with the SAME color.
-					// NOTE: Step 3 is the extension in Extended Colors, which
-					// is an extension of Weak Coloring, so we CAN'T paint the
+					// NB: Step 3 is the extension in Extended Colors, which is
+					// an extension of Weak Coloring, so we CAN'T paint the
 					// conjugate/s of X the opposite color, because that's not
 					// allways the case: if src(green)=>X(green) is always true
 					// but src(green)=>X(green)=conjugate=>blue is NOT ALWAYS
 					// TRUE (it's just logical, which I find REALLY confusing).
 					// If you conjugate then you get many more hints, but many
 					// of them (~40%) are invalid, and there commonality is
-					// relying on the X=>conjugate, so just don't try it, OK?
-					// I did and it doesn't! } finally { comment it }
+					// relying on the X=>conjugate, so don't try it. I did and
+					// it doesn't! } finally { comment it }
 					if ( any ) {
 						// foreach color
 						for ( c=0; c<2; ++c ) {
-							// uncolored cells= colorSet.BUDDIES | colorSet
-							bothBuds.set(colorSet=colorSets[c]);
-							colorSet.forEach((j)->bothBuds.or(BUDDIES[j]));
+							// tribe = colorSet | colorSet.BUDDIES
+							tribe.set(colorSet=colorSets[c]);
+							colorSet.forEach((j)->tribe.or(BUDDIES[j]));
 							dirtyRegions = 0;
 							// foreach region in the grid
-							for ( ARegion rgn : grid.regions ) {
-								if ( xSet.setAndNot(rgn.idxs[v], bothBuds).size() == 1 ) {
-									indice = xSet.peek(); // second peek returned -1; suspicious: peek should NOT be destructive, that's poll ya dummy!
-									step(Frmt.getSB(64).append("    Step 3: ")
-									  .append(CELL_IDS[indice])
-									  .append(" is the only place for ")
-									  .append(v).append(IN).append(rgn.id)
-									  .append(", so it's ").append(CC[c])
-									  .toString());
+							for ( ARegion r2 : gridRegions ) {
+								// if ONE uncolored v remains in region
+								if ( xSet.setAndNot(r2.idxs[v], tribe).size() == 1 ) {
+									indice = xSet.peek();
+									if ( wantWhy ) {
+										step(Frmt.getSB(64).append("    Step 3: ")
+										  .append(CELL_IDS[indice])
+										  .append(" is the only place for ")
+										  .append(v).append(IN).append(r2.id)
+										  .append(", so it's ").append(CC[c])
+										  .toString());
+									}
 									colorSet.or(xSet);
 									bothColors.or(xSet);
-									bothBuds.or(xSet).or(BUDDIES[indice]);
+									tribe.or(xSet).or(BUDDIES[indice]);
 									// enqueue cell.regions for reprocessing
-									dirtyRegions |= CELLS_REGIONS[indice];
+									dirtyRegions |= RIBS[indice];
 								}
-								// No need to reprocess this region
-								dirtyRegions &= ~IDX_SHFT[rgn.index];
+								// don't reprocess this region
+								dirtyRegions &= ~IDX_SHFT[r2.index];
 							}
 							// now reprocess the dirty regions, adding any new
 							// ones to the queue, until the queue is empty.
 							// 32 means dirtyRegions==0, ie the queue is empty.
 							while ( (dri=pollDirtyRegions()) != 32 ) {
-								if ( xSet.setAndNot((dr=grid.regions[dri]).idxs[v], bothBuds).size() == 1 ) {
-									step("    Step 3: "+CELL_IDS[xSet.peek()]
-										+" is the only place for "+v+" in DIRTY "+dr.id
-										+", so it's "+(c==0?"green":"blue"));
+								dr = gridRegions[dri];
+								// if ONE uncolored v remains in region
+								if ( xSet.setAndNot(dr.idxs[v], tribe).size() == 1 ) {
+									// UNTESTED: never get here in top1465!
+									indice = xSet.peek();
+									if ( wantWhy ) {
+										step("    Step 3: "+CELL_IDS[indice]
+											+" is the only place for "+v+" in "
+											+dr.id+", so it's "+CC[c]);
+									}
 									colorSet.or(xSet);
 									bothColors.or(xSet);
-									indice = xSet.peek();
-									bothBuds.or(xSet).or(BUDDIES[indice]);
+									tribe.or(xSet).or(BUDDIES[indice]);
 									// reprocess my regions, except this one
-									dirtyRegions |= CELLS_REGIONS[indice] & ~IDX_SHFT[dr.index];
+									dirtyRegions |= RIBS[indice] & ~IDX_SHFT[dr.index];
 								}
 							}
 						}
@@ -384,27 +445,32 @@ public final class XColoring extends AHinter {
 						// Step 4: Once all the coloring is done:
 						// 4.2 If multiple cells in a region are the same
 						//     color, then the OTHER color is true.
-						// NOTE: Type 2 is as rare as rocking horse s__t.
-						COLOR: for ( c=0; c<2; ++c ) {
-							o = OPPOSITE[c];
-							colorSet = colorSets[c];
-							otherSet = colorSets[o];
-							for ( ARegion rgn : grid.regions ) {
-								// nb: I'm hijacking xSet
-								if ( xSet.setAndMany(colorSet, rgn.idx) ) {
-									step(Frmt.getSB(64)
-									  .append("    Step 4.2: Multiple cells {")
-									  .append(xSet.ids()).append("} in ")
-									  .append(rgn.id).append(" are ").append(CC[c])
-									  .append(", which is invalid, so the ")
-									  .append(OC[c]).append(" set {")
-									  .append(otherSet.ids())
-									  .append("} must be true, ie ").append(v)
-									  .toString());
-									setPots.upsertAll(otherSet, grid, v);
-									resultColor = o;
-									subtype = 2; // Type 2
-									break COLOR; // first only
+						// NB: Type 2 is as rare as rocking horse s__t.
+						// None in top1465, with "normal" Coloring first.
+						if ( DO_MULTIPLES ) {
+							COLOR: for ( c=0; c<2; ++c ) {
+								o = OPPOSITE[c];
+								colorSet = colorSets[c];
+								otherSet = colorSets[o];
+								for ( ARegion r2 : gridRegions ) {
+									// nb: I'm hijacking xSet
+									if ( xSet.setAndMany(colorSet, r2.idx) ) {
+										if ( wantWhy ) {
+											step(Frmt.getSB(64)
+											  .append("    Step 4.2: Multiple cells {")
+											  .append(xSet.ids()).append("} in ")
+											  .append(r2.id).append(" are ").append(CC[c])
+											  .append(", which is invalid, so the ")
+											  .append(OC[c]).append(" set {")
+											  .append(otherSet.ids())
+											  .append("} must be true, ie ").append(v)
+											  .toString());
+										}
+										setPots.upsertAll(otherSet, grid, v);
+										resultColor = o;
+										subtype = 2; // Type 2
+										break COLOR; // first only
+									}
 								}
 							}
 						}
@@ -413,75 +479,84 @@ public final class XColoring extends AHinter {
 							//     cells of the same color, then the OTHER
 							//     color is true.
 							COLOR: for ( c=0; c<2; ++c ) { // GREEN, BLUE
-								o = OPPOSITE[c];
 								colorSet = colorSets[c];
-								otherSet = colorSets[o];
-								// buddies of THIS color
+								otherSet = colorSets[OPPOSITE[c]];
+								// colorBuds := cells seen by the colorSet
 								colorBuds.clear();
 								colorSet.forEach((j)->colorBuds.or(BUDDIES[j]));
-								for ( ARegion rgn : grid.regions )
-									// hijack xSet
-									if ( xSet.setAnd(colorBuds, rgn.idxs[v]).any()
-									  && xSet.size() == rgn.ridx[v].size ) {
-										step(Frmt.getSB(64)
-										  .append("    Step 4.3: ALL cells in ")
-										  .append(rgn.id).append(" which maybe ")
-										  .append(v).append(" {")
-										  .append(rgn.idxs[v].ids())
-										  .append("} see a ").append(CC[c])
-										  .append(SP).append(v)
-										  .append(", which is invalid, so the ")
-										  .append(OC[c]).append(" set {")
-										  .append(otherSet.ids())
-										  .append("} must be true, ie ")
-										  .append(v).toString());
-										setPots.upsertAll(otherSet, grid, v);
-										for ( int x : xSet.toArrayA() ) {
-											int dest = tmp.setAnd(colorSet, BUDDIES[x]).poll();
-											oranges.put(grid.cells[x], fsv);
-											links.add(new Link(x, v, dest, v));
+								for ( ARegion r2 : gridRegions ) {
+									// if ALL v's in r2 see this colored cells
+									if ( xSet.setAndAny(colorBuds, r2.idxs[v])
+									  && xSet.size() == r2.ridx[v].size ) {
+										if ( wantWhy ) {
+											step(Frmt.getSB(64)
+											  .append("    Step 4.3: ALL cells in ")
+											  .append(r2.id).append(" which maybe ")
+											  .append(v).append(" {")
+											  .append(r2.idxs[v].ids())
+											  .append("} see a ").append(CC[c])
+											  .append(SP).append(v)
+											  .append(", which is invalid, so the ")
+											  .append(OC[c]).append(" set {")
+											  .append(otherSet.ids())
+											  .append("} must be true, ie ")
+											  .append(v).toString());
+											// batch no use oranges/links
+											// nb: lambda is too painful.
+											try ( final IALease lease = xSet.toArrayLease() ) {
+												for ( int s : lease.array ) {
+													oranges.put(gridCells[s], fsv);
+													// first (random) bud is ok
+													links.add(new Link(s, v, tmp.setAnd(colorSet, BUDDIES[s]).poll(), v));
+												}
+											}
 										}
-										resultColor = o;
+										setPots.upsertAll(otherSet, grid, v);
+										resultColor = OPPOSITE[c];
 										subtype = 3;
 										break COLOR; // first only
 									}
+								}
 							}
 							if ( subtype == 0 ) {
 								// 4.1 If a cell sees both GREEN and BLUE,
 								//     then exclude v from this cell.
-								// get cells = all uncolored v's in grid.
-								n = xSet.setAndNot(candidates[v], bothColors)
-										.cellsN(grid, cells);
-								// foreach uncolored v in grid
-								for ( i=0; i<n; ++i ) {
-									cell = cells[i];
-									// if cell sees both GREEN and BLUE
-									if ( cell.buds.intersects(colorSets[C1])
-									  && cell.buds.intersects(colorSets[C2]) ) {
-										step("    Step 4.1: cell "+cell.id+" sees"
-											+" BOTH green={"+tmp.setAnd(cell.buds, colorSets[C1]).ids()+"}"
-											+" and blue={"+tmp.setAnd(cell.buds, colorSets[C2]).ids()+"}");
-										reds.put(cell, fsv);
-										subtype = 1; // Type 1 (type not reported)
+								// myCells := all uncolored v's in grid.
+								if ( xSet.setAndNotAny(gridIdxs[v], bothColors) ) {
+									n = xSet.cellsN(grid, myCells);
+									// foreach uncolored v in grid
+									for ( i=0; i<n; ++i ) {
+										// if cell sees both GREEN and BLUE
+										if ( (buds=(cell=myCells[i]).buds).intersects(green)
+										  && buds.intersects(blue) ) {
+											if ( wantWhy ) {
+												step("    Step 4.1: cell "+cell.id+" sees"
+													+" BOTH green={"+tmp.setAnd(buds, green).ids()+"}"
+													+" and blue={"+tmp.setAnd(buds, blue).ids()+"}");
+											}
+											reds.put(cell, fsv);
+											subtype = 1; // Type 1 (type not reported)
+										}
 									}
 								}
 							}
 						}
 						// create the hint, if any
 						if ( subtype != 0 ) {
+// XColoring: COUNTS=[0, 229, 0, 39, 0, 0, 0, 0, 0, 0]
+// There are 0 Type 2's
+//							++COUNTS[subtype];
 							boolean ok = true;
 							// Type 2 or Type 3: Set multiple cells (rare).
-							if ( subtype==2 || subtype==3 ) {
-								hint = new XColoringHintBig(this, v
-									, subtype
-									// deep-copy-off the Idx[] array, for reuse
-									, new Idx[]{new Idx(colorSets[0]), new Idx(colorSets[1])}
-									, xSet.toCellSet(grid)
+							if ( subtype==3 || subtype==2 ) {
+								hint = new XColoringHintBig(this, v, subtype
+									, new Idx[]{new Idx(green), new Idx(blue)}
+									, xSet.toCellSet(gridCells)
 									, resultColor
 									, steps.toString() // coloring steps which built this hint
 									, new Pots(setPots) // copy-off for reuse
-									, new Pots(colorSets[0].cellsA(grid), v)
-									, new Pots(colorSets[1].cellsA(grid), v)
+									, new Pots(green, grid, VSHFT[v], DUMMY)
+									, new Pots(blue, grid, VSHFT[v], DUMMY)
 									, new LinkedList<>(links) // copy-off for reuse
 									, new Pots(oranges) // Type 3 causal cell-values
 									, null // region
@@ -491,11 +566,11 @@ public final class XColoring extends AHinter {
 								setPots.clear();
 								links.clear();
 								oranges.clear();
-								if ( Validator.XCOLORING_VALIDATES ) {
-									if ( !Validator.isValidSetPots(grid, setPots) ) {
-										hint.isInvalid = true;
-										Validator.reportSetPots(tech.name()+"Multi", grid, Validator.invalidity, hint.toFullString());
-										hint.invalidity = Validator.prevMessage;
+								if ( VALIDATE_XCOLORING ) {
+									if ( !validOns(grid, setPots) ) {
+										hint.setIsInvalid(true);
+										hint.invalidity = prevMessage;
+										reportSetPots(tech.name()+"Multi", grid, prevMessage, hint.toFullString());
 										if ( Run.type != Run.Type.GUI ) {
 											ok = false;
 										}
@@ -503,14 +578,20 @@ public final class XColoring extends AHinter {
 								}
 							// Type 1: Eliminations are common.
 							} else {
-								hint = createHintType1(v);
+								hint = new XColoringHint(this, v, reds.copyAndClear()
+									, new Pots(green, grid, VSHFT[v], DUMMY) // greens
+									, new Pots(blue, grid, VSHFT[v], DUMMY) // blues
+									, new Idx[] {new Idx(green), new Idx(blue)}
+									, steps.toString()
+									, null
+								);
 								// clear fields
 								steps.setLength(0);
-								if ( Validator.XCOLORING_VALIDATES ) {
-									if ( !Validator.isValid(grid, reds) ) {
-										hint.isInvalid = true;
-										Validator.report(tech.name(), grid, hint.toFullString());
-										hint.invalidity = Validator.prevMessage;
+								if ( VALIDATE_XCOLORING ) {
+									if ( !validOffs(grid, reds) ) {
+										hint.setIsInvalid(true);
+										hint.invalidity = prevMessage;
+										reportRedPots(tech.name(), grid, hint.toFullString());
 										// Show in GUI, hide in batch/testcases
 										if ( Run.type != Run.Type.GUI ) {
 											ok = false;
@@ -520,14 +601,14 @@ public final class XColoring extends AHinter {
 							}
 							// add the hint to this accumulator
 							if ( ok ) {
-								debug("    ADDING hint: "+hint.toFullString());
+//								debug("    ADDING hint: "+hint.toFullString());
 								result = true;
 								if ( accu.add(hint) ) {
 									return result;
 								}
 							}
-							// Skip rest of v coz all hints are same, AFAIK
-							continue VALUES; // even if not OK
+							// Same hint from all regions, AFAIK, so next value
+							break; // the region loop, even if not OK
 						}
 					}
 				}
@@ -535,69 +616,31 @@ public final class XColoring extends AHinter {
 		}
 		return result;
 	}
-	// it's faster to construct Idx's ONCE
-	// indices of cells which are this color
-	// * C1 is 0 is colorA is green
-	// * C2 is 1 is colorB is blue
-	private final Idx[] colorSets = {new Idx(), new Idx()};
-	// both colors = colorSets[C1] | colorSets[C2]
-	private final Idx bothColors = new Idx();
-	// The Exception Cell, or X for short
-	private final Idx xSet = new Idx();
-	// buddies of this color | bothColors, and then it's reused for other stuff
-	private final Idx colorBuds = new Idx();
-	// the buddies of both colors
-	private final Idx bothBuds = new Idx();
-	// a temporary Idx: set, read, forget.
-	private final Idx tmp = new Idx();
-
-	// a bitset of indexes of regions that are "dirty", ergo a queue of regions
-	// to be reprocessed, used by findXColorHints (above) and poll (below).
-	// NOTE: we use just a 32 bit int because there's only 27 regions.
-	private int dirtyRegions;
 
 	// poll the dirtyRegions bitset: remove and return it's first set (1) bit.
 	private int pollDirtyRegions() {
 		int x = dirtyRegions & -dirtyRegions; // lowestOneBit
 		dirtyRegions &= ~x; // remove x
-		return Integer.numberOfTrailingZeros(x);
+		return numberOfTrailingZeros(x);
 	}
 
-	// trouble in paradise: the ridx[v].size==2 but idxs[v].size()!=2
-	// so for a start reindex this region, if that doesn't fix it reindex
-	// the whole bloody grid, and if that still doesn't fix it then give up.
-	private void recover(final ARegion r, final int v) {
-		r.rebuildAllS__t();
-		if ( r.ridx[v].size == 2
-		  && r.idxs[v].size() != 2 ) { // TROUBLE
-			grid.rebuild();
-		}
-		if ( r.ridx[v].size == 2
-		  && r.idxs[v].size() != 2 ) { // FMS.
-			StdErr.exit(Log.me()+": Unrecoverable!");
-		}
-	}
-	
-	// create an eliminations hint
-	private XColoringHint createHintType1(final int v) {
-		final Pots greens = new Pots(colorSets[0].cellsA(grid), v);
-		final Pots blues = new Pots(colorSets[1].cellsA(grid), v);
-		final Pots[] potss = new Pots[] {greens, blues};
-		final Collection<Link> myLinks = new LinkedHashSet<>();
-		reds.entrySet().forEach((e) -> {
-			final int d = e.getKey().i;
-			final int zs = e.getValue();
-			for ( Pots pots : potss )
-				for ( int z : VALUESES[zs] ) 
-					pots.keySet().stream()
-						.filter((s)->s.sees[d])
-						.forEach((s)->myLinks.add(new Link(s.i, z, d, z)));
-		});
-		final Idx[] myColorSets = new Idx[] {
-			new Idx(colorSets[0]), new Idx(colorSets[1])
-		};
-		return new XColoringHint(this, v, reds.copyAndClear()
-			, greens, blues, myColorSets, steps.toString(), myLinks);
-	}
+//either try to recover first, or just throw yourself
+//	// trouble in paradise: the ridx[v].size==2 but idxs[v].size()!=2
+//	// so for a start reindex this region, if that doesn't fix it reindex
+//	// the whole bloody grid, and if that still doesn't fix it then give up.
+//	private void recover(final ARegion r, final int v) {
+//		// TROUBLE
+//		r.rebuildAllS__t();
+//		if ( r.ridx[v].size == 2
+//		  && r.idxs[v].size() != 2 ) {
+//		    // STILL TROUBLE
+//			grid.rebuild();
+//		}
+//		if ( r.ridx[v].size == 2
+//		  && r.idxs[v].size() != 2 ) {
+//		    // TOTALLY ROOTED
+//			throw new UnsolvableException(); // which stops the batch
+//		}
+//	}
 
 }

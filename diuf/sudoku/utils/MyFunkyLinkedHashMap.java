@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -69,26 +69,25 @@ public final class MyFunkyLinkedHashMap<K,V> extends MyLinkedHashMap<K,V> {
 	 * Gets the Ass with the given hashCode from this Map, or null.
 	 * <p>
 	 * Note that getAss only works on a Map of Ass. Trying to getAss from
-	 * a Collection of Sheep is nonsensical, so leave it to the Kiwis.
+	 * a Collection of Sheep is nonsensical. Leave it to the Kiwis.
 	 * <pre>
 	 * WARN: This method will throw type-cast-exceptions unless the
 	 *     generic type K is-or-extends {@link diuf.sudoku.Ass}
-	 * NB: This method need only be package-visible coz it's exposed by
-	 *     {@link MyFunkyLinkedHashSet#getAss}, which is public.
+	 * NB: EVERY assumption has a unique hashCode, so hashCode serves as
+	 *     identity, so there's no need to call Ass.equals, which JUST
+	 *     compares the two hashCodes!
 	 * NB: requires Ass.hashCode field be public rather than wear the cost
 	 *     of invoking hashCode() for each entry in this bucket.
-	 *     EVERY invocation does you damage.
+	 *     EVERY invocation does you damage. Extranious stackwork adds-up.
+	 * NB: This method need only be package-visible coz it's exposed by
+	 *     {@link MyFunkyLinkedHashSet#getAss}, which is public.
 	 * </pre>
 	 *
-	 * @param hashCode your ass.hashCode (see {@link Ass#hashCode}.
+	 * @param hc your ass.hashCode (see {@link Ass#hashCode}).
 	 */
-	V getAss(final int hashCode) {
-		// nb: hash in-line was slower. Why I know not.
-		final int hash = hash(hashCode);
-		final int i = hash & mask;
-		for ( MyHashMap.Entry<K,V> e=table[i]; e!=null; e=e.next )
-			// note that Ass.equals method just equates hashCodes
-			if ( e.hash==hash && ((Ass)e.key).hashCode==hashCode )
+	V getAss(final int hc) {
+		for ( MyHashMap.Entry<K,V> e=table[hash(hc) & mask]; e!=null; e=e.next )
+			if ( ((Ass)e.key).hashCode == hc )
 				return e.value;
 		return null;
 	}

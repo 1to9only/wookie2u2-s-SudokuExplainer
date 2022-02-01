@@ -84,7 +84,7 @@ class BigWingsHint extends AHint  {
 //		if ( degree<3 || degree>7 ) {
 //			Log.teeln("WARN: "+Log.me()+": degree "+degree+" not in 3..7");
 //		}
-		this.alsCells = alsCells; // copy reused array
+		this.alsCells = alsCells; // this is MY array 
 		// all cells = als cells + the biv cell
 		final int n = alsCells.length;
 		this.all = new Cell[n+1];
@@ -120,11 +120,9 @@ class BigWingsHint extends AHint  {
 	}
 
 	private void link(final int v, final Collection<Link> result) {
-		for ( Cell c : alsCells ) {
-			if ( c.maybe(v) ) {
+		for ( Cell c : alsCells )
+			if ( c.maybe(v) )
 				result.add(new Link(biv, v, c, v));
-			}
-		}
 	}
 
 	@Override
@@ -199,7 +197,7 @@ class BigWingsHint extends AHint  {
 		// use the Cell.hashCode field instead of calling hashCode()
 		int hc = 0;
 		for ( Cell c : all ) {
-			hc ^= c.hashCode;
+			hc ^= c.i;
 		}
 		return hc;
 	}

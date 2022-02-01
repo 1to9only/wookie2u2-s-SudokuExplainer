@@ -130,7 +130,7 @@ class BigWingHint extends AHint  {
 		// use the Cell.hashCode field instead of calling hashCode()
 		int hc = 0;
 		for ( Cell c : all )
-			hc ^= c.hashCode;
+			hc ^= c.i;
 		return hc;
 	}
 

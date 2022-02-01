@@ -5,6 +5,7 @@ import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
@@ -19,7 +20,6 @@ import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.MyLinkedList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -30,8 +30,8 @@ public class LockingGenHint extends AHint implements IChildHint {
 	// the cells which maybe value in this region
 	private final Cell[] cells;
 	// the locking candidate value
-	private final int value;
-	// the region
+	private final int lockingValue;
+	// the region in which we found this hint (ie the base)
 	private final ARegion region;
 
 	/**
@@ -41,21 +41,21 @@ public class LockingGenHint extends AHint implements IChildHint {
 	 * @param reds the removable (red) Cell=&gt;Values
 	 * @param cells region.atNew(region.ridx[value].bits) note that I
 	 *  store the given cell array, so you must pass me a new array
-	 * @param value the locking candidate value
+	 * @param lockingValue the locking candidate value
 	 * @param region the region we found this hint in, ie the region we claim
 	 *  for (not the region we claim from).
 	 */
 	public LockingGenHint(AHinter hinter, Pots reds, Cell[] cells
-			, int value, ARegion region) {
+			, int lockingValue, ARegion region) {
 		super(hinter, reds);
 		this.cells = cells;
-		this.value = value;
+		this.lockingValue = lockingValue;
 		this.region = region;
 	}
 
 	@Override
 	public Pots getGreens(int viewNum) {
-		return new Pots(value, cells); // cells which maybe value
+		return new Pots(cells, lockingValue); // cells which maybe value
 	}
 
 	@Override
@@ -65,7 +65,7 @@ public class LockingGenHint extends AHint implements IChildHint {
 
 	@Override
 	public ARegion[] getCovers() {
-		return Regions.array(Regions.otherCommon(cells, region));
+		return Regions.array(Regions.otherCommon(new Idx(cells), region));
 	}
 
 	public Cell[] getSelectedCells() {
@@ -85,11 +85,11 @@ public class LockingGenHint extends AHint implements IChildHint {
 	@Override
 	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid, IAssSet parentOffs) {
 		MyLinkedList<Ass> result = new MyLinkedList<>();
-		for ( int i : INDEXES[region.ridx[value].bits] ) {
-			Cell cell = region.cells[i];
-			if ( initGrid.cells[cell.i].maybe(value)
-			  && !currGrid.cells[cell.i].maybe(value) )
-				result.add(parentOffs.getAss(cell, value));
+		for ( int i : INDEXES[region.ridx[lockingValue].bits] ) {
+			final Cell c = region.cells[i];
+			if ( initGrid.cells[c.i].maybe(lockingValue)
+			  && !currGrid.cells[c.i].maybe(lockingValue) )
+				result.add(parentOffs.getAss(c, lockingValue));
 		}
 		return result;
 	}
@@ -104,32 +104,30 @@ public class LockingGenHint extends AHint implements IChildHint {
 
 	@Override
 	public int hashCode() {
-		return cells[0].hashCode();
+		return cells[0].i;
 	}
 
 	public String getClueHtml(Grid grid, boolean isBig) {
 		String s = "Look for a "+getHintTypeName();
 		if ( !isBig )
 			return s;
-		return s+ON+value+IN+region.id;
+		return s+ON+lockingValue+IN+region.id;
 	}
 
 	@Override
 	public String toStringImpl() {
 		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(Frmu.ssv(cells)).append(ON).append(value)
+		  .append(Frmu.ssv(cells)).append(ON).append(lockingValue)
 		  .append(IN).append(region.id)
 		  .toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
-		return Html.produce(
-				  this
-				, "LockingGenHint.html"
-				, region.id
-				, Integer.toString(value)
-				, getHintTypeName()
+		return Html.produce(this, "LockingGenHint.html"
+				, region.id							//{0}
+				, Integer.toString(lockingValue)	// 1
+				, getHintTypeName()					// 2
 		);
 	}
 

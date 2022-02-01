@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
@@ -10,15 +10,17 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
+import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.Validator;
+import static diuf.sudoku.solver.hinters.Validator.prevMessage;
 import diuf.sudoku.utils.Frmt;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.CSP;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -32,7 +34,7 @@ public class XColoringHint extends AHint  {
 	private final String greenCells; // ids of the green cells
 	private final String blueCells;
 	private final String steps;
-	private final Collection<Link> links;
+	private Collection<Link> links;
 	public XColoringHint(AHinter hinter, int v, Pots reds, Pots greens
 			, Pots blues, Idx[] colorSet, String steps, Collection<Link> links
 	) {
@@ -42,8 +44,8 @@ public class XColoringHint extends AHint  {
 			this.greenCells = colorSet[0].ids();
 			this.blueCells = colorSet[1].ids();
 		} else {
-			this.greenCells = greens.cells();
-			this.blueCells = blues.cells();
+			this.greenCells = greens.ids();
+			this.blueCells = blues.ids();
 		}
 		this.steps = steps;
 		this.links = links;
@@ -66,7 +68,24 @@ public class XColoringHint extends AHint  {
 
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
-		return links;
+		// links is not null if it was set by Medusa3D (builds it's own) or if
+		// XColoring has already getLinks'd; to save us from generating unused
+		// links in XColoring in the batch.
+		if ( links != null )
+			return links;
+		// find the XColoring links (never Medusa3D)
+		final Collection<Link> myLinks = new LinkedHashSet<>();
+		final Pots[] potss = new Pots[] {greens, blues};
+		reds.entrySet().forEach((e) -> {
+			final int d = e.getKey().i;
+			final int zs = e.getValue();
+			for ( Pots pots : potss )
+				for ( int z : VALUESES[zs] )
+					pots.keySet().stream()
+						.filter((s)->s.sees[d])
+						.forEach((s)->myLinks.add(new Link(s.i, z, d, z)));
+		});
+		return links = myLinks;
 	}
 
 	@Override
@@ -97,7 +116,7 @@ public class XColoringHint extends AHint  {
 		sb.append("<html><body>").append(NL);
 		if ( isInvalid )
 			sb.append("<h2>").append("<r>INVALID</r> ").append(htmlHintTypeName()).append("</h2>").append(NL)
-			  .append("<k><b>").append(Validator.prevMessage).append("</b></k><p>").append(NL);
+			  .append("<k><b>").append(prevMessage).append("</b></k><p>").append(NL);
 		else
 			sb.append("<h2>").append(htmlHintTypeName()).append("</h2>").append(NL);
 	    sb.append("There are two extended coloring sets on ").append(v).append(":<pre>").append(NL)

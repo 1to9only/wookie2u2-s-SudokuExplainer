@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.wing;
@@ -10,7 +10,6 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Values;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.Ass;
 import static diuf.sudoku.Grid.VALUE_CEILING;
@@ -30,12 +29,10 @@ import diuf.sudoku.utils.MyLinkedList;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.and;
 import static diuf.sudoku.utils.Frmt.CSP;
 
-
 /**
- * XW-Wing and XYZ-Wing hints
+ * The DTO for XY-Wing and XYZ-Wing hints.
  */
 public final class XYWingHint extends AHint implements IChildHint {
 
@@ -43,25 +40,19 @@ public final class XYWingHint extends AHint implements IChildHint {
 	private final Cell xy;
 	private final Cell xz;
 	private final Cell yz;
-	private final int zValue;
+	private final int x, y, z;
 	private Collection<Link> links;
 
-	public XYWingHint(XYWing hinter, Pots redPots, boolean isXYZ
-			, Cell xy, Cell xz, Cell yz, int zValue) {
-		super(hinter, redPots);
+	public XYWingHint(final XYWing hinter, final Pots reds, final boolean isXYZ
+			, final Cell xy, final Cell xz, final Cell yz, final int z) {
+		super(hinter, reds);
 		this.isXYZ = isXYZ;
 		this.xy = xy; // XYZ-Wing=3, XY-Wing=2 values
 		this.xz = xz; // allways 2 values
 		this.yz = yz; // allways 2 values
-		this.zValue = zValue;
-	}
-
-	private int x() {
-		return VFIRST[xz.maybes & ~VSHFT[zValue]];
-	}
-
-	private int y() {
-		return VFIRST[yz.maybes & ~VSHFT[zValue]];
+		this.x = VFIRST[xz.maybes & ~VSHFT[z]];
+		this.y = VFIRST[yz.maybes & ~VSHFT[z]];
+		this.z = z;
 	}
 
 	@Override
@@ -75,13 +66,14 @@ public final class XYWingHint extends AHint implements IChildHint {
 	}
 
 	@Override
-	public Pots getGreens(int viewNum) {
+	public Pots getGreens(int notUsed) {
 		if ( greenPots == null ) {
 			Pots pots = new Pots();
-			// the z value is green (xy is orange)
-			pots.put(xy, VSHFT[zValue]);
-			pots.put(xz, VSHFT[zValue]);
-			pots.put(yz, VSHFT[zValue]);
+			// z in xyz is green (xy is orange), and z is not in xy
+			if ( isXYZ )
+				pots.put(xy, VSHFT[z]);
+			pots.put(xz, VSHFT[z]);
+			pots.put(yz, VSHFT[z]);
 			greenPots = pots;
 		}
 		return greenPots;
@@ -89,24 +81,23 @@ public final class XYWingHint extends AHint implements IChildHint {
 	private Pots greenPots;
 
 	@Override
-	public Pots getOranges(int viewNum) {
+	public Pots getOranges(int notUsed) {
 		if ( orangePots == null ) {
-			orangePots = new Pots(xy, xy.maybes, false);
-			orangePots.put(xz, VSHFT[x()]);
-			orangePots.put(yz, VSHFT[y()]);
+			// remove z from xyz, coz it's green (z not in xy, so no effect).
+			orangePots = new Pots(xy, xy.maybes & ~VSHFT[z], false);
+			orangePots.put(xz, VSHFT[x]);
+			orangePots.put(yz, VSHFT[y]);
 		}
 		return orangePots;
 	}
 	private Pots orangePots;
 
 	@Override
-	public Collection<Link> getLinks(int viewNum) {
+	public Collection<Link> getLinks(int notUsed) {
 		try {
 			if ( links == null ) {
 				links = new ArrayList<>(2);
-				int x = x();
 				links.add(new Link(xy, x, xz, x));
-				int y = y();
 				links.add(new Link(xy, y, yz, y));
 			}
 			return links;
@@ -127,14 +118,14 @@ public final class XYWingHint extends AHint implements IChildHint {
 	 * @return a LinkedList of Assumption as a Deque.
 	 */
 	@Override
-	public MyLinkedList<Ass> getParents(Grid initGrid, Grid currGrid
-			, IAssSet prntOffs) {
+	public MyLinkedList<Ass> getParents(final Grid initGrid, final Grid currGrid
+			, final IAssSet prntOffs) {
 		final Cell[] ic = initGrid.cells; // initialCell
 		// the bitsets representing the maybes that've been removed.
 		final int rmvdXy = ic[xy.i].maybes & ~xy.maybes;
 		final int rmvdXz = ic[xz.i].maybes & ~xz.maybes;
 		final int rmvdYz = ic[yz.i].maybes & ~yz.maybes;
-		MyLinkedList<Ass> result = new MyLinkedList<>();
+		final MyLinkedList<Ass> result = new MyLinkedList<>();
 		// parents := Asses at the indexes of the removed-bits.
 		if ( rmvdXy!=0 || rmvdXz!=0 || rmvdYz!=0 ) {
 			int v, sv; // value, shiftedValue
@@ -149,10 +140,10 @@ public final class XYWingHint extends AHint implements IChildHint {
 	}
 
 	@Override
-	public String getClueHtmlImpl(boolean isBig) {
+	public String getClueHtmlImpl(final boolean isBig) {
 		 String s = "Look for a " + getHintTypeName();
 		 if ( isBig )
-			 s += ON+x()+CSP+y()+AND+"<b>"+zValue+"</b>";
+			 s += ON+x+CSP+y+AND+"<b>"+z+"</b>";
 		return s;
 	}
 
@@ -160,41 +151,35 @@ public final class XYWingHint extends AHint implements IChildHint {
 	public String toStringImpl() {
 		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
 		  .append(Frmu.csv(xy, xz, yz))
-		  .append(ON).append(zValue).toString();
+		  .append(ON).append(z).toString();
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		final String filename = isXYZ ? "XYZWingHint.html" : "XYWingHint.html";
 		return Html.produce(this, filename
-				, xy.id		// {0}
-				, xz.id		//  1
-				, yz.id		//  2
-				, zValue	//  3
-				, x()		//  4
-				, y()		//  5
-				, reds.toString() // 6
+				, xy.id				//{0}
+				, xz.id				// 1
+				, yz.id				// 2
+				, z					// 3
+				, x					// 4
+				, y					// 5
+				, reds.toString()	// 6
 		);
 	}
 
 	@Override
 	public boolean equals(Object o) {
-		if (!(o instanceof XYWingHint))
-			return false;
-		XYWingHint other = (XYWingHint)o;
-		if (this == other)
-			return true;
-		if (isXYZ != other.isXYZ)
-			return false;
-		if (zValue != other.zValue)
-			return false;
-		if (xy != other.xy)
-			return false;
-		if (xz != other.xz && xz != other.yz)
-			return false;
-		if (yz != other.xz && yz != other.yz)
-			return false;
-		return true;
+		return o instanceof XYWingHint
+			&& equals((XYWingHint)o);
+	}
+	public boolean equals(final XYWingHint o) {
+		return this == o
+			|| ( isXYZ == o.isXYZ
+			  && z == o.z
+			  && xy == o.xy
+			  && (xz == o.xz || xz == o.yz)
+			  && (yz == o.xz || yz == o.yz) );
 	}
 
 	@Override
@@ -202,14 +187,9 @@ public final class XYWingHint extends AHint implements IChildHint {
 		if ( hashCode == 0 ) {
 			// I guess that the zValue will be almost deterministic by itself,
 			// which is a value 1..9 (ie 4 bits), so leftshift the rest 4 bits.
-			// Then Cell.hashCode=Grid.LSH4[y]^x; and x is 0..8 (4 bits) so we
-			// left shift the rest another 4 bits each. Hope it's uniqie enough.
-			// 1,2,4,8,16,32,64,128,256,512,1024,2048
-			// 1 2 3 4  5  6  7   8   9  10   11   12
-			hashCode = zValue
-			   ^ (xy.hashCode()<<4)
-			   ^ (xz.hashCode()<<8)
-			   ^ (yz.hashCode()<<12);
+			// Then Cell.i left shift the rest another 4 bits each. Hope it's
+			// unique enough.
+			hashCode = (yz.i<<12) ^ (xz.i<<8) ^ (xy.i<<4) ^ z;
 		}
 		return hashCode;
 	}

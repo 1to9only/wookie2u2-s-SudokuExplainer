@@ -1,17 +1,18 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.align2;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import static diuf.sudoku.Grid.BUDDIES;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.GRID_SIZE;
 import diuf.sudoku.Idx;
+import static diuf.sudoku.Idx.MAYBES_VISITOR;
+import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Run;
 import static diuf.sudoku.Settings.THE_SETTINGS;
@@ -23,7 +24,7 @@ import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.Validator;
+import static diuf.sudoku.solver.hinters.Validator.*;
 import diuf.sudoku.utils.MyArrays;
 import static diuf.sudoku.utils.Frmt.MINUS;
 // JAPI
@@ -145,7 +146,7 @@ import java.util.LinkedHashSet;
  * The old version is still SHIP-LOADS faster!
  * We're down two Pents, which I presume explains why we're up two Hexs.
  * -- old benchmark --
- *         time (ns)  calls   time/call  elims       time/elim hinter
+ *          time(ns)  calls   time/call  elims       time/elim hinter
  *    73,723,230,400   4372  16,862,587     68   1,084,165,152 Aligned Pent
  *    15,640,636,400   4315   3,624,712      1  15,640,636,400 Aligned Hex
  *    22,960,919,200   4314   5,322,419      5   4,592,183,840 Aligned Sept
@@ -271,7 +272,7 @@ import java.util.LinkedHashSet;
  * @author Keith Corlett 2020-12-10 created
  */
 public class AlignedExclusion extends AHinter
-implements diuf.sudoku.solver.hinters.IPreparer
+implements diuf.sudoku.solver.hinters.IPrepare
 //		, diuf.sudoku.solver.hinters.IReporter
 		, diuf.sudoku.solver.hinters.IAfter
 {
@@ -442,7 +443,7 @@ implements diuf.sudoku.solver.hinters.IPreparer
 
 	/**
 	 * We prepare after puzzle is loaded, and before the first findHints.
-	 * The prepare method is defined by the IPreparer interface.
+	 * The prepare method is defined by the IPrepare interface.
 	 *
 	 * @param grid
 	 * @param logicalSolver
@@ -450,7 +451,7 @@ implements diuf.sudoku.solver.hinters.IPreparer
 	@Override
 	public void prepare(Grid grid, LogicalSolver logicalSolver) {
 		nonHinters.clear();
-		Validator.clear();
+		clearValidator();
 		// the next getHints will be the firstPass through this puzzle,
 		// to speed-up NonHinters.skip.
 		firstPass = true;
@@ -465,7 +466,7 @@ implements diuf.sudoku.solver.hinters.IPreparer
 		Arrays.fill(excls, null);
 		for ( int i=0; i<degree; ++i )
 			cS[i].cell = null;
-		Cells.cleanCasA();
+//		Cells.cleanCasA();
 	}
 
 	/**
@@ -561,8 +562,8 @@ implements diuf.sudoku.solver.hinters.IPreparer
 		}
 
 		// stack references to heap fields (1.8 seconds faster top1465)
-		final Cell[] cells = grid.cells;
-		final int[] maybes = grid.maybes;
+		final Cell[] gridCells = grid.cells;
+		final int[] gridMaybes = grid.maybes;
 		final CellSet[] excls = this.excls;
 		final CellStackEntry[] cS = this.cS;
 		final int[] vsCands = this.vsCands;
@@ -579,13 +580,12 @@ implements diuf.sudoku.solver.hinters.IPreparer
 		final int minExcls = this.minExcls;
 
 		// indices of candidate cells to be read repeatedly
-		final int[] indices = candidates.toArrayA();
+		try ( final IALease lease = candidates.toArrayLease() ) {
+			final int[] indices = lease.array;
+			// set-up Idx.MAYBES_VISITOR for repeated calls to Idx.maybes()
+			MAYBES_VISITOR.gridMaybes = gridMaybes;
+			MAYBES_VISITOR.result = EXCLUDERS_MAYBES;
 
-		// set-up the Idx.MAYBES_VISITOR for call to ce.excls.maybes()
-		// NOTE: these MUST be cleared in a finally block
-		Idx.MAYBES_VISITOR.maybes = EXCLUDERS_MAYBES;
-		Idx.MAYBES_VISITOR.cells = cells;
-		try {
 			// the first cellStack level is 0
 			cl = 0;
 			// tricky: the first cell at each level is this levels index.
@@ -611,8 +611,8 @@ implements diuf.sudoku.solver.hinters.IPreparer
 					}
 					// get this cell, incrementing index for next time
 					// and set this cell up in the cellStack
-					vsSees[cl] = (ce.cell=cells[ii=vsIndices[cl]=indices[ce.index++]]).sees;
-					ce.maybes = vsCands[cl] = maybes[ii];
+					vsSees[cl] = (ce.cell=gridCells[ii=vsIndices[cl]=indices[ce.index++]]).sees;
+					ce.maybes = vsCands[cl] = gridMaybes[ii];
 					// if this is the first cell in the aligned set then
 					// assign excls to the CACHED idx returned by idx().
 					if ( cl == 0 ) { // the first cell in the aligned set
@@ -881,17 +881,17 @@ implements diuf.sudoku.solver.hinters.IPreparer
 											mine[i] = cS[i].cell;
 										}
 										// new excluders array too
-										final Cell[] excluders = ce.excls.cells(cells);
+										final Cell[] excluders = ce.excls.cellsNew(gridCells);
 										// build ExcludedCombosMap for the hint
 										final ExcludedCombosMap map = newExcludedCombosMap(
 												excluders, mine, reds);
 										// create the hint
 										final AHint hint = new AlignedExclusionHint(
 												this, reds, mine, excluders, map);
-										if ( Validator.ALIGNED_EXCLUSION_VALIDATES ) {
-											if ( !Validator.isValid(grid, reds) ) {
-												hint.isInvalid = true;
-												Validator.report(tech.name(), grid, hint.toString());
+										if ( VALIDATE_ALIGNED_EXCLUSION ) {
+											if ( !validOffs(grid, reds) ) {
+												hint.setIsInvalid(true);
+												reportRedPots(tech.name(), grid, hint.toString());
 												if ( Run.type != Run.Type.GUI ) {
 													break;
 												}
@@ -916,11 +916,11 @@ implements diuf.sudoku.solver.hinters.IPreparer
 					break; // NON_LOOP
 				}
 				interrupt();
-			} // next combo of candidate cells // next combo of candidate cells
+			}
 		} finally {
 			firstPass = false; // no longer firstPass through this puzzle
-			Idx.MAYBES_VISITOR.cells = null;
-			Idx.MAYBES_VISITOR.maybes = null;
+			MAYBES_VISITOR.gridMaybes = null;
+			MAYBES_VISITOR.result = null;
 		}
 	}
 
@@ -1071,7 +1071,7 @@ implements diuf.sudoku.solver.hinters.IPreparer
 					// so unpack the two equal-values into an array at da index
 					// of the two sibling cells that cannot have da same value.
 					// NOTE: We create a new array because HashA retains it!
-					int[] a = new int[degree];
+					final int[] a = new int[degree];
 					a[l] = VALUESES[stack[l].cand][0];
 					a[i] = VALUESES[stack[i].cand][0];
 					// null means exclusion not specific to an excluder cell.

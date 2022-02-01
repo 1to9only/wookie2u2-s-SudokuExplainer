@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * The algorithm for the Skyscraper solving technique was boosted from the
@@ -31,14 +31,12 @@
  */
 package diuf.sudoku.solver.hinters.sdp;
 
-import diuf.sudoku.Cells;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Regions;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
@@ -123,7 +121,7 @@ public class Skyscraper extends AHinter {
 	 * @return were any hint/s found?
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		boolean result = false;
 		this.grid = grid;
 		this.accu = accu;
@@ -137,7 +135,6 @@ public class Skyscraper extends AHinter {
 			clear(this.pairs); // each cell reference holds the whole grid
 			this.grid = null;
 			this.accu = null;
-			Cells.cleanCasA();
 		}
 		return result;
 	}
@@ -173,14 +170,13 @@ public class Skyscraper extends AHinter {
 		for ( int v=1; v<VALUE_CEILING; ++v ) {
             // collect rows/cols with two places for v
 			n = 0; // the number of pairs collected
-			for ( ARegion r : lines ) { // grid.rows or grid.cols
-				if ( r.ridx[v].size == 2 ) {
+			for ( ARegion r : lines ) // grid.rows or grid.cols
+				if ( r.ridx[v].size == 2 )
 					r.at(r.ridx[v].bits, pairs[n++]);
-				}
-			}
 			// if we collected atleast two pairs
 			if ( n > 1 ) {
-				// examine each combination of a and b pairs (forwards-only)
+				// examine each combination of 'a' and 'b' pairs
+				// a forwards-only search
 				for ( a=0,m=n-1; a<m; ++a ) {
 					// the first pair
 					r0 = (pA=pairs[a])[0].regions[oT]; // cross-region 0
@@ -199,9 +195,8 @@ public class Skyscraper extends AHinter {
 						  && victims.setAndAny(pA[o].buds, pB[o].buds, idxs[v])
 						) {
 							// FOUND a Skyscraper!
-							// build the removable (red) potentials
-							final Pots reds = new Pots(v, victims.cellsA(grid));
 							result = true;
+							final Pots reds = new Pots(victims, grid, VSHFT[v], F);
 							if ( accu.add(createHint(reds, v, o, pA, pB, rT, oT)) ) {
 								return result;
 							}
@@ -227,14 +222,14 @@ public class Skyscraper extends AHinter {
 	 */
 	private AHint createHint(final Pots reds, final int v, final int o
 			, final Cell[] pA, final Cell[] pB, final int rT, final int oT) {
-		// workout "this" end from the "other" end
+		// workout "this" end from the "other"
 		final int t = o==0 ? 1 : 0;
 		// build the regions
-		final ARegion[] bases = Regions.array(pA[t].regions[rT], pB[t].regions[rT]);
-		final ARegion[] covers = Regions.array(pA[o].regions[oT], pB[o].regions[oT]);
-		// build the hightlighted (green) potential values map Cells->Value
-		final Cell[] corners = new Cell[]{pA[0], pA[1], pB[0], pB[1]};
-		final Pots greens = new Pots(corners, VSHFT[v], false);
+		final ARegion[] bases = {pA[t].regions[rT], pB[t].regions[rT]};
+		final ARegion[] covers = {pA[o].regions[oT], pB[o].regions[oT]};
+		// build the hightlighted (green) potentials
+		final Pots greens = new Pots(new Cell[]{pA[0], pA[1], pB[0], pB[1]}
+				, VSHFT[v], false);
 		// build and return the hint
 		return new SkyscraperHint(this, v, bases, covers, reds, greens);
 	}

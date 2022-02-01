@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.fish;
@@ -42,7 +42,6 @@ public final class BasicFishHint extends AHint implements IChildHint {
 
 	final int valueToRemove;
 	final Set<Cell> cells;
-	final String debugMessage;
 
 	/**
 	 * Construct a new BasicFishHint. You can tell which fish by the degree:
@@ -53,15 +52,12 @@ public final class BasicFishHint extends AHint implements IChildHint {
 	 * @param reds the removable (red) potential values.
 	 * @param bases regions to highlight in blue
 	 * @param covers regions to highlight in green
-	 * @param debugMessage appears in the hint below the title
 	 */
-	public BasicFishHint(AHinter hinter, Pots reds, int v, Pots greens
-			, String debugMessage, ARegion[] bases, ARegion[] covers) {
+	public BasicFishHint(AHinter hinter, int v, Pots reds, Pots greens, ARegion[] bases, ARegion[] covers) {
 		super(hinter, AHint.INDIRECT, null, 0, reds, greens, null, null, bases
 				, covers);
 		this.valueToRemove = v;
 		this.cells = greens.keySet();
-		this.debugMessage = debugMessage;
 	}
 
 	@Override
@@ -135,7 +131,7 @@ public final class BasicFishHint extends AHint implements IChildHint {
 	public int hashCode() {
 		int result = 0;
 		for ( Cell c : cells )
-			result = result<<4 ^ c.hashCode;
+			result = result<<4 ^ c.i;
 		result = result<<4 ^ valueToRemove;
 		return result;
 	}
@@ -175,7 +171,7 @@ public final class BasicFishHint extends AHint implements IChildHint {
 			, Regions.typeName(covers)			//  3
 			, nn								//  4 number name; BasicFishHint only
 			, debugMessage						//  5 debugMessage
-			, reds.toString()				//  6
+			, reds.toString()					//  6
 		);
 	}
 

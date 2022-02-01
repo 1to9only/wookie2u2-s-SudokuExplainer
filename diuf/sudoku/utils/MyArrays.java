@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -579,6 +579,23 @@ public final class MyArrays {
 			return false;
 		}
 		return true;
+	}
+
+	private static StringBuilder sbFor(final int[][] matrix) {
+		try {
+			return new StringBuilder(12*matrix.length*matrix[0].length);
+		} catch (Exception eaten) {
+			return new StringBuilder(1024);
+		} 
+	}
+	public static String toString(final int[][] matrix) {
+		final StringBuilder sb = sbFor(matrix);
+		boolean first = true;
+		for ( int[] line : matrix ) {
+			if(first) first=false; else sb.append(NL);
+			sb.append(java.util.Arrays.toString(line));
+		}
+		return sb.toString();
 	}
 
 }

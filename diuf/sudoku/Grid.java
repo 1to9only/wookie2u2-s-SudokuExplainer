@@ -1,27 +1,24 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
+import diuf.sudoku.Cells.CALease;
+import static diuf.sudoku.Cells.caLease;
 import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
-import static diuf.sudoku.Idx.BITS_PER_WORD;
-import static diuf.sudoku.Idx.BITS_TWO_ELEMENTS;
 import static diuf.sudoku.Idx.IDX_SHFT;
-import static diuf.sudoku.Idx.WORDS;
-import static diuf.sudoku.Idx.WORD_MASK;
 import static diuf.sudoku.Indexes.*;
+import diuf.sudoku.IntArrays.IALease;
 import static diuf.sudoku.Settings.THE_SETTINGS;
 import static diuf.sudoku.Values.*;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.hinters.urt.UniqueRectangle.IUrtCellSet;
 import static diuf.sudoku.utils.Frmt.*;
-import diuf.sudoku.utils.Hash;
 import diuf.sudoku.utils.IFilter;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyLinkedHashSet;
@@ -29,18 +26,18 @@ import diuf.sudoku.utils.MyLinkedList;
 import diuf.sudoku.utils.MyMath;
 import diuf.sudoku.utils.MyStrings;
 import java.io.PrintStream;
-import static java.lang.Integer.bitCount;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.regex.Pattern;
+import static diuf.sudoku.IntArrays.iaLease;
 
 /**
  * A Sudoku grid.
@@ -103,6 +100,14 @@ public final class Grid {
 	/** The number of region types: 3 (BOX, ROW, COL). */
 	public static final int NUM_REGION_TYPES = 3;
 
+	// FYI these three values depend on region-types remaining BOX, ROW, COL
+	// but there usage allows for other region types, despite my feeling that
+	// other "fancy" region types only degrade original-Sudoku's pure genius.
+	// I have similar (not as strong) feelings about larger (4x4) regions.
+	/** The index of the first box in grid.regions: 0. */
+	public static final int FIRST_BOX = 0;
+	/** The index of the first row in grid.regions: 9. */
+	public static final int FIRST_ROW = REGION_SIZE;
 	/** The index of the first col in grid.regions: 18. */
 	public static final int FIRST_COL = REGION_SIZE<<1;
 
@@ -131,6 +136,9 @@ public final class Grid {
 	private static final int R = SQRT; // squareroot of REGION_SIZE is 3 cells
 	//                                    and so are the days of our Sudoku
 	//                                    a lowku by KRC
+
+	/** index * 9, because an array-lookup is faster than multiplication. */
+	public static final int[] BY9 = {0, 9, 18, 27, 36, 45, 54, 63, 72, 81};
 
 	/** Regex to match the clues line in the input file. */
 	private static final Pattern CLUES_PATTERN = Pattern.compile(
@@ -210,7 +218,7 @@ public final class Grid {
 			}
 			@Override
 			public int indice(String id) {
-				return (id.charAt(0)-'1')*N + (id.charAt(3)-'1');
+				return BY9[id.charAt(0)-'1'] + (id.charAt(3)-'1');
 			}
 			@Override
 			public int regionIndex(String rid) {
@@ -251,23 +259,26 @@ public final class Grid {
 	public static final String[] REGION_IDS = new String[27];
 	/** An Idx containing the indice of each cell in the Grid. */
 	public static final Idx[] CELL_IDXS = new Idx[GRID_SIZE];
+	/** An Idx containing the indice of all cells EXCEPT this one. */
+	public static final Idx[] EXCEPT = new Idx[GRID_SIZE];
 	static {
-		int i;
+		int i, n;
 		for ( i=0; i<GRID_SIZE; ++i ) {
 			CELL_IDS[i] = ID_SCHEME.id(i);
 		}
-		for ( i=0; i<REGION_SIZE; ++i ) {
+		for ( i=FIRST_BOX,n=FIRST_BOX+REGION_SIZE; i<n; ++i ) {
 			REGION_IDS[i] = REGION_TYPE_NAMES[BOX]+" "+NUMBERS[i];
 		}
-		for ( i=REGION_SIZE; i<FIRST_COL; ++i ) {
+		for ( i=FIRST_ROW,n=FIRST_ROW+REGION_SIZE; i<n; ++i ) {
 			REGION_IDS[i] = REGION_TYPE_NAMES[ROW]+" "+NUMBERS[i%REGION_SIZE];
 		}
 		final String[] cl = ID_SCHEME.columnLabels();
-		for ( i=FIRST_COL; i<NUM_REGIONS; ++i ) {
+		for ( i=FIRST_COL,n=FIRST_COL+REGION_SIZE; i<n; ++i ) {
 			REGION_IDS[i] = REGION_TYPE_NAMES[COL]+" "+cl[i%REGION_SIZE];
 		}
 		for ( i=0; i<GRID_SIZE; ++i ) {
 			CELL_IDXS[i] = Idx.of(i);
+			EXCEPT[i] = CELL_IDXS[i].not();
 		}
 	}
 
@@ -280,23 +291,24 @@ public final class Grid {
 	/** The index of the row which contains each cell. <br>
 	 * Can calculate on-the-fly, just faster to look it up. */
 	public static final int[] COL_OF = new int[GRID_SIZE];
-	/** a bitset of the 3 regions of each cell in the Grid. */
-	public static final int[] CELLS_REGIONS = new int[GRID_SIZE];
+	/** RIBS: Region Index BitSets: a bitset of the indexes of the 3 regions
+	 * of each cell in the Grid. Concurrent with Grid.cells. */
+	public static final int[] RIBS = new int[GRID_SIZE];
 	static {
-		for ( int i=0; i<GRID_SIZE; ++i ) {
-			ROW_OF[i] = i/N;
-			COL_OF[i] = i%N;
-			BOX_OF[i] = ROW_OF[i]/R*R + COL_OF[i]/R;
-			CELLS_REGIONS[i] = IDX_SHFT[BOX_OF[i]] // box
-			                 | IDX_SHFT[N+ROW_OF[i]] // row
-			                 | IDX_SHFT[FIRST_COL+COL_OF[i]]; // col
+		for ( int i=0,y,x,b; i<GRID_SIZE; ++i ) {
+			y = ROW_OF[i] = i/N;
+			x = COL_OF[i] = i%N;
+			b = BOX_OF[i] = y/R*R + x/R;
+			RIBS[i] = IDX_SHFT[b]				// box
+			        | IDX_SHFT[y+FIRST_ROW]		// row
+			        | IDX_SHFT[x+FIRST_COL];	// col
 		}
 	}
 
 	/**
-	 * An array containing an Idx of the 20 distinct sibling cells (precluding
+	 * BUDDIES is an array of Idx of the 20 distinct sibling cells (precluding
 	 * the cell itself) in the same box, row, and col as each cell in a Grid.
-	 * My index is the cell indice.
+	 * Concurrent with Grid.cells.
 	 * <p>
 	 * The same Idx is referenced by {@link Cell#buds}. For speed, use BUDDIES
 	 * if you have only the cell indice, or buds if you already have the Cell.
@@ -330,41 +342,45 @@ public final class Grid {
 		}
 	}
 
+//	public static final Indexes[][] REGION_RIDXS = new Indexes[NUM_REGIONS][VALUE_CEILING];
+
+	public static final int[][] REGION_INDICES = new int [][] {
+		  { 0, 1, 2, 9,10,11,18,19,20} // box 1
+		, { 3, 4, 5,12,13,14,21,22,23} // box 2
+		, { 6, 7, 8,15,16,17,24,25,26} // box 3
+		, {27,28,29,36,37,38,45,46,47} // box 4
+		, {30,31,32,39,40,41,48,49,50} // box 5
+		, {33,34,35,42,43,44,51,52,53} // box 6
+		, {54,55,56,63,64,65,72,73,74} // box 7
+		, {57,58,59,66,67,68,75,76,77} // box 8
+		, {60,61,62,69,70,71,78,79,80} // box 9
+		, { 0, 1, 2, 3, 4, 5, 6, 7, 8} // row 1
+		, { 9,10,11,12,13,14,15,16,17} // row 2
+		, {18,19,20,21,22,23,24,25,26} // row 3
+		, {27,28,29,30,31,32,33,34,35} // row 4
+		, {36,37,38,39,40,41,42,43,44} // row 5
+		, {45,46,47,48,49,50,51,52,53} // row 6
+		, {54,55,56,57,58,59,60,61,62} // row 7
+		, {63,64,65,66,67,68,69,70,71} // row 8
+		, {72,73,74,75,76,77,78,79,80} // row 9
+		, { 0, 9,18,27,36,45,54,63,72} // col A
+		, { 1,10,19,28,37,46,55,64,73} // col B
+		, { 2,11,20,29,38,47,56,65,74} // col C
+		, { 3,12,21,30,39,48,57,66,75} // col D
+		, { 4,13,22,31,40,49,58,67,76} // col E
+		, { 5,14,23,32,41,50,59,68,77} // col F
+		, { 6,15,24,33,42,51,60,69,78} // col G
+		, { 7,16,25,34,43,52,61,70,79} // col H
+		, { 8,17,26,35,44,53,62,71,80} // col I
+	};
+
 	/**
 	 * Idx of the cells in each region in the grid.
 	 * Note that IdxI's are immutable.
+	 * Concurrent with grid.regions.
 	 */
 	public static final IdxI[] REGION_IDXS = new IdxI[NUM_REGIONS];
 	static {
-		final int[][] REGION_INDICES = new int [][] {
-			  { 0, 1, 2, 9,10,11,18,19,20} // box 1
-			, { 3, 4, 5,12,13,14,21,22,23} // box 2
-			, { 6, 7, 8,15,16,17,24,25,26} // box 3
-			, {27,28,29,36,37,38,45,46,47} // box 4
-			, {30,31,32,39,40,41,48,49,50} // box 5
-			, {33,34,35,42,43,44,51,52,53} // box 6
-			, {54,55,56,63,64,65,72,73,74} // box 7
-			, {57,58,59,66,67,68,75,76,77} // box 8
-			, {60,61,62,69,70,71,78,79,80} // box 9
-			, { 0, 1, 2, 3, 4, 5, 6, 7, 8} // row 1
-			, { 9,10,11,12,13,14,15,16,17} // row 2
-			, {18,19,20,21,22,23,24,25,26} // row 3
-			, {27,28,29,30,31,32,33,34,35} // row 4
-			, {36,37,38,39,40,41,42,43,44} // row 5
-			, {45,46,47,48,49,50,51,52,53} // row 6
-			, {54,55,56,57,58,59,60,61,62} // row 7
-			, {63,64,65,66,67,68,69,70,71} // row 8
-			, {72,73,74,75,76,77,78,79,80} // row 9
-			, { 0, 9,18,27,36,45,54,63,72} // col A
-			, { 1,10,19,28,37,46,55,64,73} // col B
-			, { 2,11,20,29,38,47,56,65,74} // col C
-			, { 3,12,21,30,39,48,57,66,75} // col D
-			, { 4,13,22,31,40,49,58,67,76} // col E
-			, { 5,14,23,32,41,50,59,68,77} // col F
-			, { 6,15,24,33,42,51,60,69,78} // col G
-			, { 7,16,25,34,43,52,61,70,79} // col H
-			, { 8,17,26,35,44,53,62,71,80} // col I
-		};
 		for ( int i=0; i<NUM_REGIONS; ++i ) {
 			REGION_IDXS[i] = IdxI.of(REGION_INDICES[i]);
 		}
@@ -373,8 +389,10 @@ public final class Grid {
 	/**
 	 * Idx of the "later" buddies (siblings) of each cell in the Grid.
 	 * Later means has a greater index, for use in forwards-only search.
+	 * <p>
+	 * Note that IdxI's are immutable.
 	 */
-	public static final Idx[] LATER_BUDS = new Idx[GRID_SIZE];
+	public static final IdxI[] LATER_BUDS = new IdxI[GRID_SIZE];
 	static {
 		// Indices of "following" siblings, for a forward-only search.
 		final int[][] LATER_BUDS_INDICES = new int [][] {
@@ -461,7 +479,7 @@ public final class Grid {
 			, {}
 		};
 		for ( int i=0; i<GRID_SIZE; ++i ) {
-			LATER_BUDS[i] = Idx.of(LATER_BUDS_INDICES[i]);
+			LATER_BUDS[i] = IdxI.of(LATER_BUDS_INDICES[i]);
 		}
 	}
 
@@ -600,9 +618,8 @@ public final class Grid {
 		final String[] idsA = idsSsv.split(" ");
 		final int n = idsA.length;
 		final int[] result = new int[n];
-		for ( int i=0; i<n; ++i ) {
+		for ( int i=0; i<n; ++i )
 			result[i] = indice(idsA[i]);
-		}
 		return result;
 	}
 
@@ -612,7 +629,7 @@ public final class Grid {
 	 * @param rid the region.id for which you seek the index
 	 * @return the index of this region in grid.regions 0..26
 	 */
-	public static int regionIndex(String rid) {
+	public static int regionIndex(final String rid) {
 		return ID_SCHEME.regionIndex(rid);
 	}
 
@@ -677,6 +694,18 @@ public final class Grid {
 	 * A single-dimensional array of the cells in this grid.
 	 */
 	public final Cell[] cells = new Cell[GRID_SIZE];
+
+	/**
+	 * The maybes (potential values) of each Cell in this Grid, to save getting
+	 * the cell in order to get it's maybes when all you have is it's indice.
+	 */
+	public final int[] maybes = new int[GRID_SIZE];
+
+	/**
+	 * The size (number of potential values) of each Cell in this Grid, to save
+	 * getting the cell in order to get it's size, when you have an indice.
+	 */
+	public final int[] size = new int[GRID_SIZE];
 
 	/**
 	 * An array of the 9 Boxs in this grid, indexed 0=top-left across and
@@ -943,7 +972,7 @@ public final class Grid {
 		// populate each cells siblings and notSees array
 		for ( final Cell cell : cells ) {
 			// get the siblings
-			cell.siblings = cell.buds.cells(cells);
+			cell.siblings = cell.buds.cellsNew(cells);
 			// populate notSees ONCE, instead of negating it a TRILLION times!
 			Arrays.fill(cell.sees, false);
 			Arrays.fill(cell.notSees, true);
@@ -1255,7 +1284,7 @@ public final class Grid {
 	 *     <li>{@link Cell#removeMeFromMyRegionsIndexesOfValue}<ul>
 	 *      <li>{@link ARegion#ridx}[v].{@link Indexes#remove} for box/row/col
 	 *     </ul>
-	 *     <li>sets {@link Cell#maybes}, {@link Cell#size} and {@link Grid#totalSize}
+	 *     <li>sets {@link Cell#maybes}, {@link Cell#count} and {@link Grid#totalSize}
 	 *    </ul>
 	 *   </ul>
 	 *  </ul>
@@ -1388,7 +1417,7 @@ public final class Grid {
 	 * @param doContainsValues
 	 */
 	public void rebuildAllRegionsIndexsOfAllValues(boolean doContainsValues) {
-		// containsValue used in rebuildIndexsOfAllValues
+		// containsValue is used by rebuildIndexsOfAllValues
 		if ( doContainsValues ) {
 			rebuildAllRegionsContainsValues();
 		}
@@ -1514,7 +1543,7 @@ public final class Grid {
 	public boolean hasMissingMaybes() {
 		for ( final Cell cell : cells ) {
 			if ( cell.value==0 && cell.size==0 ) {
-				invalidity = cell.id+" has no potential values remaining";
+				invalidity = cell.id+" has no macs remaining";
 				return true;
 			}
 		}
@@ -1584,15 +1613,20 @@ public final class Grid {
 	/**
 	 * Get Cell[]'s for ids, for the test-cases.
 	 * <p>
-	 * prefer getCSV, which is the toString format. I'm here if you've already
+	 * Prefer getCSV, which accepts toString format. I'm here if you've already
 	 * got an array of id's.
+	 * <p>
+	 * I create a new {@code Cell[]} which is a bit slow Redge. It's under the
+	 * bonnet son.
+	 * <p>
+	 * This method is ONLY used in test-cases.
 	 *
 	 * @param ids varargs of cell.id's: "A1", "I9"
 	 * @return Cell[]
 	 */
-	public Cell[] get(final String... ids) {
+	public Cell[] get(final String[] ids) {
 		final int n = ids.length;
-		final Cell[] array = Cells.arrayA(n);
+		final Cell[] array = new Cell[n];
 		for ( int i=0; i<n; ++i ) {
 			array[i] = get(ids[i]);
 		}
@@ -1601,6 +1635,8 @@ public final class Grid {
 
 	/**
 	 * Get Cell[]'s for this CSV list of cell.id, for test-cases.
+	 * <p>
+	 * This method is ONLY used in test-cases.
 	 *
 	 * @param csv of cell.id's: "A1, I9"
 	 * @return Cell[]
@@ -1619,19 +1655,67 @@ public final class Grid {
 		return new MyLinkedHashSet<>(getCsv(idsCsv));
 	}
 
+	// WARN: cellsNew was called just "cells" but that breaks the javadoc coz
+	// there's already an array field called "cells" and the javadoc compiler
+	// prefers the method to the field. Just something to be aware of.
 	/**
 	 * Returns a new array of the cells at the given indices.
 	 *
 	 * @param indices to fetch
 	 * @return a new Cell[] of cells at indices
 	 */
-	public Cell[] cells(final int[] indices) {
+	public Cell[] cellsNew(final int[] indices) {
 		final int n = indices.length;
 		final Cell[] result = new Cell[n];
 		for ( int i=0; i<n; ++i ) {
 			result[i] = cells[indices[i]];
 		}
 		return result;
+	}
+
+	/**
+	 * Returns the number of cells in grid that match the filter 'f'.
+	 *
+	 * @param f the filter whose accept'd cells are counted
+	 * @return the number of matching cells
+	 */
+	public int count(final IFilter<Cell> f) {
+		int n = 0;
+		for ( Cell c : cells )
+			if ( f.accept(c) )
+				++n;
+		return n;
+	}
+
+	/**
+	 * Populates result with indices of the cells in grid that match the filter
+	 * 'f', and returns how many. Hammer me with a fixed-size array.
+	 *
+	 * @param f the filter whose accepted cells are added
+	 * @param result array to populate
+	 * @return the number of matching cells
+	 */
+	public int indices(final IFilter<Cell> f, final int[] result) {
+		int cnt = 0;
+		for ( int i=0; i<GRID_SIZE; ++i )
+			if ( f.accept(cells[i]) )
+				result[cnt++] = i;
+		return cnt;
+	}
+
+	/**
+	 * Returns a Lease whose array contains the indices of the cells in grid
+	 * that match the filter 'f'. The Lease is Closeable, so "use" it like a
+	 * Reader.
+	 *
+	 * @param f the filter whose accepted cells are added
+	 * @return the number of matching cells
+	 */
+	public IALease indicesLease(final IFilter<Cell> f) {
+		final int n = count(f);
+		final IALease lease = iaLease(n);
+		indices(f, lease.array);
+		return lease;
 	}
 
 	/**
@@ -1675,31 +1759,32 @@ public final class Grid {
 		return occurances;
 	}
 
-	/**
-	 * Returns CAS_A array of Idx'd cells in this grid.
-	 *
-	 * @param a0 first Idx element
-	 * @param a1 second Idx element
-	 * @param a2 third Idx element
-	 * @return these cells from this grid
-	 */
-	public Cell[] cellsA(final int a0, final int a1, final int a2) {
-		int w, count=0, n=bitCount(a0)+bitCount(a1)+bitCount(a2);
-		final Cell[] result = Cells.arrayA(n);
-		if ( a0 != 0 )
-			for ( w=0; w<BITS_PER_ELEMENT; w+=BITS_PER_WORD )
-				for ( int i : WORDS[(a0>>w)&WORD_MASK] )
-					result[count++] = cells[w+i];
-		if ( a1 != 0 )
-			for ( w=0; w<BITS_PER_ELEMENT; w+=BITS_PER_WORD )
-				for ( int i : WORDS[(a1>>w)&WORD_MASK] )
-					result[count++] = cells[BITS_PER_ELEMENT+w+i];
-		if ( a2 != 0 )
-			for ( w=0; w<BITS_PER_ELEMENT; w+=BITS_PER_WORD )
-				for ( int i : WORDS[(a2>>w)&WORD_MASK] )
-					result[count++] = cells[BITS_TWO_ELEMENTS+w+i];
-		return result;
-	}
+//not_used
+//	/**
+//	 * Returns CAS_A array of Idx'd cells in this grid.
+//	 *
+//	 * @param a0 first Idx element
+//	 * @param a1 second Idx element
+//	 * @param a2 third Idx element
+//	 * @return these cells from this grid
+//	 */
+//	public Cell[] cellsA(final int a0, final int a1, final int a2) {
+//		int w, count=0, n=bitCount(a0)+bitCount(a1)+bitCount(a2);
+//		final Cell[] result = Cells.arrayA(n);
+//		if ( a0 != 0 )
+//			for ( w=0; w<BITS_PER_ELEMENT; w+=BITS_PER_WORD )
+//				for ( int i : WORDS[(a0>>w)&WORD_MASK] )
+//					result[count++] = cells[w+i];
+//		if ( a1 != 0 )
+//			for ( w=0; w<BITS_PER_ELEMENT; w+=BITS_PER_WORD )
+//				for ( int i : WORDS[(a1>>w)&WORD_MASK] )
+//					result[count++] = cells[BITS_PER_ELEMENT+w+i];
+//		if ( a2 != 0 )
+//			for ( w=0; w<BITS_PER_ELEMENT; w+=BITS_PER_WORD )
+//				for ( int i : WORDS[(a2>>w)&WORD_MASK] )
+//					result[count++] = cells[BITS_TWO_ELEMENTS+w+i];
+//		return result;
+//	}
 
 	// ---------------------------- IS_HACKY stuff ----------------------------
 
@@ -1878,35 +1963,6 @@ public final class Grid {
 		}
 	}
 
-	// ------------------------------- maybes ---------------------------------
-
-//not_used: the maybes array is now public, maintained by Cell.
-//	/**
-//	 * Get a cached int[] containing the maybes of each cell in this grid.
-//	 *
-//	 * @return cached int[GRID_SIZE] containing a bitset of the potential
-//	 *  values of each cell in this grid.
-//	 */
-//	public int[] maybes() {
-//		if ( maybesHN!=hintNumber || maybesPid!=pid ) {
-//			if ( maybes == null ) {
-//				maybes = new int[GRID_SIZE];
-//			}
-//			// fetch
-//			for ( int i=0; i<GRID_SIZE; ++i ) {
-//				maybes[i] = cells[i].maybes;
-//			}
-//			maybesHN = hintNumber;
-//			maybesPid = pid;
-//		}
-//		return maybes;
-//	}
-//	private int[] maybes;
-//	private int maybesHN; // hintNumber
-//	private long maybesPid;  // puzzleID
-	public final int[] maybes = new int[GRID_SIZE];
-	public final int[] size = new int[GRID_SIZE];
-
 	/**
 	 * Used only in assert, to check grid.maybes equals cell.maybes.
 	 * There seems to be differences when there should be none.
@@ -1916,6 +1972,21 @@ public final class Grid {
 	public boolean maybesCheck() {
 		for ( int i=0; i<GRID_SIZE; ++i ) {
 			if ( maybes[i] != cells[i].maybes ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Used only in assert, to check grid.size equals cell.size.
+	 * There seems to be differences when there should be none.
+	 *
+	 * @return do grid.size equals the cell.size.
+	 */
+	public boolean sizeCheck() {
+		for ( int i=0; i<GRID_SIZE; ++i ) {
+			if ( size[i] != cells[i].size ) {
 				return false;
 			}
 		}
@@ -1972,92 +2043,66 @@ public final class Grid {
 //		return getEmpties().where(cells, f);
 //	}
 
-	/**
-	 * Add indices of cells in this grid that're accepted by IFilter<Cell> 'f'
-	 * to the 'result' Idx.
-	 *
-	 * @param result the Idx to add to
-	 * @param f the {@code IFilter<Cell>} whose accept method determines the
-	 *  cells to be added
-	 * @return the result Idx, so that you can pass me a 'new Idx()'
-	 */
-	public Idx idx(IFilter<Cell> f, Idx result) {
-		for ( Cell c : cells ) {
-			if ( f.accept(c) ) {
-				result.add(c.i);
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * Get an Idx of cells in this grid with maybesSize == 2.
-	 * @return a CACHED Idx of bivalue cells in this grid.
-	 */
-	public Idx getBivalue() {
-		return getBivalueImpl(false);
-	}
-
 	public static final IFilter<Cell> BIV_FILTER = (c)->c.size==2;
 
 	/**
 	 * Get an Idx of cells in this grid with maybesSize == 2.
-	 * <p>
-	 * NOTE WELL: For speed, I was using a lambda to fetch bivalue cells, but
-	 * apparently even this simple task is beyond me, coz for reasons I cannot
-	 * fathom (probably some smart-ass internal cache) the lambda finds cells
-	 * whose value has recently been set, so it all goes into a tail spin. So
-	 * lambda's don't play nice with recursion, so I revert to ASAP: As Simple
-	 * As Possible. You can stick Soon up your jaxie.
 	 *
-	 * @param force should we force the fetch?
-	 * @return a CACHED Idx of bivalue cells in this grid.
+	 * @return a LOCKED CACHED Idx of bivalue cells in this grid.
 	 */
-	public Idx getBivalueImpl(boolean force) {
+	public Idx getBivalue() {
 		if ( bivs == null ) {
 			bivs = new IdxL().read(cells, BIV_FILTER).lock();
 			bivsHN = hintNumber;
 			bivsPid = pid;
-		} else if ( bivsHN!=hintNumber || bivsPid!=pid || force ) {
+		} else if ( bivsHN!=hintNumber || bivsPid!=pid ) {
 			bivs.unlock().clear().read(cells, BIV_FILTER).lock();
 			bivsHN = hintNumber;
 			bivsPid = pid;
 		}
 		return bivs;
 	}
-	private IdxL bivs; // indices of bivalue cells in this grid
+	private IdxL bivs; // indices of bivalue cells in this grid (locked)
 	private int bivsHN;
 	private long bivsPid;
 
-	private void readBivs() {
-		for ( int i=0; i<GRID_SIZE; ++i ) {
-			if ( cells[i].size == 2 ) {
-//				// if it's rooted then rebuild and go again from the top
-//				if ( cells[i].value != 0 ) {
-//					lastChanceBivs();
-//					return;
-//				}
-				bivs.add(i);
-			}
+	/**
+	 * Get an Idx per value of all cells that are "biplaced", ie there are two
+	 * places for this value in a region. So an Idx contains indices of cells,
+	 * each of which is biplaced in ANY of it's three regions.
+	 *
+	 * @return a CACHED Idx[] of biplaced regions by value.
+	 */
+	public Idx[] getBiplaces() {
+		boolean fetch = false;
+		if ( bips == null ) {
+			bips = new Idx[VALUE_CEILING];
+			for ( int v=1; v<10; ++v )
+				bips[v] = new Idx(); // observed 24
+			fetch = true;
+		} else if ( bipsHN!=hintNumber || bipsPid!=pid ) {
+			// clearing should be unnecessary, but it's MUCH cleaner
+			for ( int v=1; v<10; ++v )
+				bips[v].clear();
+			fetch = true;
 		}
+		if ( fetch ) {
+			Indexes[] rridx;
+			for ( ARegion r : regions ) {
+				rridx = r.ridx;
+				for ( int v=1; v<VALUE_CEILING; ++v )
+					if ( rridx[v].size == 2 )
+						bips[v].or(r.idxs[v]);
+			}
+			bipsHN = hintNumber;
+			bipsPid = pid;
+		}
+		return bips;
 	}
-//
-//	// rebuild and try again before "I just want my Mom!"
-//	private void lastChanceBivs() {
-//// WARN: rooted hinter sends puzzle invalid, so I restore maybes -> rooted ->
-//// restored -> rooted -> Oh bugger! Traffic lights.
-////		rebuildMaybes();
-//		rebuild();
-//		for ( int i=0; i<GRID_SIZE; ++i ) {
-//			if ( cells[i].size == 2 ) {
-//				// if it's rooted then this time it's REALLY rooted!
-//				if ( cells[i].value != 0 ) {
-//					throw new UnsolvableException("I just want my Mom!");
-//				}
-//				bivs.add(i);
-//			}
-//		}
-//	}
+	// bivalue regions by value
+	private Idx[] bips;
+	private int bipsHN;
+	private long bipsPid;
 
 	/**
 	 * Returns a new array of the value of each of the 81 cells in this Grid.
@@ -2102,6 +2147,20 @@ public final class Grid {
 			result[i] = maybes[i];
 		}
 		return result;
+	}
+
+	/**
+	 * Repopulate 'result' with the maybes of cells at 'indices'.
+	 *
+	 * @param indices of cells to read
+	 * @param result to repopulate
+	 * @return how many (ie indices.length, incase indices is generated OTF)
+	 */
+	public int maybes(final int[] indices, final int[] result) {
+		int cnt = 0;
+		for ( int i : indices )
+			result[cnt++] = maybes[i];
+		return cnt;
 	}
 
 	/**
@@ -2420,11 +2479,6 @@ public final class Grid {
 		public final ARegion[] regions = new ARegion[3]; // set by Grid constructor
 
 		/**
-		 * hashCode identifies cell location = y&lt;&lt;4+x (8 bits).
-		 */
-		public final int hashCode;
-
-		/**
 		 * skip prevents useless assumptions being made in chaining.
 		 */
 		public boolean skip;
@@ -2502,7 +2556,7 @@ public final class Grid {
 		 *  so my y coordinate (row) is i/9, <br>
 		 *  and my x coordinate (col) is i%9, <br>
 		 *  so I am grid.cells[y*9 + x], <br>
-		 *  or simply grid.cells[c.i]
+		 *  or simply grid.cells[c.i], where i is short for indice
 		 * @param cands a bitset of the potential values of this cell. <br>
 		 *  For an empty grid pass me VALL=511="111111111"="123456789". <br>
 		 *  For the copy constructor pass me the source-cells maybes.
@@ -2528,11 +2582,11 @@ public final class Grid {
 			this.idxdex = i/BITS_PER_ELEMENT;
 			this.idxshft = 1<<(i%BITS_PER_ELEMENT);
 
-			this.hashCode = Hash.LSH4[y] ^ x; // see also Ass.hashCode()
 			totalSize += size = VSIZE[maybes = cands];
 			Grid.this.size[i] = size;
 			Grid.this.maybes[i] = maybes;
-			// set buds last, for the toString method (a cheat)
+			// FINALLY set buds for the toString method (a cheat).
+			// To be clear, this MUST be the last constructor instruction.
 			this.buds = Grid.BUDDIES[i];
 		}
 
@@ -2656,7 +2710,7 @@ public final class Grid {
 		}
 
 		/**
-		 * Remove cands from this cells maybes, and update {@link #size} and
+		 * Remove cands from this cells maybes, and update {@link #count} and
 		 * the {@link Grid#totalSize}; and indexes {@link Grid#idxs},
 		 * {@link ARegion#ridx}, and {@link ARegion#idxs}.
 		 *
@@ -2702,7 +2756,7 @@ public final class Grid {
 		}
 
 		/**
-		 * Add cands to this cells maybes, and update {@link #size} and
+		 * Add cands to this cells maybes, and update {@link #count} and
 		 * the {@link Grid#totalSize}; and indexes {@link Grid#idxs},
 		 * {@link ARegion#ridx}, and {@link ARegion#idxs}.
 		 *
@@ -3172,21 +3226,21 @@ public final class Grid {
 		@Override
 		public boolean equals(Object o) {
 			return o instanceof Cell
-				&& hashCode == ((Cell)o).hashCode; // y<<4^x (identity only)
+				&& i == ((Cell)o).i; // y<<4^x (identity only)
+		}
+		public boolean equals(Cell o) {
+			return i == o.i;
 		}
 
 		/**
 		 * Returns the hashCode of this cell, which uniquely identifying this
 		 * Cell within its Grid.
-		 * <p>
-		 * Note that both equals and hashCode use only immutable identity
-		 * attributes, so the equals contract is upheld.
 		 *
-		 * @return int {@code y<<4 + x}
+		 * @return indice
 		 */
 		@Override
 		public int hashCode() {
-			return hashCode; // y<<4 + x
+			return i;
 		}
 
 		// If you don't know what you're doing then don't use me.
@@ -3206,24 +3260,16 @@ public final class Grid {
 		}
 
 		/**
-		 * Compare this cell to other: just compares the hashcode, which is
-		 * {@code Hash.LSH4[y] ^ x}, ergo identity.
+		 * Compare this cell to other by comparing the indices.
 		 *
-		 * @param other the Cell to compare my to
+		 * @param o the Cell to compare me to
 		 * @return -1 if this is before other, 1 if this is after other, or 0
 		 *  if this equal to other, which will happen only if these are the
 		 *  same cell, just possibly from different grids.
 		 */
 		@Override
-		public int compareTo(final Cell other) {
-			final int ohc = other.hashCode;
-			if ( ohc < hashCode ) {
-				return -1;
-			}
-			if ( ohc > hashCode ) {
-				return 1;
-			}
-			return 0;
+		public int compareTo(final Cell o) {
+			return Integer.compare(i, o.i);
 		}
 
 		/**
@@ -3326,37 +3372,43 @@ public final class Grid {
 		 */
 		public final boolean[] containsValue = new boolean[VALUE_CEILING];
 
-		/** The 3 boxs which intersect this row or col; null for box. */
+		/** The 3 boxs which intersect this Row or Col; null for Box. */
 		public final Box[] intersectingBoxs;
 
-		/** Does this region intersect the other regions in the Grid. */
-		public final boolean[] INTERSECTS;
+		public final int[] indices;
+
+//not_used 2021-11-30 07:16
+//		/** Does this region intersect the other regions in the Grid. */
+//		public final boolean[] intersects;
 
 		/**
 		 * The Constructor. I'm a Box, or a Row, or a Col.
 		 *
 		 * @param index the index of this region in the Grid.regions array.
-		 * @param typeIndex Grid.BOX, Grid.ROW, Grid.COL
-		 * @param numCrossings the number of crossingBoxes: 0 for each Box,
-		 *  3 for each Row and Col. Passing this in makes it possible for the
-		 *  crossingBoxes array to be final.
+		 * @param rti regionTypeIndex: BOX, ROW, or COL
+		 * @param numCrosses the number of crossingBoxes: 0 for each Box,
+		 *  3 for each Row and Col. Passed-in for crossingBoxes to be final.
 		 */
-		protected ARegion(final int index, final int typeIndex
-				, final int numCrossings) {
+		protected ARegion(final int index, final int rti, final int numCrosses) {
 			this.index = index;
-			this.typeName = REGION_TYPE_NAMES[this.typeIndex = typeIndex];
+			this.typeName = REGION_TYPE_NAMES[this.typeIndex = rti];
 			this.id = REGION_IDS[index];
-			this.crossingBoxs = new Box[numCrossings];
+			this.crossingBoxs = new Box[numCrosses];
 			// get my idx: an IdxI (immutable) of cells in this region
 			idx = REGION_IDXS[index];
-			// create the ridx and idxs arrays elements
-			for ( int v=1; v<VALUE_CEILING; ++v ) { // 0 is left null (in both)
-				ridx[v] = new Indexes(); // cells in this region
-				idxs[v] = Idx.of(REGION_IDXS[index]); // cells in this region
+			// create the ridx and idxs arrays elements.
+			// Note that value 0 remains null in both.
+			for ( int v=1; v<VALUE_CEILING; ++v ) {
+				// indexes in region.cells
+//				REGION_RIDXS[index][v] = ridx[v] = new Indexes();
+				ridx[v] = new Indexes();
+				// indices in grid.cells
+				idxs[v] = new Idx(REGION_IDXS[index]);
 			}
-			INTERSECTS = REGIONS_INTERSECT[index];
+//			intersects = REGIONS_INTERSECT[index];
 			final int[] ibSize = {0, 3, 3};
-			intersectingBoxs = new Box[ibSize[typeIndex]];
+			intersectingBoxs = new Box[ibSize[rti]];
+			indices = REGION_INDICES[index];
 		}
 
 		// used by Grid's copyFrom
@@ -3376,31 +3428,98 @@ public final class Grid {
 		}
 
 		/**
-		 * Return the cells at the given indexes in this region.
-		 * <p>
-		 * <b>WARNING:</b> Use me sparingly coz I create a new {@code Cell[]},
-		 * so calling me in a search creates LOTS of garbage arrays.
+		 * Translate from Region.indexes to the given Idx.
 		 *
-		 * @param indexes {@code int[]} to get.
-		 * @return a new {@code Cell[]}.
+		 * @param indexes region.indexes of cells to add
+		 * @param result the Idx to add cells to
+		 * @return the result Idx, for method chaining
 		 */
-		public Cell[] atNew(final int[] indexes) {
-			final int n = indexes.length;
-			final Cell[] array = new Cell[n];
-			for ( int i=0; i<n; ++i ) {
-				array[i] = this.cells[indexes[i]];
+		public Idx idx(final int indexes, final Idx result) {
+			for ( int i : INDEXES[indexes] )
+				result.add(this.cells[i].i);
+			return result;
+		}
+
+		/**
+		 * Translate from Region.indexes to a new Idx.
+		 *
+		 * @param indexes region.indexes of cells to add
+		 * @return the new Idx
+		 */
+		public Idx idxNew(final int indexes) {
+			return idx(indexes, new Idx());
+		}
+
+		/**
+		 * Returns the given Idx populated with the indices of the cells in
+		 * this ARegion which maybe any of the given maybes (a bitset).
+		 *
+		 * @param cands a bitset of the maybes you seek
+		 * @param result the result Idx
+		 * @return the result Idx of cells in this region which maybe maybes
+		 */
+		public Idx idxOf(final int cands, final Idx result) {
+			result.clear();
+			for ( final Cell c : cells ) {
+				if ( (c.maybes & cands) != 0 ) {
+					result.add(c.i);
+				}
 			}
-			return array;
+			return result;
+		}
+
+		/**
+		 * Returns a new {@code ArrayList<Cell>} containing the cells at the
+		 * given bits in this regions cells array. Use me sparingly.
+		 *
+		 * @param indexes a bitset of indexes into region.cells
+		 * @return a new {@code ArrayList<Cell>} containing region.cells at
+		 *  indexes
+		 */
+		public ArrayList<Cell> list(final int indexes) {
+			final ArrayList<Cell> list = new ArrayList<>(ISIZE[indexes]);
+			for ( int i : INDEXES[indexes] ) {
+				list.add(this.cells[i]);
+			}
+			return list;
+		}
+
+		/**
+		 * Populates result with the cells at indexes in this region. Result is
+		 * presumed to be large enough. This method is fast-enough for use in a
+		 * loop with a fixed-size array.
+		 *
+		 * @param indexes a bitset of indexes into region.cells
+		 * @param result Cell[] the cells array to populate
+		 * @return the number of cells added
+		 */
+		public int at(final int indexes, final Cell[] result) {
+			int cnt = 0;
+			for ( int i : INDEXES[indexes] ) {
+				result[cnt++] = cells[i];
+			}
+			return cnt;
+		}
+
+		/**
+		 * Returns a lease over a right-sized array populated with the cells at
+		 * the given 'indexes' (ridx bits) in this region.
+		 *
+		 * @param indexes {@code int} a bitset of the indexes to get, where the
+		 *  position (from the right) of each set (1) bit denotes the index in
+		 *  this.cells array of a Cell to retrieve
+		 * @return a lease over an array containing cells at indexes in region
+		 */
+		public CALease atLease(final int indexes) {
+			final int n = ISIZE[indexes];
+			final CALease lease = caLease(n);
+			at(indexes, lease.array);
+			return lease;
 		}
 
 		/**
 		 * Return a new array of the cells at the given index 'bits' in this
 		 * region.
-		 * <p>
-		 * <b>WARNING:</b> Use me sparingly because I create a new {@code int[]}
-		 * on each invocation. Do NOT call me in a loop, or you will create
-		 * garbage arrays, which must be collected. NEVER call me in a tight
-		 * loop: use another at method!
 		 *
 		 * @param indexes {@code int} a bitset of the indexes to get, where the
 		 * position (from the right) of each set (1) bit denotes the index in
@@ -3410,69 +3529,8 @@ public final class Grid {
 		public Cell[] atNew(final int indexes) {
 			final int n = ISIZE[indexes];
 			final Cell[] array = new Cell[n];
-			final int cnt = at(indexes, array);
-			assert cnt == n;
+			at(indexes, array);
 			return array;
-		}
-
-		/**
-		 * Returns a new {@code ArrayList<Cell>} containing the cells at the
-		 * given bits in this regions cells array.
-		 * <p>
-		 * <b>WARNING:</b> Use me sparingly because I create a new
-		 * {@code ArrayList<Cell>}.
-		 *
-		 * @param bits the bits of an Indexes of the cells you require
-		 * @return a new {@code ArrayList<Cell>} containing the requested cells
-		 */
-		public ArrayList<Cell> list(final int bits) {
-			final ArrayList<Cell> list = new ArrayList<>(ISIZE[bits]);
-			for ( int i : INDEXES[bits] ) {
-				list.add(this.cells[i]);
-			}
-			return list;
-		}
-
-		/**
-		 * Populates and returns the appropriately sized cas-array with the
-		 * cells at the given index 'bits' in this region.
-		 * <p>
-		 * This version of 'at' uses the cas (a cache of cell arrays) because
-		 * that's faster than creating garbage arrays when called from a loop.
-		 *
-		 * @param bits {@code int} a bitset of the indexes to get, where the
-		 * position (from the right) of each set (1) bit denotes the index in
-		 * this.cells array of a Cell to retrieve
-		 * @param dummy not used, this parameter exists just to differentiate
-		 * this methods signature from those of the other 'at' methods
-		 * @return the selected cas-array (of the correct size)
-		 */
-		public Cell[] at(final int bits, final boolean dummy) {
-			final int n = ISIZE[bits];
-			final Cell[] array = Cells.arrayA(n);
-			final int cnt = at(bits, array);
-			assert cnt == n;
-			return array;
-		}
-
-		/**
-		 * Populates the given array with the cells at the given index 'bits'
-		 * in this region. The array is presumed to be large enough.
-		 * <p>
-		 * This version of at is preferred for use in a loop.
-		 *
-		 * @param indexes a bitset of the indexes to get, where the position
-		 *  (from right) of each set (1) bit denotes the index in this.cells
-		 *  array of a Cell to retrieve.
-		 * @param array Cell[] the cells array to populate.
-		 * @return the number of cells in the array.
-		 */
-		public int at(final int indexes, final Cell[] array) {
-			int cnt = 0;
-			for ( int i : INDEXES[indexes] ) {
-				array[cnt++] = this.cells[i];
-			}
-			return cnt;
 		}
 
 		/**
@@ -3519,44 +3577,25 @@ public final class Grid {
 		 * kill the _____sticks, being one yourself, then just get pissed. That
 		 * is "reasonable" advice, isn't it? sigh.
 		 *
-		 * @param cell one of two cells in a conjugate pair
-		 * @param value the value to conjugate on
+		 * @param c one of two cells in a conjugate pair
+		 * @param v the value to conjugate on
 		 * @return the other cell in the conjugate pair
 		 */
-		public Cell otherThan(final Cell cell, final int value) {
-			// lick this one Scoobie!
-			return cells[IFIRST[ridx[value].bits & ~ISHFT[indexOf(cell)]]];
+		public Cell otherThan(final Cell c, final int v) {
+			// lick that one Scoobie!
+			return cells[IFIRST[ridx[v].bits & ~ISHFT[indexOf(c)]]];
 		}
 
 		/**
-		 * Repopulate result with the cells in this region other than
-		 * those in the given excluded collection.
-		 * <p>
-		 * WARN: I return new {@code LinkedList<Cell>()} so call me sparingly,
-		 * like during hint creation; not as part of your bloody search, which
-		 * will hammer the s__t out of me, coz I'm not really up for it.
+		 * Repopulate result with indices of Region.cells EXCEPT excluded, and
+		 * return how many.
 		 *
-		 * @param excluded the cells to be excluded
-		 * @param numExcluded the number of cells in excluded
-		 * @param result the cells array to add cells to
-		 * @return number of cells added to result
+		 * @param excluded Idx of the cells to be excluded
+		 * @param result the result Idx to set
+		 * @return the result Idx, for method chaining
 		 */
-		public int otherThan(final Cell[] excluded, final int numExcluded, final Cell[] result) {
-			int i, cnt=0;
-			CELL: for ( final Cell cell : cells ) {
-				// NB: use == instead of equals; they're the SAME instances.
-				// NB: an iterator is fast enough here, but only because I'm
-				// only called when creating a hint, ie not too often. If you
-				// ever hammer this method then pass an Idx with O(1) contains
-				// and I'd better take an array and return it's new size. sigh.
-				for ( i=0; i<numExcluded; ++i ) {
-					if ( excluded[i] == cell ) {
-						continue CELL;
-					}
-				}
-				result[cnt++] = cell;
-			}
-			return cnt;
+		public Idx otherThan(final Idx excluded, final Idx result) {
+			return result.setAnd(idx, getEmpties()).andNot(excluded);
 		}
 
 		/**
@@ -3616,24 +3655,17 @@ public final class Grid {
 		/**
 		 * Return the cells in this region which maybe 'bits'.
 		 * <p>
-		 * This method only used by UniqueRectangle.createType4Hint, which is
-		 * the only use of UrtCellSet; ie there's lots of special code under
-		 * the bonnet.
-		 * <p>
-		 * Called 382,984 times in top1465: efficiency matters a bit, not lots.
+		 * This method used by UniqueRectangle.createType4Hint only.
 		 *
 		 * @param bits bitset (one-or-more left-shifted values) to get.
-		 * @param results a LinkedHashCellSet as a CellSet to which I add
-		 * @return a new {@code LinkedHashCellSet} as a {@code CellSet}.
+		 * @param results the {@code Collection<Cell>} to which I add
+		 * @return the given results {@code Collection<Cell>}
 		 */
-		public IUrtCellSet maybe(final int bits, final IUrtCellSet results) {
-			// all current calls clear results, so it's "oddly" done here.
+		public Collection<Cell> maybe(final int bits, final Collection<Cell> results) {
 			results.clear();
-			for ( final Cell cell : cells ) { // 9 cells
-				if ( (cell.maybes & bits) != 0 ) {
+			for ( final Cell cell : cells )
+				if ( (cell.maybes & bits) != 0 )
 					results.add(cell);
-				}
-			}
 			return results;
 		}
 
@@ -3670,11 +3702,9 @@ public final class Grid {
 		 */
 		public int emptyCells(final Cell[] result) {
 			int cnt = 0;
-			for ( final Cell cell : cells ) {
-				if ( cell.value == 0 ) {
+			for ( final Cell cell : cells )
+				if ( cell.value == 0 )
 					result[cnt++] = cell;
-				}
-			}
 			return emptyCellCount = cnt;
 		}
 
@@ -3682,24 +3712,6 @@ public final class Grid {
 		@Override
 		public String toString() {
 			return id;
-		}
-
-		/**
-		 * Returns the given Idx populated with the indices of the cells in
-		 * this ARegion which maybe any of the given maybes (a bitset).
-		 *
-		 * @param cands a bitset of the maybes you seek
-		 * @param result the result Idx
-		 * @return the result Idx of cells in this region which maybe maybes
-		 */
-		public Idx idxOf(final int cands, final Idx result) {
-			result.clear();
-			for ( final Cell c : cells ) {
-				if ( (c.maybes & cands) != 0 ) {
-					result.add(c.i);
-				}
-			}
-			return result;
 		}
 
 		/**
@@ -3758,7 +3770,7 @@ public final class Grid {
 
 		/**
 		 * Rebuild the {@link #ridx} of each value 1..9 with the index in this
-		 * {@link #cellsA ARegion.cells} array of each Cell which maybe v.
+		 * {@link #cells} of each Cell which maybe v.
 		 */
 		private void rebuildIndexsOfAllValues() {
 			int i, bitset, sv, v;
@@ -3866,6 +3878,7 @@ public final class Grid {
 			}
 		}
 		/** Return the index of the given cell in this Regions cells array.
+		 * This region MUST contain the given cell.
 		 * @return Actually just returns the given cells 'b' index (for box),
 		 *  we check that thisRegion.contains(cell) with an assert. */
 		@Override
@@ -3912,6 +3925,7 @@ public final class Grid {
 			this.intersectingBoxs[2] = Grid.this.boxs[vNum+2];
 		}
 		/** Returns the index of the given Cell in this regions cells array.
+		 * This region MUST contain the given cell.
 		 * @param cell Cell to get the index of.
 		 * @return the x (horizontal index) of the given Cell, we check that
 		 * {@code thisRegion.contains(cell)} with an assert. */
@@ -3957,6 +3971,7 @@ public final class Grid {
 			this.intersectingBoxs[2] = Grid.this.boxs[hNum+6];
 		}
 		/** Returns the index of the given Cell in this regions cells array.
+		 * This region MUST contain the given cell.
 		 * @return the y (vertical index) of the given Cell, we check that
 		 * {@code thisRegion.contains(cell)} with an assert. */
 		@Override
@@ -4067,8 +4082,6 @@ public final class Grid {
 					differs(""+i+": row "+c0.row+" != "+c1.row);
 				if ( c0.boxIndex != c1.boxIndex )
 					differs(""+i+": boxIndex "+c0.boxIndex+" != "+c1.boxIndex);
-				if ( c0.hashCode != c1.hashCode )
-					differs(""+i+": hashCode "+c0.hashCode+" != "+c1.hashCode);
 				if ( c0.idxdex != c1.idxdex )
 					differs(""+i+": idxdex "+c0.idxdex+" != "+c1.idxdex);
 				if ( c0.idxshft != c1.idxshft )

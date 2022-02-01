@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * This class is based on HoDoKu's Als class, by Bernhard Hobiger. Kudos to
@@ -33,11 +33,9 @@ package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import diuf.sudoku.IdxL;
-import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import java.util.ArrayList;
@@ -222,28 +220,5 @@ public class Als {
 		return ts;
 	}
 	private String ts;
-
-	/**
-	 * DiufAdapter: an alternative to the {@link Idx#cellsA(Grid)} method;
-	 * Returns a cached (in the given grid) array of the cells in the given
-	 * Grid at the indices in this Als.
-	 *
-	 * @param grid the Grid to extract the cells from
-	 * @return a cached Cell[], so clone() it before you store it!
-	 */
-	Cell[] cells(Grid grid) {
-		return idx.cellsA(grid);
-	}
-
-	/**
-	 * GUI Adapter: a list containing my region.
-	 * @return {@code ArrayList<ARegion>}
-	 */
-	public ARegion[] regions() {
-		if ( regions == null )
-			regions = Regions.array(region);
-		return regions;
-	}
-	private ARegion[] regions;
 
 }

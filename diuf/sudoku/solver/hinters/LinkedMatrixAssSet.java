@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters;
@@ -133,6 +133,23 @@ public final class LinkedMatrixAssSet extends AbstractSet<Ass>
 	@Override
 	public Ass getAss(Cell cell, int value) {
 		final Node n = nodes[cell.i][value];
+		if ( n == null )
+			return null;
+		return n.ass;
+	}
+
+	/**
+	 * getAss implements IAssSet.getAss.
+	 * <p>WARN this implementation relies upon all Ass's in this set having the
+	 *  same isOn, which happily is how it is "naturally" in Chainer.
+	 *
+	 * @param indice the index of the cell Grid.cells
+	 * @param value the potential value you seek
+	 * @return the Ass if it is present, else null
+	 */
+	@Override
+	public Ass getAss(int indice, int value) {
+		final Node n = nodes[indice][value];
 		if ( n == null )
 			return null;
 		return n.ass;

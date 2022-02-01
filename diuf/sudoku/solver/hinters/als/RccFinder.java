@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -35,8 +35,8 @@ package diuf.sudoku.solver.hinters.als;
  * decomposition allows me to write code that's highly specific to each flavour
  * of RCC-finding, so that each is as fast as possible at it's specific job.
  * It's certainly more classes, so the whole thing looks terribly complex to a
- * newbie, but it's simple enough really. However, we're screwed if we ever
- * need to change how RCCs are found. sigh.
+ * newbie, but it's simple enough really, but we're screwed if we ever need to
+ * change how RCCs are found. sigh.
  *
  * @author Keith Corlett 2021-07-29.
  */

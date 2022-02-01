@@ -1,17 +1,18 @@
 package diuf.sudoku.solver.hinters.wing;
 
 import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.BUDDIES;
+import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.EXCEPT;
 import static diuf.sudoku.Grid.LATER_BUDS;
 import diuf.sudoku.Idx;
+import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import static diuf.sudoku.Values.VSIZE;
-import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 
@@ -40,6 +41,26 @@ import diuf.sudoku.solver.hinters.AHinter;
  *
  * KRC 2021-09-13 Removed the isWing method because it is not necessary, and
  * the current alternate: Idx.hasAll and Idx.setAndSome is a bit faster.
+ *
+ * KRC 2021-12-01 Instituted Idx.toArrayLease, which grants a Lease over an
+ * int-array. The lease implements java.io.Closeable, so it's "used" just like
+ * any java.io.Class. The close method returns the array to the cache, where
+ * it's available for the next lease-request. If there is no existing array
+ * then a new one is created, added to the cache, and returned, so it's
+ * available for next-time. This creates a minial static cache of int-arrays in
+ * the Idx class, which I hope is faster than creating new arrays on the fly,
+ * which is pretty slow in Java, especially when you consider that there's no
+ * requirement to clear each array before use because it's the right size, so
+ * each and every element is overwritten every single time the array is used;
+ * so you can stick ALL that slow crap up your jaxy Jackson. I Fixed It!
+ *
+ * Ideally, I'd move this mechanism to an IntArray class, for use everywhere I
+ * need an int-array, but that sounds like a lot of work.
+ *
+ * KRC 2021-12-18 split eliminate into strong and weak, with static final REDS.
+ * I also tried with no methods using IntArray.doWhile instead, but that's
+ * slower: I guess doWhile invokes both accept and possibly the lambda for
+ * each ALS indice, where-as this is all in ONE stackframe.
  * </pre>
  *
  * @author Keith Corlett 2010 May IIRC My code based on Juillerat's concept.
@@ -51,46 +72,54 @@ public class BigWing extends AHinter
 //	public void report() {
 //		diuf.sudoku.utils.Log.teeln(tech.name()+": COUNTS="+java.util.Arrays.toString(COUNTS));
 //	}
-//	private final long[] COUNTS = new long[5];
+//	private static final long[] COUNTS = new long[6];
+
+	// indices of cells from which this value can be removed
+	private static final Idx VICTIMS = new Idx();
+	// the removable (red) potentials
+	private static final Pots REDS = new Pots();
 
 	/**
-	 * Eliminate 'v' from this Wing, adding eliminations to reds,
-	 * and return were any found?
+	 * Eliminate 'v' from this Wing (the ALS and yz cell), adding eliminations
+	 * to reds, and return were any found?
 	 * <p>
-	 * I'm static because Java's this injection is a bit slow.
+	 * eliminate is called about 3,000,000 times, ie hammered. I'm static coz
+	 * Java's this injection is a bit slow, but makes my fields static. A new
+	 * stackframe in recurse turns out to be faster as well as more convenient.
+	 * <p>
+	 * eliminate is now split into strong and weak, for speed: <br>
+	 * strong: start with all grid.cells which maybe v, that see yz <br>
+	 * weak: start with all grid.cells which maybe v, except yz
+	 * <p>
+	 * eliminate is faster than equivalent IntArray.doWhile, coz this is all
+	 * in ONE stackframe, where-as doWhile invokes once-or-twice per als-cell
 	 *
-	 * @param isStrong are these eliminations strong ones. A strong elimination
-	 *  sees all v's in the wing, including the yz-cell. A weak elimination
-	 *  only applies to ALS-only-values in a double-linked wing, and must see
-	 *  all v's in the ALS (not the yz-cell).
 	 * @param v the value to eliminate; xz.z or xz.x
+	 * @param sv VSHFT[v] is a param only for speed: it seems to be faster if
+	 *  the whole stackframe is populated in the call, which I don't understand
 	 * @param als array of indices of cells in this Almost Locked Set
 	 * @param yz indice of the bivalue cell which completes the Wing pattern
-	 * @param reds the removable (red) potentials
 	 * @return where any eliminations found?
 	 */
-	private static boolean elim(final boolean isStrong, final int v
-			, final int[] als, final int yz, final Pots reds
-			, final Cell[] cells) {
-		final int sv = VSHFT[v]; //shiftedValue
-		VICTIMS.set(idxs[v]);
+	private static boolean strong(final int v, final int sv, final int[] als, final int yz) {
+		VICTIMS.setAnd(gridIdxs[v], BUDDIES[yz]);
+		// and buddy of each ALS cell which maybe v
 		for ( int i : als )
-			if ( (maybes[i] & sv) != 0 )
-				VICTIMS.and(BUDDIES[i]);
-		if ( isStrong ) // buddy of ALL cells which maybe v, including yz
-			VICTIMS.and(BUDDIES[yz]);
-		else // weak: just remove yz
-			VICTIMS.remove(yz);
-		if ( VICTIMS.none() )
-			return false;
-		boolean result = false;
-		for ( Cell victim : VICTIMS.cells(cells) )
-			// nb: upsert in case x and z elim from same cell (sigh)
-			result |= reds.upsert(victim, sv, false);
-		return result;
+			if ( (gridMaybes[i] & sv) != 0
+			  && !VICTIMS.andAny(BUDDIES[i]) )
+				return false;
+		return REDS.upsertAll(VICTIMS, gridMaybes, gridCells, sv, DUMMY);
 	}
-	// the victims are the removable cells
-	private static final Idx VICTIMS = new Idx();
+	private static boolean weak(final int v, final int sv, final int[] als, final int yz) {
+		VICTIMS.setAnd(gridIdxs[v], EXCEPT[yz]);
+		// and buddy of each ALS cell which maybe v
+		for ( int i : als )
+			if ( (gridMaybes[i] & sv) != 0
+			  && !VICTIMS.andAny(BUDDIES[i]) )
+				return false;
+		return REDS.upsertAll(VICTIMS, gridMaybes, gridCells, sv, DUMMY);
+	}
+
 
 	// ============================ instance stuff ============================
 
@@ -106,34 +135,45 @@ public class BigWing extends AHinter
 	private final int[] als = new int[degree];
 	// candidates of index+1 cells combined
 	private final int[] cands = new int[degree];
-	// the removable (red) potentials
-	private final Pots reds = new Pots();
-	// the yzs cell set
+	// the yz's cell set
 	private final Idx yzs = new Idx();
+	private int[] yza; // yz-array
+	private int yzi; // index in yza
+	private int yzn; // yza.length
+	private int yz; // the indice of the yz cell
 
 	// ---- set and cleared by findHints ----
-	// the grid to search
-	private Grid grid;
-	// the grid.cells to search
-	private Cell[] cells;
 	// the hints collector
 	private IAccumulator accu;
 	// accu.isSingle() ie is only one hint sought
 	private boolean onlyOne;
+	// the grid to search
+	private Grid grid;
 	// indices of cells in grid with maybesSize==2
 	private Idx bivi;
 	// indices of cells in grid with value==0
 	private Idx empties;
-	
-	// THESE static coz elim is static coz Java's this injection is a bit slow
-	// indices of grid cells which maybe each value 1..9
-	private static Idx[] idxs;
-	// the maybes of each of the 81 cells in the grid
-	private static int[] maybes;
 
-	public BigWing(Tech tech) {
+	// THESE are static because eliminate is static
+	// the grid.cells to search
+	private static Cell[] gridCells;
+	// the grid.maybes to search
+	private static int[] gridMaybes;
+	// the grid.idxs to search: indices of grid cells which maybe value 1..9
+	private static Idx[] gridIdxs;
+
+
+	// recurse vars are fields to save on stack-work.
+	private boolean xWing, zWing, both, zStrong, xStrong, weak, any;
+	private int j, x, z, yzCands, alsCands;
+	// Idx of the ALS cells
+	private final Idx alsIdx = new Idx();
+	// Idx of the ALS cells which maybe v, where v is x or z
+	private final Idx vi = new Idx();
+
+	public BigWing(final Tech tech) {
 		super(tech);
-		assert tech.name().matches("S?T?U?V?WXYZ_Wing") : "Bad tech: "+tech;
+		assert tech.in(Tech.BIG_WING_TECHS) : "Not in BIG_WING_TECHS: "+tech;
 		// nb: sets[0] instance is set directly
 		for ( int i=1; i<degree; ++i ) {
 			sets[i] = new Idx();
@@ -151,52 +191,50 @@ public class BigWing extends AHinter
 	 */
 	@Override
 	public boolean findHints(final Grid grid, final IAccumulator accu) {
+		// pre-check for trouble in paradise
+		assert grid.maybesCheck();
+		assert grid.sizeCheck();
 		// presume that no hint will be found
 		boolean result = false;
 		try {
-			this.grid = grid;
-			this.cells = grid.cells;
 			this.accu = accu;
-			this.onlyOne = accu.isSingle();
+			onlyOne = accu.isSingle();
+			this.grid = grid;
+			gridCells = grid.cells;
+			gridMaybes = grid.maybes;
+			gridIdxs = grid.idxs;
 			bivi = grid.getBivalue();
-			idxs = grid.idxs;
 			empties = grid.getEmpties();
-			assert grid.maybesCheck();
-			maybes = grid.maybes;
-			// indices of cells with size 2..degree+1
-			sets[0] = empties.where(grid.cells, (c) -> {
-				return c.size>1 && c.size<degreePlus2;
-			});
+			// get indices of cells with size 2..degree+1
+			sets[0] = empties.where((i)->grid.size[i] < degreePlus2);
 			// foreach first-cell in each possible ALS
-			for ( int i : sets[0].toArrayA() ) {
-				cands[0] = maybes[als[0] = i];
-				// check for enough cells (we need degree cells for an ALS)
-				// sets[0] is cells with <= degree+1 maybes so no recheck here
-				if ( sets[1].setAndMin(sets[0], LATER_BUDS[i], degreeMinus1)
-				  // move right to find the next ALS cell, to find a BigWing
-				  && (result |= recurse(0, 1, 2))
-				  && onlyOne
-				) {
-					break;
+			try ( final IALease lease = sets[0].toArrayLease() ) {
+				for ( int i : lease.array ) {
+					cands[0] = gridMaybes[als[0] = i];
+					// check for enough cells (we need degree cells for an ALS)
+					// sets[0] is cells with <= degree+1 maybes so no recheck here
+					if ( sets[1].setAndMin(sets[0], LATER_BUDS[i], degreeMinus1)
+					  // move right to find the next ALS cell, to find a BigWing
+					  && (result |= recurse(0, 1, 2))
+					  && onlyOne )
+						break;
 				}
 			}
 		} finally {
-			// forget all grid and cell references (for GC)
-			this.grid = null;
-			this.cells = null;
 			this.accu = null;
-			this.bivi = null;
-			this.empties = null;
-			BigWing.idxs = null;
-			BigWing.maybes = null;
-			reds.clear();
+			this.grid = null;
+			gridCells = null;
+			gridMaybes = null;
+			gridIdxs = null;
+			bivi = null;
+			empties = null;
 			sets[0] = null; // the other Idx's are mine
 		}
 		return result;
 	}
-	
-	// MIA BigWingTest: STUVWXYZ_Wing: A4 B4 C4 E4 F4 H4 I4 and G5 on 3 (A5-3, B5-3, C5-3)
-	private static int[] DEBUG_ALS = Grid.indices("A4 B4 C4 E4 F4 H4 I4");
+
+//// MIA BigWingTest: STUVWXYZ_Wing: A4 B4 C4 E4 F4 H4 I4 and G5 on 3 (A5-3, B5-3, C5-3)
+//	private static final int[] DEBUG_ALS = Grid.indices("A4 B4 C4 E4 F4 H4 I4");
 
 	/**
 	 * Recursively build-up $degree cells in the ALS array, then check each YZ
@@ -213,112 +251,110 @@ public class BigWing extends AHinter
 	 *
 	 * @param m Pass 0. I am just a fast n - 1
 	 * @param n Pass 1. number of cells in the als. I recurse to degreeMinus1.
-	 *  nb: als[0], cands[0], sets[0] are always pre-initialised
+	 *  Note that als[0], cands[0], and sets[0] are all pre-initialised
 	 * @param o Pass 2. I am just a fast n + 1
 	 * @return any hint/s found?
 	 */
 	private boolean recurse(final int m, final int n, final int o) {
 		boolean result = false;
-		// nb: in recursion we must create a new array each time.
-		for ( int i : sets[n].toArray(new int[sets[n].size()]) ) {
-			als[n] = i;
-			if ( n < degreeMinus1 ) { // incomplete ALS
-				// if existing + this cell together have <= degree+1 maybes
-				if ( VSIZE[cands[n]=cands[m]|maybes[i]] < degreePlus2
-				  // need degree cells to form an ALS, this is the (i+1)'th
-				  && sets[o].setAndMin(sets[n], LATER_BUDS[i], degreeMinus1-n)
-				  // move right to find the next ALS cell, to find a BigWing
-				  && (result |= recurse(n, o, o+1))
-				  && onlyOne
-				) {
-					return result;
-				}
-			// else the ALS array is now full, so if these degree cells have
-			// degree+1 maybes then it's an Almost Locked Set to be searched
-			} else {
-				// WARNING: o is the degree, not n as you might expect. sigh.
-				// The 'als' array is size degree, so no need to pass length!
-				assert n == degreeMinus1; // never more
+		// nb: recurse takes a Lease over a cached array, rather than wear the
+		// expense of creating a new array each time, for more speed! The Lease
+		// implements java.io.Closeable, so it's "used" like a Reader/etc.
+		try ( final IALease lease = sets[n].toArrayLease() ) {
+			for ( int i : lease.array ) {
+				als[n] = i;
+				if ( n < degreeMinus1 ) { // incomplete ALS
+					// if existing + this cell together have <= degree+1 maybes
+					if ( VSIZE[cands[n]=cands[m]|gridMaybes[i]] < degreePlus2
+					  // need degree cells to form an ALS, this is the (i+1)'th
+					  && sets[o].setAndMin(sets[n], LATER_BUDS[i], degreeMinus1-n)
+					  // move right to find the next ALS cell, to find a BigWing
+					  && (result |= recurse(n, o, o+1))
+					  && onlyOne
+					)
+						return result;
+				// else the ALS array is now full, so if these degree cells have
+				// degree+1 maybes then it's an Almost Locked Set to be searched
+				} else {
+					// WARNING: o is the degree, not n as you might expect. sigh.
+					// The 'als' array is size degree, so no need to pass length!
+					assert n == degreeMinus1; // never more
 //// MIA BigWingTest: STUVWXYZ_Wing: A4 B4 C4 E4 F4 H4 I4 and G5 on 3 (A5-3, B5-3, C5-3)
-//if ( tech==Tech.STUVWXYZ_Wing && Arrays.equals(DEBUG_ALS, als) ) {
+//if ( tech==Tech.STUVWXYZ_Wing && Arrays.equals(DEBUG_ALS, als) )
 //	Debug.breakpoint();
-//}
-					
-				if ( VSIZE[cands[n]=cands[m]|maybes[i]] == degreePlus1 ) {
-	//				++COUNTS[0]; // 2,497,696
-					// examine this ALS against each of it's possible yz cells;
-					// yz's are buddies of any ALS cell, except the ALS cells,
-					// that are bivalue, and keep going if there are any.
-					yzs.set(BUDDIES[als[0]]);
-					for ( j=1; j<degree; ++j ) {
-						yzs.or(BUDDIES[als[j]]);
-					}
-					if ( yzs.andNot(alsIdx.set(als)).and(bivi).any() ) {
-	//					++COUNTS[1]; // 2,478,203
-						alsCands = cands[n]; // do the array look-up ONCE
-						// nb: must use a new array in recursion
-						for ( int yz : yzs.toArrayNew() ) {
-	//						++COUNTS[2]; // 17,229,369
-							// if yz shares both it's maybes with this ALS
-							if ( (alsCands & (yzCands=maybes[yz])) == yzCands
-	//						  && ++COUNTS[3] > 0L // 7,540,301
-							  // and ( yz sees all x's in the ALS
-							  && ( (xWing=BUDDIES[yz].hasAll(vi.setAnd(alsIdx, idxs[x=VFIRST[yzCands]])))
-								 // or yz sees all z's in the ALS )
-								 | (zWing=BUDDIES[yz].hasAll(vi.setAnd(alsIdx, idxs[z=VFIRST[yzCands & ~VSHFT[x]]]))) )
-							) {
-	//							++COUNTS[4]; // 981,499
-								// It's a BigWing, but any eliminations?
-								if ( !xWing ) {
-									j = x;
-									x = z;
-									z = j;
-								}
-								// WARN: pass o instead of n, ya idjit! n is degreeMinus1 and we need degree: the number of cells in the ALS. sigh.
-								zStrong = elim(true, z, als, yz, reds, cells);
-								if ( both = xWing & zWing ) {
-									xStrong = elim(true, x, als, yz, reds, cells);
-									weak = false;
-									for ( int w : VALUESES[alsCands ^ yzCands] ) {
-										weak |= elim(false, w, als, yz, reds, cells);
-									}
-									if ( !weak ) {
-										both = xStrong & zStrong;
-										if ( !zStrong ) {
+					if ( VSIZE[cands[m]|gridMaybes[i]] == degreePlus1 ) {
+//						++COUNTS[0]; // 2,497,696
+						// faster to NOT cache this, and we're done recursing.
+						cands[n] = cands[m] | gridMaybes[i];
+						// examine this ALS against each of it's possible yz cells;
+						// yz's are buddies of any ALS cell, except the ALS cells,
+						// that are bivalue, and keep going if there are any.
+						yzs.set(BUDDIES[als[0]]);
+						for ( j=1; j<degree; ++j )
+							yzs.or(BUDDIES[als[j]]);
+						if ( yzs.andNot(alsIdx.set(als)).and(bivi).any() ) {
+//							++COUNTS[1]; // 2,478,203
+							alsCands = cands[n]; // do the array look-up ONCE
+							try ( final IALease yzLease = yzs.toArrayLease() ) {
+								for ( yza=yzLease.array,yzi=0,yzn=yza.length; yzi<yzn; ++yzi ) {
+//									++COUNTS[2]; // 17,229,369
+									// if yz shares both it's maybes with this ALS
+									if ( (alsCands & (yzCands=gridMaybes[yz=yza[yzi]])) == yzCands
+//									  && ++COUNTS[3] > 0L // 7,540,301
+									  // and ( yz sees all x's in the ALS
+									  && ( (xWing=BUDDIES[yz].hasAll(vi.setAnd(alsIdx, gridIdxs[x=VFIRST[yzCands]])))
+										 // or yz sees all z's in the ALS )
+										 | (zWing=BUDDIES[yz].hasAll(vi.setAnd(alsIdx, gridIdxs[z=VFIRST[yzCands & ~VSHFT[x]]]))) )
+									) {
+//										++COUNTS[4]; // 981,499
+										// It's a BigWing, but any eliminations?
+										if ( !xWing ) {
 											j = x;
 											x = z;
 											z = j;
 										}
+										// MAG: 1,000,000
+										// strong eliminate z from buds of als and yz
+										any |= zStrong = strong(z, VSHFT[z], als, yz);
+										if ( both = xWing & zWing ) {
+											// MAG: 400,000
+											// strong eliminate x from buds of als and yz
+											any |= xStrong = strong(x, VSHFT[x], als, yz);
+											// weak eliminate each w from buds of als EXCEPT yz
+											// w's are alsCands EXCEPT the two yzCands
+											weak = false;
+											for ( int w : VALUESES[alsCands ^ yzCands] )
+												// MAG: 1,600,000
+												any |= weak |= weak(w, VSHFT[w], als, yz);
+											if ( !weak ) {
+												both = xStrong & zStrong;
+												if ( !zStrong ) {
+													j = x;
+													x = z;
+													z = j;
+												}
+											}
+										}
+										if ( any ) {
+											// FOUND a BigWing
+											final Cell yzCell = gridCells[yz];
+											final Cell[] alsCells = grid.cellsNew(als);
+											final Pots oranges = new Pots(alsCells, x);
+											oranges.put(yzCell, VSHFT[x]);
+											result = true;
+											if ( accu.add(new BigWingHint(this, REDS.copyAndClear(), yzCell
+													, x, z, both, alsCands, alsCells, oranges)) )
+												return result;
+										}
 									}
-								}
-								if ( !reds.isEmpty() ) {
-									// FOUND a BigWing on x and possibly z
-									final Cell[] alsCells = grid.cells(als);
-									final Pots oranges = new Pots(alsCells, x);
-									final Cell yzCell = cells[yz];
-									oranges.put(yzCell, VSHFT[x]);
-									final AHint hint = new BigWingHint(this
-											, reds.copyAndClear(), yzCell, x, z
-											, both, alsCands, alsCells, oranges);
-									result = true;
-									if ( accu.add(hint) ) {
-										return result;
-									}
-								}
+								} // next yz
 							}
-						} // next yz
+						}
 					}
 				}
-			}
-		} // next cell in this set
+			} // next cell in this set
+		}
 		return result;
 	}
-	// recurse variables are fields to save on stack-work.
-	private boolean xWing, zWing, both, zStrong, xStrong, weak;
-	private int j, x, z, yzCands, alsCands;
-	// Idx of the ALS cells
-	private final Idx alsIdx = new Idx();
-	// Idx of the ALS cells which maybe v, where v is x or z
-	private final Idx vi = new Idx();
 
 }

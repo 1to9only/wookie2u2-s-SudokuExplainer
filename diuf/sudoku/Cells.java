@@ -1,18 +1,16 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
-import static diuf.sudoku.Grid.GRID_SIZE;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 
 /**
  * The Cells class contains static helper methods for collections of Grid.Cell.
@@ -22,6 +20,8 @@ import java.util.Iterator;
  * @author Keith Corlett 2021-05-06
  */
 public class Cells {
+
+	public static final Cell[] EMPTY_CELLS_ARRAY = new Cell[0];
 
 	/**
 	 * Create a new HashSet containing the given Cell.
@@ -41,7 +41,7 @@ public class Cells {
 	 * @param cells
 	 * @return a new {@code HashSet<Cell>}
 	 */
-	public static HashSet<Cell> set(final Cell... cells) {
+	public static HashSet<Cell> set(final Cell[] cells) {
 		final HashSet<Cell> result = new HashSet<>(cells.length, 1.0F);
 		for ( Cell c : cells )
 			result.add(c);
@@ -79,7 +79,7 @@ public class Cells {
 	 * @param cells
 	 * @return
 	 */
-	public static Cell[] array(final Collection<Cell> cells) {
+	public static Cell[] arrayNew(final Collection<Cell> cells) {
 		final Cell[] result = new Cell[cells.size()];
 		int i = 0;
 		for ( Cell c : cells )
@@ -87,106 +87,87 @@ public class Cells {
 		return result;
 	}
 
-	// ============================= Cell arrays ==============================
+	public static boolean arraysEquals(final Cell[] as, final Cell[] bs) {
+		if ( as.length != bs.length )
+			return false;
+		final int n = as.length;
+		for ( int i=0; i<n; ++i )
+			if ( !as[i].equals(bs[i]) )
+				return false;
+		return true;
+	}
+
+	// =========================== CELL ARRAY LEASE ===========================
 
 	/**
-	 * CAS (Cell ArrayS) are created ONCE, for re-use, rather than creating
-	 * temporary cells arrays on the fly throughout the codebase. It's just a
-	 * bit faster to reuse an array verses rolling your own on the fly.
-	 * <p>
-	 * The intent is that the array is gotten, populated, and read; and then
-	 * your reference is forgotten. Be sure to "forget" your array reference
-	 * when you have finished with it, because every Cell reference holds the
-	 * whole grid in memory, and a Grid is "quite large" so if multiple grids
-	 * are retained (for no purpose) it slows-down the whole application.
-	 * <p>
-	 * Care is required when using the CAS. If you're unsure then just create
-	 * your own cells array, for now, but come-back-to-it later and try using
-	 * the CAS for speed. Peruse an existing class that uses the CAS before you
-	 * use it for the first time.
-	 * <p>
-	 * The arrays of 0..20 and 81 are created at start-up. The rest of the CAS
-	 * is late-populated rather than creating many large arrays that are simply
-	 * never used.
-	 * <p>
-	 * See {@link #arrayA(int)}
+	 * CellArrayLease is a "lease" over a Cell[], whose close method clears it
+	 * and returns it to the pool, making it available for reuse the next time
+	 * you want a cell[]. Leasing arrays is my humble attempt at overcoming how
+	 * slow Java is at creating new arrays, and less garbage means less garbage
+	 * collection.
 	 */
-	private static final Cell[][] CASA = new Cell[GRID_SIZE+1][];
-	private static final Cell[][] CASB = new Cell[GRID_SIZE+1][];
-	static {
-		// A cell has 20 siblings. The larger arrays are late-populated upon
-		// use, except the last of 81 cells, which I presume is always used.
-		for ( int i=0; i<21; ++i ) {
-			CASA[i] = new Cell[i];
-			CASB[i] = new Cell[i];
+	public static final class CALease implements java.io.Closeable {
+		private boolean free;
+		public final Cell[] array;
+		public CALease(final int size) {
+			this.array = new Cell[size];
 		}
-		// CASA only has the 81-cell-array premade
-		CASA[GRID_SIZE] = new Cell[GRID_SIZE];
+		public CALease take() {
+			this.free = false;
+			return this;
+		}
+		@Override
+		public void close() {
+			Arrays.fill(array, null);
+			this.free = true;
+		}
 	}
 
 	/**
-	 * Returns the {@code Cell[]} of the given size from the CAS (Cell ArrayS
-	 * cache), rather than creating new temporary arrays everywhere, which is a
-	 * bit slow.
+	 * This class exists because arrays of generics are pigs.
+	 */
+	private static final class CALeaseList extends ArrayList<CALease> {
+		private static final long serialVersionUID = 486727450901L;
+	}
+
+	/**
+	 * An array of 81 {@code List<CLease>}. So a list per array size.
+	 */
+	private static final CALeaseList[] CA_LEASES = new CALeaseList[81];
+
+	/**
+	 * Get a CALease: a Cell[] with auto-return. The close method returns the
+	 * array to the pool, so that if you treat me as a resource (a try-block)
+	 * the array is automatically cleared and returned to the pool; solving the
+	 * competing problems that creating arrays on the fly in Java is slow, but
+	 * avoiding creating arrays on the fly in Java is a total pain in the ass.
+	 * Leases are still a pain in the ass, just less so.
 	 * <p>
-	 * The intention is that I grant you (my caller) a "lease" on the returned
-	 * array: so you populate the array, you loop through it, and then you just
-	 * forget it; typically using automatic variables, which simply dissappear
-	 * with your stackframe. You cannot use the CAS or call a method which uses
-	 * the CAS inside a method that uses the CAS. I'm single use baby! The CAS
-	 * is just a speed thing, if you strike any trouble then I recommend you
-	 * "Don't use the bloody CAS!".
+	 * NOTE that CALease.close clears the array, because holding just one Cell
+	 * reference holds the whole Grid in memory (a classic memory leak).
 	 * <p>
-	 * <b>WARNING:</b> If you retain the returned array then it's up to you to
-	 * clone() it, because the same array may be returned again the next time I
-	 * am called, arbitrarily overwriting it's contents. Usually this situation
-	 * means your method/class needs it's own re-usable cell array, rather than
-	 * taking the convenient CAS route.
-	 * <p>
-	 * Note that cell-arrays of size 1..20 and 81 are created at start-up, but
-	 * all the rest are created on demand, rather than create lots of unused
-	 * arrays; yielding good (I hope) balance between memory use and speed.
+	 * Performance is no better than creating arrays on the fly, mainly coz I
+	 * use an Iterator over the appropriate CALeaseList, which is slow. I tried
+	 * one way to not use an Iterator (MyArrayList exposes elementData), but it
+	 * was no faster. Sigh.
 	 *
-	 * @param size the size of the cached array to retrieve
-	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
+	 * @param size of the required Cell[]
+	 * @return a lease over a Cell[], whose close clears it and returns it to
+	 *  the pool
 	 */
-	public static Cell[] arrayA(final int size) {
-		Cell[] cells = CASA[size];
-		// late populate CellsArrayS 21..80
-		if ( cells == null )
-			cells = CASA[size] = new Cell[size];
-		return cells;
+	public static CALease caLease(final int size) {
+		if ( CA_LEASES[size] == null )
+			CA_LEASES[size] = new CALeaseList();
+		else
+			for ( CALease lease : CA_LEASES[size] ) // slow Iterator
+				if ( lease.free )
+					return lease.take();
+		final CALease lease = new CALease(size);
+		CA_LEASES[size].add(lease);
+		return lease;
 	}
 
-	/**
-	 * As per arrayA above, except my arrays are in a separate CASB.
-	 * @param size the size of the cached array to retrieve
-	 * @return the <b>cached</b> {@code Cell[]}. Did I mention it's cached?
-	 */
-	public static Cell[] arrayB(final int size) {
-		Cell[] cells = CASB[size];
-		// late populate CellsArrayS 21..80
-		if ( cells == null )
-			cells = CASB[size] = new Cell[size];
-		return cells;
-	}
-
-	public static void cleanCasA() {
-		for ( int i=0; i<GRID_SIZE; ++i )
-			if ( CASA[i] != null )
-				Arrays.fill(CASA[i], null);
-	}
-
-	public static void cleanCasA(final int size) {
-		if ( CASA[size] != null )
-			Arrays.fill(CASA[size], null);
-	}
-
-	public static void cleanCasB() {
-		for ( int i=0; i<GRID_SIZE; ++i )
-			if ( CASB[i] != null )
-				Arrays.fill(CASB[i], null);
-	}
+	// ========================================================================
 
 	/**
 	 * Return a new Cell[n] containing a copy of the first n elements of src.
@@ -265,31 +246,25 @@ public class Cells {
 	 */
 	public static int sized(final int ceiling, final Cell[] src, final int n, final Cell[] result) {
 		int cnt = 0;
-		for ( int i=0; i<n; ++i ) {
-			if ( src[i].size < ceiling ) {
+		for ( int i=0; i<n; ++i )
+			if ( src[i].size < ceiling )
 				result[cnt++] = src[i];
-			}
-		}
 		return cnt;
 	}
 
 	/**
-	 * commonBuddiesNew: a new Idx of buds common to all given cells.
-	 * <p>
-	 * Performance: I'm a tad slow because I use an iterator, which is the cost
-	 * of taking an Iterable over a List, so it'll work for a Set also, but not
-	 * an Cell[] array, which annoys me. Arrays should be Iterable.
+	 * Returns a new Idx of buddies common to all 'cells'.
 	 *
-	 * @param cells to get the common buds of
+	 * @param cells to get the common buds of, must be full of cells, meaning
+	 *  atleast 2; if there's only one cell you get-back all of it's buds; but
+	 *  if cell[0] is null I throw an NPE
+	 * @param n number of cells
 	 * @return a new Idx of the common buds
 	 */
-	public static Idx cmnBudsNew(final Cell[] cells) {
-		// it throws an NPE if cells is empty... let it!
+	public static Idx commonBuddiesNew(final Cell[] cells, final int n) {
 		final Idx result = new Idx(cells[0].buds);
-		for ( int i=1,e=cells.length-1; ; ) {
+		for ( int i=1; i<n; ++i )
 			result.and(cells[i].buds);
-			if(++i>e) break;
-		}
 		return result;
 	}
 

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.fish;
@@ -12,18 +12,17 @@ import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
-import diuf.sudoku.utils.Frmu;
-import diuf.sudoku.utils.Html;
-import java.util.List;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
 import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
+import diuf.sudoku.utils.Frmu;
+import diuf.sudoku.utils.Html;
 
 /**
- * ComplexFishHint is a hint from the ComplexFisherman.
+ * ComplexFishHint is the DTO for a hint from the ComplexFisherman.
  * <p>
- * ComplexFishHint is used directly for "normal" (non-Kraken) hints, and<br>
+ * ComplexFishHint is used directly for "normal" (non-Kraken) hints, and <br>
  * ComplexFishHint is "wrapped" as the "cause" of a KrakenFishHint.
  *
  * @author Keith Corlett 2020 Sept/Oct
@@ -152,6 +151,7 @@ public class ComplexFishHint extends AHint  {
 		public final boolean isSashimi;
 		public final boolean isFranken;
 		public final boolean isMutant;
+
 		Type(String name, int size, boolean isBasic, boolean isFinned
 				, boolean isSashimi, boolean isFranken, boolean isMutant) {
 			this.name = name;
@@ -164,24 +164,25 @@ public class ComplexFishHint extends AHint  {
 		}
 	}
 
-	final Type hType; // the type of this Fish hint.
-	final boolean isSashimi; // is this fish Sashimi.
-	final int candidate; // the Fish candidate value 1..9 (aka just v)
+	private final Type hType; // type of this Fish hint.
+	private final boolean isSashimi; // is this fish Sashimi.
+	private final int candidate; // Fish candidate value 1..9 (aka just v)
 	// we search the bases, but remove candidates from the covers
-	final Pots endoFins; // the endoFins Cell=>Values
-	final Pots sharks; // the shark (canniblistic) Cell=>Values
-	String tag; // the techies debug message, else "" (never null)
-	ComplexFishHint(AHinter hinter, Type hintType, boolean isSashimi
-			, int candidate, ARegion[] bases, ARegion[] covers
-			, Pots redPots, Pots greenPots, Pots fins, Pots endoFins
-			, Pots sharks, String debugMessage) {
-		super(hinter, redPots, greenPots, null, fins, bases, covers);
+	private final Pots endoFins; // endoFins Cell=>Values
+	private final Pots sharks; // shark (canniblistic) Cell=>Values
+
+	ComplexFishHint(final AHinter hinter, final Type hintType
+			, final boolean isSashimi, final int candidate
+			, final ARegion[] bases, final ARegion[] covers
+			, final Pots reds, final Pots greens
+			, final Pots fins, final Pots endoFins
+			, final Pots sharks) {
+		super(hinter, reds, greens, null, fins, bases, covers);
 		this.hType = hintType;
 		this.isSashimi = isSashimi;
 		this.candidate = candidate;
 		this.endoFins = endoFins;
 		this.sharks = sharks;
-		this.tag = debugMessage;
 	}
 
 	@Override
@@ -214,24 +215,23 @@ public class ComplexFishHint extends AHint  {
 			sb.append("#");
 		sb.append(getHintTypeName()).append(COLON_SP).append(Frmu.csv(bases));
 		if ( isSashimi )
-			sb.append(" (fins ").append(blues.cells()).append(")");
+			sb.append(" (fins ").append(blues.ids()).append(")");
 		return sb.append(AND).append(Frmu.csv(covers))
 		  .append(ON).append(candidate)
 		  .toString();
 	}
 
-	String squeeze() {
-		return toStringImpl()+" ("+reds+")"; // NO CACHING!
-	}
+//not_used: 2021-11-28
+//	String squeeze() {
+//		return toStringImpl()+" ("+reds+")"; // NO CACHING!
+//	}
 
 	@Override
 	protected String toHtmlImpl() {
 		// Finned/Sashimi: hijack debugMessage = names of finned regions
 		if ( (hType.isFinned || hType.isSashimi)
 		  && !hType.isFranken && !hType.isMutant )
-			tag = Regions.finned(bases, blues.keySet());
-		else
-			tag = EMPTY_STRING;
+			setDebugMessage(Regions.finned(bases, blues.keySet()));
 		final String filename =
 			hType.isMutant ? "MutantFishHint.html"
 			: hType.isFranken ? "FrankenFishHint.html"
@@ -244,16 +244,16 @@ public class ComplexFishHint extends AHint  {
 				.replaceFirst(AND, "</b1> and <b2>")
 				.replaceFirst(ON, "</b2> on "));
 		return Html.produce(this, filename
-			, getHintTypeName()				// {0}
-			, Integer.toString(candidate)	//  1
-			, Regions.typeNames(bases)		//  2
-			, Regions.typeNames(covers)		//  3
-			, nn							//  4 number name
-			, tag							//  5 used in FinnedFishHint.html
-			, reds.toString()			//  6 eliminations
-			, blues.toString()				//  7 fins
-			, coloredHint					//  8 hint (elims)
-			, blues.size()==1?"has":"have"	//  9
+			, getHintTypeName()				//{0}
+			, Integer.toString(candidate)	// 1
+			, Regions.typeNames(bases)		// 2
+			, Regions.typeNames(covers)		// 3
+			, nn							// 4 number name
+			, debugMessage					// 5 used in FinnedFishHint.html
+			, reds.toString()				// 6 eliminations
+			, blues.toString()				// 7 fins
+			, coloredHint					// 8 hint (elims)
+			, blues.size()==1?"has":"have"	// 9
 		);
 	}
 

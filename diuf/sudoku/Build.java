@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -301,7 +301,7 @@ package diuf.sudoku;
  *			top1465 IS_HACKY in 39:16 with A2345678910E_1C. She'll do.
  * 6.30.056 2020-03-09 19:05:56 The UBER HACK replace HitSet, FilterSet and
  *			WindexSet with a new HitSet class, so all A*E's skip if there
- *          was no hint for this puzzle/hintNumber last run; and also jump
+ *			was no hint for this puzzle/hintNumber last run; and also jump
  *			straight to the aligned set which hinted here last run.
  *			top1465 IS_HACKY in 1:47 with A2345678910E_1C. It'll do.
  *			top1465 IS_HACKY in 1:53 with A5678910E_2H coz now all A*E's
@@ -309,14 +309,14 @@ package diuf.sudoku;
  *			But without the hacks it's still too slow to be useful:
  *			top1465 !IS_HACKY in     9:16 with A5678910E_2H is fast enough
  *			top1465 !IS_HACKY in 26:56:19 with A2345678910E_1C is too slow
- *          42#top1465 took 76 minutes, 74 mins of which was Aligned Dec.
+ *			42#top1465 took 76 minutes, 74 mins of which was Aligned Dec.
  * 6.30.057 2020-03-?? ??:??:?? A*E: Inlined covers method in default:'s.
  *			Put IS_HACKY in registry. Wired the GUI upto the HitSet.
  *			Ran A234567E with & without to compare number of aligned sets.
  *			I'll have to "hardcode hackery" in A8910E in order to run them
  *			in this-sort-of-scenario coz running it !IS_HACKY takes 2 days:
  *			A8E_1C 3 hrs  +  A9E_1C 9 hrs  +  A10E_1C 26 hrs
- *          top1465 !IS_HACKY in 16:00 with A5678910E_2H is 6:45 slower!
+ *			top1465 !IS_HACKY in 16:00 with A5678910E_2H is 6:45 slower!
  *			which I think must be the inlined covers method. How test?
  * 6.30.058 2020-03-19 18:22:58 Still pissin about with A*E's. Pushed the
  *			HitSet + prepare and report methods up into the abstract
@@ -336,7 +336,7 @@ package diuf.sudoku;
  * 6.30.062 2020-04-11 16:32:02 HoDoKu SashimiFisherman first pass, finding
  *			all Sashimi Fish, and test cases.
  * 6.30.063 2020-04-21 23:17:03 HoDoKu ALS-XZ and ALS-XY-Wing first pass,
- *          with ALS-XY requiring a dodgy check against the solution
+ *			with ALS-XY requiring a dodgy check against the solution
  *			from BruteForce, and ALS-XY-Wing being slow and not finding
  *			any, and I'm pretty sure it's broken. No test cases yet.
  *			Last top1465: 08:58 with A5..10E Hacked and all the new s__t
@@ -353,7 +353,7 @@ package diuf.sudoku;
  *			6.30.065 multiple times to get it to work properly; but in the
  *			end I stuck-with hobiwans code, so imported all relevant code
  *			into diuf.sudoku.solver.hinters.alshdk
- *          [2020-09-23 renamed to diuf.sudoku.solver.hinters.als]
+ *			[2020-09-23 renamed to diuf.sudoku.solver.hinters.als]
  *			Last top1465: 12:09 with A5..10E hacked + ALS-XZ + ALS-XY-Wing
  * 6.30.067 2020-05-25 10:12:07 HoDoKu ALS-XY-Chain first pass. Copy-pasted
  *			HoDoKu's ALS-XY-Wing hinter into HdkAlsXyChain. Both still use
@@ -364,7 +364,7 @@ package diuf.sudoku;
  *			eliminations and skip if that empties the redPots. Dirty HACK!
  *			Last top1465: 12:15 with A5..10E hacked + ALS-XZ+XyWing+XyChain
  * 6.30.069 2020-05-26 11:47:09 HdkAlsXyChainTest and HdkAlsXyWingTest.
- *          DiufSudoku_V6_30.069.2020-05-26.7z
+ *			DiufSudoku_V6_30.069.2020-05-26.7z
  * 6.30.070 2020-06-05 09:32:10 Revert DiufSudoku_V6_30.069.2020-05-26.7z
  *			and fix some (not all) ALS-XY-Wing and ALS-Chain bugs. Chain
  *			ignores currALS which is subset (or viceversa) of one in chain.
@@ -375,7 +375,7 @@ package diuf.sudoku;
  *			Last top1465: 12:27 with A5..10E hacked + ALS-XZ+XyWing+XyChain
  * 6.30.072 2020-06-15 12:47:12 Merged my AlsXz into the alshdk package and
  *			removed my als package.
- *          [2020-09-23 renamed alshdk to diuf.sudoku.solver.hinters.als]
+ *			[2020-09-23 renamed alshdk to diuf.sudoku.solver.hinters.als]
  *			Last top1465: 12:56 with A5..10E hacked + ALS-XZ+XyWing+XyChain
  * 6.30.073 2020-06-22 22:17:13 Improved GUI after Sue test. Locking
  *			now detects Siamese hints and defers to Hidden Pair/Triple, and
@@ -404,7 +404,7 @@ package diuf.sudoku;
  *			compareTo(Integer) method. It's all crap Ray!
  *			Last top1465: 04:11 +Franken/Mutant/Kraken 2/3/4fish.
  * 6.30.079 2020-07-21 12:26:19 profile to expedite getAllKrakenFishes ->
- *          TablingSolver.buildChain -> TreeMap<Int,Int>.get -> Int.of ->
+ *			TablingSolver.buildChain -> TreeMap<Int,Int>.get -> Int.of ->
  *			the size of the IntCache (4K -> 75% hit rate) but now there's
  *			s__tloads of logs so I release to back and clean them up.
  *			Last top1465: 03:20 +Franken/Mutant/Kraken 2/3/4fish.
@@ -498,29 +498,29 @@ package diuf.sudoku;
  *			the best it can with what it's given.
  *			Last top1465 02:37 with none of the big fish. She'll do.
  * 6.30.099 2020-11-30 07:01:39 Applied lessons from a month of performance
- *          tuning HoDoKu, especially caching in KrakenFisherman#kt2Search.
+ *			tuning HoDoKu, especially caching in KrakenFisherman#kt2Search.
  *			Last top1465 51:24 with all the BIG FISH + A*Es.
- *          Last top1465 07:32 without the bloody mutants.
+ *			Last top1465 07:32 without the bloody mutants.
  * 6.30.100 2020-12-05 10:05:40 Polished KrakenFisherman. Added nonHinters
- *          filter to A5+E; which is what I SHOULD have done instead of all
- *          those months trying to work-out how to do it faster, so the
- *          ideal implementation now would be an A*E class implementing
- *          A5678910E and another simpler one for A234E. The key to this
- *          is the IntIntHashMap I wrote originally for HoDoKu.
- *          Last top1465 15:17 with A567E_1C, which is an improvement, I
- *          think, but do not have anything to compare it to (bad form).
+ *			filter to A5+E; which is what I SHOULD have done instead of all
+ *			those months trying to work-out how to do it faster, so the
+ *			ideal implementation now would be an A*E class implementing
+ *			A5678910E and another simpler one for A234E. The key to this
+ *			is the IntIntHashMap I wrote originally for HoDoKu.
+ *			Last top1465 15:17 with A567E_1C, which is an improvement, I
+ *			think, but do not have anything to compare it to (bad form).
  * 6.30.101 2020-12-08 07:58:41 Back-up prior to Aligned*Exclusion redo.
  *			This version has NonHinters64 and LongLongHashMap. Now I want
  *			to try iterating a stack in A*E (ala hobiwan) to remove all the
  *			the A*E classes, ie eliminate code-bloat.
  * 6.30.102 2020-12-17 10:54:42 Release align2.AlignedExclusion squashing
- *          all Aligned*Exclusion's boiler-plate code down into one complex
+ *			all Aligned*Exclusion's boiler-plate code down into one complex
  *			succinct class using hobiwans stack iteration technique twice:
  *			once for cells, and again for vals.
  *			Last top1465 12:43 with A234E A5E correct and A678910E hacked.
  * 6.30.103 2021-01-01 15:17:43 Release "wing2" package with WXYZWing,
  *			UVWXYZWing, and TUVWXYZWing boosted from Sukaku, by Nicolas
- *          Juillerat (the original authors rewrite of Sudoku Explainer)
+ *			Juillerat (the original authors rewrite of Sudoku Explainer)
  *			who boosted them from SudokuMonster.
  * 6.30.104 2021-01-06 19:06:44 I'm releasing just to clean-up the logs.
  *			I've implemented SueDeCoq in the als package, and also tried
@@ -541,19 +541,19 @@ package diuf.sudoku;
  * 6.30.110 2021-02-17 14:31:50 Faster Complex and Kraken fisherman.
  * 6.30.111 2021-02-23 08:33:51 Oops! Last release used align2.
  * 6.30.112 2021-03-04 10:59:52 Hidden Unique Rectangles and XColoring.
- *          Last top1465 run took 04:36, which is over a minute slower,
+ *			Last top1465 run took 04:36, which is over a minute slower,
  *			which is a worry, but still acceptable.
  * 6.30.113 2021-03-11 16:38:53 3D Madusa Coloring with cheese.
- *          Last top1465 run took 03:26 so we're back on track.
+ *			Last top1465 run took 03:26 so we're back on track.
  * 6.30.114 2021-03-22 12:04:54 GEM (Graded Equivalence Marks) Coloring.
- *          Last top1465 run 03:26, same as last time. Still back on track.
+ *			Last top1465 run 03:26, same as last time. Still back on track.
  * 6.30.115 2021-03-24 08:53:55 GEM mark 2 finds a few more hints looking
- *          for contradictions in ons.
- *          Last top1465 run 03:23, 3 seconds faster than last time.
+ *			for contradictions in ons.
+ *			Last top1465 run 03:23, 3 seconds faster than last time.
  * 6.30.116 2021-03-25 13:28:55 GEM mark 3 with it's own Multi hint.
- *          Last top1465 run 03:25, 2 seconds slower than last time.
+ *			Last top1465 run 03:25, 2 seconds slower than last time.
  * 6.30.117 2021-03-27 14:02:57 GEM mark 4 sets subsequent singles to find
- *          130790 eliminations verses 77283 previously and 1.5 sec faster.
+ *			130790 eliminations verses 77283 previously and 1.5 sec faster.
  * 6.30.118 2021-03-30 20:21:58 GEM mark 5 efficiency.
  * 6.30.119 2021-04-01 09:15:59 GEM mark 6 improved explanation.
  * 6.30.120 2021-04-04 06:11:00 GEM mark 7 more eliminations.
@@ -566,7 +566,7 @@ package diuf.sudoku;
  * 6.30.125 2021-04-13 10:04:05 GEM mark 12 ultra greedy gemSolve using all
  *			hinters under 20ms/elim. Last top1465 run took 03:09.
  * 6.30.126 2021-04-17 06:09:06 GEM mark 13 Moved coloring up the hinters
- *          list and dropped slowies. Last top1465 run took 02:09.
+ *			list and dropped slowies. Last top1465 run took 02:09.
  * 6.30.127 2021-04-24 08:18:07 GEM mark 14 is not greedy. sigh.
  * 6.30.128 2021-05-04 14:37:08 No real changes, just cleaning up crap.
  * 6.30.129 2021-05-13 10:25:09 Build for backup before I experiment with
@@ -601,7 +601,7 @@ package diuf.sudoku;
  * 6.30.141 2021-06-22 16:02:21 LogicalSolver mySettings. Hinter summaries
  *			in LogicalSolverTester log are now in wantedHinters order.
  *			Replace keySet+get with entrySet on all HashMaps. IMySet.visit.
- *          Split Frmu out of Frmt.
+ *			Split Frmu out of Frmt.
  * 6.30.142 2021-06-23 10:06:22 new Locking.pointFromElims method = 4 seconds.
  * 6.30.143 2021-06-25 13:55:23 cleaning-up: Tech.nom gone. AHint.apply takes
  *			grid. HashMaps entrySet. LogicalSolver clones THE_SETTINGS.
@@ -637,30 +637,30 @@ package diuf.sudoku;
  * 6.30.160 2021-08-11 07:10:40 build to clean-up old logs.
  * 6.30.161 2021-08-12 12:57:41 BasicFisherman now faster than BasicFisherman.
  * 6.30.162 2021-09-04 04:57:42 Hidden/NakedSetDirect, Tech.MULTI_CHAINERS,
- *          de-obfuscate Cheats, Grid.idxs not passed into ALS-hinters,
- *          LogicalSolverBuilder; build for back-up and to clean-up logs
+ *			de-obfuscate Cheats, Grid.idxs not passed into ALS-hinters,
+ *			LogicalSolverBuilder; build for back-up and to clean-up logs
  * 6.30.163 2021-09-06 11:23:43 Minor tweaks to align2.AlignedExclusion.
  *			Release coz I'm shopping.
  * 6.30.164 2021-09-21 09:28:44 failed to speed-up AlsWing and AlsChain. sigh.
- *          I build just to clean-up the log-files.
+ *			I build just to clean-up the log-files.
  * 6.30.165 2021-09-29 was rooted so I deleted it.
  * 6.30.166 2021-10-07 09:00:46 new AlsChain1 intended to be a faster AlsChain,
  *			but it's not right. It's faster, but relies on the Validator to
  *			suppress bad hints; so unusable. Build to clean-up old log-files.
  * 6.30.167 2021-10-10 16:35:47 AlsChain now takes about 4.5 times to find 1.5
- *          times as many hints. I also reordered the hinters but that's slower
- *          too. sigh. I'm just not was worried about performance as I was coz
- *          it's all now "basically fast enough", and any top1465 time under
- *          about three minutes feels "snappy enough" in the GUI (on an i7).
+ *			times as many hints. I also reordered the hinters but that's slower
+ *			too. sigh. I'm just not was worried about performance as I was coz
+ *			it's all now "basically fast enough", and any top1465 time under
+ *			about three minutes feels "snappy enough" in the GUI (on an i7).
  * 6.30.168 2021-10-11 17:33:48 AlsChain faster, so now it takes 3 times to
- *          find 1.5 times as many hints, by caching the related RCC's by
+ *			find 1.5 times as many hints, by caching the related RCC's by
  *			previousAlsIndex and previousCandToExclude.
  * 6.30.169 2021-10-13 10:18:49 AlsChain now filters its filter: da inline loop
  *			method (an O(n) operation) executes only when the new ALS (a) might
  *			be in the loop. It's a bit faster.
  * 6.30.170 2021-10-17 11:01:50 "nieve" AlsChain is about 10% slower dan "fast"
  *			but is maintainable; so LENGTH=6, TIMEOUT=500 elims 1776 in 03:06,
- *          and top1465 in 03:00 still feels "pretty snappy" in the GUI, so OK.
+ *			and top1465 in 03:00 still feels "pretty snappy" in the GUI, so OK.
  * 6.30.171 2021-10-18 19:02:51 inlined everything in AlsChain again, for speed
  *			and it's about 20% faster than the nieve version.
  * 6.30.172 2021-10-19 09:37:52 Still pissin about wit AlsChain. Dropped LENGTH
@@ -706,6 +706,50 @@ package diuf.sudoku;
  *			from here on. AlsChain is about 1.5 secs faster. Chainer cache now
  *			refreshes when a cell is set, to avert REALLY funny looking hints.
  *			Also dropped BUG in favour of Coloring/GEM which are better value.
+ * 6.30.187 2021-11-12 09:33:07 Bug Fixes and things that annoy me, including:
+ *			DirectNakedPair hang-over reds, Regions.common uses Grid.RIBS, no
+ *			XColoring hint-details in batch, AlsChain is a bit faster, ALS
+ *			rendering changed.
+ * 6.30.188 2021-11-25 20:15:08 Fixing bugs and oversights in NakedSetDirect,
+ *			Regions.common, XColoring, AlsChain, and WWing.
+ * 6.30.189 2021-11-28 06:51:09 Fix two bugs in EmptyRectangle dat made it miss
+ *			hints. Was 48elims/21ms now 588/85, so that's 12 times the elims in
+ *			about 4 times the time. Better.
+ * 6.30.190 2021-12-01 18:22:10 Fix ColoringHint. Check Coloring, XColoring,
+ *			Medusa3D, and GEM. Check BigWing. Idx leases-out int-arrays.
+ * 6.30.191 2021-12-03 10:05:11 Eradicated semithunked-code from Locking and
+ *			LockingSpeedMode, making them easier to follow.
+ * 6.30.192 2021-12-03 13:12:12 Removed Grid.Cell.hashCode using Grid.Cell.i
+ *			(indice) instead coz it's a bit shorter, and more significant bits
+ *			further left is more deterministic, ie reduces hash-collisions.
+ * 6.30.193 Got the chop!
+ * 6.30.194 2021-12-04 08:00:14 Chainers use circular-arrays instead of Queues.
+ *			This makes Chainers about 10% faster, but CA's are messy, so try
+ *			this at home folks, not in a production system. I'll probably get
+ *			the shits with CA's again, and revert them, again, in future. Sigh.
+ *			ChainerUnary and ChainerMulti now have Ctrl-F6 test-cases.
+ * 6.30.195 2021-12-06 10:55:15 Use circular-arrays instead of Queues for the
+ *			local On and Off Queues in ChainerMulti.doChains.
+ * 6.30.196 2021-12-08 06:12:16 Wee fixes to Coloring, XColoring and AlsChain.
+ * 6.30.197 2021-12-16 04:52:17 Fix bugs, and bring UniqueRectangle upto date.
+ * 6.30.198 2021-12-18 11:25:18 Endless Pissing About. BigWing speed and move
+ *			and rename Idx visitor interfaces.
+ * 6.30.199 2021-12-24 05:59:19 Reorder Techs to run faster hinters first which
+ *			forces a rejig of Difficulty's to reduce largest, so I went the
+ *			whole hog and split Techs into 10 Difficulty, for nicer Generator.
+ *			Also Generator hit bug on Locking.grid, so I removed the field.
+ * 6.30.200 2021-12-27 07:11:20 faster BigWings. new IntArrays class. Chainers
+ *			isX/YChain fields. Remove CASs from Cells.
+ * 6.30.201 2021-12-27 12:21:21 Cells and IntArrays use MyArrayList instead of
+ *			an Iterator.
+ * 6.30.202 2021-12-28 11:33:22 Chainers need not check for empty parents list
+ *			because new rule parents is null or populated; NEVER empty.
+ * 6.30.203 2021-12-31 13:42:23 Faster DeathBlossom.
+ * 6.30.204 2022-01-01 10:11:24 RccFinders idx caching. Promoted NakedQuad and
+ *			HiddenQuad.
+ * 6.30.205 2022-01-06 16:36:25 ChainerUnary seeks only XY-Cycles/Chains.
+ *			Reverted MyLinkedHashMap.clear to use linked list on small maps.
+ *			IDKFA is now the correct DynamicPlus+ only (not high DynamicChain).
  * </pre>
  *
  * @author Keith Corlett 2013 - 2021
@@ -723,13 +767,14 @@ public final class Build {
 	 * BUILD increments every other time.
 	 * </pre>
 	 */
-	public static final String VERSION = "6.30.186";
+	public static final String VERSION = "6.30.205";
 
 	/** The date and time I BUILT this build. */
-	public static final String BUILT = "2021-11-06 11:06:06";
+	public static final String BUILT = "2022-01-06 16:36:25";
 
 	/** Application Title and Version (for presentation). */
 	public static final String ATV = TITLE + " " + VERSION;
 
 	private Build() { } // never called
+
 }

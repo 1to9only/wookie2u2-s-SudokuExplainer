@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
@@ -20,11 +20,11 @@ import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
+import static diuf.sudoku.solver.hinters.Slots.*;
 import diuf.sudoku.utils.Debug;
 import static diuf.sudoku.utils.Frmt.IN;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.Arrays;
 
 /**
@@ -74,46 +74,6 @@ import java.util.Arrays;
  */
 public class Locking extends AHinter {
 
-	// constants to determine if a boxes ridx[v] are all in a row.
-	// * You can calculate these values on the fly, but I think hard-coding
-	//   them is a bit faster, and I think it shows the logic better.
-	// * I'm using binary to show the logic, but it presents a left-to-right
-	//   view of a right-to-left reality, ergo they're upside bloody down!
-	protected static final int ROW1 = Integer.parseInt("000"
-												     + "000"
-												     + "111", 2); // 7=1+2+4
-	protected static final int ROW2 = Integer.parseInt("000"
-												     + "111"
-												     + "000", 2); // 56=7<<3
-	protected static final int ROW3 = Integer.parseInt("111"
-												     + "000"
-												     + "000", 2); // 448=7<<6
-
-	// constants to determine if a boxes ridx[v] are all in a col.
-	protected static final int COL1 = Integer.parseInt("001"
-												     + "001"
-												     + "001", 2); // 73=1+8+64
-	protected static final int COL2 = Integer.parseInt("010"
-												     + "010"
-												     + "010", 2); // 146=73<<1
-	protected static final int COL3 = Integer.parseInt("100"
-													 + "100"
-												     + "100", 2); // 292=73<<2
-
-	/**
-	 * Used in error messages, to tell the programmer which method
-	 * called createHint, to make errors more traceable.
-	 */
-	protected static enum LockType {
-		  Pointing // Box eliminate from Row/Col
-		, Claiming // Row/Col eliminate from Box
-		, SiamesePointing // LockingSpeedMode: pointing on multiple values
-		, SiameseClaiming // LockingSpeedMode: claiming on multiple values
-	}
-
-	/**
-	 * Constructor for "normal mode".
-	 */
 	public Locking() {
 		super(Tech.Locking);
 	}
@@ -181,6 +141,7 @@ public class Locking extends AHinter {
 	 * hence one of those 2-or-3 cells must be a 9, therefore no other
 	 * cell in column D can be 9.
 	 * </pre>
+	 * NOTE WELL: Generate bug with grid field. Just Don't!
 	 *
 	 * @param grid
 	 * @param accu
@@ -190,7 +151,6 @@ public class Locking extends AHinter {
 		Box box; // the current Box
 		Indexes[] bio; // indexes in box.cells which maybe each value 1..9
 		ARegion line; // the region we eliminate from, either a Row or a Col
-		Cell[] cells; // the cells to go in the hint
 		int i // region Index
 		  , v // value
 		  , card // cardinality: the number of set (1) bits in a bitset
@@ -210,41 +170,35 @@ public class Locking extends AHinter {
 					// 2 or 3 cells in a box could all be in a row or col; but
 					// 4 or more can't be.
 					if ( (card=bio[v].size)>1 && card<4 ) {
-						// if all v's in this box are all in a line then set
-						// the offset in order to fetch that line.
+						// if all v's in this box are all in one "slot" then
+						// set the offset which defines the correct line.
 					    // offset expressions are tautologies: they're in the
 					    // if-statement to smash it all into one expression
 						// without the expense of invoking a method
 						line = null;
-						b = bio[v].bits;						  // box's 2or3 possible positions of v are:
-						if ( ((b & ROW1)==b && ((offset=0)==0))	  // all in the first 3 cells, so offset is 0
-						  || ((b & ROW2)==b && ((offset=1)==1))	  // all in the second 3 cells, so offset is 1
-						  || ((b & ROW3)==b && ((offset=2)==2)) ) // all in the third 3 cells, so offset is 2
-							line = grid.rows[box.top + offset];	  // therefore line is the row at box.top + offset
-						else if ( ((b & COL1)==b && ((offset=0)==0))
-							   || ((b & COL2)==b && ((offset=1)==1))
-							   || ((b & COL3)==b && ((offset=2)==2)) )
-							line = grid.cols[box.left + offset];    // therefore line is the col at box.left + offset
+						b = bio[v].bits;
+						if ( ((b & SLOT1)==b && ((offset=0)==0))
+						  || ((b & SLOT2)==b && ((offset=1)==1))
+						  || ((b & SLOT3)==b && ((offset=2)==2)) )
+							line = grid.rows[box.top + offset];
+						else if ( ((b & SLOT4)==b && ((offset=0)==0))
+							   || ((b & SLOT5)==b && ((offset=1)==1))
+							   || ((b & SLOT6)==b && ((offset=2)==2)) )
+							line = grid.cols[box.left + offset];
 						// and if that line has other v's then it's a Pointing
-						if ( line!=null && line.ridx[v].size > card
-						  // FOUND Pointing!
-						  // get the cells in this box which maybe v.
-						  // maybe should always return card. Never say never.
-						  // nb: new Cell[] coz the CAS goes bad, recursively.
-						  && box.maybe(VSHFT[v], cells=new Cell[card]) == card
-						) {
-							final AHint hint = createHint(LockType.Pointing
-									, box, line, cells, card, v, grid);
+						if ( line!=null && line.ridx[v].size>card ) {
+						    // FOUND Pointing!
+							final AHint hint = createHint(box, line, card, v);
 							if ( hint != null ) {
 								result = true;
 								accu.add(hint);
 							}
 						}
 					}
-				} // next value
+				}
 				endRegion(box); // SiameseLocking
-			} // fi
-		} // next box
+			}
+		}
 		return result;
 	}
 
@@ -263,8 +217,7 @@ public class Locking extends AHinter {
 	protected final boolean claiming(final Grid grid, final IAccumulator accu) {
 		ARegion line; // a row (9..17) or a column (18..26)
 		Indexes[] rio; // bases idxsOf array
-		Box[] crossingBoxes; // the 3 boxes which intersect this row/col
-		Cell[] cells; // the hints in each box
+		Box[] coxs; // the three crossingBoxs that intersect this row/col
 		int i // region Index
 		  , v // value
 		  , card // cardinality: the number of elements in a bitset
@@ -277,31 +230,21 @@ public class Locking extends AHinter {
 			// we need atleast 3 empty cells to form this pattern
 			if ( (line=grid.regions[i]).emptyCellCount > 2 ) {
 				rio = line.ridx;
-				crossingBoxes = line.crossingBoxs;
+				coxs = line.crossingBoxs;
 				startRegion(line); // SiameseLocking
 				for ( v=1; v<VALUE_CEILING; ++v ) {
 					// 2 or 3 cells in line can all be in box; 4+ can't.
 					// 1 is hidden single, 0 means v is set, so not my problem.
 					if ( (card=rio[v].size)>1 && card<4
-					  // if all v's in base are in the same box.
-					  // nb: ROW* values work on cols too (despite there name)
-					  // because they're applied to the lines cells array it
-					  // makes no difference which direction that line points.
-					  && ( (((b=rio[v].bits) & ROW1)==b && (offset=0)==0) // bases 2or3 possible positions of v are all in the first 3 cells, so the offset is 0
-						|| ((b & ROW2)==b && (offset=1)==1) // all in the second 3 cells => 1
-						|| ((b & ROW3)==b && (offset=2)==2) ) // all in the third 3 cells => 2
+					  // if all v's in base are in the same "slot"
+					  && ( (((b=rio[v].bits) & SLOT1)==b && (offset=0)==0)
+						|| ((b & SLOT2)==b && (offset=1)==1)
+						|| ((b & SLOT3)==b && (offset=2)==2) )
 					  // and there are some extra v's in the box to be removed
-					  && crossingBoxes[offset].ridx[v].size > card
-					  // FOUND Claiming!
-					  // get the cells in this line which maybe v.
-					  // maybe should always return card. Never say never.
-					  // nb: new Cell[] coz the CAS goes bad, recursively.
-					  && line.maybe(VSHFT[v], cells=new Cell[card]) == card
+					  && coxs[offset].ridx[v].size > card
 					) {
-						// create the hint and add it to the accumulator
-						final AHint hint = createHint(LockType.Claiming
-								, line, crossingBoxes[offset], cells, card
-								, v, grid);
+					    // FOUND Claiming!
+						final AHint hint = createHint(line, coxs[offset], card, v);
 						if ( hint != null ) {
 							result = true; // never say never!
 							accu.add(hint);
@@ -317,46 +260,42 @@ public class Locking extends AHinter {
 	/**
 	 * Create a LockingHint for both pointing and claiming.
 	 *
-	 * @param type tells you who called me, in error-messages for debugging
 	 * @param base the base region. <br>
 	 *  For Pointing that's the box. <br>
 	 *  For Claiming that's the row/col (aka the line).
 	 * @param cover the other region. <br>
 	 *  For Pointing that's the row/col (aka the line). <br>
 	 *  For Claiming that's the box.
-	 * @param cells the cells in the Locked set.
-	 * @param n the number of cells in the cells array
+	 * @param card the number of cells in base which maybe v
 	 * @param v the bloody value to be removed from cells
-	 * @param grid currently only used for error messages
 	 * @return a new LockingHint, else null (nothing to see here (run away))
 	 */
-	protected final LockingHint createHint(final LockType type
-			, final ARegion base, final ARegion cover, final Cell[] cells
-			, final int n, final int v, final Grid grid) {
-		// build removable (red) potentials
-		final Pots redPots = new Pots();
-		// foreach cell which maybe valueToRemove in covers except bases
+	protected final LockingHint createHint(final ARegion base, final ARegion cover
+			, final int card, final int v) {
 		final int sv = VSHFT[v]; // shiftedValueToRemove
-		for ( Cell cell : cover.cells )
-			if ( (cell.maybes & sv)!=0 && !base.contains(cell) )
-				redPots.put(cell, sv);
-		if ( redPots.isEmpty() ) {
-			// this should NEVER happen coz we check that cover has extra idxs
-			// before we createHint. Developers investigate. Users no see.
-			// IGNORE this if BruteForce is in the call-stack (BFIIK)
-			assert Debug.isClassNameInTheCallStack(10, "BruteForce")
-				: "BAD "+type+": No elims at "+base+AND+cover+ON+v
-				  +IN+Arrays.toString(cells)+NL+grid.toString();
-			return null;
+		// get cells that are Locked into base
+		// nb: done manually coz grid.idxs are rooted in generate.
+		final Cell[] cells = new Cell[card];
+		if ( base.maybe(sv, cells) == card ) {
+			// build removable (red) potentials: v's in cover butNot base.
+			// nb: done manually coz grid.idxs are rooted in generate.
+			final Pots reds = new Pots();
+			for ( Cell c : cover.cells )
+				if ( (c.maybes & sv)!=0 && !base.contains(c) )
+					reds.put(c, sv);
+			if ( !reds.isEmpty() ) { // NEVER happens. Never say never.
+				eliminationsFound(reds); // call-back LockingSpeedMode
+				return new LockingHint(this, v, new Pots(cells, card, v), reds
+						, base, cover);
+			}
 		}
-		// implemented by LockingSpeedMode (my subtype)
-		eliminationsFound(redPots); // bulkDisenliberalisationIsTheOnlyAnswer!
-		// build highlighted (green) potentials
-		final Pots greenPots = new Pots(cells, n, v);
-		Arrays.fill(cells, null);
-		// build the hint from LockingHint.html
-		return new LockingHint(this, v, greenPots, redPots
-				, base, cover, EMPTY_STRING);
+		// Should NEVER happen coz we check that cover has extra idxs before we
+		// createHint. Developers investigate. Users no see.
+		// BFIIK: Ignore in BruteForce
+		assert Debug.isClassNameInTheCallStack(10, "BruteForce")
+			: "No elims at "+base+AND+cover+ON+v+IN+Arrays.toString(cells)+NL
+				+base.getGrid().toString();
+		return null;
 	}
 
 }

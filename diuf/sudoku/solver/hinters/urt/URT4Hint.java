@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
@@ -11,6 +11,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
+import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 
@@ -22,7 +23,7 @@ public final class URT4Hint extends AURTHint {
 	private final int valueToRemove;
 	private final Grid.ARegion region;
 
-	public URT4Hint(UniqueRectangle hinter, Cell[] loop, int loopSize, int lockVal
+	public URT4Hint(AHinter hinter, Cell[] loop, int loopSize, int lockVal
 			, int valueToRemove, Pots redPots, Cell c1, Cell c2
 			, ARegion region) {
 		super(4, hinter, loop, loopSize, lockVal, valueToRemove, redPots);

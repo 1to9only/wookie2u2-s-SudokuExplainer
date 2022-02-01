@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.single;
@@ -11,10 +11,8 @@ import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Indexes;
 import diuf.sudoku.Tech;
-import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
-import diuf.sudoku.utils.Debug;
 
 /**
  * HiddenSingle implements the HiddenSingle Sudoku solving technique. A "hidden
@@ -26,12 +24,10 @@ import diuf.sudoku.utils.Debug;
  * single line of code with a fine-toothed comb, to see why this version is "a
  * bit" faster than the original. These principles are applied throughout SE:
  * <br><b>NOW:</b><pre>{@code
- *   if ( region.idxsOf[value].size == 1 )
+ *   if ( size[v] == 1 )
  * }</pre>
  * This implementation:<ul>
- * <li>dereferences the region object to get the address of the idxsOf array,
- * <li>do an array-lookup to get the Indexes instance for this value,
- * <li>which is dereferenced to get the 'size' field,
+ * <li>array-lookup to get the number of v's in this region which maybe value,
  * <li>which we push onto a register along with the constant 1, and then equate
  * the two values.
  * <li>and then we short-jump somewhere (no new stackframe), or fall-through.
@@ -44,17 +40,17 @@ import diuf.sudoku.utils.Debug;
  * This code follows "standard" coding doctrine, especially the one about
  * having a single point of truth, which you query actively: which is data
  * light, but CPU heavy; which is a strategy to deal with NEVER having enough
- * bloody RAM. My first PC had 32K, which was considered HUGE at the time. So
- * conserving RAM became an ingrained habit that we subsequently failed to
- * notice.
+ * bloody RAM. My first PC had 32K, which was pretty big at the time, in fact
+ * 64K was the largest available, at about four times the price. So we became
+ * habituated to conserving RAM, which we subsequently failed to notice.
  * <p>
  * It's worth noting that this implementation uses 26K just to store the 81
- * isSiblingOf matrixes, instead of invoking a method 4 BILLION times, just
- * because it's a bit faster, and I now have 16 Gig to play with. When I run
- * this thing from the command line I give it a max of 2 Gig of RAM.
+ * sees matrixes, instead of invoking a method 4 BILLION times, just because
+ * it's a bit faster, and I now have 16 Gig to play with. When I run this thing
+ * from the command line I give it a max of 2 Gig of RAM.
  * <p>
- * So the original calls the {@code region.getPotentialPositions(value)} method,
- * which dereferences region to get it's {@code getPotentialPositions} method,
+ * So the original does {@code region.getPotentialPositions(value)} which
+ * dereferences region to get it's {@code getPotentialPositions} method,
  * creates a new stackframe, pushes 'value' onto the stack, and long-jumps to
  * the start of the method: <pre>{@code
  *   public BitSet getPotentialPositions(int value) {
@@ -70,12 +66,12 @@ import diuf.sudoku.utils.Debug;
  * but you don't expect a garbo to follow you around and pick-up your lolly
  * wrappers: No, you put them in a bin yourself, yeah? The same principle can
  * (and I think should) be applied to code: just because you can create new
- * instances doesn't mean that you SHOULD create them. Often there is an
- * old-school way to solve the problem, which is more code, which looks a bit
- * ugly, but executes MUCH more efficiently.
+ * instances doesn't mean that you SHOULD create them. There's usually an old
+ * school solution to the problem, which is more code and looks a bit ugly, but
+ * is MUCH more efficient.
  * <p>
- * Q: Would you expect your garbo to pick-up lolly wrappers produced by a lolly
- * unwrapping machine that unwraps 3.4 billion lollies a second? <br>
+ * Q: Would you expect a garbo to pick-up lolly wrappers produced by a lolly
+ * unwrapping machine that unwraps 3.6 billion lollies a second? <br>
  * A: "What are you doing Dave?"
  * <p>
  * So we create a BitSet, then call {@code getCell(index)} <b>NINE</b> times,
@@ -101,15 +97,17 @@ import diuf.sudoku.utils.Debug;
  * }</pre>
  * <p>
  * So we find the method and create a new stackframe, push index onto da stack,
- * long-jump to start of method: and retrieve the cell from the matrix (badly
- * named 'cells', and also repeated arithmetic to demangle index into a matrix
- * coordinate: cells should be a flat array) and return it; then we invoke the
- * {@code hasPotentialValue(value)} method of the returned cell:<pre>{@code
+ * long-jump to start of method: and retrieve the cell from the matrix called
+ * 'cells', and also repeated arithmetic to demangle index into a matrix
+ * coordinate: cells should be a flat array, because multiplication, division
+ * and mod are all SLOWER than an array look-up) and return it; then we invoke
+ * the {@code hasPotentialValue(value)} method of the returned cell:<pre>{@code
  *   public boolean hasPotentialValue(int value) {
  *     return this.potentialValues.get(value);
  *   }
  * }</pre>
- * which dereferences 'this' to find and invoke the {@code BitSet.get} method:
+ * which dereferences 'potentialValues' of 'this' to find and invoke the
+ * {@code BitSet.get} method (new stackframe, long-jump, yada yada):
  * <pre>{@code
  *  public boolean get(int bitIndex) {
  *    if (bitIndex < 0)
@@ -199,7 +197,7 @@ import diuf.sudoku.utils.Debug;
  * API documentation: "This class implements a vector of bits <b>that grows as
  * needed</b>". We don't need a class that "grows as needed", hence we clearly
  * should NOT be using a BitSet, even if it means rolling our own. Or better
- * still don't use a class at all (as I have done, sort of).
+ * still don't use a class at all (as I have done, mostly).
  * <p>
  * and finally the last {@code checkInvariants()} method <i>(repeated)</i>:
  * <pre>{@code
@@ -227,24 +225,21 @@ import diuf.sudoku.utils.Debug;
  * done. So that's about it. Thank you umpires. Thank you ball boys.
  * <p>
  * So we've got <b>ONE</b> fairly simple line of code which does:
- * {@code dereference, array-lookup, dereference, push, push, equate, jump}
+ * {@code array-lookup, push, push, equate, jump}
  * verses what turns out to be more akin to HOMERS BLOODY ODDESSY, which is my
  * whole point really: <b>BEWARE of Homic secretions in your tight loops.</b>
  * <p>
  * Can you think why the simpler implementation might be "a bit" faster:<pre>
- *        this 128,830,443,543 / orig 1,314,078,704,062 * 100.0 = 9.8%
+ *        this 82,591,363,300 / orig 1,314,078,704,062 * 100.0 = ~6.285%
  * </pre>
  * Now here's the fundamental question: Is all this lovely efficiency worth all
  * the extra effort? I'm generally in the "More brain, less CPU!" camp myself,
  * especially in a domain like this, with real war machines in play like
- * Aligned*Exclusion that consume CPU (and small children) for breakfast.
- * Your position is your affair. There's a great blog-post along these lines
- * by a "real techie" whose name currently alludes me called something like
- * "Schlemeale the Painters algorithm" (Schlemeale means idiot). I highly
- * recommend it.
+ * AlsChain that eat CPU (and small children) for breakfast. Your position is
+ * your affair.
  * <p>
  * Java has gained a reputation for being slow, but that's mostly because of
- * how a lot of Java code (incl parts of the API) are designed; not because of
+ * how a lot of Java code (incl parts of the API) are written; not because of
  * anything inherent to the language itself. You can get REAL performance out
  * of Java, you just have to be careful how you go. Just because the language
  * encourages you to be lazy doesn't mean that you HAVE to be lazy. You can be
@@ -256,7 +251,7 @@ import diuf.sudoku.utils.Debug;
  * experienced programmer (ie me) thinks "class" and "bitset" are oxymoronic.
  * If I'm using bitsets I want speed, and that means NOT invoking methods in
  * tight loops, which means no BitSet class, just a raw datatype and LOTS of
- * funky-looking code; which sucks bags until you understand why it's so much
+ * funky-looking code; which sucks bags until you understand WHY it's so much
  * faster than the alternative class.
  * <p>
  * But I can only speak for myself, at 9.8% of the volume evidently required to
@@ -309,17 +304,14 @@ public final class HiddenSingle extends AHinter {
 			if ( r.emptyCellCount > 0 ) {
 				// it's (arguably) faster to dereference the struct once
 				rio = r.ridx;
-				// foreach possible value: 1..9
+				// foreach possible potential value: 1..9
 				for ( v=1; v<VALUE_CEILING; ++v ) {
-//if ( v==5 && "col C".equals(r.id) && !Debug.isClassNameInTheCallStack(12, "BruteForce") )
-//	Debug.breakpoint();
 					// if there is only 1 place for v in this region
 					if ( rio[v].size == 1 ) {
 						// FOUND a Hidden Single, so raise a hint
-						final AHint hint = new HiddenSingleHint(this, r
-								, r.cells[rio[v].first()], v);
 						result = true;
-						if ( accu.add(hint) ) {
+						if ( accu.add(new HiddenSingleHint(this, r
+								, r.cells[rio[v].first()], v)) ) {
 							return result;
 						}
 					}
@@ -328,4 +320,5 @@ public final class HiddenSingle extends AHinter {
 		}
 		return result;
 	}
+
 }

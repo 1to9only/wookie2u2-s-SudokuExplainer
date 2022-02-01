@@ -1,12 +1,14 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.Cells;
+import diuf.sudoku.Cells.CALease;
+import static diuf.sudoku.Cells.caLease;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
@@ -15,6 +17,7 @@ import static diuf.sudoku.Grid.NUM_REGIONS;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
 import diuf.sudoku.IdxL;
+import diuf.sudoku.IntArrays.IALease;
 import static diuf.sudoku.Values.VSIZE;
 import static diuf.sudoku.solver.hinters.als.AAlsHinter.MAX_ALSS;
 import diuf.sudoku.utils.ArraySet;
@@ -23,7 +26,7 @@ import diuf.sudoku.utils.Permutations;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import javax.naming.OperationNotSupportedException;
+import static diuf.sudoku.IntArrays.iaLease;
 
 /**
  * AlsFinder finds Almost Locked Sets. This code was split-out of AAlsHinter
@@ -62,7 +65,7 @@ class AlsFinder {
 	// find all distinct Almost Locked Sets in this grid
 	int getAlss(final Grid grid, final Als[] alss, final boolean allowNakedSets) {
 		// KRC 2021-10-27 AlsFinderTest is the ONLY use of this implementation,
-		// everything else now uses my subtype AlsFinderPlain!
+		// everything else now uses a subtype
 		if ( !Debug.isClassNameInTheCallStack(5, "AlsFinderTest") ) {
 			throw new UnsupportedOperationException();
 		}
@@ -84,9 +87,9 @@ class AlsFinder {
 		return cnt;
 	}
 
-	// populate nakedSetIdxs: an array Idxs, one per region. Each Idx contains
-	// indices of cells in any Naked Set in this region. This is necessary coz
-	// actual-Naked-Sets in Almost-Locked-Sets break AlsChains.
+	// populate nakedSetIdxs: an Idx per region. Each Idx contains indices of
+	// cells in any Naked Set in this region. This is necessary coz an actual
+	// NakedSet in an AlmostLockedSet breaks DeathBlossom (et al?).
 	// @return are there any NakedSets in this grid?
 	final boolean setNakedSetIdxs(final Grid grid) {
 		Idx nakedSets; // indices of cells in nakedSet/s in this region
@@ -94,45 +97,51 @@ class AlsFinder {
 		int[] ma; // maybes array: maybes of ec (for speed)
 		int n // number of empty cells in this region
 		  , s // number of sized cells
-		  , m // aggregate of maybe in this combination cells
 		  ; // this cannot be a Java method: it has no i.
 		// the regions in the grid
 		final ARegion[] regions = grid.regions;
-		// the empty cells in this region
-		final Cell[] empties = Cells.arrayA(REGION_SIZE);
-		// empties having size <= currentNakedSetSize
-		final Cell[] sized = Cells.arrayB(REGION_SIZE);
 		// presume there are no naked sets
 		boolean result = false;
-		// foreach region with atleast 2 empty cells
-		for ( int r=0; r<NUM_REGIONS; ++r ) {
-			nakedSets = nakedSetIdxs[r].clear();
-			// a naked pair needs three empty cells in region
-			if ( (n=regions[r].emptyCells(empties)) > 2 ) {
+		try ( CALease eLease = caLease(REGION_SIZE);
+			  CALease sLease = caLease(REGION_SIZE) ) {
+			// the empty cells in this region
+			final Cell[] empties = eLease.array;
+			// empties having size <= currentNakedSetSize
+			final Cell[] sized = sLease.array;
+			// foreach region with atleast 2 empty cells
+			for ( int r=0; r<NUM_REGIONS; ++r ) {
+				nakedSets = nakedSetIdxs[r].clear();
+				// a naked pair needs three empty cells in region
 				// NOTE: each size is done seperately just to put all the |'s
 				// in one line, coz it's a bit faster that way. sigh.
 				// Naked Pairs
-				if ( n > 2 ) {
+				if ( (n=regions[r].emptyCells(empties)) > 2 ) {
 					if ( (s=Cells.sized(3, empties, n, sized)) > 1 ) {
-						Cells.indices(empties, s, ia=Idx.IAS_C[s]);
-						Cells.maybes(empties, s, ma=Idx.IAS_A[s]);
-						for ( int[] pa : new Permutations(s, Idx.IAS_B[2]) ) {
-							if ( VSIZE[ma[pa[0]]|ma[pa[1]]] == 2 ) {
-								nakedSets.add(ia[pa[0]]);
-								nakedSets.add(ia[pa[1]]);
-								result = true;
+						try ( IALease iaLease = iaLease(n);
+							  IALease maLease = iaLease(n);
+							  IALease paLease = iaLease(2); ) {
+							Cells.indices(empties, s, ia=iaLease.array);
+							Cells.maybes(empties, s, ma=maLease.array);
+							for ( int[] pa : new Permutations(s, paLease.array) ) {
+								if ( VSIZE[ma[pa[0]]|ma[pa[1]]] == 2 ) {
+									nakedSets.add(ia[pa[0]]);
+									nakedSets.add(ia[pa[1]]);
+									result = true;
+								}
 							}
 						}
 					}
 					// Naked Triples
 					if ( n > 3 ) {
 						if ( (s=Cells.sized(4, empties, n, sized)) > 2 ) {
-							Cells.indices(empties, s, ia=Idx.IAS_C[s]);
-							Cells.maybes(empties, s, ma=Idx.IAS_A[s]);
-							for ( int[] pa : new Permutations(s, Idx.IAS_B[3]) ) {
-								// do the first three in one line
-								if ( VSIZE[m=ma[pa[0]]|ma[pa[1]]|ma[pa[2]]] < 4 ) {
-									if ( VSIZE[m] == 3 ) {
+							try ( IALease iaLease = iaLease(n);
+								  IALease maLease = iaLease(n);
+								  IALease paLease = iaLease(3); ) {
+								Cells.indices(empties, s, ia=iaLease.array);
+								Cells.maybes(empties, s, ma=maLease.array);
+								for ( int[] pa : new Permutations(s, paLease.array) ) {
+									// do the first three in one line
+									if ( VSIZE[ma[pa[0]]|ma[pa[1]]|ma[pa[2]]] == 3 ) {
 										nakedSets.add(ia[pa[0]]);
 										nakedSets.add(ia[pa[1]]);
 										nakedSets.add(ia[pa[2]]);
@@ -144,12 +153,14 @@ class AlsFinder {
 						// Naked Quads
 						if ( n > 4
 						  && (s=Cells.sized(5, empties, n, sized)) > 3 ) {
-							Cells.indices(empties, s, ia=Idx.IAS_C[s]);
-							Cells.maybes(empties, s, ma=Idx.IAS_A[s]);
-							for ( int[] pa : new Permutations(s, Idx.IAS_B[4]) ) {
-								// do the first three in one line
-								if ( VSIZE[m=ma[pa[0]]|ma[pa[1]]|ma[pa[2]]|ma[pa[3]]] < 5 ) {
-									if ( VSIZE[m] == 4 ) {
+							try ( IALease iaLease = iaLease(n);
+								  IALease maLease = iaLease(n);
+								  IALease paLease = iaLease(4); ) {
+								Cells.indices(empties, s, ia=iaLease.array);
+								Cells.maybes(empties, s, ma=maLease.array);
+								for ( int[] pa : new Permutations(s, paLease.array) ) {
+									// do the first three in one line
+									if ( VSIZE[ma[pa[0]]|ma[pa[1]]|ma[pa[2]]|ma[pa[3]]] == 4 ) {
 										nakedSets.add(ia[pa[0]]);
 										nakedSets.add(ia[pa[1]]);
 										nakedSets.add(ia[pa[2]]);
@@ -163,9 +174,6 @@ class AlsFinder {
 				}
 			}
 		}
-		// clear the CAS's
-		Arrays.fill(empties, null);
-		Arrays.fill(sized, null);
 		return result;
 	}
 
@@ -176,27 +184,29 @@ class AlsFinder {
 		  , n // number of cells in region having size 2..d+1
 		  , m // aggregated maybes of this comination of cells
 		  , i; // if you don't know what an i is by now you need shootin
-		final Cell[] cells = grid.cells;
-		final Cell[] cas = Cells.arrayA(MAX_EMPTIES); // 64 = 81 - 17
+		final Cell[] gridCells = grid.cells;
 		final Idx empties = grid.getEmpties();
-		for ( ARegion r : grid.regions ) { // 27
-			if ( tmp1.setAndMany(r.idx, empties)
-			  && tmp2.setAndNotAny(tmp1, nakedSetIdxs[r.index])
-			  && tmp2.size() > 2 // we need 3 or more cells to form an ALS
-			) {
-				for ( d=2; d<REGION_SIZE; ++d ) { // number of cells (degree)
-					// must be final and therefore local for the lambda
-					final int e=d+1, f=e+1; // number of cands, + 1
-					if ( (n=tmp2.whereCells(cells, cas, (c)->c.size < f)) > d ) {
-						Cells.maybes(cas, n, ma=Idx.IAS_A[n]);
-						for ( int[] perm : new Permutations(n, Idx.IAS_B[d]) ) {
-							if ( VSIZE[m=ma[perm[0]]|ma[perm[1]]] < f ) {
-								for ( i=2; i<d; ++i ) {
-									m |= ma[perm[i]];
-								}
-								if ( VSIZE[m] == e ) {
-									alsSet.add(new Als(IdxL.of(cas, perm), m, r));
-								}
+		try ( CALease caLease = caLease(MAX_EMPTIES) ) {
+			final Cell[] ca = caLease.array; // 64 = 81 - 17
+			for ( ARegion r : grid.regions ) { // 27
+				if ( tmp1.setAndMany(r.idx, empties)
+				  && tmp2.setAndNotAny(tmp1, nakedSetIdxs[r.index])
+				  && tmp2.size() > 2 // we need 3 or more cells to form an ALS
+				) {
+					for ( d=2; d<REGION_SIZE; ++d ) { // degree: number of cells
+						// must be final and therefore local for the lambda
+						final int e=d+1, f=e+1; // number of cands, + 1
+						if ( (n=tmp2.where(gridCells, ca, (c)->c.size < f)) > d ) {
+							try ( IALease mLease = iaLease(n);
+								  IALease pLease = iaLease(d); ) {
+								Cells.maybes(ca, n, ma=mLease.array);
+								for ( int[] perm : new Permutations(n, pLease.array) )
+									if ( VSIZE[m=ma[perm[0]]|ma[perm[1]]] < f ) {
+										for ( i=2; i<d; ++i )
+											m |= ma[perm[i]];
+										if ( VSIZE[m] == e )
+											alsSet.add(new Als(IdxL.of(ca, perm), m, r));
+									}
 							}
 						}
 					}
@@ -212,22 +222,27 @@ class AlsFinder {
 		  , n // number of cells in region having size 2..d+1
 		  , m // aggregated maybes of this comination of cells
 		  , i; // if you don't know what an i is by now you need shootin
-		final Cell[] cells = grid.cells;
-		final Cell[] cas = Cells.arrayA(MAX_EMPTIES); // 64 = 81 - 17
+		final Cell[] gridCells = grid.cells;
 		final Idx empties = grid.getEmpties();
-		for ( ARegion r : grid.regions ) { // 27
-			if ( tmp1.setAndMany(r.idx, empties) ) {
-				for ( d=2; d<REGION_SIZE; ++d ) { // number of cells (degree)
-					final int e=d+1, f=d+2; // number of cands, + 1
-					if ( (n=tmp1.whereCells(cells, cas, (c)->c.size<f)) > d) {
-						Cells.maybes(cas, n, ma=Idx.IAS_A[n]);
-						for ( int[] perm : new Permutations(n, Idx.IAS_B[d]) ) {
-							if ( VSIZE[m=ma[perm[0]]|ma[perm[1]]] < f ) {
-								for ( i=2; i<d; ++i ) {
-									m |= ma[perm[i]];
-								}
-								if ( VSIZE[m] == e ) {
-									alsSet.add(new Als(IdxL.of(cas, perm), m, r));
+		// find ALS's of max 6 cells (beyond three or four are less useful)
+		final int ALS_SIZE_CEILING = REGION_SIZE - 1;
+		try ( final CALease caLease = caLease(MAX_EMPTIES) ) {
+			final Cell[] ca = caLease.array;
+			for ( ARegion r : grid.regions ) { // 27
+				if ( tmp1.setAndMany(r.idx, empties) ) {
+					for ( d=2; d<ALS_SIZE_CEILING; ++d ) { // degree: num cells
+						final int e=d+1, f=d+2; // number of cands, plus one
+						if ( (n=tmp1.where(gridCells, ca, (c)->c.size<f)) > d) {
+							try ( IALease maLease = iaLease(n);
+								  IALease paLease = iaLease(d); ) {
+								Cells.maybes(ca, n, ma=maLease.array);
+								for ( int[] perm : new Permutations(n, paLease.array) ) {
+									if ( VSIZE[m=ma[perm[0]]|ma[perm[1]]] < f ) {
+										for ( i=2; i<d; ++i )
+											m |= ma[perm[i]];
+										if ( VSIZE[m] == e )
+											alsSet.add(new Als(IdxL.of(ca, perm), m, r));
+									}
 								}
 							}
 						}

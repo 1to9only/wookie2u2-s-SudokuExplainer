@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2022 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
@@ -150,7 +150,7 @@ public class ColoringHint extends AHint  {
 	public int hashCode() {
 		int result = 0;
 		for ( Cell c : aquaCells )
-			result = result<<4 ^ c.hashCode;
+			result = result<<4 ^ c.i;
 		result = result<<4 ^ valueToRemove;
 		return result;
 	}
@@ -174,8 +174,10 @@ public class ColoringHint extends AHint  {
 		sb.append(getHintTypeName()).append(COLON_SP);
 		boolean first = true;
 		for ( Pots p : pots ) {
-			if(first) first=false; else sb.append(CSP);
-			sb.append(p.cells());
+			if ( p!=null && !p.isEmpty() ) {
+				if(first) first=false; else sb.append(CSP);
+				sb.append(p.ids());
+			}
 		}
 		return sb.append(ON).append(valueToRemove).toString();
 	}
@@ -183,10 +185,10 @@ public class ColoringHint extends AHint  {
 	@Override
 	protected String toHtmlImpl() {
 		return Html.produce(this, "ColoringHint.html"
-			, getHintTypeName()					// {0}
-			, Integer.toString(valueToRemove)	//  1
-			, reds.toString()				//  2
-			, toString()						//  3
+			, getHintTypeName()					//{0}
+			, Integer.toString(valueToRemove)	// 1
+			, reds.toString()					// 2
+			, toString()						// 3
 		);
 	}
 
