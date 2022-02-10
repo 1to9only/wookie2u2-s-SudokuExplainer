@@ -45,19 +45,6 @@ public interface RccFinder {
 	/**
 	 * Search the given alss for Restricted Common Candidates, storing each
 	 * in the given rccs array and return how many.
-	 * <p>
-	 * Finding RCC's is inherently a heavy process at worst-case O(numAlss *
-	 * numAlss), so each implementation is as fast as possible, which is still
-	 * too slow.
-	 * <p>
-	 * If the size of the passed rccs is exceeded then a WARN: is printed to
-	 * both the Log and to stdout. Please ignore these messages from generate,
-	 * they're pretty much unavoidable there, because I don't want to tie-up
-	 * more memory in a larger-than-required array just to suit generate, but
-	 * if generate is your focus, and you have s__tloads of RAM then you might
-	 * want to double the size of this array again, and if so then also consult
-	 * java -help (or java /?) to give SE as much RAM as you possibly can; and
-	 * it might be an idea to do it anyway, because SE is RAM hungry. sigh.
 	 *
 	 * @param alss the ALSs (Almost Locked Sets) to search, currently 512
 	 * @param numAlss the number of alss actually in the alss array
@@ -79,7 +66,7 @@ public interface RccFinder {
 	public int[] getStarts();
 
 	/**
-	 * Returns the ends array: the last RCC-index for this source-ALS, ergo an 
+	 * Returns the ends array: the last RCC-index for this source-ALS, ergo an
 	 * INCLUSIVE boundary for source-ALS.
 	 * <p>
 	 * Note that currently only AlsChain uses the start and end indexes, and it

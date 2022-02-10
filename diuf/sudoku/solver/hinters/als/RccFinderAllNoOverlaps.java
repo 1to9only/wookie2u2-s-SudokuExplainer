@@ -34,8 +34,7 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 		    , avAll // a.vAll: indices of cells which maybe v in ALS a + buds
 			, bvs // b.vs: indices of cells which maybe v in ALS b
 		    , bvAll; // a.vAll: indices of cells which maybe v in ALS b + buds
-		Idx ai // a.idx: indices of cells in ALS a
-		  , av // a.vs[v]: indices of cells in ALS a which maybe v
+		Idx av // a.vs[v]: indices of cells in ALS a which maybe v
 		  , avA // a.vAll[v]: indices of cells which maybe v in ALS a + buddies
 		  , bidx // b.*: is re-used for all of b's Idx's (currently three)
 		  , bv; // b.vs[v]: indices if cells in ALS b which maybe v
@@ -56,7 +55,7 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 			a = alss[i];
 			avAll = a.vAll;
 			avs = a.vs;
-			ai0=(ai=a.idx).a0; ai1=ai.a1; ai2=ai.a2;
+			ai0=a.i0; ai1=a.i1; ai2=a.i2;
 			aMaybes = a.maybes;
 			// foreach ALS again (a full n*n search)
 			for ( j=0; j<numAlss; ++j ) {
@@ -64,18 +63,16 @@ public class RccFinderAllNoOverlaps extends RccFinderAbstractIndexed {
 				if ( (aMaybes & alss[j].maybes) != 0
 				  // and the two ALSs do NOT physically overlap
 				  // which also supresses j == i
-				  && ( ((bidx=alss[j].idx).a0 & ai0)
-					 | (bidx.a1 & ai1)
-					 | (bidx.a2 & ai2) ) == 0
+				  && ( ((b=alss[j]).i0 & ai0)
+					 | (b.i1 & ai1)
+					 | (b.i2 & ai2) ) == 0
 				) {
 					// foreach common value
-					for ( v1 = v2 = 0
-					    , b = alss[j]
-						, bvs = b.vs
+					for ( bvs = b.vs
 						, bvAll = b.vAll
 					    , vs = VALUESES[aMaybes & b.maybes]
 					    , vn = vs.length
-						, vi = 0
+						, v1 = v2 = vi = 0
 						;//NO_STOPPER
 						;//NO_INCREMENT
 					) {

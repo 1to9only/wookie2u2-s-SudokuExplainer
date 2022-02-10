@@ -101,11 +101,8 @@ public final class HintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void sort(Comparator<AHint> comparator) {
-		if ( comparator == null ) {
-			comparator = AHint.BY_SCORE_DESC;
-		}
-		list.sort(comparator);
+	public void sort(final Comparator<AHint> comparator) {
+		list.sort(comparator!=null ? comparator : AHint.BY_SCORE_DESC);
 	}
 
 	@Override

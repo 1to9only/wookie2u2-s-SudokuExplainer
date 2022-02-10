@@ -52,7 +52,7 @@ public final class WWingHint extends AHint  {
 
 	@Override
 	public Set<Cell> getAquaCells(int viewNumUnused) {
-		return new MyLinkedHashSet<>(cellA, cellB, wCellA, wCellB);
+		return new MyLinkedHashSet<>(new Cell[]{cellA, cellB, wCellA, wCellB});
 	}
 
 	@Override

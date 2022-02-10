@@ -200,15 +200,18 @@ public class SudokuGridPanel extends JPanel {
 
 	private final String FONT_NAME = "Verdana";
 
-	private int COS = 64; // CELL_OUTER_SIZE // was 45, also a lettuce.
-	private int CIS = 58; // CELL_INNER_SIZE // was 39, also a sibling?
+	// COS should be a product of 6: 42,48,54,60,66,72,78
+	// BFIIK: 6 is maxWidth of the inter-region borders etc, which from a cells
+	// perspective are just "border incursions", for which I must leave room.
+	private int COS = 66;			// CELL_OUTER_SIZE // and a lettuce.
+	private int CIS = COS - 6;		// CELL_INNER_SIZE // and a sibling?
 	private int CISo2 = CIS / 2;
 	private int CISo3 = CIS / 3;
 	private int CISo6 = CIS / 6;
-	private int V_GAP = 2; // VERTICAL_GAP
-	private int H_GAP = 42; // HORIZONTAL_GAP
+	private int V_GAP = 2;			// VERTICAL_GAP
+	private int H_GAP = 42;			// HORIZONTAL_GAP
 	private int CELL_PAD = (COS - CIS) / 2; // (64-58)/2=3
-	private int MY_SIZE = COS * N;
+	private int MY_SIZE = COS * REGION_SIZE;
 	private int FONT_SIZE_1 = 14; // 12
 	private int FONT_SIZE_2 = 18; // 14
 	private int FONT_SIZE_3 = 24; // 18
@@ -287,30 +290,47 @@ public class SudokuGridPanel extends JPanel {
 		bigFont    = new Font(FONT_NAME, Font.BOLD, FONT_SIZE_5);
 	}
 
+	// set the COS, and the scale to then rescale everything-else in line with
+	// the magnitide of the change in the COS, so that I (the programmer) only
+	// have to pick a newCos and the other sizes change proportionally.
+	private int changeCos(final int newCos) {
+		final double oldCos = COS;
+		scale = (double)newCos / oldCos;
+		return COS = newCos;
+	}
+	private double scale;
+	private int rescale(double d) {
+		return (int)(d * scale + 0.5D);
+	}
+
 	private void rescaleDown() {
-		COS = 45; // rescale(CELL_OUTER_SIZE);
-		CIS = 39; // rescale(CELL_INNER_SIZE);
+		// CELL_OUTER_SIZE should be a product of 6: 42,48,54,60,66,72,78
+		// 6 is the max-width of the inter-region borders, which are NOT scaled
+		// down coz I have no idea how. 48 is a bit cramped. 54 isn't too bad.
+		COS = changeCos(54);
+		// CELL_INNER_SIZE is - 6 to leave a gap of 3 each side of the cell
+		CIS = COS - 6;
 		CISo2 = CIS / 2;
 		CISo3 = CIS / 3;
 		CISo6 = CIS / 6;
-		V_GAP = rescale(V_GAP);
-		H_GAP = rescale(H_GAP);
-		CELL_PAD = rescale(CELL_PAD);
-		MY_SIZE = rescale(MY_SIZE);
-		FONT_SIZE_1 = 12;
-		FONT_SIZE_2 = 14;
-		FONT_SIZE_3 = 18;
-		FONT_SIZE_4 = 24;
-		FONT_SIZE_5 = 36;
-		ARROW_LENGTH = 5;
-		ARROW_WIDTH = 2;
-		LINK_OFFSET = 3.0;
-		PREFFERED_SIZE = new Dimension(MY_SIZE+H_GAP+V_GAP
-				                     , MY_SIZE+H_GAP+V_GAP);
-	}
-
-	private int rescale(int value) {
-		return (int)(value * 0.66666666666666);
+		V_GAP = rescale(V_GAP);				// was 2
+		H_GAP = rescale(H_GAP);				// was 42
+		CELL_PAD = (COS - CIS) / 2;			// was 3
+		MY_SIZE = COS * REGION_SIZE;		// was 576
+		FONT_SIZE_1 = rescale(FONT_SIZE_1);
+		FONT_SIZE_2 = rescale(FONT_SIZE_2);
+		FONT_SIZE_3 = rescale(FONT_SIZE_3);
+		FONT_SIZE_4 = rescale(FONT_SIZE_4);
+		FONT_SIZE_5 = rescale(FONT_SIZE_5);
+		ARROW_LENGTH = rescale(ARROW_LENGTH);
+		ARROW_WIDTH = rescale(ARROW_WIDTH);
+		LINK_OFFSET = rescale(LINK_OFFSET); // it's a double that should contain an int value!
+		// MY_SIZE is CELL_OUTER_SIZE * number of cells per row/col.
+		// + H_GAP + V_GAP is simplest AFAIK way to square-off a rectangle.
+		// + CELL_PAD coz the math leaves me a tad too smal. BFIIK. I think the
+		//   math is based on border centres, excluding widths.
+		final int d = MY_SIZE + H_GAP + V_GAP + CELL_PAD;
+		PREFFERED_SIZE = new Dimension(d, d);
 	}
 
 	private void createByCOS() {
@@ -1027,7 +1047,7 @@ public class SudokuGridPanel extends JPanel {
 			}
 		}
 	}
-	
+
 	private boolean isSelected(final Als als) {
 		final int sai = selectedAlsIndex;
 		if ( sai > -1 ) {
@@ -1105,7 +1125,7 @@ public class SudokuGridPanel extends JPanel {
 		int i = 1; // the alss index, skip the first ALS, for now.
 		for ( ; i<alss.length; ++i ) {
 			// the last ALS may be null. sigh.
-			if ( alss[i] == null ) 
+			if ( alss[i] == null )
 				break;
 			paintAls(g, alss[i], i % ALS_COLORS.length);
 		}
@@ -1326,7 +1346,7 @@ public class SudokuGridPanel extends JPanel {
 		final int xo = CELL_PAD + (u%R)*CISo3 + CISo6 + offset; // xOffset
 		final int yo = CELL_PAD + (u/R)*CISo3 + CISo6; // yOffset
 		// note: x,y are the centre point to paint at (not the top-left)
-		idx.forEach((i)->drawStringCentered(g, s, byCOS[i%N]+xo, byCOS[i/N]+yo));
+		idx.forEach((i) -> drawStringCentered(g, s, byCOS[i%N]+xo, byCOS[i/N]+yo));
 	}
 
 	private Color resultColor() {

@@ -61,7 +61,7 @@ public final class CellReductionHint extends AChainingHint {
 
 	@Override
 	public Set<Cell> getFlatAquaCells() {
-		return new MyLinkedHashSet<>(srcCell, resultAss.cell);
+		return new MyLinkedHashSet<>(new Cell[]{srcCell, resultAss.cell});
 	}
 
 	@Override
@@ -165,7 +165,7 @@ public final class CellReductionHint extends AChainingHint {
 					, getPlusHtml()					//  5
 					, getNestedHtml()				//  6
 			);
-			if ( hinter.tech.isNested ) 
+			if ( hinter.tech.isNested )
 				html = super.appendNestedChainsHtml(html);
 		} catch (IrrelevantHintException ex) { // probably from getAssertionsHtml()
 			// see IrrelevantHintException declaration for discussion

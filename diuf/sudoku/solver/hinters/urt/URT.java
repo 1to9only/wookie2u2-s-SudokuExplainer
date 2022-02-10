@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * UniqueRectangle implements the Unique Rectangles and Unique Loops Sudoku
+ * URT UniqueRecTangle implements the Unique Rectangles and loops Sudoku
  * solving techniques. Supports types 1 to 4 and Hidden. Skewed non-orthogonal
- * loops (fairly rare) are also detected.
+ * loops (fairly rare) are also detected. A rectangle is a loop of 4 cells.
  * <p>
  * NOTE that SE includes URT Types 5 and 6 in lesser hint types, but the Sudoku
  * community has "reserved" 5 and 6, so I use Type 7 to mean a Hidden URT.
@@ -39,9 +39,9 @@ import java.util.Set;
  * they are dropped from this minimum rule set implementation.
  * <p>
  * Q: Why do people make things more complicated than they need to be?<br>
- * A: Because they did not realise the complications were unnecessary.
+ * A: Because they did not know that the complications were unnecessary.
  */
-public final class UniqueRectangle extends AHinter
+public final class URT extends AHinter
 		implements diuf.sudoku.solver.hinters.IPrepare
 //				 , diuf.sudoku.solver.hinters.IReporter
 {
@@ -194,8 +194,8 @@ public final class UniqueRectangle extends AHinter
 
 	private int extraCands, numExtraCands;
 
-	public UniqueRectangle() {
-		super(Tech.URT);
+	public URT() {
+		super(Tech.UniqueRectangle);
 		for ( int i=0; i<MAX_LOOPS; ++i )
 			loopsIdxs[i] = new Idx();
 	}
@@ -353,7 +353,7 @@ public final class UniqueRectangle extends AHinter
 		if ( Run.type != Run.Type.Generator ) {
 			Log.teeln("\n"+tech.name()+" disabled for this puzzle.");
 			Log.teeln("The extra \"rescue\" cells must exist, or the puzzle is invalid.");
-			Log.teeln("More likely UniqueRectangle has a bug, which needs fixing. Sigh.");
+			Log.teeln("More likely URT has a bug, which needs fixing. Sigh.");
 			Log.teeln("Bad numExtraCells = "+numExtraCells+" (presumably 0)");
 			Log.teeln("extraCells = "+Frmu.toFullString(", ", Math.min(numExtraCells,LOOP_SIZE), extraCells));
 			Log.teeln("loop = "+Frmu.toFullString(", ", n, loop));

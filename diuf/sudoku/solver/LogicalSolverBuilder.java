@@ -259,7 +259,7 @@ class LogicalSolverBuilder {
 		want(Tech.XColoring);	// 2 color-sets with cheese
 		want(Tech.Medusa3D);	// 2 color-sets with cheese and pickles
 		want(Tech.GEM);			// 2 color-sets with the lot, and bacon
-		want(Tech.URT); // UniqueRectangle/loop: a rectangle/loop of 2 values
+		want(Tech.UniqueRectangle); // UniqueRectangle/loop: a loop on 2 maybes
 
 		// Air
 		// BigWings XOR individual S/T/U/V/WXYZ-Wing@check
@@ -270,9 +270,9 @@ class LogicalSolverBuilder {
 			want(Tech.TUVWXYZ_Wing);  // 6 cell ALS + bivalue cell
 			want(Tech.STUVWXYZ_Wing); // 7 cell ALS + bivalue cell
 		}
-		// nb: BigWings gets alss that DB reuses (filtered to !allowNakedSets)
-		want(Tech.NakedPent);  // DEGENERATE 5 values in 5 cells
-		want(Tech.HiddenPent); // DEGENERATE 5 places for 5 values in region
+//		// nb: BigWings gets alss that DB reuses (filtered to !allowNakedSets)
+//		want(Tech.NakedPent);  // DEGENERATE 5 values in 5 cells
+//		want(Tech.HiddenPent); // DEGENERATE 5 places for 5 values in region
 
 		// Fish/ALS
 		want(Tech.FinnedSwampfish); // includes Sashimi's

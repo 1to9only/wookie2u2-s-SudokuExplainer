@@ -212,6 +212,9 @@ public class KrakenFisherman extends AHinter
 
 	/** the Fish candidate value, colloquially known as 'v'. */
 	private int v;
+	/** sv is shorthand for shiftedValue, that is v as a bitset, <br>
+	 * ie VSHFT[v], ie 1&lt;&lt;(v-1). */
+	private int sv;
 	/** buds: used a result of grid.cmnBuds. */
 	private final Idx buds = new Idx();
 	/** deletes (potential eliminations) in the current covers search;
@@ -319,12 +322,14 @@ public class KrakenFisherman extends AHinter
 						KT2_CACHE[i][v] = null;
 			if ( oneOnly ) { // short-circuit
 				for ( v=1; v<VALUE_CEILING; ++v ) {
+					sv = VSHFT[v];
 					// find fish in rows, else find fish in cols
 					if ( searchBases(ROW) || searchBases(COL) )
 						break;
 				}
 			} else { // no short-circuit
 				for ( v=1; v<VALUE_CEILING; ++v ) {
+					sv = VSHFT[v];
 					// always find fish in both rows and cols
 					if ( searchBases(ROW) | searchBases(COL) )
 						break;
@@ -334,7 +339,6 @@ public class KrakenFisherman extends AHinter
 			this.grid = null;
 			this.idxs = null;
 			this.accu = null;
-//			Cells.cleanCasA();
 		}
 		return accu.size() > pre;
 	}
@@ -1293,10 +1297,10 @@ public class KrakenFisherman extends AHinter
 
 	private void addBases(ARegion[] regions) {
 		Idx rvs; // region v's
-		for ( ARegion region : regions )
-			if ( !region.containsValue[v] ) {
-				bases[numBases] = region.index;
-				rvs = region.idxs[v];
+		for ( ARegion r : regions )
+			if ( (r.setCands & sv) == 0 ) {
+				bases[numBases] = r.index;
+				rvs = r.idxs[v];
 				baseVsM0[numBases] = rvs.a0;
 				baseVsM1[numBases] = rvs.a1;
 				baseVsM2[numBases++] = rvs.a2;
@@ -1305,10 +1309,10 @@ public class KrakenFisherman extends AHinter
 
 	private void addCovers(ARegion[] regions) {
 		Idx rvs; // region v's
-		for ( ARegion region : regions )
-			if ( !region.containsValue[v] ) {
-				allCovers[numAllCovers] = region.index;
-				rvs = region.idxs[v];
+		for ( ARegion r : regions )
+			if ( (r.setCands & sv) == 0 ) {
+				allCovers[numAllCovers] = r.index;
+				rvs = r.idxs[v];
 				allCoverVsM0[numAllCovers] = rvs.a0;
 				allCoverVsM1[numAllCovers] = rvs.a1;
 				allCoverVsM2[numAllCovers++] = rvs.a2;

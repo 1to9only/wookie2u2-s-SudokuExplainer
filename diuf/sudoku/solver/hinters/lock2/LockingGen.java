@@ -102,7 +102,7 @@ public class LockingGen extends AHinter {
 			for ( v=1; v<VALUE_CEILING; ++v ) {
 				// if this region has 2..3 places for this value.
 				// 2 or 3 places in a region call all be in another region.
-				// 1 place is a hidden single, which is not my problem.
+				// 1 source is a hidden single, which is not my problem.
 				// 4 or more places cannot share another common region.
 				if ( (card=(riv=rio[v]).size)>1 && card<4 ) {
 					// find victims: grid.cells that are buddies of all

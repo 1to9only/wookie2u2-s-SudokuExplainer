@@ -45,6 +45,7 @@ import static diuf.sudoku.Grid.COL_OF;
 import static diuf.sudoku.Grid.ROW_OF;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
+import diuf.sudoku.IdxL;
 import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
@@ -158,7 +159,7 @@ public final class Coloring extends AHinter {
 		this.idxs = grid.idxs; // cached indices which maybe each value
 		this.accu = accu;
 		// read the indices of biplaced cells, per value
-		final Idx[] bips = grid.getBiplaces();
+		final IdxL[] bips = grid.getBiplaces();
 
 		// clear the cache each time I'm called coz I'm either on a new grid,
 		// or the grid has changed since the last time I was called; else we
@@ -178,7 +179,6 @@ public final class Coloring extends AHinter {
 			this.rows = this.cols = this.boxs = null;
 			this.idxs = null;
 			this.accu = null;
-//			Cells.cleanCasA();
 		}
 		return result;
 	}
@@ -193,7 +193,7 @@ public final class Coloring extends AHinter {
 	 * @param accu the IAccumulator to which I add any hints
 	 * @return true if any hint/s were found, else false
 	 */
-	private boolean findSimpleColors(Idx[] biplaces) {
+	private boolean findSimpleColors(IdxL[] biplaces) {
 		Idx[] gv, bv; // green and blue v pairs-arrays
 		Idx c1, c2; // indices of cells in the two colors
 		AHint hint;

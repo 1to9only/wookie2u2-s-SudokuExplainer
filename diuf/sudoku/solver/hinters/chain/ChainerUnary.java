@@ -37,7 +37,7 @@ import java.util.Arrays;
  * s__t they all miss, in about a tenth of the code. Sigh.
  * <p>
  * KRC 2019-11-01 I've split the Chainer class into two subtypes: UnaryChainer
- * and MultipleChainer; leaving the shared methods (like offToOns and onToOffs)
+ * and ChainerMulti; leaving the shared methods (like offToOns and onToOffs)
  * in an abstract ChainerBase class. I've done this to distinguish between the two
  * mostly disjunct techniques. Focus makes the code easier to grock, despite
  * its multi-level-ness making it actually more complex.
@@ -59,7 +59,7 @@ public final class ChainerUnary extends ChainerBase {
 		return BOOLEANS81;
 	}
 
-	// a circular-array in place of a Queue.
+	// a circular-array instead of a Queue.
 	private static final int Q_SIZE = 256; // must be a power of 2
 	private static final int Q_MASK = Q_SIZE - 1;
 	private final Ass[] Q = new Ass[Q_SIZE];

@@ -48,7 +48,7 @@ public final class BinaryChainHint extends AChainingHint {
 
 	@Override
 	public Set<Cell> getFlatAquaCells() {
-		return new MyLinkedHashSet<>(source.cell, dstOn.cell);
+		return new MyLinkedHashSet<>(new Cell[]{source.cell, dstOn.cell});
 	}
 
 	@Override

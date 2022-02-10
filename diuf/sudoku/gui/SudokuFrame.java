@@ -31,18 +31,15 @@ import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.StringPrintWriter;
 import java.awt.*;
-import static java.awt.Event.ALT_MASK;
+import static diuf.sudoku.gui.Event.*;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.*;
 import java.awt.event.*;
-import static java.awt.Event.CTRL_MASK;
-import static java.awt.Event.SHIFT_MASK;
 import static java.awt.event.MouseEvent.BUTTON1;
 import static java.awt.event.MouseEvent.BUTTON2;
 import static java.awt.event.MouseEvent.BUTTON3;
 import java.io.File;
 import java.io.IOException;
-import java.security.AccessControlException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,7 +48,6 @@ import java.util.List;
 import java.util.regex.Pattern;
 import javax.swing.*;
 import static javax.swing.JOptionPane.*;
-import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.event.*;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.text.BadLocationException;
@@ -122,6 +118,9 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	private final SudokuExplainer engine;
+	/**
+	 * SudokuGridPanel displays the Sudoku grid.
+	 */
 	public final SudokuGridPanel gridPanel;
 
 	private GenerateDialog generateDialog; // Generate Sudoku Puzzles Dialog
@@ -160,7 +159,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		, mitGetAllHintsMore, mitGetClueSmall, mitGetClueBig, mitCheckValidity
 		, mitSolve, mitAnalyse, mitAnalyseVerbose, mitAnalyseTiming, mitLogView;
 	// Options
-	private JMenu optionsMenu, mitLookAndFeel; // a sub-menu under optionsMenu
+	private JMenu optionsMenu; // a sub-menu under optionsMenu
 	private JMenuItem mitSelectTechniques, mitSaveSettings;
 	private JCheckBoxMenuItem mitFilterHints, mitShowMaybes, mitGreenFlash
 		, mitAntialiasing, mitHacky, mitGod;
@@ -168,7 +167,6 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private JMenu helpMenu;
 	private JMenuItem mitShowWelcome, mitAbout;
 
-	private String welcomeText; // loaded once and stored here for redisplay
 	private AHint currHint; // the selected hint, nullable
 	private int viewCount, viewNum = -1; // a hint can have >1 "views" in grid
 
@@ -203,7 +201,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 		initialise();
 		resetViewSelector();
-		AutoBusy.addFullAutoBusy(this);
+		final SudokuFrame me = this; // to supress IDE leak warning
+		AutoBusy.addFullAutoBusy(me);
 		showWelcomeText();
 		setIconImage(createImage("Icon_Sudoku.gif"));
 		setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -219,7 +218,6 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	private void initialise() {
 		this.setTitle(Build.ATV);
-		setupLookAndFeelMenu();
 		this.setJMenuBar(getMyMainMenuBar());
 		this.setContentPane(getJContentPane());
 		setDropTargetToRecievePlainTextString();
@@ -247,12 +245,10 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 * Displays the welcome to my nightmare message in the hint-details area.
 	 */
 	final void showWelcomeText() {
-		if (welcomeText == null) // cached up here, not in the Html class.
-		{
-			welcomeText = Html.load(this, "Welcome.html", true, false);
-		}
 		engine.clearHints();
-		setHintDetailArea(welcomeText);
+		// caching this HTML wasted big RAM. Nobody gives a ____ if it takes
+		// two seconds to load help, but if it takes ten cache it.
+		setHintDetailArea(Html.load(this, "Welcome.html", true, false));
 	}
 
 	final Image createImage(String path) {
@@ -473,61 +469,6 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			}
 			return DTCR.getTreeCellRendererComponent(tree, value, selected
 					, expanded, leaf, row, hasFocus);
-		}
-	}
-
-	private void setupLookAndFeelMenu() {
-		String lookAndFeelName = THE_SETTINGS.getLookAndFeelClassName();
-		if (lookAndFeelName == null) {
-			lookAndFeelName = UIManager.getSystemLookAndFeelClassName();
-		}
-		ButtonGroup group = new ButtonGroup();
-		boolean firstError = true;
-		for ( LookAndFeelInfo lafi : UIManager.getInstalledLookAndFeels() ) {
-			final JRadioButtonMenuItem menuItem
-					= new JRadioButtonMenuItem(lafi.getName());
-			menuItem.setName(lafi.getClassName());
-			try {
-				Class<?> lafiClass = Class.forName(lafi.getClassName());
-				LookAndFeel instance = (LookAndFeel) lafiClass.newInstance();
-				menuItem.setToolTipText(instance.getDescription());
-			} catch (ClassNotFoundException | IllegalAccessException | InstantiationException ex) {
-				if (firstError) {
-					engine.whinge(ex); // full stack trace
-					firstError = false;
-				} else {
-					engine.carp("Oops again", ex); // a one-liner
-				}
-			}
-			group.add(menuItem);
-			getMitLookAndFeel().add(menuItem);
-			if (lafi.getClassName().equals(lookAndFeelName)) {
-				menuItem.setSelected(true);
-			}
-			menuItem.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					if ( menuItem.isSelected() ) {
-						try {
-							final String laf = menuItem.getName();
-							THE_SETTINGS.setLookAndFeelClassName(laf);
-							UIManager.setLookAndFeel(laf);
-							SwingUtilities.updateComponentTreeUI(SudokuFrame.this);
-							// recreate the renderer to reload the correct icons
-							hintsTree.setCellRenderer(new HintsTreeCellRenderer());
-							SudokuFrame.this.repaint();
-							GenerateDialog gd = generateDialog;
-							if ( gd != null && gd.isVisible() ) {
-								SwingUtilities.updateComponentTreeUI(gd);
-								gd.pack();
-								gd.repaint();
-							}
-						} catch (Exception ex) {
-							displayError(ex);
-						}
-					}
-				}
-			});
 		}
 	}
 
@@ -1197,19 +1138,19 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	// menu keyboard-shortcut: alt (alternate)
 	private JMenuItem alt(int keyCode, JMenuItem mit) {
-		mit.setAccelerator(KeyStroke.getKeyStroke(keyCode, InputEvent.ALT_MASK));
+		mit.setAccelerator(KeyStroke.getKeyStroke(keyCode, ALT_MASK));
 		return mit;
 	}
 
 	// menu keyboard-shortcut: shft (move your ass)
 	private JMenuItem shft(int keyCode, JMenuItem mit) {
-		mit.setAccelerator(KeyStroke.getKeyStroke(keyCode, InputEvent.SHIFT_MASK));
+		mit.setAccelerator(KeyStroke.getKeyStroke(keyCode, SHIFT_MASK));
 		return mit;
 	}
 
 	// menu keyboard-shortcut: ctrl (control)
 	private JMenuItem ctrl(char ch, JMenuItem mit) {
-		mit.setAccelerator(KeyStroke.getKeyStroke(ch, InputEvent.CTRL_MASK));
+		mit.setAccelerator(KeyStroke.getKeyStroke(ch, CTRL_MASK));
 		return mit;
 	}
 
@@ -1305,8 +1246,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 						openFile();
 						showWelcomeText();
 						repaint();
-					} catch (AccessControlException ex) {
-						showAccessError(ex);
+					} catch (Exception ex) {
+						showError(ex);
 					}
 				}
 			});
@@ -1316,8 +1257,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	private void openFile() {
 		try {
-			File selectedFile = chooseFile(new PuzzleFileFilter());
-			if (selectedFile != null) {
+			final File selectedFile = chooseFile(new PuzzleFileFilter());
+			if ( selectedFile != null ) {
 				// handle SourceID special case, for example:
 				// 347#C:\\Users\\User\\Documents\\NetBeansProjects\\DiufSudoku\\top1465.d5.mt
 				// without the escaped backslashes, obviously.
@@ -1389,11 +1330,9 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		}
 	}
 
-	private void showAccessError(AccessControlException ex) {
-		carp("Sorry, this functionality cannot be used from an applet." + NL
-			+ex.getPermission().toString() + NL
-			+"Download the application to access this functionality."
-			, "Access denied");
+	private void showError(Exception ex) {
+		carp("Oops: "+ex.toString()+NL+"The artichokes are fighting back!"
+			, "Ohhh bugger");
 	}
 
 	private JMenuItem getMitFileReload() {
@@ -1407,8 +1346,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 						SourceID pid = engine.reloadFile();
 						setTitle(Build.ATV + (pid != null ? "    " + pid : ""));
 						repaint();
-					} catch (AccessControlException ex) {
-						showAccessError(ex);
+					} catch (Exception ex) {
+						showError(ex);
 					}
 				}
 			});
@@ -1453,8 +1392,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 						repaint();
 						// auto-analyse
 						analyseInTheBackground(Logging.of(e.getModifiers()));
-					} catch (AccessControlException ex) {
-						showAccessError(ex);
+					} catch (Exception ex) {
+						showError(ex);
 					}
 				}
 			;
@@ -1474,8 +1413,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					try {
 						saveFile();
 						repaint();
-					} catch (AccessControlException ex) {
-						showAccessError(ex);
+					} catch (Exception ex) {
+						showError(ex);
 					}
 				}
 			});
@@ -1543,7 +1482,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				  // or no regex yet
 				  || regex==null || regex.isEmpty()
 				  // or initiated by the menu
-				  || (e.getModifiers() & KeyEvent.CTRL_MASK) == 0 ) {
+				  || (e.getModifiers() & CTRL_MASK) == 0 ) {
 					// get the .log File
 					logViewFile = chooseFile(new LogFileFilter());
 					if ( logViewFile == null || !logViewFile.exists() )
@@ -1619,8 +1558,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				public void actionPerformed(ActionEvent e) {
 					try {
 						engine.copyGridToClipboard();
-					} catch (AccessControlException ex) {
-						showAccessError(ex);
+					} catch (Exception ex) {
+						showError(ex);
 					}
 				}
 			});
@@ -1637,8 +1576,8 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				public void actionPerformed(ActionEvent e) {
 					try {
 						engine.pastePuzzle();
-					} catch (AccessControlException ex) {
-						showAccessError(ex);
+					} catch (Exception ex) {
+						showError(ex);
 					}
 				}
 			});
@@ -1987,7 +1926,6 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			optionsMenu.add(getMitHacky());
 			optionsMenu.add(getMitGod());
 			optionsMenu.addSeparator();
-			optionsMenu.add(getMitLookAndFeel());
 			optionsMenu.add(getMitAntiAliasing());
 			optionsMenu.add(getMitSaveSettings());
 		}
@@ -2092,14 +2030,6 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	boolean god() {
 		return "IDDQD".equals("I" + askForString("assword:", "God", "DDQ"));
-	}
-
-	private JMenu getMitLookAndFeel() {
-		if (mitLookAndFeel == null) {
-			mitLookAndFeel = newJMenu("Look & Feel", KeyEvent.VK_L
-					, "For wankers who care about how stuff looks");
-		}
-		return mitLookAndFeel;
 	}
 
 	private JCheckBoxMenuItem getMitAntiAliasing() {
@@ -2263,6 +2193,9 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	/**
 	 * Ask the user a Yes/No question.
+	 *
+	 * @param question
+	 * @return
 	 */
 	@Override
 	public boolean ask(String question) {
@@ -2270,7 +2203,11 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	/**
-	 * Ask the user a Yes/No question with title. Preferred.
+	 * Ask the user a Yes/No question with title.
+	 *
+	 * @param question
+	 * @param title
+	 * @return
 	 */
 	@Override
 	public boolean ask(String question, String title) {
@@ -2280,6 +2217,10 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	/**
 	 * Ask the user for some String input.
+	 *
+	 * @param question
+	 * @param title
+	 * @return
 	 */
 	@Override
 	public String askForString(String question, String title) {
@@ -2289,6 +2230,11 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	/**
 	 * Ask the user for some String input, providing a default.
+	 *
+	 * @param question
+	 * @param title
+	 * @param defualt
+	 * @return
 	 */
 	@Override
 	public String askForString(String question, String title, String defualt) {
@@ -2322,7 +2268,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 				} catch (NumberFormatException ex) {
 //Irrelevant so eaten
 //					StdErr.whinge(ex);
-					Toolkit.getDefaultToolkit().beep();
+					engine.beep();
 				}
 			}
 			response = JOptionPane.showInputDialog(this, retryMessage, "Try again.");
@@ -2330,7 +2276,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	/**
-	 * I was trying to Ask.god(42) but he just throws a NullPointerException!
+	 * I was trying to Ask.god(42) but he threw a NullPointerException!
 	 *
 	 * @return how many assbitrarians does it take run a real-estate scam?
 	 */
@@ -2340,6 +2286,9 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	/**
 	 * Complain to the user: with String 'msg' and 'title'.
+	 *
+	 * @param msg
+	 * @param title
 	 */
 	@Override
 	public void carp(String msg, String title) {
@@ -2348,6 +2297,9 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	/**
 	 * Complain to the user: with Exception 'ex' and 'title'.
+	 *
+	 * @param ex
+	 * @param title
 	 */
 	@Override
 	public void carp(Exception ex, String title) {

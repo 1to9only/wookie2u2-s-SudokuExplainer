@@ -1,3 +1,29 @@
+NOTE: ALS (Almost Locked Sets) is based on HoDoKu code by Bernhard Hobiger.
+
+SueDeCoq is from MiscellaneousSolver. It's a two-or-three digit pattern
+reminiscent of ALS's, so it sort-of-fits here.
+
+Here is hobiwan's licence statement:
+
+/*
+ * Copyright (C) 2008-12  Bernhard Hobiger
+ *
+ * HoDoKu is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * HoDoKu is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with HoDoKu. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 The package name aals stands for Almost Almost Locked Set, which is a set of
 cells with two more maybes than cells; so 3 cells sharing 5 maybes, or 4 cells
 sharing 6 maybes.

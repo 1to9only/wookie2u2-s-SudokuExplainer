@@ -475,7 +475,6 @@ techNames(safetyNets()) + "\n" +
 				public String toString() {
 					return "GenerateEnabler";
 				}
-
 			});
 		}
 
@@ -484,7 +483,11 @@ techNames(safetyNets()) + "\n" +
 		// grows as the description changes) so it and controls below it are
 		// pushed below the bottom of the dialog, which sux, especially when
 		// the user can't resize the dialog to fix it.
-		setMinimumSize(new Dimension(400, 400));
+		// PARTIAL FIX: the control buttons are now in there own panel that is
+		// attached to bottom-of-form so the "show generated" checkBox (et al)
+		// disappears underneath da buttons panel, which is atleast better than
+		// disappearoiding the ____ing cancel button!
+		setMinimumSize(new Dimension(410, 410));
 		setResizable(false); // prevent user accidentally disappearing controls
 		pack();
 	}
@@ -577,7 +580,7 @@ techNames(safetyNets()) + "\n" +
 		private final Symmetry[] symetries;
 		private final Difficulty difficulty;
 		private final boolean isExact;
-	    public GeneratorThread(Symmetry[] symetries, Difficulty difficulty, boolean isExact) {
+	    public GeneratorThread(final Symmetry[] symetries, final Difficulty difficulty, final boolean isExact) {
 			super(GENERATOR_THREAD_NAME);
 			this.symetries = symetries;
 			this.difficulty = difficulty;

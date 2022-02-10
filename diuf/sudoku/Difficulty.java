@@ -23,18 +23,18 @@ import java.util.List;
  * produces (most commonly ALL hints it produces ARE exactly that difficulty).
  * <p>
  * Each Difficulty category (ie this enum) is used to select/reject a puzzle
- * when generating in the {@link diuf.sudoku.gui.GenerateDialog}. The rest of
- * the code-base seems to be getting along fine without any Difficulty, and I
- * personally think it'd be good if things stayed that way, considering how
- * much of an utter-pain-in-the-ass maintaining the Difficulty boundaries has
- * turned out to be. This pain has been mitigated by the adoption of the floor
- * and ceiling Tech parameters to my constructor, so that my min and max are
- * automatically the first and last+1 Tech.difficulty.
+ * in the {@link diuf.sudoku.gui.GenerateDialog}. The rest of the code-base is
+ * getting along fine without any Difficulty, and I personally think it'd be
+ * good if it stayed that way, considering how much of an pain-in-the-ass
+ * maintaining the Difficulty boundaries has turned out to be. This pain has
+ * been mitigated by the adoption of the floor and ceiling Tech parameters to
+ * my constructor, so that my min and max are automatically the {@code first}
+ * and {@code last+1} Tech.difficulty.
  * <p>
  * IDFKA is ironic! It's an acronym inherited from Doom meaning "I Don't Know
  * ____ All" [About Nothing]. It's ironic because IDKFA puzzles are about as
- * rare as chickens lips, so producing one infers that one knows rather a lot
- * more than "____ All" about quite a lot of things. Programming being one.
+ * rare as chickens lips, so producing one implies that one knows rather a lot
+ * more than "____ All" about programming at least.
  * <p>
  * I'm not saying what FTL stands for, but If you don't already know then it's
  * a reasonable prediction that you're too stupid to solve them, so you should
@@ -43,8 +43,7 @@ import java.util.List;
  * can't solve them, without a computer, so I feel bad about it, so don't feel
  * too bad about it. IDKFA puzzles are REALLY REALLY hard, and so are REALLY
  * REALLY rare, so are REALLY REALLY hard to generate randomly. That's all that
- * really needs saying. Forgive me. I'm not an ___hole really, just a bit of a
- * smartass.
+ * really needs saying. Forgive me. I'm not an ___hole really, just a smartass.
  * <p>
  * Difficulty was exhumed to {@code diuf.sudoku} for public visibility.
  * Formerly Difficulty was an inner-class of the GenerateDialog.
@@ -119,6 +118,17 @@ public enum Difficulty {
 		return IDKFA;
 	}
 
+	public static boolean isaFloor(Tech targetTech) {
+		for ( Difficulty d : values() )
+			if ( d.floor == targetTech )
+				return true;
+		return false;
+	}
+
+	/**
+	 * starting (floor) Tech. (WARN: null for Easy).
+	 */
+	private final Tech floor;
 	/**
 	 * minimum (floor) difficulty.
 	 */
@@ -133,6 +143,7 @@ public enum Difficulty {
 	public final String licence;
 
 	private Difficulty(final Tech floor, final Tech ceil, final String licence) {
+		this.floor = floor; // nullable
 		this.min = floor!=null ? floor.difficulty : 1.0; // Easy
 		this.max = ceil!=null ? ceil.difficulty : 100.0; // IDKFA
 		this.licence = licence;

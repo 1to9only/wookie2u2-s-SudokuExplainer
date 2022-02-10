@@ -78,11 +78,11 @@ public final class Debug {
 	}
 
 	public static boolean isClassNameInTheCallStack(int n, String className) {
-		return isInTheCallStack(n, (e)->e.getClassName().contains(className));
+		return isInTheCallStack(n+1, (e)->e.getClassName().contains(className));
 	}
 
 	public static boolean isMethodNameInTheCallStack(int n, String methodName) {
-		return isInTheCallStack(n, (e)->e.getMethodName().contains(methodName));
+		return isInTheCallStack(n+1, (e)->e.getMethodName().contains(methodName));
 	}
 
 	// s.containsAny(targets)
@@ -93,11 +93,11 @@ public final class Debug {
 		return false;
 	}
 	public static boolean isMethodNameInTheCallStack(int n, String[] methodNames) {
-		return isInTheCallStack(n, (e)->containsAny(e.getMethodName(), methodNames));
+		return isInTheCallStack(n+1, (e)->containsAny(e.getMethodName(), methodNames));
 	}
 
 	public static boolean isInTheCallStack(int n, String className, String methodName) {
-		return isInTheCallStack(n, (e) -> e.getClassName().equals(className)
+		return isInTheCallStack(n+1, (e) -> e.getClassName().equals(className)
 									   && e.getMethodName().equals(methodName));
 	}
 

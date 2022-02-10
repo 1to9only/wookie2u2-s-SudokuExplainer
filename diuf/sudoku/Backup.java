@@ -9,10 +9,8 @@ package diuf.sudoku;
 import static diuf.sudoku.Grid.GRID_SIZE;
 
 /**
- * A Backup is a copy of the Grid's essential data from which we can QUICKLY
- * restore the Grid to it's previous state: ie the values and maybes of each
- * cell in a grid. I was using a toString/parse for this, but they're slow,
- * so now I use a Backup to store the raw int values instead.
+ * A Backup is a copy of a puzzle, from which we can QUICKLY restore a Grids
+ * values and maybes to there previous state, then rebuild (reindex) the grid.
  * <p>
  * Backup takes RecursiveSolverTester under 1 second, without AUTOSOLVE!
  *
@@ -27,5 +25,5 @@ public class Backup {
 		grid.values(values);
 		grid.maybes(maybes);
 	}
-	
+
 }

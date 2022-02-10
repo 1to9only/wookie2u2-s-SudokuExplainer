@@ -53,7 +53,7 @@ import java.util.TreeSet;
  *  implementation differs from <tt>HashSet</tt> in that it maintains a doubly-
  *  linked list running through all of its entries, which defines the iteration
  *  ordering: ie: the <i>insertion-order</i> of the set.
- * <p>Note that insertion order is <i>not</i> affected if an element is 
+ * <p>Note that insertion order is <i>not</i> affected if an element is
  *  <i>re-inserted</i> into the set. (An element <tt>e</tt> is reinserted into
  *  a set <tt>s</tt> if <tt>s.add(e)</tt> is invoked when <tt>s.contains(e)</tt>
  *  would return <tt>true</tt> immediately prior to the invocation.)
@@ -178,7 +178,7 @@ public class MyLinkedHashSet<E>
 
 	/**
 	 * Constructs a new linked hash set with the same elements as the given
-	 * collection. The linked hash set is created with an initialCapacity 
+	 * collection. The linked hash set is created with an initialCapacity
 	 * big-enough to hold only the elements in the given collection and the
 	 * NON-default load factor of 1.0.
 	 *
@@ -204,7 +204,7 @@ public class MyLinkedHashSet<E>
 	 * @throws NullPointerException if the specified array is null
 	 */
 	@SuppressWarnings("unchecked")
-	public MyLinkedHashSet(E... a) {
+	public MyLinkedHashSet(E[] a) {
 		super(Math.max(a.length, DEFAULT_CAPACITY), DEFAULT_LOAD_FACTOR, true);
 		for ( E e : a )
 			add(e);

@@ -5,6 +5,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
+import diuf.sudoku.IdxI;
 import diuf.sudoku.IdxL;
 import diuf.sudoku.IntArrays.IALease;
 import static diuf.sudoku.Values.VSIZE;
@@ -13,8 +14,8 @@ import java.util.Arrays;
 import static diuf.sudoku.IntArrays.iaLease;
 
 /**
- * AlsFinderPlain is the simplest-possible AlsFinder. Iterating Permutations
- * is "a bit slow", but it's proven faster than the recursive alternative.
+ * AlsFinderPlain is the simplest-possible AlsFinder. Iterating Permutations is
+ * known slow, but it's still faster than the recursive alternative. BFIIK.
  * <pre>
  * 2021-09-14 I'm about a second faster than AlsFinderRecursive.
  * HIM 4,043,189,800 12568 321,705 2218 1,822,898 BigWings
@@ -36,23 +37,60 @@ final class AlsFinderPlain extends AlsFinder {
 	// * 9 is right out coz all empty cells in a region are never an Almost
 	//   Locked Set (ALS), they are always a Locked Set (LS).
 	// * We never use ALS's of 8 cells, so don't waste time finding them:
-	//   * AlsXz/Wing/Chain use 2..7
-	//   * BigWings: WXYZ=3, VWXYZ=4, UVWXYZ=5, TUVWXYZ=6, STUWXYZ=7
-	private static final int DEGREE_CEILING = 8;
+	//   * BigWings/AlsXz/AlsWing/AlsChain use 2..DEGREE_CEILING-1
+	//   * BigWings: WXYZ=3, VWXYZ=4, UVWXYZ=5, TUVWXYZ=6, STUVWXYZ=7 (dropped)
+	// * This constant is package visible for use the test-cases.
+	// ------------------------------------------------------------------------
+	// So should we go after ALSs of 7 cells?
+	//
+	// 8 with the lot
+	//       time(ns)  calls	t/call  elims    t/elim hinter
+	//     17,931,000 105881        169 56359       318 NakedSingle
+	//  2,568,648,600  11593    221,568  2107 1,219,102 BigWings
+    //  4,690,774,700  10039    467,255  2530 1,854,061 DeathBlossom
+	//  9,296,150,600   7908  1,175,537  2013 4,618,057 ALS_XZ
+    //  6,479,173,800   6633    976,808  2753 2,353,495 ALS_Wing
+    // 12,726,866,000   4457  2,855,478  1775 7,170,065 ALS_Chain
+	// 85,340,903,300 (01:25)
+	//
+	// 7 without STUVWXYZ's:
+	//     18,532,500 105812       175 56340       328 NakedSingle
+	//  2,466,231,200  11561   213,323  2108 1,169,938 BigWings
+    //  4,191,575,300  10011   418,696  2469 1,697,681 DeathBlossom
+    //  8,344,245,900   7923 1,053,167  2020 4,130,814 ALS_XZ
+    //  5,928,498,400   6648   891,771  2742 2,162,107 ALS_Wing
+    // 11,678,813,500   4482 2,605,714  1792 6,517,195 ALS_Chain
+	// 83,674,674,500 (01:23)
+	//
+	// 6 without TUVWXYZ's and STUVWXYZ's:
+	//     18,651,229 105926       176 56551       329 NakedSingle
+	//  2,077,815,884  11541   180,037  2059 1,009,138 BigWings
+	//  3,111,053,653  10026   310,298  2257 1,378,402 DeathBlossom
+	//  5,457,063,601   8125   671,638  2050 2,661,982 ALS_XZ
+	//  3,791,441,673   6834   554,790  2613 1,450,991 ALS_Wing
+	//  7,622,340,343   4778 1,595,299  1873 4,069,589 ALS_Chain
+	// 73,691,043,001 (01:13)
+	//
+	// CONCLUSION: skip 6s and 7s is 12 secs faster, but increases NakedSingle
+	// calls by 114. So how does that sit with my stated purpose: to find the
+	// simplest possible solution to any Sudoku puzzle as quickly as possible.
+	// Well, honestly, it's contrary, so I accept this change only as a massive
+	// expediancy. It produces degraded analysis.
+	// ------------------------------------------------------------------------
+	static final int DEGREE_CEILING = 6; // No TUVWXYZ, No STUVWXYZ
 
 	// clean 'dirt' out of the array of 'n' 'cells'.
 	// Do NOT call me if 'dirt' for this region is empty.
 	// returns the possibly reduced number of 'cells' (n)
 	private static int clean(final Idx dirt, final Cell[] cells, final int n) {
+		int i, j, m;
 		int result = n; // the possibly reduced number of cells
-		for ( int i=0; i<n; ++i ) {
+		for ( i=0; i<n; ++i )
 			if ( dirt.has(cells[i].i) ) {
-				for ( int j=i,m=result-1; j<m; ++j ) {
+				for ( j=i,m=result-1; j<m; ++j )
 					cells[j] = cells[j+1];
-				}
 				--result;
 			}
-		}
 		return result;
 	}
 
@@ -75,6 +113,7 @@ final class AlsFinderPlain extends AlsFinder {
 	// add each Als found to the 'alss' array, and return how many.
 	@Override
 	int getAlss(final Grid grid, final Als[] alss, final boolean allowNakedSets) {
+//long start, t;
 		// ANSI-C style variables, to minimise stack-work
 		// reference-type is implementation-type because I use array field.
 		AlsArraySet alsSet;
@@ -87,6 +126,7 @@ final class AlsFinderPlain extends AlsFinder {
 		  , f // d + 2: one more than e, to use < instead of <=
 		  , m // combination of maybes of these cells
 		  , n; // number of cells in region having size 2..degree+1
+//start = System.nanoTime();
 		// local stack-references for speed
 		final AlsArraySet[] alsSets = this.sets;
 		final Cell[] sized = this.sized;
@@ -95,23 +135,19 @@ final class AlsFinderPlain extends AlsFinder {
 		// if allowNakedSets then noDirt just stays true; else noDirt is set
 		// to "Does this region contain no nakedSets" and most regions have
 		// no nakedSets, so we skip clean'ing dirt, which is a bit faster.
-		boolean noDirt = allowNakedSets; // stays true if allowNakedSets
+		boolean noDirt = allowNakedSets; // remains true when allowNakedSets
 		Idx dirt = null; // indices of cells in nakedSet/s in this region
 		// if nakedSet's are suppressed then find nakedSetIdxs
-		if ( !allowNakedSets ) {
+		if ( !allowNakedSets )
 			setNakedSetIdxs(grid); // set nakedSetIdxs
-		}
 		// foreach region in the grid (boxs, rows, cols)
 		for ( ARegion r : grid.regions ) {
 			// are there any nakedSets in this region?
 			if ( !allowNakedSets )
 				noDirt = (dirt=nakedSetIdxs[r.index]).none();
-			// D is the maximum number of cells in each ALS + 1 (ceiling),
-			// which is capped at 8 coz we never use ALS's bigger than 7, and
-			// my max-ALS-size is numEmpties-1 coz numEmpties is always an LS.
-			D = r.emptyCellCount;
-			if ( D > DEGREE_CEILING )
-				D = DEGREE_CEILING;
+			// D is ceiling for num cells in each ALS capped at DEGREE_CEILING.
+			// It's a ceiling coz all empty cells in a region are a LockedSet.
+			D = Math.min(r.emptyCellCount, DEGREE_CEILING);
 			// foreach degree: the number of cells in each ALS
 			// d = the current degree
 			// c = floor for number of sized cells (one less than d)
@@ -140,11 +176,11 @@ final class AlsFinderPlain extends AlsFinder {
 						for ( i=2; i<n; ++i )
 							mb[i] = sized[i].maybes;
 						// foreach distinct combo of d among n cells in region,
-						// which of each wich has 2..d+1 maybes (minus nakedSets)
+						// each having 2..d+1 maybes (minus nakedSets)
 						for ( int[] pa : new Permutations(n, paLease.array) )
-							// build m = the aggregate of maybes in 'perm' cells.
-							// do the first two cells and tap-out if theres already
-							// too many maybes (for speed).
+							// build m = aggregate of maybes in 'perm' cells.
+							// do first two cells and skip if theres already
+							// excess maybes, for speed.
 							if ( VSIZE[m=mb[pa[0]]|mb[pa[1]]] < f ) {
 								// or-in maybes of remainder of degree cells
 								for ( i=2; i<d; ++i )
@@ -152,13 +188,15 @@ final class AlsFinderPlain extends AlsFinder {
 								// if there's 1 more maybe than cells then
 								if ( VSIZE[m] == e )
 									// create a new Als and add to sets[size]
-									// nb: Plain algorithm produces NO duplicates,
-									//     so add doesn't check, so I'm faster.
-									alsSet.add(new Als(IdxL.of(sized, pa, d), m, r));
+									// nb: Plain produces NO duplicates, so my
+									//     add doesn't check, so I'm faster.
+									alsSet.add(new Als(IdxI.of(sized, pa, d), m, r));
 							}
 					}
 			}
 		}
+//COUNTS[0] += (t=System.nanoTime()) - start;
+//start = t;
 		// add each als to the alss array, and computeFields of each
 		for ( d=2; d<DEGREE_CEILING; ++d ) { // degree
 			// downside of generics: array is an Object[] so we must cast each
@@ -171,9 +209,9 @@ final class AlsFinderPlain extends AlsFinder {
 			// and clear this set (sets is a field for performance)
 			alsSet.clear();
 		}
+//COUNTS[1] += System.nanoTime() - start;
 		// clean-up: a cell reference holds the whole grid in memory
 		Arrays.fill(sized, null);
-//		Cells.cleanCasA();
 		return result;
 	}
 

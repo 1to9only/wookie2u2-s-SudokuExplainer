@@ -39,9 +39,8 @@ public class NakedSet extends AHinter
 {
 
 	// add victims which maybe cands to reds.
-	private static boolean claimFrom(final int[] gridMaybes
-			, final Cell[] gridCells, final Idx victims, final int cands
-			, final Pots reds) {
+	private static boolean claimFrom(final int[] gridMaybes, final Cell[] gridCells
+			, final Idx victims, final int cands, final Pots reds) {
 		any = false;
 		if ( victims.any() )
 			victims.forEach((i) -> {
@@ -248,7 +247,7 @@ public class NakedSet extends AHinter
 		final ARegion[] regions;
 		if ( degree<4 && region instanceof Box )
 			regions = claimFromOtherCommonRegion(region.getGrid()
-					, new Idx(nsCells), region, cands, reds);
+					, region.idxNew(indexes), region, cands, reds);
 		else
 			regions = Regions.array(region);
 		// Build the hint

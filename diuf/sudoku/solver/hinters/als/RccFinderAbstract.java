@@ -19,7 +19,7 @@ public abstract class RccFinderAbstract implements RccFinder {
 
 //	// AlsXz: getRccsForwardOnlyAllowOverlaps size = 7
 //	// AlsChain: getRccsAllAllowOverlaps size = 2
-//	public static final long[] COUNTS = new long[2];
+//	public static final long[] COUNTS = new long[8];
 
 	/**
 	 * Find RCCs (Restricted Common Candidates). An RCC is the intersection of

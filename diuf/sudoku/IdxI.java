@@ -6,6 +6,9 @@
  */
 package diuf.sudoku;
 
+import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.utils.IntVisitor;
+
 /**
  * IdxI is an IdxL that is immutable post construction. Any attempt to mutate
  * an IdxI throws an ImmutableException, so just don't, final; but note that I
@@ -20,19 +23,20 @@ package diuf.sudoku;
  * Intelligent people can and will always make-up there own minds, about
  * <u>EVERY</u>thing, quite insightfully, employing high-quality extrapolation
  * of quality information. Trying to con the bastards is fundamentally useless,
- * and just makes you look like a Prize ___ing Dick! Take it or leave it.
+ * and just makes you look like a Prize ___ing Dick! Take it or leave it. So no
+ * I am most certainly NOT final, coz my missus didn't say so. Sigh.
  *
  * @author Keith Corlett 2020-07-13
  */
 public class IdxI extends IdxL implements Cloneable {
 
 	private static final long serialVersionUID = 4598934L;
-	
+
 	/** THE Immutable empty Idx. */
 	public static final IdxI EMPTY = new IdxI();
 
-	public static IdxI of(int[] indices) {
-		int a0=0, a1=0, a2=0;
+	public static IdxI of(final int[] indices) {
+		int a0=0,a1=0,a2=0;
 		for ( int i : indices )
 			if ( i < BITS_PER_ELEMENT )
 				a0 |= IDX_SHFT[i];
@@ -43,20 +47,74 @@ public class IdxI extends IdxL implements Cloneable {
 		return new IdxI(a0, a1, a2);
 	}
 
-	IdxI() {
+	public static IdxI of(final Cell[] cells) {
+		return of(cells, cells.length);
+	}
+
+	public static IdxI of(Cell[] cells, int n) {
+		int i, a0=0,a1=0,a2=0;
+		for ( int j=0; j<n; ++j )
+			if ( (i=cells[j].i) < BITS_PER_ELEMENT )
+				a0 |= IDX_SHFT[i];
+			else if ( i < BITS_TWO_ELEMENTS )
+				a1 |= IDX_SHFT[i-BITS_PER_ELEMENT];
+			else
+				a2 |= IDX_SHFT[i-BITS_TWO_ELEMENTS];
+		return new IdxI(a0, a1, a2);
+	}
+
+	public static IdxI of(final Cell[] cells, final int[] indexes) {
+		int i, a0=0,a1=0,a2=0;
+		for ( int j : indexes )
+			if ( (i=cells[j].i) < BITS_PER_ELEMENT )
+				a0 |= IDX_SHFT[i];
+			else if ( i < BITS_TWO_ELEMENTS )
+				a1 |= IDX_SHFT[i-BITS_PER_ELEMENT];
+			else
+				a2 |= IDX_SHFT[i-BITS_TWO_ELEMENTS];
+		return new IdxI(a0, a1, a2);
+	}
+
+	public static IdxI of(final Cell[] cells, final int[] indexes, final int n) {
+		int a0=0,a1=0,a2=0;
+		for ( int i,j=0; j<n; ++j )
+			if ( (i=cells[indexes[j]].i) < BITS_PER_ELEMENT )
+				a0 |= IDX_SHFT[i];
+			else if ( i < BITS_TWO_ELEMENTS )
+				a1 |= IDX_SHFT[i-BITS_PER_ELEMENT];
+			else
+				a2 |= IDX_SHFT[i-BITS_TWO_ELEMENTS];
+		return new IdxI(a0, a1, a2);
+	}
+
+	public IdxI() {
 		super();
 	}
 
-	IdxI(boolean isFull) {
+	public IdxI(boolean isFull) {
 		super(isFull);
 	}
 
-	IdxI(Idx src) {
+	public IdxI(Idx src) {
 		super(src);
 	}
 
-	IdxI(int a0, int a1, int a2) {
+	public IdxI(int a0, int a1, int a2) {
 		super(a0, a1, a2);
+	}
+
+	// IdxI is immutable, so you can cache everything.
+	@Override
+	public int size() {
+		if ( size == 0 )
+			size = super.size();
+		return size;
+	}
+	private int size;
+
+	@Override
+	public void forEach(IntVisitor v) {
+		super.forEach(v);
 	}
 
 	/**

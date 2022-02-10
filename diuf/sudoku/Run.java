@@ -7,9 +7,9 @@
 package diuf.sudoku;
 
 /**
- * I need a way to differentiate running in the GUI
- *                          from running in the LogicalSolverTester
- * and this is a bit s__t (TM) but she'll do.
+ * Run holds some key facts about the application. Basically, I just need a way
+ * to differentiate the GUI from LogicalSolverTester. This is all a bit s__t,
+ * but she'll do anyway.
  *
  * @author Keith Corlett 2020 Mar 22
  */
@@ -39,12 +39,6 @@ public final class Run {
 	 */
 	public static long time;
 
-	public static Type setRunType(Type type) {
-		Type prev = Run.type;
-		Run.type = type;
-		return prev;
-	}
-
 	public enum Type {
 		  TestCase		// in a JUnit test-case
 		, GUI			// Normal GUI
@@ -66,6 +60,12 @@ public final class Run {
 	 * LogicalSolverTester. Sigh.
 	 */
 	public static Type type = Type.TestCase;
+
+	public static Type setRunType(Type type) {
+		Type prev = Run.type;
+		Run.type = type;
+		return prev;
+	}
 
 	private static volatile boolean stopGenerate = false;
 	/**

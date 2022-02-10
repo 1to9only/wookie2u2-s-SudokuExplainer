@@ -269,7 +269,7 @@ public final class BruteForce extends AWarningHinter {
 					// Missing maybe/s: a cells solution value has been removed
 					// from its potential values, so the puzzle is unsolvable.
 					accu.add(new WarningHint(this, "Missing maybes"
-							, "NoMissingMaybes.html"));
+							, "MissingMaybes.html"));
 				} else {
 					// the Sudoku is unsolvable in it's current form
 					accu.add(LogicalSolverFactory.get().unsolvableHint);

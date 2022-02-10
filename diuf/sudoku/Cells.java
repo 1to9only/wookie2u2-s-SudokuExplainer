@@ -13,9 +13,10 @@ import java.util.Collection;
 import java.util.HashSet;
 
 /**
- * The Cells class contains static helper methods for collections of Grid.Cell.
- * There are so many of them that I though it was worth removing them from the
- * Grid class, which is already too big.
+ * Cells exposes static helpers for collections and arrays of Grid.Cell.
+ * <p>
+ * They are many, so get there own class. Grid is too fat, juggling too many
+ * concerns, so is overworked and underpaid.
  *
  * @author Keith Corlett 2021-05-06
  */

@@ -34,7 +34,7 @@ import static diuf.sudoku.utils.Frmt.ON;
  * (where speed is much less of an issue).
  * <p>
  * BasicFisherman is one of the FOUR QUICK FOXES in the RecursiveSolver (brute
- * force), and in the DynamicPlus MultipleChainer (and NestedPlus); so
+ * force), and in the DynamicPlus ChainerMulti (and NestedPlus); so
  * BasicFishHint implements IChildHint.getParents, enabling us to play "who's
  * your daddy" with our Assumptions.
  */

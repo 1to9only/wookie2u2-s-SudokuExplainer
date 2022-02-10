@@ -12,6 +12,7 @@ import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.hinters.AHinter;
+import static diuf.sudoku.solver.hinters.als.AlsChainDebug.ALS_CHAIN_DEBUG_HINTS;
 import static diuf.sudoku.solver.hinters.als.AlsHintHelper.link;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.IN;
@@ -131,7 +132,7 @@ public class AlsChainHint extends AHint  {
 
 	@Override
 	public String toStringImpl() {
-		if ( AlsChainDebug.HINTS ) // include the alss.length
+		if ( ALS_CHAIN_DEBUG_HINTS ) // include the alss.length
 			return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
 			  .append(alss.length).append(COLON_SP)
 			  .append(regionsCsv())
@@ -175,7 +176,7 @@ public class AlsChainHint extends AHint  {
 				label = AlsHelper.alsId(i);
 				sb.append("    (").append(label).append(") ")
 				  .append("<b").append(c).append('>');
-				if ( AlsChainDebug.HINTS ) {
+				if ( ALS_CHAIN_DEBUG_HINTS ) {
 					sb.append(als.index).append(": ");
 				}
 				sb.append(als.region.id).append(": ")
@@ -183,7 +184,7 @@ public class AlsChainHint extends AHint  {
 				  .append(" {").append(Values.toString(als.maybes)).append("}");
 				if ( i < last ) {
 					sb.append(" on ").append(values[i+1]);
-					if ( AlsChainDebug.HINTS ) {
+					if ( ALS_CHAIN_DEBUG_HINTS ) {
 						sb.append(" in rccs[").append(rccIndexes[i+1]).append("]=")
 						  .append(rccs[i+1]);
 					}

@@ -329,8 +329,12 @@ public class ComplexFisherman extends AHinter
 	/** the recursion stack for the cover region search. */
 	private final CoverStackEntry[] coverStack = new CoverStackEntry[REGION_SIZE];
 
-	/** the Fish candidate value, called 'v' for short. */
+	/** v is shorthand for the Fish candidate value, <br>
+	 * that is the value to seek Fish on, in 1..9. */
 	private int v;
+	/** sv is shorthand for shiftedValue, that is v as a bitset, <br>
+	 * ie VSHFT[v], ie 1&lt;&lt;(v-1). */
+	private int sv;
 	/** indices of cells which maybe the Fish candidate value, v. */
 	private Idx idx;
 	/** DECOMPOSED indices of cells which maybe the Fish candidate value, v. */
@@ -431,6 +435,7 @@ public class ComplexFisherman extends AHinter
 //					++skip;
 //					continue;
 //				}
+				this.sv = VSHFT[v];
 				this.idx = idxs[v];
 				this.idx0 = idx.a0;
 				this.idx1 = idx.a1;
@@ -450,7 +455,6 @@ public class ComplexFisherman extends AHinter
 			this.grid = null;
 			this.gridCells = null;
 			this.accu = null;
-//			Cells.cleanCasA();
 		}
 		return accu.size() > pre;
 	}
@@ -889,7 +893,6 @@ public class ComplexFisherman extends AHinter
 		// problem with non-existent reds, so log issues,
 		// throw IllegalStateException if reds come-out empty.
 		if ( MIA_REDS ) {
-			final int sv = VSHFT[v]; // bitset of the Fish candidate value
 			// we need deletes and/or sharks.
 			if ( deletes.none() && sharks.none() ) {
 				carp("no deletes and no sharks");
@@ -1061,7 +1064,7 @@ public class ComplexFisherman extends AHinter
 	 * Repopulates the bases array with numBases base regions; and also
 	 * repopulates the allCovers array with numAllCovers potential cover
 	 * regions. The actual covers array is calculated later in searchCovers
-	 * because the covers are dependant on the current bases.
+	 * because the covers are dependent on the current bases.
 	 *
 	 * @param baseType ROW, or COL
 	 * @return are there at least degree bases and allCovers: ie should we
@@ -1080,20 +1083,10 @@ public class ComplexFisherman extends AHinter
 	}
 
 	private void addRegions(final ARegion[] regions, final boolean isBase, final boolean andConverse) {
-		for ( ARegion region : regions ) {
-			// ignore regions which already have the Fish candidate set.
-			// nb: call containsValue() coz the field no work in generate.
-//			boolean[] pre = region.containsValue.clone();
-			if ( !region.containsValue[v] ) {
+		for ( ARegion region : regions )
+			// if v is not set in one of my cells
+			if ( (region.setCands & sv) == 0 )
 				addRegion(region, isBase, andConverse);
-			}
-//			if ( !Arrays.equals(pre, region.containsValue) ) {
-//				System.out.println("region: "+region);
-//				System.out.println("before: "+debugContainsValue(pre));
-//				System.out.println("after : "+debugContainsValue(region.containsValue));
-//				Debug.breakpoint();
-//			}
-		}
 	}
 
 	private void addRegion(final ARegion region, final boolean isBase, final boolean andConverse) {

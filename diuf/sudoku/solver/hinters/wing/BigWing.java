@@ -6,6 +6,7 @@ import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Grid.EXCEPT;
 import static diuf.sudoku.Grid.LATER_BUDS;
 import diuf.sudoku.Idx;
+import diuf.sudoku.IdxL;
 import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
@@ -150,7 +151,7 @@ public class BigWing extends AHinter
 	// the grid to search
 	private Grid grid;
 	// indices of cells in grid with maybesSize==2
-	private Idx bivi;
+	private IdxL bivi;
 	// indices of cells in grid with value==0
 	private Idx empties;
 

@@ -32,9 +32,11 @@ import java.util.LinkedHashSet;
  */
 public class AlsWingHint extends AHint  {
 
-	private final Als a;
-	private final Als b;
-	private final Als c;
+	// NOTE: alss order differs from AlsWing (ergo a,c,b is MENTAL).
+	private final Als a; // first
+	private final Als b; // middle
+	private final Als c; // last
+
 	private final int x;
 	private final int y;
 	private final String zs;

@@ -162,6 +162,7 @@ public final class IO {
 	 *
 	 * @param file to count
 	 * @return number of lines
+	 * @throws java.io.IOException
 	 */
 	public static int count(File file) throws IOException {
 		int count = 0;
@@ -171,32 +172,6 @@ public final class IO {
 		}
 		return count;
 	}
-
-//not_used
-//	/**
-//	 * Read this Reader into a List into an array of Strings.
-//	 *
-//	 * @param reader to read
-//	 * @return {@code String[]} of the file contents
-//	 * @throws java.io.FileNotFoundException
-//	 */
-//	public static String[] slurpArray(Reader reader) throws FileNotFoundException, IOException {
-//		ArrayList<String> list = slurp(reader);
-//		return list.toArray(new String[list.size()]);
-//	}
-
-//not_used
-//	/**
-//	 * Read this File into an array of Strings.
-//	 *
-//	 * @param file to read
-//	 * @return {@code String[]} of the file contents
-//	 * @throws java.io.FileNotFoundException
-//	 */
-//	public static String[] slurpArray(File file) throws FileNotFoundException, IOException {
-//		ArrayList<String> list = slurp(new FileReader(file));
-//		return list.toArray(new String[list.size()]);
-//	}
 
 	/**
 	 * slurp reads text from the Reader into an ArrayList of Strings.
@@ -288,45 +263,6 @@ public final class IO {
 		return sb;
 	}
 
-//not_used
-//	/**
-//	 * Slurp filename into a new int array and returns it.
-//	 * <p>
-//	 * File format is: JUST 1 int per line. No commas, spaces or extraneous
-//	 * crap, just digits and newlines, ie "%d\n" in 99% of cases.
-//	 * @param file to load
-//	 * @return a new {@code int[]} of the file contents.
-//	 */
-//	public static int[] slurpIntArray(File file) {
-//		try {
-//			String[] strings = IO.slurp(file).toArray(new String[0]);
-//			return diuf.sudoku.utils.Frmt.toIntArray(strings);
-//		} catch (IOException ex) {
-//			StdErr.whinge("Failed to loadIntArray from: "+file, ex);
-//			return null;
-//		}
-//	}
-
-//not_used
-//	/**
-//	 * Slurp filename into this collection (nb: YOU clear c first, if necessary;
-//	 * I don't so that you can load multiple files into one collection.)
-//	 * @param c the {@code Collection<Integer>} to load
-//	 * @param file to load
-//	 * @return true if it saved, else false and carps to stderr.
-//	 */
-//	public static boolean slurpIntegers(Collection<Integer> c, File file) {
-//		try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
-//			String line;
-//			while ( (line=reader.readLine()) != null )
-//				c.add(Integer.valueOf(line));
-//			return true;
-//		} catch (IOException ex) {
-//			StdErr.carp("failed to load Collection<Integer> from : "+file, ex);
-//			return false;
-//		}
-//	}
-
 	// =========================== writing ===============================
 
 	/**
@@ -357,23 +293,6 @@ public final class IO {
 		}
 	}
 
-//not_used
-//	/**
-//	 * Save this array-of-sets-of-strings to file.
-//	 *
-//	 * @param sets {@code Set<String>[]} to save
-//	 * @param file to save to
-//	 * @throws IOException (it's your problem)
-//	 */
-//	public static void save(Set<String>[] sets, File file) throws IOException {
-//		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-//			for ( Set<String> set : sets ) {
-//				writer.write(Frmt.csvs(set));
-//				writer.newLine();
-//			}
-//		}
-//	}
-
 	/**
 	 * Save this JComboBox's contents to file, including the new item. sigh.
 	 * <p>
@@ -402,27 +321,6 @@ public final class IO {
 		}
 	}
 
-//not_used
-//	/**
-//	 * Save the given array-of-int to the given filename.
-//	 *
-//	 * @param a the array to save
-//	 * @param file to save to
-//	 * @return true if it saved, else false and carps to stderr.
-//	 */
-//	public static boolean save(int[] a, File file) {
-//		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-//			for ( int e : a ) {
-//				writer.write(String.valueOf(e));
-//				writer.newLine();
-//			}
-//		} catch (IOException ex) {
-//			StdErr.whinge("failed to save int[] to : "+file, ex);
-//			return false;
-//		}
-//		return true;
-//	}
-
 	/**
 	 * Save the given {@code Map<String,String> map}
 	 * to file formatted as "${key}=${value}".
@@ -442,109 +340,25 @@ public final class IO {
 		}
 	}
 
-//not_used
-//	// Writes the first 'n' elements of 'array' to 'writer' separated by 'sep'.
-//	// For Example:
-//	//   writeCsv(writer, 3, {123,324,0}, ", ")
-//	//   writes: 123, 324, 0 (with a newLine)
-//	//   and returns true.
-//	// Where as:
-//	//   writeCsv(writer, 2, {123,324,0}, ", ")
-//	//   writes: 123, 324 (with a newLine)
-//	//   and returns true.
-//	// if array is empty then an empty line is written and true is returned.
-//	// if array is null then NOTHING is written and returns false.
-//	//   This will handle a fixed-size-array with trailing nulls;
-//	public static boolean writeCsvLine(BufferedWriter writer, final int n, int[] array, String sep) throws IOException {
-//		if ( array==null )
-//			return false;
-//		if ( n > 0 ) {
-//			writer.write(String.valueOf(array[0]));
-//			for ( int i=1; i<n; ++i ) {
-//				writer.write(sep);
-//				writer.write(String.valueOf(array[i]));
-//			}
-//		}
-//		writer.newLine();
-//		return true;
-//	}
-
-//not_used
-//	/**
-//	 * Saves the {@code Collection<int[]>} to 'file'. Each {@code int[]} is
-//	 * written one per line, in csv format.
-//	 * <p>For example:<pre>{@code
-//	 * 264708, 524290, 524288
-//	 * 0, 525365, 524288
-//	 * 0, 245816, 0
-//	 * }</pre>
-//	 * <p>any empty arrays appear as an empty line.
-//	 * <p>any null arrays are ignored.
-//	 * @param c the {@code Collection<int[]>} to save
-//	 * @param file the file to save to
-//	 * @return true unless there was an IOException which was written to stderr.
-//	 */
-//	public static boolean saveIntegerArrays(Collection<int[]> c, File file) {
-//		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-//			for ( int[] array : c )
-//				writeCsvLine(writer, array.length, array, ", ");
-//		} catch (IOException ex) {
-//			StdErr.whinge("failed to saveIntegerArrays to : "+file, ex);
-//			return false;
-//		}
-//		return true;
-//	}
-
-//not_used
-//	public static boolean saveIdxs(Collection<Idx> c, File file) {
-//		try ( BufferedWriter writer = new BufferedWriter(new FileWriter(file)) ) {
-//			for ( Idx idx : c ) {
-//				writer.write(idx.a0);
-//				writer.write(COMMA_SP);
-//				writer.write(idx.a1);
-//				writer.write(COMMA_SP);
-//				writer.write(idx.a2);
-//				writer.newLine();
-//			}
-//		} catch (IOException ex) {
-//			StdErr.whinge("failed to saveIdxs to : "+file, ex);
-//			return false;
-//		}
-//		return true;
-//	}
-
-//	/**
-//	 * Sort these Integers numerically, then save them to filename.
-//	 * @param c the {@code Collection<Integer>} to sort and save
-//	 * @param filename the name of the file to save;<br>
-//	 * <b>or</b> param File file to save to
-//	 * @return true if it saved, else false and carps to stderr.
-//	 */
-//	public static boolean saveSorted(Collection<Integer> c, String filename) {
-//		return saveSorted(c, new File(filename));
-//	}
-//	public static boolean saveSorted(Collection<Integer> c, File file) {
-//		return save(MyArrays.sort(MyArrays.unbox(c)), file);
-//	}
-
-//not_used
-//	/**
-//	 * Copy the given $file to $file.bak, if $file exists.
-//	 * <p>There's an assert to stop you creating .bak.bak files accidentally.
-//	 * @param file to create a .bak file of
-//	 * @return the .bak File, or null if $file does not exist.
-//	 * @throws IOException (it's your problem)
-//	 */
-//	public static File backup(File file) throws IOException {
-//		if ( file.exists() ) {
-//			assert !file.getAbsolutePath().endsWith(".bak");
-//			File bak = new File(file.getAbsolutePath()+".bak");
-//			save(slurp(file), bak); // Bugger Winblows and do it manually
-//			return bak;
-//		}
-//		return null;
-//	}
-
+	/**
+	 * Save an array of any type of Object, one line per element,
+	 * relying on there toString methods for formatting.
+	 *
+	 * @param array
+	 * @param file
+	 * @return
+	 */
+	public static boolean save(Object[] array, File file) {
+		try ( PrintWriter writer = new PrintWriter(file) ) {
+			for ( Object e : array ) {
+				writer.println(e);
+			}
+			return true;
+		} catch (IOException ex) {
+			Log.teeln(Log.me()+": "+ex);
+			return false;
+		}
+	}
 
 //	// DEBUG
 //	public static void save(final long[][] COUNTS, final String filename) throws FileNotFoundException {
@@ -570,25 +384,5 @@ public final class IO {
 //			}
 //		}
 //	}
-
-	/**
-	 * Save an array of any type of Object, one line per element,
-	 * relying on there toString methods for formatting.
-	 *
-	 * @param array
-	 * @param file
-	 * @return 
-	 */
-	public static boolean save(Object[] array, File file) {
-		try ( PrintWriter writer = new PrintWriter(file) ) {
-			for ( Object e : array ) {
-				writer.println(e);
-			}
-			return true;
-		} catch (IOException ex) {
-			Log.teeln(Log.me()+": "+ex);
-			return false;
-		}
-	}
 
 }

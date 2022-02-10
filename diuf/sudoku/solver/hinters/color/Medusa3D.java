@@ -589,13 +589,13 @@ public class Medusa3D extends AHinter implements IPrepare
 	 * SO paint cell-value-to-paint the same as the source cell-value.
 	 * </pre>
 	 * <p>
-	 * The <b>"shoot back"</b> stated completely:<pre>
+	 * The <b>"shoot back"</b> rule, stated completely and concisely:<pre>
 	 * IF cell-v is green and that leaves one-only place in an effected box,
 	 * which in turn leaves one-only place in the source box,
 	 * THEN we can paint cell2-v green because:
 	 *     (a) if cell-value is green then cell2-value is green
-	 *     <b>AND CONVERSELY
-	 *     (b) if cell2-value is green then cell-value is green.</b>
+	 * <b>AND CONVERSELY</b>
+	 *     (b) if cell2-value is green then cell-value is green.
 	 * IE: It's a "strong" bidirectional link.
 	 * NOTE: The implementation is more eager: it tests if ALL existing green
 	 * values AND the source cell-value reduce the effected box to a single,

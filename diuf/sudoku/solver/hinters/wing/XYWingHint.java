@@ -57,7 +57,7 @@ public final class XYWingHint extends AHint implements IChildHint {
 
 	@Override
 	public Set<Cell> getAquaCells(int notUsed) {
-		return new MyLinkedHashSet<>(xz, yz);
+		return new MyLinkedHashSet<>(new Cell[]{xz, yz});
 	}
 
 	@Override

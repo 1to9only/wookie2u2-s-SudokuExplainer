@@ -17,13 +17,25 @@ import static diuf.sudoku.solver.hinters.Validator.VALIDATE_DEATH_BLOSSOM;
 import static diuf.sudoku.solver.hinters.Validator.VALIDATE_ALS;
 
 /**
- * AAlsHinter is the abstract ALS Hinter. I fetch ALSs and RCCs that are common
- * inputs to techniques: BigWings, AlsXz, AlsWing, AlsChain, and DeathBlossom.
- * Actually, I implement the standard getHints method to get: candidates, ALSs,
- * RCCs, and NakedSets; which I pass to my subtypes custom findHints method,
- * and I return its result.
+ * AAlsHinter is the abstract Almost Locked Set (ALS) Hinter. I get the alss
+ * and rccs for: BigWings, DeathBlossom, AlsXz, AlsWing, and AlsChain.
+ * To do this I implement IHinter#getHints to get the alss and rccs which I
+ * pass down to my subclasses implementation of my abstract findAlsHints.
+ * My subclasses: BigWings, DeathBlossom, AlsXz, AlsWing, and AlsChain all
+ * override findAlsHints to find the hints. All the AlsHinters (and only the
+ * AlsHinters, plus crap) reside in the als package.
  * <p>
- * Note that BigWings and DeathBlossom do not fetch RCCs, just ALSs.
+ * BigWings and DeathBlossom do not fetch RCCs, just ALSs. They're AlsHinters.
+ * AlsXz, AlsWing, and AlsChain might more appropriately be called RccHinters,
+ * but an RCC is just a connection between two ALS's, so they're all AlsHinters
+ * really; so AAlsHinter I am, Stan. Fetch the gun. I ____ing hate cats; or
+ * rather I ____ing hate the fact that cats eat a million marsupials a day, and
+ * rising. My planet is dieing. I feel it in my bones. Sigh.
+ * <p>
+ * The crap mentioned previously is quite voluminous. Finding alss is an O(n)
+ * problem, so is straight forward, but finding rccs in O(n squared), and so
+ * is decomposed along ForwardOnly/All and No/AllowOverlaps lines; using a
+ * factory to select precisely the right RccFinder for the job at hand.
  * <pre>
  * KRC 2021-06-01 cache to speed-up ALSWing, ALSChain, and DeathBlossom.
  * Note that all caching is static, ie one copy of the cache and all associated
@@ -88,23 +100,49 @@ abstract class AAlsHinter extends AHinter
 //	@Override
 //	public void report() {
 //		diuf.sudoku.utils.Log.teeln(tech.name()+": alss="+getAlssTime+" rccs="+getRccsTime);
+//		diuf.sudoku.utils.Log.teeln(tech.name()+" ALS_FINDER: ");
+//		ALS_FINDER.report();
 //	}
-
-	/** the size of the fixed-size alss array: 512 */
-	protected static final int MAX_ALSS = 512; // Observed 283
-
-	// 833#top1465.d5.mt=6764
-	// KRC 2021-10-09 8k broken, so increased to 9k.
-	/** the length of the fixed-size static RCCS array: 9k */
-	protected static final int MAX_RCCS = 9*1024;
+//	protected long getAlssTime, getRccsTime; // DEBUG
 
 	// include single bivalue Cells in the ALSs list?
 	// nb: 1 cell with 2 potential values is by definition an ALS. I don't know
 	// what problems it causes if you set this to true. You have been warned!
 	protected static final boolean SINGLE_CELL_ALSS = false;
 
-	// the default rccs List capacity
-	protected static final int NUM_RCCS = 2000;
+	/**
+	 * The maximum number of Almost Locked Sets the system can handle.
+	 * Ergo, the size of the static ALSS array: 512
+	 */
+	protected static final int MAX_ALSS = 512; // Observed 283
+
+	// CHANGES: INITIAL 8k based on 833#top1465.d5.mt=6764
+	// (1) KRC 2021-10-09 9k. 8k bust 428#top1465.d5.mt No BigWings or BigWing
+	/**
+	 * The maximum number of Restricted Common Candidates.
+	 * Ergo, the size of the static RCCS array: 9k.
+	 * <p>
+	 * Finding RCC's is a heavy process at worst-case O(numAlss*numAlss), so
+	 * each implementation is as fast as possible, which is still too slow.
+	 * <p>
+	 * If the RccFinder exceeds MAX_RCCS then a "WARN:"ing is printed to both
+	 * Log and stdout. Ignore generate warnings coz they're unavoidable. I do
+	 * not want to tie-up more RAM in a larger than required array just to suit
+	 * generate, but if generate is your focus, and you have heaps of RAM then
+	 * go ahead and increase MAX_RCCS, 1K at a time will do.
+	 * <p>
+	 * If so then consult "java -X" to give it as much RAM as you can. It might
+	 * be an idea to do this anyway, because SE is "RAM selfish". It reserves
+	 * lumps of RAM in arrays, so this RAM can't be used elsewhere, hence ~99%
+	 * of the allocated RAM is not used in the current hinter, just some other
+	 * selfish bastard hinter has eaten it. This is how NOT to write computer
+	 * systems generally. Scarce resources must be shared, especially RAM.
+	 * <p>
+	 * I get away with "selfishness" in SE because (1) it's faster to create
+	 * arrays ONCE than doing so on the fly, and (2) my JVM has 4Gig of RAM.
+	 * Have towel, will travel. What's a disilluminator?
+	 */
+	protected static final int MAX_RCCS = 9*1024;
 
 	// DeathBlossom uses this to mark unused params; for self-doc'ing code.
 	protected static final boolean UNUSED = false;
@@ -214,8 +252,9 @@ abstract class AAlsHinter extends AHinter
 	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
 	 *  HdkAlsXyChain = false to find more chains. It's slow anyway!
 	 */
-	public AAlsHinter(Tech tech, boolean allowNakedSets, boolean findRccs
-			, boolean allowOverlaps, boolean forwardOnly) {
+	public AAlsHinter(final Tech tech, final boolean allowNakedSets
+			, final boolean findRccs, final boolean allowOverlaps
+			, final boolean forwardOnly) {
 		this(tech, allowNakedSets, findRccs
 		, findRccs ? RccFinderFactory.get(forwardOnly, allowOverlaps) : null
 		, allowOverlaps, forwardOnly);
@@ -229,7 +268,7 @@ abstract class AAlsHinter extends AHinter
 	 * A simplified constructor for BigWings and DeathBlossom,
 	 * which fetch ALSs only, not RCCs.
 	 */
-	public AAlsHinter(Tech tech, boolean allowNakedSets) {
+	public AAlsHinter(final Tech tech, final boolean allowNakedSets) {
 		this(tech, allowNakedSets, false, null, UNUSED, UNUSED);
 	}
 
@@ -251,7 +290,7 @@ abstract class AAlsHinter extends AHinter
 	 *
 	 * @param grid
 	 */
-	public void prepare(Grid grid, LogicalSolver logicalSolver) {
+	public void prepare(final Grid grid, final LogicalSolver logicalSolver) {
 		// re-enable me, in case I went dead-cat in the last puzzle
 		setIsEnabled(true); // use the setter!
 		// if we're eradicating bugs from Als* or DeathBlossom hints
@@ -289,7 +328,7 @@ abstract class AAlsHinter extends AHinter
 	 *  IAccumulator find one or all hints
 	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
 		// LogicalSolver.solve doesn't disable hinters on da fly, only at start
 		if ( !isEnabled )
 			return false;
@@ -344,15 +383,17 @@ abstract class AAlsHinter extends AHinter
 				numAlss = ALS_FINDER.getAlss(grid, ALSS, allowNakedSets);
 			// else just remove ALSS containing a cell in a NakedSet
 			// no NakedSets means no need to filter them out
-			else if ( ALS_FINDER.setNakedSetIdxs(grid) )
-				filterOutNakedSets();
+			else {
+				if ( ALS_FINDER.setNakedSetIdxs(grid) )
+					filterOutNakedSets();
+//				ALS_FINDER.COUNTS[2] += System.nanoTime() - start;
+			}
 			alssNs = allowNakedSets;
 			rccsDirty = true; // make getRccs refetch
 		}
 //		System.out.println(tech.name()+": allowNakedSets="+allowNakedSets+" getAlss took "+(System.nanoTime()-start)); // DEBUG
 //		getAlssTime += System.nanoTime() - start; // DEBUG
 	}
-//	protected long getAlssTime; // DEBUG
 
 	// remove ALSS which contain a cell that is in a NakedSet in the als.region
 	private static void filterOutNakedSets() {
@@ -407,6 +448,5 @@ abstract class AAlsHinter extends AHinter
 //		getRccsTime += System.nanoTime() - start; // DEBUG
 //		System.out.println(tech.name()+": allowNakedSets="+allowNakedSets+" getRccs took "+(System.nanoTime()-start)); // DEBUG
 	}
-//	protected long getRccsTime; // DEBUG
 
 }

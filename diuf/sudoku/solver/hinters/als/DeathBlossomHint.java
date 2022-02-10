@@ -55,24 +55,20 @@ public class DeathBlossomHint extends AHint  {
 
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
+		Idx dst;
 		final Collection<Link> result = new LinkedList<>();
 		// stem -maybes-> alss
 		final int s = stem.i; // the source cell indice
-		for ( int v : VALUESES[stem.maybes] ) {
-			final Idx dst = alssByValue[v].vs[v];
-			if ( dst != null ) {
+		for ( int v : VALUESES[stem.maybes] )
+			if ( (dst=alssByValue[v].vs[v]) != null )
 				dst.forEach((d)->result.add(new Link(s, v, d, v)));
-			}
-		}
 		// alss -zs-> elims
 		// backwards: foreach dst, foreach src to link ONLY to elim'd values
 		reds.entrySet().forEach((e) -> {
 			final int d = e.getKey().i;
-			for ( int z : VALUESES[e.getValue()] ) {
-				for ( Als src : alss ) {
+			for ( int z : VALUESES[e.getValue()] )
+				for ( Als src : alss )
 					link(src.vs[z], d, z, result);
-				}
-			}
 		});
 		return result;
 	}

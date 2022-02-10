@@ -149,7 +149,7 @@ public class Validator {
 	 * @param redPots the hints eliminations to be validated
 	 * @return true if all eliminations are valid, else false (invalid hint).
 	 */
-	public static boolean validOffs(Grid grid, Pots redPots) {
+	public static boolean validOffs(final Grid grid, final Pots redPots) {
 		// presume that the hint (ie redPots) is valid;
 		final int[] solution = grid.getSolution();
 		invalidity = EMPTY_STRING;
@@ -166,13 +166,13 @@ public class Validator {
 
 	// for use when invalid returns true: log s__t in a standard way.
 	// return was it reported, or swallowed as a repeat?
-	public static boolean reportRedPots(String reporterName, Grid grid, Iterable<Als> alss) {
+	public static boolean reportRedPots(final String reporterName, final Grid grid, final Iterable<Als> alss) {
 		return reportRedPots(reporterName, grid, diuf.sudoku.utils.Frmt.csvIt(alss));
 	}
 
 	// for use when invalid returns true: log s__t in a standard way.
 	// return was it reported, or swallowed as a repeat?
-	public static boolean reportRedPots(String reporterName, Grid grid, String badness) {
+	public static boolean reportRedPots(final String reporterName, final Grid grid, final String badness) {
 		if ( INVALIDITIES.putIfAbsent(invalidity, PRESENT) == null ) {
 			Log.teef("%s\n", grid);
 			// NOTE: invalidity contains a leading space
@@ -189,23 +189,22 @@ public class Validator {
 	}
 
 	// does setPots contain only solution values.
-	public static boolean validOns(Grid grid, Pots setPots) {
+	public static boolean validOns(final Grid grid, final Pots setPots) {
 		invalidity = EMPTY_STRING;
 		final int[] solution = grid.getSolution();
 		// note the leading space before the first invalidity
 		for ( Entry<Cell,Integer> e : setPots.entrySet()) {
 			final Cell cell = e.getKey();
 			final Integer values = e.getValue();
-			if (VSIZE[values] != 1) {
+			if (VSIZE[values] != 1)
 				invalidity += SP+cell.id+PLUS+Values.toString(values)+" is not one value!";
-			} else if ( (values & VSHFT[solution[cell.i]]) == 0 ) {
+			else if ( (values & VSHFT[solution[cell.i]]) == 0 )
 				invalidity += SP+cell.id+PLUS+values.toString()+NOT_EQUALS+solution[cell.i];
-			}
 		}
 		return invalidity.isEmpty();
 	}
 
-	public static boolean reportSetPots(String reporterName, Grid grid, String invalidity, String badness) {
+	public static boolean reportSetPots(final String reporterName, final Grid grid, final String invalidity, final String badness) {
 		// always set the lastMessage
 		// NOTE: the invalidity String contains a leading space
 		prevMessage = String.format("WARN: %s invalidity%s in %s\n", reporterName, invalidity, badness);

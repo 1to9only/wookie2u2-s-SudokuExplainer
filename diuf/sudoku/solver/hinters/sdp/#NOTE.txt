@@ -2,9 +2,10 @@ NOTE: The package name: sdp stands for Single Digit Pattern, because these
 solving techniques all revolve around a single potential value. Just think of
 this as miscellaneous hinters and you won't be too far wrong.
 
-EmptyRectangle, Skyscraper and TwoStringKite are from SingleDigitPatternSolver.
-I have not copied hobiwans code, just the concepts there-in, but the concepts
-are the big cheese. Kudos to hobiwan. Mistakes are mine.
+EmptyRectangle, Skyscraper and TwoStringKite are from the HoDoKu class
+SingleDigitPatternSolver, by hobiwan. I have not copied hobiwans code, just the
+concepts there-in, but the concepts are the important part. Kudos to hobiwan.
+Mistakes are mine.
 
 Here is hobiwan's licence statement:
 

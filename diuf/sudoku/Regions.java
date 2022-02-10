@@ -35,6 +35,8 @@ import java.util.Set;
  */
 public final class Regions {
 
+	public static final ARegion[] EMPTY_ARRAY = new ARegion[0];
+
 	// it's just faster to not do a varargs call unless you have/want to
 	public static ArrayList<ARegion> list(ARegion region) {
 		ArrayList<ARegion> regions = new ArrayList<>(1);
@@ -261,7 +263,13 @@ public final class Regions {
 		return result;
 	}
 
-	/** Is the given Cell in any of these regions? */
+	/**
+	 * Is the given Cell in any of these regions?
+	 *
+	 * @param regions
+	 * @param cell
+	 * @return
+	 */
 	public static boolean contains(ARegion[] regions, Cell cell) {
 		if ( regions == null )
 			return false;
@@ -271,7 +279,13 @@ public final class Regions {
 		return false;
 	}
 
-	/** Is target in regions? */
+	/**
+	 * Is target in regions?
+	 *
+	 * @param regions
+	 * @param target
+	 * @return
+	 */
 	public static boolean contains(ARegion[] regions, ARegion target) {
 		if ( regions == null )
 			return false;
@@ -344,105 +358,6 @@ public final class Regions {
 		return null;
 	}
 
-// not_used 2021-11-10 SiameseLocking now uses the bitset version
-//	/**
-//	 * Return the regions (expect 1 or 2 of them) common to all these cells.
-//	 * Note that cells should be a Set of at least 2 cells. If there's only
-//	 * one then "common" regions is nonsensical. The result is indeterminate
-//	 * if cells contains duplicates, because again that's just nonsensical.
-//	 * @param cells
-//	 * @param result {@code ArrayList<ARegion>} is not cleared first.
-//	 * @return a {@code ArrayList<ARegion>} result may be empty, but not null.
-//	 */
-//	public static ArrayList<ARegion> common(Collection<Cell> cells, ArrayList<ARegion> result) {
-//		Iterator<Cell> it = cells.iterator();
-//		// for first cell in cells
-//		Cell cell = it.next();
-//		ARegion box = cell.box;
-//		ARegion row = cell.row;
-//		ARegion col = cell.col;
-//		// foreach subsequent cell in cells
-//		while (it.hasNext()) {
-//			cell = it.next();
-//			if (box != cell.box) { box = null; }
-//			if (row != cell.row) { row = null; }
-//			if (col != cell.col) { col = null; }
-//		}
-//		// add the common regions to result
-//		if (box != null) { result.add(box); }
-//		if (row != null) { result.add(row); }
-//		if (col != null) { result.add(col); }
-//		return result;
-//	}
-
-// not_used 2021-11-10
-//	/**
-//	 * Return a bitset containing the indexes of the regions common to all of
-//	 * these cells. Expect 1, 2, or 3 of them.
-//	 *
-//	 * @param cells not null, and not empty. I am this method. I'm expecting a
-//	 *  Set of at least two cells. If there's only one then you'll get back all
-//	 *  three of it's regions (the term "common" is pretty nonsensical here,
-//	 *  but it's the simplest to implement, so I go with it, for now). If cells
-//	 *  contains duplicates then the result is indeterminate. Four or more
-//	 *  cells can share only one common region. Also, because cells is only an
-//	 *  Iterable (for universality) I do not have Collections size() method, so
-//	 *  I ignore it and continue as if it's all good, in the hope that it's all
-//	 *  good; so filtering-out a poorly-sized cells-set is your problem, if
-//	 *  necessary. I'm hoping that it's not necessary, but at O(n) I'm a heavy
-//	 *  process, so it could be faster to check {@code cells.size() < 4} before
-//	 *  you call me, but if it NEVER happens it's just a waste of time; and if
-//	 *  it happens very rarely (I guess 5% +/- 1%) leave it because filtering
-//	 *  them out probably costs more than it saves. I'm a pretty good guesser.
-//	 * @return a bitset of the indexes of common regions.
-//	 * @throws NullPointerException if cells is null.
-//	 * @throws NoSuchElementException if cells is empty.
-//	 */
-//	public static int common(Iterable<Cell> cells) {
-//		Iterator<Cell> it = cells.iterator();
-//		// for first cell in cells
-//		Cell cell = it.next();
-//		ARegion box = cell.box;
-//		ARegion row = cell.row;
-//		ARegion col = cell.col;
-//		// foreach subsequent cell in cells
-//		while (it.hasNext()) {
-//			cell = it.next();
-//			if (box != cell.box) { box = null; }
-//			if (row != cell.row) { row = null; }
-//			if (col != cell.col) { col = null; }
-//		}
-//		// add the common regions to result
-//		int result = 0;
-//		if (box != null) { result |= IDX_SHFT[box.index]; }
-//		if (row != null) { result |= IDX_SHFT[row.index]; }
-//		if (col != null) { result |= IDX_SHFT[col.index]; }
-//		return result;
-//	}
-
-// 2021-11-10 replaced below with the MUCH faster/simpler ribs version
-//	// returns a bitset of indexes of common regions in the Grid.regions array
-//	private static int common(Cell[] cells, int numCells) {
-//		// for first cell in cells
-//		Cell cell = cells[0];
-//		ARegion box = cell.box;
-//		ARegion row = cell.row;
-//		ARegion col = cell.col;
-//		// foreach subsequent cell in cells
-//		for ( int i=1; i<numCells; ++i) {
-//			cell = cells[i];
-//			if (box != cell.box) { box = null; }
-//			if (row != cell.row) { row = null; }
-//			if (col != cell.col) { col = null; }
-//		}
-//		// add the common regions to result
-//		int result = 0;
-//		if (box != null) { result |= IDX_SHFT[box.index]; }
-//		if (row != null) { result |= IDX_SHFT[row.index]; }
-//		if (col != null) { result |= IDX_SHFT[col.index]; }
-//		return result;
-//	}
-
 	// returns a bitset of indexes of regions common to cells
 	public static int common(Cell[] cells) {
 		return common(cells, cells.length);
@@ -479,35 +394,6 @@ public final class Regions {
 		return crs;
 	}
 
-// not_used 2021-11-10
-//	/**
-//	 * Returns the other ARegion that is common to all cells, else null.
-//	 *
-//	 * @param cells the cells to find the other common region of. Two or three
-//	 *  cells can have one "other" common region. Less than two cells always
-//	 *  returns null because "common" is nonsensical. Four-or-more cells always
-//	 *  returns null because four cells can have only one common region, so an
-//	 *  "other" common region simply cannot exist.
-//	 * @param region the region that these cells were found in (and you want
-//	 *  there other common region, if any). Note that the "other" common region
-//	 *  returned comes from {@code region.getGrid().regions}, ergo the same
-//	 *  Grid that contains the given region.
-//	 * @return the other ARegion common to all cells, else null meaning none.
-//	 */
-//	public static ARegion otherCommon(List<Cell> cells, ARegion region) {
-//		ARegion ocr = null; // otherCommonRegion (the result)
-//		final int n = cells.size();
-//		// 2 or 3 cells can have another common region (0, 1, or 4+ cannot)
-//		if ( n>1 && n<4 ) {
-//			final int crs = common(cells); // bitset of commonRegions indexes
-//			if ( bitCount(crs) == 2 ) {
-//				ocr = region.getGrid().regions[numberOfTrailingZeros(
-//						crs & ~IDX_SHFT[region.index])];
-//			}
-//		}
-//		return ocr;
-//	}
-
 	/**
 	 * Returns the other ARegion that is common to all cells, else null.
 	 *
@@ -531,237 +417,6 @@ public final class Regions {
 			return r.getGrid().regions[numberOfTrailingZeros(cribs & ~IDX_SHFT[r.index])];
 		return null;
 	}
-
-// not_used 2021-11-10
-//	// return do 'cells' 1..'n' have regions['rti']=='r'
-//	// called by the commonN method (below)
-//	private static boolean same(final ARegion r, final Cell[] cells
-//			, final int n, final int rti) {
-//		for ( int i=1; i<n; ++i ) {
-//			if ( cells[i].regions[rti] != r ) {
-//				return false;
-//			}
-//		}
-//		return true;
-//	}
-
-// not_used 2021-11-10
-//	/**
-//	 * Populate 'result' with the regions common to the first 'n' 'cells', and
-//	 * return how many: 1 or 2. The intent is that if there weren't atleast one
-//	 * common region you would not call me, because that would be a silly waste
-//	 * of time, but if there are no common regions then 0 is returned and
-//	 * result is not modified. I am called on ALS's, of upto 8 cells.
-//	 * <p>
-//	 * I also handle n==1 (result is all three regions), but not tested.
-//	 * <p>
-//	 * There are many ALS's of 2 cells, which I handle efficiently.
-//	 *
-//	 * @param cells a fixed-size cells array
-//	 * @param n the number of cells to compare
-//	 * @param result if n is always 2 or more (normal use case) then ARegion[2]
-//	 *  will do, coz two cells can share a box and (a row or a col); but if you
-//	 *  ever call me with n==1, then ARegion[3] is required, else AIOOBE.
-//	 * @return the result
-//	 */
-//	public static int commonN(final Cell[] cells, final int n, final ARegion[] result) {
-//		if ( cells==null || n<1 )
-//			return 0;
-//		final Cell a = cells[0];
-//		switch ( n ) {
-//			case 2: {
-//				// there are many 2-cell ALSs which can be handled more
-//				// efficiently, which I hope will prove faster overall.
-//				final Cell b = cells[1];
-//				int cnt = 0;
-//				if(a.box == b.box) { result[cnt++] = a.box; }
-//				if(a.row == b.row) { result[cnt++] = a.row; }
-//				if(a.col == b.col) { result[cnt++] = a.row; }
-//				return cnt;
-//			}
-//			case 1: {
-//				// just in case I'm ever called with n == 1
-//				result[0] = a.box;
-//				result[1] = a.row;
-//				result[2] = a.col; // ARegion[3] is your responsibility!
-//				return 3;
-//			}
-//			default: { // n is 3 or more
-//				// add the common regions to result
-//				int cnt = 0;
-//				if(same(a.box, cells, n, BOX)) result[cnt++] = a.box;
-//				if(same(a.row, cells, n, ROW)) result[cnt++] = a.row;
-//				if(same(a.col, cells, n, COL)) result[cnt++] = a.col;
-//				// return how many
-//				return cnt;
-//			}
-//		}
-//	}
-
-// not_used 2021-11-10
-//	/**
-//	 * How many common regions to these 'n' 'cells' share?
-//	 * I don't retrieve the common regions, just count them, for speed.
-//	 *
-//	 * @param cells a fixed-size cells array
-//	 * @param n the number of cells to compare
-//	 * @return the result
-//	 */
-//	public static int commonCount(final Cell[] cells, final int n) {
-//		if ( cells==null || n<1 )
-//			return 0;
-//		final Cell a = cells[0];
-//		switch ( n ) {
-//			case 2: {
-//				// there are many 2-cell ALSs which can be handled more
-//				// efficiently, which I hope will prove faster overall.
-//				final Cell b = cells[1];
-//				int cnt = 0;
-//				if(a.box == b.box) { cnt++; }
-//				if(a.row == b.row) { cnt++; }
-//				if(a.col == b.col) { cnt++; }
-//				return cnt;
-//			}
-//			case 1: {
-//				// just in case I'm ever called with n == 1
-//				return 3;
-//			}
-//			default: { // n is 3 or more
-//				int cnt = 0;
-//				if(same(a.box, cells, n, BOX)) cnt++;
-//				if(same(a.row, cells, n, ROW)) cnt++;
-//				if(same(a.col, cells, n, COL)) cnt++;
-//				return cnt;
-//			}
-//		}
-//	}
-
-// not_used 2021-11-10
-//	/**
-//	 * Do these 'n' 'cells' share any common regions?
-//	 *
-//	 * @param cells a fixed-size cells array
-//	 * @param n the number of cells to compare
-//	 * @return the result
-//	 */
-//	public static boolean anyCommon(final Cell[] cells, final int n) {
-//		if ( cells==null || n<1 )
-//			return false;
-//		final Cell a = cells[0];
-//		switch ( n ) {
-//			case 2: {
-//				// there are many 2-cell ALSs which can be handled more
-//				// efficiently, which I hope will prove faster overall.
-//				final Cell b = cells[1];
-//				if(a.box == b.box) return true;
-//				if(a.row == b.row) return true;
-//				return a.col == b.col;
-//			}
-//			case 1: {
-//				// just in case I'm ever called with n == 1
-//				return true;
-//			}
-//			default: { // n is 3 or more
-//				if(same(a.box, cells, n, BOX)) return true;
-//				if(same(a.row, cells, n, ROW)) return true;
-//				return same(a.col, cells, n, COL);
-//			}
-//		}
-//	}
-
-// not_used 2021-12-14
-//	/**
-//	 * Populates result with regions (0, 1 or 2) common to two cells, which
-//	 * must be distinct, and return how many.
-//	 *
-//	 * @param a the first Cell
-//	 * @param b the second Cell
-//	 * @param result {@code ARegion[]} must be large enough: ie 2 for the
-//	 *  "standard" region types: box, row, col.
-//	 * @return the number of commonRegions added to the result array.
-//	 */
-//	public static int common(final Cell a, final Cell b, final ARegion[] result) {
-//		assert a != b; // techies only: distinct cells. See method comment.
-//		int cnt = 0;
-//		if ( a.y == b.y )
-//			result[cnt++] = a.row;
-//		if ( a.x == b.x )
-//			result[cnt++] = a.col;
-//		if ( a.boxIndex == b.boxIndex )
-//			result[cnt++] = a.box;
-//		return cnt;
-//	}
-
-//not_used but retain for future possible use (safety first)
-//	/**
-//	 * A null-safe common(Cell, Cell, ARegion) ignoring a==b;
-//	 * returns result (truncated) even if it's not big enough.
-//	 * @param a
-//	 * @param b
-//	 * @param result
-//	 * @return
-//	 */
-//	public static int commonSafe(final Cell a, final Cell b, final ARegion[] result) {
-//		// a==b is a bit odd: if the same cell is passed as both a and b then
-//		// it has three common regions, throwing an AIOOBE, but my caller does
-//		// not really want to process the bastard anyway, so it's expediant to
-//		// completely ignore the situation here by just returning 0. all good.
-//		if (a == null || b == null || a == b) {
-//			return 0;
-//		}
-//		try {
-//			return Regions.common(a, b, result);
-//		} catch (Throwable eaten) {
-//			// esp ArrayIndexOutOfBoundsException
-//			return result.length; // should no longer happen, but safe(ish)
-//		}
-//	}
-
-// not_used 2021-11-10
-//	/**
-//	 * Return the ARegion of regionTypeIndex that's common to all cells,
-//	 * else null.
-//	 * <p>
-//	 * RANT: If cells is null then you're here because of the NPE which is my
-//	 * callers fault, not mine; so change my caller to ensure cells isn't null
-//	 * before you call me. If you absolutely need a null check then wrap this
-//	 * method to provide it. Or, let's face it, you can just do it all here and
-//	 * just delete this nice little rant. It's your code!
-//	 *
-//	 * @param cells {@code Iterable<Cell>} which I presume to contain at least
-//	 *  two cells.
-//	 * @param regionTypeIndex Grid.BOX, Grid.ROW, or Grid.COL (ie 0..2).
-//	 *  If it isn't one of these values I'll throw an AIOOBE
-//	 * @return the common ARegion, else null.<br>
-//	 *  If cells is null then I throw a NullPointerException.<br>
-//	 *  If cells is empty then I always return null.<br>
-//	 *  If cells contains only one cell then I just return it's
-//	 *  regions[regionTypeIndex].
-//	 */
-//	public static ARegion common(Iterable<Cell> cells, int regionTypeIndex) {
-//		if (cells == null) {
-//			throw new NullPointerException("cells is null!");
-//		}
-//		assert atleastTwo(cells) : "cells contains less than 2 cells!";
-//		ARegion commonRegion = null;
-//		ARegion cellsRegion;
-//		for (Cell cell : cells) {
-//			cellsRegion = cell.regions[regionTypeIndex];
-//			if (commonRegion == null) {
-//				commonRegion = cellsRegion;
-//			} else if (cellsRegion != commonRegion) {
-//				return null; // not all cells share a region of this type
-//			}
-//		}
-//		return commonRegion; // will still be null if cells is empty
-//	}
-
-// not_used 2021-11-10
-//	// Does cells contain atleast two cells? The slow way with Iterable.
-//	private static boolean atleastTwo(Iterable<?> cells) {
-//		Iterator<?> it = cells.iterator();
-//		return it.hasNext() && it.next() != null && it.hasNext();
-//	}
 
 	private Regions() {} // never used
 

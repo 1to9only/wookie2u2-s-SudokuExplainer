@@ -15,44 +15,47 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
 
 /**
- * HiddenSingle implements the HiddenSingle Sudoku solving technique. A "hidden
- * single" is the only remaining possible location for a given value in a
- * region, so the Cell is set to that value when the hint is applied.
+ * HiddenSingle implements the HiddenSingle Sudoku solving technique.
+ * <p>
+ * A "hidden single" is the only remaining possible location for a given value
+ * in a region, so the Cell is set to that value when the hint is applied.
  * <p>
  * <b>LARGE ASIDE: <u>The "Rip Nico A New One" Rant</u>:</b>
- * <p>Because this is (nearly) the simplest hinter, lets go through the below
+ * <p>
+ * Because this is (nearly) the simplest hinter, lets go through the below
  * single line of code with a fine-toothed comb, to see why this version is "a
  * bit" faster than the original. These principles are applied throughout SE:
  * <br><b>NOW:</b><pre>{@code
  *   if ( size[v] == 1 )
  * }</pre>
  * This implementation:<ul>
+ * <li>size is a local stack reference, which is faster to demangle than any
+ *  heap reference.
  * <li>array-lookup to get the number of v's in this region which maybe value,
  * <li>which we push onto a register along with the constant 1, and then equate
  * the two values.
  * <li>and then we short-jump somewhere (no new stackframe), or fall-through.
  * </ul>
- * <p>Now strap in: This is a key reason why this version executes "a bit"
- * faster than that the previous implementation:<br>
+ * <p>
+ * Now strap in folks, here's why my code is "a bit" faster than Nico's:<br>
  * <b>WAS:</b><pre>{@code
  *   if (region.getPotentialPositions(value).cardinality() == 1)
  * }</pre>
- * This code follows "standard" coding doctrine, especially the one about
- * having a single point of truth, which you query actively: which is data
- * light, but CPU heavy; which is a strategy to deal with NEVER having enough
- * bloody RAM. My first PC had 32K, which was pretty big at the time, in fact
- * 64K was the largest available, at about four times the price. So we became
- * habituated to conserving RAM, which we subsequently failed to notice.
+ * This code follows "standard" coding doctrine, especially the one about a
+ * single point of truth, which one queries actively: which is data light, but
+ * CPU heavy; which is a strategy to deal with NEVER having enough bloody RAM.
+ * My first PC had 32K, which was pretty big at the time, in fact 64K was the
+ * largest available, at three times the price. So we all got well habituated
+ * to conserving RAM; a habit which we have subsequently overlooked.
  * <p>
- * It's worth noting that this implementation uses 26K just to store the 81
- * sees matrixes, instead of invoking a method 4 BILLION times, just because
- * it's a bit faster, and I now have 16 Gig to play with. When I run this thing
- * from the command line I give it a max of 2 Gig of RAM.
+ * Note that my implementation uses 26K just to store 81 sees matrixes, instead
+ * of invoking a method 4 BILLION times, because it's a bit faster, and I now
+ * have 16 Gig to play with. When I run the batch from the command line I give
+ * it a max of 4 Gig of RAM, coz 4 Gig should be adequate. Sigh.
  * <p>
- * So the original does {@code region.getPotentialPositions(value)} which
- * dereferences region to get it's {@code getPotentialPositions} method,
- * creates a new stackframe, pushes 'value' onto the stack, and long-jumps to
- * the start of the method: <pre>{@code
+ * So Nico calls {@code region.getPotentialPositions(value)} which dereferences
+ * region to get it's {@code getPotentialPositions} method, gets a stackframe,
+ * pushes 'value' onto the stack, and long-jumps to the method:<pre>{@code
  *   public BitSet getPotentialPositions(int value) {
  *     BitSet result = new BitSet(REGION_SIZE);
  *     for (int index = 0; index < REGION_SIZE; index++) {
@@ -66,9 +69,9 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * but you don't expect a garbo to follow you around and pick-up your lolly
  * wrappers: No, you put them in a bin yourself, yeah? The same principle can
  * (and I think should) be applied to code: just because you can create new
- * instances doesn't mean that you SHOULD create them. There's usually an old
- * school solution to the problem, which is more code and looks a bit ugly, but
- * is MUCH more efficient.
+ * instances doesn't mean that you SHOULD. There's usually another way around
+ * the problem, which is more code, which might look a bit ugly, but is MUCH
+ * more efficient.
  * <p>
  * Q: Would you expect a garbo to pick-up lolly wrappers produced by a lolly
  * unwrapping machine that unwraps 3.6 billion lollies a second? <br>
@@ -76,9 +79,9 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * <p>
  * So we create a BitSet, then call {@code getCell(index)} <b>NINE</b> times,
  * ie: find the getCell method, which is a bit trickier coz it's overridden.
- * It's implementation depends upon the type of this region, so it'll be any of
- * (this is a facetious argument coz its a compile time problem, but it's still
- * illuminating):<br>
+ * It's implementation depends upon the type of this region, so it'll be any
+ * of (this is a facetious argument coz its a compile time problem, but it's
+ * still illuminating):<br>
  * <br>
  * <b>Row</b><pre>{@code
  *  public Cell getCell(int index) {
@@ -96,12 +99,13 @@ import diuf.sudoku.solver.accu.IAccumulator;
  *  }
  * }</pre>
  * <p>
- * So we find the method and create a new stackframe, push index onto da stack,
+ * So we find the method and get a new stackframe, push index onto the stack,
  * long-jump to start of method: and retrieve the cell from the matrix called
  * 'cells', and also repeated arithmetic to demangle index into a matrix
- * coordinate: cells should be a flat array, because multiplication, division
- * and mod are all SLOWER than an array look-up) and return it; then we invoke
- * the {@code hasPotentialValue(value)} method of the returned cell:<pre>{@code
+ * coordinate: cells should be a flat array, coz multiplication and division
+ * are SLOWER than an array look-up, perversely mod is on par) and return it;
+ * then we invoke the {@code hasPotentialValue(value)} method of the returned
+ * cell:<pre>{@code
  *   public boolean hasPotentialValue(int value) {
  *     return this.potentialValues.get(value);
  *   }
@@ -152,6 +156,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
  *      return (int)i & 0x7f;
  *   }
  * }</pre>
+ * &lt;KRC 2022-01-11 bitCount is s__tloads faster on my i7. firmware?&gt;<br>
  * then we're back up to the <b>NINE</b> times
  * {@code result.set(index, getCell(index).hasPotentialValue(value));}
  * line to invoke BitSets {@code set(int bitIndex, boolean value)} method:
@@ -192,12 +197,12 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * }</pre>
  * which will never actually does anything because we've only 9 values to store
  * so 'wordsInUse' is allways one, as is 'wordsRequired', ergo the BitSet is
- * being <b>ab</b>used: by which I mean "used for a purpose other than that
+ * being <u>ab</u>used: by which I mean "used for a purpose other than that
  * intended by it's author". There's a big clue in the first line of BitSets
  * API documentation: "This class implements a vector of bits <b>that grows as
  * needed</b>". We don't need a class that "grows as needed", hence we clearly
- * should NOT be using a BitSet, even if it means rolling our own. Or better
- * still don't use a class at all (as I have done, mostly).
+ * should NOT be using a ____ing BitSet, even if it means rolling our own; or
+ * better still don't use a class at all (as I have done, sort-of).
  * <p>
  * and finally the last {@code checkInvariants()} method <i>(repeated)</i>:
  * <pre>{@code
@@ -234,7 +239,7 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * </pre>
  * Now here's the fundamental question: Is all this lovely efficiency worth all
  * the extra effort? I'm generally in the "More brain, less CPU!" camp myself,
- * especially in a domain like this, with real war machines in play like
+ * especially in a domain like this, where we play with real war machines like
  * AlsChain that eat CPU (and small children) for breakfast. Your position is
  * your affair.
  * <p>
@@ -252,11 +257,11 @@ import diuf.sudoku.solver.accu.IAccumulator;
  * If I'm using bitsets I want speed, and that means NOT invoking methods in
  * tight loops, which means no BitSet class, just a raw datatype and LOTS of
  * funky-looking code; which sucks bags until you understand WHY it's so much
- * faster than the alternative class.
+ * faster than ANY class; coz it's less classy. Sigh.
  * <p>
  * But I can only speak for myself, at 9.8% of the volume evidently required to
- * ever change anybodies mind about anything. Most folks abandoned this rant
- * ages ago (TLDR) and went back to watching porn. I know Knuffink!
+ * ever change anybodies bloody mind about anything. Most folks abandoned this
+ * rant ages ago (TLDR) and went back to watching porn. I know Knuffink!
  * <p>
  * Cheers all.
  */
@@ -273,20 +278,19 @@ public final class HiddenSingle extends AHinter {
 	 * <p>
 	 * This implementation is utterly reliant upon the regions idxsOf arrays,
 	 * which are maintained internally by the Grid when a maybe is removed,
-	 * specifically so that this hinter (and others) can be faster. It works out
-	 * cheaper to spend more time on maintenance to produce an artefact (the
-	 * idxsOf array) which saves time on repetitiously querying. This goes
+	 * specifically so that this hinter (and others) can be faster. It works
+	 * out cheaper to spend more time on maintenance to produce an artefact
+	 * (the idxsOf array) which saves time on repetitiously querying. This goes
 	 * against standard coding doctrine, which promotes a single point of truth
 	 * that's actively queried, and evidently produces a SLOWER system that's
 	 * composed of less, tidier, simpler, and more maintainable code.
 	 * <p>
-	 * Do you want your code to look good, and therefore be maintainable, or to
-	 * run efficiently? In the "big" Sudoku hinters (especially A*E) it can ONLY
-	 * run if it runs quickly, so I've gone the whole hog on speed! And I'm
-	 * guessing that I've done A5+E for the first time, anywhere. PC's were too
-	 * slow previously to allow nutter like me to take on challenges like that.
+	 * So: Do you want your code to be maintainable, or to run efficiently? In
+	 * the big Sudoku hinters (especially A*E) it can ONLY run if it's fast, so
+	 * I have gone the whole hog on speed! I guess my A5+E is the first ever.
+	 * PC's were previously too slow for nutters like me to want to tackle it.
 	 * <p>
-	 * See the rant in this classes comments for more.
+	 * See the big RNANO rant in this classes comments for more.
 	 *
 	 * @param grid
 	 * @param accu
@@ -299,25 +303,24 @@ public final class HiddenSingle extends AHinter {
 		// presume that no hints will be found
 		boolean result = false;
 		// foreach of the 27 regions in the grid
-		for ( ARegion r : grid.regions ) {
+		for ( ARegion r : grid.regions )
 			// if this region has empty cells
-			if ( r.emptyCellCount > 0 ) {
-				// it's (arguably) faster to dereference the struct once
-				rio = r.ridx;
+			if ( r.emptyCellCount > 0 )
 				// foreach possible potential value: 1..9
-				for ( v=1; v<VALUE_CEILING; ++v ) {
+				// fastard: faster to dereference struct once than 9 times
+				// fastard: faster to set variables in a for initialiser,
+				// especially when the result is for/if/for/if; which I have
+				// confirmed repeatedly, but do not understand. sigh
+				for ( rio=r.ridx,v=1; v<VALUE_CEILING; ++v )
 					// if there is only 1 place for v in this region
 					if ( rio[v].size == 1 ) {
 						// FOUND a Hidden Single, so raise a hint
 						result = true;
+						// exit-early if we're in the batch
 						if ( accu.add(new HiddenSingleHint(this, r
-								, r.cells[rio[v].first()], v)) ) {
+								, r.cells[rio[v].first()], v)) )
 							return result;
-						}
 					}
-				}
-			}
-		}
 		return result;
 	}
 

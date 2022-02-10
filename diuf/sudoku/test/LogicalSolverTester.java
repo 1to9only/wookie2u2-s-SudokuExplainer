@@ -269,9 +269,8 @@ final class LogicalSolverTester {
 //				Log.teeln("AlignedExclusionHint.maxLen="+AlignedExclusionHint.maxLen);
 //				Log.teeln("AChainingHint.maxLineLen="+AChainingHint.maxLineLen);
 
-				// just leave me in (silent when unused). This reports the max
-				// size of the Chainers HashSet's when you use FunkyAssSet2 in
-				// place of FunkyAssSet.
+				// Leave me in. I'm silent when unused. Reports maxSize of
+				// Chainers HashSet's when FunkyAssSet2 replaces FunkyAssSet.
 				OverallSizes.THE.dump();
 
 // Here we report static hinter variables.

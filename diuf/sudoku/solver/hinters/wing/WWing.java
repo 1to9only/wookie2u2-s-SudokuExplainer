@@ -134,14 +134,13 @@ public final class WWing extends AHinter {
 	 * @param cA the first bivalue Cell
 	 * @param cB the second bivalue Cell, with the same 2 maybes a cA
 	 * @param vA an array of the maybes of cA and cB
-	 * @param i the index of the maybe to check in vA, which is the opposite
-	 *  index to that of the victims. <br>
+	 * @param i the index of the maybe to check in vA. <br>
 	 *  If victims is set to the buddies of cA and cB on vA[0] then i is 1. <br>
 	 *  If victims is set to the buddies of cA and cB on vA[1] then i is 0.
 	 * @return a hint, if the case is proven, else null.
 	 */
 	private AHint prove(final Cell cA, final Cell cB, final int[] vA, final int i) {
-		Cell[] regionCells;
+		Cell[] rCells; // ARegion.cells
 		Cell wA, wB, c;
 		int j;
 		final int iA = cA.i;
@@ -150,13 +149,13 @@ public final class WWing extends AHinter {
 		final int sv = VSHFT[v];
 		for ( ARegion r : regions ) {
 			if ( r.ridx[v].size == 2 ) {
-				regionCells = r.cells;
+				rCells = r.cells;
 				wA = wB = null;
 				for ( j=0; j<REGION_SIZE; ++j ) {
-					if ( (regionCells[j].maybes & sv) != 0 ) {
+					if ( (rCells[j].maybes & sv) != 0 ) {
 						// if c sees BOTH bivs it's NOT a WWing
 						// Handled sneakily with the if/elseif.
-						if ( (c=regionCells[j]).sees[iA] && c!=cB ) {
+						if ( (c=rCells[j]).sees[iA] && c!=cB ) {
 							wA = c;
 							if ( wB != null ) {
 								return createHint(vA[OPPOSITE[i]], vA[i]

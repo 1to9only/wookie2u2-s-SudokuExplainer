@@ -70,7 +70,7 @@ import java.util.Arrays;
  * unnecessary, and everything should be as simple as possible, so Locking is
  * based on "poor thinking", but it IS faster. sigh. If you ever want to add
  * additional region types then chuck Locking and it's subtypes, and just use
- * LockingGen, it's fast enough, just not quite as fast as this mess.
+ * LockingGen, it's fast enough, just not quite as fast as this bastard.
  */
 public class Locking extends AHinter {
 
@@ -163,8 +163,7 @@ public class Locking extends AHinter {
 			// we need atleast 3 empty cells to form this pattern
 			if ( (box=grid.boxs[i]).emptyCellCount > 2 ) {
 				startRegion(box); // SiameseLocking
-				bio = box.ridx;
-				for ( v=1; v<VALUE_CEILING; ++v ) {
+				for ( bio=box.ridx,v=1; v<VALUE_CEILING; ++v ) {
 					// 0 means v is already placed in this box;
 					// 1 is a HiddenSingle (not my problem);
 					// 2 or 3 cells in a box could all be in a row or col; but
@@ -191,7 +190,7 @@ public class Locking extends AHinter {
 							final AHint hint = createHint(box, line, card, v);
 							if ( hint != null ) {
 								result = true;
-								accu.add(hint);
+								accu.add(hint); // ignore the retval
 							}
 						}
 					}
@@ -229,10 +228,8 @@ public class Locking extends AHinter {
 		for ( i=REGION_SIZE; i<NUM_REGIONS; ++i ) {
 			// we need atleast 3 empty cells to form this pattern
 			if ( (line=grid.regions[i]).emptyCellCount > 2 ) {
-				rio = line.ridx;
-				coxs = line.crossingBoxs;
 				startRegion(line); // SiameseLocking
-				for ( v=1; v<VALUE_CEILING; ++v ) {
+				for ( rio=line.ridx,coxs=line.crossingBoxs,v=1; v<VALUE_CEILING; ++v ) {
 					// 2 or 3 cells in line can all be in box; 4+ can't.
 					// 1 is hidden single, 0 means v is set, so not my problem.
 					if ( (card=rio[v].size)>1 && card<4
@@ -246,8 +243,8 @@ public class Locking extends AHinter {
 					    // FOUND Claiming!
 						final AHint hint = createHint(line, coxs[offset], card, v);
 						if ( hint != null ) {
-							result = true; // never say never!
-							accu.add(hint);
+							result = true;
+							accu.add(hint); // ignore the retval
 						}
 					}
 				} // next value

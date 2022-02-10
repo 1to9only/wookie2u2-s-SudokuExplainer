@@ -6,8 +6,11 @@
  */
 package diuf.sudoku.gui;
 
+import diuf.sudoku.Difficulty;
 import diuf.sudoku.Tech;
+import static diuf.sudoku.Tech.BIG_WING_TECHS;
 import static diuf.sudoku.Settings.THE_SETTINGS;
+import static diuf.sudoku.utils.Frmt.SP;
 import diuf.sudoku.utils.Log;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -23,11 +26,10 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.border.TitledBorder;
-import static diuf.sudoku.utils.Frmt.SP;
-import static diuf.sudoku.Tech.BIG_WING_TECHS;
+import static javax.swing.JOptionPane.WARNING_MESSAGE;
+import static javax.swing.JOptionPane.showMessageDialog;
 
 /**
  * A JDialog for the user to de/select which Sudoku solving Tech(niques) are
@@ -74,8 +76,8 @@ class TechSelectDialog extends JDialog {
 
 	// ================================ CENTER ================================
 
-	/** Number of columns: the number of check-boxes across the form. */
-	private static final int NUM_COLS = 3;
+	/** Number of Tech's (check-boxes) per line on this form. */
+	private static final int NUM_COLS = 6;
 
 	/**
 	 * Populate the TechSelectDialog form with a CheckBox for each Tech.
@@ -96,48 +98,35 @@ class TechSelectDialog extends JDialog {
 				checkBox.setSelected(true);
 				checkBox.setEnabled(false);
 				enable = false;
-				break;
 			}
 			// if we're not already on a new line then
 			if ( count%NUM_COLS != 0 ) {
-				// each of these techs is the first on a line
-				// to organise techs into "logical blocks".
-				switch (tech) {
-				case DirectNakedPair:
-				case DirectNakedTriple:
-				case Locking:
-				case NakedPair:
-				case NakedTriple:
-				case TwoStringKite:
-				case Skyscraper:
-				case Swampfish:
-				case Swordfish:
-				case Coloring:
-				case BigWings:
-				case FinnedSwampfish:
-				case FrankenSwampfish:
-				case KrakenSwampfish:
-				case KrakenSwordfish:
-				case KrakenJellyfish:
-				case NakedQuad:
-				case NakedPent:
-				case URT:
-				case UnaryChain:
-				case NestedUnary:
-				// hacked checkbox appears to my right
-				case AlignedPair:
-				case AlignedPent:
-				case AlignedHex:
-				case AlignedSept:
-				case AlignedOct:
-				case AlignedNona:
-				case AlignedDec:
-					// add empty JLabels until we're on the next line
+				// each of these techs is the first on a line, to organise
+				// techs into (roughly) a line per Difficulty.
+				// first tech in each Difficulty on a new line "automatically".
+				if ( Difficulty.isaFloor(tech) ) {
+					// add an invisible JLabels to put tech on a new line
 					while ( count%NUM_COLS != 0 ) {
 						centerPanel.add(new JLabel());
 						++count;
 					}
-					break;
+				} else {
+					// extra individual line breaks per Tech "manually".
+					switch (tech) {
+					// Difficulty no fit on line, so these just look nicer
+					case Coloring: case DeathBlossom:
+				    // Frankens and Krakens are oddly interleaved for speed
+					case FrankenSwampfish: case KrakenSwampfish:
+					   // hacked checkbox goes to the right of each of big A*E
+					case AlignedPair: case AlignedPent: case AlignedHex:
+					case AlignedSept: case AlignedOct: case AlignedNona:
+					case AlignedDec:
+						// add an invisible JLabels to put tech on a new line
+						while ( count%NUM_COLS != 0 ) {
+							centerPanel.add(new JLabel());
+							++count;
+						}
+					}
 				}
 			}
 			// if this tech is to be enabled
@@ -149,37 +138,27 @@ class TechSelectDialog extends JDialog {
 					if ( checkBox.isSelected() ) {
 						// carp if toolTip is set and warning is true
 						if ( tech.warning && tech.tip!=null ) {
-							JOptionPane.showMessageDialog(TechSelectDialog.this
-									, tech.name()+SP+tech.tip
-									, "WARNING"
-									, JOptionPane.WARNING_MESSAGE
-							);
+							showMessageDialog(TechSelectDialog.this
+									, tech.name()+SP+tech.tip, "WARNING"
+									, WARNING_MESSAGE);
 						}
+						// unselect any mutually exclusive techs
 						switch ( tech ) {
-							// Locking xor LockingBasic
-							case Locking:
-								unselect(Tech.LockingBasic);
-								break;
-							case LockingBasic:
-								unselect(Tech.Locking);
-								break;
-								// BigWings is prefered to individual BigWing's.
-							case BigWings:
-								unselect(BIG_WING_TECHS);
-								break;
-								// then selecting any BigWing unselects BigWings.
-							case WXYZ_Wing:
-							case VWXYZ_Wing:
-							case UVWXYZ_Wing:
-							case TUVWXYZ_Wing:
-							case STUVWXYZ_Wing:
-								unselect(Tech.BigWings);
-								break;
-								// Medusa3d is counter-productive with GEM
-							case GEM:
-								unselect(Tech.Medusa3D);
-								break;
+							// Locking XOR LockingBasic
+							case Locking: unselect(Tech.LockingBasic); break;
+							case LockingBasic: unselect(Tech.Locking); break;
+							// BigWings XOR individual BigWing
+							case BigWings: unselect(BIG_WING_TECHS); break;
+							case WXYZ_Wing: case VWXYZ_Wing: case UVWXYZ_Wing:
+							case TUVWXYZ_Wing: case STUVWXYZ_Wing:
+								unselect(Tech.BigWings); break;
+							// Medusa3D is counter-productive with GEM.
+							case GEM: unselect(Tech.Medusa3D);
 						}
+						// Locking xor LockingBasic
+						// BigWings is prefered to individual BigWing's.
+						// then selecting any BigWing unselects BigWings.
+						// Medusa3d is counter-productive with GEM
 						wantedTechs.add(tech);
 					} else
 						wantedTechs.remove(tech);
@@ -188,28 +167,15 @@ class TechSelectDialog extends JDialog {
 			// add the checkBox to it's panel
 			centerPanel.add(checkBox);
 			++count;
-			// add a hacked checkbox to the right of each large A*E checkBox
+			// hacked checkbox goes to the right of each of big A*E
 			switch ( tech ) {
-			case AlignedPent:
-			case AlignedHex:
-			case AlignedSept:
-			case AlignedOct:
-			case AlignedNona:
-			case AlignedDec:
-				centerPanel.add(newHackBox("isa"+tech.degree+"ehacked"));
+			case AlignedPent: case AlignedHex: case AlignedSept:
+			case AlignedOct: case AlignedNona: case AlignedDec:
+				centerPanel.add(newHackBox(tech.degree));
 				++count;
-				break;
 			}
 		}
 	}
-
-//	// is target in techs?
-//	private static boolean in(Tech target, Tech[] techs) {
-//		for ( Tech t : techs )
-//			if ( t == target )
-//				return true;
-//		return false;
-//	}
 
 	// Unselect the JCheckBox and unwant this Tech
 	// return was it found and unselected
@@ -237,13 +203,14 @@ class TechSelectDialog extends JDialog {
 	}
 
 	// create a new hacked JCheckBox
-	private static JCheckBox newHackBox(final String settingName) {
-		final JCheckBox box = new JCheckBox("hacked");
-		box.setSelected(THE_SETTINGS.getBoolean(settingName));
-		box.addActionListener((ActionEvent e) -> {
-			THE_SETTINGS.setBoolean(settingName, box.isSelected());
-		});
-		return box;
+	private static JCheckBox newHackBox(final int degree) {
+		final String settingName = "isa"+degree+"ehacked";
+		final JCheckBox checkBox = new JCheckBox("hacked");
+		checkBox.setSelected(THE_SETTINGS.getBoolean(settingName));
+		checkBox.addActionListener((ActionEvent e) ->
+			THE_SETTINGS.setBoolean(settingName, checkBox.isSelected())
+		);
+		return checkBox;
 	}
 
 	private JPanel getCenterPanel() {

@@ -44,7 +44,7 @@ public abstract class AHinter implements IHinter {
 	 * implemented in there own hinter have a degree of 0; hence hinters that
 	 * implement one-only Tech end-up with a degree of 0.
 	 * <p>
-	 * <b>WARN:</b> Hackily overwritten in {@code UniqueRectangle}.
+	 * <b>WARN:</b> Hackily overwritten in {@code URT}.
 	 */
 	public final int degree;
 

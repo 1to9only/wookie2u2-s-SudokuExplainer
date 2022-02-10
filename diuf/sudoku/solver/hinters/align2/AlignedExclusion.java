@@ -466,7 +466,6 @@ implements diuf.sudoku.solver.hinters.IPrepare
 		Arrays.fill(excls, null);
 		for ( int i=0; i<degree; ++i )
 			cS[i].cell = null;
-//		Cells.cleanCasA();
 	}
 
 	/**

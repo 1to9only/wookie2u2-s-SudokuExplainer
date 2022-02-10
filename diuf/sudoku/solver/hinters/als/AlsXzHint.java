@@ -53,12 +53,8 @@ public class AlsXzHint extends AHint  {
 		this.zsZapped = zsZapped;
 		this.doubleLinked = doubleLinked;
 		// build a string of the RCC-value/s
-		if ( v2 == 0 ) {
-			this.rcValuesString = Integer.toString(v1);
-		} else {
-			this.rcValuesString = Integer.toString(v1)
-								+ AND + Integer.toString(v2);
-		}
+		this.rcValuesString = v2==0 ? Integer.toString(v1)
+				: Integer.toString(v1)+AND+Integer.toString(v2);
 	}
 
 	@Override

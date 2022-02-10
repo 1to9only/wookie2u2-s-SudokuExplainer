@@ -34,15 +34,15 @@ import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import static diuf.sudoku.utils.Frmt.NULL_ST;
 import diuf.sudoku.utils.IAssSet;
 import diuf.sudoku.utils.IMySet;
-import diuf.sudoku.utils.MyArrays;
-import java.util.Arrays;
+import static diuf.sudoku.utils.MyArrays.clear;
+import static java.util.Arrays.fill;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * A MultipleChainer is an engine for searching a Grid for multiple and
+ * A ChainerMulti is an engine for searching a Grid for multiple and
  * possibly dynamic forcing chains. This is an implementation of Sudoku solving
  * techniques which involve following a chain of implications consequent to a
  * simple assumption of the value/not-value of a Cell in the Grid, involving
@@ -50,7 +50,7 @@ import java.util.Map;
  * with more than two possible locations for a value; and also Dynamic Chaining
  * which involves erasing each assumptions maybes from the grid,  enabling us
  * to come back later to find the parent Ass's which caused these erasures.
- * <p>KRC 2019-11-01 I've split the existing Chainer class into MultipleChainer
+ * <p>KRC 2019-11-01 I've split the existing Chainer class into ChainerMulti
  * and UnaryChainer. See UnaryChainer comments for more details.
  */
 public final class ChainerMulti extends ChainerBase
@@ -152,13 +152,47 @@ public final class ChainerMulti extends ChainerBase
 
 	/**
 	 * The initial (unmodified) grid used to find parent (causal) Assumptions.
+	 * We search for cell-v's that have been removed from the current grid that
+	 * are still in this unmodified initGrid.
 	 */
-	protected Grid theInitialGrid;
+	protected Grid initGrid;
 
 	/**
 	 * if doChains solves do you want the solution?
 	 */
 	private boolean turbo;
+
+	// We create all the following collections ONCE up here outside loops.
+	// They'd all be fields if there were no impost on accessing a field.
+	// NB: LinkedMatrixAssSet constructor takes 19,549 nanos (9,270 bytes)
+	// these 2 are populated by both doBinaryChains and doRegionChains
+	private final IAssSet onToOns = new LinkedMatrixAssSet(); // all "on" consequences
+	private final IAssSet onToOffs = new LinkedMatrixAssSet(); // all "off" consequences
+	// these 2 collections are used only by doBinaryChains, we create them
+	// once to avert the repeated (per cell/value) creation overheads.
+	// the "on"  consequences of pOff // observed 63
+	private final IAssSet offToOns = new FunkyAssSet(128, 1F, true);
+	// the "off" consequences of pOff // observed 178
+	private final IAssSet offToOffs = new FunkyAssSet(256, 1F, false);
+	// these 6 collections are only used by doRegionsChains
+	// the "on"  consequences of sibling cell being value
+	private final IAssSet sibOns = new LinkedMatrixAssSet();
+	// the "off" consequences of sibling cell being value
+	private final IAssSet sibOffs = new LinkedMatrixAssSet();
+	// the "on"  consequences in this region // observed 62
+	private final IAssSet rgnOns = new FunkyAssSet(128, 1F, true);
+	// the "off" consequences in this region // observed 183
+	private final IAssSet rgnOffs = new FunkyAssSet(256, 1F, false);
+	// the "on"  consequences of each position of value in this region
+	private final IAssSet[] posOns = new IAssSet[REGION_SIZE];
+	// the "off" consequences of each position of value in this region
+	private final IAssSet[] posOffs = new IAssSet[REGION_SIZE];
+
+	// these variables are only used by this method.
+	// the "on"  consequences of each potential value of cell
+	private final IAssSet[] valuesOns = new IAssSet[VALUE_CEILING];
+	// the "off" consequences of each potential value of cell
+	private final IAssSet[] valuesOffs = new IAssSet[VALUE_CEILING];
 
 	/**
 	 * The actual Constructor is private. It is exposed by the following public
@@ -234,7 +268,7 @@ public final class ChainerMulti extends ChainerBase
 	}
 
 	/**
-	 * The "basic" MultipleChainer Constructor.
+	 * The "basic" ChainerMulti Constructor.
 	 *
 	 * @param tech a Tech with isChainer==true.
 	 * @param basics from which, if not null, I retrieve the Four Quick Foxes
@@ -260,8 +294,8 @@ public final class ChainerMulti extends ChainerBase
 		// forget my grid
 		grid = null;
 		// theInitialGrid is final, so just clear it
-		if ( theInitialGrid != null )
-			theInitialGrid.clear();
+		if ( initGrid != null )
+			initGrid.clear();
 	}
 
 	/**
@@ -280,220 +314,157 @@ public final class ChainerMulti extends ChainerBase
 		// grid, then rarely gets down as far as Nested*, so Big RAM locked in
 		// chainers that're held but never called. Downside is initGrid is not
 		// final, which works so long as it's treated as if it was final.
-		if ( theInitialGrid == null )
-			theInitialGrid = new Grid();
+		if ( initGrid == null )
+			initGrid = new Grid();
 		if ( !isDynamic ) // (ie isMultiple) copy ONCE at top of stack
-			theInitialGrid.copyFrom(grid); // used in doChains
+			initGrid.copyFrom(grid); // used in doChains
 		try {
 			this.grid = grid;
 			// looks at cells/regions size > 2 and combines ramifications.
-			findMultipleOrDynamicChains(hints);
+			// NB: isNishio implies isDynamic. Nishio means dynamic contradiction.
+			final boolean doBinaryContradictions = isDynamic;
+			// doBinaryReductions depends on cardinality of current cell.
+			final boolean doReduction = isDynamic && !isNishio;
+
+			// We create all the following collections ONCE up here outside loops.
+			// They'd all be fields if there were no impost on accessing a field.
+			// NB: LinkedMatrixAssSet constructor takes 19,549 nanos (9,270 bytes)
+			// these 2 are populated by both doBinaryChains and doRegionChains
+			final IAssSet onToOns = this.onToOns; // all "on" consequences
+			final IAssSet onToOffs = this.onToOffs; // all "off" consequences
+			// these 2 collections are used only by doBinaryChains, we create them
+			// once to avert the repeated (per cell/value) creation overheads.
+			// the "on"  consequences of pOff // observed 63
+			final IAssSet offToOns = this.offToOns;
+			// the "off" consequences of pOff // observed 178
+			final IAssSet offToOffs = this.offToOffs;
+			// these 6 collections are only used by doRegionsChains
+			// the "on"  consequences of sibling cell being value
+			final IAssSet sibOns = this.sibOns;
+			// the "off" consequences of sibling cell being value
+			final IAssSet sibOffs = this.sibOffs;
+			// the "on"  consequences in this region // observed 62
+			final IAssSet rgnOns = this.rgnOns;
+			// the "off" consequences in this region // observed 183
+			final IAssSet rgnOffs = this.rgnOffs;
+			// the "on"  consequences of each position of value in this region
+			final IAssSet[] posOns = this.posOns;
+			// the "off" consequences of each position of value in this region
+			final IAssSet[] posOffs = this.posOffs;
+			// these variables are only used by this method.
+			// the "on"  consequences of each potential value of cell
+			final IAssSet[] valuesOns = this.valuesOns;
+			// the "off" consequences of each potential value of cell
+			final IAssSet[] valuesOffs = this.valuesOffs;
+			// the "on" and "off" consequences of this cell
+			IMySet<Ass> cellOns, cellOffs;
+			int size; // number of cell.maybes
+			boolean doBinaryReductions; // set later to doReduction && card>2
+			boolean doCellReductions; // set later when we know the card
+
+			// skip naked singles, and MultipleChain also skips bivs
+			final int floor = isDynamic ? 1 : 2; // 2 for MultipleChains
+
+			// foreach empty cell (except naked/hidden singles)
+			for ( Cell cell : grid.cells ) {
+				// cell.skip is true when cell is an unapplied naked/hidden single
+				if ( cell.size>floor && !cell.skip ) {
+					size = cell.size;
+					doBinaryReductions = doReduction && size>2; // Why the size>2?
+					doCellReductions = !isNishio && (size==2 || (isMultiple && size>2));
+					cellOns = cellOffs = null;
+					// foreach INITIAL maybe of this cell (there must be 2+).
+					// NOTE: VALUESES[cell.maybes] is set BEFORE we iterate,
+					// so doChains "erase" does NOT effect the iteration,
+					// and hence we iterate each INITIAL maybe of this cell,
+					// as required for algorithmic correctness!
+					for ( int v : VALUESES[cell.maybes] ) {
+						// do binary chaining: contradictions and reductions
+						// contradition: the initialAss causes a cell to be both on
+						// and off, which is absurd, so the initialAss is wrong.
+						// reduction: regardless of whether the initialAss is right
+						// or wrong a cell is/not a value, so it must/not be value.
+						try {
+							doBinaryChains(
+								  new Ass(cell, v, true)
+								, onToOns, onToOffs
+								, offToOns, offToOffs
+								// ie isDynamic (nb isNishio implies isDynamic)
+								, doBinaryContradictions
+								// ie isDynamic && !isNishio && card>2
+								, doBinaryReductions
+								, hints
+							);
+						} catch(UnsolvableException ex) { // from cell.canNotBe(v)
+							// looks like this is never used. never say never.
+							fill(effects, null);
+						}
+						// do region chaining: all possible positions of v in this
+						// region have the same effect.
+						if ( !isNishio )
+							try {
+								doRegionsChains(
+									  cell, v
+									, onToOns, onToOffs
+									, rgnOns, rgnOffs
+									, posOns, posOffs
+									, sibOns, sibOffs
+									, hints
+								);
+							} catch(UnsolvableException ex) {
+								// from cell.canNotBe(v).
+								// never used. never say never.
+								clear(posOns);
+								clear(posOffs);
+								sibOns.clear();
+								sibOffs.clear();
+								fill(effects, null);
+							}
+						// collect the results for later cell reduction
+						if ( doCellReductions ) {
+							// observed 57
+							valuesOns[v] = new FunkyAssSet(64, 1F, T, onToOns, F);
+							// observed 160
+							valuesOffs[v] = new FunkyAssSet(256, 1F, F, onToOffs, F);
+							if ( cellOns == null ) { // first pass through the loop
+								// clears onToOns  // observed 62
+								cellOns = new FunkyAssSet(64, 1F, T, onToOns, T);
+								// clears onToOffs // observed 177
+								cellOffs = new FunkyAssSet(256, 1F, F, onToOffs, T);
+							} else { // each subsequent pass through the loop
+								assert cellOffs != null; // avert IDE warning
+								// clears onToOns
+								cellOns.retainAllClear(onToOns);
+								// clears onToOffs
+								cellOffs.retainAllClear(onToOffs);
+							}
+						} else {
+							// faster to clear a LinkedMatrixAssSet than create a
+							// new FunkyAssSet (a HashMap) for each cell value.
+							onToOns.clear();
+							onToOffs.clear();
+						}
+						assert onToOns.isEmpty() && onToOffs.isEmpty();
+					} // next potential value
+					// do cell reduction (still producing spam NestedPlus hints)
+					if ( doCellReductions ) {
+						if ( cellOns.size() > 0 )
+							for ( Ass a : cellOns )
+								hints.add(createCellReductionHint(cell, a, valuesOns, 0));
+						if ( cellOffs.size() > 0 )
+							for ( Ass a : cellOffs )
+								hints.add(createCellReductionHint(cell, a, valuesOffs, 1));
+						clear(valuesOns);
+						clear(valuesOffs);
+					}
+					interrupt();
+				}
+			}
 		} catch (TurboException eaten) {
 			// Do nothing: we're done here.
 		} finally {
 			this.grid = null;
 		}
-	}
-
-	/**
-	 * Finds Multiple and/or Dynamic Chaining hints in this.grid, by looking
-	 * at cells/regions with size &gt; 2 and combining implications.
-	 * <p>
-	 * Note that <b>performance</b> of getMultipleOrDynamicChains is the most
-	 * important to overall performance because it's a slow technique and it is
-	 * the most used in: NishioChain, MultipleChain, DynamicChain, DynamicPlus,
-	 * NestedUnary, NestedMultiple, NestedDynamic, and last but certainly not
-	 * least: NestedPlus (10+ seconds per invocation).
-	 * <p>
-	 * <b>Nishio</b> seeks a contradiction in an assumptions implications.
-	 * Note that isNishio implies isDynamic.
-	 * <p>
-	 * <b>Multiple</b>:<ul>
-	 *  <li>examines cells with more than two maybes (hence the name).</li>
-	 *  <li>Y-Chain means all other potential values of this cell are OFF.</li>
-	 *  <li>X-Chain means that if there are only two positions for this value
-	 *   in the region then the other position is ON.</li>
-	 *  <li>does NOT doContradiction (detected but not reported); the grid
-	 *  should (under normal circumstances) be contradiction free before a
-	 *  multiple chainer is invoked, but it (mostly, sigh) works anyways.</li>
-	 *  <li>ON means this cell is presumed to be this potential value</li>
-	 *  <li>OFF means the cell is NOT this potential value</li>
-	 * </ul>
-	 * <p>
-	 * <b>Dynamic</b> means that we find hints that rely on combining the
-	 * previously calculated implications of the root assumption:
-	 * <ul>
-	 *  <li>We remove maybes (ie potential values) from the grid in the
-	 *   {@code doChains} method (well actually it's buried down in the
-	 *   {@code offToOns} method, where it's SAFER);</li>
-	 *  <li>which allows us to comeback later and play "Who's Your Daddy" with
-	 *   assumptions by comparing the current grid with it's initial-state, to
-	 *   work-out which previous assumptions must be true for this assumption
-	 *   to exist.</li>
-	 * </ul>
-	 * <p>
-	 * <b>Plus</b> means that we getHintersEffects of the FOUR QUICK FOXES:
-	 * Locking, HiddenPair, NakedPair, Swampfish (aka X-Wing).
-	 * <p>
-	 * <b>Nested</b> means that this Chainer getHintersEffects of an imbedded
-	 * Chainer, so we're making assumptions on our assumptions, which is always
-	 * fun. Ask a large-L-Liberal (use a whip, and a chair).
-	 * <p>
-	 * <b>NestedPlus</b> getHintersEffects of an imbedded Chainer which itself
-	 * has imbedded FOUR QUICK FOXES, so we use hinters to find the effects of
-	 * our assumptions on our assumptions, which is loads of fun, I assure you.
-	 * Just stick your dick in this Mix Master and I'll plug it in for you. Are
-	 * You Ready?
-	 * <p>
-	 * Note that the hardest Sudoku puzzles are solved by NestedUnary, so
-	 * NestedPlus has only "academic value"; ie we do this just because we can
-	 * and we are total smart-asses who must prove how tiny our equipment is,
-	 * ie we are impossibly smart-assed smart-asses who implement the useless
-	 * to add some colour and flavour to the mere impossible. Gopher Cleetus?
-	 *
-	 * @param hints the HintCache to be populated.
-	 */
-	private void findMultipleOrDynamicChains(final HintCache hints) {
-		// NB: isNishio implies isDynamic. Nishio means dynamic contradiction.
-		final boolean doBinaryContradictions = isDynamic;
-		// doBinaryReductions depends on cardinality of current cell.
-		final boolean doReduction = isDynamic && !isNishio;
-
-		// We create all the following collections ONCE up here outside loops.
-		// They'd all be fields if there were no impost on accessing a field.
-		// NB: LinkedMatrixAssSet constructor takes 19,549 nanos (9,270 bytes)
-		// these 2 are populated by both doBinaryChains and doRegionChains
-		final IAssSet onToOns = new LinkedMatrixAssSet(); // all "on" consequences
-		final IAssSet onToOffs = new LinkedMatrixAssSet(); // all "off" consequences
-		// these 2 collections are used only by doBinaryChains, we create them
-		// once to avert the repeated (per cell/value) creation overheads.
-		// the "on"  consequences of pOff // observed 63
-		final IAssSet offToOns = new FunkyAssSet(128, 1F, true);
-		// the "off" consequences of pOff // observed 178
-		final IAssSet offToOffs = new FunkyAssSet(256, 1F, false);
-		// these 6 collections are only used by doRegionsChains
-		// the "on"  consequences of sibling cell being value
-		final IAssSet sibOns = new LinkedMatrixAssSet();
-		// the "off" consequences of sibling cell being value
-		final IAssSet sibOffs = new LinkedMatrixAssSet();
-		// the "on"  consequences in this region // observed 62
-		final IAssSet rgnOns = new FunkyAssSet(128, 1F, true);
-		// the "off" consequences in this region // observed 183
-		final IAssSet rgnOffs = new FunkyAssSet(256, 1F, false);
-		// the "on"  consequences of each position of value in this region
-		final IAssSet[] posOns = new IAssSet[REGION_SIZE];
-		// the "off" consequences of each position of value in this region
-		final IAssSet[] posOffs = new IAssSet[REGION_SIZE];
-
-		// these variables are only used by this method.
-		// the "on"  consequences of each potential value of cell
-		final IAssSet[] valuesOns = new IAssSet[VALUE_CEILING];
-		// the "off" consequences of each potential value of cell
-		final IAssSet[] valuesOffs = new IAssSet[VALUE_CEILING];
-		// the "on" and "off" consequences of this cell
-		IMySet<Ass> cellOns, cellOffs;
-		int card; // cardinality: count of set (1) bits in cell.maybes
-		boolean doBinaryReductions; // set later to doReduction && card>2
-		boolean doCellReductions; // set later when we know the card
-
-		// skip naked singles, and MultipleChain also skips bivs
-		final int floor; if(isDynamic) floor=1; else floor=2;
-
-		// foreach empty cell (except naked/hidden singles)
-		for ( final Cell cell : grid.cells ) {
-			// cell.skip is true when cell is an unapplied naked/hidden single
-			if ( cell.size>floor && !cell.skip ) {
-				card = cell.size;
-				doBinaryReductions = doReduction && card>2; // Why the card>2?
-				doCellReductions = !isNishio && (card==2 || (isMultiple && card>2));
-				cellOns = cellOffs = null;
-				// foreach INITIAL maybe of this cell (there must be 2+).
-				// NOTE: VALUESES[cell.maybes] is set BEFORE we iterate,
-				// so doChains "erase" does NOT effect the iteration,
-				// and hence we iterate each INITIAL maybe of this cell,
-				// as required for algorithmic correctness!
-				for ( int v : VALUESES[cell.maybes] ) {
-					// do binary chaining: contradictions and reductions
-					// contradition: the initialAss causes a cell to be both on
-					// and off, which is absurd, so the initialAss is wrong.
-					// reduction: regardless of whether the initialAss is right
-					// or wrong a cell is/not a value, so it must/not be value.
-					try {
-						doBinaryChains(
-							  new Ass(cell, v, true)
-							, onToOns, onToOffs
-							, offToOns, offToOffs
-							// ie isDynamic (nb isNishio implies isDynamic)
-							, doBinaryContradictions
-							// ie isDynamic && !isNishio && card>2
-							, doBinaryReductions
-							, hints
-						);
-					} catch(UnsolvableException ex) { // from cell.canNotBe(v)
-						// looks like this is never used. never say never.
-						Arrays.fill(effects, null);
-					}
-					// do region chaining: all possible positions of v in this
-					// region have the same effect.
-					if ( !isNishio )
-						try {
-							doRegionsChains(
-								  cell, v
-								, onToOns, onToOffs
-								, rgnOns, rgnOffs
-								, posOns, posOffs
-								, sibOns, sibOffs
-								, hints
-							);
-						} catch(UnsolvableException ex) {
-							// from cell.canNotBe(v).
-							// never used. never say never.
-							MyArrays.clear(posOns);
-							MyArrays.clear(posOffs);
-							sibOns.clear();
-							sibOffs.clear();
-							Arrays.fill(effects, null);
-						}
-					// collect the results for later cell reduction
-					if ( doCellReductions ) {
-						// observed 57
-						valuesOns[v] = new FunkyAssSet(64, 1F, T, onToOns , F);
-						// observed 160
-						valuesOffs[v] = new FunkyAssSet(256, 1F, F, onToOffs, F);
-						if ( cellOns == null ) { // first pass through the loop
-							// clears onToOns  // observed 62
-							cellOns = new FunkyAssSet(64, 1F, T, onToOns , T);
-							// clears onToOffs // observed 177
-							cellOffs = new FunkyAssSet(256, 1F, F, onToOffs, T);
-						} else { // each subsequent pass through the loop
-							assert cellOffs != null; // avert IDE warning
-							// clears onToOns
-							cellOns.retainAllClear(onToOns);
-							// clears onToOffs
-							cellOffs.retainAllClear(onToOffs);
-						}
-					} else {
-						// faster to clear a LinkedMatrixAssSet than create a
-						// new FunkyAssSet (a HashMap) for each cell value.
-						onToOns.clear();
-						onToOffs.clear();
-					}
-					assert onToOns.isEmpty() && onToOffs.isEmpty();
-				} // next potential value
-				// do cell reduction (still producing spam NestedPlus hints)
-				if ( doCellReductions ) {
-					if ( cellOns.size() > 0 )
-						for ( Ass a : cellOns )
-							hints.add(createCellReductionHint(cell, a, valuesOns, 0));
-					if ( cellOffs.size() > 0 )
-						for ( Ass a : cellOffs )
-							hints.add(createCellReductionHint(cell, a, valuesOffs, 1));
-					MyArrays.clear(valuesOns);
-					MyArrays.clear(valuesOffs);
-				}
-				interrupt();
-			}
-		} // next cell
 	}
 
 	/**
@@ -730,8 +701,8 @@ public final class ChainerMulti extends ChainerBase
 				if(!noOffs) while( (a=rgnOffs.poll()) != null )
 					hints.add(createRegionReductionHint(r, v, a, posOffs));
 				// clear the position arrays // quicker than overloading the GC
-				MyArrays.clear(posOns);
-				MyArrays.clear(posOffs);
+				clear(posOns);
+				clear(posOffs);
 			}
 		}
 	}
@@ -812,8 +783,8 @@ public final class ChainerMulti extends ChainerBase
 		// clear my effects queue
 		er = ew = 0;
 		// clear my on and off queues
-		Arrays.fill(ONQ, null); onR = onW = 0;
-		Arrays.fill(OFFQ, null); offR = offW = 0;
+		fill(ONQ, null); onR = onW = 0;
+		fill(OFFQ, null); offR = offW = 0;
 		// clear the output queues
 		toOns.clear();
 		toOffs.clear();
@@ -840,7 +811,7 @@ public final class ChainerMulti extends ChainerBase
 		// if (isDynamic) then backup before maybes are erased from the grid,
 		// else the grid is copied ONCE at top of stack to save time.
 		if ( isDynamic )
-			theInitialGrid.copyFrom(grid);
+			initGrid.copyFrom(grid);
 
 		// process the consequences of theInitialAssumption (anAss, sigh).
 		try {
@@ -864,7 +835,7 @@ public final class ChainerMulti extends ChainerBase
 						// note that this relies on all toOns being "On".
 						if ( (c=toOns.getAss(e.cell.i, e.value)) != null ) {
 							// Contradiction found!
-							Arrays.fill(effects, null);
+							fill(effects, null);
 //							if ( df != null )
 //								df.setCurrentHint(new GWH(anAss, toOns, toOffs, onQ, offQ, c, e), false);
 							return new Ass[]{c, e}; // Can't be both on&off
@@ -907,7 +878,7 @@ public final class ChainerMulti extends ChainerBase
 							// note that toOffs
 							if ( (c=toOffs.getAss(e.cell, e.value)) != null ) {
 								// Contradiction found!
-								Arrays.fill(effects, null);
+								fill(effects, null);
 //								if ( df != null )
 //									df.setCurrentHint(new GWH(anAss, toOns, toOffs, onQ, offQ, e, c), false);
 								return new Ass[]{e, c}; // Can't be both on&off
@@ -945,7 +916,7 @@ public final class ChainerMulti extends ChainerBase
 //			}
 		} finally {
 			if ( isDynamic ) // NB: grid is not modified when !isDynamic
-				grid.copyFrom(theInitialGrid);
+				grid.copyFrom(initGrid);
 //			df = null;
 		}
 		return null;
@@ -961,7 +932,7 @@ public final class ChainerMulti extends ChainerBase
 		// NB: LinkedList faster than ArrayList when not know max-size.
 		final List<Ass> myEffects = new LinkedList<>();
 		// accu adds each resulting Assumption to the effects list
-		final IAccumulator hacu = new ChainerHacu(theInitialGrid, grid
+		final IAccumulator hacu = new ChainerHacu(initGrid, grid
 				, parentOffs, myEffects);
 		for ( IHinter hinter : hinters )
 			if ( hinter.findHints(grid, hacu) ) {
@@ -1041,34 +1012,32 @@ public final class ChainerMulti extends ChainerBase
 			return null;  // this can't be a CellReductionHint
 		// Build removable potentials
 		final Pots redPots = createRedPots(target);
-		if(redPots==null) return null;
+		if ( redPots == null )
+			return null;
 		// Build chains
 		assert srcCell.size > 0;
-		LinkedHashMap<Integer, Ass> chains =
+		IAssSet vEffects;
+		Ass a;
+		final LinkedHashMap<Integer, Ass> chains =
 				new LinkedHashMap<>(srcCell.size, 0.75f);
 		for ( int v : VALUESES[srcCell.maybes] ) { // iterator fast enough here.
-			IAssSet vEffects = valuesEffects[v];
-			if ( vEffects==null || vEffects.isEmpty() ) { // shouldn't exist
+			if ( (vEffects=valuesEffects[v])==null || vEffects.isEmpty() ) { // shouldn't exist
 				assert false : "valueEffects["+v+"] is "
 					+(vEffects==null?NULL_ST:"empty")+"\n"
-					+" cell="+srcCell.toFullString()
-					+" target="+target
-					+" typeID="+typeID;
+					+" cell="+srcCell.toFullString()+" target="+target+" typeID="+typeID;
 				return null; // WTF: this is a real WTF
 			}
 			// get the actual target assumption, with ancestors
-			Ass a = vEffects.get(target);
-			if ( a==null ) { // WTF: how did it get here in the first place.
+			if ( (a=vEffects.get(target))==null ) { // WTF: can't get here?
 				assert Debug.dumpValuesEffectsAncestors(valuesEffects, target) // allways returns false
 					: "target not in valueEffects["+v+"]\n"
-					  + " cell="+srcCell.toFullString()
-					  + " target="+target
-					  + " typeID="+typeID;
+					  + " cell="+srcCell.toFullString()+ " target="+target+" typeID="+typeID;
 				return null; // WTF: something is fubared
 			}
 			chains.put(v, a);
-		} // next v
-		if(chains.isEmpty()) return null; // should never happen AFAIK
+		}
+		if ( chains.isEmpty() )
+			return null; // should never happen AFAIK
 		// Build & return the hint
 		final String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid=EMPTY_STRING;
 		return new CellReductionHint(this, redPots, srcCell, chains, tid);
@@ -1077,30 +1046,31 @@ public final class ChainerMulti extends ChainerBase
 	private RegionReductionHint createRegionReductionHint(
 		  final ARegion region
 		, final int value
-		, final Ass target
-		, final IMySet<Ass>[] positionEffects
+		, final Ass t // target
+		, final IMySet<Ass>[] positionParents
 	) {
-		final int typeID; if(target.isOn) typeID=0; else typeID=1;
+		IMySet<Ass> posParents; // the effects of r.cells[i] being v
+		Ass targetWithParents; // this Ass has parents (target is just a dolly)
+		LinkedHashMap<Integer, Ass> chains = null;
+		final int typeID; if(t.isOn) typeID=0; else typeID=1;
 		// build removable potentials
 		final Pots reds;
-		if ( target.isOn ) {
-			if ( target.cell.maybes == VSHFT[target.value] )
+		if ( t.isOn ) {
+			if ( t.cell.maybes == VSHFT[t.value] )
 				return null; // naked singles are not my problem
-			reds = new Pots(target.cell, target.cell.maybes & ~VSHFT[target.value], false);
+			reds = new Pots(t.cell, t.cell.maybes & ~VSHFT[t.value], false);
 		} else
-			reds = new Pots(target.cell, target.value);
+			reds = new Pots(t.cell, t.value);
 		// build chains
-		LinkedHashMap<Integer, Ass> chains = null;
-		IMySet<Ass> effects; // the effects of r.cells[i] being v
-		Ass targetWithParents; // this Ass has parents (target is just a dolly)
-		for ( int i : region.ridx[value] ) // iterator is fast enough
+		for ( int i : INDEXES[region.ridx[value].bits] )
 			// add the complete parent assumption (with ancestors) to the chain
-			if ( (effects=positionEffects[i]) != null
-			  && (targetWithParents=effects.get(target)) != null ) {
+			if ( (posParents=positionParents[i]) != null
+			  && (targetWithParents=posParents.get(t)) != null ) {
 				if(chains==null) chains=new LinkedHashMap<>();
 				chains.put(i, targetWithParents);
 			}
-		if(chains==null) return null;
+		if ( chains == null )
+			return null;
 		final String tid; if(WANT_TYPE_ID) tid=" ("+typeID+")"; else tid=EMPTY_STRING;
 		return new RegionReductionHint(this, reds, region, value, chains, tid);
 	}
@@ -1123,7 +1093,7 @@ public final class ChainerMulti extends ChainerBase
 		// we only "erase" assumptions when isDynamic, so that we can
 		// comeback later and play "Who's your daddy".
 		// called 9,102,331 times in top1465
-		final int initBits = theInitialGrid.maybes[cell.i];
+		final int initBits = initGrid.maybes[cell.i];
 		final int currBits = grid.maybes[cell.i];
 		if ( currBits != initBits ) {
 			// foreach value of cell that has been removed
@@ -1137,6 +1107,8 @@ public final class ChainerMulti extends ChainerBase
 	}
 
 	/**
+	 * {@inheritDoc}
+	 * <p>
 	 * This method is called by supers offToOns method (only when isDynamic)
 	 * to add any hidden parent (causal) assumptions within this region to
 	 * the effects parents list.
@@ -1150,17 +1122,18 @@ public final class ChainerMulti extends ChainerBase
 			, final IAssSet rents, final Ass effect) {
 		// get the erased places of value in region
 		// ie in the initialGrid andNot in the currentGrid.
-		final int erasedPlaces = theInitialGrid.cells[oci].regions[rti].ridx[v].bits & ~currPlaces;
-		if ( erasedPlaces != 0 ) {
+		final int erased = initGrid.cells[oci].regions[rti].ridx[v].bits & ~currPlaces;
+		if ( erased != 0 ) {
 			Ass p; // parent
-			// foreach possible position of v in the region that has been erased
-			for ( int i : INDEXES[erasedPlaces] )
-				// nb: parentOffs is a LinkedMatrixAssSet with the strange getAss
-				// method (java.util.Set has no get) defined by IAssSet to fetch
-				// the Ass from the Set at this cell with this value; whether or
-				// not the Ass is an ON does not matter here coz all asses in an
-				// IAssSet must either be all ONs or all OFFs.
-				if ( (p=rents.getAss(region.cells[i],v)) != null )
+			Cell[] cells = region.cells;
+			// foreach position of v in region that's been erased
+			for ( int i : INDEXES[erased] )
+				// nb: rents is a LinkedMatrixAssSet with the strange getAss
+				// method (java.util.Set has no get) defined by IAssSet to get
+				// the Ass from the Set at this cell with this value regardless
+				// of ass.isOn coz all asses in an IAssSet are either all Ons
+				// or all Offs.
+				if ( (p=rents.getAss(cells[i], v)) != null )
 					effect.parents.linkLast(p);
 		}
 	}

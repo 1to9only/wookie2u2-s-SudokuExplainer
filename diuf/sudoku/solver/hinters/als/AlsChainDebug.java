@@ -15,7 +15,7 @@ class AlsChainDebug {
 
 	// true changes AlsChainHint.toString, which fails test-cases
 	// and also changes the hint HTML
-	public static final boolean HINTS = false; // @check false
+	public static final boolean ALS_CHAIN_DEBUG_HINTS = false; // @check false
 
 	// true prints DEBUG messages
 	// false is shut your noise

@@ -9789,7 +9789,7 @@ package diuf.sudoku;
  * </pre>
  * <hr>
  * <p>
- * <b>KRC 6.30.180 2021-10-28 10:10:10</b> AlsChain has ANY_RELATED_RCCS and an
+ * <b>KRC 6.30.180 2021-10-28 10:10:10</b> AlsChain has ALS_HAS_ANY_RELATED_RCCS and an
  * alsCeiling, so it's a tad faster. The hunter, is still endlessly seeking.
  * <pre>
  *        time(ns)  calls  time/call  elims  time/elim hinter
@@ -11065,8 +11065,6 @@ package diuf.sudoku;
  * </pre>
  * <hr>
  * <p>
- * <b>KRC 6.30.204 2022-01-01 10:11:24</b> RccFinders idx caching. Promoted
- * NakedQuad and HiddenQuad.
  * <b>KRC 6.30.205 2022-01-06 16:36:25</b> ChainerUnary seeks only XY-Cycles
  * and XY-Chains. MyLinkedHashMap.clear uses the linked list on small maps.
  * IDKFA is now DynamicPlus+ only (not high DynamicChain).
@@ -11114,6 +11112,121 @@ package diuf.sudoku;
  * 1. 1:26 is a couple of seconds faster, but ____ it, she'll have to do.
  * 2. DiufSudoku_V6_30.205.2022-01-06.7z is OK to release. Soon.
  * 3. Next I find some more of my own stupidity, and fix it.
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.206 2022-01-13 15:25:26</b> tried to upgrade to Java 17 but VM
+ * is about 30% slower than 1.8 for this rather odd application, so I decided
+ * against the upgrade. You can run it in later VM's, but the music died some
+ * time between 1.8.0_271 and 17.0.1+12-LTS-39. 17 is bad at bit-twiddling. I
+ * suppose it could be box: Winblows Home 10.1903 on Aspire Intel i7-7500U.
+ * <p>
+ * I reduce AlsFinderPlain.DEGREE_CEILING from 8 to 7 to skip alss with 7 cells
+ * (STUVWXYZ_Wing's) because they take more time than they are worth.
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     17,827,116 105812        168  56340        316 NakedSingle
+ *     18,692,381  49472        377  16171      1,155 HiddenSingle
+ *     79,100,213  33301      2,375  24079      3,285 Locking
+ *     83,317,565  22046      3,779   7866     10,592 NakedPair
+ *     75,217,767  19997      3,761   8225      9,145 HiddenPair
+ *    123,036,678  17937      6,859   1637     75,159 NakedTriple
+ *    112,885,329  17539      6,436    970    116,376 HiddenTriple
+ *     49,746,911  17354      2,866    625     79,595 Swampfish
+ *     47,844,476  17106      2,796   1130     42,340 TwoStringKite
+ *     95,128,906  15976      5,954    918    103,626 W_Wing
+ *     75,315,981  15338      4,910    533    141,305 XY_Wing
+ *     44,371,945  14983      2,961    324    136,950 Skyscraper
+ *    102,136,726  14815      6,894    569    179,502 EmptyRectangle
+ *     59,642,847  14246      4,186    262    227,644 XYZ_Wing
+ *     56,499,910  14001      4,035    218    259,173 Swordfish
+ *    166,313,859  13943     11,928     94  1,769,296 NakedQuad
+ *     77,534,272  13927      5,567     18  4,307,459 Jellyfish
+ *    133,981,098  13923      9,623     12 11,165,091 HiddenQuad
+ *    293,812,819  13921     21,105    167  1,759,358 Coloring
+ *    916,444,837  13807     66,375    694  1,320,525 XColoring
+ *  1,994,637,092  13554    147,162 131498     15,168 GEM
+ *  1,411,869,767  12211    115,622    912  1,548,102 UniqueRectangle
+ *  2,588,157,848  11561    223,869   2108  1,227,778 BigWings
+ *  1,299,172,381  10388    125,064    211  6,157,215 FinnedSwampfish
+ *  2,877,598,819  10215    281,703    275 10,463,995 FinnedSwordfish
+ *  4,666,075,032  10011    466,094   2469  1,889,864 DeathBlossom
+ *  8,193,698,603   7923  1,034,166   2020  4,056,286 ALS_XZ
+ *  5,860,570,707   6648    881,553   2742  2,137,334 ALS_Wing
+ * 11,326,306,115   4482  2,527,065   1792  6,320,483 ALS_Chain
+ *    758,162,932   3084    245,837     15 50,544,195 SueDeCoq
+ *  5,355,928,997   3081  1,738,373    582  9,202,627 UnaryChain
+ *  4,187,876,110   2820  1,485,062    187 22,395,059 NishioChain
+ *  4,673,246,310   2642  1,768,829   3478  1,343,659 MultipleChain
+ *  6,189,432,823   1252  4,943,636   6046  1,023,723 DynamicChain
+ *    118,058,900      3 39,352,966     30  3,935,296 DynamicPlus
+ * 64,129,644,072
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  83,247,732,700 (01:23)  56,824,390
+ * NOTES:
+ * 1. 01:23 is a whole 3 seconds faster than previous, but non ye wet ye pant.
+ *    I'm concreted onto 1.8 to achieve anything like it; the best I did in JDK
+ *    17 was 1:54, ergo down like 30 secs, hence I refuse the platform upgrade.
+ *    Most of this gain comes from AlsFinderPlain.DEGREE_CEILING reduction.
+ * 2. DiufSudoku_V6_30.206.2022-01-13.7z is OK to release.
+ * 3. Next nothing. No platform upgrade so SE can die with 1.8. I'm disgusted
+ *    with Oracle. I'm sure they have reasons, which may be beyond me, but a
+ *    30% disformance in 5 years is shootin time were I live. Platforms are
+ *    supposed to improve! Why bother when the JDK has snail-mailed itself
+ *    straight to hell. Needles McKelly sighing-off from the Mooritanian Front.
+ *    BIG SIGH!
+ * </pre>
+ * <hr>
+ * <p>
+ * <b>KRC 6.30.207 2022-01-19 11:29:27</b> Reduced ALS_CEILING to 6. Big ALSs
+ * aren't worth there salts. EmptyRectangle is a bit faster. Build for backup
+ * pre split ridx's into parallel int[] places (.bits) and spots (.size).
+ * <pre>
+ *       time(ns)  calls  time/call  elims  time/elim hinter
+ *     18,057,700 105926        170  56551        319 NakedSingle
+ *     18,030,400  49375        365  16116      1,118 HiddenSingle
+ *     81,047,500  33259      2,436  24095      3,363 Locking
+ *     81,083,200  22014      3,683   7853     10,325 NakedPair
+ *     74,668,600  19980      3,737   8255      9,045 HiddenPair
+ *    119,013,000  17912      6,644   1644     72,392 NakedTriple
+ *    112,089,100  17519      6,398    963    116,395 HiddenTriple
+ *     49,511,700  17332      2,856    632     78,341 Swampfish
+ *     47,955,000  17081      2,807   1130     42,438 TwoStringKite
+ *     97,248,000  15951      6,096    913    106,514 W_Wing
+ *     79,763,200  15314      5,208    531    150,213 XY_Wing
+ *     44,898,700  14959      3,001    336    133,627 Skyscraper
+ *     98,389,400  14783      6,655    567    173,526 EmptyRectangle
+ *     59,044,600  14216      4,153    261    226,224 XYZ_Wing
+ *     56,236,900  13972      4,024    222    253,319 Swordfish
+ *    161,913,800  13913     11,637     94  1,722,487 NakedQuad
+ *     76,932,800  13897      5,535     18  4,274,044 Jellyfish
+ *    132,390,700  13893      9,529     12 11,032,558 HiddenQuad
+ *    294,908,500  13891     21,230    165  1,787,324 Coloring
+ *    921,017,600  13775     66,861    695  1,325,205 XColoring
+ *  1,931,173,500  13521    142,827 129665     14,893 GEM
+ *  1,448,578,100  12177    118,960    896  1,616,716 UniqueRectangle
+ *  2,123,707,200  11541    184,014   2059  1,031,426 BigWings
+ *  1,338,267,900  10403    128,642    217  6,167,133 FinnedSwampfish
+ *  2,896,227,900  10226    283,221    271 10,687,187 FinnedSwordfish
+ *  3,143,506,500  10026    313,535   2257  1,392,780 DeathBlossom
+ *  5,340,077,000   8125    657,240   2050  2,604,915 ALS_XZ
+ *  3,729,684,900   6834    545,754   2613  1,427,357 ALS_Wing
+ *  7,637,143,400   4778  1,598,397   1873  4,077,492 ALS_Chain
+ *    834,213,300   3328    250,665     15 55,614,220 SueDeCoq
+ *  5,798,303,900   3325  1,743,850    736  7,878,130 UnaryChain
+ *  4,322,064,300   2982  1,449,384    193 22,394,115 NishioChain
+ *  4,951,675,500   2798  1,769,719   3633  1,362,971 MultipleChain
+ *  6,351,722,600   1298  4,893,468   6290  1,009,812 DynamicChain
+ *    137,195,100      3 45,731,700     30  4,573,170 DynamicPlus
+ * 54,607,741,500
+ * pzls      total (ns) (mm:ss)   each (ns)
+ * 1465  73,392,694,600 (01:13)  50,097,402
+ * NOTES:
+ * 1. 01:13 is 10 seconds faster than previous, but non ye wet ye pant. Most of
+ *    this is DEGREE_CEILING reduced to 6. Large ALSs aren't worth there salts.
+ *    There's about a half a second from the other eight days work. Gee wow!
+ * 2. DiufSudoku_V6_30.207.2022-01-19.7z is OK to release.
+ * 3. Next nothing. Bail coz JVM is shot: C#, GNUCC, or the full MASM?
  * </pre>
  */
 final class BuildTimings {

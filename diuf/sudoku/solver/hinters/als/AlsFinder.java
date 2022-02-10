@@ -16,6 +16,7 @@ import static diuf.sudoku.Grid.MAX_EMPTIES;
 import static diuf.sudoku.Grid.NUM_REGIONS;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
+import diuf.sudoku.IdxI;
 import diuf.sudoku.IdxL;
 import diuf.sudoku.IntArrays.IALease;
 import static diuf.sudoku.Values.VSIZE;
@@ -23,10 +24,10 @@ import static diuf.sudoku.solver.hinters.als.AAlsHinter.MAX_ALSS;
 import diuf.sudoku.utils.ArraySet;
 import diuf.sudoku.utils.Debug;
 import diuf.sudoku.utils.Permutations;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import static diuf.sudoku.IntArrays.iaLease;
+import javax.naming.OperationNotSupportedException;
 
 /**
  * AlsFinder finds Almost Locked Sets. This code was split-out of AAlsHinter
@@ -46,6 +47,28 @@ import static diuf.sudoku.IntArrays.iaLease;
  * @author Keith Corlett 2021-06-04
  */
 class AlsFinder {
+//	// I'm not a hinter, so there's no point implementing IReporter.
+//	// Instead AAlsHinter implements IReporter and calls me.
+//	public void report() {
+//		diuf.sudoku.utils.Log.teeln(getClass().getName()+": COUNTS="+java.util.Arrays.toString(COUNTS)+" computFieldsTook="+Als.cfTook+" cmnBudsNewTook="+Idx.cbnTook);
+//	}
+//public final long[] COUNTS = new long[3];
+///*
+//KRC 2022-01-13 08:45
+//                    alss          rccs
+//BigWings : 2,383,096,800             0
+//ALS_XZ   : 1,646,102,500 7,395,405,800
+//ALS_Wing :       436,700       309,900
+//ALS_Chain:       274,500 9,195,447,300
+//                      Permute  computeFields    filterNSs
+//AlsFinderPlain: 1,711,977,600, 2,312,422,100, 370,460,000
+//Inline Idx ops in Als.computFields. Bees dick faster (150ms).
+//These are with timings, so they're MUCH slower!
+//AlsFinderPlain: 2,036,925,900, 4,099,530,600, 425,730,500
+//computFieldsTook               3,919,568,100
+//cmnBudsNewTook                 2,378,024,600
+//*/
+
 
 //	// set in AlsFinderRecursive only, reported in BigWings
 //	protected long took;
@@ -205,7 +228,7 @@ class AlsFinder {
 										for ( i=2; i<d; ++i )
 											m |= ma[perm[i]];
 										if ( VSIZE[m] == e )
-											alsSet.add(new Als(IdxL.of(ca, perm), m, r));
+											alsSet.add(new Als(IdxI.of(ca, perm), m, r));
 									}
 							}
 						}
@@ -217,6 +240,9 @@ class AlsFinder {
 
 	// find Almost Locked Sets (including cells in Naked Sets)
 	private void findAlss(final Grid grid) {
+		// ####################################
+		// ## This method is no longer used! ##
+		// ####################################
 		int[] ma; // maybes of cells in region having size 2..d+1
 		int d // degree
 		  , n // number of cells in region having size 2..d+1
@@ -241,7 +267,7 @@ class AlsFinder {
 										for ( i=2; i<d; ++i )
 											m |= ma[perm[i]];
 										if ( VSIZE[m] == e )
-											alsSet.add(new Als(IdxL.of(ca, perm), m, r));
+											alsSet.add(new Als(IdxI.of(ca, perm), m, r));
 									}
 								}
 							}
@@ -250,6 +276,8 @@ class AlsFinder {
 				}
 			}
 		}
+		if ( !Debug.isClassNameInTheCallStack(6, "AlsFinderTest") )
+			throw new UnsupportedOperationException("This method is no longer used!");
 	}
 
 	// An AlsSet is a LinkedHashSet whose add method is an addOnly, ie ignores

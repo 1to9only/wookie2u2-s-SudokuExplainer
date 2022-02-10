@@ -244,7 +244,6 @@ public final class XColoring extends AHinter
 			this.accu = null;
 			// each cell holds the whole grid
 			Arrays.fill(myCells, null);
-//			Cells.cleanCasA();
 		}
 		return result;
 	}

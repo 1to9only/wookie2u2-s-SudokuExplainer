@@ -63,7 +63,25 @@ import static diuf.sudoku.solver.hinters.Validator.validOffs;
  * set", so all of the ALS's values can be eliminated from each external cell
  * which sees all occurrences of that value in the ALS-XZ.
  * <pre>
- * 2021-10-19  9,341,298,800  8206  1,138,349  2103  4,441,891
+ * KRC 2021-10-19
+ * NOW: 9,341,298,800  8206  1,138,349  2103  4,441,891 ALS_XZ
+ *
+ * KRC 2022-01-10 J17 is about 30% slower than J8. Trying to speed-up.
+ * PRE: 8,991,515,000  7908  1,137,015  2013  4,466,723 ALS_XZ
+ * PST: 8,766,519,300  7908  1,108,563  2013  4,354,952 ALS_XZ
+ *
+ * KRC 2022-01-13 with inline Idx ops in Als.computeFields
+ * NOW: 9,053,167,500  7908  1,144,811  2013  4,497,350 ALS_XZ
+ * And holly snappin duckshit Batman, it's actually SLOWER! but it can't be.
+ * My research shows it spend most time in Als.computFields, and I know (or
+ * think I know) from experience that doing Idx ops inline is faster, just for
+ * not creating the extra stackFrames, especially when we operate in ONE large
+ * complex stackFrame. So I will officially be ____ed because I do not know
+ * nuffin. Basically I waffle rather than accept the evidence. I have a choice.
+ * Either leave it until tomorrow morning to get a cool run, or accept that
+ * inline is in fact SLOWER and revert, ergo take my medicine.
+ * SLW: 9,270,523,900  7908  1,172,296  2013  4,605,327 ALS_XZ
+ * FST: 9,200,267,800  7908  1,163,412  2013  4,570,426 ALS_XZ
  * </pre>
  *
  * @author Keith Corlett 2020 Apr 26
@@ -73,9 +91,13 @@ public final class AlsXz extends AAlsHinter
 {
 //	@Override
 //	public void report() {
-//		diuf.sudoku.utils.Log.teeln(""+tech+": COUNTS="+java.util.Arrays.toString(COUNTS));
+//		diuf.sudoku.utils.Log.teeln(tech.name()+": COUNTS="+Arrays.toString(COUNTS));
+//		diuf.sudoku.utils.Log.teeln(tech.name()+": min="+minGoodNumRccs+"/"+minNumRccs+" max="+maxGoodNumRccs+"/"+maxNumRccs);
+//		diuf.sudoku.utils.Log.teeln(tech.name()+": RccFinderAbstract.COUNTS="+Arrays.toString(RccFinderAbstract.COUNTS));
 //	}
-//	private static long[] COUNTS = new long[4];
+//	private final long[] COUNTS = new long[12];
+//	private int minNumRccs=Integer.MAX_VALUE, maxNumRccs=0
+//		  , minGoodNumRccs=Integer.MAX_VALUE, maxGoodNumRccs=0;
 
 	// weird: LogicalAnalyserTest has different recursive results coz FINDERS
 	// put alss in different orders, which changes the whole puzzle-solve-path
@@ -149,35 +171,36 @@ public final class AlsXz extends AAlsHinter
 			, final Als[] alss, final int numAlss
 			, final Rcc[] rccs, final int numRccs
 			, final IAccumulator accu) {
+//		minNumRccs = Math.min(minNumRccs, numRccs);
+//		maxNumRccs = Math.max(maxNumRccs, numRccs);
+		// HACK: specific to top1465, which may miss hints in other puzzles.
+		if ( numRccs > 3751 ) // ALS_XZ: min=171/171 max=3751/3996
+			return false;
 		Rcc rcc; // the current Restricted Common Candidate
 		Idx aI, bI; // Idx's of ALS a, ALS b
-		int [] za; // VALUESES[zs]
+		int[] za; // VALUESES[zs]
 		int zs // bitset of values in ALS a and ALS b except the RC-values
 		  , zi,zn,z // za-index, za.length, z-value
 		  , i0,i1,i2; // exploded victims.setAnd(a.vBuds[z], b.vBuds[z])
-		// ALS a, ALS b
-		Als a=null, b=null;
-		// bitset of zs (non-rcs) removed by single-link
-		int zsZapped = 0;
-		// any doubleLinked eliminations (from ~5% of rccs where v2!=0)
-		boolean doubleLinked = false;
-		// are there any eliminations (either single or double linked)
-		boolean ok = false;
-		// presume that no hints will be found
-		boolean result = false;
+		Als a=null, b=null; // ALS a, ALS b
+		int zsZapped = 0; // bitset of zs (non-rcs) removed by single-link
+		boolean doubleLinked = false // any doubleLinked elims
+			  , anyElims = false // any elims (single or double linked)
+			  , result = false; // presume that no hints will be found
 		// foreach rcc in rccs
 		for ( int i=0; i<numRccs; ++i ) {
-			rcc = rccs[i];
-			// singleLinked AlsXzs need z-values
-			// ~90.75% of rccs are singleLinked
-			if ( (zs = alss[rcc.source].maybes
-				     & alss[rcc.related].maybes
-					 & ~rcc.cands) != 0
+			// singleLinked AlsXzs need zValues
+			// zValues = maybes common to both ALSs except the RCC value/s,
+			// ergo any "extra" common values.
+			// nb: ~90.75% of rccs are singleLinked
+			if ( ( zs = alss[(rcc=rccs[i]).source].maybes
+				      & alss[rcc.related].maybes
+					  & ~rcc.cands ) != 0
 			) {
-				a = alss[rcc.source];
-				b = alss[rcc.related];
+				// these ALSs are single linked, but any elims?
 				// foreach z-value (non-RC-value common to both ALSs)
-				for ( za=VALUESES[zs],zn=za.length,zi=0; zi<zn; ++zi ) {
+				for ( a=alss[rcc.source],b=alss[rcc.related],za=VALUESES[zs]
+						,zn=za.length,zi=0; zi<zn; ++zi )
 					// if any external zs see all zs in both ALSs.
 					// nb: vBuds excludes own zs, so a&b are all externals.
 					if ( ( (i0=(aI=a.vBuds[z=za[zi]]).a0 & (bI=b.vBuds[z]).a0)
@@ -185,79 +208,73 @@ public final class AlsXz extends AAlsHinter
 						 | (i2=aI.a2 & bI.a2) ) != 0
 					) {
 						// add the removable (red) potentials
-						// fastard: set ok directly here (not singleLinked)
-						ok |= reds.upsertAll(victims.set(i0,i1,i2), grid, z);
+						// fastard: set anyElims here (ie anySingleLinkedElims)
+						anyElims |= reds.upsertAll(victims.set(i0,i1,i2), grid, z);
 						// build a bitset of zs eliminated
 						zsZapped |= VSHFT[z];
 					}
-				}
 			}
 			// doubleLinked AlsXzs can still eliminate without z-values.
 			// just ~5.38% of rccs are doubleLinked,
-			//  and ~56.75 of them are ONLY doubleLinked
+			// and ~56.75 of them are ONLY doubleLinked
 			if ( rcc.v2 != 0 ) {
+				// these ALSs are double linked, so any (possibly extra) elims?
+				// nb: doubleLinked might be better called anyDoubleLinkedElims
+				//     but TLDR: Too Long Didnot Read.
 				a = alss[rcc.source];
 				b = alss[rcc.related];
-				// the hint needs a switch for AlsXzHintBig.html
-				doubleLinked = false;
-				// 1. elim xs outside ALS which see all xs in both ALSs.
-				// Should victims exclude xs in the other ALS? I think so.
-				if ( ( (i0=(aI=a.vBuds[rcc.v1]).a0 & (bI=b.vBuds[rcc.v1]).a0)
-					 | (i1=aI.a1 & bI.a1)
-					 | (i2=aI.a2 & bI.a2) ) != 0 ) {
-					doubleLinked = reds.upsertAll(victims.set(i0,i1,i2), grid, rcc.v1);
-				}
-				if ( ( (i0=(aI=a.vBuds[rcc.v2]).a0 & (bI=b.vBuds[rcc.v2]).a0)
-					 | (i1=aI.a1 & bI.a1)
-					 | (i2=aI.a2 & bI.a2) ) != 0 ) {
-					doubleLinked |= reds.upsertAll(victims.set(i0,i1,i2), grid, rcc.v2);
-				}
-				// 2. elim external zs that see all zs in each ALS,
+				// 1. elim external v1/v2 that see all v1/v2 in both ALSs.
+				doubleLinked = ( (i0=(aI=a.vBuds[z=rcc.v1]).a0 & (bI=b.vBuds[z]).a0)
+							   | (i1=aI.a1 & bI.a1)
+							   | (i2=aI.a2 & bI.a2) ) != 0
+						&& reds.upsertAll(victims.set(i0,i1,i2), grid, z);
+				// nb: I joined this line to above with ||, but it MUCH slower,
+				// so performance limits how complex one line of code can be.
+				doubleLinked |= ( (i0=(aI=a.vBuds[z=rcc.v2]).a0 & (bI=b.vBuds[z]).a0)
+								| (i1=aI.a1 & bI.a1)
+							    | (i2=aI.a2 & bI.a2) ) != 0
+						&& reds.upsertAll(victims.set(i0,i1,i2), grid, z);
+				// 2. elim unused-cands that see all v's in either ALS
 				//    including the other ALS (cannibalism).
-				for ( za=VALUESES[a.maybes & ~rcc.cands],zn=za.length,zi=0; zi<zn; ++zi ) {
-					if ( ((aI=a.vBuds[z=za[zi]]).a0 | aI.a1 | aI.a2) != 0 ) {
+				for ( za=VALUESES[a.maybes & ~rcc.cands],zn=za.length,zi=0; zi<zn; ++zi )
+					if ( ((aI=a.vBuds[z=za[zi]]).a0 | aI.a1 | aI.a2) != 0 )
 						doubleLinked |= reds.upsertAll(aI, grid, z);
-					}
-				}
-				for ( za=VALUESES[b.maybes & ~rcc.cands],zn=za.length,zi=0; zi<zn; ++zi ) {
-					if ( ((bI=b.vBuds[z=za[zi]]).a0 | bI.a1 | bI.a2) != 0 ) {
+				for ( za=VALUESES[b.maybes & ~rcc.cands],zn=za.length,zi=0; zi<zn; ++zi )
+					if ( ((bI=b.vBuds[z=za[zi]]).a0 | bI.a1 | bI.a2) != 0 )
 						doubleLinked |= reds.upsertAll(bI, grid, z);
-					}
-				}
-				// fastard: setting ok here happens MUCH less often than
+				// fastard: setting anyElims here happens MUCH less often than
 				// if ( singleLinked || doubleLinked ) would below.
-				ok |= doubleLinked;
+				anyElims |= doubleLinked;
 			}
-			if ( ok ) {
+			if ( anyElims ) {
+//				minGoodNumRccs = Math.min(minGoodNumRccs, numRccs);
+//				maxGoodNumRccs = Math.max(maxGoodNumRccs, numRccs);
 				// AlsXz FOUND!
+				// nb: the hint needs doubleLinked to show AlsXzHintBig.html
 				final AlsXzHint hint = new AlsXzHint(this, a, rcc.v1, rcc.v2, b
 						, zsZapped, reds.copyAndClear(), doubleLinked);
-				zsZapped = 0;
-				doubleLinked = false;
-				// is it really ok?
+				// if I validate: is this hint ok?
 				if ( VALIDATE_ALS ) {
-					if ( !validOffs(grid, hint.reds) ) {
-						ok = handle(hint, grid, Arrays.asList(a, b));
-					}
+					if ( !validOffs(grid, hint.reds) )
+						anyElims = handle(hint, grid, Arrays.asList(a, b));
 				}
-				if ( ok ) {
-					ok = false;
+				if ( anyElims ) {
 					result = true;
-					if ( accu.add(hint) ) {
+					if ( accu.add(hint) )
 						break;
-					}
 				}
+				anyElims = doubleLinked = false;
+				zsZapped = 0;
 			}
-		}
 		// GUI only (we don't get here if accu is a SingleHintAccumulator)
-		if ( result ) {
-			accu.sort(null); // put the highest scoring hint first
 		}
+		if ( result )
+			accu.sort(null); // put the highest scoring hint first
 		return result;
 	}
 
 	// Always report it, then throw or return true to add it
-	private boolean handle(AlsXzHint hint, Grid grid, Iterable<Als> alss) {
+	private boolean handle(final AlsXzHint hint, final Grid grid, final Iterable<Als> alss) {
 		reportRedPots(tech.name(), grid, alss);
 		if ( Run.type == Run.Type.GUI && Run.ASSERTS_ENABLED ) {
 			// techies: we're in the GUI in java -ea

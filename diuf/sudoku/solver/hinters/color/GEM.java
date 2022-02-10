@@ -62,51 +62,51 @@ import java.util.Set;
  * <p>
  * Table of color markers as per my implementation:
  * <pre>
- *          GREEN       BLUE        Explanation
- * colors   value       value       bidirectional links
- * ons      +           +           set when color is true
- * offs     -           -           eliminated by this color
- * * My markers are painted in the appropriate color to differentiate them, so
- *   if you're blue/green color-blind then change green to orange (or whatever)
- *   and republish, coz what works for you will probably work for everybody.
- *
- * NOTES:
- * 1. The Par mark is just the value in GREEN/BLUE, using existing colors.
- * 2. A Super/on mark is a grey value, then a "+" in GREEN/BLUE
- * 3. A Sub/off mark is a grey value, then a "-" in GREEN/BLUE or RED=both
- * So, parity1 is GREEN, parity2 is BLUE. + is On, - is Off. Simples!
- *
- * KRC 2021-03-20 08:25 When I try the full Graded Equivalence Marks spec it
- * goes to hell in a hand-basket. So either I'm too stoopid to understand the
- * spec (probable) or the spec is wrong (improbable). I'll hear argument either
- * way, but I'm pretty-pissed-off right now, so I declare the spec to be CRAP!
- * Be warned that USE_PROMOTIONS=true produces and handles MANY invalid hints
- * (see batch log-file when true). This s__t is unfun!
- *
- * KRC 2021-03-21 07:59 I think I found my mistake. I painted the last value of
- * a cell or the last place in region; now I only "On" them, and leave it up to
- * the later "sibling promoters" whether or not they get full color, which is
- * what the original spec says. I just didn't listen.
- *
- * KRC 2021-03-22 09:58 I've found and fixed the last of my many mistakes, so I
- * must eat my words: the specification is NOT crap, I'm just stupid!
- * 1. We need to mark ONLY valid offs, not just mark all offs and then clean-up
- *    afterwards, because the clean-up removes more than it should. So never
- *    mark an off that's colors/ons the opposite color.
- * 2. When we paint a cell-value we remove any off of the opposite color.
- * 3. Also I put Type 4's above Type 3's to get a Type 4 to test, but Type 3
- *    is simpler, so I reverted, so Type 4's are now non-existant, but can,
- *    I believe, exist, even when there's no type 3 in top1465.
- *
- * KRC 2021-03-24 08:45 I found "a few" extra hints from invalid ons which mean
- * the other color must be true.
- *
- * KRC 2021-03-31 11:40 I built Mark 5 last night, and have spent this morning
- * testing it, and tweaking a few things. I'll release it as Mark 6 tomorrow
- * and that's it for GEM from me; I know not how to improve it any further.
- *
- * KRC 2021-06-07 Got the s__ts with gemSolve so ripped-out consequentSingles.
- * </pre>
+          GREEN       BLUE        Explanation
+ colors   value       value       bidirectional links
+ ons      +           +           set when color is true
+ offs     -           -           eliminated by this color
+ My markers are painted in the appropriate color to differentiate them, so
+   if you're blue/green color-blind then change green to orange (or whatever)
+   and republish, coz what works for you will probably work for everybody.
+
+ NOTES:
+ 1. The Par mark is just the value in GREEN/BLUE, using existing colors.
+ 2. A Super/on mark is a grey value, then a "+" in GREEN/BLUE
+ 3. A Sub/off mark is a grey value, then a "-" in GREEN/BLUE or RED=both
+ So, parity1 is GREEN, parity2 is BLUE. + is On, - is Off. Simples!
+
+ KRC 2021-03-20 08:25 When I try the full Graded Equivalence Marks spec it
+ goes to hell in a hand-basket. So either I'm too stoopid to understand the
+ spec (probable) or the spec is wrong (improbable). I'll hear argument either
+ way, but I'm pretty-pissed-off right now, so I declare the spec to be CRAP!
+ Be warned that USE_PROMOTIONS=true produces and handles MANY invalid hints
+ (see batch log-file when true). This s__t is unfun!
+
+ KRC 2021-03-21 07:59 I think I found my mistake. I painted the last value of
+ a cell or the last place in region; now I only "On" them, and leave it up to
+ the later "sibling promoters" whether or not they get full color, which is
+ what the original spec says. I just didn't listen.
+
+ KRC 2021-03-22 09:58 I've found and fixed the last of my many mistakes, so I
+ must eat my words: the specification is NOT crap, I'm just stupid!
+ 1. We need to mark ONLY valid offs, not just mark all offs and then clean-up
+    afterwards, because the clean-up removes more than it should. So never
+    mark an off that's colors/ons the opposite color.
+ 2. When we paint a cell-value we remove any off of the opposite color.
+ 3. Also I put Type 4's above Type 3's to get a Type 4 to test, but Type 3
+    is simpler, so I reverted, so Type 4's are now non-existant, but can,
+    I believe, exist, even when there's no type 3 in top1465.
+
+ KRC 2021-03-24 08:45 I found "a few" extra hints from invalid ons which mean
+ the other color must be true.
+
+ KRC 2021-03-31 11:40 I built Mark 5 last night, and have spent this morning
+ testing it, and tweaking a few things. I'll release it as Mark 6 tomorrow
+ and that's it for GEM from me; I know not how to improve it any further.
+
+ KRC 2021-06-07 Got the s__ts with gemSolve so ripped-out consequentSingles.
+ </pre>
  *
  * @author Keith Corlett 2021-03-17
  */
@@ -1040,17 +1040,17 @@ implements IPrepare
 	 * promote all possible ons (Supers) to full colors (Pars).
 	 * <pre>
 	 * Promotions
-	 * 1. When all but one cell mates or siblings of a value are "off"ed then
-	 *    the survivor is an "on" of that color.
-	 *    a) The only un-off'ed value in a cell is an "on".
-	 *    b) The only un-off'ed place for a value in a region is an "on".
-	 *    Both of these rules are ALL in one color.
-	 * 2. An "on" seeing an opposite color sibling or cell mate gets painted.
-	 *    a) If an "on" sees opposite color (same value) then paint it.
-	 *    b) If an "on" has an opposite colored cell-mate (any value) paint it.
-	 * 3. If An "on" leaves any of it's effected boxs (2 lft/rght, 2 abv/blw)
-	 *    with ONE v, that's this color, then paint it.
-	 * </pre>
+	 *	 * 1. When all but one cell mates or siblings of a value are "off"ed then
+	 *	 *    the survivor is an "on" of that color.
+	 *	 *    a) The only un-off'ed value in a cell is an "on".
+	 *	 *    b) The only un-off'ed place for a value in a region is an "on".
+	 *	 *    Both of these rules are ALL in one color.
+	 *	 * 2. An "on" seeing an opposite color sibling or cell mate gets painted.
+	 *	 *    a) If an "on" sees opposite color (same value) then paint it.
+	 *	 *    b) If an "on" has an opposite colored cell-mate (any value) paint it.
+	 *	 * 3. If An "on" leaves any of it's effected boxs (2 lft/rght, 2 abv/blw)
+	 *	 *    with ONE v, that's this color, then paint it.
+	 *	 * </pre>
 	 * @return any
 	 */
 	private boolean paintPromotions() {
@@ -1217,7 +1217,7 @@ implements IPrepare
 				// (b) the paint method removes any existing On
 				// so that colors and ons remain disjunct sets, for simplicity.
 				assert Idx.disjunct(ons[c][v1], colors[c][v1])
-						: "unclean: "+Idx.newAnd(ons[c][v1], colors[c][v1]);
+						: "unclean: "+Idx.ofAnd(ons[c][v1], colors[c][v1]);
 				ons[c][v1].andNot(colors[c][v1]);
 			}
 		return any;

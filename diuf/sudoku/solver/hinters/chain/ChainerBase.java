@@ -7,11 +7,14 @@
 package diuf.sudoku.solver.hinters.chain;
 
 import diuf.sudoku.Ass;
-import diuf.sudoku.Ass.Cause;
 import static diuf.sudoku.Ass.Cause.CAUSE_FOR;
+import static diuf.sudoku.Ass.Cause.NakedSingle;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.BOX;
+import static diuf.sudoku.Grid.COL;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.ROW;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import diuf.sudoku.Run;
@@ -35,7 +38,7 @@ import java.util.Iterator;
 
 /**
  * ChainerBase is an abstract engine for searching a Grid for forcing chains.
- * It's extended by UnaryChainer and MultipleChainer to implement all Sudoku
+ * It's extended by UnaryChainer and ChainerMulti to implement all Sudoku
  * solving techniques that involve following a chain of implications persuent
  * to an assumption of the value of a Cell within the Grid, including all types
  * of Forcing Chains and Bidirectional Cycles.
@@ -78,7 +81,7 @@ import java.util.Iterator;
  * create ship-loads of barely-used garbage Ass's, which end-up bogging the GC.
  * <p>
  * KRC 2011-11-01 I've split the existing Chainer class into UnaryChainer and
- * MultipleChainer, leaving the shared methods in this class, which is now
+ * ChainerMulti, leaving the shared methods in this class, which is now
  * abstract, so is now ChainerBase. I'm doing this because the methods and even
  * fields of Unary and Multiple chaining are disjunct, especially at the upper
  * levels; they really only share the onToOff and OffToOn methods, and the few
@@ -212,16 +215,11 @@ abstract class ChainerBase extends AHinter
 		this.isYChain = isYChain;
 	}
 
-//not_used
-//	protected ChainerBase(Tech tech) {
-//		this(tech, false, null); // not imbedded
-//	}
-
 	/**
 	 * Clear out the hints cache.
 	 * <p>
 	 * This implementation is overridden by both UnaryChainer and
-	 * MultipleChainer to call me back, then cleanUp there own s__t.
+	 * ChainerMulti to call me back, then cleanUp there own s__t.
 	 */
 	@Override
 	public void cleanUp() {
@@ -230,7 +228,7 @@ abstract class ChainerBase extends AHinter
 
 	/**
 	 * Find any chaining hints in the given grid and add them to hints list.
-	 * This method is implemented by my subtypes: UnaryChainer, MultipleChainer
+	 * This method is implemented by my subtypes: UnaryChainer, ChainerMulti
 	 * to find the bloody hints already already. It's done this way to allow my
 	 * findHints method to cache hints.
 	 *
@@ -350,8 +348,7 @@ abstract class ChainerBase extends AHinter
 			// nb: "empty test" for dynamic mode where grid has naked singles
 			if ( (ovb=cell.maybes & ~sv) != 0 )
 				for ( int v : VALUESES[ovb] ) {
-					effects[ew] = new Ass(cell, v, false, anOn
-							, Cause.NakedSingle
+					effects[ew] = new Ass(cell, v, false, anOn, NakedSingle
 							, "the cell can contain only one value");
 					ew = (ew+1) % E_MASK;
 					assert ew != er;
@@ -362,24 +359,21 @@ abstract class ChainerBase extends AHinter
 		// and it is faster to "repeat" the "same" code three times. YMMV.
 		for ( Cell sib : cell.box.cells )
 			if ( (sib.maybes & sv)!=0 && sib!=cell ) {
-				effects[ew] = new Ass(sib, value, false, anOn
-					, Cause.CAUSE_FOR[Grid.BOX]
+				effects[ew] = new Ass(sib, value, false, anOn, CAUSE_FOR[BOX]
 					, "the value can occur only once in the box");
 				ew = (ew+1) % E_MASK;
 				assert ew != er;
 			}
 		for ( Cell sib : cell.row.cells )
 			if ( (sib.maybes & sv)!=0 && sib!=cell ) {
-				effects[ew] = new Ass(sib, value, false, anOn
-						, Cause.CAUSE_FOR[Grid.ROW]
+				effects[ew] = new Ass(sib, value, false, anOn, CAUSE_FOR[ROW]
 						, "the value can occur only once in the row");
 				ew = (ew+1) % E_MASK;
 				assert ew != er;
 			}
 		for ( Cell sib : cell.col.cells )
 			if ( (sib.maybes & sv)!=0 && sib!=cell ) {
-				effects[ew] = new Ass(sib, value, false, anOn
-						, Cause.CAUSE_FOR[Grid.COL]
+				effects[ew] = new Ass(sib, value, false, anOn, CAUSE_FOR[COL]
 						, "the value can occur only once in the col");
 				ew = (ew+1) % E_MASK;
 				assert ew != er;
@@ -392,9 +386,9 @@ abstract class ChainerBase extends AHinter
 	protected int ew, er;
 
 	/**
-	 * MultipleChainer overrides this method; UnaryChainer just retains this
+	 * ChainerMulti overrides this method; UnaryChainer just retains this
 	 * no-op, but never calls it. This method is called by offToOns only in
-	 * MultipleChainer when it isDynamic, to add any "hidden" causal parent
+	 * ChainerMulti when it isDynamic, to add any "hidden" causal parent
 	 * assumptions to the effect Ass's parent-list.
 	 * @param effect
 	 * @param cell
@@ -402,28 +396,28 @@ abstract class ChainerBase extends AHinter
 	 */
 	protected void addHiddenParentsOfCell(Ass effect, Cell cell
 		, IAssSet prntOffs) {
-		// NB: this implementation never invoked. MultipleChainer overrides me.
+		// NB: this implementation never invoked. ChainerMulti overrides me.
 	}
 
 	/**
-	 * MultipleChainer overrides this method; UnaryChainer just retains this
+	 * ChainerMulti overrides this method; UnaryChainer just retains this
 	 * no-op, but never calls it. This method is called by offToOns only in
-	 * MultipleChainer when it isDynamic, to add any "hidden" causal parent
+	 * ChainerMulti when it isDynamic, to add any "hidden" causal parent
 	 * assumptions to the effects parent-list. Apologies for parameters list
 	 * length, it just kept growing.
 	 *
-	 * @param effect
-	 * @param v value
-	 * @param region
-	 * @param currPlaces grid.region.ridx[value].bits
 	 * @param oci otherCellIndice
 	 * @param rti regionTypeIndex
+	 * @param v value
+	 * @param currPlaces grid.region.ridx[value].bits
+	 * @param region
 	 * @param rents A set of complete parent offs, must be an IAssSet for that
 	 *  weird getAss method, which I rely on, for speed, and comfort.
+	 * @param effect the on to which I add parent offs
 	 */
 	protected void addHiddenParentsOfRegion(int oci, int rti, int v
 			, int currPlaces, ARegion region, IAssSet rents, Ass effect) {
-		// NB: this implementation never invoked. MultipleChainer overrides me.
+		// NB: this implementation never invoked. ChainerMulti overrides me.
 	}
 
 	/**
@@ -452,13 +446,13 @@ abstract class ChainerBase extends AHinter
 		// cell then the other value gets "on"ed.
 		if ( isYChain && cell.size==2 ) {
 			final Ass on = effects[ew] = new Ass(cell, anOff.otherValue(), true
-					, anOff, Cause.NakedSingle, ONLYVALUE);
+					, anOff, NakedSingle, ONLYVALUE);
 			ew = (ew+1) & E_MASK;
 			assert ew != er;
 			result = true;
-			// add any erased parents of eOn to eOn (only in MultipleChainer)
+			// add any erased parents of eOn to eOn (only in ChainerMulti)
 			if ( isDynamic )
-				// call-back MultipleChainer coz it has the current grid
+				// call-back ChainerMulti coz it has the current grid
 				// and the initial grid, which I do not have access to.
 				addHiddenParentsOfCell(on, cell, rents);
 		}
@@ -483,9 +477,8 @@ abstract class ChainerBase extends AHinter
 				assert ew != er;
 				result = true;
 				// Dynamic: on.parents += Ass's erasing value in region.
-				if ( isDynamic ) // ie I am a MultipleChainer in dynamic mode
-					// call-back my MultipleChainer subclass because it has the
-					// current and initial grids, to which I have no access.
+				if ( isDynamic ) // ie I'm a ChainerMulti in dynamic mode
+					// call-back ChainerMulti coz it has initGrid; I don't.
 					addHiddenParentsOfRegion(oc.i, rti, v, p, r, rents, on);
 			}
 		} // next regionTypeIndex
@@ -504,7 +497,7 @@ abstract class ChainerBase extends AHinter
 	/**
 	 * returns target.parents.first.first...
 	 * <p>This method is package visible because it's used by AChainingHint
-	 * and MultipleChainer, instead of implementing it twice.
+	 * and ChainerMulti, instead of implementing it twice.
 	 * @param target the Ass to find the root-cause of
 	 * @return the root-cause Assumption which caused this Assumption
 	 */

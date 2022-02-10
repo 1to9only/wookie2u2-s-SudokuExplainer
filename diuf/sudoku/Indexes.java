@@ -192,15 +192,6 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 
 	// these methods set this Indexes outright, overwritting existing.
 
-	/**
-	 * Set this Indexes state to that of the 'src'; called copyFrom to avert
-	 * conflict with the existing set methods.
-	 */
-	void copyFrom(Indexes src) {
-		this.bits = src.bits;
-		this.size = src.size;
-	}
-
 	/** Clears (empties) this Indexes Set. */
 	public final void clear() {
 		bits = size = 0;
@@ -213,12 +204,12 @@ public final class Indexes implements Iterable<Integer>, Cloneable {
 	}
 
 	/**
-	 * Set this Indexes to the given bitset, looking-up the size.
+	 * Set this Indexes to the given bits, looking-up the size.
 	 *
-	 * @param bitset
+	 * @param bits
 	 */
-	public void set(int bitset) {
-		this.size = ISIZE[this.bits = bitset];
+	public void set(int bits) {
+		this.size = ISIZE[this.bits = bits];
 	}
 
 	/**

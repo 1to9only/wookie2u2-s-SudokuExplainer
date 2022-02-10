@@ -142,16 +142,6 @@ public class GEMHintBig extends AHint  {
 		return setPots.size() * 10;
 	}
 
-//not_used 2021-07-02
-//	@Override
-//	public Grid getGrid() {
-//		if ( setPots!=null && !setPots.isEmpty() )
-//			return setPots.firstKey().getGrid();
-//		if ( redPots!=null && !redPots.isEmpty() )
-//			return redPots.firstKey().getGrid();
-//		return null;
-//	}
-
 	// @return numElims = 10*numCellsSet + numMaybesEliminated.
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {

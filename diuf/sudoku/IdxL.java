@@ -8,6 +8,7 @@ package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.utils.IFilter;
+import diuf.sudoku.utils.IntFilter;
 
 /**
  * IdxL: A Lockable Idx extends Idx to add a lock() and unlock() method so that
@@ -164,6 +165,11 @@ public class IdxL extends Idx implements Cloneable {
 		checkLock();
 		return (IdxL)super.set(src);
 	}
+	// I'm package visible
+	void setOK(IdxL idx) {
+		// no checkLock!
+		super.set(idx);
+	}
 
 	@Override
 	public void setNullSafe(Idx src) {
@@ -308,8 +314,8 @@ public class IdxL extends Idx implements Cloneable {
 		checkLock();
 		return (IdxL)super.clear();
 	}
-	// go around checkLock in places where you KNOW it's good to change me
-	public IdxL clearOK() {
+	// I'm package visible
+	IdxL clearOK() {
 		return (IdxL)super.clear();
 	}
 
@@ -318,7 +324,7 @@ public class IdxL extends Idx implements Cloneable {
 		checkLock();
 		super.add(i);
 	}
-	// go around checkLock in places where you KNOW it's good to change me
+	// I'm package visible
 	void addOK(int i) {
 		super.add(i);
 	}
@@ -343,6 +349,20 @@ public class IdxL extends Idx implements Cloneable {
 		return (IdxL)super.addAll(cells);
 	}
 
+	/**
+	 * Add all of the given indices to this Idx.
+	 * <p>
+	 * addAll checkLock()'s FIRST, even if cells is null or empty.
+	 *
+	 * @param indices
+	 * @return this Idx, for method chaining.
+	 */
+	@Override
+	public IdxL addAll(int[] indices) {
+		checkLock();
+		return (IdxL)super.addAll(indices);
+	}
+
 	@Override
 	public IdxL read(final Cell[] cells, final IFilter<Cell> f) {
 		checkLock();
@@ -354,9 +374,15 @@ public class IdxL extends Idx implements Cloneable {
 		checkLock();
 		super.remove(i);
 	}
-	// go around checkLock in places where you KNOW it's good to change me
+	// I'm package visible
 	void removeOK(int i) {
 		super.remove(i);
+	}
+
+	@Override
+	public void remove(IntFilter f) {
+		checkLock();
+		super.remove(f);
 	}
 
 	@Override

@@ -18,12 +18,10 @@ import diuf.sudoku.solver.hinters.nkdset.*;
 import diuf.sudoku.utils.*;
 
 import java.io.*;
-import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javafx.scene.layout.Region;
 import javax.swing.*;
 import static diuf.sudoku.Grid.SQRT;
 //import sun.security.action.GetPropertyAction;

@@ -20,8 +20,8 @@ import java.util.List;
  * different values in the same "slot" (the intersection of a row-or-col and a
  * box in the grid). I take the hints from the base Locking class, and callback
  * SiameseLocking at the end of each region, to give him a chance to merge
- * "siamese" hints into a single hint, and/or upgrade the bastards to HiddenSet
- * hints, whichever produces more eliminations.
+ * "siamese" hints into a single hint, and/or upgrade them to HiddenSet hints,
+ * whichever produces more eliminations or crying bastards (English EXCLUDED).
  * <p>
  * I'm only a thin wrapper around an ArrayList of LockingHint. All the tricky
  * stuff is delegated back to the SiameseLocking which injects me into Locking.
@@ -85,7 +85,7 @@ public final class SiameseLockingAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void sort(Comparator<AHint> comparator) {
+	public void sort(final Comparator<AHint> comparator) {
 		throw new UnsupportedOperationException("Not supported.");
 	}
 

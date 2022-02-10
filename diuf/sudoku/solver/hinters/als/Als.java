@@ -35,7 +35,7 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
-import diuf.sudoku.IdxL;
+import diuf.sudoku.IdxI;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import java.util.ArrayList;
@@ -63,6 +63,9 @@ import java.util.List;
  */
 public class Als {
 
+//public static long cfTook;
+//private static long start;
+
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ static stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	public static ArrayList<Als> list(Als[] alss) {
@@ -83,7 +86,9 @@ public class Als {
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ instance stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	/** The indices of the cells in this ALS. */
-	public final IdxL idx;
+	public final IdxI idx;
+	/** this.idx exploded, which is always nice when you're purloining it. */
+	public final int i0,i1,i2;
 
 	/** A bitset of the combined potential values of the cells in this ALS.
 	 * Invariant: VSIZE[maybes] == idx.size() + 1; // or it's NOT an ALS. */
@@ -123,8 +128,9 @@ public class Als {
 	 * @param maybes
 	 * @param region
 	 */
-	public Als(IdxL idx, int maybes, ARegion region) {
-		this.idx = idx.lock();
+	public Als(final IdxI idx, final int maybes, final ARegion region) {
+		this.idx = idx;
+		i0=idx.a0; i1=idx.a1; i2=idx.a2;
 		this.maybes = maybes;
 		this.region = region;
 		this.initialised = true;
@@ -140,17 +146,51 @@ public class Als {
 	 * @return this Als for method chaining
 	 */
 	public Als computeFields(final Grid grid, final int index) {
-		final Idx[] idxs = grid.idxs; // indices of cells that maybe 1..9
-		this.buds = new Idx();
-		for ( int v : VALUESES[maybes] ) {
-			vs[v] = Idx.newAnd(idx, idxs[v]);
-			vBuds[v] = vs[v].commonBuddies(new Idx()).andNot(idx).and(idxs[v]);
-			vAll[v] = Idx.newOr(vs[v], vBuds[v]);
-			buds.or(vBuds[v]);
-		}
-		this.index = index;
+//		start = System.nanoTime();
+//		if ( false ) {
+//			// UNFASTARDISED
+//			final Idx[] idxs = grid.idxs; // indices of cells that maybe 1..9
+//			this.buds = new Idx();
+//			for ( int v : VALUESES[maybes] ) {
+//				vs[v] = Idx.ofAnd(idx, idxs[v]);
+//				vBuds[v] = vs[v].commonBuddies(new Idx()).andNot(idx).and(idxs[v]);
+//				vAll[v] = Idx.ofOr(vs[v], vBuds[v]);
+//				buds.or(vBuds[v]);
+//			}
+//			this.index = index;
+//		} else {
+			// FASTARDISED: Idx ops done inline, for speed.
+			Idx iv, vv;
+			int b0=0, b1=0, b2=0;
+			final Idx[] idxs = grid.idxs; // indices of cells that maybe 1..9
+			for ( int v : VALUESES[maybes] ) {
+				vv = vs[v] = new IdxI(i0&(iv=idxs[v]).a0, i1&iv.a1, i2&iv.a2);
+// commonBuddies is slow, which really means forEach is slow. BFFIIK.
+// So I went mental and wrote forBuds, which is just as slow, but fancier!
+// PRE: 9,200,267,800 7908 1,163,412 2013 4,570,426 ALS_XZ
+// PST: 9,216,938,200 7908 1,165,520 2013 4,578,707 ALS_XZ
+// AGN: 9,296,150,600 7908 1,175,537 2013 4,618,057 ALS_XZ
+// So yeah, not faster, just fancier.
+//				vb = vBuds[v] = vv.commonBuddies(new Idx());
+				vv.forBuds( // visit b = BUDDIES[indice]
+					  (b) -> {vb0=b.a0; vb1=b.a1; vb2=b.a2;} // first
+					, (b) -> {vb0&=b.a0; vb1&=b.a1; vb2&=b.a2;} // subsequent
+				);
+				vb0 &= ~i0 & iv.a0;
+				vb1 &= ~i1 & iv.a1;
+				vb2 &= ~i2 & iv.a2;
+				vBuds[v] = new IdxI(vb0,vb1,vb2);
+				vAll[v] = new IdxI(vv.a0|vb0, vv.a1|vb1, vv.a2|vb2);
+				b0|=vb0; b1|=vb1; b2|=vb2;
+			}
+			this.buds = new IdxI(b0,b1,b2);
+			this.index = index;
+//		}
+//		cfTook += System.nanoTime() - start;
 		return this;
 	}
+	// fields can be referenced from a lambda expression
+	private int vb0, vb1, vb2;
 
 	/**
 	 * Two ALSs are equal if regions and idxs are equal.

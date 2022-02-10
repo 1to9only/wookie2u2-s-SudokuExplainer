@@ -1,7 +1,8 @@
 NOTE: ALS (Almost Locked Sets) is based on HoDoKu code by Bernhard Hobiger.
 
-SueDeCoq is from MiscellaneousSolver. It's a two-or-three digit pattern
-reminiscent of ALS's, so it sort-of-fits here.
+DeathBlossom is a blow-in from sudopedia.com, but the rest is all basically
+hobiwans work, except I think I should claim AlsChain because it has changed
+so extensively, in the bones, not just aesthetically.
 
 Here is hobiwan's licence statement:
 

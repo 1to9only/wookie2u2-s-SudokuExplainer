@@ -129,7 +129,7 @@ public final class Values implements Iterable<Integer> {
 	 * values new-school, just to reduce collisions. Big Sigh.
 	 * <p>
 	 * <b>contents:</b><pre>{@code
-	 *   VSS[  0] = {} // an empty array
+	 *   VSS[  0] = {} // an empty int[]
 	 *   VSS[  1] = {1}
 	 *   VSS[  2] = {2}
 	 *   VSS[  3] = {2,1}
@@ -255,39 +255,6 @@ public final class Values implements Iterable<Integer> {
 	public static Values newOr(Values a, Values b) {
 		return new Values(a.bits|b.bits, false);
 	}
-
-//not_used 2021-12-01
-//	/**
-//	 * Return a new array of the values in bits: a Values.bits.
-//	 * @param bits a bitset of values
-//	 * @return a new array of the values in bits.
-//	 */
-//	public static int[] arrayOf(int bits) {
-//		final int[] result = new int[VSIZE[bits]];
-//		int cnt = 0;
-//		for ( int v : VALUESES[bits] )
-//			result[cnt++] = v;
-//		// null terminate the array (if length > size)
-//		if ( cnt < result.length )
-//			result[cnt] = 0;
-//		return result;
-//	}
-
-//not_used 2021-12-01
-//	/**
-//	 * Return a new array of plain (unshifted) values of these 'n' 'cands'.
-//	 *
-//	 * @param cands an array of bitsets
-//	 * @param n number of cands in cands
-//	 * @return a new array of {@code VFIRST[cands[i]]} of each
-//	 */
-//	public static int[] toValues(final int[] cands, final int n) {
-//		int[] result = new int[n];
-//		for ( int i=0; i<n; ++i ) {
-//			result[i] = VFIRST[cands[i]];
-//		}
-//		return result;
-//	}
 
 	/**
 	 * Return a bitset of candidates in 's'.
@@ -833,15 +800,6 @@ public final class Values implements Iterable<Integer> {
 		return sb;
 	}
 
-//not_used
-//	/** Appends the string representation of this Values to the
-//	 * given StringBuilder, in "plain format". EG: "1389"
-//	 * @param sb to append to.
-//	 * @return the given 'sb' so that you can chain method calls. */
-//	public StringBuilder appendTo(StringBuilder sb) {
-//		return Values.appendTo(sb, this.bits);
-//	}
-
 	/**
 	 * Returns a String representation of the given bits.
 	 * @param bits Values.bits (commonly called maybes, bitset, or just bits).
@@ -851,19 +809,6 @@ public final class Values implements Iterable<Integer> {
 		SB.setLength(0);
 		return Values.appendTo(SB, bits).toString();
 	}
-
-//not_used
-//	/**
-//	 * Returns a String representation of the given bits, for debugging.
-//	 * @param bits Values.bits (commonly called maybes, bitset, or just bits).
-//	 * @return 7 => 3:123
-//	 */
-//	public static String toFullString(int bits) {
-//		SB.setLength(0);
-//		SB.append(VSIZE[bits]).append(":");
-//		Values.appendTo(SB, bits);
-//		return SB.toString();
-//	}
 
 	/**
 	 * Returns a String representation of these Values.

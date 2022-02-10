@@ -18,7 +18,6 @@ import diuf.sudoku.Tech;
 import diuf.sudoku.solver.UnsolvableException;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
 import java.util.Arrays;
 
 /**
@@ -153,7 +152,7 @@ public class BasicFisherman extends AHinter {
 				, covers        = grid.cols;
 		try {
 			// for possibleBases/covers in rows/cols, cols/rows
-			for(;;) {
+			for(;;) { // bases/covers "loop"
 				// foreach fish candidate value
 				for ( v=1; v<VALUE_CEILING; ++v ) {
 					// bases := possibleBases with 2..degree places for v

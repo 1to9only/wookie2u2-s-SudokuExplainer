@@ -49,10 +49,4 @@ public final class Ask {
 		}
 	}
 
-//not_used
-//	public static String forString(String question, String defaultText) {
-//		question = question.replaceAll("\\n", NL);
-//		return JOptionPane.showInputDialog(question, defaultText);
-//	}
-
 }

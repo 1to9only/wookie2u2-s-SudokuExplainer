@@ -81,7 +81,7 @@ public final class SingleHintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void sort(Comparator<AHint> comparator) {
+	public void sort(final Comparator<AHint> comparator) {
 		// a no-op
 	}
 

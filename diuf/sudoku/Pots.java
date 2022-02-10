@@ -31,7 +31,7 @@ import static diuf.sudoku.IntArrays.iaLease;
  * Values. I'm just called "Pots" for brevity.
  * <p>
  * Extending {@code MyLinkedHashMap<Cell, Values>} allows us to add a few
- * handy operations to what is otherwise a standard <tt>java.utils.Map</tt>.
+ * handy operations to what is otherwise a standard {@code java.utils.Map}.
  *
  * @author Keith Corlett 2013
  */
@@ -415,22 +415,6 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 		assert false : "use putAll2 instead, coz it's SAFE!"; // techies only
 		putAll2(map);
 	}
-
-//not_used
-//	/**
-//	 * retainAll removes any not-keepers (which is a bitset) from the values of
-//	 * each cell in this Pots, and if that leaves that Values empty then we
-//	 * also remove the Cell.
-//	 *
-//	 * @param keepers
-//	 * @return
-//	 */
-//	public Pots retainAll(int keepers) {
-//		for ( java.util.Map.Entry<Cell,Values> e : entrySet() )
-//			if ( e.getValue().retainAll(keepers) == 0 )
-//				remove(e.getKey());
-//		return this;
-//	}
 
 	/**
 	 * Put the given Cell and Values if the Values is NOT null-or-empty.
@@ -828,6 +812,7 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 		final int n = size();
 		final IALease lease = iaLease(n);
 		final int[] array = lease.array;
+		assert array != null; // avert IDE warning unread
 		int cnt = 0;
 		for ( Cell c : keySet() )
 			array[cnt++] = c.i;
@@ -887,38 +872,11 @@ public final class Pots extends MyLinkedHashMap<Cell, Integer> {
 		return hashCode() == o.hashCode();
 	}
 
-//not_used: currently, but retain in case Skyscraper goes bad again.
-//	/**
-//	 * Only called on redPots to remove eliminations that are not in the grid.
-//	 *
-//	 * @return !isEmpty() ie any remaining
-//	 */
-//	public boolean clean() {
-//		Cell c;
-//		Integer newValues;
-//		// use an Iterator to delete non-existant elims as we go
-//		java.util.Map.Entry<Cell,Integer> e;
-//		for ( Iterator<java.util.Map.Entry<Cell,Integer>> it=entrySet().iterator(); it.hasNext(); )
-//			if ( ((newValues=(e=it.next()).getValue() & (c=e.getKey()).maybes)) == 0 ) {
-//				new Exception().printStackTrace(System.out);
-//				it.remove();
-//			} else
-//				put(c, newValues);
-//		return !isEmpty(); // ie any remaining
-//	}
-
 	public int firstCellIndice() {
 		for ( Cell c : keySet() )
 			return c.i;
 		return 0; // something other than -1
 	}
-
-//not_used
-//	public void toIdx(Idx result) {
-//		result.clear();
-//		for ( Cell c : keySet() )
-//			result.add(c.i);
-//	}
 
 	/**
 	 * Translate this Pots into an Idx per value.

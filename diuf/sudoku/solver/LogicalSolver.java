@@ -1592,7 +1592,7 @@ public final class LogicalSolver {
 			, f(Tech.NakedQuad)
 			, g(Tech.HiddenQuad)
 			, h(Tech.BigWings, GREEN_ORANGE) // S?T?U?V?WXYZ_Wing
-			, i(Tech.URT, GREEN_BLUE)
+			, i(Tech.UniqueRectangle, GREEN_BLUE)
 			;
 			// the Tech-to-run
 			private final Tech tech;
@@ -1706,8 +1706,6 @@ public final class LogicalSolver {
 			final HintsAccumulator hacu = new HintsAccumulator(hints);
 			if ( ls.nakedSingle.findHints(grid, hacu)
 			   | ls.hiddenSingle.findHints(grid, hacu) ) {
-				// nb: this is the only place we parse set-cell-values
-				// into a Pots, so it's implemented in-line
 				final Pots result = new Pots();
 				hints.forEach((h)->result.put(h.cell, VSHFT[h.value]));
 				return result;

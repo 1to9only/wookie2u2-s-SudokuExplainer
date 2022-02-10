@@ -221,11 +221,6 @@ public class ComplexFishHint extends AHint  {
 		  .toString();
 	}
 
-//not_used: 2021-11-28
-//	String squeeze() {
-//		return toStringImpl()+" ("+reds+")"; // NO CACHING!
-//	}
-
 	@Override
 	protected String toHtmlImpl() {
 		// Finned/Sashimi: hijack debugMessage = names of finned regions

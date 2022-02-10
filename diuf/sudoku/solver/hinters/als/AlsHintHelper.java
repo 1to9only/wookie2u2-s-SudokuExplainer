@@ -24,15 +24,13 @@ import java.util.Collection;
 class AlsHintHelper {
 
 	static void link(final Idx src, final Idx dst, final int v, final Collection<Link> result) {
-		if ( src!=null && dst!=null ) { // Never null. NSN.
+		if ( src!=null && dst!=null ) // Never null. NSN.
 			src.forEach((s)->dst.forEach((d)->result.add(new Link(s, v, d, v))));
-		}
 	}
 
 	static void link(final Idx src, final int d, final int v, final Collection<Link> result) {
-		if ( src != null ) { // Never null. NSN.
+		if ( src != null ) // Never null. NSN.
 			src.forEach((s)->result.add(new Link(s, v, d, v)));
-		}
 	}
 
 	private AlsHintHelper() { } // NEVER used

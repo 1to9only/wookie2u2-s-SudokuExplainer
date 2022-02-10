@@ -6,8 +6,7 @@
  */
 package diuf.sudoku;
 
-import static diuf.sudoku.Grid.F;
-import static diuf.sudoku.Grid.T;
+import static diuf.sudoku.Constants.*;
 import diuf.sudoku.solver.LogicalAnalyser;
 import diuf.sudoku.solver.checks.*;
 import diuf.sudoku.solver.hinters.IHinter;
@@ -36,27 +35,25 @@ import java.util.List;
 
 /**
  * A Tech(nique) is a Sudoku solving technique, which is a light-weight place
- * holder for a possibly heavy implementation of this technique, ergo a hinter.
- * In theory, a hinter implements a technique, and conversely a technique is
- * implemented by a hinter, but it's not always that simple in practice.
+ * holder (a prototype) for a possibly heavy implementation of this technique,
+ * ergo a hinter. Tech is a Set of Sudoku solving techniques, as an Enum.
  * <p>
- * So Tech is a Set of Sudoku solving techniques, implemented as an Enum. Most
- * hinters implement a single Sudoku solving technique as described previously.
- * I call these simple hinters, and the rest complex. Some hinters (such as
- * MultipleChainer) implement several solving techniques, because implementing
- * them separately is harder and/or slower. Some techniques have multiple
- * implementations, but whenever this occurs I split the Tech into multiple
- * Tech's (for example BigWings vs S/T/U/V/WXYZ_Wing) allowing the user to
- * choose between implementations, not just techniques.
+ * Theoretically, each hinter-instance implements one Tech, and conversely each
+ * Tech is implemented by one hinter-instance, but it's not always that simple
+ * in reality. Most hinters implement a single Sudoku solving technique. I call
+ * these simple, and the remainder complex. Some hinters (eg ChainerMulti)
+ * implement several Techs, coz implementing them separately is harder/slower.
+ * Some Techs have multiple implementations, but when this occurs I split the
+ * Tech into one per implementation (eg BigWings vs S/T/U/V/WXYZ_Wing) so the
+ * user can choose between implementations, not just techniques.
  * <p>
  * It's Tech coz Technique is too long, and has three F's and a silent Q. All
  * the smart people hate Q's, and there smelly U-ism. It's a little-known fact
  * that most people are unaware of there innate Queue-Biff-Phobia. Time travel
- * may also cause Biff-Phobia, but alternate facts still remain stubbornly
- * non-conjugative, such that any and all attempts to construct a reality from
- * alternate facts is likely to end in selfextinction. Some folks suffer quince
- * allergies, other folks are just allergic to bloody quinces. Virjuice anyone?
- * Say no more. Basically, I just like short names (with long explanations).
+ * may also cause Biff-Phobia, but alternate facts are non-conjugative, such
+ * that any reality constructed from alternate facts ends in self-extinction.
+ * Some folks suffer quince allergies. Other folks are just allergic to bloody
+ * quinces. Say no more. Basically, I just like short names. Sigh.
  * <p>
  * LogicalSolver constructor has two 'want' methods. The first is "normal": it
  * takes an IHinter (an instance of a class implementing IHinter to actually
@@ -87,10 +84,9 @@ import java.util.List;
  * So this is all pretty bloody confusing to start with, but it sort-of-works,
  * so please don't "fix" it until you understand it, ie when you don't want-to.
  * Yes, it's a cluster____, but it's an organic cluster____ that's been allowed
- * to evolve by adapting to complications as they arise. Da problem with design
- * is you decide BEFORE you see da consequences, hence all "real" solutions are
- * evolutions. You can't design "real" solutions, they must evolve through
- * experience.
+ * to adapt to complications as they arise. The problem with design is deciding
+ * BEFORE you see the consequences, hence all real solutions are evolutions.
+ * You can't design a real solution, just let it evolve. Patience.
  * <pre>
  * Design -&gt; Implement -&gt; Design -&gt; Implement, in an endless loop.
  * </pre>
@@ -144,7 +140,7 @@ public enum Tech {
 	, DirectNakedPair	(2.0, 2, NakedSetDirect.class)
 	, DirectHiddenPair	(2.1, 2, HiddenSetDirect.class)
 	, DirectNakedTriple	(2.2, 3, NakedSetDirect.class)
-	, DirectHiddenTriple	(2.3, 3, HiddenSetDirect.class)
+	, DirectHiddenTriple(2.3, 3, HiddenSetDirect.class)
 	, Locking			(2.4, 1, Locking.class, T, "OR Locking Basic", F)
 	, LockingBasic		(2.5, 1, LockingGen.class, F, "OR Locking", F)
 
@@ -174,7 +170,7 @@ public enum Tech {
 	, XColoring			(4.6, 0, XColoring.class, T, "KEEP SimpleColoring+ hits when GEM misses (by design)", F)
 	, Medusa3D			(4.7, 0, Medusa3D.class, F,  "DROP SimpleColoring++ counter-productive with GEM", F)
 	, GEM				(4.8, 0, GEM.class, T,       "KEEP SimpleColoring+++ Graded Equivalence Marks", F)
-	, URT				(4.9, 0, UniqueRectangle.class, T, "Unique RecTangles and loops", F)
+	, UniqueRectangle	(4.9, 0, URT.class, T, "URT is Unique RecTangles and loops", F)
 
 	// Airotic
 	// BigWings is S+T+U+V+WXYZ_Wing: slower, but faster over-all with ALS_*.
@@ -185,8 +181,9 @@ public enum Tech {
 	, UVWXYZ_Wing		(5.2, 5, BigWing.class, F, "or Big Wings", F) // 5 Cell ALS + bivalue
 	, TUVWXYZ_Wing		(5.3, 6, BigWing.class, F, "or Big Wings", F) // 6 Cell ALS + bivalue
 	, STUVWXYZ_Wing		(5.4, 7, BigWing.class, F, "or Big Wings", F) // 7 Cell ALS + bivalue // SLOW'ish
-	, NakedPent			(5.6, 5, NakedSet.class, F,  "DROP: degenerate", F)
-	, HiddenPent			(5.7, 5, HiddenSet.class, F, "DROP: degenerate", F)
+// NakedPent and HiddenPent are degenerate: all hints are combinations of simpler techniques, and they don't fit on the TechSelectDialog, so they're history.
+//	, NakedPent			(5.6, 5, NakedSet.class, F,  "DROP: degenerate", F)
+//	, HiddenPent		(5.7, 5, HiddenSet.class, F, "DROP: degenerate", F)
 
 	// Fishalsic
 	, FinnedSwampfish	(6.0, 2, ComplexFisherman.class, T, "Now with Sashimi!", F)
@@ -243,7 +240,7 @@ public enum Tech {
 	// NB: constructor does name().startsWith("Nested")
 	// dynamic chaining using a UnaryChainer
 	, NestedUnary		(20.0, 2, ChainerMulti.class, T,T,F,T)  // SLOW catch-all
-	// dynamic chaining using a MultipleChainer
+	// dynamic chaining using a ChainerMulti
 	, NestedMultiple		(25.0, 3, ChainerMulti.class, T,T,F,F) // SLOW
 	// dynamic chaining using a DynamicChainer
 	, NestedDynamic		(30.0, 4, ChainerMulti.class, T,T,F,F) // SLOW

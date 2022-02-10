@@ -24,6 +24,7 @@ import static diuf.sudoku.gui.RecentFiles.getRecentFiles;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
+import static diuf.sudoku.solver.AHint.*;
 import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.LogicalSolver;
 import diuf.sudoku.solver.LogicalSolverFactory;
@@ -54,7 +55,6 @@ import java.util.List;
 import java.util.regex.Pattern;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
 import java.util.Set;
 
 /**
@@ -279,22 +279,20 @@ public final class SudokuExplainer implements Closeable {
 
 	@SuppressWarnings("fallthrough")
 	private void addFilteredHint(AHint hint) {
-		if ( hintsFiltered == null ) // BFIIK, but the list appears to be null
-			hintsFiltered = new ArrayList<>(128);
+		if ( hintsFiltered == null ) // BFIIK, but it is null
+			hintsFiltered = new ArrayList<>(hintsAll.size());
 		hintsFiltered.add(hint);
 		switch( hint.type ) {
-		case AHint.INDIRECT:
+		case INDIRECT:
 			filteredPots.upsertAll(hint.reds);
 			// fallthrough: some INDIRECT hints are actually DIRECT also!
-			// fallthrough: some INDIRECT hints are actually DIRECT also!
-			// fallthrough: some INDIRECT hints are actually DIRECT also!
-		case AHint.DIRECT:
+		case DIRECT:
 			if ( hint.cell != null )
 				filteredCells.add(hint.cell);
 			break;
-		case AHint.WARNING:
+		case WARNING:
 			break; // no further action required
-		case AHint.MULTI:
+		case MULTI:
 			presetPots.upsertAll(hint.getResults());
 			break;
 		}
@@ -744,7 +742,7 @@ public final class SudokuExplainer implements Closeable {
 	void setGrid(Grid grid) {
 		grid.rebuildMaybes();
 		grid.rebuildAllRegionsEmptyCellCounts();
-		grid.rebuildAllRegionsIndexsOfAllValues(true); // does rebuildAllRegionsContainsValues
+		grid.rebuildAllRegionsIndexsOfAllValues(true); // does rebuildAllRegionsSetCands
 		grid.rebuildAllRegionsIdxsOfAllValues(); // does rebuildIdxs
 		gridPanel.setGrid(this.grid = grid);
 		gridPanel.clearSelection(true);
@@ -1101,17 +1099,13 @@ public final class SudokuExplainer implements Closeable {
 
 	/** Load the next puzzle in a .mt (MagicTour, ie multi-puzzle) file. */
 	final SourceID loadNextPuzzle() {
-		SourceID gs = grid.source;
-		if ( gs==null || gs.file==null )
-			return null;
-		return loadFile(gs.file, gs.lineNumber+1);
+		final SourceID gs = grid.source;
+		return gs!=null && gs.file!=null ? loadFile(gs.file, gs.lineNumber+1) : null;
 	}
 
 	/** Load the given SourceID. */
 	final SourceID loadFile(SourceID id) {
-		if ( id == null ) // first time
-			return null;
-		return loadFile(id.file, id.lineNumber);
+		return id!=null ? loadFile(id.file, id.lineNumber) : null;
 	}
 
 	/**
@@ -1404,35 +1398,6 @@ public final class SudokuExplainer implements Closeable {
 		} catch (Throwable t) {
 			StdErr.exit("failed to set Log.out", t);
 		}
-
-		// I do not have an internet connection because I cannot afford one.
-		// The existance of an internet connection is presumed by UIManager,
-		// so that if an internet connection does not exist it blocks setting
-		// the LAF for upto about 5 minutes, presumably waiting for an internet
-		// connection to become available, and then it eventually gives-up
-		// waiting for an internet connection to magically become available and
-		// works perfectly; which would be fine except that in the meantime
-		// all my custom dialogs (et al) have allready been layed-out, and my
-		// preferred look and feel has a larger bolder font, which, being
-		// "vision impaired", I prefer. But now I can read everything it does
-		// not all fit on the form, because UIManager is a MORON, who I accuse
-		// of basically being spyware, until proven otherwise.
-		{
-			String laf = THE_SETTINGS.getLookAndFeelClassName();
-			if ( !"#NONE#".equals(laf) ) {
-				try {
-					if ( laf == null ) {
-						laf = UIManager.getSystemLookAndFeelClassName();
-					}
-					UIManager.setLookAndFeel(laf);
-				} catch(Exception ex) {
-					System.out.flush();
-					ex.printStackTrace(System.out);
-					System.out.flush();
-				}
-			}
-		}
-
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {

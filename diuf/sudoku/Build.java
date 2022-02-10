@@ -169,10 +169,10 @@ package diuf.sudoku;
  * 6.30.028 2019-11-01 07:49:28 Logging supressed while generating, and also
  *			sychronised to make the background generate thread wait for the
  *			foreground analyse to complete. Building now for a backup when
- *			I subtype Chainer into UnaryChainer and MultipleChainer.
+ *			I subtype Chainer into UnaryChainer and ChainerMulti.
  *			1465 in 135,020,038,901	(02:15) @ 92,163,849 -REDO with A10E.
  * 6.30.029 2019-11-02 08:50:29 Split Chainer into ChainerBase, UnaryChainer,
- *			and MultipleChainer. All test cases passed first time. WTWTF?
+ *			and ChainerMulti. All test cases passed first time. WTWTF?
  *			1465 in 136,386,363,363	(02:16) @ 93,096,493 -REDO with A10E.
  * 6.30.030 2019-11-11 15:01:30 I just thought I should build and release.
  *			1465 in 133,050,598,498	(02:13) @ 90,819,521 -REDO with A10E.
@@ -689,7 +689,7 @@ package diuf.sudoku;
  * 6.30.179 2021-10-27 17:56:59 AlsChain rccCache has it's own IAS (a cache of
  *			int[]'s) instead of creating them on the fly, so I got ALS_Chain_7
  *			into my three minute window, to keep the GUI "pretty snappy".
- * 6.30.180 2021-10-28 10:10:10 AlsChain has ANY_RELATED_RCCS and alsCeiling,
+ * 6.30.180 2021-10-28 10:10:10 AlsChain has ALS_HAS_ANY_RELATED_RCCS and alsCeiling,
  *			so it's a tad faster. The hunter, is still endlessly seeking.
  * 6.30.181 2021-10-30 14:52:01 AlsChain DUD_BRANCH pruned when branch known to
  *			not hint in [alsIndex][prevCand], cutting exponential work. I'm a
@@ -750,6 +750,15 @@ package diuf.sudoku;
  * 6.30.205 2022-01-06 16:36:25 ChainerUnary seeks only XY-Cycles/Chains.
  *			Reverted MyLinkedHashMap.clear to use linked list on small maps.
  *			IDKFA is now the correct DynamicPlus+ only (not high DynamicChain).
+ * 6.30.206 2022-01-13 15:25:26 tried to upgrade to Java 1.7 but VM is about
+ *			30% slower than 1.8 for this rather odd application, so I decided
+ *			against the upgrade. You can run it in later VM's but sometime
+ *			between 1.8.0_271 and 17.0.1 performance went to pot. Also reduced
+ *			AlsFinderPlain.DEGREE_CEILING from 8 to 7 to skip alss with 7 cells
+ *			(STUVWXYZ_Wing's) because they take more time than they are worth.
+ * 6.30.207 2022-01-19 11:29:27 Reduced ALS_CEILING to 6 coz big ALS don't earn
+ *			there salts. EmptyRectangle is also a bit faster. I build to backup
+ *			pre split ridx's into parallel int[] places (.bits), spots (.size).
  * </pre>
  *
  * @author Keith Corlett 2013 - 2021
@@ -767,10 +776,10 @@ public final class Build {
 	 * BUILD increments every other time.
 	 * </pre>
 	 */
-	public static final String VERSION = "6.30.205";
+	public static final String VERSION = "6.30.207";
 
 	/** The date and time I BUILT this build. */
-	public static final String BUILT = "2022-01-06 16:36:25";
+	public static final String BUILT = "2022-01-19 11:29:27";
 
 	/** Application Title and Version (for presentation). */
 	public static final String ATV = TITLE + " " + VERSION;

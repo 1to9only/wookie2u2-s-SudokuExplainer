@@ -20,6 +20,7 @@ import java.util.Map;
 
 /**
  * A Helper class that loads and formats HTML.
+ *
  * @author Keith Corlett
  */
 public final class Html {

@@ -40,7 +40,6 @@ public final class Settings implements Cloneable {
 	 */
 	private static final String DEFAULT_SETTINGS = // @check updated?
 // settings
-"lookAndFeelClassName=#NONE#\n" +
 "x=0\n" +
 "y=0\n" +
 "width=1024\n" +
@@ -88,15 +87,13 @@ Tech.Medusa3D.name()+"=false\n" +
 Tech.GEM.name()+"=true\n" +
 Tech.NakedQuad.name()+"=true\n" +
 Tech.HiddenQuad.name()+"=true\n" +
-Tech.NakedPent.name()+"=false\n" +
-Tech.HiddenPent.name()+"=false\n" +
 Tech.BigWings.name()+"=true\n" +
 Tech.WXYZ_Wing.name()+"=false\n" +
 Tech.VWXYZ_Wing.name()+"=false\n" +
 Tech.UVWXYZ_Wing.name()+"=false\n" +
 Tech.TUVWXYZ_Wing.name()+"=false\n" +
 Tech.STUVWXYZ_Wing.name()+"=false\n" +
-Tech.URT.name()+"=true\n" +
+Tech.UniqueRectangle.name()+"=true\n" +
 Tech.FinnedSwampfish.name()+"=true\n" +
 Tech.FinnedSwordfish.name()+"=true\n" +
 Tech.FinnedJellyfish.name()+"=false\n" +
@@ -233,11 +230,6 @@ Tech.NestedPlus.name()+"=false\n" +
 
 	private final MyPreferences prefs;
 
-	// full class-name of the preferred LookAndFeel
-	// enhanced rendering is more important than laf
-	private String laf = "#NONE#";
-
-	// wantedTechs starts life as an empty EnumSet of Tech's
 	private EnumSet<Tech> wantedTechs = EnumSet.noneOf(Tech.class);
 
 	private static final String MODIFICATION_COUNT_KEY_NAME = "mod";
@@ -303,15 +295,6 @@ Tech.NestedPlus.name()+"=false\n" +
 		prefs.putInt(name, value);
 	}
 
-	public String getLookAndFeelClassName() {
-		return laf = prefs.get("laf", laf);
-	}
-	// returns the now PREVIOUS setting
-	public String setLookAndFeelClassName(String laf) {
-		++modCount;
-		return prefs.put("laf", laf);
-	}
-
 	public void unwant(Tech t) {
 		wantedTechs.remove(t);
 	}
@@ -374,7 +357,6 @@ Tech.NestedPlus.name()+"=false\n" +
 		if ( prefs == null )
 			throw new NullPointerException("preferences are null!");
 		try {
-			laf = prefs.get("lookAndFeelClassName", laf);
 			wantedTechs.clear();
 			for ( Tech t : ALL_TECHS )
 				if ( prefs.getBoolean(t.name(), t.defaultWanted) )
@@ -400,8 +382,6 @@ Tech.NestedPlus.name()+"=false\n" +
 		try {
 			for ( String fieldName : BOOLEAN_FIELD_NAMES )
 				prefs.putBoolean(fieldName, getBoolean(fieldName)); // defaults to false!
-			if ( laf != null )
-				prefs.put("lookAndFeelClassName", laf);
 			for ( Tech t : ALL_TECHS )
 				prefs.putBoolean(t.name(), wantedTechs.contains(t));
 //			// increment and store the modification count

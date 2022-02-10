@@ -18,7 +18,6 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
@@ -127,14 +126,6 @@ public class XColoringHintBig extends AHint  {
 	public Collection<Link> getLinks(int viewNum) {
 		return links;
 	}
-
-//not_used 2021-07-02
-//	@Override
-//	public Grid getGrid() {
-//		if ( setPots!=null && !setPots.isEmpty() )
-//			return setPots.firstKey().getGrid();
-//		return null;
-//	}
 
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {

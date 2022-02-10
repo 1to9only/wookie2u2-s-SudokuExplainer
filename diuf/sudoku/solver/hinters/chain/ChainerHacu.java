@@ -26,10 +26,10 @@ import diuf.sudoku.utils.Log;
 import java.util.Comparator;
 
 /**
- * The ChainerHintsAccumulator is used by MultipleChainer.getHinterEffects
+ * The ChainerHintsAccumulator is used by ChainerMulti.getHinterEffects
  * which is only used when degree>0 which implies isDynamic. It translates an
  * AHint into a list of Assumptions called effects. The hints produced by all
- * of MultipleChainer hinters implement the IChildHint interface to provide me
+ * of ChainerMulti hinters implement the IChildHint interface to provide me
  * with the getParents method which cleverly searches the current and initial
  * grids for erased-maybes, in order to locate the Ass's which caused (are
  * parents of) the Ass I'm creating. All the code that's specific to each type
@@ -148,7 +148,7 @@ public final class ChainerHacu implements IAccumulator {
 	}
 
 	@Override
-	public void sort(Comparator<AHint> comparator) {
+	public void sort(final Comparator<AHint> comparator) {
 		// a no-op
 	}
 

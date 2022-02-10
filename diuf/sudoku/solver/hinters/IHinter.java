@@ -37,12 +37,7 @@ public interface IHinter {
 	 * Used by the UsageMap: a TreeMap.
 	 */
 	public static final Comparator<IHinter> BY_EXECUTION_ORDER
-			= new Comparator<IHinter>() {
-		@Override
-		public int compare(IHinter a, IHinter b) {
-			return a.getIndex() - b.getIndex(); // ASCENDING
-		}
-	};
+			= (IHinter a, IHinter b) -> a.getIndex() - b.getIndex(); // ASC
 
 	/** just shorthand to make code fit on one line. */
 	public final boolean T=true, F=false, DUMMY=false;

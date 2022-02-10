@@ -17,8 +17,7 @@ import diuf.sudoku.utils.Log;
  * <li>allowOverlaps = false (ie ignore RCC's in ALS-pairs that overlap).
  * </ul>
  * <p>
- * This class is not used in the current (2021-12-31) setup. It's test-case
- * failed mismatch, so I just REPRODUCE, and go on with the rest of my life.
+ * This class is not used as at 2022-01-14.
  * <p>
  * AlsChain NEVER does a "forwardOnly" search, so I extend RccFinderAbstract
  * whose getStarts and getEnds methods return null, which works only because
@@ -52,22 +51,20 @@ public class RccFinderForwardOnlyNoOverlaps extends RccFinderAbstract {
 		for ( i=0; i<numAlss; ++i ) {
 			avAll = (a=alss[i]).vAll;
 			avs = a.vs;
-			ai0=(ai=a.idx).a0; ai1=ai.a1; ai2=ai.a2;
+			ai0=a.i0; ai1=a.i1; ai2=a.i2;
 			aMaybes = a.maybes;
 			for ( j=i+1; j<numAlss; ++j ) {
 				// if these two ALSs have common maybes
-				if ( (aMaybes & alss[j].maybes) != 0
+				if ( (aMaybes & (b=alss[j]).maybes) != 0
 				  // and the ALSs don't overlap (ol* for reuse later)
-				  && ( (ol0=(bi=alss[j].idx).a0 & ai0)
-					 | (ol1=bi.a1 & ai1)
-					 | (ol2=bi.a2 & ai2) ) == 0
+				  && ( (ol0=b.i0 & ai0)
+					 | (ol1=b.i1 & ai1)
+					 | (ol2=b.i2 & ai2) ) == 0
 				) {
 					// foreach maybe common to a and b
-					for ( v1 = v2 = 0
-						, b = alss[j]
-						, vs = VALUESES[aMaybes & b.maybes]
+					for ( vs = VALUESES[aMaybes & b.maybes]
 					    , vl = vs.length-1
-						, vi = 0
+						, v1 = v2 = vi = 0
 						; //NO_STOPPER
 						; //NO_INCREMENT
 					) {

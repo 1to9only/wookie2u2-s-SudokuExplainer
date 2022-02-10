@@ -10,7 +10,6 @@ import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.hinters.chain.AChainingHint;
-import diuf.sudoku.solver.hinters.chain.ChainerUnary;
 import static diuf.sudoku.utils.Frmt.MINUS;
 import static diuf.sudoku.utils.Frmt.PLUS;
 import static diuf.sudoku.utils.Hash.ON_BIT;
