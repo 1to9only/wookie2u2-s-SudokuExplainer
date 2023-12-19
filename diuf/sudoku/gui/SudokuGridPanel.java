@@ -1,11 +1,13 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
 
+import static diuf.sudoku.Constants.beep;
+import static diuf.sudoku.Constants.lieDown;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import static diuf.sudoku.Grid.COL_OF;
@@ -19,9 +21,7 @@ import diuf.sudoku.Idx;
 import static diuf.sudoku.Indexes.INDEXES;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Result;
-import diuf.sudoku.Settings;
-import static diuf.sudoku.Settings.THE_SETTINGS;
+import diuf.sudoku.Config;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
@@ -36,6 +36,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import static java.awt.event.InputEvent.ALT_DOWN_MASK;
 import static java.awt.event.InputEvent.CTRL_DOWN_MASK;
+import static java.awt.event.InputEvent.SHIFT_DOWN_MASK;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -48,7 +49,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.swing.JPanel;
@@ -56,23 +56,27 @@ import javax.swing.SwingUtilities;
 import static diuf.sudoku.Grid.ROW_OF;
 import static diuf.sudoku.Grid.SQRT;
 import static diuf.sudoku.Grid.BY9;
-
+import static diuf.sudoku.Config.CFG;
+import diuf.sudoku.Constants;
+import static diuf.sudoku.Values.SET_BIT;
+import diuf.sudoku.utils.IntQueue;
+import static diuf.sudoku.utils.IntQueue.QEMPTY;
 
 /**
  * The SudokuGridPanel is the JPanel which represents the Sudoku grid in the
  * GUI, including its legends (row and column labels).
  * <p>
  * User actions are redirected to {@link diuf.sudoku.gui.SudokuExplainer}
- * which is here-in referred to as the 'engine'.
+ * which is here-in referred to as the $engine.
  * <p>
- * I "glom on" to my 'parent' JFrame (which contains me in the GUI).
+ * I "glom on" to my $parent JFrame (which contains me in the GUI).
  * <p>
- * I also "glom on" to the Sudoku 'grid' to be displayed.
+ * I also "glom on" to the Sudoku $grid to be displayed.
  *
  * @see diuf.sudoku.gui.SudokuFrame
  * @see diuf.sudoku.gui.SudokuExplainer
  */
-public class SudokuGridPanel extends JPanel {
+class SudokuGridPanel extends JPanel {
 
 	private static final long serialVersionUID = 3709127163156966626L;
 
@@ -84,53 +88,55 @@ public class SudokuGridPanel extends JPanel {
 	// No idea how big it should be, but 16 is big enough to start growing
 	private static final Map<Color, Color> ORANGY_COLOR_CACHE = new HashMap<>(16);
 
-	private static final Color COLOR_ORANGE = new Color(255, 185, 0);
-	private static final Color COLOR_GREEN = new Color(0, 224, 0);
-	private static final Color COLOR_BLUE = new Color(0, 0, 255);
-	private static final Color COLOR_BLACK = new Color(0, 0, 0);
-	private static final Color COLOR_PURPLE	= new Color(220, 5, 220);
-	private static final Color COLOR_BROWN	= new Color(150, 75, 0);
-	private static final Color COLOR_BLUE_DARK = Color.BLUE.darker();
-	private static final Color COLOR_LEGEND	= new Color(0, 32, 64);
-	private static final Color COLOR_BLUE_LIGHT	= new Color(216, 230, 255);
-
-	// CYAN is for the ALS's only, everything else is "AQUA".
-	private static final Color COLOR_CYAN = Color.CYAN;
-	// use a darker cyan foreground color, else the digits "look funny"
-	private static final Color COLOR_CYAN_DARK = COLOR_CYAN.darker();
-	// the aqua (bluey green) foreground color
-	private static final Color COLOR_AQUA = new Color(192, 255, 255);
-	// the dark aqua foreground color
-	private static final Color COLOR_AQUA_DARK = COLOR_AQUA.darker();
-	// the dark yellow/green forground color
-	private static final Color COLOR_YELLOW_DARK = new Color(204, 204, 0);
-	// the pink cell foreground color
-	private static final Color COLOR_PINK = new Color(255, 204, 255);
-	// the green cell background color
-	private static final Color COLOR_GREEN_BG = new Color(204, 255, 204, 153);
-	// the aqua cell background color
-	private static final Color COLOR_AQUA_BG = new Color(192, 255, 255, 24);
-	// the orange cell background color
-	private static final Color COLOR_ORANGE_BG = new Color(255, 204, 102, 24);
-	// the blue cell background color
-	private static final Color COLOR_BLUE_BG = new Color(204, 204, 255, 153);
-	// the yellow cell background color
-	private static final Color COLOR_YELLOW_BG = new Color(255, 255, 75, 24);
-	// the brown cell background color
-	private static final Color COLOR_BROWN_BG = new Color(204, 51, 0, 12);
-	// the purple cell background color
-	private static final Color COLOR_PURPLE_BG = new Color(255, 204, 255, 153);
-	// the light blue cell background color
-	private static final Color COLOR_LIGHT_BLUE_BG = new Color(216, 230, 255, 24);
-	// a dark orange.
-	private static final Color COLOR_ORANGY_BLACK = orangy(Color.BLACK);
-
-	// base border and background
-	private static final Color COLOR_BASE_BORDER = new Color(0, 0, 192); // blue
-	private static final Color COLOR_BASE_BG = new Color(0, 0, 192, 12); // blue
-	// cover border and background
-	private static final Color COLOR_COVER_BORDER = new Color(0, 128, 0); // green
-	private static final Color COLOR_COVER_BG = new Color(0, 128, 0, 12); // green
+	// all of these colors are available throughout the GUI.
+	static final Color COLOR_ORANGE = new Color(255, 185, 0)
+	  , COLOR_GREEN = new Color(0, 224, 0)
+	  , COLOR_BLUE = new Color(0, 0, 255)
+	  , COLOR_BLACK = new Color(0, 0, 0)
+	  , COLOR_PURPLE = new Color(220, 5, 220)
+	  , COLOR_BROWN	= new Color(150, 75, 0)
+	  , COLOR_BLUE_DARK = Color.BLUE.darker()
+	  , COLOR_LEGEND = new Color(0, 32, 64)
+	  , COLOR_BLUE_LIGHT = new Color(216, 230, 255)
+	  // CYAN is for the ALSs only, everything else is "AQUA".
+	  , COLOR_CYAN = Color.CYAN
+	  // use a darker cyan foreground color, else the digits "look funny"
+	  , COLOR_CYAN_DARK = COLOR_CYAN.darker()
+	  // the aqua (bluey green) foreground color
+	  , COLOR_AQUA = new Color(192, 255, 255)
+	  // the dark aqua foreground color
+	  , COLOR_AQUA_DARK = COLOR_AQUA.darker()
+	  // the dark yellow/green forground color
+	  , COLOR_YELLOW_DARK = new Color(204, 204, 0)
+	  // very light pink background color
+	  , COLOR_LIGHT_PINK_BG = new Color(255, 204, 204, 48)
+	  // the green cell background color
+	  , COLOR_GREEN_BG = new Color(204, 255, 204, 153)
+	  // the aqua cell background color
+	  , COLOR_AQUA_BG = new Color(192, 255, 255, 24)
+	  // the orange cell background color
+	  , COLOR_ORANGE_BG = new Color(255, 204, 102, 24)
+	  // the blue cell background color
+	  , COLOR_BLUE_BG = new Color(204, 204, 255, 153)
+	  // the yellow cell background color
+	  , COLOR_YELLOW_BG = new Color(255, 255, 75, 24)
+	  // the brown cell background color
+	  , COLOR_BROWN_BG = new Color(204, 51, 0, 12)
+	  // the purple cell background color
+	  , COLOR_PURPLE_BG = new Color(255, 204, 255, 153)
+	  // the light blue cell background color
+	  , COLOR_LIGHT_BLUE_BG = new Color(216, 230, 255, 24)
+	  // a dark orange.
+	  , COLOR_ORANGY_BLACK = orangy(Color.BLACK)
+	  // base border and background
+	  , COLOR_BASE_BORDER = new Color(0, 0, 192) // blue
+	  , COLOR_BASE_BG = new Color(0, 0, 192, 12) // blue
+	  // cover border and background
+	  , COLOR_COVER_BORDER = new Color(0, 128, 0) // green
+	  , COLOR_COVER_BG = new Color(0, 128, 0, 12) // green
+	  // the grids default background color
+	  , DEFAULT_BACKGROUND_COLOR = Color.WHITE;
+	;
 	// ALS border and foreground (value) colors
 	private static final Color[] ALS_COLORS = {
 			  COLOR_BASE_BORDER // blue
@@ -152,20 +158,21 @@ public class SudokuGridPanel extends JPanel {
 			, COLOR_LIGHT_BLUE_BG
 	};
 
-	// COLOR_POTS are in reverse order of importance because the last color set
-	// is the one rendered (he who laughs last), so BLUE overwrites everything.
+	// COLOR_POTS are in order of importance. The last color set is rendered.
 	// NB: Orange is now independant of red and green. Juillerat defined orange
 	//     as the combination of red and green, which was crap!
 	// NB: all COLOR_POTS index-references must use these constants, otherwise
 	//     it renders them basically useless.
-	private static final int CI_BROWN = 0;	// COLOR_INDEX
-	private static final int CI_PURPLE = 1;
-	private static final int CI_YELLOW = 2;
-	private static final int CI_ORANGE = 3;
-	private static final int CI_RED = 4;
-	private static final int CI_GREEN = 5;
-	private static final int CI_BLUE = 6;
-	private static final int NUM_COLOR_POTS = 7;
+	// 2023-05-25: Moved yellow from 2 to 6 (last)
+	private static final int CI_BROWN = 0	// COLOR_INDEX
+	  , CI_PURPLE = 1
+	  , CI_ORANGE = 2
+	  , CI_GREEN = 3
+	  , CI_BLUE = 4
+	  , CI_YELLOW = 5
+	  , CI_RED = 6
+	  , NUM_COLOR_POTS = 7
+	;
 	private static final Pots[] COLOR_POTS = new Pots[NUM_COLOR_POTS];
 
 	// POTS_COLORS is array of the colors we highlight cell-values in, so that
@@ -174,12 +181,30 @@ public class SudokuGridPanel extends JPanel {
 	static {
 		POTS_COLORS[CI_BROWN] = COLOR_BROWN;
 		POTS_COLORS[CI_PURPLE] = COLOR_PURPLE;
-		POTS_COLORS[CI_YELLOW] = Color.YELLOW;
 		POTS_COLORS[CI_ORANGE] = COLOR_ORANGE;
-		POTS_COLORS[CI_RED] = Color.RED;
 		POTS_COLORS[CI_GREEN] = COLOR_GREEN;
 		POTS_COLORS[CI_BLUE] = Color.BLUE;
+		POTS_COLORS[CI_YELLOW] = Color.YELLOW;
+		POTS_COLORS[CI_RED] = Color.RED;
 	}
+
+	private static final int BG_AQUA = 0
+	  , BG_LIGHT_PINK = 1
+	  , BG_RED = 2
+	  , BG_BLUE = 3
+	  , BG_GREEN = 4
+	  , BG_ORANGE = 5
+	  , BG_YELLOW = 6
+	;
+	private static final Background[] BACKGROUNDS = {
+		  new Background(COLOR_AQUA, null)
+		, new Background(COLOR_LIGHT_PINK_BG, null)
+		, new Background(Color.RED, null)
+		, new Background(COLOR_BLUE_BG, null)
+		, new Background(COLOR_GREEN_BG, null)
+		, new Background(COLOR_ORANGE_BG, null)
+		, new Background(COLOR_YELLOW_BG, null)
+	};
 
 	// number of corners in a triange
 	private static final int NUM_POINTS = 3;
@@ -203,80 +228,72 @@ public class SudokuGridPanel extends JPanel {
 	// COS should be a product of 6: 42,48,54,60,66,72,78
 	// BFIIK: 6 is maxWidth of the inter-region borders etc, which from a cells
 	// perspective are just "border incursions", for which I must leave room.
-	private int COS = 66;			// CELL_OUTER_SIZE // and a lettuce.
-	private int CIS = COS - 6;		// CELL_INNER_SIZE // and a sibling?
-	private int CISo2 = CIS / 2;
-	private int CISo3 = CIS / 3;
-	private int CISo6 = CIS / 6;
-	private int V_GAP = 2;			// VERTICAL_GAP
-	private int H_GAP = 42;			// HORIZONTAL_GAP
-	private int CELL_PAD = (COS - CIS) / 2; // (64-58)/2=3
-	private int MY_SIZE = COS * REGION_SIZE;
-	private int FONT_SIZE_1 = 14; // 12
-	private int FONT_SIZE_2 = 18; // 14
-	private int FONT_SIZE_3 = 24; // 18
-	private int FONT_SIZE_4 = 36; // 24
-	private int FONT_SIZE_5 = 54; // 36
-	// KRC 2019-09-06: made arrowHeads larger to see at 1080 (was 5 and 2)
-	// and made them scale back down, if that ever happens
-	// and made the LINK_OFFSET adjust to rescaling.
-	private int ARROW_LENGTH = 9; // 5
-	private int ARROW_WIDTH  = 3; // 2
+	private int setPotsColor, yAxisX, xAxisY
+	  , COS = 66	// CELL_OUTER_SIZE // and a lettuce.
+	  , CIS = COS - 6		// CELL_INNER_SIZE // and a sibling?
+	  , CISo2 = CIS / 2
+	  , CISo3 = CIS / 3
+	  , CISo6 = CIS / 6
+	  , V_GAP = 2			// VERTICAL_GAP
+	  , H_GAP = 42			// HORIZONTAL_GAP
+	  , CELL_PAD = (COS - CIS) / 2 // (64-58)/2=3
+	  , MY_SIZE = COS * REGION_SIZE
+	  , FONT_SIZE_1 = 14	// 12
+	  , FONT_SIZE_2 = 18	// 14
+	  , FONT_SIZE_3 = 24	// 18
+	  , FONT_SIZE_4 = 36	// 24
+	  , FONT_SIZE_5 = 54	// 36
+	  // KRC 2019-09-06: made arrowHeads larger to see at 1080 (was 5 and 2)
+	  // and made them scale back down, if that ever happens
+	  // and made the LINK_OFFSET adjust to rescaling.
+	  , ARROW_LENGTH = 9	// 5
+	  , ARROW_WIDTH  = 3	// 2
+	  , focusedIndice = -1
+	  , selectedIndice = -1
+	  , selectedAlsIndex = -1 // NONE
+	;
 	private double LINK_OFFSET = 4.0;  // 3.0
-	private Dimension PREFFERED_SIZE
-			= new Dimension(MY_SIZE+H_GAP+V_GAP, MY_SIZE+H_GAP+V_GAP);
+	private double scale;
+
+	private Dimension PREFFERED_SIZE = new Dimension(MY_SIZE+H_GAP+V_GAP, MY_SIZE+H_GAP+V_GAP);
 	private final int BELOW_GRID = V_GAP + MY_SIZE; // top of column labels
+
+	private ARegion[] bases, covers, pinkRegions;
+	// the cell-value to paint larger
+	private Pots results;
+	// cells potential-values to paint larger
+	private Pots setPots;
+	private Als[] alss;
+	private Collection<Link> links;
+	private Idx[][] supers, subs;
+
+	private final Font smallFont1, smallFont2, smallFont3, legendFont, bigFont;
+
+	private Color backgroundColor = DEFAULT_BACKGROUND_COLOR;
+
+	// y-axis (vertical) legend coordinates
+	private final int[] yAxisY = new int[REGION_SIZE]
+	  // x-axis (horizontal) legend coordinates
+	  , xAxisX = new int[REGION_SIZE]
+	  // save multipling everything by COS all the time
+	  , byCOS = new int[VALUE_CEILING]
+	  // save multipling everything by COS all the time
+	  , cosX = new int[GRID_SIZE]
+	  , cosY = new int[GRID_SIZE]
+	  // horizontal (x) and vertical (y) offsets
+	  , padX = new int[GRID_SIZE]
+	  , padY = new int[GRID_SIZE]
+	  // to save multipling everything by COS everywhere
+	  , positions = new int[REGION_SIZE]
+	;
+
+	private final Idx tmp = new Idx();
 
 	private Grid grid; // the current Sudoku grid to display.
 	private final SudokuExplainer engine; // I "borrow" my parents engine
 	private final SudokuFrame frame; // my parent component in the GUI
 
-	private Cell focusedCell = null;
-	private Cell selectedCell = null;
-
-	private Set<Cell> auqaBGCells;
-	private Set<Cell> pinkBGCells;
-	private ARegion[] pinkos;
-	private Set<Cell> redBGCells;
-	private Set<Cell> greenBGCells;
-	private Set<Cell> orangeBGCells;
-	private Set<Cell> blueBGCells;
-	private Set<Cell> yellowBGCells;
-	// the cell-value to paint larger
-	private Result theResult;
-	// cells potential-values to paint larger
-	private Pots results;
-	private int resultColor;
-	private ARegion[] bases;
-	private ARegion[] covers;
-	private Als[] alss;
-	private Collection<Link> links;
-	private Idx[][] supers;
-	private Idx[][] subs;
-
-	private final Font smallFont1;
-	private final Font smallFont2;
-	private final Font smallFont3;
-	private final Font legendFont;
-	private final Font bigFont;
-
-	private Color fillBGColor = Color.WHITE;
-
-	// y-axis (vertical) legend coordinates
-	private int yAxisX;
-	private final int[] yAxisY = new int[REGION_SIZE];
-
-	// x-axis (horizontal) legend coordinates
-	private final int[] xAxisX = new int[REGION_SIZE];
-	private int xAxisY;
-
-	// save multipling everything by COS all the time
-	private final int[] byCOS = new int[VALUE_CEILING];
-
-	// save multipling everything by COS all the time
-	private final int[] positions = new int[REGION_SIZE];
-
-	SudokuGridPanel(Grid grid, SudokuExplainer engine, SudokuFrame frame) {
+	SudokuGridPanel(final Grid grid, final SudokuExplainer engine, final SudokuFrame frame) {
 		super();
 		this.grid = grid;		// input
 		this.engine = engine;	// process
@@ -298,15 +315,15 @@ public class SudokuGridPanel extends JPanel {
 		scale = (double)newCos / oldCos;
 		return COS = newCos;
 	}
-	private double scale;
-	private int rescale(double d) {
+
+	private int rescale(final double d) {
 		return (int)(d * scale + 0.5D);
 	}
 
 	private void rescaleDown() {
 		// CELL_OUTER_SIZE should be a product of 6: 42,48,54,60,66,72,78
 		// 6 is the max-width of the inter-region borders, which are NOT scaled
-		// down coz I have no idea how. 48 is a bit cramped. 54 isn't too bad.
+		// down coz I have no idea how. 48 is a bit cramped. 54 is not too bad.
 		COS = changeCos(54);
 		// CELL_INNER_SIZE is - 6 to leave a gap of 3 each side of the cell
 		CIS = COS - 6;
@@ -324,7 +341,7 @@ public class SudokuGridPanel extends JPanel {
 		FONT_SIZE_5 = rescale(FONT_SIZE_5);
 		ARROW_LENGTH = rescale(ARROW_LENGTH);
 		ARROW_WIDTH = rescale(ARROW_WIDTH);
-		LINK_OFFSET = rescale(LINK_OFFSET); // it's a double that should contain an int value!
+		LINK_OFFSET = rescale(LINK_OFFSET); // it is a double that should contain an int value!
 		// MY_SIZE is CELL_OUTER_SIZE * number of cells per row/col.
 		// + H_GAP + V_GAP is simplest AFAIK way to square-off a rectangle.
 		// + CELL_PAD coz the math leaves me a tad too smal. BFIIK. I think the
@@ -333,14 +350,28 @@ public class SudokuGridPanel extends JPanel {
 		PREFFERED_SIZE = new Dimension(d, d);
 	}
 
-	private void createByCOS() {
-		// save multipling everything by COS all the time
+	private void populateByCOS() {
+		// recalculate the byCellOuterSize (byCOS) array.
 		for ( int i=0; i<VALUE_CEILING; ++i) {
 			byCOS[i] = i * COS;
 		}
 	}
 
-	private void createPositions() {
+	private void populateCosXY() {
+		for ( int i=0; i<GRID_SIZE; ++i ) {
+			cosX[i] = byCOS[i%REGION_SIZE];
+			cosY[i] = byCOS[i/REGION_SIZE];
+		}
+	}
+
+	private void populatePadXY() {
+		for ( int v=1; v<VALUE_CEILING; ++v ) {
+			padX[v] = ((v-1)%3)*CISo3;
+			padY[v] = ((v-1)/3)*CISo3;
+		}
+	}
+
+	private void populatePositions() {
 		for ( int i=0; i<REGION_SIZE; ++i) {
 			positions[i] = byCOS[i] + CELL_PAD + CISo6;
 		}
@@ -350,7 +381,7 @@ public class SudokuGridPanel extends JPanel {
 	// we repaint we can just look-up the x and y of the x-axis legend and the
 	// y-axis legend, to save CPU-time.
 	// positionLegends uses COS, so run positionLegends AFTER rescaleDown!
-	private void createLegendPositions() {
+	private void populateLegendPositions() {
 		// y-axis legend coordinates
 		yAxisX = H_GAP / 2;
 		for ( int i=0; i<REGION_SIZE; ++i ) {
@@ -378,73 +409,74 @@ public class SudokuGridPanel extends JPanel {
 	private void initialise() {
 
 		// reduce the cell-size if necessary
-		if ( getToolkit().getScreenSize().height < 1080 ) { // was 750
+		if ( getToolkit().getScreenSize().height < 1080 ) // was 750
 			rescaleDown();
-		}
-		// these all use cell-size (et al) so must be run AFTER rescaleDown
-		createByCOS();
-		createPositions();
-		createLegendPositions();
+
+		// these all use cell-size (COS) so must be run AFTER rescaleDown
+		populateByCOS();
+		populateCosXY();
+		populatePadXY();
+		populatePositions();
+		populateLegendPositions();
 		createBounds();
 
 		this.addMouseListener(new MouseAdapter() {
 
 			@Override
-			public void mouseExited(MouseEvent e) {
-				setFocusedCell(null);
+			public void mouseExited(final MouseEvent e) {
+				setFocusedIndice(-1);
 				e.consume();
 			}
 
 			@Override
-			public void mouseClicked(MouseEvent e) {
-				// ignore mouse-down in row legends
-				if ( e.getX() >= H_GAP ) {
+			public void mouseClicked(final MouseEvent e) {
+				final int mod = e.getModifiersEx();
+				final int cnt = e.getClickCount();
+				final int btn = e.getButton();
+				final int x = e.getX();
+				final int y = e.getY();
+				// ignore in row legends
+				if ( x >= H_GAP ) {
 					// get the cell at x and y, if any
-					Cell cell = getCellAt(e.getX(), e.getY());
+					final Cell cell = getCellAt(x, y);
 					if ( cell != null ) {
 						boolean suppressSelect = false;
-						final int mod = e.getModifiersEx();
-						final boolean alt = (mod & ALT_DOWN_MASK) == ALT_DOWN_MASK;
-						final int cnt = e.getClickCount();
-						final int btn = e.getButton();
-						if ( alt ) {
+						if ( (mod & ALT_DOWN_MASK) == ALT_DOWN_MASK ) {
 							if ( cnt == 2 ) {
-								greenBGCells = new HashSet<>();
-								blueBGCells = new HashSet<>();
+								BACKGROUNDS[BG_AQUA].indices = null;
+								BACKGROUNDS[BG_BLUE].indices = null;
 								repaint();
-							} else if ( btn==BUTTON1 ) // Alt-LeftButton
-								toggleGreen(cell);
-							else // Alt - (Right or Middle) Button
-								toggleBlue(cell);
+							} else if ( btn==BUTTON1 ) { // Alt-LeftButton
+								toggleGreen(cell.indice);
+							} else { // Alt - (Right or Middle) Button
+								toggleBlue(cell.indice);
+							}
 							// stop this click selecting the cell
 							suppressSelect = true;
 							// NOTE: all other possible Alt-clicks are eaten
 							e.consume();
-						} else if ( cell.value != 0 ) {
+						} else if ( cell.value > 0 ) { // NEVER negative
 							// Do nothing
 						} else if ( cell.size == 1 ) {
 							engine.setTheCellsValue(cell, VFIRST[cell.maybes]);
 						} else {
-							int v = getMaybeAt(e.getX(), e.getY());
-							if ( v != 0 ) {
+							final int v = getMaybeAt(x, y);
+							if ( v > 0 ) { // NEVER negative
 								if ( btn==BUTTON1 && mod==0 ) { // plain left click
 									// cell.value := the value that was clicked-on
-									if ( (cell.maybes & VSHFT[v]) != 0 )
+									if ( (cell.maybes & VSHFT[v]) > 0 ) {
 										engine.setTheCellsValue(cell, v);
-// Annoying when you're navigating around the grid with the mouse.
-// Not annoying when you're trying to set a cells value and miss.
-// There's more navigating than there is setting-and-missing, so it's out!
-//									else
-//										engine.beep();
+									}
 								} else {
 									// just remove/restore the maybe value
 									engine.maybeTyped(cell, v);
-									repaintCell(cell);
+									repaintCell(cell.indice);
 								}
 							}
 						}
-						if ( !suppressSelect )
-							setSelectedCell(cell);
+						if ( !suppressSelect ) {
+							setSelectedIndice(cell.indice);
+						}
 						e.consume();
 					}
 				}
@@ -452,76 +484,85 @@ public class SudokuGridPanel extends JPanel {
 			}
 
 			@Override
-			public void mousePressed(MouseEvent e) {
-				if ( e.getY() > BELOW_GRID ) { // below grid (column letters)
-					if ( e.getX() < H_GAP ) { // left of the 'A'
-						setRedBGCells(grid.getWrongens());
+			public void mousePressed(final MouseEvent e) {
+				final int mod = e.getModifiersEx();
+//				final int cnt = e.getClickCount();
+				final int btn = e.getButton();
+				final int x = e.getX() - H_GAP;
+				final int y = e.getY() - V_GAP;
+				if ( y > MY_SIZE ) { // below grid (column letters)
+					if ( x < 0 ) { // left of the A
+						// clear green maybes
+						setGreenPots(null);
+						// display any bad cell values
+						setRedBgIndices(grid.getWrongens());
 						e.consume();
 						repaint();
-					} else if ( e.getButton() == BUTTON1 ) { // left button
-						final int i = (e.getX()-H_GAP) / COS;
+					} else if ( btn == BUTTON1 ) { // left button
+						final int i = x/COS;
 						if ( i>-1 && i<LETTERS.length ) {
 							setGreenPots(engine.cheat(LETTERS[i], grid));
 							e.consume();
 							repaint();
 						}
 					} else { // right/middle button
-						final int i = (e.getX()-H_GAP) / COS;
+						final int i = x/COS;
 						if ( i>-1 && i<LOWTERS.length ) {
 							setGreenPots(engine.cheat(LOWTERS[i], grid));
 							e.consume();
 							repaint();
 						}
 					}
-				} else if ( e.getX() < H_GAP ) { // left of grid (row numbers)
-					// hold down the left button over a row legend
-					//      to highlight all candidates of this number.
-					// hold down the right/middle button over a row legend
-					//      to highlight cells with this many potential values.
-					final int v = ((e.getY()-V_GAP) / COS) + 1;
+				} else if ( x < 0 ) { // left of grid (row numbers)
+					// 1. left-click row legend highlights these candidates.
+					// 2. right/middle-click row legend highlights cells with
+					//    this many potential values.
+					// 3. ctrl-right-click to highlight 2..N places in regions,
+					//    where N is in (2,3,4).
+					final int v = y/COS + 1;
 					if ( v>0 && v<VALUE_CEILING ) {
-						if ( e.getButton() == BUTTON1 ) // left
-							setGreenPots(grid.getCandidatePots(v));
-						else if ( v<REGION_SIZE || engine.cheater ) //right/mid
-							setGreenPots(grid.getMaybesSizePots(v));
-						else
-							engine.beep();
+						// left button
+						if ( btn == BUTTON1 ) {
+							if ( (mod & CTRL_DOWN_MASK) == CTRL_DOWN_MASK )
+								addGreenPots(grid.getCandidatePots(v));
+							else
+								setGreenPots(grid.getCandidatePots(v));
+						// right/middle button
+						} else if ( v<REGION_SIZE || engine.cheater ) {
+							if ( v == 1 )
+								setGreenPots(grid.getSinglesPots());
+							else if ( (mod & SHIFT_DOWN_MASK) == SHIFT_DOWN_MASK )
+								setGreenPots(grid.getHiddenSets(v, grid.hiddenSetDisplayState.getThenAdvanceRegionType()));
+							else
+								setGreenPots(grid.getMaybesSizePots(v));
+						} else
+							beep();
 						e.consume();
 						repaint();
 					}
 				}
 			}
-
-			@Override
-			public void mouseReleased(MouseEvent e) {
-				// unhighlight all candidates. "Drag" the mouse to the right
-				// and then release it to leave these candidates highlighted.
-				if ( e.getX()<H_GAP || e.getY()>BELOW_GRID ) {
-					setGreenPots(null);
-					e.consume();
-					repaint();
-				}
-			}
-
 		});
 
 		this.addMouseMotionListener(new MouseMotionAdapter() {
 			@Override
-			public void mouseMoved(MouseEvent e) {
+			public void mouseMoved(final MouseEvent e) {
+				final int x = e.getX();
+				final int y = e.getY();
 				// first get the cell over which the mouse is located
-				final Cell c = getCellAt(e.getX(), e.getY());
-				// the default cheatName is "" to clear it when cheats aren't
+				final Cell c = getCellAt(x, y);
+				// the default cheatName is "" to clear it when cheats are not
 				// enabled or the mouse is elsewhere over the grid
 				String cheatName = "";
 				// if c is null then we might be below the grid, so
 				if ( c == null ) {
 					// if cheats are authorised and we are below the grid then
-					if ( engine.cheater && e.getY()>BELOW_GRID ) {
+					if ( engine.cheater && y>BELOW_GRID ) {
 						// fetch the name of this cheat
-						cheatName = engine.cheatName(e.getX() / COS);
+						cheatName = engine.cheatName((x-H_GAP)/COS);
 					}
 				} else { // paint cell over which mouse is located yellow
-					setFocusedCell(c);
+					setFocusedIndice(c.indice);
 				}
 				// display the cheatName (if any) next to the view combo
 				frame.getLblCheatName().setText(cheatName);
@@ -530,77 +571,80 @@ public class SudokuGridPanel extends JPanel {
 
 		this.addKeyListener(new KeyAdapter() {
 			@Override
-			public void keyPressed(KeyEvent e) {
-				int key = e.getKeyCode();
-				int mod = e.getModifiersEx();
-				boolean ctrl = (mod & CTRL_DOWN_MASK) == CTRL_DOWN_MASK;
+			public void keyPressed(final KeyEvent e) {
+				final int key = e.getKeyCode();
+				final int mod = e.getModifiersEx();
+				final boolean ctrl = (mod & CTRL_DOWN_MASK) == CTRL_DOWN_MASK;
 				if ( key==KeyEvent.VK_LEFT
 				  || key==KeyEvent.VK_UP
 				  || key==KeyEvent.VK_RIGHT
 				  || key==KeyEvent.VK_DOWN ) {
-					setFocusedCell(null);
-					if ( selectedCell == null ) {
-						setSelectedCell(grid.cells[40]); // 4*9+4 is centre cell
+					setFocusedIndice(-1);
+					if ( selectedIndice < 0 ) {
+						setSelectedIndice(40); // 4*9+4 is centre cell
 					} else {
-						int x=selectedCell.x, y=selectedCell.y;
+						int x = selectedIndice % REGION_SIZE
+						  , y = selectedIndice / REGION_SIZE;
 						switch (key) {
 						case KeyEvent.VK_LEFT:  x=x==0 ? M : (x+M)%N; break;
 						case KeyEvent.VK_RIGHT: x=x==M ? 0 : (x+1)%N; break;
 						case KeyEvent.VK_UP:    y=y==0 ? M : (y+M)%N; break;
 						case KeyEvent.VK_DOWN:  y=y==M ? 0 : (y+1)%N; break;
 						}
-						setSelectedCell(grid.cells[BY9[y]+x]);
+						setSelectedIndice(BY9[y] + x);
 					}
 					e.consume();
 				} else if ( key==KeyEvent.VK_DELETE
 						 || key==KeyEvent.VK_BACK_SPACE ) {
-					if ( selectedCell != null ) {
-						engine.setTheCellsValue(selectedCell, 0);
+					if ( selectedIndice > -1 ) {
+						engine.setTheCellsValue(grid.cells[selectedIndice], 0);
 						repaint();
 						e.consume();
 					}
 				} else if ( key>=KeyEvent.VK_1 && key<=KeyEvent.VK_9 ) { // Ctrl-1..9
-					if ( selectedCell!=null && ctrl ) {
+					if ( selectedIndice>-1 && ctrl ) {
 						int value = key - KeyEvent.VK_0;
-						engine.maybeTyped(selectedCell, value);
-						repaintCell(selectedCell);
+						engine.maybeTyped(grid.cells[selectedIndice], value);
+						repaintCell(selectedIndice);
 						e.consume();
 					}
 				} else if ( key == KeyEvent.VK_ESCAPE ) {
-					setSelectedCell(null);
+					setSelectedIndice(-1);
 					engine.clearHints();
 					repaint();
 					e.consume();
 				} else if ( key==KeyEvent.VK_Z && ctrl ) { // Ctrl-Z
 					engine.undo();
+					frame.updateHintsCache();
 					repaint();
 					e.consume();
 				} else if ( key==KeyEvent.VK_Y && ctrl ) { // Ctrl-Y
 					engine.redo();
+					frame.updateHintsCache();
 					repaint();
 					e.consume();
 				}
 			}
 			@Override
-			public void keyTyped(KeyEvent e) {
+			public void keyTyped(final KeyEvent e) {
 				boolean isProcessed = false;
-				if ( selectedCell != null ) {
-					char ch = e.getKeyChar();
+				if ( selectedIndice > -1 ) {
+					final char ch = e.getKeyChar();
 					if ( ch>='1' && ch<='9' ) {
-						int value = ch - '0';
-						Cell sCell = selectedCell;
-						engine.setTheCellsValue(selectedCell, value);
+						final int value = ch - '0';
+						final int si = selectedIndice;
+						engine.setTheCellsValue(grid.cells[selectedIndice], value);
 						isProcessed = true;
-						selectedCell = sCell;
+						selectedIndice = si;
 						repaint();
 						e.consume();
 					} else if ( (ch==' ' || ch=='0') ) {
-						engine.setTheCellsValue(selectedCell, 0);
+						engine.setTheCellsValue(grid.cells[selectedIndice], 0);
 						repaint();
 						isProcessed = true;
 						e.consume();
 					} else if ( ch=='\r' || ch=='\n' ) {
-						setSelectedCell(null);
+						setSelectedIndice(-1);
 						frame.getBtnSolveStep().requestFocusInWindow();
 						repaint();
 						isProcessed = true;
@@ -615,28 +659,25 @@ public class SudokuGridPanel extends JPanel {
 		});
 	}
 
-	private void toggleGreen(Cell cell) {
-		// if it's in green then it's not in blue
-		if(blueBGCells!=null)blueBGCells.remove(cell);
-		if ( greenBGCells==null ) {
-			greenBGCells = new HashSet<>(16, 0.75F);
-			greenBGCells.add(cell);
-		} else if ( !greenBGCells.remove(cell) )
-			greenBGCells.add(cell);
+	private void toggle(final Background off, final Background on, final int indice) {
+		if ( off.indices != null )
+			off.indices.remove(indice);
+		if ( on.indices == null )
+			on.indices = Idx.of(indice);
+		else if ( !on.indices.remove(indice) )
+			on.indices.add(indice);
 	}
 
-	private void toggleBlue(Cell cell) {
-		// if it's in blue then it's not in green
-		if(greenBGCells!=null)greenBGCells.remove(cell);
-		if ( blueBGCells==null ) {
-			blueBGCells = new HashSet<>(16, 0.75F);
-			blueBGCells.add(cell);
-		} else if ( !blueBGCells.remove(cell) )
-			blueBGCells.add(cell);
+	private void toggleGreen(final int indice) {
+		toggle(BACKGROUNDS[BG_AQUA], BACKGROUNDS[BG_GREEN], indice);
+	}
+
+	private void toggleBlue(final int indice) {
+		toggle(BACKGROUNDS[BG_GREEN], BACKGROUNDS[BG_AQUA], indice);
 	}
 
 	// returns the Cell which is at the given x,y.
-	private Cell getCellAt(int x, int y) {
+	private Cell getCellAt(final int x, final int y) {
 		final int cx = (x - H_GAP) / COS;
 		if(cx<0||cx>8) return null;
 		final int cy = (y - V_GAP) / COS;
@@ -651,13 +692,13 @@ public class SudokuGridPanel extends JPanel {
 	// returns the potential value that is at (or should be at) the given x,y;
 	// converting a screen-mouse-click into a cells potential value
 	private int getMaybeAt(int x, int y) {
-		// get cell's top-left corner
+		// get cells top-left corner
 		final int cx = (x - H_GAP) / COS;
 		final int cy = (y - V_GAP) / COS;
 		if ( cx<0||cx>8 || cy<0||cy>8 )
 			return 0;
 		assert in(BY9[cy]+cx, 0, 81);
-		// substract cell's top-left corner
+		// substract cells top-left corner
 		x = x - byCOS[cx] - H_GAP;
 		y = y - byCOS[cy] - V_GAP;
 		// get the maybe from position in cell
@@ -674,174 +715,200 @@ public class SudokuGridPanel extends JPanel {
 	}
 
 	/** Set the grid. */
-	void setGrid(Grid grid) {
+	void setGrid(final Grid grid) {
 		this.grid = grid;
-		this.selectedCell = grid.cells[40]; // center cell 4*9+4 = 20
-	}
-
-	/** Set the aqua cell backgrounds. */
-	void setAquaBGCells(Set<Cell> cells) {
-		this.auqaBGCells = cells;
-	}
-
-	/** Set the pink cell backgrounds. */
-	void setPinkBGCells(Set<Cell> cells) {
-		this.pinkBGCells = cells;
+		this.selectedIndice = 40; // center cell 4*9+4 = 20
 	}
 
 	/** Set the regions to be outlined in pink. */
-	void setPinkos(ARegion[] pinkRegions) {
-		this.pinkos = pinkRegions;
+	void setPinkRegions(final ARegion[] pinkRegions) {
+		this.pinkRegions = pinkRegions;
+	}
+
+	/** Set the aqua cell backgrounds. */
+	void setAquaBgIndices(final Set<Integer> indices) {
+		BACKGROUNDS[BG_AQUA].indices = indices;
+	}
+
+	/** Set the pink cell backgrounds. */
+	void setPinkBgIndices(final Set<Integer> indices) {
+		BACKGROUNDS[BG_LIGHT_PINK].indices = indices;
 	}
 
 	/** Set the red cell backgrounds. */
-	void setRedBGCells(Set<Cell> cells) {
-		this.redBGCells = cells;
+	void setRedBgIndices(final Set<Integer> indices) {
+		BACKGROUNDS[BG_RED].indices = indices;
 	}
 
 	/** Set the green cell backgrounds. */
-	void setGreenBGCells(Set<Cell> cells) {
-		this.greenBGCells = cells;
+	void setGreenBgIndices(final Set<Integer> indices) {
+		BACKGROUNDS[BG_GREEN].indices = indices;
 	}
 
 	/** Set the orange cell backgrounds. */
-	void setOrangeBGCells(Set<Cell> cells) {
-		this.orangeBGCells = cells;
+	void setOrangeBgIndices(final Set<Integer> indices) {
+		BACKGROUNDS[BG_ORANGE].indices = indices;
 	}
 
 	/** Set the blue cell backgrounds. */
-	void setBlueBGCells(Set<Cell> cells) {
-		this.blueBGCells = cells;
+	void setBlueBgIndices(final Set<Integer> indices) {
+		BACKGROUNDS[BG_BLUE].indices = indices;
 	}
 
 	/** Set the yellow cell backgrounds. */
-	void setYellowBGCells(Set<Cell> cells) {
-		this.yellowBGCells = cells;
+	void setYellowBgIndices(final Set<Integer> indices) {
+		BACKGROUNDS[BG_YELLOW].indices = indices;
 	}
 
 	/** Set the result: a cell value to paint larger. */
-	void setResult(Result result) {
-		this.theResult = result;
-	}
-
-	/** Set results: cell potential values to paint larger. */
-	void setResults(Pots results) {
+	void setResults(final Pots results) {
 		this.results = results;
 	}
+
+	/** Set the setPots: cell potential values to paint larger. */
+	void setSetPots(final Pots setPots) {
+		this.setPots = setPots;
+	}
 	/** -1 for none, 0 for green, 1 for blue. */
-	void setResultColor(int resultColor) {
-		this.resultColor = resultColor;
+	void setSetPotsColor(final int setPotsColor) {
+		this.setPotsColor = setPotsColor;
 	}
 
-	// it's faster to detect empty ONCE here than repeatedly downstream
-	private static void setColorPots(int colorIndex, Pots pots) {
+	// it is faster to detect empty ONCE here than repeatedly downstream
+	private static void setColorPots(final int colorIndex, final Pots pots) {
 		if ( pots==null || pots.isEmpty() )
 			COLOR_POTS[colorIndex] = null;
 		else
 			COLOR_POTS[colorIndex] = pots;
 	}
 
+	private static void addColorPots(final int colorIndex, final Pots pots) {
+		if ( COLOR_POTS[colorIndex] == null )
+			COLOR_POTS[colorIndex] = pots;
+		else // nb: addAll handles null pots
+			COLOR_POTS[colorIndex].addAll(pots);
+	}
+
 	/** Set the green potentials.
 	 * NOTE that formerly green+red=orange. Now oranges are separate! */
-	void setGreenPots(Pots pots) {
+	void setGreenPots(final Pots pots) {
 		setColorPots(CI_GREEN, pots);
+	}
+
+	/** Add the green potentials. */
+	void addGreenPots(Pots pots) {
+		addColorPots(CI_GREEN, pots);
 	}
 
 	/** Set the red potentials.
 	 * NOTE that formerly green+red=orange. Now oranges are separate! */
-	void setRedPots(Pots pots) {
+	void setRedPots(final Pots pots) {
 		setColorPots(CI_RED, pots);
 	}
 
 	/** Set the orange potentials.
 	 * NOTE that formerly green+red=orange. Now oranges are separate! */
-	void setOrangePots(Pots pots) {
+	void setOrangePots(final Pots pots) {
 		setColorPots(CI_ORANGE, pots);
 	}
 
 	/** Set the blue potentials. Used in nested hint explanations. */
-	void setBluePots(Pots pots) {
+	void setBluePots(final Pots pots) {
 		setColorPots(CI_BLUE, pots);
 	}
 
 	/** Set the yellow potentials. Implemented for Coloring hints. */
-	void setYellowPots(Pots pots) {
+	void setYellowPots(final Pots pots) {
 		setColorPots(CI_YELLOW, pots);
 	}
 
 	/** Set the purple potentials. Implemented for Coloring hints. */
-	void setPurplePots(Pots pots) {
+	void setPurplePots(final Pots pots) {
 		setColorPots(CI_PURPLE, pots);
 	}
 
 	/** Set the brown potentials. Implemented for Coloring hints. */
-	void setBrownPots(Pots pots) {
+	void setBrownPots(final Pots pots) {
 		setColorPots(CI_BROWN, pots);
 	}
 
 	/** Set the bases (the blues). */
-	void setBases(ARegion[] bases) {
+	void setBases(final ARegion[] bases) {
 		this.bases = bases;
 	}
 
 	/** Set the covers (the greens). */
-	void setCovers(ARegion[] covers) {
+	void setCovers(final ARegion[] covers) {
 		this.covers = covers;
 	}
 
 	/** Set the brown potentials. Implemented for Coloring hints. */
-	void setAlss(Als[] alss) {
+	void setAlss(final Als[] alss) {
 		this.alss = alss;
 	}
 
 	/** Set the links (brown arrows). */
-	void setLinks(Collection<Link> links) {
+	void setLinks(final Collection<Link> links) {
 		this.links = links;
 	}
 
-	/** Set the Super markers (+'s in GREEN and BLUE). */
-	void setSupers(Idx[][] supers) {
+	/** Set the Super markers (+s in GREEN and BLUE). */
+	void setSupers(final Idx[][] supers) {
 		this.supers = supers;
 	}
 
-	/** Set the Sub markers (-'s in GREEN and BLUE). */
-	void setSubs(Idx[][] subs) {
+	/** Set the Sub markers (-s in GREEN and BLUE). */
+	void setSubs(final Idx[][] subs) {
 		this.subs = subs;
 	}
 
 	/**
 	 * Clears focusedCell, and if isSelection then also clears selectedCell.
 	 */
-	void clearSelection(boolean isSelection) {
-		this.focusedCell = null;
-		if ( isSelection )
-			this.selectedCell = null;
+	void clearSelection(final boolean isSelection) {
+		this.focusedIndice = -1;
+		if ( isSelection ) {
+			this.selectedIndice = -1;
+		}
 	}
 
-	private void repaintCell(Cell cell) {
-		if ( cell != null )
-			repaint(byCOS[cell.x]+H_GAP, byCOS[cell.y]+V_GAP, COS, COS);
+	private void repaintCell(final int indice) {
+		if ( indice > -1 && indice < 81 ) {
+			repaint(cosX[indice]+H_GAP, cosY[indice]+V_GAP, COS, COS);
+		}
 	}
 
 	// FYI: called setFocusedCellById because setFocusedCell(null)
 	//      is a compiler error when setFocusedCell is overloaded
-	public void setFocusedCellById(String id) {
+	void setFocusedCellById(final String id) {
 		if ( id == null ) // nb: id is never empty
-			setFocusedCell(null);
+			setFocusedIndice(-1);
 		else
-			setFocusedCell(grid.get(id));
+			setFocusedIndice(Grid.indice(id));
 	}
 
-	private void setFocusedCell(Cell cell) {
-		repaintCell(this.focusedCell); // clear existing
-		this.focusedCell = cell;
-		repaintCell(this.focusedCell);
+	void setFocusedCellByIndice(final String s) {
+		if ( s == null ) // nb: id is never empty
+			setFocusedIndice(-1);
+		else
+			try {
+				setFocusedIndice(Integer.parseInt(s));
+			} catch (NumberFormatException ex) {
+				Log.teeln(ex.toString()+" for indice \""+ s+"\"");
+				setFocusedIndice(-1);
+			}
 	}
 
-	private void setSelectedCell(Cell cell) {
-		repaintCell(this.selectedCell); // clear existing
-		this.selectedCell = cell;
-		repaintCell(this.selectedCell);
+	private void setFocusedIndice(final int indice) {
+		repaintCell(this.focusedIndice); // clear existing
+		this.focusedIndice = indice;
+		repaintCell(this.focusedIndice);
+	}
+
+	private void setSelectedIndice(final int indice) {
+		repaintCell(this.selectedIndice); // clear existing
+		this.selectedIndice = indice;
+		repaintCell(this.selectedIndice);
 	}
 
 	/** Get the preferred size of this panel. */
@@ -881,50 +948,48 @@ public class SudokuGridPanel extends JPanel {
 		drawStringCentered(g, s, x,   y,   theGivenColor);
 	}
 
-	private static Color orangy(Color col) {
+	private static Color orangy(final Color col) {
 		Color orangy = ORANGY_COLOR_CACHE.get(col);
-		if ( orangy != null )
-			return orangy;
-		orangy = new Color(
-			// my orange = (255, 185, 0) that's (R, G, B)
-			  (col.getRed()   + 255) / 2
-			, (col.getGreen() + 185) / 2
-			, (col.getBlue()  +   0) / 2
-		);
-		ORANGY_COLOR_CACHE.put(col, orangy);
+		if ( orangy == null ) {
+			// my orange is (255, 185, 0) thats (R, G, B)
+			orangy = new Color( (col.getRed()   + 255) / 2
+							  , (col.getGreen() + 185) / 2
+							  , (col.getBlue()  +   0) / 2
+			);
+			ORANGY_COLOR_CACHE.put(col, orangy);
+		}
 		return orangy;
 	}
 
 	/** Paint this JPanel. */
 	@Override
-	protected void paintComponent(Graphics g) {
-		Graphics2D g2 = (Graphics2D)g;
+	protected void paintComponent(final Graphics g) {
+		final Graphics2D g2 = (Graphics2D)g;
 		initGraphics(g2);
 		paintLegends(g);
-		AffineTransform preTrans = g2.getTransform();
-		AffineTransform translate = AffineTransform.getTranslateInstance(
-				H_GAP, V_GAP);
-		g2.transform(translate);
+		final AffineTransform pt = g2.getTransform();
+		final AffineTransform t = AffineTransform.getTranslateInstance(H_GAP, V_GAP);
+		g2.transform(t);
 		g.clearRect(0, 0, MY_SIZE, MY_SIZE);
-		paintSelectionAndFocus(g);
+		paintCellBackgrounds(g);
 		paintGrid(g);
 		if ( alss != null ) {
 			// paint the background of ALS cells only
 			paintAlss(g, alss);
 		} else {
-			// paint regions for non-ALS's
+			// paint regions for non-ALSs
 			paintRegions(g, covers, COLOR_COVER_BORDER, COLOR_COVER_BG);
 			paintRegions(g, bases, COLOR_BASE_BORDER, COLOR_BASE_BG);
-			paintRegions(g, pinkos, COLOR_PINK, null);
+			paintRegions(g, pinkRegions, COLOR_LIGHT_PINK_BG, null);
 		}
 		paintCell(g);
 		paintSuperAndSubMarkers(g);
 		paintLinks(g);
-		g2.setTransform(preTrans);
+		g2.setTransform(pt);
 	}
 
-	private void initGraphics(Graphics2D g2) {
-		if ( THE_SETTINGS.getBoolean(Settings.isAntialiasing) ) {
+	private void initGraphics(final Graphics2D g2) {
+		if ( CFG.getBoolean(Config.isAntialiasing) ) {
 			g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 			g2.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
 			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
@@ -944,7 +1009,7 @@ public class SudokuGridPanel extends JPanel {
 		}
 	}
 
-	private void paintLegends(Graphics g) {
+	private void paintLegends(final Graphics g) {
 		g.setFont(legendFont);
 		g.setColor(COLOR_LEGEND);
 		for ( int i=0; i<REGION_SIZE; ++i ) {
@@ -955,62 +1020,63 @@ public class SudokuGridPanel extends JPanel {
 		}
 	}
 
-	// makes the grid background go AQUA for an eigth of a second,
-	// to tell the user that this puzzle now solves just with singles,
-	void flashBackgroundAqua() {
-		flashBackground(COLOR_AQUA);
+	// visual ping: background COLOR_AQUA for an eigth of a second
+	// usage: this puzzle solves with singles
+	void flashAqua() {
+		flash(COLOR_AQUA);
 	}
 
-	// makes the grid background go PINK for an eigth of a second,
-	// to tell the user "You ____ed-up!" and also the goes "ping".
-	void flashBackgroundPink() {
-		flashBackground(Color.PINK);
+	// visual ping: background Color.PINK for an eigth of a second
+	// usage: this puzzle is ____ed
+	void flashPink() {
+		flash(Color.PINK);
 	}
 
-	// makes the grid background go Color for an eigth of a second
-	private void flashBackground(Color c) {
-		if ( fillBGColor == c )
-			return; // trying to stop these running into each other
-		fillBGColor = c;
+	// visual ping: background COLOR_LIGHT_PINK_BG for an eigth of a second
+	// usage: hint not found in SudokuFrame.logFollow
+	void flashLightPink() {
+		flash(COLOR_LIGHT_PINK_BG);
+	}
+
+	// visual ping: background $color for an eigth of a second
+	void flash(final Color color) {
+		flash(color, 125);
+	}
+
+	// visual ping: the panel background goes $color for $milliseconds
+	void flash(final Color color, final int milliseconds) {
+		if ( backgroundColor == color )
+			return; // try to stop consecutive calls overlapping
+		backgroundColor = color;
 		repaint();
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				// wait for an eight of a second then repaint it white again.
-				try{Thread.sleep(125);}catch(InterruptedException eaten){}
-				fillBGColor = Color.WHITE;
-				repaint();
-			}
+		SwingUtilities.invokeLater(() -> {
+			// wait for an eight of a second then repaint it white again.
+			lieDown(milliseconds);
+			backgroundColor = DEFAULT_BACKGROUND_COLOR;
+			repaint();
 		});
 	}
 
-	private void paintSelectionAndFocus(Graphics g) {
-		for ( Cell cell : grid.cells ) {
-			Color c = fillBGColor;
-			if ( cell == selectedCell )
+	private void paintCellBackgrounds(final Graphics g) {
+		for ( int i=0; i<GRID_SIZE; ++i ) {
+			Color c = backgroundColor;
+			if ( i == selectedIndice )
 				c = Color.ORANGE;
-			else if ( cell == focusedCell )
+			else if ( i == focusedIndice )
 				c = Color.YELLOW;
-			else if ( auqaBGCells!=null && auqaBGCells.contains(cell) )
-				c = COLOR_AQUA;
-			else if ( pinkBGCells!=null && pinkBGCells.contains(cell) )
-				c = COLOR_PINK;
-			else if ( redBGCells!=null && redBGCells.contains(cell) )
-				c = Color.RED;
-			else if ( blueBGCells!=null && blueBGCells.contains(cell) )
-				c = COLOR_BLUE_BG;
-			else if ( greenBGCells!=null && greenBGCells.contains(cell) )
-				c = COLOR_GREEN_BG;
-			else if ( orangeBGCells!=null && orangeBGCells.contains(cell) )
-				c = COLOR_ORANGE_BG;
-			else if ( yellowBGCells!=null && yellowBGCells.contains(cell) )
-				c = COLOR_YELLOW_BG;
+			else
+				for ( Background bg : BACKGROUNDS ) {
+					final Set<Integer> indices = bg.indices;
+					if ( indices!=null && indices.contains(i) ) {
+						c = bg.color;
+					}
+				}
 			g.setColor(c);
-			g.fillRect(byCOS[cell.x], byCOS[cell.y], COS, COS);
+			g.fillRect(cosX[i], cosY[i], COS, COS);
 		}
 	}
 
-	private void paintGrid(Graphics g) {
+	private void paintGrid(final Graphics g) {
 		int lineWidth, offset;
 		for ( int i=0; i<VALUE_CEILING; ++i ) {
 			if ( i % 3 == 0 ) {
@@ -1033,37 +1099,24 @@ public class SudokuGridPanel extends JPanel {
 			, final Color backgroundColor // null means no shading
 	) {
 		if ( regions != null ) {
+			Bounds b; int s;
 			for ( ARegion region : regions ) {
-				if ( region == null )
-					continue;
-				final Bounds b = bounds[region.index];
-				g.setColor(borderColor); // solid color
-				for ( int s=-2; s<3; s++ ) // 5 times: -2, -1, 0, 1, 2
-					g.drawRect(b.x+s, b.y+s, b.w-s*2, b.h-s*2);
-				if ( backgroundColor != null ) {
-					g.setColor(backgroundColor); // shading (alpha)
-					g.fillRect(b.x+3, b.y+3, b.w-6, b.h-6);
+				if ( region != null ) {
+					g.setColor(borderColor); // solid color
+					b = bounds[region.index];
+					for ( s=-2; s<3; s++ ) // 5 times: -2, -1, 0, 1, 2
+						g.drawRect(b.x+s, b.y+s, b.w-s*2, b.h-s*2);
+					if ( backgroundColor != null ) {
+						g.setColor(backgroundColor); // shading (alpha)
+						g.fillRect(b.x+3, b.y+3, b.w-6, b.h-6);
+					}
 				}
 			}
 		}
-	}
-
-	private boolean isSelected(final Als als) {
-		final int sai = selectedAlsIndex;
-		if ( sai > -1 ) {
-			if ( sai < alss.length ) {
-				if ( als == alss[sai] ) {
-					return true;
-				}
-			} else { // clear invalid
-				selectedAlsIndex = -1;
-			}
-		}
-		return false;
 	}
 
 	/**
-	 * Paint the given ALS using color 'i'.
+	 * Paint the given ALS using color $i.
 	 *
 	 * @param g the Graphics to paint on
 	 * @param als the ALS to paint
@@ -1072,6 +1125,9 @@ public class SudokuGridPanel extends JPanel {
 	 *  or special case -1 to "flash highlight" this ALS in YELLOW.
 	 */
 	private void paintAls(final Graphics g, final Als als, final int c) {
+		int i;
+		Cell cell;
+		final Cell[] gridCells = grid.cells;
 		// the foreGroundColor switches-up to yellow when c is -1 (selected)
 		final Color fgc = c==-1 ? Color.YELLOW : ALS_COLORS[c];
 		// Draw ALS border inside the black region border, in a finer pen. The
@@ -1086,18 +1142,16 @@ public class SudokuGridPanel extends JPanel {
 		// are many, so now we avert the whole problem, so that the user sees a
 		// pointer to each ALS, whose cells may still overlap, so da user still
 		// needs to select each ALS to examine it, so this just helps not Cures
-		// the problem. Road to Nowhere. Plantpot. Chapman's Bridge. Desperado.
-		// Dueling Dalton. Dueling Bangos! 42. Sigh.
-		final ARegion region = als.region;
-		if ( region != null ) {
-			final Bounds b = bounds[region.index];
-			g.setColor(fgc); // solid color
-			for ( int s=1; s<4; ++s ) // thrice: 1, 2, 3
-				g.drawRect(b.x+s, b.y+s, b.w-s*2, b.h-s*2);
-		}
+		// the problem. Road to Nowhere. 42. Sigh.
+		final ARegion region = grid.regions[als.regionIndex];
+		final Bounds b = bounds[region.index];
+		g.setColor(fgc); // solid color
+		for ( int s=1; s<4; ++s ) // thrice: 1, 2, 3
+			g.drawRect(b.x+s, b.y+s, b.w-s*2, b.h-s*2);
 		// paint each cell in this ALS
-		for ( Cell cell : als.idx.cellsNew(grid.cells) ) {
-			// paint the cell background
+		for ( final IntQueue q=als.idx.indices(); (i=q.poll())>QEMPTY; ) {
+			cell = gridCells[i];
+			// paint the cell background (yellow is the selected cell)
 			g.setColor(c==-1 ? Color.YELLOW : ALS_BG_COLORS[c]);
 			g.fillRect(byCOS[cell.x]+2, byCOS[cell.y]+2, COS-4, COS-4);
 			// use a darker aqua foreground color, else the digits "look funny"
@@ -1105,9 +1159,8 @@ public class SudokuGridPanel extends JPanel {
 			// is strange, but works. I should move aqua away from green. Sigh.
 			g.setColor(fgc==COLOR_CYAN ? COLOR_CYAN_DARK : fgc);
 			// paint the cell foreground
-			for ( int v : VALUESES[cell.maybes] ) {
-				paintMaybe3D(g, cell, v, smallFont2);
-			}
+			for ( int v : VALUESES[cell.maybes] )
+				paintMaybe3D(g, cell.indice, v, smallFont2);
 		}
 	}
 
@@ -1118,8 +1171,8 @@ public class SudokuGridPanel extends JPanel {
 	 * @param g
 	 * @param alss
 	 */
-	private void paintAlss(final Graphics g, Als[] alss) {
-		// If you're seeing this then add another ALS_COLORS and ALS_BG_COLORS.
+	private void paintAlss(final Graphics g, final Als[] alss) {
+		// If you are seeing this then add another ALS_COLORS and ALS_BG_COLORS.
 		if ( alss.length > ALS_COLORS.length )
 			Log.println("WARN: paintAlss: more alss than ALS_COLORS!");
 		int i = 1; // the alss index, skip the first ALS, for now.
@@ -1139,17 +1192,14 @@ public class SudokuGridPanel extends JPanel {
 			// paint cells of the selectedAls YELLOW
 			paintAls(g, alss[i], -1);
 			// wait a while then repaint alss again "normally".
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					try{Thread.sleep(333);}catch(InterruptedException eaten){}
-					selectedAlsIndex = -1;
-					repaint();
-				}
+			SwingUtilities.invokeLater(() -> {
+				lieDown(700);
+				selectedAlsIndex = -1;
+				repaint();
 			});
 		}
 		// if any ALS is selected then
-		// nb: I don't understand this, and I wrote it. GUI's just shit me!
+		// nb: I do not understand this, and I wrote it. GUIs just shit me!
 		if ( i > -1 ) {
 			if ( i >= alss.length ) {
 				// selection invalid, so unselect it
@@ -1175,33 +1225,31 @@ public class SudokuGridPanel extends JPanel {
 		}
 		repaint();
 	}
-	private int selectedAlsIndex = -1; // NONE
 
 	/**
 	 * This is an intermediate step to translate the array of Cell=>Values into
-	 * an array of Colors. We do this for efficiency: it's faster to iterate
+	 * an array of Colors. We do this for efficiency: it is faster to iterate
 	 * each of the Pots than it is to look-up each Cell=>Value in each Pots.
-	 * There's 81*9 Cell Values by 7 Colors, so that's 5,103 HashMap.get()s to
+	 * There is 81*9 Cell Values by 7 Colors, so thats 5,103 HashMap.get()s to
 	 * paint an empty Sudoku grid. Now we first ONCE run 7 HashMap.keySet() so
 	 * ALL the subsequent however-many-gets are hits; then we execute 5,103
 	 * array-lookups, and an array-lookup is MUCH faster than HashMap.get. So
-	 * it's faster overall because it dramatically reduces the number of gets!
-	 * Nothing But Net! The downside is memory: a matrix of 81*9 Color's. Meh!
+	 * it is faster overall because it dramatically reduces the number of gets!
+	 * Nothing But Net! The downside is memory: a matrix of 81*9 Colors. Meh!
 	 * <p>
 	 * NOTE: formerly green+red=orange. Now oranges are separate!
 	 * <p>
-	 * KRC 2021-06-21 I'm replacing all keySet->get with entrySet, because it's
-	 * faster, and I've done so here. I think it's worth noting the original
-	 * did upto 5,103 gets, and now we do precisely 0, which just goes to show
-	 * that there really are more than one ways to skin a cat, just some are a
-	 * bit more efficient than others. I think this is now "fairly efficient".
+	 * KRC 2021-06-21 I replace all keySet->get with entrySet, because it is
+	 * faster, and I have done so here. I think it is worth noting the original
+	 * did upto 5,103 gets, and now we do precisely 0. There is more than one
+	 * way to do it. I think this is now "fairly efficient".
 	 * The only possible enhancement that I can see is making paintCellValues
 	 * (my caller) default to Color.GRAY instead of defaulting to GRAY down in
 	 * the setMaybeColor function, which would then no longer need to exist;
 	 * we could just look-up the [cell-indice][value-1] in MAYBES_COLORS and
-	 * if it's null we use GRAY. I'd also like to delay creating MAYBES_COLORS
+	 * if it is null we use GRAY. Would like to delay creating MAYBES_COLORS
 	 * sub-arrays until required, because we have an array of 9 Colors for each
-	 * of atleast 17 clues, which is 17*9=153 unused Color, which isn't small,
+	 * of atleast 17 clues, which is 17*9=153 unused Color, which is not small,
 	 * so its a bit of a waste of memory: 153*(4+4+4+4+4)=3,060 bytes.
 	 */
 	private void initMaybesColors() {
@@ -1213,10 +1261,9 @@ public class SudokuGridPanel extends JPanel {
 		Color[] cellsMaybesColor;
 		for ( int i=0; i<NUM_COLOR_POTS; ++i ) {
 			color = POTS_COLORS[i];
-			if ( (pots=COLOR_POTS[i]) != null ) {
-				assert !pots.isEmpty() : "empty pots denied, for speed!";
-				for ( java.util.Map.Entry<Cell,Integer> e : pots.entrySet() ) {
-					cellsMaybesColor = MAYBES_COLORS[e.getKey().i];
+			if ( (pots=COLOR_POTS[i]) != null && pots.any() ) {
+				for ( java.util.Map.Entry<Integer,Integer> e : pots.entrySet() ) {
+					cellsMaybesColor = MAYBES_COLORS[e.getKey()];
 					//nb: INDEXES[i] is VALUES[i] with one removed from each v,
 					//to cater for a one-based-value in a zero-based-array.
 					//Just beware that the returned v is acually vMinus1!
@@ -1232,7 +1279,7 @@ public class SudokuGridPanel extends JPanel {
 
 	// set the graphics-color to the color of the given Cell-value (ie maybe)
 	// @return isHighlighted == color!=GRAY (the default)
-	private boolean setMaybeColor(Graphics g, int i, int vMinus1) {
+	private boolean setMaybeColor(final Graphics g, final int i, final int vMinus1) {
 		final Color color;
 		// value-1 for one-based-value to zero-based-array
 		if ( (color=MAYBES_COLORS[i][vMinus1]) != null ) {
@@ -1248,21 +1295,21 @@ public class SudokuGridPanel extends JPanel {
 	// paint* methods are instance wrappers for the static draw methods.
 	// paint* exist to encapsulate the math that works-out the x and y.
 	// It now also encapsulates working-out color for the un/selected cell.
-	private void paintCellValue(final Graphics g, final Cell c) {
-		g.setColor(c==selectedCell ? Color.BLACK : COLOR_ORANGY_BLACK);
-		drawStringCentered(g, DIGITS[c.value]
-				, byCOS[c.x] + CELL_PAD + CISo2
-				, byCOS[c.y] + CELL_PAD + CISo2
+	private void paintCellValue(final Graphics g, final int indice, final int v) {
+		g.setColor(indice==selectedIndice ? Color.BLACK : COLOR_ORANGY_BLACK);
+		drawStringCentered(g, DIGITS[v]
+				, cosX[indice] + CELL_PAD + CISo2
+				, cosY[indice] + CELL_PAD + CISo2
 				, bigFont);
 	}
 
-	// paint a 3D (highlighted) cell-maybe in the current color using 'font'.
+	// paint a 3D (highlighted) cell-maybe in the current color in $font.
 	// paint* methods are instance wrappers for the static draw methods.
 	// paint* exist to encapsulate the math that works-out the x and y.
-	private void paintMaybe3D(final Graphics g, final Cell c, final int v, final Font font) {
+	private void paintMaybe3D(final Graphics g, final int indice, final int v, final Font font) {
 		drawStringCentered3D(g, DIGITS[v]
-			, byCOS[c.x] + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
-			, byCOS[c.y] + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
+			, cosX[indice] + CELL_PAD + padX[v] + CISo6
+			, cosY[indice] + CELL_PAD + padY[v] + CISo6
 			, font
 		);
 	}
@@ -1270,12 +1317,33 @@ public class SudokuGridPanel extends JPanel {
 	// paint a "plain" cell-maybe in the current color.
 	// paint* methods are instance wrappers for the static draw methods.
 	// paint* exist to encapsulate the math that works-out the x and y.
-	private void paintMaybe(final Graphics g, final Cell c, final int v) {
+	private void paintMaybe(final Graphics g, final int indice, final int v) {
 		drawStringCentered(g, DIGITS[v]
-			, byCOS[c.x] + CELL_PAD + ((v-1)%3)*CISo3 + CISo6
-			, byCOS[c.y] + CELL_PAD + ((v-1)/3)*CISo3 + CISo6
+			, cosX[indice] + CELL_PAD + padX[v] + CISo6
+			, cosY[indice] + CELL_PAD + padY[v] + CISo6
 			, smallFont1
 		);
+	}
+
+	/**
+	 * Get the "Results color" for this cell-value.
+	 * I am called only if results is not null.
+	 * Most hints don't set the results.
+	 *
+	 * @param indice to get
+	 * @param value to get
+	 * @return the Color, or null meaning "not a result"
+	 */
+	private Color resultColor(final int indice, final int value) {
+		Color result = null;
+		Integer values;
+		if ( (values=results.get(indice)) != null
+		  && (values & VSHFT[value]) > 0 )
+			if ( (values & SET_BIT) > 0 )
+				result = COLOR_GREEN;
+			else
+				result = Color.RED;
+		return result;
 	}
 
 	/**
@@ -1285,28 +1353,29 @@ public class SudokuGridPanel extends JPanel {
 	 *
 	 * @param g The Graphics to paint on.
 	 */
-	private void paintCell(Graphics g) {
-		Integer values;
+	private void paintCell(final Graphics g) {
 		boolean isHighlighted;
-		final boolean show = THE_SETTINGS.getBoolean(Settings.isShowingMaybes);
+		Color color; // resultColor
+		final boolean show = CFG.getBoolean(Config.isShowingMaybes);
 		initMaybesColors(); // sets MAYBES_COLORS
-		for ( Cell cell : grid.cells ) {
-			if ( cell.value != 0 ) {
-				paintCellValue(g, cell);
+		final int[] cellValues = grid.getValues();
+		final int[] maybes = grid.maybes;
+		for ( int i=0; i<GRID_SIZE; ++i ) {
+			if ( cellValues[i] > 0 ) {
+				paintCellValue(g, i, cellValues[i]);
 			} else {
-				for ( int v : VALUESES[cell.maybes] ) {
-					isHighlighted = setMaybeColor(g, cell.i, v-1);
-					if ( theResult!=null && theResult.equals(cell, v) )
-						paintMaybe3D(g, cell, v, smallFont3); // larger font
-					else if ( results != null
-						   && (values=results.get(cell)) != null
-						   && (values & VSHFT[v]) != 0 ) {
-						g.setColor(resultColor()); // result ON's green/blue
-						paintMaybe3D(g, cell, v, smallFont3); // larger font
+				for ( int v : VALUESES[maybes[i]] ) {
+					isHighlighted = setMaybeColor(g, i, v-1);
+					if ( results!=null && (color=resultColor(i, v))!=null ) {
+						g.setColor(color); // ONs green / OFFs red
+						paintMaybe3D(g, i, v, smallFont3); // larger font
+					} else if ( setPots!=null && (color=setPotsColor(i, v))!=null ) {
+						g.setColor(color); // ONs green / blue
+						paintMaybe3D(g, i, v, smallFont3); // larger font
 					} else if ( isHighlighted ) {
-						paintMaybe3D(g, cell, v, smallFont2);
+						paintMaybe3D(g, i, v, smallFont2);
 					} else if (show) { // g.color is gray
-						paintMaybe(g, cell, v);
+						paintMaybe(g, i, v);
 					}
 				}
 			}
@@ -1318,8 +1387,8 @@ public class SudokuGridPanel extends JPanel {
 
 	// paint supers and subs, if any
 	// I overwrite whatevers in the background, so you can paint me over the
-	// cell's maybes produced by paintCell
-	private void paintSuperAndSubMarkers(Graphics g) {
+	// cells maybes produced by paintCell
+	private void paintSuperAndSubMarkers(final Graphics g) {
 		if ( supers==null || subs==null )
 			return;
 		g.setFont(smallFont2);
@@ -1332,97 +1401,36 @@ public class SudokuGridPanel extends JPanel {
 					paintMarkers(g, v, supers[c][v], PLUS, 10);
 			}
 		}
-		// over-paint RED any that're in both sub colors.
+		// over-paint RED any that are in both sub colors.
 		g.setColor(Color.RED);
 		for ( int v=1; v<VALUE_CEILING; ++v )
 			if ( tmp.setAndAny(subs[0][v], subs[1][v]) )
 				paintMarkers(g, v, tmp, MINUS, 8);
 	}
-	private final Idx tmp = new Idx();
 
 	// draw String s centered on v in each cell in idx
-	private void paintMarkers(Graphics g, int v, Idx idx, String s, int offset) {
+	private void paintMarkers(final Graphics g, final int v, final Idx idx, final String s, final int offset) {
+		int i;
 		final int u = v - 1;
 		final int xo = CELL_PAD + (u%R)*CISo3 + CISo6 + offset; // xOffset
 		final int yo = CELL_PAD + (u/R)*CISo3 + CISo6; // yOffset
 		// note: x,y are the centre point to paint at (not the top-left)
-		idx.forEach((i) -> drawStringCentered(g, s, byCOS[i%N]+xo, byCOS[i/N]+yo));
+		for ( final IntQueue q=idx.indices(); (i=q.poll())>QEMPTY; )
+			drawStringCentered(g, s, byCOS[i%N]+xo, byCOS[i/N]+yo);
 	}
 
-	private Color resultColor() {
-		switch ( resultColor ) {
-			case 0: return COLOR_GREEN;
-			case 1: return COLOR_BLUE;
-			default: return COLOR_BLACK; // should never happen!
-		}
+	private Color setPotsColor(final int indice, final int value) {
+		Color result = null;
+		Integer values;
+		if ( (values=setPots.get(indice)) != null
+		  && (values & VSHFT[value]) > 0 )
+			result = setPotsColor==Constants.BLUE ? COLOR_BLUE : COLOR_GREEN;
+		return result;
 	}
 
-	private final class Line {
-		public final int sx, sy, ex, ey;
-		public Line(int sx, int sy, int ex, int ey) {
-			this.sx=sx; this.sy=sy; this.ex=ex; this.ey=ey;
-		}
-		// vectorial product, without normalization by length
-		private int distanceUnscaled(int x, int y) {
-			return (x - sx)*(ey - sy) - (y - sy)*(ex - sx);
-		}
-		private boolean intervalOverlaps(int s1, int e1, int s2, int e2) {
-			if (s1 > e1) { // swap
-				s1 ^= e1;
-				e1 = s1^e1;
-				s1 ^= e1;
-			}
-			if (s2 > e2) { // swap
-				s2 ^= e2;
-				e2 = s2^e2;
-				s2 ^= e2;
-			}
-			return s1 < e2 && e1 > s2;
-		}
-		// basically, if there MBR's overlap then test for overlap
-		private boolean overlaps(Line o) {
-			if ( distanceUnscaled(o.sx, o.sy) == 0
-			  && distanceUnscaled(o.ex, o.ey) == 0 ) {
-				// both lines are on the same right
-				return intervalOverlaps(sx, ex, o.sx, o.ex)
-					|| intervalOverlaps(sy, ey, o.sy, o.ey);
-			}
-			return false;
-		}
-	}
-
-	private static final class DblPoint {
-		public double x;
-		public double y;
-	}
-
-	private static final class IntPoint {
-		public int x;
-		public int y;
-		@Override
-		public boolean equals(Object obj) {
-			if ( obj instanceof Cell ) {
-				Cell that = (Cell)obj;
-				return x==that.x && y==that.y;
-			} else if ( obj instanceof IntPoint ) {
-				IntPoint that = (IntPoint)obj;
-				return x==that.x && y==that.y;
-			} else if ( obj instanceof DblPoint ) {
-				DblPoint that = (DblPoint)obj;
-				return x==(int)that.x && y==(int)that.y;
-			}
-			return false;
-		}
-		@Override
-		public int hashCode() {
-			return y<<4 + x; // consistent with Grid.Cell.hashCode(), which isn't an imperative or anything.
-		}
-
-	}
-
-	// sets (mutates) 'p' to the position of cell.value
+	// sets (mutates) $p to the position of cell.value
 	// NB: doing it this way we only need create 2 points, less G = less GC.
-	// NB: mutates DblPoint's state, only the reference is final.
+	// NB: mutates DblPoints state, only the reference is final.
 	private void position(final int i, final int v, final DblPoint p) {
 		final int x = COL_OF[i];
 		final int y = ROW_OF[i];
@@ -1436,16 +1444,16 @@ public class SudokuGridPanel extends JPanel {
 		}
 	}
 
-	private void paintLinks(Graphics g) {
-		if ( links==null || links.size()==0 )
+	private void paintLinks(final Graphics g) {
+		if ( links==null || links.isEmpty() )
 			return;
 		g.setColor(Color.orange);
-		DblPoint s=new DblPoint(), e=new DblPoint(); // s=source, e=end
+		final DblPoint s=new DblPoint(), e=new DblPoint(); // s=source, e=end
 		Line myLine;
 		// s=shift, u=unit, m=move, l=left, r=right
-		// nb: pretty sure we don't actually need a couple of these variables,
-		// but I'm a human being who is a poor mathematician, so I do, so I'm
-		// keeping them, even if they're not actually required.
+		// nb: pretty sure we do not actually need a couple of these variables,
+		// but I am a human being who is a poor mathematician, so I do, so I am
+		// keeping them, even if they are not actually required.
 		double sx,sy, length, ux,uy, mx,my, lx,ly, rx,ry;
 		int overlaps; // number of already painted lines I cross
 		for ( Link link : links ) {
@@ -1455,9 +1463,9 @@ public class SudokuGridPanel extends JPanel {
 			sx = e.x - s.x; // shiftX = end.x - start.x
 			sy = e.y - s.y; // shiftY = end.y - start.y
 			// PYTHONS RULE: the length of the hippopotamus equals the square
-			// root of the sum of the square of the other two sides. Ya can't
-			// fool me mate! Hippopotami are round. I means they're da roundest
-			// animal around, on ground. And then I shot'im.
+			// root of the sum of the square of the other two sides. Ya canoo
+			// fool me mate! Hippopotami is round. I mean deyz is da roundest
+			// animal around. On da ground. And then I shot-im.
 			length = Math.sqrt( sx*sx + sy*sy );
 			ux = sx / length; // the amount we move horizontaly per unit
 			uy = sy / length; // the amount we move vertically per unit
@@ -1470,22 +1478,22 @@ public class SudokuGridPanel extends JPanel {
 			// move the line perpendicularly to go away from overlapping lines
 			mx = uy * ((overlaps+1)/2) * LINK_OFFSET; // horizontally
 			my = ux * ((overlaps+1)/2) * LINK_OFFSET; // vertically
-			if (overlaps % 2 == 0)
+			if ( overlaps % 2 == 0 )
 				mx = -mx; // negate the x to move by
 			else
 				my = -my; // negate the y to move by
-			// suppress arrows on short links, coz there ain't room for em.
+			// suppress arrows on short links, coz there aint room for em.
 			if ( length >= (CIS>>1) ) { // length >= CELL_INNER_SIZE/2
 				// truncate end points (move of "middle" of potential value)
-				if (link.srcValue > 0) {
+				if ( link.srcValue > 0 ) {
 					s.x += ux * CISo6; // startX += unitX * (CELL_INNER_SIZE/6)
 					s.y += uy * CISo6;
 				}
-				if (link.endValue > 0) {
+				if ( link.endValue > 0 ) {
 					e.x -= ux * CISo6; // endX -= unitX * (CELL_INNER_SIZE/6)
 					e.y -= uy * CISo6;
 				}
-				if (link.endValue > 0) {
+				if ( link.endValue > 0 ) {
 					// Draw arrow at end point
 					lx = e.x - ux*ARROW_LENGTH + uy*ARROW_WIDTH;
 					ly = e.y - uy*ARROW_LENGTH - ux*ARROW_WIDTH;
@@ -1502,14 +1510,73 @@ public class SudokuGridPanel extends JPanel {
 				paintedLines.add(myLine);
 			}
 			// draw the Line
-			g.drawLine(
-					  (int)(s.x + mx)
-					, (int)(s.y + my)
-					, (int)(e.x + mx)
-					, (int)(e.y + my)
-			);
+			g.drawLine((int)(s.x + mx), (int)(s.y + my)
+					 , (int)(e.x + mx), (int)(e.y + my));
 		} // next link
 		paintedLines.clear(); // let gc cleanup the Lines but keep the container
+	}
+
+	private static final class Line {
+		final int sx, sy, ex, ey;
+		Line(final int sx, final int sy, final int ex, final int ey) {
+			this.sx=sx; this.sy=sy; this.ex=ex; this.ey=ey;
+		}
+		// vectorial product, without normalization by length
+		private int distanceUnscaled(final int x, final int y) {
+			return (x - sx)*(ey - sy) - (y - sy)*(ex - sx);
+		}
+		private boolean intervalOverlaps(int s1, int e1, int s2, int e2) {
+			if (s1 > e1) { // swap
+				s1 ^= e1;
+				e1 = s1^e1;
+				s1 ^= e1;
+			}
+			if (s2 > e2) { // swap
+				s2 ^= e2;
+				e2 = s2^e2;
+				s2 ^= e2;
+			}
+			return s1 < e2 && e1 > s2;
+		}
+		// basically, if there MBRs overlap then test for overlap
+		private boolean overlaps(final Line o) {
+			if ( distanceUnscaled(o.sx, o.sy) == 0
+			  && distanceUnscaled(o.ex, o.ey) == 0 ) {
+				// both lines are on the same right
+				return intervalOverlaps(sx, ex, o.sx, o.ex)
+					|| intervalOverlaps(sy, ey, o.sy, o.ey);
+			}
+			return false;
+		}
+	}
+
+	private static final class DblPoint {
+		double x;
+		double y;
+	}
+
+	private static final class IntPoint {
+		int x;
+		int y;
+		@Override
+		public boolean equals(final Object obj) {
+			if ( obj instanceof Cell ) {
+				Cell that = (Cell)obj;
+				return x==that.x && y==that.y;
+			} else if ( obj instanceof IntPoint ) {
+				IntPoint that = (IntPoint)obj;
+				return x==that.x && y==that.y;
+			} else if ( obj instanceof DblPoint ) {
+				DblPoint that = (DblPoint)obj;
+				return x==(int)that.x && y==(int)that.y;
+			}
+			return false;
+		}
+		@Override
+		public int hashCode() {
+			return y<<4 + x; // consistent with Cell.hashCode (unimperative)
+		}
+
 	}
 
 	/**
@@ -1518,31 +1585,44 @@ public class SudokuGridPanel extends JPanel {
 	 * Inputs are in cells, values stored and in screen-coordinates, to save
 	 * repeatedly multiplying by the cell outer size (COS).
 	 * <p>
-	 * The Bounds class is only used in {@link #paintRegions}, it's just a way
+	 * The Bounds class is only used in {@link #paintRegions}, it is just a way
 	 * of calculating ONCE and storing the outline of each ARegion.
 	 */
 	private final class Bounds {
-		public final int x, y, w, h;
-		public Bounds(final int x, final int y, final int w, final int h) {
+		final int x, y, w, h;
+		Bounds(final int x, final int y, final int w, final int h) {
 			this.x = byCOS[x];
 			this.y = byCOS[y];
 			this.w = byCOS[w];
 			this.h = byCOS[h];
 		}
 		@Override
-		public boolean equals(Object o) {
-			return o!=null && (o instanceof Bounds) && equals((Bounds)o);
-		}
-		@Override
-		public int hashCode() {
-			return (w<<12) ^ (h<<10) ^ (x<<5) ^ y ;
+		public boolean equals(final Object o) {
+			return o instanceof Bounds
+				&& equals((Bounds)o);
 		}
 		public boolean equals(final Bounds o) {
 			return x==o.x && y==o.y && w==o.w && h==o.h;
 		}
 		@Override
+		public int hashCode() {
+			return (w<<12) ^ (h<<10) ^ (x<<5) ^ y ;
+		}
+		@Override
 		public String toString() {
 			return "x="+x+", y="+y+", w="+w+", h="+h;
+		}
+	}
+
+	/**
+	 * Background is a background color and cell indices to paint that color.
+	 */
+	private static class Background {
+		final Color color;
+		Set<Integer> indices;
+		Background(final Color color, final Set<Integer> indices) {
+			this.color = color;
+			this.indices = indices;
 		}
 	}
 

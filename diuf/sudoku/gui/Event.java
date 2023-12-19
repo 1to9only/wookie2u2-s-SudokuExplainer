@@ -1,25 +1,24 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
 
 /**
- * All I've done is copy-paste the masks that I use from java.awt.Event.
+ * Selected java.awt.Event masks.
  * <p>
- * java.awt Event is deprecated as of JDK9, along with the whole event tree,
- * but having no internet connection I have no way to find out how to use the
- * replacement classes; so I just suppress the compiler warnings (I use lint
- * and treat all warnings as errors, except you can ignore warnings, I'm just
- * doing so "permanently"). If/When the old event classes are removed from the
- * JAPI (don't hold you breath) then I will have to find out how to use there
- * replacements; but this will do for now.
+ * I just copy-pasted the masks <b>THAT I USE</b> from java.awt.Event because
+ * java.awt.Event is deprecated as of JDK9, along with the whole event tree,
+ * but I have no interest replacing it; so I must suppress the warning. I use
+ * lint, and treat warnings as errors. Event permanently averts this warning.
+ * If/when Events are removed from the JAPI (dont hold your breath) then I will
+ * have to work-out how to use there replacement. This will do for now.
  *
  * @author Keith Corlett 2022-01-08
  */
-public class Event {
+final class Event {
 
 	/* Modifier constants */
 

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -22,10 +22,10 @@ import java.util.regex.Pattern;
  * surprised to find that this is commonly not the case. Two hinters find the
  * same elimination fairly commonly (maybe 20% of the time, I guess).
  * <p>
- * NB: this algorithm (et al) is dependant on "^\\d+#" matching the start of the
- * puzzle-header-line and being the only lines in the file witch match; and a
- * bunch of other stuff like %5d hint-numbers. IE: One f__ks with the logFile
- * format at ones own peril.
+ * NB: this algorithm (et al) depends on "^\\d+#" matching the start of the
+ * puzzle-header-line and being the only lines in the file witch match; and
+ * a bunch of other stuff like %5d hint-numbers. IE: One f__ks with the
+ * logFile format at ones own peril.
  *
  * @author Keith Corlett 2019 OCT
  */

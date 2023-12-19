@@ -1,12 +1,13 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
 
 import diuf.sudoku.io.IO;
+import diuf.sudoku.io.StdErr;
 import diuf.sudoku.utils.MyInteger;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -14,11 +15,11 @@ import static diuf.sudoku.utils.Frmt.SP;
 
 /**
  * Analyse the a7/8/9/10e.log file to workout what the filters are. Note that
- * you need to change this code (not just the filename) to make it's processing
- * suit the aligned-set-size, which'll be pretty damn tricky coz you're not me,
- * and you didn't write it; be think how much more complex this code'd be if it
- * had to cater for sets of 7, 8, 9, or 10 aligned cells. This is easier, trust
- * me. I tried and failed the other way.
+ * you need to change this code (not just the filename) to make it is processing
+ * suit the aligned-set-size, which will be pretty tricky coz you are not me,
+ * and you did not write it; be think how much more complex this code would be
+ * if it had to cater for sets of 7, 8, 9, or 10 aligned cells. This is easier.
+ * I tried and failed the other way.
  * <p>
  * @author Keith Corlett 2020 Mar 16
  */
@@ -123,8 +124,7 @@ puzz hn ce eb cl ms sb hi|cells                                                 
 			System.out.flush();
 
 		} catch (Exception ex) {
-			try {Thread.sleep(50);}catch(InterruptedException eaten) {}
-			ex.printStackTrace(System.err);
+			StdErr.printStackTrace(ex);
 		}
 	}
 }

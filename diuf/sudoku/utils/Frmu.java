@@ -1,155 +1,106 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
 
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Grid.CELL_IDS;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
-import diuf.sudoku.solver.hinters.align.CellSet;
-import static diuf.sudoku.utils.Frmt.NL;
+import static diuf.sudoku.utils.Frmt.*;
+import static diuf.sudoku.utils.MyStrings.SB;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import static diuf.sudoku.utils.Frmt.NULL_ST;
-import static diuf.sudoku.utils.Frmt.AND;
-import static diuf.sudoku.utils.Frmt.OR;
-import static diuf.sudoku.utils.Frmt.EMPTY_STRING;
-import static diuf.sudoku.utils.Frmt.CSP;
-import static diuf.sudoku.utils.Frmt.SP;
 
 /**
- * Frmu (that's the letter following t) is Frmt for Sudoku Explainer types, so
- * Frmt (like everything else in utils) remains portable between projects. Frmu
- * and Frmt are conjoined twins, so are in the same package. Remove Frmu after
- * copying utils to another project, and strip Debug of all app-specific types.
+ * I am named Frmu because u follows t.
+ * <p>
+ * Frmu is Frmt for app-specific types, so that utils (including Frmt) remains
+ * portable between projects. Frmu and Frmt are conjoined twins, hence must be
+ * in the same package, but Frmu does NOT really belong in utils, because it
+ * contains application-types. When setting-up a new project gut Frmu, and
+ * start again from torts.
  *
  * @author Keith Corlett 2010-06-20
  */
 public class Frmu {
 
-	// SB is "loaned" publicly via getSB()
-	// It's up to you to not use the same SB twice. BIG Sigh.
-	private static final StringBuilder SB = new StringBuilder(64);
-	// MYSB is all mine, gotten with getMySB(). It's up to me to not use the
-	// same SB twice. MYSB helps a lot. Presume that SB is on loan and use MYSB
-	// EVERYwhere internally. If you want another SB then re-jig the problem,
-	// or create a new SB on-the-fly. We can only go so far caching SB's before
-	// the speed increases gained but not creating and growing buffers OTF all
-	// the time gets head-onned by depleated RAM coz some dopey bastard holds
-	// a big buffer he won't let go of, despite the fact that it's used rarely.
-	// You cannot have it both ways. So two re-used buffers make sense, but a
-	// third stinks like cock. So create him on-the-fly. Clear.
-	private static final StringBuilder MYSB = new StringBuilder(64);
+	/**
+	 * Returns Space Separated Values of cell.id of $indices.
+	 *
+	 * @param indices to stringify
+	 * @return SSV of cell.id of indices
+	 */
+	public static String ids(Collection<Integer> indices) {
+		return Frmt.frmt(indices, (i)->CELL_IDS[i], SP, SP);
+	}
 
 	// ========================== ARegion ============================
 
-	// This is a complete pain in the ass!
-	public static String and(List<ARegion> list) {
-		return Frmt.frmt(list, (r)->r.id, CSP, AND);
+	/**
+	 * Returns CSV (Comma Separated Values) formatted $regions.
+	 *
+	 * @param regions to format
+	 * @return CSV formatted $regions
+	 */
+	public static StringBuilder csv(ARegion[] regions) {
+		if ( regions==null )
+			return SB(16).append(NULL_STRING); // WARN: in dumps of MANY test-cases!
+		return csv(SB(regions.length<<3), regions);
 	}
 
-	// nb: List binds before Collection to avert type-erasure problem
-	public static String csv(List<ARegion> regions) {
+	/**
+	 * Append $regions to $sb in CSV (Comma Separated Values) format.
+	 *
+	 * @param sb to append to
+	 * @param regions to append
+	 * @return sb with regions appended
+	 */
+	public static StringBuilder csv(final StringBuilder sb, final ARegion[] regions) {
 		if ( regions == null )
-			return NULL_ST;
-		StringBuilder sb = getMySB(7 * regions.size());
+			return sb.append(NULL_STRING);
 		boolean first = true;
 		for ( ARegion r : regions ) {
 			if(first) first=false; else sb.append(CSP);
-			sb.append(r.id);
-		}
-		return sb.toString();
-	}
-
-	// nb: Set binds before Collection to avert type-erasure problem
-	public static String csv(ARegion[] regions) {
-		// null regions causes a null String, not an NPE. Reasonable.
-		if ( regions == null )
-			return null;
-		return csv(getMySB(regions.length<<3), regions).toString();
-	}
-
-	/** Append comma separated regions to sb. */
-	public static StringBuilder csv(StringBuilder sb, ARegion[] regions) {
-		if ( regions == null )
-			return sb.append(NULL_ST);
-		boolean first = true;
-		for ( ARegion r : regions ) {
-			if ( first )
-				first = false;
-			else
-				sb.append(CSP);
-			sb.append(r.id);
+			sb.append(r.label);
 		}
 		return sb;
 	}
 
-	public static StringBuilder basesAndCovers(ARegion[] bases, ARegion[] covers) {
-		if ( bases==null || covers==null ) // Oops!
-			return basesAndCovers(getMySB(128), bases, covers);
-		return basesAndCovers(getMySB((bases.length+covers.length)<<3), bases, covers);
+	public static StringBuilder basesAndCovers(final ARegion[] bases, final ARegion[] covers) {
+		final int capacity;
+		if ( bases!=null && covers!=null ) // avert NPE
+			capacity = (bases.length+covers.length)<<3; // * 8
+		else
+			capacity = 128;
+		return basesAndCovers(SB(capacity), bases, covers);
 	}
-	public static StringBuilder basesAndCovers(StringBuilder sb, ARegion[] bases, ARegion[] covers) {
+
+	public static StringBuilder basesAndCovers(final StringBuilder sb, final ARegion[] bases, final ARegion[] covers) {
 		return csv(csv(sb, bases).append(AND), covers);
-	}
-
-	public static String interleave(List<ARegion> bases, List<ARegion> covers) {
-		final int n = 2 * Math.max(bases.size(), covers.size());
-		final StringBuilder sb = getMySB(n<<3);
-		final Iterator<ARegion> b = bases.iterator();
-		final Iterator<ARegion> c = covers.iterator();
-		boolean first = true;
-		for ( int i=0; i<n; ++i ) {
-			if(first) first=false; else sb.append(CSP);
-			try {
-				if ( i%2 == 0 )
-					sb.append(b.next());
-				else
-					sb.append(c.next());
-			} catch (NoSuchElementException ex) {
-				// do nothing, just leave it blank
-			}
-		}
-		// trim off any trailing ", "
-		if ( sb.charAt(sb.length()-2)==',' )
-			sb.setLength(sb.length()-2);
-		return sb.toString();
-	}
-
-	// nb: List binds before Collection to avert type-erasure problem
-	public static String ssv(List<ARegion> regions) {
-		if ( regions == null )
-			return NULL_ST;
-		StringBuilder sb = getMySB(7 * regions.size());
-		boolean first = true;
-		for ( ARegion r : regions ) {
-			if(first) first=false; else sb.append(SP);
-			sb.append(r.id);
-		}
-		return sb.toString();
 	}
 
 	// ============================ Cell ==============================
 
 	/**
-	 * Currently only used for debug logging.
+	 * Currently only used for debug logging. This handles a null-terminated
+	 * array for when you have a fixed-size array you are re-using and do not
+	 * know how many are currently present. It is easy to null next upon add,
+	 * presuming that your array is one larger than is ever added.
+	 *
 	 * @param sep the separator between cells
 	 * @param numCells the number of cells in cells
 	 * @param cells to be formatted
 	 * @return a CSV list of the cell.toFullString() of each cell in cells
 	 * (which may be a null-terminated array)
 	 */
-	public static String toFullString(String sep, int numCells, Cell[] cells) {
-		if(cells==null) return NULL_ST;
-		final StringBuilder sb = getMySB(numCells * 20);
+	public static String toFullString(final String sep, final int numCells, final Cell[] cells) {
+		if ( cells == null )
+			return NULL_STRING;
+		final StringBuilder sb = SB(numCells<<5); // * 32
 		sb.setLength(0);
 		final int n = Math.min(numCells, cells.length);
 		for ( int i=0; i<n; ++i ) {
@@ -161,30 +112,22 @@ public class Frmu {
 		}
 		return sb.toString();
 	}
-	public static String toFullString(String sep, Cell[] cells) {
-		return toFullString(sep, cells.length, cells);
-	}
-	public static String toFullString(Cell[] cells) {
-		return toFullString(CSP, cells.length, cells);
-	}
 
 	/**
-	 * Currently only ever used to format watches in the debugger, where it's
-	 * very useful, so keep it, even though it's not used, because it is. See?
+	 * retain for debugging
+	 *
 	 * @param cells {@code Iterable<Cell>} to be formatted.
 	 * @param sep cell separator String. The default is ", "
 	 * @return a CSV list of the cell.toFullString() of each cell in cells
 	 * (which may be a null-terminated array).
 	 */
-	public static String toFullString(String sep, Iterable<Cell> cells) {
-		if(cells==null) return NULL_ST;
-		final StringBuilder sb = getMySB(128);
+	public static String toFullString(final String sep, final Iterable<Cell> cells) {
+		if ( cells == null )
+			return NULL_STRING;
+		final StringBuilder sb = SB(128);
 		int i = 0;
-		// Iterator used to handle null-terminated lists, which Nutbeans
-		// is sure can't possibly exist. F___ing Nutbeans!
-		Cell cell;
-		for ( Iterator<Cell> it = cells.iterator(); it.hasNext(); ) {
-			if ( (cell=it.next()) == null )
+		for ( Cell cell : cells ) {
+			if ( cell == null )
 				break; // null terminated list
 			if ( ++i > 1 )
 				sb.append(sep);
@@ -208,14 +151,14 @@ public class Frmu {
 	public static String or(final Cell c1, final Cell c2) { return c1.id+OR+c2.id; }
 	public static String or(final Cell[] cells) { return frmt(cells, cells.length, CSP, OR); }
 	public static String frmt(final Cell[] cells, final int n, final String sep, final String lastSep) {
-		return append(getMySB(128), cells, n, sep, lastSep).toString();
+		return append(SB(128), cells, n, sep, lastSep).toString();
 	}
 	public static StringBuilder append(final StringBuilder sb, final Cell[] cells, final int n, final String sep, final String lastSep) {
 		if ( cells == null )
 			return sb;
 		for ( int i=0,m=n-1; i<n; ++i ) {
 			if ( cells[i] == null )
-				break; // it's a null terminated array
+				break; // it is a null terminated array
 			if ( i > 0 )
 				// SPEED: NO TERNIARY!
 				if ( i < m )
@@ -232,7 +175,7 @@ public class Frmu {
 	public static String and(final Collection<Cell> cells) { return frmt(cells, CSP, AND); }
 	public static String or(final Collection<Cell> cells) { return frmt(cells, CSP, OR); }
 	public static String frmt(final Collection<Cell> cells, final String sep, final String lastSep) {
-		final StringBuilder sb = getMySB(128);
+		final StringBuilder sb = SB(128);
 		return append(sb, cells, sep, lastSep).toString();
 	}
 	public static StringBuilder append(final StringBuilder sb, final Collection<Cell> cells, final String sep, final String lastSep) {
@@ -270,23 +213,6 @@ public class Frmu {
 		return sb;
 	}
 
-	// Currently only used by Debug.diff to format CellSet's out of the exclusion map.
-	static String excludersMap(HashMap<Cell, CellSet> map) {
-		StringBuilder sb = getMySB(map.size()*32);
-		sb.setLength(0);
-		sb.append(map.size()).append(": [").append(NL).append("\t  ");
-		boolean first = true;
-		for ( Cell key : map.keySet() ) {
-			CellSet set = map.get(key);
-			if(first) first=false; else sb.append(NL).append("\t, ");
-			sb.append(Frmt.rpad(key.toString(),12)).append("=>").append(set.size()).append(":[");
-			appendFullString(sb, set, CSP, CSP); // only use of this method currently
-			sb.append("]");
-		}
-		sb.append(" ]");
-		return sb.toString();
-	}
-
 	// ============================ Values ==============================
 
 	public static String csv(Values vs) { return frmt(vs, CSP, CSP); }
@@ -294,7 +220,7 @@ public class Frmu {
 	public static String or(Values vs) { return frmt(vs, CSP, OR); }
 	public static String frmt(Values vs, String sep, String lastSep) {
 		if(vs==null) return EMPTY_STRING;
-		final StringBuilder sb = getMySB(128);
+		final StringBuilder sb = SB(128);
 		return appendTo(sb, vs.bits, vs.size, sep, lastSep).toString();
 	}
 	/** Appends the string representation of bits (a Values bitset) to the
@@ -323,22 +249,6 @@ public class Frmu {
 
 	public static String values(Integer vs) {
 		return Frmt.plural(Values.VSIZE[vs], "value")+SP+Values.andString(vs);
-	}
-
-	public static StringBuilder getSB() {
-		SB.setLength(0);
-		return SB;
-	}
-	public static StringBuilder getSB(int initialCapacity) {
-		SB.setLength(0);
-		SB.ensureCapacity(initialCapacity);
-		return SB;
-	}
-
-	private static StringBuilder getMySB(int initialCapacity) {
-		MYSB.setLength(0);
-		MYSB.ensureCapacity(initialCapacity);
-		return MYSB;
 	}
 
 	private Frmu() { }

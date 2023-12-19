@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -17,6 +17,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 
+
 /**
  * Summarises a LogicalSolverTest log-file which must be in the format produced
  * when Log.MODE=Log.VERBOSE_2_MODE; in order to focus in on a particular hint
@@ -25,17 +26,17 @@ import java.util.ListIterator;
  * starts with \d+#, and looking for "Aligned Pair:" in the hint-lines, if we
  * find a matching hint-line we gather the puzzle-line, this-hint-line and any
  * subsequent matching hint-lines in this puzzle and output them.
- * <p>I've already written a PuzzleSummary class in the DiffLogSummaries class,
- * so I'll reuse it here. It should make this class pretty straight-forward.
+ * <p>I have already written a PuzzleSummary class in the DiffLogSummaries class,
+ * so I will reuse it here. It should make this class pretty straight-forward.
  * <p>FYI: In this case: Why does my new version of Aligned2Exclusion not
  * produce hints which the version 2019-09-20 18:08:31 (six days ago) did?
  * <br>It could be: <ul>
- * <li>that we're just following a different path through the puzzle now because
+ * <li>that we are just following a different path through the puzzle now because
  * some other hinter is now getting in there first; OR
  * <li>that my latest re-write of Aligned*Exclusion for efficiency is another
  * total, complete, and utter a bag of ____. An utter failure. Again. Sigh.
  * </ul>
- * I'm currently leaning towards the latter, and I'm not happy about it.
+ * I am currently leaning towards the latter, and I am not happy about it.
  * Aligned*Exclusion bloody-well should be fast, but it MUST be accurate!
  * <p>Deprecated. Use the tools/DiffLogs class instead.
  * @author Keith Corlett 2019 SEPT
@@ -73,7 +74,7 @@ public class Z_SummariseLog {
 				it.remove();
 			}
 			// parse the remaining inputLines into Puzzles, which are actually
-			// a puzzle summaries but I suck at English, so it'll have to do.
+			// a puzzle summaries but I suck at English, so it will have to do.
 			List<PuzzleSummary> puzzles = PuzzleSummary.parse(inputLines);
 			for ( PuzzleSummary puzzle : puzzles ) {
 				if ( puzzle.contents.contains("Aligned Pair:") ) {
@@ -119,8 +120,8 @@ public class Z_SummariseLog {
 		// for example. I suppose you could also use it to sort puzzles by the
 		// number of hints taken to solve them (an indicator of "difficulty").
 		//
-		// A wee control-break program on the log-summary 'lines'. It parses
-		// the 'lines' of a logFile into a list of PuzzleSummary's.
+		// A wee control-break program on the log-summary $lines. It parses
+		// the $lines of a logFile into a list of PuzzleSummary.
 		// A PuzzleSummary contains:
 		// 1. the contents of the puzzle (a puzzle-header-line followed by 1 or
 		//    more hint-detail-lines),
@@ -132,7 +133,7 @@ public class Z_SummariseLog {
 				throw new RuntimeException("lines is null or empty.");
 			ArrayList<PuzzleSummary> result = new ArrayList<>(lines.size());
 			int puzzleNum;
-			// the first 'line' is allways a puzzle line, else it's an error.
+			// the first $line is allways a puzzle line, else it is an error.
 			String puzzleContents = lines.get(0);
 			int hashIndex = Frmt.indexOf(puzzleContents, '#', 0, 6);
 			if ( hashIndex < 0 )

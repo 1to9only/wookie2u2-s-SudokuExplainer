@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.accu;
@@ -14,80 +14,57 @@ import java.util.List;
 
 /**
  * The (Default)HintsAccumulator is a "vanilla" multiple-hints IAccumulator.
- * It's pretty much how you'd expect a collector of AHints to be, except the
- * add method checks that this Accumulator doesn't already contain a hint which
- * equals the new one, using hints equals method.
  * <p>
- * Note that I collect multiple hints, meaning that I'm NOT isSingle().
+ * Its pretty much how you would expect a collector of AHints to be, except
+ * that add ignores null hints, as required by IAccumulator.
+ * <p>
+ * Note that I collect multiple hints, meaning that I am NOT isSingle().
+ * If you want oneHintOnly then use a SingleHintsAccumulator instead.
  */
-public final class HintsAccumulator implements IAccumulator {
+public class HintsAccumulator implements IAccumulator {
 
-	private final LinkedList<AHint> list;
+	protected final LinkedList<AHint> list;
 
 	/**
 	 * Constructor.
 	 * @param list The reference-type LinkedList is required because I use the
 	 *  poll method in addition to the List interface
 	 */
-	public HintsAccumulator(LinkedList<AHint> list) {
+	public HintsAccumulator(final LinkedList<AHint> list) {
 		this.list = list;
 	}
 
-	/**
-	 * Returns my internal list, which is actually a {@code LinkedList<AHint>}.
-	 * <p>
-	 * Note that this method (unlike all others) is NOT specified by the
-	 * IAccumulator interface.
-	 * @return {@code List<AHint>}
-	 */
-	public List<AHint> getHints() {
-		return list;
-	}
-
 	@Override
-	public boolean isSingle() { return false; }
-
-	@Override
-	public void reset() {
-		list.clear();
-	}
-
-	@Override
-	public boolean add(AHint hint) {
-		if ( hint != null )
-			list.add(hint);
+	public boolean isSingle() {
 		return false;
 	}
 
 	@Override
-	public boolean addAll(Collection<? extends AHint> hints) {
-		if ( hints==null || hints.size()==0 )
-			return false;
-		list.addAll(hints);
-		return true;
+	public void clear() {
+		list.clear();
 	}
 
 	@Override
-	public AHint getHint() {
-		return list.poll(); // returns null if list is empty
+	public boolean add(final AHint hint) {
+		if ( hint != null ) {
+			list.add(hint);
+		}
+		return isSingle();
+	}
+
+	@Override
+	public AHint poll() {
+		return list.poll();
 	}
 
 	@Override
 	public AHint peek() {
-		try {
-			return list.get(0);
-		} catch (Exception ex) {
-			return null;
-		}
+		return list.peek();
 	}
 
 	@Override
 	public AHint peekLast() {
-		try {
-			return list.get(list.size()-1);
-		} catch (Exception ex) {
-			return null;
-		}
+		return list.peekLast();
 	}
 
 	@Override
@@ -102,17 +79,36 @@ public final class HintsAccumulator implements IAccumulator {
 
 	@Override
 	public void sort(final Comparator<AHint> comparator) {
-		list.sort(comparator!=null ? comparator : AHint.BY_SCORE_DESC);
+		list.sort(comparator==null ? AHint.BY_SCORE_DESC : comparator);
 	}
 
 	@Override
-	public void removeAll(List<AHint> toRemove) {
-		for ( AHint h : toRemove )
+	public boolean addAll(final Collection<? extends AHint> hints) {
+		boolean result = false;
+		if ( hints==null || hints.isEmpty() ) {
+			return result;
+		}
+		for ( AHint h : hints ) {
+			// NOTE use add BECAUSE it may be overridden!
+			result |= add(h);
+		}
+		return result;
+	}
+
+	@Override
+	public void removeAll(final List<AHint> toRemove) {
+		for ( AHint h : toRemove ) {
 			list.remove(h);
+		}
 	}
 
+	/**
+	 * Returns my internal list, which is actually a {@code LinkedList<AHint>}.
+	 *
+	 * @return {@code List<AHint>}
+	 */
 	@Override
-	public List<? extends AHint> getList() {
+	public LinkedList<AHint> getList() {
 		return list;
 	}
 

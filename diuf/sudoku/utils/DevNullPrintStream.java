@@ -1,7 +1,7 @@
 ///*
 // * Project: Sudoku Explainer
 // * Copyright (C) 2006-2007 Nicolas Juillerat
-// * Copyright (C) 2013-2022 Keith Corlett
+// * Copyright (C) 2013-2023 Keith Corlett
 // * Available under the terms of the Lesser General Public License (LGPL)
 // */
 //package diuf.sudoku.utils;
@@ -16,8 +16,8 @@
 //
 //
 ///**
-// * A drop-in replacement for {@code PrintStream} that doesn't do anything.
-// * That's one way to shut Kylie Mole up.
+// * A drop-in replacement for {@code PrintStream} that does not do anything.
+// * That is one way to shut Kylie Mole up.
 // * @author Keith Corlett 2016
 // */
 //public final class DevNullPrintStream extends PrintStream {

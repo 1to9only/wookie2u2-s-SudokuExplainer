@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.single;
@@ -14,95 +14,104 @@ import diuf.sudoku.solver.hinters.AHinter;
 import diuf.sudoku.solver.accu.IAccumulator;
 
 /**
- * NakedSingle implements the NakedSingle Sudoku solving technique.
+ * NakedSingle implements the {@link Tech#NakedSingle} Sudoku solving
+ * technique.
  * <p>
  * A "naked single" has just one maybe remaining. The Cell is set to that value
- * when the hint is applied. FYI, apply is in the superclass: ADirectHint.
+ * when the hint is applied. FYI, apply is in my hints superclass: ADirectHint.
  * <p>
- * This is the first {@code AHinter} used in LogicalSolver, so it's the first
- * "tech" a newbie programmer is most likely to look at, so here I explain one
- * simple thing: This project is about solving a Sudoku puzzle quickly, it's
- * not about nice looking code. S__t is ugly, so you'll really want to fix it.
- * Just Don't, at least until you understand enough about... oh, never mind!
- * Just let it be for a while, will ya.
+ * This is the first {@code AHinter} used in LogicalSolver, so its the first
+ * Tech a newbie programmer is most likely to look at, so here I explain one
+ * simple thing: SudokuExplainer is about solving a Sudoku puzzle quickly, its
+ * not about nice looking code. S__t is ugly, so you will want to fix it. Just
+ * let it be, until you understand enough about... oh, never mind! Just let it
+ * be for a while, will ya.
  * <p>
- * Just Don't. But when you do just because you really, really, really want to
- * <b><i>(Adams D.)</i></b> then ALWAYS performance test your changes. I run
- * the batch in the release process to ensure new-slowness is detected early.
- * Do a top1465 run in {@code LogicalSolverTester} <b>before</b> you make your
+ * Just do not. But when you do, because you really want to (<i>Adams D.</i>),
+ * then performance test your changes. Run the batch. New-slowness fails fast.
+ * Run {@link diuf.sudoku.test.LogicalSolverTester} <b>before</b> you make your
  * code changes and keep the .log file; then make your code changes; then run
- * top1465 again, and compare the performance. You may need to restart the
- * batch several times, because the JIT compiler (see below) is a complete
- * non-deterministic pain-in-the-ass, with cheese, pickles, and a flood of
- * dotaise-bloody-sauce.
+ * the batch again. Compare performances. The batch has priming solves because
+ * non-deterministic JIT compilation obfuscates the relative efficiency of the
+ * many possible implementations, which I hate, except I am too lazy to hate
+ * stuff, so I complain persistently. There is a batch summary per release in
+ * {@link diuf.sudoku.BuildTimings_02} because running a pre-hack batch is NOT
+ * me. I keep forgetting.
  * <p>
- * If it's slower then revert. Yes really, it's that simple. But take heart:
- * maybe half of my attempts to speed it up have turned out to slow it down.
- * This is how we learn. We're all idiots. A smart idiot retains his pearls,
- * chucks his mistakes; and makes a <u>reasonable</u> effort to differentiate
- * between the two.
+ * If its slower then revert. Yes really. Its that simple. Be brave: maybe half
+ * of my attempts to speed it up have slowed it down. Thats how we learn. We
+ * are all idiots. A smart idiot retains pearls, throws mistakes, and makes a
+ * <u>reasonable</u> effort to differentiate between the two.
  * <p>
- * JITTERS: Following each code-change kill (Ctrl-C) the first "about-four"
- * LogicalSolverTester runs about 12..14 puzzles in, and restart it. Look at
- * solve times, a subsequent run will be substantially faster for the first two
- * or three puzzles. That's Java's Just In Time (JIT) compiler that takes less
- * time when it's not compiling, and there's nothing you can do about it except
- * kill it when you're about a dozen puzzles (or so) in, and restart it. Clear?
- * <p>
- * The JIT compiler uses statistics to determine which methods require actual
- * compilation, and which to run through the interpreter, and it doesn't always
- * get it right, especially when methods that are eventually HAMMERED are not
- * run at all in the first few (I think 5) seconds, which is a pain-in-the-ass
- * to folks like me who are accustomed to writing highly-performant code that
- * is performance-tested in a runtime that runs in comparable time, time after
- * time, without the dotaise-bloody-sauce. The JIT-compiler keeps me guessing
- * about the relative performance of my code, which I really ____ing hate.
+ * NakedSingle is used in BruteForce, so performance really matters here.
  */
-public final class NakedSingle extends AHinter {
+public final class NakedSingle extends AHinter
+{
 
 	public NakedSingle() {
 		super(Tech.NakedSingle);
 	}
 
+	/**
+	 * Find all Naked Single hints in the $grid and add them to $accu.
+	 * <p>
+	 * NOOBS: The return value of {@link IAccumulator#add} is interesting.
+	 * This is the first hinter NOOBS are likely to look at, hence it's well
+	 * commented. Comment quality declines as you descend in {@link Tech};
+	 * and then goes-off like a frog-in-a-sock in the Chainers, which are
+	 * incomprehensible without comments, and are still challenging even
+	 * with "heavy" commenting. S__t gets harder as you go down the list.
+	 *
+	 * @param grid to search
+	 * @param accu to add hints to
+	 * @return any hint/s found
+	 */
 	@Override
-	public boolean findHints(Grid grid, IAccumulator accu) {
-		// dereference ONCE coz it's (mildly) hammered.
+	public boolean findHints(final Grid grid, final IAccumulator accu) {
+		// Dereference ONCE, coz NakedSingle is hammered. Three uses: normal
+		// LogicalSolver, with all the other hinters, BruteForce, and Chainers.
 		// A local stack reference is faster to resolve than a heap reference.
-		// As a rule of thumb if you reference it 6+ times and you can create a
-		// local stack reference to it then go ahead and do so. It'll probably
-		// be faster. 4 and 5 are a bit iffy. Below that forget it.
-		final int[] size = grid.size;
+		// As a rule of thumb if you reference it 6+ times and then a local
+		// stack reference will probably be faster. 4 or 5 are a bit iffy.
+		// This is referenced 81 times, so it's a no-brainer.
+		final int[] sizes = grid.sizes;
 		// presume that no hint will be found
 		boolean result = false;
 		// foreach cell in the grid
 		// fastard: for-indice loop like this is faster than array-iteratoring
-		// the grid.cells array, especially when we use the index to look-up in
+		// the Grid.cells array, especially when we use the index to look-up in
 		// "parallel arrays" instead of repeatedly dereferencing from the cell
 		// because an array lookup is MUCH faster than a struct-dereference.
-		for ( int i=0; i<GRID_SIZE; ++i )
+		int i = 0;
+		do
 			// if this cell has ONE potential value
 			// fastard: the grid.size array exists, and there is a local stack
 			// reference to it, for speed
-			if ( size[i] == 1 ) {
-				// then raise a hint to set this cell to that value.
-				// set the result for return either now or when I'm finished.
+			if ( sizes[i] == 1 ) {
+				// FOUND a NakedSingle!
+				// set result for return either now, or once grid complete.
 				result = true;
-				// accu.add only returns true in the batch, which passes in an
-				// instance of SingleHintsAccumulator, that wants oneOnly hint.
-				// The VFIRST[grid.maybes[i]] deserves some explanation.
-				// We know that this cell has just ONE maybe (size[i]==1), so
-				// we can set this cell to it's first (and only) maybe, which
+				// Construct a hint an add it to the give IAccumulator.
+				// accu.add returns true in batch, and GUI's findFirstHint.
+				// The determinant is they pass-in a SingleHintsAccumulator.
+				//
+				// The VFIRST[grid.maybes[i]] also deserves some explanation.
+				// We know that this cell has just ONE maybe (sizes[i]==1), so
+				// we can set this cell to it is first (and only) maybe, which
 				// we can get from the VFIRST array that we pre-made in Values
-				// for precisely this purpose (among others).
-				// fastard: the grid.size array exists, and there's a stack
-				// reference to it, for speed; but there is no such reference
-				// to grid.maybes coz I hint much less often than I run, so it
-				// takes more time to create the reference than it saves, hence
-				// it is OK to reference the "raw" grid again when we hint.
-				if ( accu.add(new NakedSingleHint(this, grid.cells[i]
+				// for precisely this purpose.
+				//
+				// FASTARD: the grid.sizes array exists, and I create a stack
+				// reference to it, for speed; but there is no such shortcut to
+				// grid.maybes coz we hint MUCH less often than we search, so
+				// it takes more time to create the reference than it saves,
+				// so we reference the "raw" grid again when we hint. Clear?
+				// This s__t is why SE is now "a bit" faster than Juillerat.
+				if ( accu.add(new NakedSingleHint(grid, this, grid.cells[i]
 											, VFIRST[grid.maybes[i]])) )
 					return result;
 			}
+		while (++i < GRID_SIZE);
 		return result;
 	}
 

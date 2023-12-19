@@ -1,25 +1,23 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.wing;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Frmt;
-import diuf.sudoku.utils.Frmu;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.MyLinkedHashSet;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.AND;
 
 /**
  * A WWingHint stores the hint data to pass to the GUI for display, and also
@@ -27,48 +25,46 @@ import static diuf.sudoku.utils.Frmt.AND;
  */
 public final class WWingHint extends AHint  {
 
-	private final Cell cellA, cellB, wCellA, wCellB;
-	private final int value0, value1;
-	private final ARegion cr; // common region to wCellA and wCellB
+	private final Cell cellA, cellB, wingA, wingB;
+	private final int y, x;
+	private final ARegion commonRegion; // the region common to wingA and wingB
 
-	public WWingHint(AHinter hinter, int value0, int value1
-			, Cell cellA, Cell cellB, Cell wCellA, Cell wCellB
-			, Pots greens, Pots blues, Pots reds) {
-		super(hinter, AHint.INDIRECT, null, 0, reds, greens, null
+	public WWingHint(Grid grid, IHinter hinter, int y, int x
+			, Cell cellA, Cell cellB, Cell wingA, Cell wingB
+			, ARegion commonRegion, Pots greens, Pots blues, Pots reds) {
+		super(grid, hinter, AHint.INDIRECT, null, 0, reds, greens, null
 				, blues, null, null);
-		this.value0 = value0;
-		this.value1 = value1;
+		this.y = y;
+		this.x = x;
 		this.cellA = cellA;
 		this.cellB = cellB;
-		this.wCellA = wCellA;
-		this.wCellB = wCellB;
-		this.cr = Regions.common(wCellA, wCellB);
+		this.wingA = wingA;
+		this.wingB = wingB;
+		this.commonRegion = commonRegion;
 	}
 
 	@Override
 	public ARegion[] getBases() {
-		return Regions.array(cr);
+		return Regions.array(commonRegion);
 	}
 
 	@Override
-	public Set<Cell> getAquaCells(int viewNumUnused) {
-		return new MyLinkedHashSet<>(new Cell[]{cellA, cellB, wCellA, wCellB});
+	public Set<Integer> getAquaBgIndices(int viewNumUnused) {
+		return MyLinkedHashSet.of(new int[]{cellA.indice, cellB.indice, wingA.indice, wingB.indice});
 	}
 
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
-			s += ON+value0+AND+value1;
+			s += ON+y+AND+x;
 		return s;
 	}
 
 	@Override
-	public String toStringImpl() {
-		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(Frmu.csv(greens.keySet()))
-		  .append(ON).append(value0).append(AND).append(value1)
-		  .toString();
+	public StringBuilder toStringImpl() {
+		return Frmt.ids(SB(64).append(getHintTypeName()).append(COLON_SP)
+		, greens.keySet(), CSP, CSP).append(ON).append(y).append(AND).append(x);
 	}
 
 	@Override
@@ -76,12 +72,12 @@ public final class WWingHint extends AHint  {
 		return Html.produce(this, "WWingHint.html"
 			, cellA.id						//{0}
 			, cellB.id						// 1
-			, wCellA.id						// 2
-			, wCellB.id						// 3
-			, Integer.toString(value0)		// 4
-			, Integer.toString(value1)		// 5
-			, cr							// 6
-			, Frmu.and(reds.keySet())		// 7
+			, wingA.id						// 2
+			, wingB.id						// 3
+			, Integer.toString(y)			// 4
+			, Integer.toString(x)			// 5
+			, commonRegion					// 6
+			, Frmt.and(ids(reds.keySet()))	// 7
 			, reds.toString()				// 8
 		);
 	}

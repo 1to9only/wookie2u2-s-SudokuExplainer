@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -31,6 +31,7 @@ package diuf.sudoku.tools;
  * questions.
  */
 
+import static diuf.sudoku.Constants.SB;
 import static diuf.sudoku.utils.Frmt.EQUALS;
 import java.util.AbstractCollection;
 import java.util.AbstractSet;
@@ -51,13 +52,13 @@ import java.util.Set;
  *
  * <p>To implement an unmodifiable map, the programmer needs only to extend this
  * class and provide an implementation for the <tt>entrySet</tt> method, which
- * returns a set-view of the map's mappings.  Typically, the returned set
+ * returns a set-view of the maps mappings.  Typically, the returned set
  * will, in turn, be implemented atop <tt>AbstractSet</tt>.  This set should
  * not support the <tt>add</tt> or <tt>remove</tt> methods, and its iterator
  * should not support the <tt>remove</tt> method.
  *
  * <p>To implement a modifiable map, the programmer must additionally override
- * this class's <tt>put</tt> method (which otherwise throws an
+ * this classs <tt>put</tt> method (which otherwise throws an
  * <tt>UnsupportedOperationException</tt>), and the iterator returned by
  * <tt>entrySet().iterator()</tt> must additionally implement its
  * <tt>remove</tt> method.
@@ -85,7 +86,7 @@ import java.util.Set;
  */
 
 @SuppressWarnings("unchecked")
-public abstract class AMyMap<K,V> implements Map<K,V> {
+public abstract class AMyMap<K,V> implements java.util.Map<K,V> {
 	/**
 	 * Sole constructor.  (For invocation by subclass constructors, typically
 	 * implicit.)
@@ -113,6 +114,15 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	@Override
 	public boolean isEmpty() {
 		return size() == 0;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>This implementation returns <tt>size() > 0</tt>.
+	 */
+	public boolean any() {
+		return size() > 0;
 	}
 
 	/**
@@ -183,7 +193,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	 *
 	 * <p>This implementation iterates over <tt>entrySet()</tt> searching
 	 * for an entry with the specified key.  If such an entry is found,
-	 * the entry's value is returned.  If the iteration terminates without
+	 * the entrys value is returned.  If the iteration terminates without
 	 * finding such an entry, <tt>null</tt> is returned.  Note that this
 	 * implementation requires linear time in the size of the map; many
 	 * implementations will override this method.
@@ -235,7 +245,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	 * <p>This implementation iterates over <tt>entrySet()</tt> searching for an
 	 * entry with the specified key.  If such an entry is found, its value is
 	 * obtained with its <tt>getValue</tt> operation, the entry is removed
-	 * from the collection (and the backing map) with the iterator's
+	 * from the collection (and the backing map) with the iterators
 	 * <tt>remove</tt> operation, and the saved value is returned.  If the
 	 * iteration terminates without finding such an entry, <tt>null</tt> is
 	 * returned.  Note that this implementation requires linear time in the
@@ -281,8 +291,8 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	/**
 	 * {@inheritDoc}
 	 *
-	 * <p>This implementation iterates over the specified map's
-	 * <tt>entrySet()</tt> collection, and calls this map's <tt>put</tt>
+	 * <p>This implementation iterates over the specified maps
+	 * <tt>entrySet()</tt> collection, and calls this maps <tt>put</tt>
 	 * operation once for each entry returned by the iteration.
 	 *
 	 * <p>Note that this implementation throws an
@@ -322,7 +332,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	/**
 	 * Each of these fields are initialized to contain an instance of the
 	 * appropriate view the first time this view is requested.  The views are
-	 * stateless, so there's no reason to create more than one of each.
+	 * stateless, so there is no reason to create more than one of each.
 	 */
 	protected transient volatile Set<K>        keySet = null;
 	protected transient volatile Collection<V> values = null;
@@ -331,10 +341,10 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	 * {@inheritDoc}
 	 *
 	 * <p>This implementation returns a set that subclasses {@link AbstractSet}.
-	 * The subclass's iterator method returns a "wrapper object" over this
-	 * map's <tt>entrySet()</tt> iterator.  The <tt>size</tt> method
-	 * delegates to this map's <tt>size</tt> method and the
-	 * <tt>contains</tt> method delegates to this map's
+	 * The subclasss iterator method returns a "wrapper object" over this
+	 * maps <tt>entrySet()</tt> iterator.  The <tt>size</tt> method
+	 * delegates to this maps <tt>size</tt> method and the
+	 * <tt>contains</tt> method delegates to this maps
 	 * <tt>containsKey</tt> method.
 	 *
 	 * <p>The set is created the first time this method is called,
@@ -375,10 +385,10 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	 * {@inheritDoc}
 	 *
 	 * <p>This implementation returns a collection that subclasses {@link
-	 * AbstractCollection}.  The subclass's iterator method returns a
-	 * "wrapper object" over this map's <tt>entrySet()</tt> iterator.
-	 * The <tt>size</tt> method delegates to this map's <tt>size</tt>
-	 * method and the <tt>contains</tt> method delegates to this map's
+	 * AbstractCollection}.  The subclasss iterator method returns a
+	 * "wrapper object" over this maps <tt>entrySet()</tt> iterator.
+	 * The <tt>size</tt> method delegates to this maps <tt>size</tt>
+	 * method and the <tt>contains</tt> method delegates to this maps
 	 * <tt>containsValue</tt> method.
 	 *
 	 * <p>The collection is created the first time this method is called, and
@@ -433,7 +443,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	 * <p>This implementation first checks if the specified object is this map;
 	 * if so it returns <tt>true</tt>.  Then, it checks if the specified
 	 * object is a map whose size is identical to the size of this map; if
-	 * not, it returns <tt>false</tt>.  If so, it iterates over this map's
+	 * not, it returns <tt>false</tt>.  If so, it iterates over this maps
 	 * <tt>entrySet</tt> collection, and checks that the specified map
 	 * contains each mapping that this map contains.  If the specified map
 	 * fails to contain such a mapping, <tt>false</tt> is returned.  If the
@@ -473,7 +483,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 
 	/**
 	 * Returns the hash code value for this map.  The hash code of a map is
-	 * defined to be the sum of the hash codes of each entry in the map's
+	 * defined to be the sum of the hash codes of each entry in the maps
 	 * <tt>entrySet()</tt> view.  This ensures that <tt>m1.equals(m2)</tt>
 	 * implies that <tt>m1.hashCode()==m2.hashCode()</tt> for any two maps
 	 * <tt>m1</tt> and <tt>m2</tt>, as required by the general contract of
@@ -500,7 +510,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 	/**
 	 * Returns a string representation of this map.  The string representation
 	 * consists of a list of key-value mappings in the order returned by the
-	 * map's <tt>entrySet</tt> view's iterator, enclosed in braces
+	 * maps <tt>entrySet</tt> views iterator, enclosed in braces
 	 * (<tt>"{}"</tt>).  Adjacent mappings are separated by the characters
 	 * <tt>", "</tt> (comma and space).  Each key-value mapping is rendered as
 	 * the key followed by an equals sign (<tt>"="</tt>) followed by the
@@ -515,7 +525,7 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 		final Iterator<Entry<K,V>> it = set.iterator();
 		if ( !it.hasNext() )
 			return "{}";
-		final StringBuilder sb = new StringBuilder(Math.min(set.size()<<3,4096));
+		final StringBuilder sb = SB(Math.min(set.size()<<3,4096));
 		sb.append('{');
 		for (;;) {
 			final Entry<K,V> e = it.next();
@@ -560,8 +570,8 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 
 	// Implementation Note: SimpleEntry and SimpleImmutableEntry
 	// are distinct unrelated classes, even though they share
-	// some code. Since you can't add or subtract final-ness
-	// of a field in a subclass, they can't share representations,
+	// some code. Since you cannot add or subtract final-ness
+	// of a field in a subclass, they cannot share representations,
 	// and the amount of duplicated code is too small to warrant
 	// exposing a common abstract class.
 
@@ -692,8 +702,8 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 		/**
 		 * Returns a String representation of this map entry.  This
 		 * implementation returns the string representation of this
-		 * entry's key followed by the equals character ("<tt>=</tt>")
-		 * followed by the string representation of this entry's value.
+		 * entrys key followed by the equals character ("<tt>=</tt>")
+		 * followed by the string representation of this entrys value.
 		 *
 		 * @return a String representation of this map entry
 		 */
@@ -830,8 +840,8 @@ public abstract class AMyMap<K,V> implements Map<K,V> {
 		/**
 		 * Returns a String representation of this map entry.  This
 		 * implementation returns the string representation of this
-		 * entry's key followed by the equals character ("<tt>=</tt>")
-		 * followed by the string representation of this entry's value.
+		 * entrys key followed by the equals character ("<tt>=</tt>")
+		 * followed by the string representation of this entrys value.
 		 *
 		 * @return a String representation of this map entry
 		 */

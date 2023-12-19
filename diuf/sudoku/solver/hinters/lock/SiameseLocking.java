@@ -1,93 +1,115 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
-import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Run;
-import static diuf.sudoku.Settings.THE_SETTINGS;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.IHinter;
-import diuf.sudoku.solver.hinters.chain.ChainerHintsAccumulator;
-import diuf.sudoku.solver.hinters.hdnset.HiddenSet;
-import diuf.sudoku.solver.hinters.hdnset.HiddenSetHint;
-import diuf.sudoku.utils.Permutations;
+import diuf.sudoku.solver.hinters.hidden.*;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import static diuf.sudoku.Config.CFG;
+import diuf.sudoku.utils.Permuter;
+import static diuf.sudoku.Grid.BUDS_M0;
+import static diuf.sudoku.Grid.BUDS_M1;
+import diuf.sudoku.utils.IntQueue;
 
 /**
- * SiameseLocking extends Locking which implements the (Pointing and
- * Claiming) solving techniques. I just "merge" hints when more than
- * one value is eliminated from the same "slot" (the three cells that
- * are the intersection of a row-or-col and a box).
+ * SiameseLocking extends Locking which implements the (Pointing and Claiming)
+ * solving techniques, but only in the GUI, where performance is NOT critical,
+ * just nice to have. I merge hints when more than one value is eliminated from
+ * the same slot. A slot is the three cells that are the intersection of a line
+ * (a row, or a col) and a box. Slots are pure evil genius!
  * <p>
- * SiameseLocking factored out of Locking because Locking got too
- * complicated, with too many complicating concerns in one class, so I
- * refactored it into Locking, LockingSpeedMode, and SiameseLocking;
- * to separate the concerns. I hope the result is easier to understand.
- * It may not be. Sigh.
+ * SiameseLocking was factored-out of Locking coz Locking got too complicated;
+ * too many concerns in one class. I split it into Locking, LockingSpeedMode,
+ * and SiameseLocking; to separate these concerns. I hope the result is easier
+ * to follow. It may not be. Sigh.
  * <p>
- * This class "injects" a SiameseLockingAccumulator into the base
- * Locking, to enable me to "merge" his hints before adding them to the
- * "normal" IAccumulator passed to findHints.
+ * findHints injects a {@link SiameseLockingAccumulator} into my super-classes
+ * {@link Locking#findHints}, enabling me to merge Locking hints before adding
+ * them to the normal IAccumulator passed into findHints.
+ * <p>
+ * Note that Locking is swapped on-the-fly, hence nothing in the lock package
+ * can be a prepper!
  *
  * @author Keith Corlett 2021-07-12
  */
 public final class SiameseLocking extends Locking {
 
-	private final HiddenSet hiddenPair, hiddenTriple;
+	// wanking storage for idxOf (more on that later)
+	private static final Idx IDX = new Idx();
 
+	private static final Idx BUDS = new Idx(); // full
+
+	// I need help finding any extra eliminations
+	private final HiddenPair hiddenPair;
+	private final HiddenTriple hiddenTriple;
+
+	// the normal accumulator, passed into findHints
 	private IAccumulator accu;
 
-	// The hacu (Hack Accumulator) wraps an ArrayList<LockingHint> to
-	// store the hints in each region, and calls me back to do all the
-	// clever stuff. super.findHints calls endRegion which I override
-	// to delegate back to hacu.endRegion, which switches on the number
-	// of hints in this region:
-	// * if there's no hints does nothing;
-	// * else if there's only one hint he adds it to the actual accu;
-	// * else if there's multiple hints in the region then he calls my
-	//   mergeSiameseHints method to do all the clever stuff.
-	// Then at the end of findHints we remove any hints whose elims are
-	// a subset of any other hints eliminations. So Mr T is ____ed. How
-	// can 4 men fire 25 million rounds at 15 fools, and kill just 12
-	// of them? That is a hit rate of I-can't-be-bothered coz I haven't
-	// eaten coz I spent all of my ____ing money on ammo! Submarines
-	// anyone? Get-em while deyr ot! I don't eat frogs legs, or snails.
-	private SiameseLockingAccumulator hacu;
+	// The slac (SiameseLockingAccumulator) wraps a ArrayList<LockingHint> to
+	// store the hints in each region, calling me back to do the clever stuff.
+	// super.findHints calls endRegion which I override to delegate back to
+	// slac.endRegion, which switches on the number of hints in this region:
+	// * if there is no hints does nothing;
+	// * else if there is only one hint he adds it to the actual accu;
+	// * else if there is multiple hints in the region then he calls-back my
+	//   mergeSiameseHints method to do all the clever hint-merging stuff.
+	// Then at the end of findHints we remove hints whose elims are a subset of
+	// any other hints eliminations. So Mr T is ____ed. How can 4 men fire 25
+	// million rounds at 15 fools, and kill only 12 of them? That is a hit rate
+	// of I-cant-be-bothered, coz I have not eaten, coz I spent all my ____ing
+	// money on ammo! 700+ BILLION on subs, and ~30% of people cannot afford a
+	// ____ing house! The rich pricks fail to understand that they are pricks.
+	private SiameseLockingAccumulator slac;
 
 	/**
 	 * Constructor for "normal mode".
 	 * @param basics
 	 */
-	public SiameseLocking(Map<Tech,IHinter> basics) {
+	public SiameseLocking(final Map<Tech,IHinter> basics) {
 		super();
-		this.hiddenPair = (HiddenSet)basics.get(Tech.HiddenPair);
-		this.hiddenTriple = (HiddenSet)basics.get(Tech.HiddenTriple);
+		// NOTE: cast to implementation classes to access the search method,
+		// which is not included in IHinter, coz its specific to HiddenSet.
+		this.hiddenPair = (HiddenPair)basics.get(Tech.HiddenPair);
+		this.hiddenTriple = (HiddenTriple)basics.get(Tech.HiddenTriple);
 	}
 
+	/**
+	 * Locking calls me back at the start of processing of each Box.
+	 *
+	 * @param r the box that we are now searching
+	 */
 	@Override
-	protected void startRegion(ARegion r) {
-		if ( hacu != null )
-			hacu.startRegion(r);
+	protected void startSiamese(final ARegion r) {
+		if ( slac != null )
+			slac.startRegion(r);
 	}
 
+	/**
+	 * Locking calls me back the end of processing of each Box.
+	 *
+	 * @param r the box that we have now finished searching.
+	 * @return {@link SiameseLockingAccumulator#endRegion(diuf.sudoku.Grid.ARegion)
+	 */
 	@Override
-	protected boolean endRegion(ARegion r) {
-		return hacu!=null && hacu.endRegion(r);
+	protected boolean endSiamese(final ARegion r) {
+		return slac!=null && slac.endRegion(r);
 	}
 
 	/**
@@ -96,13 +118,13 @@ public final class SiameseLocking extends Locking {
 	 * HintsAccumulator.
 	 * <p>
 	 * "Siamese" is multiple Locking hints on different values in
-	 * a region; so I'm not finding my own hints, merely parsing
+	 * a region; so I am not finding my own hints, merely parsing
 	 * Locking hints to merge the siamese ones, which I do using a
-	 * SiameseLockingAccumulator that calls me back when it's done
+	 * SiameseLockingAccumulator that calls me back when it is done
 	 * searching each region.
 	 * <p>
 	 * NOTE: "Siamese" a nicety: I just re-present existing hints
-	 * succinctly. I do not find any new hints, so I'm a waste of
+	 * succinctly. I do not find any new hints, so I am a waste of
 	 * time in the batch; hence SiameseLocking is used only in the
 	 * GUI. Basically, I wrote this for the challenge of doing so,
 	 * which seemed like a good idea at the time.
@@ -113,27 +135,28 @@ public final class SiameseLocking extends Locking {
 	 */
 	@Override
 	public boolean findHints(final Grid grid, final IAccumulator accu) {
-		// Siamese breaks test-cases, so SiameseLockingTest says it's GUI
-		if ( Run.type != Run.Type.TestCase
+		// Siamese breaks test-cases, so SiameseLockingTest says it is GUI
+		if ( !Run.isTestCase()
 		  // no chainers!
-		  && !(accu instanceof ChainerHintsAccumulator)
+		  && !accu.isChaining()
 		  // In GUI, only if isFilteringHints, so user can still see all hints
-		  && (Run.type != Run.Type.GUI || THE_SETTINGS.isFilteringHints(false))
+		  && (!Run.isGui() || CFG.isFilteringHints())
 		) {
 			// Siamese mode: find hints per region and Siamese them
 			final boolean result;
 			try {
 				this.accu = accu;
-				// my persistent hacu calls me back at each endRegion
-				if ( this.hacu == null )
-					this.hacu = new SiameseLockingAccumulator(this);
-				result = super.findHints(grid, hacu);
-				if ( result )
+				// my slac calls me back at each endRegion
+				if ( this.slac == null )
+					this.slac = new SiameseLockingAccumulator(this);
+				result = super.findHints(grid, slac);
+				if ( result ) {
 					// remove each hint whose elims are a subset of anothers
 					if ( accu.size() > 1 )
 						removeSubsets(accu.getList());
 					else
-						accu.add(hacu.getHint());
+						accu.add(slac.poll());
+				}
 			} finally {
 				this.accu = null;
 			}
@@ -144,45 +167,41 @@ public final class SiameseLocking extends Locking {
 	}
 
 	/**
-	 * GUI only: remove each hint whose eliminations are a subset of
-	 * those in any other hint. Note that this may remove ALL
-	 * LockingHint's when siamese found a HiddenSetHint, rendering me a
-	 * silent hint killer (near impossible to debug) so if got-bug then
-	 * set isFilteringHints to false, and if works then bug is likely in
-	 * mergeSiameseHints, not removeSubsets at all (I'm pure vanilla: if
-	 * I work at all then I should work always).
+	 * GUI only: remove each hint whose eliminations are a subset of those in
+	 * any other hint. Note that this may remove ALL LockingHints when siamese
+	 * found a HiddenSetHint, rendering me a silent hint killer (impossible to
+	 * debug) so if got-bug then set isFilteringHints to false, and if it works
+	 * then bug is likely in mergeSiameseHints, not in removeSubsets.
+	 * I am vanilla: if I work at all then I should always work.
 	 *
 	 * @param hints the list that is still "inside" the accumulator!<br>
-	 *  Prolapse Sally, won't you slow that mustang down!<br>
-	 *  Ergo: Careful with that exe Eugeene.<br>
-	 *  Ergo: Don't be a Dick! (Hills A.)
+	 *  Ergo: Careful with that axe Eugeene.
 	 */
 	private List<? extends AHint> removeSubsets(final List<? extends AHint> hints) {
-		// how many lesbians did the lesbian plucker pluck?
+		// num hints, minus 1 because every good boy deserves pussy
 		final int n = hints.size(), m = n - 1;
-		// get an array of hints to avoid concurrent modification issues.
+		// avert concurrent modification exception
 		final AHint[] array = hints.toArray(new AHint[n]);
-		Pots a, b; // a the lefthand, b the righthand.
-		int i; // c is the ____wit formerly known as Prince. And frighten it!
+		Pots a, b; // a left, b right.
+		int i, j; // a index, b index. And Frighten It!
 		// foreach hint except the last
-		for ( i=0; i<m; ++i )
-			// if we got red-wings
-			if ( (a=array[i].reds) != null
-			  // that're not already removed
-			  && hints.contains(array[i]) )
-				// foreach subsequent hint (a forward only search)
-				for ( int j=i+1; j<n; ++j )
-					// if b's got red-wings too
-					if ( (b=array[j].reds) != null )
-						// if b is subset of a then remove b
-						if ( b.isSubsetOf(a) )
-							hints.remove(array[j]); // throws NothingToSeeHereException
-						// else if a is a subset of b then remove a
-						else if ( a.isSubsetOf(b) ) {
-							hints.remove(array[i]); // throws MassivelyUnflangableError
-							break; // goto next a
+		for ( i=0; i<m; ++i ) {
+			// if I have reds, that are not already removed
+			if ( (a=array[i].reds)!=null && hints.contains(array[i]) ) {
+				// foreach subsequent hint (forwards only search)
+				for ( j=i+1; j<n; ++j ) {
+					if ( (b=array[j].reds) != null ) {
+						if ( b.isSubsetOf(a) ) {
+							hints.remove(array[j]); // remove b
+						} else if ( a.isSubsetOf(b) ) {
+							hints.remove(array[i]); // remove a
+							break; // next a
 						}
-		// sort the remaining hints: most effective first
+					}
+				}
+			}
+		}
+		// sort remaining hints: most eliminations first
 		hints.sort(AHint.BY_SCORE_DESC);
 		return hints;
 	}
@@ -198,9 +217,9 @@ public final class SiameseLocking extends Locking {
 	 * a HiddenSet, and if so I add my eliminations to the HiddenSet hint, and
 	 * then remove the old-hints.
 	 * <p>
-	 * Done in the GUI only because it's a bit slow and only a user cares
+	 * Done in the GUI only because it is a bit slow and only a user cares
 	 * about presentation. LogicalSolverTester, BruteForce, and DynamicPlus+
-	 * care about Locking hints, but not about now many, so it's quicker to
+	 * care about Locking hints, but not about now many, so it is quicker to
 	 * just process each in turn, instead of summarising them.
 	 * <p>
 	 * Note that hiddenPair and hiddenTriple are used (cheekily) by Locking to
@@ -208,66 +227,70 @@ public final class SiameseLocking extends Locking {
 	 * This necessitates the {@code boolean NakedSet.search(region)} method,
 	 * which slows down the NakedSet search, but only a bit. Sigh.
 	 * <p>
-	 * I don't always get it right. Odd hints that aren't logically Siamese are
+	 * I do not always get it right. Odd hints that are not logically Siamese are
 	 * merged anyway, but fast delineation alludes me; so please just shoot me!
 	 *
-	 * @param r the region that was searched to find these hints
-	 * @param origHints the pointing or claiming hints in this region<br>
-	 *  see also the original sin, and wanking; always they hide the wanking.<br>
-	 *  Hence one infers that "they" must be English. There's no wankers here!
+	 * @param region the region that was searched to find these hints
+	 * @param origHints the pointing or claiming hints in this region. See also
+	 *  the original sin: wanking; always they secrete the wanking. Hence they
+	 *  are English. Theres no wankers here mate! Just keep walking. 2023 Ashes
+	 *  in a nutshell. ~KRC.
 	 */
-	boolean mergeSiameseHints(final ARegion r, final ArrayList<LockingHint> origHints) {
+	boolean mergeSiameseHints(final ARegion region, final ArrayList<AHint> origHints) {
 		final int n = origHints.size();
-		assert n > 1; // or I'm not called
-		final boolean isPointing = origHints.get(0).isPointing; // else Claiming
-		final Idx idx = new Idx();
+		assert n > 1; // or I am not called
+		grid = region.getGrid();
+		maybes = grid.maybes;
+		regions = grid.regions;
+		final boolean isPointing = ((LockingHint)origHints.get(0)).isPointing; // else Claiming
+		final Idx lockingIdx = new Idx();
 		final List<AHint> newHints = new LinkedList<>();
-		final Grid grid = r.getGrid();
+		final Permuter permuter = new Permuter();
 		// try largest set (all) first, else work-down possible set-sizes as
-		// far as 2 (ie each pair of hints).
+		// far as 2 (ie each quad, triple, pair of hints).
 		for ( int size=n; size>1; --size ) {
-			// avert AIOOBE when regionHints are converted into newHints
+			// avert starvation when origHints are converted into newHints
 			if ( origHints.size() < size )
 				break;
 			// oldHints are a possible combo of size hints among regionHints
 			final LockingHint[] oldHints = new LockingHint[size];
 			// foreach possible combination of size hints in our n hints
-			LOOP: for ( int[] perm : new Permutations(n, new int[size]) ) {
+			LOOP: for ( int[] perm : permuter.permute(n, new int[size]) ) {
 				// build an array of this combo of Locking hints
 				for ( int i=0; i<size; ++i )
-					oldHints[i] = origHints.get(perm[i]);
+					oldHints[i] = (LockingHint)origHints.get(perm[i]);
 				// build an Idx of all the cells in these Locking hints
-				idx.set(oldHints[0].idx());
+				lockingIdx.set(oldHints[0].indices);
 				for ( int i=1; i<size; ++i )
-					idx.or(oldHints[i].idx());
+					lockingIdx.or(oldHints[i].indices);
 				// search for a Hidden Pair or Triple depending on idx.size
-				switch ( idx.size() ) {
+				switch ( lockingIdx.size() ) {
 				case 2:
-					if ( hiddenPair.search(r, grid, accu)
-					  && addElims((HiddenSetHint)accu.peekLast(), grid
-							, newHints, oldHints, size, idx) ) {
+					if ( hiddenPair.search(region, accu)
+					  && addElims((HiddenSetHint)accu.peekLast(), newHints
+							  , oldHints, size, lockingIdx) ) {
 						removeAll(oldHints, origHints);
-						break LOOP; // we're done here!
+						break LOOP; // we are done here!
 					} else if ( redsAllShareARegion(oldHints) ) { // CAS_A
 						// create a new "summary" hint from theseHints
-						newHints.add(new SiameseLockingHint(this
+						newHints.add(new SiameseLockingHint(grid, this
 								, oldHints, isPointing));
 						removeAll(oldHints, origHints);
-						break LOOP; // we're done here!
+						break LOOP; // we are done here!
 					}
 					break;
 				case 3:
-					if ( hiddenTriple.search(r, grid, accu)
-					  && addElims((HiddenSetHint)accu.peekLast(), grid
-							, newHints, oldHints, size, idx) ) {
+					if ( hiddenTriple.search(region, accu)
+					  && addElims((HiddenSetHint)accu.peekLast(), newHints
+							  , oldHints, size, lockingIdx) ) {
 						removeAll(oldHints, origHints);
-						break LOOP; // we're done here!
+						break LOOP; // we are done here!
 					} else if ( redsAllShareARegion(oldHints) ) { // CAS_A
 						// create a new "summary" hint from theseHints
-						newHints.add(new SiameseLockingHint(this
+						newHints.add(new SiameseLockingHint(grid, this
 								, oldHints, isPointing));
 						removeAll(oldHints, origHints);
-						break LOOP; // we're done here!
+						break LOOP; // we are done here!
 					}
 					break;
 				}
@@ -279,7 +302,7 @@ public final class SiameseLocking extends Locking {
 			// add the first (most eliminative) hint
 			// nb: the newHints having been "upgraded" tend (not guarantee) to
 			//     eliminate more potential values. The only alternative is to
-			//     use a HintCache (TreeSet by numElims descending); which we'd
+			//     use a HintCache (TreeSet by numElims descending); which we would
 			//     then use as a cache, but my brain hurts already, without the
 			//     cache complication, so I give it a miss, for now.
 			if ( newHints.size() > 0 )
@@ -293,93 +316,118 @@ public final class SiameseLocking extends Locking {
 				result |= accu.add(h);
 		}
 		origHints.clear();
+		grid = null;
+		maybes = null;
+		regions = null;
 		return result;
 	}
 
-	// remove all 'toRemove' from 'from'
-	private static void removeAll(final LockingHint[] toRemove, final ArrayList<LockingHint> from) {
-		for ( LockingHint h : toRemove ) {
+	// remove all $toRemove from $from
+	private static void removeAll(final LockingHint[] toRemove, final ArrayList<AHint> from) {
+		for ( LockingHint h : toRemove )
 			from.remove(h);
-		}
 	}
 
 	/**
-	 * Do the redPots (aka reds) of lockingHints all share a common region?
-	 * If not then this ain't Siamese, just disjunct hints from one region,
+	 * Do all the reds of all these LockingHints share a common region?
+	 * If not then its not Siamese, just disjunct hints from one region,
 	 * which is rare but does happen (about a dozen times in top1465).
 	 *
-	 * @param a an array of LockingHint to examine
+	 * @param hints an array of two+ LockingHint to examine
 	 * @return do all reds in all locking hints share a common region
 	 */
-	private boolean redsAllShareARegion(final LockingHint[] a){
-		int crs;
-		try ( final IALease lease = a[0].reds.leaseIndices() ) {
-			crs = Regions.commonI(lease.array);
-		}
-		for ( int i=1,n=a.length; i<n; ++i )
-			try ( final IALease lease = a[i].reds.leaseIndices() ) {
-				crs &= Regions.commonI(lease.array);
-			}
-		return crs != 0;
+	private boolean redsAllShareARegion(final LockingHint[] hints){
+		int crs = hints[0].reds.commonRibs();
+		for ( int i=1,n=hints.length; i<n; ++i )
+			crs &= hints[i].reds.commonRibs();
+		return crs > 0; // 27bits (NEVER negative)
+	}
+
+	/**
+	 * Get an array of grid.regions at RIBS.
+	 *
+	 * @param gridRegions grid.regions of the grid we search
+	 * @param ribs Region Indexes BitSet, I expect from {@link Idx#commonRibs }
+	 *  but there may be other uses for ribs that are yet to come to light.
+	 *  This is a 27 bit bitset, one for each index in the Grid.regions array.
+	 * @return new ARegion[] of regions at RIBS in this grid.
+	 */
+	private ARegion[] regions(final int ribs) {
+		final int n = Integer.bitCount(ribs); // 27 bits
+		if ( n == 0 )
+			return Regions.EMPTY_ARRAY;
+		final ARegion[] result = new ARegion[n];
+		int cnt = 0;
+		for ( int i=0; cnt<n && i<27; ++i )
+			if ( (1<<i & ribs) > 0 )
+				result[cnt++] = regions[i];
+		assert cnt == n;
+		return result;
 	}
 
 	/**
 	 * Add my eliminations to hisHint; and claim redValues from common regions.
 	 * <pre>
 	 * NB: done in a method just to not repeat the code (keeps growing).
-	 * NB: HiddenSets were added later, so I'm not designed just hacked-in.
+	 * NB: HiddenSets were added later, so I am not designed just hacked-in.
 	 * </pre>
 	 *
-	 * @param hisHint
-	 * @param grid
-	 * @param newHints
-	 * @param mine
-	 * @param size
-	 * @param idx
-	 * @return
+	 * @param hiddenSetHint the HiddenSetHint to which I add Locking elims
+	 * @param newHints to which I add the updated hint, if any
+	 * @param mine the Locking hints array
+	 * @param size number of hints in mine
+	 * @param lockingReds indices of reds in the Locking hints
+	 * @return was this hint updated (I bale-out early upon none)
 	 */
-	private static boolean addElims(
-			  final HiddenSetHint hisHint // from NakedSet
-			, final Grid grid
-			, final List<AHint> newHints
-			, final LockingHint[] mine // the Locking hints
-			, final int size // number of theseHints
-			, final Idx idx // indices of reds in the Locking hints
-	) {
+	private boolean addElims(final HiddenSetHint hiddenSetHint
+			, final List<AHint> newHints, final LockingHint[] mine
+			, final int size, final Idx lockingReds) {
+		assert size > 0;
+		IntQueue q;
+		final Pots hisReds;
+		final Idx empties;
+		long budsM0; int budsM1;
+		int i, indice, pinkos; // pinkos are candidates eliminated
 		// KRC BUG 2020-08-20 888#top1465.d5.mt UnsolvableException from apply.
 		// Ignore this HiddenSet hint if hisReds do NOT intersect myReds, to
-		// NOT upgrade Claiming's into a HiddenSet that is in another Box.
-		int myReds = 0;
-		for ( int i=0; i<size; ++i )
-			myReds |= mine[i].reds.valuesOf();
-		if ( (hisHint.hdnSetValues & myReds) == 0 )
+		// NOT upgrade Claimings into a HiddenSet that is in another Box.
+		pinkos = 0;
+		i=0; do pinkos |= mine[i].reds.candsOf(); while (++i < size);
+		final int hdnSetCands = hiddenSetHint.hdnSetCands;
+		if ( (hdnSetCands & pinkos) == 0 )
 			return false;
-		// add my Pointing/Claiming eliminations to the HiddenSetHint's reds.
+		// add my Pointing/Claiming eliminations to the HiddenSetHints reds.
 		// Note that I (unusually) add new elims to the existing Pots instance,
-		// which is still referenced by hisHint: ergo they're not even my Pots,
-		// which is VERY poor form, so @todo: Create a new hint from da two old
+		// which is still referenced by hisHint: ergo they are not even my Pots,
+		// which is VERY poor form, so @stretch: Create a new hint from two old
 		// ones, rather than modify the other mans hint, for tracabilty.
-		final Pots hisReds = hisHint.reds;
-		for ( int i=0; i<size; ++i )
-			hisReds.upsertAll(mine[i].reds);
-		// Also claim the values of the HiddenSet from each common region.
-		// nb: point/claim elims are from only ONE common region and we want
-		// the other one (if any) also. Q: How to calc "the other one"?
-		final int cands = hisHint.hdnSetValues;
-		final Idx tmp = TMP; // working storage for idxOf
-		final Cell[] gridCells = grid.cells;
-		// foreach region common to all the cells in theseHints
-		for ( ARegion cr : grid.regions(idx.commonRibs()) )
-			cr.idxOf(cands, tmp).andNot(idx).forEach(gridCells, (c) ->
-				hisReds.upsert(c, c.maybes & cands, false));
+		hisReds = hiddenSetHint.reds;
+		i=0; do hisReds.upsertAll(mine[i].reds); while (++i < size);
+		// Get BUDS: an Idx of cells that see all cells in the HiddenSet.
+		// New elims are limited to these buddy cells.
+		assert !hiddenSetHint.greens.isEmpty();
+		empties = grid.getEmpties();
+		budsM0 = empties.m0;
+		budsM1 = empties.m1;
+		for ( int g : hiddenSetHint.greens.keySet() )
+			if ( ( (budsM0 &= BUDS_M0[g])
+			     | (budsM1 &= BUDS_M1[g]) ) < 1L )
+				return false;
+		BUDS.set(budsM0,budsM1);
+		// claim values of the HiddenSet from the other common region, if any.
+		// foreach region common to all reds in the Locking hints
+		for ( ARegion cmnRgn : regions(lockingReds.commonRibs()) ) {
+			cmnRgn.idxOf(hdnSetCands, IDX).and(BUDS).andNot(lockingReds);
+			for ( q=IDX.indices(); (indice=q.poll()) > QEMPTY; )
+				hisReds.upsert(indice, maybes[indice] & hdnSetCands, DUMMY);
+		}
 		// and add hisHint to newHints.
-		newHints.add(hisHint);
+		newHints.add(hiddenSetHint);
 		return true;
 	}
-	private static final Idx TMP = new Idx(); // working storage for idxOf
 
 	// allows the hacu to add hints to the accu
-	boolean add(LockingHint h) {
+	boolean add(final LockingHint h) {
 		return accu.add(h);
 	}
 

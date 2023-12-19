@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
@@ -35,13 +35,13 @@ public final class Usage {
 	public int calls, hints, elims;
 	public long time;
 	// hintTypeName => Pair<numHints, difficulty>
-	public final Map<String,Pair<Integer,Double>> subHintsMap;
+	public final Map<String,Pair<Integer,Integer>> subHintsMap;
 	// the difficulty for maximum calculations
-	public double maxDifficulty = 0D;
+	public int maxDifficulty = 0;
 	// the difficulty for total calculations
-	public double ttlDifficulty = 0D;
+	public int ttlDifficulty = 0;
 
-	public Usage(String hinterName, int calls, int hints, int elims, long time) {
+	public Usage(final String hinterName, final int calls, final int hints, final int elims, final long time) {
 		this.hinterName = hinterName;
 		this.calls = calls;
 		this.hints += hints;
@@ -50,28 +50,28 @@ public final class Usage {
 		this.subHintsMap = new HashMap<>(4, 1F);
 	}
 
-	public void addonateSubHints(AHint hint, int numHints) {
-		String hintTypeName = hint.getHintTypeName();
-		double d = hint.getDifficulty();
-		Pair<Integer,Double> existing = subHintsMap.get(hintTypeName);
+	public void upsertSubHints(final AHint hint, final int numHints) {
+		final String name = hint.getHintTypeName();
+		final int difficulty = hint.getDifficulty();
+		final Pair<Integer,Integer> existing = subHintsMap.get(name);
 		if ( existing == null )
-			subHintsMap.put(hintTypeName, new Pair<>(numHints, d));
+			subHintsMap.put(name, new Pair<>(numHints, difficulty));
 		else {
 			existing.a += numHints;
-			// Math.max is slower.
-			if ( d > existing.b )
-				existing.b = d;
+			if ( difficulty > existing.b ) { // Math.max is slower.
+				existing.b = difficulty;
+			}
 		}
 	}
 
 	// I hate division by zero errors. The answer's 0 ya putz! If you divide 11
-	// bananas amonst your 0 kids then you're just not ____ing hard enough, so
+	// bananas amonst your 0 kids then you are just not ____ing hard enough, so
 	// you can ____ right off to bedlam to continue ____ing like a dirty MO-FO!
 	// Yeah, yeah, na... it just means that nobody gets any bananas, ie 0, and
 	// I fail to see the motivation for differentiating this case from sharing
 	// 0 bananas amonst 11 kids, except that the later case has been totally
 	// and utterly normalised by you manky inbred whitewings tight old ___wits.
-	private int div(long a, int b) {
+	private int div(final long a, final int b) {
 		if ( b == 0 )
 			return 0;
 		return (int) a / b;
@@ -83,11 +83,11 @@ public final class Usage {
 		return ""+time+"/"+elims+EQUALS+(div(time,elims));
 	}
 
-	public void add(Usage u) {
+	public void add(final Usage u) {
 		add(u.calls, u.hints, u.elims, u.time);
 	}
 
-	public void add(int calls, int hints, int elims, long time) {
+	public void add(final int calls, final int hints, final int elims, final long time) {
 		this.calls += calls;
 		this.hints += hints;
 		this.elims += elims;

@@ -1,23 +1,21 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.chain;
 
 import diuf.sudoku.Ass;
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.IrrelevantHintException;
-import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Html;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.IN;
@@ -31,17 +29,17 @@ public final class RegionReductionHint extends AChainingHint {
 
 	private final ARegion region;
 	private final int theValue;
-	private final LinkedHashMap<Integer, Ass> chains;
-	private final String typeID;
+	private final ArrayList<Ass> chains;
+	private final String typeId;
 
-	public RegionReductionHint(AHinter hinter, Pots redPots, ARegion region
-			, int theValue, LinkedHashMap<Integer, Ass> chains, String typeID) {
-		super(hinter, redPots, chains.size(), true, true
-				, chains.values().iterator().next()); // result, hacky but works
+	public RegionReductionHint(final Grid grid, final IHinter hinter
+		, final Pots redPots, final ARegion region, final int theValue
+		, final ArrayList<Ass> chains, final int typeId, final Ass result) {
+		super(grid, hinter, redPots, chains.size(), true, true, result);
 		this.region = region;
 		this.theValue = theValue;
 		this.chains = chains;
-		this.typeID = typeID;
+		this.typeId = WANT_TYPE_ID ? " ("+typeId+")" : "";
 	}
 
 	/**
@@ -51,28 +49,28 @@ public final class RegionReductionHint extends AChainingHint {
 	 * @return
 	 */
 	@Override
-	ArrayList<Ass> getAncestorsList(Ass target) {
-		return getAncestorsListImpl(target);
+	ArrayList<Ass> ancestors(Ass target) {
+		return ancestorsImpl(target);
 	}
 
 	@Override
-	public Set<Cell> getFlatAquaCells() {
-		return Collections.singleton(resultAss.cell);
+	public Set<Integer> getFlatAquaIndices() {
+		return Idx.of(resultAss.indice);
 	}
 
 	@Override
 	protected Ass getChainTarget(int viewNum) {
-		return super.getChainTargetFromArray(chains.values(), viewNum);
+		return super.getChainTargetFromArray(chains, viewNum);
 	}
 
 	@Override
 	protected int getFlatComplexity() {
-		return countAncestors(chains.values());
+		return countAncestors(chains);
 	}
 
 	@Override
 	protected ArrayList<Ass> getChainsTargetsImpl() {
-		return new ArrayList<>(chains.values());
+		return chains;
 	}
 
 	@Override
@@ -88,70 +86,74 @@ public final class RegionReductionHint extends AChainingHint {
 	public String getClueHtmlImpl(boolean isBig) {
 		String s = "Look for a "+getHintTypeName();
 		if ( isBig )
-			s += ON+theValue+IN+"<b1>"+region.id+"</b1>";
+			s += ON+theValue+IN+"<b1>"+region.label+"</b1>";
 		return s;
 	}
 
 	@Override
-	public String getHintTypeNameImpl() {
-		return "Region Reduction Chain"+typeID;
+	public String getNameMiddle() {
+		return "Region Reduction Chain"+typeId;
 	}
 
 	@Override
-	public String toStringImpl() {
-		return Frmt.getSB(64).append(getHintTypeName())
-		  .append(COLON_SP).append(theValue)
-		  .append(IN).append(region.id)
-		  .append(SO).append(resultAss)
-		  .toString();
+	public StringBuilder toStringImpl() {
+		return SB(64).append(getHintTypeName()).append(COLON_SP).append(theValue)
+		.append(IN).append(region.label).append(SO).append(resultAss);
 	}
 
 	private String getAssertionsHtml() {
-		final StringBuilder sb = new StringBuilder(64 * flatViewCount);
-		for ( Ass target : chains.values() )
-			sb.append("<li>If ").append(getSource(target).weak())
-			  .append(" then ").append(target.strong())
-			  .append("</li>").append(NL);
+		final StringBuilder sb = SB(flatViewCount<<6); // * 64
+		chains.forEach((target) -> {
+			final Ass source = getInitialAss(target);
+			if ( source != null ) {
+				sb.append("<li>If ").append(source.weak())
+				.append(" then ").append(colorAss(target, target.strong()))
+				.append("</li>").append(NL);
+			}
+		});
 		return sb.toString();
 	}
 
 	private StringBuilder getChainsHtml() {
-		final StringBuilder sb = new StringBuilder(128 * flatViewCount);
+		final StringBuilder sb = SB(flatViewCount<<7); // * 128
 		int i = 1;
-		for ( Ass target : chains.values() ) {
-			sb.append("Chain ").append(i)
-			  .append(": <b>If ").append(getSource(target).weak())
-			  .append(" then ").append(target.strong())
-			  .append("</b> (View ").append(i).append("):<br>").append(NL)
-			  .append(getChainHtml(target)).append("<br>").append(NL); // current chain
-			++i;
+		for ( Ass target : chains ) {
+			final Ass source = getInitialAss(target);
+			if ( source != null ) {
+				sb.append("Chain ").append(i)
+				.append(": <b>If ").append(source.weak())
+				.append(" then ").append(target.strong())
+				.append("</b> (View ").append(i).append("):<br>").append(NL)
+				.append(getChainHtml(target)).append("<br>").append(NL); // current chain
+				++i;
+			}
 		}
 		return sb;
 	}
 
 	@Override
 	public String toHtmlImpl() {
-		String filename = ((ChainerBase)hinter).isDynamic
+		String filename = ((AChainerBase)hinter).isDynamic
 				? "RegionReductionHintDynamic.html"
 				: "RegionReductionHintStatic.html";
 		String html = Html.load(this, filename);
 		try {
-		html = Html.format(
-				  html
-				, getAssertionsHtml()			// 0
-				, Integer.toString(theValue)	// 1
-				, region.id						// 2
-				, Html.strongCyanOrRed(resultAss)	// 3
-				, getChainsHtml()				// 4
-				, getHinterName()				// 5
-				, getPlusHtml()					// 6
-				, getNestedHtml()				// 7
+		html = Html.format(html
+			, getAssertionsHtml()				// 0
+			, Integer.toString(theValue)		// 1
+			, region.label						// 2
+			, Html.strongCyanOrRed(resultAss)	// 3
+			, getChainsHtml()					// 4
+			, getHinterName()					// 5
+			, getPlusHtml()						// 6
+			, getNestedHtml()					// 7
 		);
-		if ( hinter.tech.isNested )
+		if ( hinter.isNesting() )
 			html = super.appendNestedChainsHtml(html);
 		} catch (IrrelevantHintException ex) {
 			html = Html.load(ex, "IrrelevantHintException.html");
 		}
 		return html;
 	}
+
 }

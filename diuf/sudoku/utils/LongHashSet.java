@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -18,11 +18,11 @@ import static diuf.sudoku.utils.Frmt.SP;
  * <p>
  * This Set can contain more than 512 entries, but my table (unlike java.util)
  * never grows, the linked lists just keep growing so too many collisions cause
- * LongHashSet to be LESS performant than java.util.HashSet. It's horses for
+ * LongHashSet to be LESS performant than java.util.HashSet. It is horses for
  * courses. Autoboxing and growth vs neither for speed at low altitudes.
  * <p>
- * Use the debugger to see your built table/s, and adjust hash accordingly. 
- * There's no real problem with copy-pasting an implementation per use. Sigh.
+ * Use the debugger to see your built table/s, and adjust hash accordingly.
+ * There is no real problem with copy-pasting an implementation per use. Sigh.
  *
  * @author Keith Corlett 2021-11-30 a copy-paste of IntHashSet
  */
@@ -71,6 +71,26 @@ public class LongHashSet {
 	}
 
 	/**
+	 * Is hashCode in this Set?
+	 *
+	 * @param hashCode to examine
+	 * @return is hashCode in this Set?
+	 */
+	public boolean has(final long hashCode) {
+		final int index = hash(hashCode) & mask;
+		Entry e = table[index];
+		if ( e == null ) // no entry in table yet
+			return false;
+		do
+			if ( e.value == hashCode )
+				return true;
+			else if ( e.value > hashCode )
+				return false;
+		while ( (e=e.next) != null );
+		return false;
+	}
+
+	/**
 	 * Add i to this Set.
 	 * <p>
 	 * Note that LongHashSet does NOT grow automatically like a
@@ -87,8 +107,8 @@ public class LongHashSet {
 			return true;
 		} else {
 			// seek i in list: stop at first entry thats larger, keeping track
-			// of the previous entry (the last entry that's smaller), which we
-			// insert after, ie we're doing an insert-sort here. It's O(n) but
+			// of the previous entry (the last entry that is smaller), which we
+			// insert after, ie we are doing an insert-sort here. It is O(n) but
 			// still faster than a tree, and I do not understand why: suspect
 			// the number of multi-element lists is low, and like 95% of them
 			// have "few" entries (less than 6) so the extra complexity of a

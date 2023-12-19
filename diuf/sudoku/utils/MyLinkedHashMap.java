@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -45,9 +45,9 @@ import java.util.TreeMap;
 
 /**
  * KRC: Hacked out of the 1.7 open-source code-base (a couple of years ago)
- * in order to extend a HashMap into a MyFunkyLinkedHashMap, which doesn't
+ * in order to extend a HashMap into a MyFunkyLinkedHashMap, which does not
  * replace existing values when isFunky is on (as it is by default). I notice
- * that 1.8 has this feature, but I can't figure out how to turn it on. Sigh.
+ * that 1.8 has this feature, but I cannot figure out how to turn it on. Sigh.
  *
  * <p>This class differs from java.util,LinkedHashMap only in that it wraps
  * diuf.sudoku.utils.MyHashMap, which has been hacked (as little as possible).
@@ -177,16 +177,14 @@ import java.util.TreeMap;
  * @since   1.4
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
-public class MyLinkedHashMap<K,V>
-	extends MyHashMap<K,V>
-	implements Map<K,V>
-{
+public class MyLinkedHashMap<K,V> extends MyHashMap<K,V> implements Map<K,V> {
+
 	private static final long serialVersionUID = 3801124242820219131L;
 
 	/**
 	 * The head of the doubly linked list, in "natural order", meaning this
 	 * linked list iterates in the same order that entries where added.
-	 * (NB: Natural order is lost in an unlinked HashMap, it's pseudo-random.)
+	 * (NB: Natural order is lost in an unlinked HashMap, it is pseudo-random.)
 	 */
 	protected transient AnEntry<K,V> header;
 
@@ -256,7 +254,7 @@ public class MyLinkedHashMap<K,V>
 	 * meaning that "this map is empty".
 	 */
 	public MyHashMap.Entry<K,V> poll() {
-		K key = header.after.key;
+		final K key = header.after.key;
 		if(key==null) return null;
 		return removeEntryForNotNullKey(key);
 	}
@@ -313,7 +311,7 @@ public class MyLinkedHashMap<K,V>
 	 * it returns {@code null}.  (There can be at most one such mapping.)
 	 *
 	 * <p>A return value of {@code null} does not <i>necessarily</i>
-	 * indicate that the map contains no mapping for the key; it's also
+	 * indicate that the map contains no mapping for the key; it is also
 	 * possible that the map explicitly maps the key to {@code null}.
 	 * The {@link #containsKey containsKey} operation may be used to
 	 * distinguish these two cases.
@@ -329,9 +327,9 @@ public class MyLinkedHashMap<K,V>
 	 * <p>
 	 * nb: I was caching this (hence the method), but it went bad as soon as
 	 * I stepped into the wild, so then I tried using my linked-list but it
-	 * doesn't appear to be maintained any longer (WTF!), so I gave-up and
+	 * does not appear to be maintained any longer (WTF!), so I gave-up and
 	 * just went back to how this was done in the past, except now atleast
-	 * it's only done badly/slowly ONCE. Sigh.
+	 * it is only done badly/slowly ONCE. Sigh.
 	 * <p>
 	 * NOTE: now used in the wild, as well as by test-cases, which is what
 	 * I was written for, but I turned out to be pretty handy elsewhere as
@@ -365,7 +363,7 @@ public class MyLinkedHashMap<K,V>
 		if ( size == 0 )
 			return;
 		++modCount; // invalidate existing iterators
-		if ( size < 10 ) { // this breaks even at about a dozen
+		if ( size < 42 ) {
 			for ( K key=header.after.key; key!=null; key=header.after.key )
 				removeEntryForNotNullKey(key);
 		} else {
@@ -428,7 +426,6 @@ public class MyLinkedHashMap<K,V>
 				throw new IllegalStateException();
 			if (modCount != expectedModCount)
 				throw new ConcurrentModificationException();
-
 			MyLinkedHashMap.this.remove(lastReturned.key);
 			lastReturned = null;
 			expectedModCount = modCount;
@@ -439,7 +436,6 @@ public class MyLinkedHashMap<K,V>
 				throw new ConcurrentModificationException();
 			if (nextEntry == header)
 				throw new NoSuchElementException();
-
 			AnEntry<K,V> e = lastReturned = nextEntry;
 			nextEntry = e.after;
 			return e;
@@ -478,7 +474,7 @@ public class MyLinkedHashMap<K,V>
 	@Override
 	void addEntry(int hash, K key, V value, int bucketIndex) {
 		createEntry(hash, key, value, bucketIndex);
-//KRC: commented out because I never use this feature and it's slowing me down.
+//KRC: commented out because I never use this feature and it is slowing me down.
 //		// Remove eldest entry if instructed, else grow capacity if appropriate
 //		AnEntry<K,V> eldest = header.after;
 //		if (removeEldestEntry(eldest)) {
@@ -490,13 +486,13 @@ public class MyLinkedHashMap<K,V>
 	}
 
 	/**
-	 * This override differs from addEntry in that it doesn't resize the
+	 * This override differs from addEntry in that it does not resize the
 	 * table or remove the eldest entry.
 	 */
 	@Override
-	void createEntry(int hash, K key, V value, int bucketIndex) {
-		MyHashMap.Entry<K,V> old = table[bucketIndex];
-		AnEntry<K,V> e = new AnEntry<>(hash, key, value, old);
+	void createEntry(final int hash, final K key, final V value, final int bucketIndex) {
+		final MyHashMap.Entry<K,V> old = table[bucketIndex];
+		final AnEntry<K,V> e = new AnEntry<>(hash, key, value, old);
 		table[bucketIndex] = e;
 		e.addBefore(header);
 		++size;

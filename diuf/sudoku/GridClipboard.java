@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -52,9 +52,10 @@ public class GridClipboard {
 
 	/**
 	 * Copies the given String to Systems clipboard.
+	 *
 	 * @param s string to copy to clipboard
 	 */
-	public static void copyTo(String s) {
+	public static void copy(String s) {
 		StringSelection ss = new StringSelection(s);
 		Toolkit tk = Toolkit.getDefaultToolkit();
 		Clipboard clipboard = tk.getSystemClipboard();

@@ -15,29 +15,30 @@ most bivalue cells (one of two potential values of a cell). We keep score for
 each value: a conjugate pair is 1 point, and a bivalue cell is 1 point.
 
 This implementation searches values with a total score of 4 or more, because 4
-is the min score that produces a hint in top1465, but there's nothing magical
+is the min score that produces a hint in top1465, but there is nothing magical
 about top1465, so 4 may be too high for some Sudoku puzzles. An expert could get
-this right. I'm just a computer programmer, so I'm doing what works for me, in
+this right. I am just a computer programmer, so I am doing what works for me, in
 the hope that it works for others. Experts have facts. Pragmatists have hope.
-Hence expert pragmatists are ____ed, but at least we know that we're ____ed, and
+Hence expert pragmatists are ____ed, but at least we know that we are ____ed, and
 so are cheerfully up-front about it, in the hope that a real expert will provide
 empirical support, or repudiate the contention. Lower or remove this constraint
-to suit your requirements. It's only for speed.
+to suit your requirements. It is only for speed.
 
 So we start with a value that has two possible positions in a region. We paint
 the first position GREEN, so the second will be BLUE.
 
-It's important to get your head around the "strong" bidirectionality of this
+It is important to get your head around the "strong" bidirectionality of this
 and indeed all coloring relationships:
                 If cell A is value     then cell B is NOT value,
 <b>and conversely</b>, If cell B is NOT value then cell A is value.
 Every painted cell-value has a "strong" (bidirectional) relationship with every
-other painted cell-value, so it's one in, all in; and one out, all out; and ONE
+other painted cell-value, so it is one in, all in; and one out, all out; and ONE
 of the two colors MUST be true. Ergo assert green XOR blue. Got it?
 
-We look at the three regions containing each cell we paint (it's box, row, and
-col). If this region also has two possible locations for this value then paint
-this value of the other cell the other color.
+We look at the three regions (box, row, and col) containing each cell we paint.
+If this region also has two possible locations for this value then paint this
+value of the other cell the other color (a "conjugate" relationship: last two
+milk-duds in a quart jar).
 
 If a cell has two potential values then paint the other value the other color.
 
@@ -54,7 +55,9 @@ the source box then paint it this color: a "strong" bidirectional relationship;
 else it is just an "on": a "weak" unidirectional relationship. If blue turns out
 to be true then we set this cell to this value, but setting this cell to this
 value implies absolutely nothing about the verity of blue; ergo there is no "and
-conversely" with an "on", it's JUST an "on".
+conversely" with an "on", it is JUST an "on", hence is not used in subsequent
+logic, except contradictions: a "weak" relationship is sufficient to prove
+<u>in</u>validity (but not validity).
 
 paintPromotions:
 * When all but one cell mates or siblings of a cell-value are "off"ed by this
@@ -62,48 +65,49 @@ paintPromotions:
   - If all bar one value is "off"ed from a cell (this color) then "on" it.
   - If all bar one place is "off"ed in a region (same value, this color) then
     "on" it.
-* An "on" seeing/with the opposite color is painted it's own color.
+* An "on" seeing/with the opposite color is painted its own color.
   - If an "on" has an opposite colored cell-mate (any value) then paint it.
   - If an "on" sees the opposite color (same value) then paint it.
-* Shoot back (a KRC original): if an "on" leaves ONE v of this color in any box
+* Shoot back (KRC original): if an "on" leaves ONE v of this color in any box
   then paint the on; as per paintMonoBoxs but here we start from the effect, for
   which we seek a cause.
-  - This finds occurrences that paintMonoBoxs doesn't. When looking at the extra
-    finds, one sees paints where the "cause" has no DIRECT link to the "effect".
-    Colored cells of this value gang-up to leave a HiddenSingle in the effected
-    box, which "causes" a HiddenSingle in a box, so yes there's a strong link,
-    but WTF: Why does paintMonoBoxs find occurrences that this rule misses?
+  - This finds occurrences that paintMonoBoxs does not. When examining the extra
+    finds, there are paints where the cause has no DIRECT link to the effect,
+    because Colored cells of this value gang-up to leave a HiddenSingle in the
+    effected box, which causes a HiddenSingle in a box, so yes there is a strong
+    link between colored cell-values, but why does paintMonoBoxs find ones that
+    paintPromotions misses? BFIIK!
 
 We keep doing paintMonoBoxs and paintPromotions as long as either of them finds
-something to paint full-colors ("ons" don't count).
+something to paint full-colors ("ons" dont count).
 
 Then we look for "contradictions" (big hints which set cell values):
-* If there's two green/ons with different values in one cell then blue is true.
-* If there's two green/ons with the same value in a region then blue is true.
-* If green off's all of a cells values then blue is true.
-* If all v's in a region see green v's then blue is true.
-* And vice-versa from blue to green, obviously. I'm just being terse.
-* When a contradiction hint is found then stop searching for other hints.
+* If there is two green/ons with different values in one cell then blue is true.
+* If there is two green/ons with the same value in a region then blue is true.
+* If green offs all of a cells values then blue is true.
+* If all vs in a region see green vs then blue is true.
+* And vice-versa from blue to green, obviously. I am just being terse.
+* When a contradiction is found then we MUST stop searching for other hints.
 * "blue is true" means all cell-values (including "ons") rendered in a larger
-  blue font are set when this hint is applied.
+  blue font are set when this hint is applied. This may set many cells.
 
 Then we look for "eliminations" (little hints that eliminate cell values):
 * If a cell has values of both colors then eliminate all other potential values.
-* If an uncolored v sees both colored v's then eliminate it.
+* If an uncolored v sees both colored vs then eliminate it.
 * If an uncolored v sees green and has some other blue value then eliminate it.
-* If both colors "off" the same cell-value then eliminate it. This rule covers
+* If both colors off the same cell-value then eliminate it. This rule covers
   both previous rules (and more besides) which still exist to provide specific
   explanations; this rule exists as a catch all.
 * Eliminations are rendered as a RED '-' in the GUI, and if that's added to the
   actual eliminations (the redPots) then the value is also RED; but if the cell
-  value is set then the elimination is automatic. It's a tad more complex than
-  it really needs to be, but it shows exactly what's happening.
+  value is set then the elimination is automatic. The display is a bit more
+  complex than it needs to be, but it does show exactly what is happening.
 
-Then (if there's any eliminations) we look for "confirmations":
+Then (if there is any eliminations) we look for "confirmations":
 * If all bar one value is actually eliminated from a cell and the remaining
   cell-value is colored then that whole color is true.
-* If all but one occurrence of a value is actually eliminated from a region
-  and the remaining cell-value is colored then that whole color is true.
+* If all but one occurrence of a value is actually eliminated from a region and
+  the remaining cell-value is colored then that whole color is true.
 * Note that both of these rules use the actual eliminations (the redPots).
 * "color is true" means all cell-values (including "ons") rendered in a larger
   this-color font will be set when this hint is applied.
@@ -114,27 +118,30 @@ And then we go for a little lie down.
 <pre>
 <u>GUI Rendering</u>
 * '+' means "on": a '+' next to a digit in the Grid means this is an "on".
-  If this color is true then this cell is set to this value; but an "on" isn't
-  a "full" colored cell-value, used in logic; it's JUST an extra value to set.
+  If this color is true then this cell is set to this value; but an "on" is not
+  a "full" colored cell-value, used in logic; it is JUST an extra value to set.
 * One exception: contradictions use ons: an "on" is treated the same as a full
   colored cell-value when repudiating a colors validity. If an "on" is proven
-  invalid then it's whole color is invalid, hence the other color must be true.
+  invalid then its whole color is invalid, hence the other color must be true.
   One out, all out. This is pretty hard to get your head around. Read it again.
 * '-' means "off": a '-' next to a digit in the Grid means this is an "off".
   If this color is true then value is eliminated from cell. If both colors "off"
-  the same cell-value then it can be eliminated, so it's painted red.
-* A red <r>-</r> means this cell-value CAN be eliminated. A red <r>digit</r> means that it
-  WILL be eliminated when this hint is applied. Cell-values do not need to be
-  eliminated explicitly when the cell is set, it happens automatically.
-* The GREEN/BLUE digit in a larger font renders the value to set this cell to.
+  the same cell-value then it can be eliminated, so it is painted red.
+* A red <r>-</r> means this cell-value CAN be eliminated. A red <r>digit</r>
+  means that it WILL be eliminated when this hint is applied. When a cell is
+  set, all-other-maybes are eliminated "automatically", they do not need to be
+  eliminated explicitly, so <u>may</u> not be red (some will be, sigh).
+* The GREEN/BLUE digit in a larger font renders the "result value", ie the value
+  to set this cell to.
 </pre>
 <hr>
 <pre>
-<u>GEM is Incomplete!</u>
+<u>My GEM implementation is Incomplete!</u>
 My GEM is an incomplete implementation of the specification in #GEM.txt because
-I'm too stupid to understand the spec, so I'm ignoring the ____ out of it, and
-implementing what makes sense to me. Of course it's possible that I have blindly
-completely implemented the spec, but I don't think it's likely. To be clear, I
-find the spec confusing (gibberish in places), and it's demonstrably WRONG on
-one point, which erodes ones confidence. ~KRC 2021-05-21.
+I am too thick to understand the spec, so I am ignoring the ____ out of it, and
+implementing what makes sense to me. Of course it is possible that I may have
+blindly completely implemented the specification, but it doesn't sound likely.
+To be clear, I find the spec confusing (utter gibberish in places), and it is
+demonstrably WRONG on one point, which does erodes ones confidence in it.
+~KRC 2021-05-21.
 </pre>

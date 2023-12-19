@@ -1,0 +1,87 @@
+NAMES
+=====
+
+DiufSudoku is the project name. SudokuExplainer is what the GUI calls itself,
+and it produces SudokuExplainer.log. SE when I'm short of room, in a hurry, or
+just lazy, which is often.
+
+HOME DIRECTORY
+==============
+SE tries to be O/S agnostic. Written on Windows, by a Unixphilic author.
+You'll need to change filepaths. Basically search *.* (ignore *.log) for
+C:\Users\User\Documents\NetBeansProjects\SudokuExplainer
+and replace it where-ever you're at. They're shouldn't be too many of them.
+Also I suspect \n verses \r\n will fail test-cases. Just reproduce all.
+
+PROFILES
+========
+
+Sudoku Explainer has two main profiles:
+1. <default config>: The GUI (Swing) in diuf.sudoku.gui.SudokuExplainer.java.
+   I'm the default config in an IDE (integrated development environment).
+2. LogicalSolverTester: The batch in diuf.sudoku.test.LogicalSolverTester.java
+   Performance test top1465.d5.mt, which is a "random sample" of Sudokus, with
+   a heavy bias towards harder ones; 90% of Sudoku's are bloody piss easy, but
+   it's that 0.1% that makes Sudoku interesting. Latest 72,459,999,000 ns.
+   Typically I clean and rebuild and run the batch in java.exe coz the IDE uses
+   it's own VM, which is "a bit different". It's better to not be NB-dependant.
+   It'd be better to not be Java dependant too, since Oracle broke it.
+And there's a few extras:
+3. Profile: defunct now top1465 takes a minute, so top100 is superflous.
+4. RecursiveSolverTester: racing BruteForce (code changes required).
+5. WorldsHardestSudoku: takes about 4.6 seconds using logic. Impressive.
+
+IDE
+===
+
+I use Netbeans 8.2 (2018 March 21) by the way, and
+    Java(TM) SE Runtime Environment (build 1.8.0_271-b09).
+I rejected a J17/NB12.6 coz it's about 30% slower since Oracle invaded. The only
+long-term solution is do not use java. Sigh.
+
+FYI my times are on Windows 10 Home on an Aspire F5-573G laptop, running Intel
+Core i7-7500U CPU @ 2.70GHz 2.90GHz, with 16GB, and a solid state HDD. Sorry I
+don't know the RAM/HDD response times, or how to find out, but its fast (2018).
+
+PACKAGES
+========
+
+A precis of each package in the DiufSudoku project:
+diuf.sudoku - the Data, main class is Grid; rest are data-types.
+diuf.sudoku.gen - The Sudoku generator (except the gui form, which s__ts me)
+--------------------------------------------------------------------------------
+TIP: diuf.sudoku.gui.LogicalSolver is the start-up class of <default config>.
+--------------------------------------------------------------------------------
+diuf.sudoku.gui - the graphical user interface (the bloody Swing app)
+diuf.sudoku.io - because I find Java's file handling to be excessively verbose
+diuf.sudoku.solver - the LogicalSolver, and friends (this whole tree)
+diuf.sudoku.solver.accu - the IAccumulator (hint collection) and implementations thereof
+diuf.sudoku.solver.checks - puzzle (once) and grid (repeated) validators
+--------------------------------------------------------------------------------
+TIP: diuf.sudoku.Tech is a hinter Map: Netbeans Ctrl-Click to goto the hinter.
+--------------------------------------------------------------------------------
+diuf.sudoku.solver.hinters - classes that produce hints
+diuf.sudoku.solver.hinters.aals - AlmostAlmostLockedSets: SueDeCoq (good advise)
+diuf.sudoku.solver.hinters.align - Aligned*Exclusion (the faster older version)
+diuf.sudoku.solver.hinters.align2 - AlignedExclusion (more concise but slower)
+diuf.sudoku.solver.hinters.als - AlmostLockedSet: BigWings, DeathBlossom, AlsXz, AlsWing, AlsChain
+diuf.sudoku.solver.hinters.chain - forcing chains: ChainerUnary and ChainerMulti
+diuf.sudoku.solver.hinters.color - Coloring, XColoring, Medusa3D, GEM
+diuf.sudoku.solver.hinters.fish - BasicFisherman, ComplexFisherman, KrakenFisherman, Superfischerman, SuperfischPerm
+diuf.sudoku.solver.hinters.hdnset - HiddenSet, HiddenSetDirect
+diuf.sudoku.solver.hinters.lock - Locking, LockingSpeedMode, SiameseLocking
+diuf.sudoku.solver.hinters.lock2 - LockingGen (is simply too elegant too weed)
+diuf.sudoku.solver.hinters.nkdset - NakedSet, NakedSetDirect
+diuf.sudoku.solver.hinters.sdp - SingleDigitPattern: EmptyRectangle, Skyscraper, TwoStringKite
+diuf.sudoku.solver.hinters.single - LonelySingle, NakedSingle, HiddenSingles
+diuf.sudoku.solver.hinters.urt - UniqueRecTanges and loops (all flavours (AFAIK), including hidden)
+diuf.sudoku.solver.hinters.wing - XY/ZWing, WWing, (BigWing see als.BigWings)
+--------------------------------------------------------------------------------
+TIP: diuf.sudoku.test.LogicalSolverTester start-up of <LogicalSolverTester config>.
+TIP: I call LogicalSolverTester the batch, coz I'm lazy.
+--------------------------------------------------------------------------------
+diuf.sudoku.test - LogicalSolverTester, and s__t.
+diuf.sudoku.test.knuth - RecursiveSolverTester, for FTL to the RATEOTU.
+diuf.sudoku.tools - some previously useful code.
+diuf.sudoku.utils - helpers that are project agnostic (except Debug).
+                  - there's some nice collections down there too.

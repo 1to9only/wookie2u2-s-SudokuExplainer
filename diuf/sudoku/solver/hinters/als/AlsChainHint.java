@@ -1,20 +1,24 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
+import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.MAYBES;
+import static diuf.sudoku.Grid.REGION_LABELS;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.hinters.AHinter;
-import static diuf.sudoku.solver.hinters.als.AlsChainDebug.ALS_CHAIN_DEBUG_HINTS;
+import diuf.sudoku.solver.hinters.IHinter;
 import static diuf.sudoku.solver.hinters.als.AlsHintHelper.link;
+import diuf.sudoku.utils.Frmt;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
+import static diuf.sudoku.utils.Frmt.CSP;
 import static diuf.sudoku.utils.Frmt.IN;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
@@ -43,12 +47,12 @@ public class AlsChainHint extends AHint  {
 		if ( (ret=Integer.compare(a.alss.length, b.alss.length)) != 0 ) {
 			return ret;
 		}
-		// then by total length of ALS's in the AlsChain ASCENDING
-		// first one that's shorter (faster than total-shorter).
+		// then by total length of ALSs in the AlsChain ASCENDING
+		// first one that is shorter (faster than total-shorter).
 		if ( (ret=Integer.compare(a.totalSize(), b.totalSize())) != 0 ) {
 			return ret;
 		}
-		// 0 doesn't mean equal, it means continue with the master comparator;
+		// 0 does not mean equal, it means continue with the master comparator;
 		// ergo equals as far as I know (which is just part of it)
 		return 0;
 	};
@@ -56,23 +60,13 @@ public class AlsChainHint extends AHint  {
 	// would be private except for the test-case
 	final Als[] alss;
 	final int[] values;
-	final Rcc[] rccs;
-	final int[] rccIndexes;
 
-	public AlsChainHint(
-			  final AHinter hinter
-			, final Pots reds
-			, final Als[] alss
-			, final int[] values
-			, final Rcc[] rccs
-			, final int[] rccIndexes // pass me !null to turn on DEBUG
-	) {
+	public AlsChainHint(final Grid grid, final IHinter hinter, final Pots reds
+			, final Als[] alss, final int[] values) {
 		// nb: what are normally greens are oranges here
-		super(hinter, reds);
+		super(grid, hinter, reds);
 		this.alss = alss;
 		this.values = values;
-		this.rccs = rccs;
-		this.rccIndexes = rccIndexes;
 	}
 
 	@Override
@@ -89,7 +83,7 @@ public class AlsChainHint extends AHint  {
 		}
 		// use a Set for uniqueness (duplicates never happen. NSN.).
 		final Collection<Link> result = new LinkedHashSet<>();
-		// links aren't mission critical, so just log any exceptions.
+		// links are not mission critical, so just log any exceptions.
 		try {
 			// foreach als except the last (done seperately)
 			for ( int i=0; i<last; ++i ) {
@@ -97,49 +91,33 @@ public class AlsChainHint extends AHint  {
 				final int v = values[next]; // ALSs are back-linked
 				link(alss[i].vs[v], alss[next].vs[v], v, result);
 			}
-			// the eliminations are linked FROM both the firstAls and the lastAls.
-			// backwards: foreach dst, foreach src to link ONLY to elim'd values.
+			// eliminations are linked FROM both the firstAls and the lastAls.
+			// backwards: foreach dst, foreach src to link ONLY elimed values.
 			reds.entrySet().forEach((e) -> {
-				final int d = e.getKey().i;
+				final int d = e.getKey();
 				for ( int z : VALUESES[e.getValue()] ) {
 					link(alss[0].vs[z], d, z, result); // first ALS
 					link(alss[last].vs[z], d, z, result); // last ALS
 				}
 			});
 		} catch (Exception ex) {
-			Log.teeln(Log.me()+": "+ex);
+			Log.teeln("WARN: "+Log.me()+": "+ex);
 		}
 		return result;
 	}
 
-	// get CSV of id's of the regions that contain my alss ONCE, for speed
-	private String regionsCsv() {
-		if ( regionsCsv == null ) {
-			regionsCsv = Frmu.csv(Als.regionsList(alss));
-		}
-		return regionsCsv;
-	}
-	private String regionsCsv;
-
 	@Override
 	public String getClueHtmlImpl(boolean isBig) {
-		String s = "Look for a " + getHintTypeName();
-		if ( isBig ) {
-			s += IN+regionsCsv();
-		}
-		return s;
+		final StringBuilder sb = SB(64).append("Look for a ").append(getHintTypeName());
+		if ( isBig )
+			sb.append(IN).append(Als.regionLabels(alss, CSP));
+		return sb.toString();
 	}
 
 	@Override
-	public String toStringImpl() {
-		if ( ALS_CHAIN_DEBUG_HINTS ) // include the alss.length
-			return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
-			  .append(alss.length).append(COLON_SP)
-			  .append(regionsCsv())
-			  .toString();
-		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(regionsCsv())
-		  .toString();
+	public StringBuilder toStringImpl() {
+		return SB(128).append(getHintTypeName())
+		.append(COLON_SP).append(Als.regionLabels(alss, CSP));
 	}
 
 	// for the BY_LENGTH Comparator
@@ -152,7 +130,7 @@ public class AlsChainHint extends AHint  {
 
 	// just occassionally, there are multiple z-values.
 	private String zsString() {
-		return Values.andString(reds.valuesOf());
+		return Values.andString(reds.candsOf());
 	}
 
 	private String getAlssString() {
@@ -161,11 +139,11 @@ public class AlsChainHint extends AHint  {
 		  , c; // color index is 1..5 inclusive
 		String label;
 		final int last = alss.length - 1;
-		final StringBuilder sb = Frmu.getSB();
+		final StringBuilder sb = SB(alss.length<<6); // * 64
 		// pluralise digits, ie 5s and 9s
 		final String zs = zsString().replaceAll("(\\d)+", "$1s");
 		for ( Als als : alss ) {
-			// the last als in alss is sometimes null, so don't ask me, I just
+			// the last als in alss is sometimes null, so do not ask me, I just
 			// ignore the bastard, because it was there and I can. So there!
 			if ( als != null ) {
 				// Html.colorIn has 7 <b*> colors, aligned with SudokuGridPanel
@@ -176,18 +154,11 @@ public class AlsChainHint extends AHint  {
 				label = AlsHelper.alsId(i);
 				sb.append("    (").append(label).append(") ")
 				  .append("<b").append(c).append('>');
-				if ( ALS_CHAIN_DEBUG_HINTS ) {
-					sb.append(als.index).append(": ");
-				}
-				sb.append(als.region.id).append(": ")
-				  .append(als.idx.ids(" "))
-				  .append(" {").append(Values.toString(als.maybes)).append("}");
+				sb.append(REGION_LABELS[als.regionIndex]).append(": ")
+				  .append(als.idx.idsSB(" ", " "))
+				  .append(" {").append(MAYBES[als.maybes]).append("}");
 				if ( i < last ) {
 					sb.append(" on ").append(values[i+1]);
-					if ( ALS_CHAIN_DEBUG_HINTS ) {
-						sb.append(" in rccs[").append(rccIndexes[i+1]).append("]=")
-						  .append(rccs[i+1]);
-					}
 				} else {
 					sb.append(" eliminating ").append(zs)
 					  .append(" that see all ").append(zs)
@@ -199,18 +170,18 @@ public class AlsChainHint extends AHint  {
 		}
 		// remove the trailing NL
 		sb.setLength(sb.length()-1);
-		// colorIn coz that's usually cached in load (not in format/produce).
+		// colorIn coz that is usually cached in load (not in format/produce).
 		return Html.colorIn(sb.toString());
 	}
 
 	@Override
 	public String toHtmlImpl() {
 		return Html.produce(this, "AlsChainHint.html"
-			, getAlssString()			//{0}
-			, zsString()				// 1
-			, Frmu.and(reds.keySet())	// 2
-			, debugMessage				// 3
-			, reds.toString()			// 4
+			, getAlssString()				//{0}
+			, zsString()					// 1
+			, Frmt.and(ids(reds.keySet()))	// 2
+			, debugMessage					// 3
+			, reds.toString()				// 4
 		);
 	}
 

@@ -1,0 +1,27 @@
+<html>
+<body>
+<h2>Bidirectional Cycle (XY-Cycle)</h2>
+<p>
+The cells <c><b>{0}</b></c> form a bidirectional cycle: there are exactly two
+ways of placing the <b><g>values</g></b> in these cells, forming two different
+possible configurations. Some <b><g>values</g></b> appear in a box, row, or col
+regardless of which configuration is correct. One of these two configurations
+must be correct, hence all other occurrences of these values can be removed from
+these regions.
+<p>
+Therefore <r>we can remove <b>{5}</b></r>.
+<p>
+This is an XY-Cycle, involving both regions with two places for a value, and
+cells with two potential values (ie both chain types). Bidirectional cycles are
+also called static nonorthogonal (ie not-square) loops.
+<p>
+The two configurations of the bidirectional cycle are enforced by two
+complementary, circular chains of implications:
+<p>
+<b>Forward Cycle</b> (View 1):<br>
+{3}
+<p>
+<b>Reverse Cycle</b> (View 2):<br>
+{4}
+</body>
+</html>

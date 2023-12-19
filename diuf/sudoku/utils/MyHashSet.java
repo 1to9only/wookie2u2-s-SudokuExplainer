@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -31,7 +31,6 @@ package diuf.sudoku.utils;
  * questions.
  */
 
-import diuf.sudoku.Grid.Cell;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
@@ -53,7 +52,7 @@ import java.util.TreeSet;
  * buckets.  Iterating over this set requires time proportional to the sum of
  * the <tt>MyHashSet</tt> instance's size (the number of elements) plus the
  * "capacity" of the backing <tt>MyHashMap</tt> instance (the number of
- * buckets).  Thus, it's very important not to set the initial capacity too
+ * buckets).  Thus, it is very important not to set the initial capacity too
  * high (or the load factor too low) if iteration performance is important.
  *
  * <p><strong>Note that this implementation is not synchronized.</strong>
@@ -101,11 +100,11 @@ import java.util.TreeSet;
 
 public class MyHashSet<E>
 	extends AMySet<E>
-	implements IMySet<E>, Cloneable, java.io.Serializable
+	implements IMyPollSet<E>, Cloneable, java.io.Serializable
 {
 	static final long serialVersionUID = -5024744406713321676L;
 
-	private transient MyHashMap<E,Object> map;
+	private transient MyLinkedHashMap<E,Object> map;
 
 	// Dummy value to associate with an Object in the backing Map
 	private static final Object PRESENT = new Object();
@@ -115,7 +114,7 @@ public class MyHashSet<E>
 	 * default initial capacity (16) and load factor (0.75).
 	 */
 	public MyHashSet() {
-		map = new MyHashMap<>();
+		map = new MyLinkedHashMap<>();
 	}
 
 	/**
@@ -128,7 +127,7 @@ public class MyHashSet<E>
 	 * @throws NullPointerException if the specified collection is null
 	 */
 	public MyHashSet(Collection<? extends E> c) {
-		map = new MyHashMap<>(Math.max((int) (c.size()/.75f) + 1, 16));
+		map = new MyLinkedHashMap<>(Math.max((int) (c.size()/0.75F) + 1, 16));
 		addAll(c);
 	}
 
@@ -142,7 +141,7 @@ public class MyHashSet<E>
 	 *             than zero, or if the load factor is nonpositive
 	 */
 	public MyHashSet(int initialCapacity, float loadFactor) {
-		map = new MyHashMap<>(initialCapacity, loadFactor);
+		map = new MyLinkedHashMap<>(initialCapacity, loadFactor);
 	}
 
 	/**
@@ -154,7 +153,7 @@ public class MyHashSet<E>
 	 *             than zero
 	 */
 	public MyHashSet(int initialCapacity) {
-		map = new MyHashMap<>(initialCapacity);
+		map = new MyLinkedHashMap<>(initialCapacity);
 	}
 
 	/**
@@ -194,6 +193,16 @@ public class MyHashSet<E>
 	@Override
 	public int size() {
 		return map.size();
+	}
+
+	/**
+	 * Does this Set contain any elements? ie !isEmpty
+	 *
+	 * @return {@code map.size() > 0}
+	 */
+	@Override
+	public boolean any() {
+		return map.size() > 0;
 	}
 
 	/**
@@ -237,15 +246,8 @@ public class MyHashSet<E>
 		return map.put(e, PRESENT)==null;
 	}
 
-	/**
-	 * Get the existing value or put new.
-	 *
-	 * @param t
-	 * @return the existing value if exists, else null (it was added).
-	 */
-	@Override
-	public boolean visit(E t) {
-		return map.visit(t, t);
+	public boolean addOnly(final E e) {
+		return map.addOnly(e, PRESENT);
 	}
 
 	/**
@@ -285,7 +287,7 @@ public class MyHashSet<E>
 	public Object clone() {
 		try {
 			MyHashSet<E> newSet = (MyHashSet<E>)super.clone();
-			newSet.map = (MyHashMap<E, Object>)map.clone();
+			newSet.map = (MyLinkedHashMap<E, Object>)map.clone();
 			return newSet;
 		} catch (CloneNotSupportedException e) {
 			throw new InternalError();
@@ -334,7 +336,7 @@ public class MyHashSet<E>
 		float loadFactor = s.readFloat();
 		map = (((MyHashSet)this) instanceof MyLinkedHashSet ?
 			   new MyLinkedHashMap<E,Object>(capacity, loadFactor) :
-			   new MyHashMap<E,Object>(capacity, loadFactor));
+			   new MyLinkedHashMap<E,Object>(capacity, loadFactor));
 
 		// Read in size
 		int size = s.readInt();
@@ -349,8 +351,15 @@ public class MyHashSet<E>
 	@SuppressWarnings("unchecked")
 	@Override
 	public E poll() {
-		MyHashMap.Entry<E,?> e = ((MyLinkedHashMap)map).poll();
-		return e==null ? null : e.key;
+		final java.util.Map.Entry<E,?> e = map.poll();
+		return e==null ? null : e.getKey();
+	}
+
+	@Override
+	public void pollAll(final IMyPollSet<E> src) {
+		E e;
+		while ( (e=src.poll()) != null )
+			add(e);
 	}
 
 	/**
@@ -388,16 +397,6 @@ public class MyHashSet<E>
 
 	@Override
 	public E remove() {
-		throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-	}
-
-	@Override
-	public boolean retainAllIsEmpty(IMySet<E> c) {
-		throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-	}
-
-	@Override
-	public void retainAllClear(IMySet<E> c) {
 		throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
 	}
 

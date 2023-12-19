@@ -1,19 +1,18 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
 
+import static diuf.sudoku.Constants.beep;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.utils.Log;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
@@ -26,11 +25,11 @@ import javax.swing.JPanel;
 
 /**
  * A JDialog with a combo box from: $HOME/DiufSudoku_log_view_hint_regexs.txt
- * Just add your own frequently used regex's in your text-editor.
+ * Just add your own frequently used regexs in your text-editor.
  *
  * @author Keith Corlett 2021-06-05
  */
-public class LogViewHintRegexDialog extends JDialog {
+class LogViewHintRegexDialog extends JDialog {
 
 	private static final long serialVersionUID = 103968294295368L;
 
@@ -44,7 +43,7 @@ public class LogViewHintRegexDialog extends JDialog {
 	private JPanel pnlBottom = null;
 	private JButton btnOk = null, btnCancel = null;
 
-	public LogViewHintRegexDialog(SudokuFrame sudokuFrame) {
+	LogViewHintRegexDialog(final SudokuFrame sudokuFrame) {
 		super(sudokuFrame);
 		this.sudokuFrame = sudokuFrame;
 		initialise();
@@ -59,12 +58,12 @@ public class LogViewHintRegexDialog extends JDialog {
 				, screen.height/2 - size.height/2);
 		this.setResizable(false);
 		this.setContentPane(getJContentPane());
-		// I'm attempting to make the enter key press btnOk
+		// I am attempting to make the enter key press btnOk
 		btnOk.getRootPane().setDefaultButton(btnOk);
-		// I'm attempting to make the escape key press btnCancel
+		// I am attempting to make the escape key press btnCancel
 		this.addKeyListener(new KeyAdapter() {
 			@Override
-			public void keyTyped(KeyEvent e) {
+			public void keyTyped(final KeyEvent e) {
 				if ( e.getKeyCode() == KeyEvent.VK_ESCAPE ) {
 					LogViewHintRegexDialog.this.setVisible(false);
 					LogViewHintRegexDialog.this.dispose();
@@ -74,7 +73,7 @@ public class LogViewHintRegexDialog extends JDialog {
 		});
 		this.addWindowListener(new WindowAdapter() {
 			@Override
-			public void windowDeactivated(WindowEvent e) {
+			public void windowDeactivated(final WindowEvent e) {
 				LogViewHintRegexDialog.this.setVisible(false);
 				LogViewHintRegexDialog.this.dispose();
 			}
@@ -82,44 +81,43 @@ public class LogViewHintRegexDialog extends JDialog {
 	}
 
 	private JPanel getJContentPane() {
-		if (jContentPane == null) {
-			jContentPane = new JPanel(new BorderLayout());
-			jContentPane.add(getPnlTop(), BorderLayout.NORTH);
-			jContentPane.add(getPnlBottom(), BorderLayout.SOUTH);
+		if ( jContentPane == null ) {
+			final JPanel jp = new JPanel(new BorderLayout());
+			jp.add(getPnlTop(), BorderLayout.NORTH);
+			jp.add(getPnlBottom(), BorderLayout.SOUTH);
+			jContentPane = jp;
 		}
 		return jContentPane;
 	}
 
 	private JPanel getPnlTop() {
-		if (pnlTop == null) {
+		if ( pnlTop == null ) {
 			// cboRegex is the only control in the top panel, so do all here.
-			cboRegex = new JComboBox<>();
-			// allow the user to modify regex's (not saved unfortunately)
-			cboRegex.setEditable(true);
+			final JComboBox<String> jcb = new JComboBox<>();
+			// allow the user to modify regexs (not saved unfortunately)
+			jcb.setEditable(true);
 			// tell the layout-manager how wide to make the combobox
-			cboRegex.setPreferredSize(new Dimension(380, 30));
+			jcb.setPreferredSize(new Dimension(380, 30));
 			boolean oops = false; // any Exception in load, for 1 OOPS message
 			try {
-				// load $HOME/DiufSudoku_log_view_hint_regexs.txt into cboRegex
+				// load $HOME/DiufSudoku_log_view_hint_regexs.txt into jcb
 				for ( String item : IO.slurp(IO.LOG_VIEW_HINT_REGEXS) )
 					if ( item!=null && !item.isEmpty() )
-						cboRegex.addItem(item);
-			} catch (Exception ex) {
+						jcb.addItem(item);
+			} catch (IOException ex) {
 				oops = true;
-				Log.teef("OOPS: %s: failed to load cboRegex: %s\n", Log.me(), ex);
-				Toolkit.getDefaultToolkit().beep();
+				Log.teef("WARN: %s: failed to load: %s\n", Log.me(), ex);
+				beep();
 			}
-			cboRegex.setToolTipText("a Java regular expression that matches the WHOLE hint string (char 65 onwards in a hint-line in the logFile).");
-			cboRegex.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					regex = (String)cboRegex.getSelectedItem();
-				}
+			jcb.setToolTipText("a Java regular expression that matches the WHOLE"
+			+ " hint string (char 65 onwards in a hint-line in the logFile).");
+			jcb.addActionListener((ActionEvent e) -> {
+				regex = (String)jcb.getSelectedItem();
 			});
-			// I'm attempting to make the escape key press btnCancel
-			cboRegex.addKeyListener(new KeyAdapter() {
+			// I am attempting to make the escape key press btnCancel
+			jcb.addKeyListener(new KeyAdapter() {
 				@Override
-				public void keyTyped(KeyEvent e) {
+				public void keyTyped(final KeyEvent e) {
 					if ( e.getKeyCode() == KeyEvent.VK_ESCAPE ) {
 						LogViewHintRegexDialog.this.setVisible(false);
 						LogViewHintRegexDialog.this.dispose();
@@ -127,56 +125,53 @@ public class LogViewHintRegexDialog extends JDialog {
 					}
 				}
 			});
-			if ( cboRegex.getItemCount() > 0 )
+			if ( jcb.getItemCount() > 0 )
 				// fire above actionListener to set the regex
-				cboRegex.setSelectedIndex(0);
+				jcb.setSelectedIndex(0);
 			else if ( !oops ) // sucessfully loaded an empty file, I presume
-				Log.teef("OOPS: %s: cboRegex remains empty, presumably because file is empty: %s\n", Log.me(), IO.LOG_VIEW_HINT_REGEXS);
+				Log.teef("WARN: %s: empty file: %s\n", Log.me(), IO.LOG_VIEW_HINT_REGEXS);
 			pnlTop = new JPanel();
-			pnlTop.add(cboRegex);
+			pnlTop.add(cboRegex=jcb);
 		}
 		return pnlTop;
 	}
 
 	private JPanel getPnlBottom() {
-		if (pnlBottom == null) {
-			pnlBottom = new JPanel(new FlowLayout());
-			pnlBottom.add(getBtnOk(), null);
-			pnlBottom.add(getBtnCancel(), null);
+		if ( pnlBottom == null ) {
+			final JPanel jp = new JPanel(new FlowLayout());
+			jp.add(getBtnOk(), null);
+			jp.add(getBtnCancel(), null);
+			pnlBottom = jp;
 		}
 		return pnlBottom;
 	}
 
 	private JButton getBtnOk() {
-		if (btnOk == null) {
-			btnOk = new JButton("Ok");
-			btnOk.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					LogViewHintRegexDialog.this.setVisible(false);
-					try {
-						IO.save(cboRegex, IO.LOG_VIEW_HINT_REGEXS);
-					} catch (IOException ex) {
-						Log.format("OOPS: %s: failed to save cboRegex to file: %s", Log.me(), IO.LOG_VIEW_HINT_REGEXS);
-					}
-					sudokuFrame.logView(regex);
-					LogViewHintRegexDialog.this.dispose();
+		if ( btnOk == null ) {
+			final JButton jb = new JButton("Ok");
+			jb.addActionListener((ActionEvent e) -> {
+				LogViewHintRegexDialog.this.setVisible(false);
+				try {
+					IO.save(cboRegex, IO.LOG_VIEW_HINT_REGEXS);
+				} catch (IOException ex) {
+					Log.format("WARN: %s: failed to save: %s", Log.me(), IO.LOG_VIEW_HINT_REGEXS);
 				}
+				sudokuFrame.logView(regex);
+				LogViewHintRegexDialog.this.dispose();
 			});
+			btnOk = jb;
 		}
 		return btnOk;
 	}
 
 	private JButton getBtnCancel() {
-		if (btnCancel == null) {
-			btnCancel = new JButton("Cancel");
-			btnCancel.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					LogViewHintRegexDialog.this.setVisible(false);
-					LogViewHintRegexDialog.this.dispose();
-				}
+		if ( btnCancel == null ) {
+			final JButton jb = new JButton("Cancel");
+			jb.addActionListener((ActionEvent e) -> {
+				LogViewHintRegexDialog.this.setVisible(false);
+				LogViewHintRegexDialog.this.dispose();
 			});
+			btnCancel = jb;
 		}
 		return btnCancel;
 	}

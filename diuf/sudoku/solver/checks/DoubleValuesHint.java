@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.checks;
@@ -10,7 +10,7 @@ import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.IPretendHint;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -30,7 +30,7 @@ final class DoubleValuesHint extends WarningHint implements IPretendHint {
 	 * @param hinter this
 	 * @param args [String grid.invalidity, ARegion invalidRegion, int doubledValue]
 	 */
-	DoubleValuesHint(AHinter hinter, Object... args) {
+	DoubleValuesHint(IHinter hinter, Object... args) {
 		super(hinter, (String)args[0], "DoubleValuesHint.html", args);
 		this.invalidRegion = (ARegion)args[1];
 		this.doubledValue = (int)args[2];
@@ -38,11 +38,11 @@ final class DoubleValuesHint extends WarningHint implements IPretendHint {
 
 	// override getRedCells to show the GUI user the naughty cells
 	@Override
-	public Set<Cell> getRedCells() {
-		final Set<Cell> result = new LinkedHashSet<>(8, 1F);
+	public Set<Integer> getRedBgIndices() {
+		final Set<Integer> result = new LinkedHashSet<>(8, 1F);
 		for ( Cell c : invalidRegion.cells )
 			if ( c.value == doubledValue )
-				result.add(c);
+				result.add(c.indice);
 		return result;
 	}
 
@@ -53,4 +53,5 @@ final class DoubleValuesHint extends WarningHint implements IPretendHint {
 	}
 
 	// everything-else is handled by WarningHint, especially toStringImpl.
+
 }

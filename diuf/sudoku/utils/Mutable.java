@@ -1,13 +1,14 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
 
 /**
- * A mutable generically-typed object.
+ * A mutable generically-typed object, which is useful with lambdas.
+ *
  * @param <T> the type of the value
  */
 public class Mutable<T> {
@@ -27,11 +28,8 @@ public class Mutable<T> {
 
 	@Override
 	public boolean equals(Object o) {
-		if (o instanceof Mutable) {
-			Mutable<?> other = (Mutable<?>)o;
-			return eq(this.value, other.value);
-		}
-		return false;
+		return o instanceof Mutable
+			&& eq(value, ((Mutable<?>)o).value);
 	}
 
 	@Override
@@ -42,9 +40,8 @@ public class Mutable<T> {
 	// debug only: not used in anger
 	@Override
 	public String toString() {
-		if ( value == null ) {
+		if ( value == null )
 			return "Mutable::null";
-		}
 		return value.toString();
 	}
 

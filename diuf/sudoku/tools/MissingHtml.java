@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2021 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 
 /**
  * find .html files in the code which are NOT in file-system, esp warnings.
@@ -66,10 +67,10 @@ public class MissingHtml {
 				if ( matcher.matches() ) {
 //					System.out.println(""+f+": "+line);
 					for ( int i=1,n=matcher.groupCount(); i<=n; ++i ) {
-						String g = matcher.group(i);
-//						System.out.println("group: "+g);
+						String grid = matcher.group(i);
+//						System.out.println("group: "+grid);
 						// strip quotes: "whatever.html" -> whatever.html
-						matches.add(g.substring(1, g.length()-1));
+						matches.add(grid.substring(1, grid.length()-1));
 					}
 				}
 			}

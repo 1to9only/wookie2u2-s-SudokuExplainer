@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
@@ -10,13 +10,14 @@ import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Box;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.IChildHint;
+import diuf.sudoku.solver.hinters.IHinter;
+import diuf.sudoku.solver.hinters.IFoxyHint;
 import diuf.sudoku.Ass;
+import static diuf.sudoku.Grid.REGION_TYPE_NAMES;
+import diuf.sudoku.Idx;
 import diuf.sudoku.Regions;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.utils.IAssSet;
@@ -34,61 +35,50 @@ import java.util.Set;
    Fisherman    : 2=Swampfish(X-Wing), 3=Swordfish, 4=Jellyfish
  </tt></pre>
  * <p>This is the only (at time of writing) place where two rules produce the
- *  same type of hint. It's all a bit odd, so shoot me.
+ *  same type of hint. It is all a bit odd, so shoot me.
  */
-public final class LockingHint extends AHint implements IChildHint {
+public final class LockingHint extends AHint implements IFoxyHint {
 
 	final int valueToRemove;
-	final Set<Cell> cellSet;
-	final ARegion base;
-	final ARegion cover;
+	final Idx indices; // of lockedCells
+	final ARegion base; // the region lockedCells where found in (blue)
+	final ARegion cover; // the other common region of lockedCells (green)
 	final boolean isPointing; //true=Pointing, false=Claiming
 
 	/**
 	 * Construct a new LockingHint.
-	 * @param hinter the AHinter which created this hint.
-	 * @param valueToRemove the int value to be removed from whatever cells.
-	 * @param greenPots the highlighted (green) potential values.
-	 * @param redPots the removable (red) potential values.
-	 * @param base is the region to highlight in blue.
-	 * @param cover is the region to highlight in green.
+	 *
+	 * @param grid to search
+	 * @param hinter the AHinter which created this hint
+	 * @param valueToRemove the int value to be removed from whatever cells
+	 * @param greenPots the highlighted (green) potential values
+	 * @param redPots the removable (red) potential values
+	 * @param base is the region to highlight in blue
+	 * @param cover is the region to highlight in green
+	 * @param indices of lockedCells
 	 */
-	public LockingHint(AHinter hinter, int valueToRemove, Pots greenPots
-			, Pots redPots, ARegion base, ARegion cover) {
-		super(hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null, null
+	public LockingHint(Grid grid, IHinter hinter, int valueToRemove, Pots greenPots
+			, Pots redPots, ARegion base, ARegion cover, Idx indices) {
+		super(grid, hinter, AHint.INDIRECT, null, 0, redPots, greenPots, null, null
 				, Regions.array(base), Regions.array(cover));
 		this.valueToRemove = valueToRemove;
-		this.cellSet = greenPots.keySet();
+		this.indices = indices;
 		this.base = base;
 		this.cover = cover;
 		this.isPointing = base instanceof Box;
 	}
 
-	/**
-	 * Returns a cached idx of the cells in this hint.
-	 *
-	 * @return a cached idx of the cells in this hint
-	 */
-	public Idx idx() {
-		if ( idx == null ) {
-			idx = new Idx();
-			cellSet.forEach((c) -> idx.add(c.i));
-		}
-		return idx;
-	}
-	private Idx idx; // cellSet index cache
-
 	@Override
-	public Set<Cell> getAquaCells(int notUsed) {
-		return cellSet;
+	public Set<Integer> getAquaBgIndices(int viewNumUnused) {
+		return indices;
 	}
 
 	// Weird: Locking is only place we use one Tech for two hint-types.
 	@Override
-	public double getDifficulty() {
-		double d = super.getDifficulty();
+	public int getDifficulty() {
+		int d = super.getDifficulty();
 		if ( !isPointing ) // Claiming
-			d += 0.1;
+			d += 1;
 		return d;
 	}
 
@@ -105,14 +95,15 @@ public final class LockingHint extends AHint implements IChildHint {
 		final int v = this.valueToRemove;
 		final int sv = VSHFT[v];
 		for ( Cell c : base.cells )
-			if ( (initGrid.maybes[c.i] & sv) != 0
-			  && (currGrid.maybes[c.i] & sv) == 0
+			if ( (initGrid.maybes[c.indice] & sv) > 0 // 9bits
+			  && (currGrid.maybes[c.indice] & sv) < 1 // 9bits
 			  && !cover.contains(c) ) {
 				if(result==null) result = new MyLinkedList<>();
 				result.add(prntOffs.getAss(c, v));
 			}
-		if (result==null)
-			throw new UnsolvableException("Not a chaining hint!");
+		if ( result == null )
+			// Not a chaining hint! No message, because its eaten
+			throw new UnsolvableException();
 		return result;
 	}
 
@@ -121,38 +112,37 @@ public final class LockingHint extends AHint implements IChildHint {
 	 * these eliminations in a Map of redPots => AHint, to reduce the number of
 	 * superfluous hints it was reporting (far too many).
 	 * <p>
-	 * Note that is implementation is a kludge. Ideally we'd compare the hint
+	 * Note that is implementation is a kludge. Ideally we would compare the hint
 	 * types primarily and then the cellSet.size(), but I have no idea how to
-	 * efficiently compare the hint-types, so I haven't bothered, coz I'm lazy.
+	 * efficiently compare the hint-types, so I have not bothered. I am lazy.
 	 * The only way I can see to compare hint-types is by a toString, which is
-	 * a ____in DOG, so no I'm not gunna. Don wanna. Not gunna!
+	 * a ____in DOG, so no I am not gunna. Don wanna. Not gunna!
 	 *
 	 * @return this.degree * 10 + cellSet.size();
 	 */
 	@Override
 	public int complexity() {
 		// nb: degree should be same for all hints in complexity() comparison,
-		//     coz that's done in a hinter. It's included just to be thorough.
-		return this.degree * 10 + cellSet.size();
+		//     coz thats done in a hinter. It is included just to be thorough.
+		return this.degree * 10 + indices.size();
 	}
 
 	@Override
-	public boolean equals(Object o) {
-		if (!(o instanceof LockingHint))
-			return false;
-		LockingHint other = (LockingHint)o;
-		if (this.valueToRemove != other.valueToRemove)
-			return false;
-		if (this.cellSet.size() != other.cellSet.size())
-			return false;
-		return this.cellSet.containsAll(other.cellSet);
+	public boolean equals(final Object o) {
+		return o instanceof LockingHint
+			&& equals((LockingHint)o);
+	}
+
+	public boolean equals(final LockingHint o) {
+		return this.valueToRemove == o.valueToRemove
+			&& this.indices.equals(o.indices);
 	}
 
 	@Override
 	public int hashCode() {
 		int result = 0;
-		for ( Cell c : cellSet )
-			result = result<<4 ^ c.i;
+		for ( int indice : indices )
+			result = result<<4 ^ indice;
 		result = result<<4 ^ valueToRemove;
 		return result;
 	}
@@ -167,11 +157,9 @@ public final class LockingHint extends AHint implements IChildHint {
 	}
 
 	@Override
-	public String toStringImpl() {
-		return Frmu.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(base).append(AND).append(cover)
-		  .append(ON).append(valueToRemove)
-		  .toString();
+	public StringBuilder toStringImpl() {
+		return SB(64).append(getHintTypeName()).append(COLON_SP)
+		.append(base).append(AND).append(cover).append(ON).append(valueToRemove);
 	}
 
 	@Override
@@ -179,12 +167,12 @@ public final class LockingHint extends AHint implements IChildHint {
 		// WARN: LockingHint.html is also used in SiameseLockingHint,
 		// so any arguements changes here must also happen there.
 		return Html.produce(this, "LockingHint.html"
-				, getHintTypeName()						// {0}
-				, Integer.toString(valueToRemove)		//  1
-				, base.typeName							//  2
-				, cover.typeName						//  3
+				, getHintTypeName()					// {0}
+				, Integer.toString(valueToRemove)	//  1
+				, REGION_TYPE_NAMES[base.rti]		//  2
+				, REGION_TYPE_NAMES[cover.rti]		//  3
 				, reds.toString()					//  4
-				, debugMessage							//  5
+				, debugMessage						//  5
 		);
 	}
 

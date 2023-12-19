@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.Grid.Cell;
@@ -14,7 +15,7 @@ import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSIZE;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 
 public final class URT3HiddenSetHint extends AURTHint {
 
@@ -26,19 +27,19 @@ public final class URT3HiddenSetHint extends AURTHint {
 	private final int hdnSetIdxs; // indexes of the hidden set
 	private final Cell[] hdnSetCells; // cells in the hidden set
 
-	// NB: Hide AHint's degree field so I can set it to the size of the hidden
-	// set. Note that degree is known at Hinter-creation-time pretty-much-
-	// everywhere-else, it's only URT's and BUG's which want to create hidden &
-	// naked sets of "arbitrary" size (IIRC), and this is the best way I can
-	// think of to do so. If you've got better ideas then go for it.
+	// NB: Hide AHint.degree so I can set it to the size of the hidden set.
+	// NOTE degree known at Hinter-creation-time pretty-much-everywhere-else,
+	// it is only URTs and BUGs which want to create hidden and naked sets of
+	// arbitrary size, and this is the best way I can think of to do so. If you
+	// have got better ideas then go for it.
 	private final int degree;
 
-	public URT3HiddenSetHint(final AHinter hinter, final Cell[] loop
-			, final int loopSize, final int v1, final int v2
+	public URT3HiddenSetHint(final Grid grid, final IHinter hinter
+			, final Cell[] loop, final int loopSize, final int v1, final int v2
 			, final Pots redPots, final Cell c1, final Cell c2
 			, final int extraCands, final int hdnSetCands
 			, final ARegion region, final int hdnSetIdxs) {
-		super(3, hinter, loop, loopSize, v1, v2, redPots);
+		super(grid, 3, hinter, loop, loopSize, v1, v2, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
 		this.extraCands = extraCands;
@@ -50,23 +51,23 @@ public final class URT3HiddenSetHint extends AURTHint {
 	}
 
 	@Override
-	public double getDifficulty() {
+	public int getDifficulty() {
 		// get my base difficulty := hinter.tech.difficulty
-		double d = super.getDifficulty();
+		int d = super.getDifficulty();
 		// Pair+=0.1, Triple+=0.2 Quad+=0.3
-		d += (degree-1) * 0.1;
+		d += (degree-1);
 		// return the result
 		return d;
 	}
 
 	@Override
-	public Pots getOranges(int viewNum) {
+	public Pots getOrangePots(int viewNum) {
 		if ( oranges == null ) {
 			// the cells in the hidden set
-			final Pots pots = new Pots(hdnSetCells, hdnSetCands, false);
+			final Pots pots = new Pots(hdnSetCells, hdnSetCands, DUMMY);
 			// plus the two cells of the loop
-			pots.upsert(c1, hdnSetCands, false);
-			pots.upsert(c2, hdnSetCands, false);
+			pots.upsert(c1.indice, hdnSetCands, DUMMY);
+			pots.upsert(c2.indice, hdnSetCands, DUMMY);
 			oranges = pots;
 		}
 		return oranges;
@@ -110,8 +111,9 @@ public final class URT3HiddenSetHint extends AURTHint {
 			, GROUP_NAMES[VSIZE[hdnSetCands]-2]	// 7
 			, Frmu.and(hdnSetCells)				// 8
 			, Values.andString(hdnSetCands)		// 9
-			, region.id							//10
+			, region.label						//10
 			, reds.toString()					//11
 		);
 	}
+
 }

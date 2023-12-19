@@ -1,0 +1,32 @@
+<html>
+<body>
+<h2>Bidirectional X-Cycle{2}</h2>
+<p>
+The cells <c><b>{0}</b></c> form a bidirectional cycle: there are exactly two
+ways of placing the <b><g>value {1}</g></b> in these cells, forming two
+different possible configurations. Some <b><g>{1}s</g></b> appear in a box, row,
+or col regardless of which configuration is correct, and one of these two
+configurations must be correct, hence other occurrences of the value {1} can be
+removed from these regions.
+<p>
+Therefore <r>we can remove <b>{5}</b></r>.
+<p>
+This is a Bidirectional X-Cycle, involving regions with two places for a value.
+X-Cycles are also known as Fishy Cycles or Bilocation cycles.
+<p>
+The two configurations of the bidirectional X-Cycle are enforced by two
+complementary, circular consequence chains. The details of these two chains are
+given below.
+<p>
+<b>Cycle details, forward direction</b> (View 1):<br>
+{3}
+<p>
+<b>Cycle details, reverse direction</b> (View 2):<br>
+{4}
+<p>
+NOTE: if the coloring hinters are selected Bidirectional X-Cycles are found
+before we call UnaryChain, so you will never see an X-Cycle hint. If coloring
+hinters are selected and you are seeing an X-Cycle, then one of the coloring
+hinters missed a trick. Nobody is perfect!
+</body>
+</html>

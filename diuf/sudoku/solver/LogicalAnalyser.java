@@ -1,38 +1,49 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.Tech;
 import diuf.sudoku.io.StdErr;
+import static diuf.sudoku.solver.LogicalSolver.ANALYSE_LOCK;
 import diuf.sudoku.solver.checks.AWarningHinter;
 import diuf.sudoku.solver.checks.AnalysisHint;
-import diuf.sudoku.solver.accu.IAccumulator;
+import diuf.sudoku.solver.checks.WarningHint;
 import diuf.sudoku.utils.Log;
 
 /**
- * A LogicalAnalyser presents LogicalSolver.solve as an IHinter. It solves a
- * Sudoku puzzle logically, to work-out how difficult that is, and produce a
- * summary of the solving techniques (by type) that were applied in order to
- * solve the puzzle.
+ * LogicalAnalyser implements {@link Tech#Analysis} Sudoku puzzle validator.
+ * Really, LogicalAnalyser just presents
+ * {@link LogicalSolver#solve(diuf.sudoku.Grid, diuf.sudoku.solver.UsageMap, boolean, boolean, boolean, boolean) }
+ * as an IHinter.
+ * LogicalSolver.solve solves a puzzle logically, calculating how difficult it
+ * is, producing a summary of the solving techniques required.
  * <p>
- * I'm a waffer-thin <b>single-use</b> IHinter facade for LogicalSolver.solve.
+ * I am a waffer-thin <b>single-use</b> IHinter facade for LogicalSolver.solve.
  * LogicalAnalyser and LogicalSolver are codependant: they MUST be in the same
  * package. My constructor takes the logHints and logTimes params that would
- * normally be passed to findHints, if that were possible, which it isn't coz
+ * normally be passed to findHints, if that were possible, which it is not coz
  * findHints is defined by IHinter and I must be an AWarningHinter (extends
  * AHinter, which implements IHinter) in order to be a validator, and I
- * abso-____ing-lutely <u>must</u> be a validator, it's what I exist for. sigh.
+ * <u>must</u> be a validator; that is what I exist for.
  * <p>
  * LogicalAnalyser calls back the LogicalSolver passed to its constructor,
- * hence I am ALWAYS an automatic variable, not a field, so: <br>
- * I come, I findHints, then I go.
+ * passing "the extra parameters" that are passed to my constructor, hence I
+ * am ALWAYS held in an automatic variable, never a field, so I am created, I
+ * findHints, then I go. I am <b>single-use</b>.
  * <p>
- * So, a LogicalAnalyser is only waffer-thin and it's <b>single-use</b>!
+ * So, a LogicalAnalyser is waffer-thin and stateful, hence <b>single-use</b>.
+ * Did I mention that I am a <b>single-use</b> class? Its rather important.
+ * <p>
+ * There's two ways to measure Sudoku difficulty: maximum or total difficulty.
+ * I prefer maxDiff, because the puzzle cannot be solved unless one finds its
+ * most difficult elimination. But for a computer difficulty means CPU-time,
+ * ergo ttlDiff. The batch reports maxD for humans, and ttlDiff for techies.
+ * Total difficulty has a MUCH closer correlation with the total time required
+ * to solve a puzzle, ergo CPU-time.
  *
  * @see diuf.sudoku.solver.checks.AnalysisHint
  *
@@ -45,7 +56,7 @@ public final class LogicalAnalyser extends AWarningHinter {
 	 */
 	private final LogicalSolver solver;
 	private final boolean logHints;
-	private final boolean logTimes;
+	private final boolean logHinterTimes;
 
 	/**
 	 * Note that the only constructor is package visible, and is only called by
@@ -54,21 +65,23 @@ public final class LogicalAnalyser extends AWarningHinter {
 	 *
 	 * @param solver My co-dependant LogicalSolver. Not null.
 	 * @param logHints if true then hints are printed in the Log. <br>
-	 *  In the GUI that's HOME/SudokuExplainer.log in my normal setup.
-	 * @param logTimes if true then EVERY single hinter execution is logged. <br>
-	 *  In the GUI that's HOME/SudokuExplainer.log in my normal setup.
+	 *  In the GUI that is HOME/SudokuExplainer.log in my normal setup.
+	 * @param logHinterTimes if true then EVERY single hinter execution is logged. <br>
+	 *  In the GUI that is HOME/SudokuExplainer.log in my normal setup.
 	 *  This setting is ONLY respected in the GUI! If you did this in a full
 	 *  LogicalSolverTester run the log-file would be enormous, and I mean
 	 *  enormous, not merely huge.
 	 */
-	LogicalAnalyser(LogicalSolver solver, boolean logHints, boolean logTimes) {
-		// Tech.Solution isn't a real solving technique, it's the sum of all
-		// wanted techniques. Tech.Solution.degree is 0, and it's difficulty
+	public LogicalAnalyser(final LogicalSolver solver, final boolean logHints
+			, final boolean logHinterTimes) {
+		// Tech.Solution is not a real solving technique, it is the sum of all
+		// wanted techniques. Tech.Solution.degree is 0, and it is difficulty
 		// is also 0.0, which is NOT representative. Sigh.
 		super(Tech.Analysis);
 		this.solver = solver;
-		this.logHints = logHints | logTimes; // times useless without hints
-		this.logTimes = logTimes;
+		// hinter times make no sense without the hints for context
+		this.logHints = logHints | logHinterTimes;
+		this.logHinterTimes = logHinterTimes;
 		assert solver != null;
 	}
 
@@ -83,33 +96,36 @@ public final class LogicalAnalyser extends AWarningHinter {
 	 * in order to solve it.
 	 * <p>
 	 * If the puzzle cannot be solved (is invalid) then a "raw" WarningHint is
-	 * produced, but it's pre-validated by LogicalSolver.analyse, so it should
+	 * produced, but it is pre-validated by LogicalSolver.analyse, so it should
 	 * never be invalid, so this should never happen. Never say never.
 	 */
 	@Override
-	public boolean findHints(final Grid grid, final IAccumulator accu) {
+	public boolean findHints() {
 		try {
-			// run the puzzleValidators and the gridValidators seperately
-			// here because differentiating a WarningHint is complicated.
+			// validate the grid and puzzle before solve coz picking a warning
+			// hint from a summary hint (which is a warning hint) is difficult.
 			final AHint warning = solver.validatePuzzleAndGrid(grid, F);
 			if ( warning != null ) {
-				return accu.add(warning);
+				accu.add(warning);
+				return true;
 			}
 			final UsageMap usage = new UsageMap();
-			// I'm synchronized so that the generator thread waits for analyse
+			// I am synchronized so that the generator thread waits for analyse
 			// (ie solve) to finish before generating a puzzle to replenish its
 			// cache. Cant run two solves concurrently coz of stateful statics.
 			final boolean ok; // did the puzzle solve
-			synchronized ( LogicalSolver.ANALYSE_LOCK ) {
+			synchronized ( ANALYSE_LOCK ) {
 				// call-back the LogicalSolver that created me.
-				ok = solver.solve(grid, usage, F, F, logHints, logTimes);
+				ok = solver.solve(grid, usage, F, F, logHints, logHinterTimes);
 			}
-			accu.add(ok? new AnalysisHint(this, usage): solver.unsolvableHint);
+			final AHint hint = ok ? new AnalysisHint(this, usage)
+					: new WarningHint(this, "Unsolvable", "Unsolvable.html");
+			accu.add(hint);
 		} catch (HinterruptException ex) {
 			return false;
 		} catch (Exception ex) {
-			StdErr.whinge(Log.me()+" exception", ex);
-			accu.add(solver.unsolvableHint);
+			StdErr.whinge("WARN: "+Log.me()+" exception", ex);
+			accu.add(new WarningHint(this, "Unsolvable", "Unsolvable.html"));
 		}
 		return true;
 	}

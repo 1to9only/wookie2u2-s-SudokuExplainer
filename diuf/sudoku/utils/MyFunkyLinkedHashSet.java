@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -25,37 +25,49 @@ import java.util.NoSuchElementException;
  * <p>
  * The downside is creating billions of identity-Ass's to get less Ass, so now
  * {@code getAss(int hashCode)} exposed by {@code IAssSet}) does the same thing
- * but without creating an identity-Ass, just his hashCode, which IS now
- * actually an Ass's identity anyways. Donkeys be warned.
+ * but without creating an identity-Ass, just his hashCode, an Asses identity.
+ * To be clear, the identity of an Ass, in {@code Ass#equals(Object)}, is its
+ * hashCode, which uniquely identifies each Ass. This is every unusual. The
+ * hashCode field is usually lossy, so much so that any exception to this rule
+ * tends to be buggy simply because people expect stuff to work how they expect
+ * it to work, so anything that works differently is wrong, hence needs to be
+ * fixed, NOW! Thus the Lord provides us with religious ____wits: c__ts who are
+ * too stupid to conceptualise there own stupidity. Sigh.
  * <p>
  * All {@code Ass.equals} does is {@code hashCode==o.hashCode} because hashCode
  * contains the Ass's whole identity {@code isOn, cell.y, cell.x, and value}.
- * @param <T>
+ *
+ * @param <E>
  */
-public class MyFunkyLinkedHashSet<T> extends AbstractSet<T> implements IMySet<T> {
+public class MyFunkyLinkedHashSet<E> extends AbstractSet<E> implements IMySet<E> {
 
 	// This implementation uses the wrapper pattern on this map.
 	// WARN: put(K,V) does NOT replace existing values when key exists.
-	private final MyFunkyLinkedHashMap<T,T> map;
+	protected final MyFunkyLinkedHashMap<E,E> map;
+
+	public MyFunkyLinkedHashSet() {
+		// isFunky=true makes the Map ignore attempts to replace existing keys
+		this.map = new MyFunkyLinkedHashMap<>();
+	}
 
 	public MyFunkyLinkedHashSet(int initialCapacity, float loadFactor) {
 		// isFunky=true makes the Map ignore attempts to replace existing keys
 		this.map = new MyFunkyLinkedHashMap<>(initialCapacity, loadFactor);
 	}
 
-	public MyFunkyLinkedHashSet(Collection<? extends T> set) {
+	public MyFunkyLinkedHashSet(Collection<? extends E> set) {
 		this(set.size(), 0.75F);
 		addAll(set);
 	}
 
 	@Override
-	public boolean add(T o) {
+	public boolean add(E e) {
 		// java.util.LinkedHashMap.put replaces the existing value with the
 		// given 'o' and returns the previous value, else null; whereas
 		// MyFunkyLinkedHashMap.put (being funky) does not replace existing
 		// values (only adds a new one) returning "Was it added?".
 		// Takeaway: MyFunkyLinkedHashMap.put retains existing values!
-		return map.put(o, o) == null; // put returns the prev value for key
+		return map.put(e, e) == null; // put returns the prev value for key
 	}
 
 	@Override
@@ -65,17 +77,13 @@ public class MyFunkyLinkedHashSet<T> extends AbstractSet<T> implements IMySet<T>
 
 	@Override
 	public boolean contains(Object o) {
+		// ignore IDE warning: Suspicious call
 		return map.containsKey(o);
 	}
 
 	@Override
-	public T get(T t) {
-		return map.get(t);
-	}
-
-	@Override
-	public boolean visit(T o) {
-		return map.visit(o, o);
+	public E get(E e) {
+		return map.get(e);
 	}
 
 	/**
@@ -86,26 +94,22 @@ public class MyFunkyLinkedHashSet<T> extends AbstractSet<T> implements IMySet<T>
 	 * @param hashCode
 	 * @return
 	 */
-	public T getAss(int hashCode) {
+	public E getAss(int hashCode) {
 		return map.getAss(hashCode);
 	}
 
 	@Override
-	public T poll() {
-		MyHashMap.Entry<T,?> e = map.poll();
+	public E poll() {
+		MyHashMap.Entry<E,?> e = map.poll();
 		return e==null ? null : e.key;
 	}
 
 	@Override
-	public T remove() {
-		if ( map.isEmpty() )
+	public E remove() {
+		if ( map.isEmpty() ) {
 			throw new NoSuchElementException();
+		}
 		return map.poll().key;
-	}
-
-	@Override
-	public Iterator<T> iterator() {
-		return map.keySet().iterator();
 	}
 
 	@Override
@@ -118,23 +122,14 @@ public class MyFunkyLinkedHashSet<T> extends AbstractSet<T> implements IMySet<T>
 		return map.size;
 	}
 
-	/** do this.retainAll(c) then @return this.isEmpty(). */
 	@Override
-	public boolean retainAllIsEmpty(IMySet<T> c) {
-		if ( map.size > 0 )
-			for ( Iterator<T> it=map.keySet().iterator(); it.hasNext(); )
-				if ( !c.contains(it.next()) )
-					it.remove();
-		return map.size==0;
+	public boolean any() {
+		return map.size > 0;
 	}
 
-	/** do this.retainAll(c) and then c.clear(). */
 	@Override
-	public void retainAllClear(IMySet<T> c) {
-		if ( map.size > 0 )
-			for ( Iterator<T> it=map.keySet().iterator(); it.hasNext(); )
-				if ( !c.remove(it.next()) )
-					it.remove();
-		c.clear(); // clean-up any left-overs... to be sure to be sure.
+	public Iterator<E> iterator() {
+		return map.keySet().iterator();
 	}
+
 }

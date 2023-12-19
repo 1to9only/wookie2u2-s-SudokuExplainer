@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.checks;
@@ -9,16 +9,14 @@ package diuf.sudoku.solver.checks;
 import diuf.sudoku.solver.AWarningHint;
 
 /**
- * The hint to display when the Sudoku is solved. Note that a SolutionHint is
- * different (shown by the "Solve" (F8) menu item). This one just says "it's
- * already solved numbnuts."
+ * The hint displayed when the Sudoku is solved.
  *
  * @author Keith Corlett
  */
 public class SolvedHint extends AWarningHint {
 
 	public SolvedHint() {
-		super(new diuf.sudoku.solver.hinters.DummyHinter());
+		super(null, new diuf.sudoku.solver.hinters.DummyHinter());
 	}
 
 	@Override
@@ -30,8 +28,8 @@ public class SolvedHint extends AWarningHint {
 	}
 
 	@Override
-	protected String toStringImpl() {
-		return "Sudoku Solved";
+	protected StringBuilder toStringImpl() {
+		return SB(16).append("Sudoku Solved");
 	}
 
 }

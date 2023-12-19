@@ -1,90 +1,117 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
-import diuf.sudoku.Cells.CALease;
-import static diuf.sudoku.Cells.caLease;
-import static diuf.sudoku.Constants.*;
-import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
-import static diuf.sudoku.Idx.IDX_SHFT;
+import static diuf.sudoku.Constants.SB;
+import static diuf.sudoku.Idx.*;
 import static diuf.sudoku.Indexes.*;
-import diuf.sudoku.IntArrays.IALease;
-import static diuf.sudoku.IntArrays.iaLease;
-import static diuf.sudoku.Settings.THE_SETTINGS;
 import static diuf.sudoku.Values.*;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.LogicalSolverFactory;
 import diuf.sudoku.solver.UnsolvableException;
 import static diuf.sudoku.utils.Frmt.*;
+import static diuf.sudoku.utils.IntArray.THE_EMPTY_INT_ARRAY;
 import diuf.sudoku.utils.IFilter;
+import diuf.sudoku.utils.IVisitor2;
 import diuf.sudoku.utils.Log;
-import diuf.sudoku.utils.MyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedList;
 import diuf.sudoku.utils.MyMath;
 import diuf.sudoku.utils.MyStrings;
-import java.io.PrintStream;
-import static java.lang.Integer.bitCount;
-import java.util.ArrayList;
-import java.util.Arrays;
-import static java.util.Arrays.fill;
-import java.util.Collection;
+import static java.lang.System.arraycopy;
 import java.util.List;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.function.Predicate;
 
 /**
- * A Sudoku grid.
+ * An instance of Grid represents a Sudoku grid. A grid can be retained and
+ * have puzzles loaded into it serially, or you can create a new Grid for each
+ * puzzle. Its a lot of code, sorry. It just keeps growing.
  * <p>
- * Contains the 9x9 array of cells, as well as classes and methods
- * to manipulate regions (boxes, rows, and columns).
+ * A Grid contains the array of 81 cells (in a 9*9 grid), as well as classes
+ * and methods to manipulate regions (boxs, rows, and cols).
  * <p>
- * Vertical coordinates range from 0 (topmost) to 8 (bottommost).<br>
- * Horizontal coordinates range from 0 (leftmost) to 8 (rightmost).
+ * <pre>
+ * <b>Grid indices (in chess notation):</b>
+ *
+ *      A  B  C    D  E  F    G  H  I
+ *   +----------+----------+----------+
+ * 1 | 00 01 02 | 03 04 05 | 06 07 08 | 1
+ * 2 | 09 10 11 | 12 13 14 | 15 16 17 | 2
+ * 3 | 18 19 20 | 21 22 23 | 24 25 26 | 3
+ *   +----------+----------+----------+
+ * 4 | 27 28 29 | 30 31 32 | 33 34 35 | 4
+ * 5 | 36 37 38 | 39 40 41 | 42 43 44 | 5
+ * 6 | 45 46 47 | 48 49 50 | 51 52 53 | 6
+ *   +----------+----------+----------+
+ * 7 | 54 55 56 | 57 58 59 | 60 61 62 | 7
+ * 8 | 63 64 65 | 66 67 68 | 69 70 71 | 8
+ * 9 | 72 73 74 | 75 76 77 | 78 79 80 | 9
+ *   +----------+----------+----------+
+ *      A  B  C    D  E  F    G  H  I
+ * </pre>
  * <p>
- * This is the basis of all the Sudoku Explainer software. There's lots of
- * "weird stuff" in here, so please be careful when you change stuff, you
- * need to be aware of everything that uses everything. Adding new stuff
- * usually works-out less painful.
+ * Vertical (row) coordinates range from 0 (topmost) to 8 (bottommost).<br>
+ * Horizontal (col) coordinates range from 0 (leftmost) to 8 (rightmost),<br>
+ * in chess parlance that is rows 1 through 9, and cols A through I.
+ * <p>
+ * Grid is the guts of all the Sudoku Explainer software. Theres lots of
+ * "weird code" in here, so please be careful when you change anything,
+ * you must be aware of everything using anything. Adding new stuff is
+ * usually less painful.
  */
-// it's actually faster to copy small arrays into collections "manually"
-@SuppressWarnings("ManualArrayToCollectionCopy")
+@SuppressWarnings("ManualArrayToCollectionCopy") // its actually faster to copy small arrays into collections "manually"
 public final class Grid {
 
 	/**
-	 * AUTOSOLVE: prefer false to count Naked and Hidden Singles, or true for
-	 * outright speed and extra mayhem. These constants are self-documenting
-	 * code as AHint.apply's isAutosolving parameter.
+	 * AUTOSOLVE: Self-documenting {@link AHint#applyImpl} isAutosolving params
+	 * gathered together in a cave and grooving with a single point of truth.
+	 * false for correct elimination counts in batch; true for speed and mahem.
+	 * Changing the constant value SHOULD change everything that needs to, but
+	 * sift gets forked-up over time, so you will also need to double-check.
 	 * <p>
-	 * If true Naked and Hidden Singles are set by Cell.set in AHint.apply,
-	 * which is faster, but then LogicalSolver.solve doesn't count them as
-	 * Naked/Hidden Singles, instead ascribing them to whichever hinter is
-	 * lucky enough to hit the domino; funkenating ALL the counts, not just
-	 * those for Naked Single and Hidden Single.
+	 * If true then Naked and Hidden Singles are set by {@link Cell#set(int)}
+	 * in {@link AHint#applyQuitely(boolean, diuf.sudoku.Grid) }, for speed.
+	 * The downside is {@link diuf.sudoku.solver.LogicalSolver#solve} no longer
+	 * counts them as Naked/Hidden Singles, ascribing them to whichever hinter
+	 * was lucky enough to hit the first domino, pseudo-randomising ALL of the
+	 * elimination-counts in the batch .log, rendering nanoseconds/elim useless
+	 * and it is the only empirical performance metric, hence destroying any
+	 * chance of improvement.
 	 * <p>
-	 * If false then Singles are left for the NakedSingle/HiddenSingle hinters
-	 * to find, report, and apply. The recursive solver always uses AUTOSOLVE.
+	 * If false then Singles are left for the
+	 * {@link diuf.sudoku.solver.hinters.single.NakedSingle} and
+	 * {@link diuf.sudoku.solver.hinters.single.HiddenSingle} hinters to find,
+	 * report, and apply. BruteForce has its own AUTOSOLVE.
+	 * <p>
 	 * SO: If Singles are unimportant to you then YOU change AUTOSOLVE to true.
-	 * Everything that needs-to references it. Beware that LogicalSolver.solve
-	 * hint/elim counts are then borken.
+	 * Everything that needs-to reads it. Just beware that the elim-counts from
+	 * solve (batch .log) are then useless, and thats a key check; lost elims
+	 * means investigate, so you CAN have more speed, but YOU mind the bergs.
+	 * Do please put it back to false when you are done being a dick.
 	 * <p>
-	 * NOTE: true makes RecursiveSolverTester faster.
+	 * NB: true = faster {@link diuf.sudoku.test.knuth.RecursiveSolverTester}
 	 */
 	public static final boolean AUTOSOLVE = false; // @check false
+
 	/** A self-documenting AHint.apply isAutosolving parameter. */
 	public static final boolean NO_AUTOSOLVE = false;
 
-	/** The number of cells in an ARegion: 9. */
+	/** The number of cells in a region: 9. */
 	public static final int REGION_SIZE = 9; // change is NOT an option!
+	static {
+		// I try to assure REGION_SIZE is a square number, whose square
+		// root is an integer, but I am not sure how to do that.
+		assert Math.sqrt(REGION_SIZE) == ((double)(int)Math.sqrt(REGION_SIZE));
+	}
 
 	/** One more than the highest 1-based value: 10. */
 	public static final int VALUE_CEILING = REGION_SIZE + 1;
@@ -94,25 +121,31 @@ public final class Grid {
 
 	/** 0 is the index of the Box in each Cells regions array. */
 	public static final int BOX = 0;
+
 	/** 1 is the index of the Row in each Cells regions array. */
 	public static final int ROW = 1;
+
 	/** 2 is the index of the Col in each Cells regions array. */
 	public static final int COL = 2;
-	/** The name of each type of region: "box", "row", "col". */
-	public static final String[] REGION_TYPE_NAMES = {"box", "row", "col"};
+
 	/** The number of region types: 3 (BOX, ROW, COL). */
 	public static final int NUM_REGION_TYPES = 3;
 
+	/** The name of each type of region: "box", "row", "col". */
+	public static final String[] REGION_TYPE_NAMES = {"box", "row", "col"};
+
 	// FYI these three values depend on region-types remaining BOX, ROW, COL
 	// but there usage allows for other region types, despite my feeling that
-	// other "fancy" region types only degrade original-Sudoku's pure genius.
+	// other "fancy" region types only degrade original-Sudokus pure genius.
 	// I have similar (not as strong) feelings about larger (4x4) regions.
 	/** The index of the first box in grid.regions: 0. */
 	public static final int FIRST_BOX = 0;
+
 	/** The index of the first row in grid.regions: 9. */
 	public static final int FIRST_ROW = REGION_SIZE;
+
 	/** The index of the first col in grid.regions: 18. */
-	public static final int FIRST_COL = REGION_SIZE<<1;
+	public static final int FIRST_COL = FIRST_ROW + REGION_SIZE;
 
 	/** The number of regions: 27 (9*box, 9*row, 9*col). */
 	public static final int NUM_REGIONS = REGION_SIZE * NUM_REGION_TYPES;
@@ -120,50 +153,75 @@ public final class Grid {
 	/** The number of cells in a Grid: 81. */
 	public static final int GRID_SIZE = REGION_SIZE * REGION_SIZE;
 
-	/** The minimum number of clues in a Grid: 17. */
+	/** The minimum number of clues in a valid Sudoku: 17. */
 	public static final int MIN_CLUES = 17;
 
 	/** The maximum number of empty cells in a Grid: 81 - 17 = 64. */
-	public static final int MAX_EMPTIES = GRID_SIZE - MIN_CLUES;
+	public static final int MAX_EMPTY_CELLS = GRID_SIZE - MIN_CLUES;
 
 	/** The number of sibling cells that each cell has: 20. */
 	public static final int NUM_SIBLINGS = 20;
 
 	// Shorthands, because the longhands, while meaningful, are just too long.
 	// NOTE that other classes create there own shorthands for these values,
-	// but every class that uses shorthand defines it's own locally, which I
-	// have brought all into alignment, which they'll wander away from again,
-	// so maybe it'd be better to just make these "ungrocables" public?
+	// but every class that uses shorthand defines its own locally, which have
+	// been brought into alignment, which they will wander away from again, so
+	// maybe it would be better to just make these "ungrocables" public?
 	private static final int N = REGION_SIZE; // REGION_SIZE is 9 cells
 	private static final int NN = GRID_SIZE; // REGION_SIZE squared is 81 cells
 	private static final int R = SQRT; // squareroot of REGION_SIZE is 3 cells
-	//                                    and so are the days of our Sudoku
-	//                                    a lowku by KRC
+	//                                    and so are the days of our Sudoku.
+	//                                    ~ loku by KRC from H Block. Sigh.
 
-	/** index * 9, because an array-lookup is faster than multiplication. */
-	public static final int[] BY9 = {0, 9, 18, 27, 36, 45, 54, 63, 72, 81};
+	/** index * REGION_SIZE (9) coz lookup is faster than multiplication. */
+	public static final int[] BY9 = new int[REGION_SIZE];
+	static {
+		for ( int i=0; i<REGION_SIZE; ++i )
+			BY9[i] = i * REGION_SIZE;
+	}
 
-	/** Regex to match the clues line in the input file. */
+	/** A regex to match the clues line in the input file. */
 	private static final Pattern CLUES_PATTERN = Pattern.compile(
 			"([1-"+N+"]*,){"+(NN-1)+"}[1-"+N+"]*");
 
-	// do first else toString gets an exception in the debugger
+
+	/** do first else toString gets an exception in the debugger. */
 	private static final char[] DIGITS = ".123456789".toCharArray();
 
+	/** returns a char-array of the digits in maybes. */
+	private static char[] digits(final int maybes) {
+		final char[] result = new char[VSIZE[maybes]];
+		int count = 0;
+		for ( int v : VALUESES[maybes] )
+			result[count++] = DIGITS[v];
+		return result;
+	}
+
+	/** digits representing each possible maybes for toString. */
+	public static final char[][] MAYBES = new char[NUM_MAYBES][];
+	public static final String[] MAYBES_STR = new String[NUM_MAYBES];
+	static {
+		MAYBES[0] = new char[]{}; // THE_EMPTY_CHAR_ARRAY
+		MAYBES_STR[0] = EMPTY_STRING;
+		for ( int n=VSIZE.length,i=1; i<n; ++i )
+			MAYBES_STR[i] = new String(MAYBES[i]=digits(i));
+	}
+
 	/**
-	 * An IdScheme is how we identify cells and regions in a Grid.
-	 * There are two IdScheme's: Chess (preferred) and RowCol (untested).
+	 * An IdScheme is how humans identify cells and regions in a Grid.
+	 * There are two IdSchemes: Chess (preferred) and RowCol (untested).
 	 * <p>
 	 * This enum encapsulates all the-facts-of-life of an IdScheme.
-	 * It produces and parses both {@link Cell#id} and {@link ARegion#id}.
+	 * It produces and parses both {@link Cell#id} and {@link ARegion#label}.
 	 * <p>
-	 * The private IdScheme's functionality is exposed by public static proxy
-	 * methods, so there's ONE scheme, which is used everywhere that needs it.
+	 * The private IdSchemes functionality is exposed by public static proxy
+	 * methods, so theres ONE scheme, which is used everywhere that needs it.
 	 * <p>
-	 * NOTE: I've only ever used Chess, but try to retro-fit RowCol, only to
-	 * discover that my test-cases are all welded-onto Chess, and I'm unwilling
+	 * NOTE: I have only ever used Chess, but try to retro-fit RowCol, only to
+	 * discover that my test-cases are all welded-onto Chess, and I am unwilling
 	 * to spend a week (or two) rewriting them all for some silly idScheme, so
-	 * we're permanently welded onto Chess.
+	 * I am permanently welded onto Chess, but you need not be. Blow away test
+	 * cases and swap it over, but theres lots of hours in the testcases.
 	 */
 	private static enum IdScheme {
 		Chess { // A1..I9
@@ -175,7 +233,7 @@ public final class Grid {
 			public String id(final int indice) {
 				try {
 					return LETTERS[indice%N] + NUMBERS[indice/N];
-				} catch ( Exception ex ) { // I'm bullet proof
+				} catch ( Exception ex ) { // I am bullet proof
 					throw new IllegalArgumentException("Bad indice: "+indice, ex);
 				}
 			}
@@ -188,7 +246,7 @@ public final class Grid {
 					final int col = id.charAt(0)-'A';
 					if ( col<0 || col>8 )
 						throw new IllegalArgumentException("Bad col: "+id);
-					return row*N + col;
+					return BY9[row] + col;
 				} catch ( IllegalArgumentException ex ) {
 					throw ex;
 				} catch ( Exception ex ) {
@@ -200,13 +258,13 @@ public final class Grid {
 				try {
 					if ( rid==null || rid.length() != 5 )
 						throw new IllegalArgumentException("Bad rid: "+rid);
-					final String type = rid.substring(0, 3);
 					final char c = rid.charAt(4);
-					if ( type.equals(REGION_TYPE_NAMES[BOX]) )
+					final String type = rid.substring(0, 3);
+					if ( type.compareToIgnoreCase(REGION_TYPE_NAMES[BOX]) == 0 )
 						return c - '1';
-					if ( type.equals(REGION_TYPE_NAMES[ROW]) )
+					if ( type.compareToIgnoreCase(REGION_TYPE_NAMES[ROW]) == 0 )
 						return REGION_SIZE + c - '1';
-					if ( type.equals(REGION_TYPE_NAMES[COL]) ) {
+					if ( type.compareToIgnoreCase(REGION_TYPE_NAMES[COL]) == 0 ) {
 						if ( c<'A' || c>'I' )
 							throw new IllegalArgumentException("Bad col: "+rid);
 						return FIRST_COL + c - 'A';
@@ -214,7 +272,7 @@ public final class Grid {
 					throw new IllegalArgumentException("Bad rid: "+rid);
 				} catch ( IllegalArgumentException ex ) {
 					throw ex;
-				} catch ( Exception ex ) { // I'm bullet proof
+				} catch ( Exception ex ) { // I am bullet proof
 					throw new IllegalArgumentException("Bad rid: "+rid, ex);
 				}
 			}
@@ -232,7 +290,7 @@ public final class Grid {
 			public String id(final int indice) {
 				try {
 					return NUMBERS[indice/N] + "-" + NUMBERS[indice%N];
-				} catch ( Exception ex ) { // I'm bullet proof
+				} catch ( Exception ex ) { // I am bullet proof
 					throw new IllegalArgumentException("Bad indice: "+indice, ex);
 				}
 			}
@@ -240,22 +298,25 @@ public final class Grid {
 			public int indice(final String id) {
 				try {
 					return BY9[id.charAt(0)-'1'] + (id.charAt(3)-'1');
-				} catch ( Exception ex ) { // I'm bullet proof
+				} catch ( Exception ex ) { // I am bullet proof
 					throw new IllegalArgumentException("Bad id: "+id, ex);
 				}
 			}
 			@Override
 			public int regionIndex(final String rid) {
 				try {
-					final String type = rid.substring(0, 3);
 					final int x = rid.charAt(4) - '1';
-					for ( int i=0; i<NUM_REGION_TYPES; ++i ) // BOX, ROW, COL
-						if ( REGION_TYPE_NAMES[i].equals(type) )
-							return i*REGION_SIZE + x;
+					final String type = rid.substring(0, 3);
+					if ( REGION_TYPE_NAMES[BOX].compareToIgnoreCase(type) == 0 )
+						return x;
+					if ( REGION_TYPE_NAMES[ROW].compareToIgnoreCase(type) == 0 )
+						return FIRST_ROW + x;
+					if ( REGION_TYPE_NAMES[COL].compareToIgnoreCase(type) == 0 )
+						return FIRST_COL + x;
 					throw new IllegalArgumentException("Bad rid: "+rid);
 				} catch ( IllegalArgumentException ex ) {
 					throw ex;
-				} catch ( Exception ex ) { // I'm bullet proof
+				} catch ( Exception ex ) { // I am bullet proof
 					throw new IllegalArgumentException("Bad rid: "+rid, ex);
 				}
 			}
@@ -280,45 +341,55 @@ public final class Grid {
 	/** The ID scheme: Chess. The test-cases are welded-onto Chess, so RowCol
 	 * is NOT really an option; ergo the IdScheme thing was a waste of time. */
 	private static final IdScheme ID_SCHEME = IdScheme.Chess;
+
 	/** The length of the ID field of each cell in this Grid. */
 	public static final int CELL_ID_LENGTH = ID_SCHEME.length();
+
 	/** The ID field of each cell in this Grid. */
 	public static final String[] CELL_IDS = new String[GRID_SIZE];
-	/** The region.id's by index in the grid.regions array. */
-	public static final String[] REGION_IDS = new String[27];
+
+	/** The region.ids by index in the grid.regions array. */
+	public static final String[] REGION_LABELS = new String[27];
+
 	/** An Idx containing the indice of each cell in the Grid. */
 	public static final Idx[] CELL_IDXS = new Idx[GRID_SIZE];
-	/** An Idx containing the indice of all cells EXCEPT this one. */
-	public static final Idx[] EXCEPT = new Idx[GRID_SIZE];
+
 	static {
 		int i, n;
-		for ( i=0; i<GRID_SIZE; ++i )
-			CELL_IDS[i] = ID_SCHEME.id(i);
-		for ( i=FIRST_BOX,n=FIRST_BOX+REGION_SIZE; i<n; ++i )
-			REGION_IDS[i] = REGION_TYPE_NAMES[BOX]+" "+NUMBERS[i];
-		for ( i=FIRST_ROW,n=FIRST_ROW+REGION_SIZE; i<n; ++i )
-			REGION_IDS[i] = REGION_TYPE_NAMES[ROW]+" "+NUMBERS[i%REGION_SIZE];
-		final String[] columnLabels = ID_SCHEME.columnLabels();
-		for ( i=FIRST_COL,n=FIRST_COL+REGION_SIZE; i<n; ++i )
-			REGION_IDS[i] = REGION_TYPE_NAMES[COL]+" "+columnLabels[i%REGION_SIZE];
-		for ( i=0; i<GRID_SIZE; ++i )
-			CELL_IDXS[i] = Idx.of(i);
-		for ( i=0; i<GRID_SIZE; ++i )
-			EXCEPT[i] = CELL_IDXS[i].not();
+		i=0; do CELL_IDS[i] = ID_SCHEME.id(i); while(++i<GRID_SIZE);
+		i=FIRST_BOX; n=FIRST_BOX+REGION_SIZE;
+		do REGION_LABELS[i] = REGION_TYPE_NAMES[BOX]+" "+NUMBERS[i]; while(++i<n);
+		i=FIRST_ROW; n=FIRST_ROW+REGION_SIZE;
+		do REGION_LABELS[i] = REGION_TYPE_NAMES[ROW]+" "+NUMBERS[i%REGION_SIZE]; while(++i<n);
+		final String[] c = ID_SCHEME.columnLabels();
+		i=FIRST_COL; n=FIRST_COL+REGION_SIZE;
+		do REGION_LABELS[i] = REGION_TYPE_NAMES[COL]+" "+c[i%REGION_SIZE]; while(++i<n);
+		i=0; do CELL_IDXS[i] = Idx.of(i); while(++i<GRID_SIZE);
 	}
 
-	/** The index of the box which contains each cell. <br>
-	 * Can calculate on-the-fly, just faster to look it up. */
+	// nb: can calculate these three OTF, but look-up is faster.
+	/** The index of the box in {@link #boxs} which contains each cell. */
 	public static final int[] BOX_OF = new int[GRID_SIZE];
-	/** The index of the row which contains each cell. <br>
-	 * Can calculate on-the-fly, just faster to look it up. */
+
+	/** The index of the row in {@link #rows} which contains each cell. */
 	public static final int[] ROW_OF = new int[GRID_SIZE];
-	/** The index of the row which contains each cell. <br>
-	 * Can calculate on-the-fly, just faster to look it up. */
+
+	/** The index of the col in {@link #cols} which contains each cell. */
 	public static final int[] COL_OF = new int[GRID_SIZE];
-	/** RIBS: Region Index BitSets: a bitset of the indexes of the 3 regions
-	 * of each cell in the Grid. Concurrent with Grid.cells. */
+
+	/**
+	 * RIBS (Region Index BitSets) is a bitset of the indexes of the 3 regions
+	 * of each cell in the Grid. RIBS is concurrent with Grid.cells. Each RIBS
+	 * bitset is 27 bits of three Grid.regions indexes: my box, row, and col.
+	 * <p>
+	 * RIBS exist to be bitwise-anded and/or bitwise-ored together. This is
+	 * Pure Deadly Evil Clever! One might call even call it Whiteboy Magic.
+	 * My school councillor once advised me to take a job at the meatworks.
+	 * My school councillor is a ____ing idiot, who failed vegi-math, and
+	 * probably cheats a golf. Atleast shes not running for president. Sigh.
+	 */
 	public static final int[] RIBS = new int[GRID_SIZE];
+
 	static {
 		int i, b, r, c; // of this cell
 		// set ROW_OF, COL_OF, and BOX_OF; plus RIBS
@@ -326,56 +397,74 @@ public final class Grid {
 			r = ROW_OF[i] = i/N;
 			c = COL_OF[i] = i%N;
 			b = BOX_OF[i] = r/R*R + c/R;
-			RIBS[i] = IDX_SHFT[b]				// box
-			        | IDX_SHFT[r+FIRST_ROW]		// row
-			        | IDX_SHFT[c+FIRST_COL];	// col
+			RIBS[i] = IDX_SHFT[b]			// box
+			        | IDX_SHFT[FIRST_ROW+r]		// row
+			        | IDX_SHFT[FIRST_COL+c];	// col
 		}
 	}
 
 	/**
-	 * BUDDIES is an array of Idx of the 20 distinct sibling cells (precluding
-	 * the cell itself) in the same box, row, and col as each cell in a Grid.
-	 * Concurrent with Grid.cells.
+	 * BUDDIES is an array of Immutable Idxs of the 20 distinct sibling cells
+	 * (precluding the cell itself) in the same box, row, and col as each cell
+	 * in a Grid. BUDDIES is concurrent with Grid.cells. This is a speed thing;
+	 * so that you dont need the actual cell object (you just need to know its
+	 * index) in order to get its buddies.
 	 * <p>
 	 * The same Idx is referenced by {@link Cell#buds}. For speed, use BUDDIES
 	 * if you have only the cell indice, or buds if you already have the Cell.
 	 * <p>
-	 * The Idx's are locked, so any attempt to modify throws a LockedException.
-	 * <p>
 	 * BUDDIES is static because a cell has the same siblings in all Grids, and
 	 * these are only indices, not the cells themselves. If you want the cells
-	 * themselves then {@link Cell#siblings} is probably faster, presuming that
-	 * you already have the cell (sigh).
+	 * themselves then {@link Cell#siblings} is probably faster, but if you
+	 * have indices, especially in Idxs then BUDDIES is your best-friend. Sigh.
+	 * <p>
+	 * An IdxI is immutable. Any attempt to modify throws a LockedException.
 	 */
 	public static final IdxI[] BUDDIES = new IdxI[GRID_SIZE];
+	public static final long[] BUDS_M0 = new long[GRID_SIZE];
+	public static final int[] BUDS_M1 = new int[GRID_SIZE];
+
+	/**
+	 * SEES contains does each cell in grid see (populate the same box, row, or
+	 * col) as every other cell in the grid. SEES for speed; BUDDIES for Idx
+	 * operations and/or indices; SIBLINGS for cells.
+	 */
+	public static final boolean[][] SEES = new boolean[GRID_SIZE][GRID_SIZE];
+
 	static {
-		Idx buddies;
-		int i, j, b, r, c; // of this cell
-		// set BUDDIES, using the above *_OF arrays
-		for ( i=0; i<GRID_SIZE; ++i ) { // foreach cell-indice
-			buddies = new Idx();
-			r = ROW_OF[i];
-			c = COL_OF[i];
-			b = BOX_OF[i];
-			for ( j=0; j<GRID_SIZE; ++j ) // foreach other-cell-indice
-				if ( (ROW_OF[j]==r || COL_OF[j]==c || BOX_OF[j]==b) && j!=i )
-					buddies.add(j);
-			// any attempt to mutate an IdxI throws a LockedException
-			BUDDIES[i] = new IdxI(buddies);
+		long m0=0L; int i, j, m1=0;
+		// foreach cell-indice
+		for ( i=0; i<GRID_SIZE; ++i ) {
+			// foreach "other" cell-indice
+			for ( j=0; j<GRID_SIZE; ++j ) {
+				// if j is in the same (box, row, or col) as i
+				// and they are not the same cell
+				if ( (RIBS[i]&RIBS[j])!=0 && j!=i ) {
+					// then j is a buddy of i
+					SEES[i][j] = true;
+					if ( j < FIFTY_FOUR )
+						m0 |= MASKED81[j];
+					else
+						m1 |= MASKED[j];
+				}
+			}
+			// exploded Idxs for speed
+			BUDS_M0[i] = m0;
+			BUDS_M1[i] = m1;
+			// a new IdxImmutable of buddies
+			BUDDIES[i] = new IdxI(m0,m1, NUM_SIBLINGS);
+			m0 = m1 = 0;
 		}
 	}
 
-//not_used 2022-01-09 it was alredy commented out, just not marked. My bad.
-//	public static final Indexes[][] REGION_RIDXS = new Indexes[NUM_REGIONS][VALUE_CEILING];
-
-//Generating REGION_INDICES is as verbose as hardcoding and is slower, so I
-//use the hardcoded version generated with: diuf.sudoku.tools.RegionIndices
+//Generating REGION_INDICES is slower, so I do it once to hardcode them.
+//See: diuf.sudoku.tools.RegionIndices
 //	private static final int[][] REGION_INDICES = new int [NUM_REGIONS][REGION_SIZE];
 //	static {
 //		final int[] indices = new int[N]; // N is REGION_SIZE
 //		// boxs
 //		for ( int b=0; b<N; ++b) {
-//			final int top = b/R; // R is squareRoot(REGION_SIZE)
+//			final int top = b/R; // R is Math.sqrt(REGION_SIZE)
 //			final int left = b%R;
 //			for ( int i=0; i<N; ++i )
 //				indices[i] = top+i/R + left+i%R;
@@ -394,7 +483,11 @@ public final class Grid {
 //			REGION_INDICES[FIRST_COL+x] = copyOf(indices, N);
 //		}
 //	}
-	private static final int[][] REGION_INDICES = new int [][] {
+	/**
+	 * REGION_INDICES contains the indice of each of the 9 cells in each region
+	 * of the 27 regions in the Grid: boxes, rows, cols.
+	 */
+	public static final int[][] REGION_INDICES = new int [][] {
 		  { 0, 1, 2, 9,10,11,18,19,20} // box 1
 		, { 3, 4, 5,12,13,14,21,22,23} // box 2
 		, { 6, 7, 8,15,16,17,24,25,26} // box 3
@@ -425,96 +518,17 @@ public final class Grid {
 	};
 
 	/**
-	 * Idx of the cells in each region in the grid.
-	 * Note that IdxI's are immutable.
-	 * Concurrent with grid.regions.
+	 * REGION_IDXS contains an Idx of the cells in each region in the grid.
+	 * Note that IdxIs are immutable. Concurrent with grid.regions.
 	 */
 	public static final IdxI[] REGION_IDXS = new IdxI[NUM_REGIONS];
 	static {
-		for ( int i=0; i<NUM_REGIONS; ++i )
+		for ( int i=0; i<NUM_REGIONS; ++i ) {
 			REGION_IDXS[i] = IdxI.of(REGION_INDICES[i]);
-	}
-
-	/**
-	 * Idx of the "later" buddies (siblings) of each cell in the Grid.
-	 * Later means has a greater index, for use in forwards-only search.
-	 * <p>
-	 * Note that IdxI's are immutable.
-	 */
-	public static final IdxI[] LATER_BUDS = new IdxI[GRID_SIZE];
-	static {
-		for ( int i=0; i<GRID_SIZE; ++i ) {
-			final int indice = i; // effectively bloody final in the lambda
-			LATER_BUDS[i] = new IdxI(BUDDIES[i].where((j) -> j > indice));
 		}
 	}
 
-	/**
-	 * Does each region in the Grid intersect each other other region,
-	 * so the first index is me, and the second index is him.
-	 */
-	public static final boolean[][] REGIONS_INTERSECT = {
-		// code generated by test.diuf.sudoku.GridTest.testIntersects
-		// box                 row                 col
-		  {T,F,F,F,F,F,F,F,F, T,T,T,F,F,F,F,F,F, T,T,T,F,F,F,F,F,F} // box 1
-		, {F,T,F,F,F,F,F,F,F, T,T,T,F,F,F,F,F,F, F,F,F,T,T,T,F,F,F} // box 2
-		, {F,F,T,F,F,F,F,F,F, T,T,T,F,F,F,F,F,F, F,F,F,F,F,F,T,T,T} // box 3
-		, {F,F,F,T,F,F,F,F,F, F,F,F,T,T,T,F,F,F, T,T,T,F,F,F,F,F,F} // box 4
-		, {F,F,F,F,T,F,F,F,F, F,F,F,T,T,T,F,F,F, F,F,F,T,T,T,F,F,F} // box 5
-		, {F,F,F,F,F,T,F,F,F, F,F,F,T,T,T,F,F,F, F,F,F,F,F,F,T,T,T} // box 6
-		, {F,F,F,F,F,F,T,F,F, F,F,F,F,F,F,T,T,T, T,T,T,F,F,F,F,F,F} // box 7
-		, {F,F,F,F,F,F,F,T,F, F,F,F,F,F,F,T,T,T, F,F,F,T,T,T,F,F,F} // box 8
-		, {F,F,F,F,F,F,F,F,T, F,F,F,F,F,F,T,T,T, F,F,F,F,F,F,T,T,T} // box 9
-		, {T,T,T,F,F,F,F,F,F, T,F,F,F,F,F,F,F,F, T,T,T,T,T,T,T,T,T} // row 1
-		, {T,T,T,F,F,F,F,F,F, F,T,F,F,F,F,F,F,F, T,T,T,T,T,T,T,T,T} // row 2
-		, {T,T,T,F,F,F,F,F,F, F,F,T,F,F,F,F,F,F, T,T,T,T,T,T,T,T,T} // row 3
-		, {F,F,F,T,T,T,F,F,F, F,F,F,T,F,F,F,F,F, T,T,T,T,T,T,T,T,T} // row 4
-		, {F,F,F,T,T,T,F,F,F, F,F,F,F,T,F,F,F,F, T,T,T,T,T,T,T,T,T} // row 5
-		, {F,F,F,T,T,T,F,F,F, F,F,F,F,F,T,F,F,F, T,T,T,T,T,T,T,T,T} // row 6
-		, {F,F,F,F,F,F,T,T,T, F,F,F,F,F,F,T,F,F, T,T,T,T,T,T,T,T,T} // row 7
-		, {F,F,F,F,F,F,T,T,T, F,F,F,F,F,F,F,T,F, T,T,T,T,T,T,T,T,T} // row 8
-		, {F,F,F,F,F,F,T,T,T, F,F,F,F,F,F,F,F,T, T,T,T,T,T,T,T,T,T} // row 9
-		, {T,F,F,T,F,F,T,F,F, T,T,T,T,T,T,T,T,T, T,F,F,F,F,F,F,F,F} // col A
-		, {T,F,F,T,F,F,T,F,F, T,T,T,T,T,T,T,T,T, F,T,F,F,F,F,F,F,F} // col B
-		, {T,F,F,T,F,F,T,F,F, T,T,T,T,T,T,T,T,T, F,F,T,F,F,F,F,F,F} // col C
-		, {F,T,F,F,T,F,F,T,F, T,T,T,T,T,T,T,T,T, F,F,F,T,F,F,F,F,F} // col D
-		, {F,T,F,F,T,F,F,T,F, T,T,T,T,T,T,T,T,T, F,F,F,F,T,F,F,F,F} // col E
-		, {F,T,F,F,T,F,F,T,F, T,T,T,T,T,T,T,T,T, F,F,F,F,F,T,F,F,F} // col F
-		, {F,F,T,F,F,T,F,F,T, T,T,T,T,T,T,T,T,T, F,F,F,F,F,F,T,F,F} // col G
-		, {F,F,T,F,F,T,F,F,T, T,T,T,T,T,T,T,T,T, F,F,F,F,F,F,F,T,F} // col H
-		, {F,F,T,F,F,T,F,F,T, T,T,T,T,T,T,T,T,T, F,F,F,F,F,F,F,F,T} // col I
-	};
-
-	/**
-	 * A bitset of the indexes in grid.regions of the boxs that are effected
-	 * by each of the regions in the grid. The values here-in are box indexes
-	 * 0..8, so you can read them with the Indexes.INDEXES array-of-arrays.
-	 * <p>
-	 * <pre>
-	 * The meaning of these values are type dependant:
-	 * Box: the 4 boxs which also intersect the rows and cols of this box,
-	 *      ie the two boxs left/right, and the two boxs above/below,
-	 *      or in ascii art (X is this box, #'s are effected boxs):
-	 *            X##        .#.        ..#
-	 *            #..   or   #X#   or   ..#
-	 *            #..        .#.        ##X
-	 * Row: the 3 boxs which intersect this row;
-	 * Col: the 3 boxs which insersect this col;
-	 * </pre>
-	 * This is all static because it's the same for all grids, so you can get
-	 * it without an instance of Grid.
-	 * <p>
-	 * EFFECTED_BOXS is used in Medusa3D and GEM, which both use ONLY the boxs,
-	 * so rows and cols are populated but not (yet) used, mainly coz rows/cols
-	 * have a pre-existing intersectingBoxs array that's preferred if you have
-	 * the ARegion, but for me you need only it's index, and you get only
-	 * indexes, which you read through Indexes.INDEXES, to get the ARegion's
-	 * from grid.regions, which all looks pretty messy, but is very fast).
-	 * Maybe I should read this array into each box's intersectingBoxs array,
-	 * instead of leaving it null? No requirement to do so, yet.
-	 * <p>
-	 * Speed: I ran this ONCE to get the magic-numbers; now we just load them.
-	 */
+//MagicNumbers where generated with this code. Now hardcoded for speed.
 //	public static final int[] EFFECTED_BOXS = new int[NUM_REGIONS];
 //	static {
 //		// boxs: other boxs which also intersect rows/cols that intersect me.
@@ -552,7 +566,36 @@ public final class Grid {
 //			assert VSIZE[EFFECTED_BOXS[i]] == 3;
 //		}
 //	};
-	// code generated by the above code.
+	/**
+	 * A bitset of the indexes in grid.regions of the boxs that are effected
+	 * by each of the regions in the grid. The values here-in are box indexes
+	 * 0..8, so you can read them with the Indexes.INDEXES array-of-arrays.
+	 * <p>
+	 * <pre>
+	 * The meaning of these values are type dependant:
+	 * Box: the 4 boxs which also intersect the rows and cols of this box,
+	 *      ie the two boxs left/right, and the two boxs above/below.
+	 *      Examples in ascii art: X is this box, #s are effected boxs:
+	 *            X##        .#.        ..#
+	 *            #..        #X#        ..#
+	 *            #..        .#.        ##X
+	 * Row: the 3 boxs which intersect this row;
+	 * Col: the 3 boxs which insersect this col;
+	 * </pre>
+	 * This is all static because its the same for all grids, so you can get
+	 * it without an instance of Grid.
+	 * <p>
+	 * EFFECTED_BOXS is used in Medusa3D and GEM, which both use ONLY the boxs,
+	 * so rows and cols are populated but not (yet) used, mainly coz rows/cols
+	 * have a pre-existing intersectingBoxs array thats preferred if you have
+	 * the ARegion, but for me you need only its index, and you get only
+	 * indexes, which you read through Indexes.INDEXES, to get the ARegions
+	 * from grid.regions, which all looks pretty messy, but is very fast).
+	 * Maybe I should read this array into each boxs intersectingBoxs array,
+	 * instead of leaving it null? No requirement to do so, yet.
+	 * <p>
+	 * Speed: I ran this ONCE to get the magic-numbers; now we just load them.
+	 */
 	public static final int[] EFFECTED_BOXS = {
 		  78, 149, 291,  71, 142, 270,  29,  30,  60  // boxs
 		, 56,  56,  56, 112, 112, 112, 224, 224, 224  // rows
@@ -570,21 +613,6 @@ public final class Grid {
 	}
 
 	/**
-	 * Read indices from a Space Separated Values string of cell-ids.
-	 *
-	 * @param idsSsv to read
-	 * @return a new int[] containing the indices of the given cells.
-	 */
-	public static int[] indices(final String idsSsv) {
-		final String[] idsA = idsSsv.split(" ");
-		final int n = idsA.length;
-		final int[] result = new int[n];
-		for ( int i=0; i<n; ++i )
-			result[i] = indice(idsA[i]);
-		return result;
-	}
-
-	/**
 	 * Get the index of this region ID.
 	 *
 	 * @param rid the region.id for which you seek the index
@@ -595,80 +623,10 @@ public final class Grid {
 	}
 
 	/**
-	 * Return the region for this id.
-	 *
-	 * @param rid The region.id, eg "box 1" or "col H" or "row 9"
-	 * @return the region with this id
+	 * UnsolvableException is thrown a lot by {@link Cell#canNotBeBits(int) }
+	 * in the Generator, and we really need just one instance, so here it is.
 	 */
-	public ARegion region(final String rid) {
-		return regions[ID_SCHEME.regionIndex(rid)];
-	}
-
-	/**
-	 * Get an array of regions from CSV (Comma Separated Values) of names.
-	 * <p>
-	 * Note that this method is used extensively in the test-cases, so any
-	 * problems here causes LOTS of test-cases to fail.
-	 *
-	 * @param csv Comma Separated Values of region.id's
-	 * @return
-	 */
-	public ARegion[] regions(final String csv) {
-		final String[] rids = csv.split(", *"); // region.id's
-		final int n = rids.length;
-		final ARegion[] result = new ARegion[n];
-		for ( int i=0; i<n; ++i )
-			result[i] = region(rids[i]);
-		return result;
-	}
-
-	/**
-	 * Get an array of regions at RIBS.
-	 *
-	 * @param ribs Region Index BitSet
-	 * @return new ARegion[] of regions at RIBS in this grid.
-	 */
-	public ARegion[] regions(final int ribs) {
-		final int n = bitCount(ribs);
-		if ( n == 0 )
-			return Regions.EMPTY_ARRAY;
-		final ARegion[] result = new ARegion[n];
-		int cnt = 0;
-		for ( int i=0; cnt<n && i<27; ++i )
-			if ( (1<<i & ribs) != 0 )
-				result[cnt++] = regions[i];
-		assert cnt == n;
-		return result;
-	}
-
-	/**
-	 * Repopulate result with CSV (Comma Separated Values) of region-ids.
-	 * <p>
-	 * Note that this method is used extensively in the test-cases, so any
-	 * problems here causes LOTS of test-cases to fail.
-	 *
-	 * @param csv of region.id's
-	 * @param result to repopulate
-	 * @return number of regions added, which may be less than result.length
-	 */
-	public int regions(final String csv, final ARegion[] result) {
-		final String[] rids = csv.split(", *"); // region.id's
-		final int n = rids.length;
-		for ( int i=0; i<n; ++i )
-			result[i] = region(rids[i]);
-		return n;
-	}
-
-	/** A java.util.Random for private use. */
-	private static final Random RANDOM = new Random();
-
-	/** This exception is exhaustively thrown by canNotBe, and we need ONE
-	 * instance, and I do NOT care about the stack trace, so here it is. */
-	private static final UnsolvableException NO_MACS = new UnsolvableException();
-	// avert IDE warning unread
-	static {
-		assert NO_MACS != null;
-	}
+	private UnsolvableException noMacsRemain;
 
 	// ============================= instance land ============================
 
@@ -679,15 +637,15 @@ public final class Grid {
 
 	/**
 	 * The maybes (potential values) of each Cell in this Grid, to save getting
-	 * the cell in order to get it's maybes when all you have is it's indice.
+	 * the cell in order to get its maybes when all you have is its indice.
 	 */
 	public final int[] maybes = new int[GRID_SIZE];
 
 	/**
 	 * The size (number of potential values) of each Cell in this Grid, to save
-	 * getting the cell in order to get it's size, when you have an indice.
+	 * getting the cell in order to get its size, when you have an indice.
 	 */
-	public final int[] size = new int[GRID_SIZE];
+	public final int[] sizes = new int[GRID_SIZE];
 
 	/**
 	 * An array of the 9 Boxs in this grid, indexed 0=top-left across and
@@ -708,10 +666,15 @@ public final class Grid {
 	public final Col[] cols = new Col[REGION_SIZE];
 
 	/**
-	 * An array of all the regions in this grid, indexed 9 Boxs,
-	 * then 9 Rows, then 9 Cols; sub-order same as boxs, rows, and cols.
+	 * An array of all the regions in this grid: 9 Boxs, 9 Rows, 9 Cols.
+	 * Software relies on that box/row/col order, hence it is immutable.
 	 */
 	public final ARegion[] regions = new ARegion[NUM_REGIONS];
+
+	/**
+	 * regionIdxs: the vs in each region, by value and region.
+	 */
+	public final Idx[][] ridxs = new Idx[VALUE_CEILING][NUM_REGIONS];
 
 	/**
 	 * indices of cells in this Grid which maybe each value 1..9.
@@ -719,9 +682,9 @@ public final class Grid {
 	public final IdxL[] idxs = new IdxL[VALUE_CEILING];
 
 	/**
-	 * The sequential number of the hint that we're up-to in solve (et al).
+	 * The sequential number of the hint that we are up-to in solve (et al).
 	 */
-	public int hintNumber = 1; // anything but 0, the default int value.
+	public int hintNumber; // anything but 0, the default int value.
 
 	/**
 	 * This switch is set to true when the maybes (the potential cell values)
@@ -738,12 +701,6 @@ public final class Grid {
 	public SourceID source;
 
 	/**
-	 * cache the SolutionHint (in a list just coz that's the return type).
-	 * used by {@link diuf.sudoku.solver.LogicalSolver#getSolution}.
-	 */
-	public List<AHint> solutionHints;
-
-	/**
 	 * solution contains the correct cell values of the puzzle in this Grid.
 	 * Set by {@link diuf.sudoku.solver.checks.BruteForce#solve} and read
 	 * by {@link diuf.sudoku.solver.hinters.Validator#isValid} (et al).
@@ -751,21 +708,20 @@ public final class Grid {
 	public int[] solution;
 
 	/**
-	 * pid is short for puzzle-identifier. The pid identifies the puzzle that's
-	 * loaded into this grid. It's just a random long that is set whenever a
-	 * new grid is created or a puzzle is loaded, so that caching methods can
-	 * tell if the grid still contains "this puzzle".
+	 * puzzle-identifier (pid). The pid identifies the puzzle that is loaded
+	 * into this grid. Its just a random long that is set whenever a new grid
+	 * is created or a puzzle is loaded, so that cachers can tell if the grid
+	 * still contains "the cached puzzle".
 	 * <p>
-	 * As far as I can see (not far) Random.nextLong() guarantees that two
-	 * successive calls won't return the same value. If it does then
-	 * AAHdkAlsHinter.valid will report false-positives (invalid hints).
+	 * If Random.nextLong() returns the same value on two "near" calls, then
+	 * this crazy scheme is broken, so use a hash, or something. Sigh.
 	 */
-	public long pid;
+	public long puzzleId;
 
-	/** isInvalidated()'s message explaining why this grid is invalid. */
+	/** isInvalidated()s message explaining why this grid is invalid. */
 	public String invalidity;
 
-	/** isInvalidated()'s region which is invalid. Nullable. */
+	/** isInvalidated()s region which is invalid. Nullable. */
 	public ARegion invalidRegion;
 
 	/** TooFewClues remembers this grid is valid. */
@@ -781,10 +737,31 @@ public final class Grid {
 	public int numSet;
 
 	/** The total number of maybes in the grid. */
-	public int totalSize;
+	public int numMaybes;
 
 	/** Has a puzzle been loaded into this grid, or is it still a virgin. */
 	private boolean isLoaded;
+
+	/** Are the currently displayed hidden sets in box, row, or col. */
+	public final HiddenSetDisplayState hiddenSetDisplayState = new HiddenSetDisplayState();
+
+	/** for {@link #getSinglesQueue() } cells with one value, or one place */
+	private Deque<Single> singlesQueue;
+
+	/** for {@link #getEmpties() } indices of cells with value==0 */
+	private IdxL empties;
+	private int emptiesHn;
+	private long emptiesPid;
+
+	/** for {@link #getBiplaces() } biplaced regions, by value */
+	private IdxL[] bips;
+	private int bipsHn;
+	private long bipsPid;
+
+	/** for {@link #getBivalue() } indices of bivalue cells */
+	private IdxL bivs;
+	private int bivsHn;
+	private long bivsPid;
 
 	// ----------------------------- constructors -----------------------------
 
@@ -792,15 +769,14 @@ public final class Grid {
 	 * Construct a new empty 9x9 Sudoku grid.
 	 */
 	public Grid() {
-		for ( int i=0; i<GRID_SIZE; ++i )
-			cells[i] = new Cell(i, VALL);
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			idxs[v] = IdxL.full();
+		int i=0; do cells[i] = new Cell(i, BITS9); while(++i<GRID_SIZE);
+		i=1; do idxs[i] = IdxL.full(); while(++i<VALUE_CEILING);
 		initialise();
+		puzzleIdReset();
 	}
 
 	/**
-	 * Construct a new 9x9 Sudoku Grid from the given 'line', which may
+	 * Construct a new 9x9 Sudoku Grid from the given $line, which may
 	 * actually be multiple lines.
 	 * <p>
 	 * The expected format is that produced by the {@link #toString()} method,
@@ -815,7 +791,7 @@ public final class Grid {
 	 * ,1246,24569,2347,12357,1234,13569,4579,1345679,12459,124,,,12578,1248,1589,45789,14579,1456,,456,348,,1348,,458,13456,123469,,2469,2389,2368,,1689,2489,12469,12369,12368,269,2389,,,,289,1269,24679,2468,24679,,268,2689,5689,,24569,23457,234,,23479,237,2349,359,,,23467,2346,,,2367,23469,39,,2379,23567,,2567,2378,123678,12368,,257,2357
 	 * C:/Users/User/Documents/SudokuPuzzles/Conceptis/TheWorldsHardestSudokuPuzzle.txt}
 	 * <p>
-	 * Note that I've replaced back-slashes with slashes coz Java hates them!
+	 * Note that I have replaced back-slashes with slashes coz Java hates them!
 	 * <p>
 	 * <br>
 	 * The <b>first line</b><br>
@@ -833,25 +809,25 @@ public final class Grid {
 	 * clue cells potential values are an empty string (an empty list element).
 	 * Alternately, if a maybes string contains a single value then the cell is
 	 * a Naked Single, and the reader leaves it as such (ie the Cell is NOT
-	 * set to it's only possible value).
+	 * set to it is only possible value).
 	 * <p>
 	 * <br>
 	 * The <b>OPIONAL third line</b><br>
 	 * {@code C:/Users/User/Documents/SudokuPuzzles/Conceptis/TheWorldsHardestSudokuPuzzle.txt}<br>
-	 * Note: I've replaced back-slashes with slashes coz Java hates them!<br>
+	 * Note: I have replaced back-slashes with slashes coz Java hates them!<br>
 	 * contains the source of the puzzle to enable a partially solved puzzle to
 	 * report itself as its ACTUAL source puzzle. So for example say I discover
 	 * an EbulientAardvard hint in line 42 of top1465.d5.mt, so I copy the grid
 	 * and paste it into EbulientAardvard_001.txt; so EbulientAardvard_001.txt
 	 * continues to report itself as 42#top1465.d5.mt, allowing me to track the
 	 * actual source of each test-case; and may also change how the puzzle is
-	 * solved, ie whether or not it's "hacked", or atleast used to, before such
+	 * solved, ie whether or not it is hacked, or atleast used to, before such
 	 * over-the-top-cross-country-hackyness fell from grace. Sigh.
 	 * <p>
 	 * Programmers note this constructor calls {@link #rebuildMaybesAndS__t}
-	 * as protection against "foreign agents" who can't be trusted to get the
+	 * as protection against "foreign agents" who cant be trusted to get the
 	 * maybes right; but test-cases need to be able to load a Grid as is, even
-	 * if it's bdaly borken, so JUnit test-cases use {@link #load(String) in
+	 * if its bdaly borken, so JUnit test-cases use {@link #load(String) in
 	 * place of the constructor, specifically to avoid this protection; but
 	 * pretty-much everybody else uses this constructor. The current exceptions
 	 * are: undo/redo, drop (of drag-and-drop), and the techie-only logView
@@ -862,27 +838,18 @@ public final class Grid {
 	 * The constructor also reads hysterical text-files of 9/18 lines:<ul>
 	 * <li>first block contains 9 lines of 9 clues (given cells values); and
 	 * <li>optional second block contains 9 lines of 9 potential values strings
-	 * <li>but don't count on this actually working, it just might, that's all
+	 * <li>but dont count on this actually working, it just might, thats all
 	 * </ul>
 	 *
 	 * @param line String the puzzle to load, probably in toString format. */
 	public Grid(final String line) {
-		// splits on \r\n or \r or \n
-		this(MyStrings.splitLines(line));
-	}
-
-	/**
-	 * Construct a new 9x9 Sudoku Grid, and load the puzzle in 'lines'.
-	 *
-	 * @param lines
-	 */
-	private Grid(final String[] lines) {
 		this(); // run the default constructor first
-		load(lines); // just call load rather than re-implement it (badly)
+		// splits on \r\n or \r or \n
+		load(MyStrings.splitLines(line)); // just call load rather than re-implement it (badly)
 	}
 
 	/**
-	 * The copy constructor creates a new "exact" copy of the 'src' Grid. Cell
+	 * The copy constructor creates a new "exact" copy of the $src Grid. Cell
 	 * values and maybes are copied, as are each regions idxOf, emptyCellCount,
 	 * and containsValue arrays.
 	 * <p>
@@ -891,85 +858,71 @@ public final class Grid {
 	 * @param src the source Grid to copy from.
 	 */
 	public Grid(final Grid src) {
-		// asserts are techie-only errors, prod handles it.
-		assert src != null;
 		int i;
-		if ( src != null )
-			for ( i=0; i<GRID_SIZE; ++i )
-				this.cells[i] = new Cell(src.cells[i]);
-		else
-			for ( i=0; i<GRID_SIZE; ++i )
-				this.cells[i] = new Cell(i, VALL);
-		// build regions, crossingBoxs, cells.siblings, cells.notSees
-		// , regions.idx, puzzleID
-		initialise();
-		// copy src.regions: ridx, idxs, emptyCellCount, containsValue
-		// overwrites the regions.idxs, but ____ it.
+		// asserts are programmer (java -ea) only. Prod handles a null src, but
+		// this really should NEVER happen, ergo you have done something silly.
+		assert src != null;
 		if ( src != null ) {
-			for ( i=0; i<NUM_REGIONS; ++i )
-				this.regions[i].copyFrom(src.regions[i]);
-			for ( i=1; i<VALUE_CEILING; ++i )
-				this.idxs[i] = new IdxL(src.idxs[i]);
-			if ( src.source != null ) // nullable, apparently
-				this.source = new SourceID(src.source); // SourceID immutable
-			this.numSet = src.numSet;
-			this.totalSize = src.totalSize;
+			i=0; do cells[i] = new Cell(src.cells[i]); while(++i<GRID_SIZE);
+		} else {
+			i=0; do cells[i] = new Cell(i, BITS9); while(++i<GRID_SIZE);
 		}
+		// build regions, cells.siblings, cells.notSees, regions.idx, puzzleID
+		initialise();
+		if ( src != null ) {
+			// copy everything from src
+			i=0; do regions[i].copyFrom(src.regions[i]); while(++i<NUM_REGIONS);
+			i=1; do idxs[i] = new IdxL(src.idxs[i]); while(++i<VALUE_CEILING);
+			if ( src.source != null ) // nullable, apparently
+				source = new SourceID(src.source); // SourceID immutable
+			numSet = src.numSet;
+			numMaybes = src.numMaybes;
+			hintNumber = src.hintNumber;
+		}
+		// grid.puzzleID tells hinters "we have changed puzzles".
+		// this must be the last step in constructor for toString
+		puzzleIdReset();
 	}
 
 	// Constructor assistant: Does NOT rely on state: cells values or maybes.
 	// I just wire up the physical relationships between Grids component parts,
-	// like putting each cell in it's regions, and finding the crossings, and
+	// like putting each cell in its regions, and finding the crossings, and
 	// the "sibling" relationships, and creating indexes. This method is run
 	// ONCE only, when the grid is being constructed.
 	private void initialise() {
 		// populate the grids regions arrays
-		int i, x, y;  Row row;  Col col;
+		int i, v;
 		// boxs first so rows and cols intersectingBoxs exist.
-		for ( i=0; i<REGION_SIZE; ++i )
-			regions[i] = boxs[i] = new Box(i);
-		for ( i=0; i<REGION_SIZE; ++i )
-			regions[i+REGION_SIZE] = rows[i] = new Row(i);
-		for ( i=0; i<REGION_SIZE; ++i )
-			regions[i+FIRST_COL] = cols[i] = new Col(i);
-		// populate the row and col crossingBoxes arrays.
-		// NB: the boxes must pre-exist for us to wire them up.
-		for ( i=0; i<REGION_SIZE; ++i ) {
-			y = (row=rows[i]).vNum * 3; // index of the first box on this row
-			row.crossingBoxs[0] = boxs[y];
-			row.crossingBoxs[1] = boxs[++y];
-			row.crossingBoxs[2] = boxs[++y];
-			x = (col=cols[i]).hNum; // index of the first box in this column
-			col.crossingBoxs[0] = boxs[x];
-			col.crossingBoxs[1] = boxs[x+=3];
-			col.crossingBoxs[2] = boxs[x+3];
-		}
+		i=0; do regions[i] = boxs[i] = new Box(i); while(++i<REGION_SIZE);
+		i=0; do regions[i+REGION_SIZE] = rows[i] = new Row(i); while(++i<REGION_SIZE);
+		i=0; do regions[i+FIRST_COL] = cols[i] = new Col(i); while(++i<REGION_SIZE);
+		// populate grid.ridxs (two for loops, both post tested)
+		i=0; do {v=1; do ridxs[v][i] = regions[i].idxs[v]; while(++v<VALUE_CEILING);} while(++i<NUM_REGIONS);
+		// populate boxs intersectors now that rows and cols are populated.
+		i=0; do boxs[i].initIntersectors(); while(++i<REGION_SIZE);
 		// populate each cells siblings and notSees array
-		for ( final Cell cell : cells ) {
-			// get the siblings
+		for ( final Cell cell : cells )
 			cell.siblings = cell.buds.cellsNew(cells);
-			// populate notSees ONCE, instead of negating it a TRILLION times!
-			fill(cell.sees, false);
-			fill(cell.notSees, true);
-			for ( Cell sib : cell.siblings ) {
-				cell.sees[sib.i] = true;
-				cell.notSees[sib.i] = false;
-			}
-		}
-		// grid.puzzleID tells hinters "we've changed puzzles".
-		pidReset();
-		hintNumberReset();
 	}
 
 	// ------------------------------- plumbing -------------------------------
 
 	/**
-	 * Get "[lineNumber#]fileName" of this puzzles source.
+	 * Get "[lineNumber#]filePath" of this puzzles source.
 	 *
 	 * @return
 	 */
-	public String source() {
+	public String sourceLong() {
 		return source!=null ? source.toString() : "IGNOTO";
+	}
+
+	/**
+	 * Get "[lineNumber#]fileNameOnly" of this puzzles source.
+	 *
+	 * @return
+	 */
+	public String sourceShort() {
+		return source!=null ? source.toStringShort() : "IGNOTO";
 	}
 
 	/**
@@ -978,31 +931,26 @@ public final class Grid {
 	 * @return
 	 */
 	public String hintSource() {
-		return ""+hintNumber+"/"+source();
+		return ""+hintNumber+"/"+sourceLong();
 	}
 
 	/**
-	 * Set this.pid to a random long.
+	 * Set this.puzzleId to a random long.
 	 * @return a random long that serves as this puzzles identity.
 	 */
-	public long pidReset() {
-		return pid = RANDOM.nextLong();
+	public long puzzleIdReset() {
+		return puzzleId = new Random().nextLong();
 	}
 
 	/** The start hint number is 1, hintNumber is 1-based. */
 	public void hintNumberReset() {
 		hintNumber = 1; // the first hint
-		// invalidate my caches
-		emptiesHN = bivsHN = -1;
-	}
-	/** ++hintNumber */
-	public void hintNumberIncrement() {
-		++hintNumber;
+		emptiesHn = bivsHn = -1; // invalidate caches
 	}
 
-	// Logical Solver needs to keep track of whether or it's prepared to solve
+	// Logical Solver needs to keep track of whether or its prepared to solve
 	// this grid, and the easiest way to do that is stick an attribute on the
-	// grid which presumes that it hasn't been prepared yet.
+	// grid which presumes that it has not been prepared yet.
 	public boolean isPrepared() {
 		return isPrepared;
 	}
@@ -1013,22 +961,21 @@ public final class Grid {
 	// -------------------------- demi-constructors ---------------------------
 
 	/**
-	 * Copy the contents of the given 'src' grid into this Grid.
+	 * Copy the contents of the given $src grid into this Grid.
 	 * <p>
 	 * @see #Grid(Grid) the copy constructor.
+	 * <p>
+	 * WARN: Used in BruteForce, so do please be efficient.
 	 *
 	 * @param src Grid
 	 */
 	public void copyFrom(final Grid src) {
 		int i;
-		for ( i=0; i<GRID_SIZE; ++i )
-			cells[i].copyFrom(src.cells[i]);
-		for ( i=0; i<NUM_REGIONS; ++i )
-			regions[i].copyFrom(src.regions[i]);
-		for ( i=1; i<VALUE_CEILING; ++i )
-			idxs[i].setOK(src.idxs[i]);
+		i=0; do cells[i].copyFrom(src.cells[i]); while(++i<GRID_SIZE);
+		i=0; do regions[i].copyFrom(src.regions[i]); while(++i<NUM_REGIONS);
+		i=1; do idxs[i].setOK(src.idxs[i]); while(++i<VALUE_CEILING);
 		numSet = src.numSet;
-		totalSize = src.totalSize;
+		numMaybes = src.numMaybes;
 	}
 
 	/** Copy grid to the O/S clipboard in toString() format, with source. */
@@ -1036,7 +983,7 @@ public final class Grid {
 		String s = this.toString();
 		if ( source!=null && source.file!=null )
 			s += NL + source;
-		GridClipboard.copyTo(s);
+		GridClipboard.copy(s);
 	}
 
 	// ------------------------------ mutators --------------------------------
@@ -1053,7 +1000,7 @@ public final class Grid {
 	 * The test-cases use load because load INTENTIONALLY does <b>NOT</b> call
 	 * {@link #rebuildMaybesAndS__t} to fix invalid maybes; thus each puzzle is
 	 * loaded "as-is" (even broken), but I still {@link #rebuildAllMyOtherS__t}
-	 * because one must have ones s__t together, I just don't ____ with the
+	 * because one must have ones s__t together, I just dont ____ with the
 	 * maybes beforehand.
 	 *
 	 * @param lines expect 1, 2, or 3 lines: 1=values, 2=maybes, 3=SourceID
@@ -1063,37 +1010,39 @@ public final class Grid {
 		// splits on \r\n or \r or \n
 		return load(MyStrings.splitLines(lines));
 	}
+
 	public boolean load(final List<String> lines) {
 		return load(lines.toArray(new String[lines.size()]));
-//		return load(lines.toArray(String[]::new));
 	}
 
 	/**
 	 * Load this grid from these 1, 2 or 3 lines in a {@code String[]}
-	 * containing a puzzle.
-	 * <p>
-	 * If maybes are supplied we load exactly the given puzzle; we don't
-	 * fill in the missing maybes.
-	 * <p>
-	 * Example lines:<br>
+	 * containing a puzzle, maybe some maybes, and a SourceID string.
+	 * <pre>
+	 * <b>Example lines</b>:
 	 * {@code 8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4..
 	 * ,1246,24569,2347,12357,1234,13569,4579,1345679,12459,124,,,12578,1248,1589,45789,14579,1456,,456,348,,1348,,458,13456,123469,,2469,2389,2368,,1689,2489,12469,12369,12368,269,2389,,,,289,1269,24679,2468,24679,,268,2689,5689,,24569,23457,234,,23479,237,2349,359,,,23467,2346,,,2367,23469,39,,2379,23567,,2567,2378,123678,12368,,257,2357
 	 * 1#C:/Users/User/Documents/SudokuPuzzles/Conceptis/TheWorldsHardestSudokuPuzzle.txt}
+	 * </pre>
+	 * Note back-slashes are replaced with slashes because Java hates them.
 	 * <p>
-	 * Note that I've replaced back-slashes with slashes coz Java hates them!
+	 * If the maybes are supplied EXACTLY the given puzzle is loaded; missing
+	 * maybes are NOT corrected, for the test-cases. The Grid must handle an
+	 * invalid puzzle, and aspires to not sending puzzles invalid.
 	 * <p>
-	 * load is used by:<ul>
+	 * The load method is used by:<ul>
 	 * <li>the constructor/s, and
 	 * <li>{@link #copyToClipboard}, and
 	 * <li>{@link diuf.sudoku.gui.GridLoader.MagicTourFormat#load}
-	 * <li>and ALL the JUnit test-cases.
+	 * <li>and lots and lots of JUnit test-cases.
 	 * </ul>
 	 *
 	 * @param lines expect 1, 2, or 3 lines: 1=values, 2=maybes, 3=SourceID
 	 * @return success.
 	 */
 	public boolean load(final String[] lines) {
-		// give up immediately if there's no chance of a sucessful load
+		puzzleId = 0;
+		// give up immediately if there is no chance of a sucessful load
 		if ( lines==null || lines.length==0 )
 			return false; // meaning load failed
 		try {
@@ -1147,16 +1096,23 @@ public final class Grid {
 			rebuildAllRegionsEmptyCellCounts();
 			// rebuild the indexes
 			rebuildIndexes(true);
-			countSetCells(); // sets numSet
-			totalSize(); // sets totalSize
-			// update the puzzleID to say the puzzle has changed
-			pidReset();
+			// calculate numMaybes: total number of maybes in this grid
+			countNumMaybes();
+			// hintNumber is used to determine if caches are dirty
+			countNumSet();
+			// hintNumber is used to determine if caches are dirty
 			hintNumberReset();
+			// puzzleID is used to determine if caches are dirty
+			puzzleIdReset();
+			// reset the regionType for displaying hidden sets.
+			hiddenSetDisplayState.reset();
 			// this Grid has now finished loading
 			isLoaded = true;
+			// cache the solution, now, before user sets any cell values.
+			solution();
 			return true; // meaning load succeeded
 		} catch (Exception ex) {
-			StdErr.whinge("Grid.load critical", ex);
+			StdErr.whinge("WARN: Grid.load critical", ex);
 			isLoaded = true;
 			return false; // meaning load failed
 		}
@@ -1164,11 +1120,14 @@ public final class Grid {
 
 	/**
 	 * Restores this grid from the given String, which is the format produced
-	 * by {@code toString}, including the optional second line of maybes.
-	 * There's no need to restore a grid that's solved. Also note that we only
-	 * restore a grid to toString of itself, so there's no need (AFAIK) to
-	 * change it's id.
-	 * @param s String */
+	 * by {@code toString}, including the optional second line of maybes. We
+	 * restore a grid only from a toString of itself, so his id remains, only
+	 * his maybes and set cells change. I should use a modificationCount, like
+	 * a java.util.Collection, but I do not. Grid.version is the slow process
+	 * of counting the maybes.
+	 *
+	 * @param s String
+	 */
 	public void restore(final String s) {
 		// line 1: 81 cell values ('.' means 0)
 		// optional line 2: comma seperated list of 81 maybes-values-sets
@@ -1193,14 +1152,22 @@ public final class Grid {
 	 * @param backup
 	 */
 	public void restore(final Backup backup) {
+		Cell c, cs[];
+		ARegion r;
 		final int[] vs = backup.values;
 		final int[] ms = backup.maybes;
-		for ( int i=0; i<GRID_SIZE; ++i ) {
-			cells[i].value = vs[i];
-			size[i] = cells[i].size = VSIZE[maybes[i] = cells[i].maybes = ms[i]];
-		}
-		countSetCells(); // sets numSet
-		totalSize(); // sets totalSize
+		int i = 0, ri = 0;
+		do {
+			c = cells[i];
+			c.value = vs[i];
+			sizes[i] = c.size = VSIZE[maybes[i] = c.maybes = ms[i]];
+		} while (++i < GRID_SIZE);
+		do {
+			r = regions[ri];
+			cs = r.cells;
+		} while (++ri < NUM_REGIONS);
+		countNumSet(); // sets numSet
+		countNumMaybes(); // sets numMaybes
 		rebuildAllRegionsEmptyCellCounts();
 		rebuildIndexes(true);
 	}
@@ -1208,11 +1175,10 @@ public final class Grid {
 	// load the given n clues into n cells, where max n is 81.
 	private boolean loadCellValues(final String line) {
 		final int n = MyMath.min(line.length(), GRID_SIZE);
-		for ( int i=0; i<n; ++i ) {
-			final char c = line.charAt(i);
-			if ( c>='1' && c<='9' )
+		char c;
+		for ( int i=0; i<n; ++i )
+			if ( (c=line.charAt(i))>='1' && c<='9' )
 				cells[i].value = c - '0';
-		}
 		return n == GRID_SIZE; // even if line chopped (optimistic)
 	}
 
@@ -1221,32 +1187,22 @@ public final class Grid {
 			cells[i].setMaybes(Values.parse(fields[i++]));
 	}
 
-//KEEP: KRC 2019-09-09: Used to create test cases.
-//	boolean saveInToStringFormatTo(final File file) {
-//		try {
-//			return IO.save(toString(), file);
-//		} catch (IOException ex) {
-//			System.out.println(ex.getClass().getSimpleName()+": "+ex.getMessage());
-//			return false;
-//		}
-//	}
-
 	// -------------------------- Rob the rebuilder ---------------------------
 
 	/**
-	 * rebuild the ____ out of everything (except the Maybes):<ul>
+	 * Rebuild everything, except the Maybes:<ul>
 	 * <li>{@link #rebuildRemoveInvalidMaybes}<ul>
 	 *  <li>{@link Cell#removeFromMySiblingsMaybes}<ul>
 	 *   <li>{@link Cell#canNotBe}<ul>
 	 *    <li>{@link Cell#removeMaybes}<ul>
 	 *     <li>{@link Grid#idxs}[v].{@link IdxL#removeOK}
-	 *     <li>{@link Cell#removeMeFromMyRegionsIdxsOfValue}<ul>
+	 *     <li>{@link Cell#removeMeFromMyRegionsIdxsOf}<ul>
 	 *      <li>{@link ARegion#idxs}[v].{@link Idx#remove} for box/row/col
 	 *     </ul>
-	 *     <li>{@link Cell#removeMeFromMyRegionsIndexesOfValue}<ul>
-	 *      <li>{@link ARegion#ridx}[v].{@link Indexes#remove} for box/row/col
+	 *     <li>{@link Cell#removeMeFromMyRegionsPlacesOf}<ul>
+	 *      <li>{@link ARegion#places}[v].{@link Indexes#remove} for box/row/col
 	 *     </ul>
-	 *     <li>sets {@link Cell#maybes}, {@link Cell#count} and {@link Grid#totalSize}
+	 *     <li>sets {@link Cell#getMaybes}, {@link Cell#count} and {@link Grid#numMaybes}
 	 *    </ul>
 	 *   </ul>
 	 *  </ul>
@@ -1255,24 +1211,28 @@ public final class Grid {
 	 *   <li>{@link ARegion#emptyCellCount}
 	 *   </ul>
 	 *  <li>{@link #rebuildAllRegionsSetCands}<ul>
-	 *   <li>{@link ARegion#setSetCands}
+	 *   <li>{@link ARegion#rebuildSetCands}
 	 *   </ul>
 	 *  </ul>
 	 * </ul>
 	 * <li>{@link #rebuildIndexes}<ul>
 	 *  <li>{@link #rebuildAllRegionsIndexsOfAllValues}<ul>
 	 *   <li>NOT HERE {@link #rebuildAllRegionsSetCands}<ul>
-	 *    <li>{@link ARegion#setSetCands}
+	 *    <li>{@link ARegion#rebuildSetCands}
 	 *    </ul>
-	 *   <li>{@link ARegion#rebuildIndexsOfAllValues}
+	 *   <li>{@link ARegion#rebuildPlacesOfAllValues}
 	 *   </ul>
 	 *  </ul>
 	 * </ul>
 	 * <p>
-	 * 50 lines of documentation for a two line method!<br>
-	 * Now you see why I <b>HATE</b> documentation?<br>
-	 * Q: How long do you think it'll be before it's out of date?<br>
-	 * A: It was out of date BEFORE I'd finished writing it! sigh.
+	 * <pre>
+	 * 50 lines of doco for a two line method!
+	 * You see why I <i>mildly despise</i> doco?
+	 * Q: How long will it take to go out of date?
+	 * A: It went OD while I was writing it!
+	 *    which improved software quality;
+	 *    and thats why do doco Dicko.
+	 * </pre>
 	 */
 	public void rebuild() {
 		rebuildRemoveInvalidMaybes();
@@ -1291,10 +1251,10 @@ public final class Grid {
 	 */
 	public void rebuildMaybes() {
 		for ( Cell cell : cells )
-			if ( cell.value == 0 )
-				cell.setMaybes(VALL & ~cell.seesValues());
-			else
+			if ( cell.value > 0 )
 				cell.clearMaybes();
+			else
+				cell.setMaybes(BITS9 & ~cell.seesValues());
 	}
 
 	/**
@@ -1315,13 +1275,13 @@ public final class Grid {
 	/**
 	 * rebuildRemoveInvalidMaybes does:<ul>
 	 *  <li>foreach cell in {@link Grid#cells}<br>
-	 *   if {@link cell#value} != 0<br>
+	 *   if {@link cell#value} > 0<br>
 	 *   {@link Cell#removeFromMySiblingsMaybes}(cell.value)
 	 * </ul>
 	 */
 	public void rebuildRemoveInvalidMaybes() {
 		for ( final Cell cell : cells )
-			if ( cell.value != 0 )
+			if ( cell.value > 0 )
 				cell.removeFromMySiblingsMaybes(cell.value);
 	}
 
@@ -1331,7 +1291,7 @@ public final class Grid {
 	 *   <li>{@link ARegion#emptyCellCount}
 	 *  </ul>
 	 *  <li>{@link #rebuildAllRegionsSetCands}<ul>
-	 *   <li>{@link ARegion#setSetCands}
+	 *   <li>{@link ARegion#rebuildSetCands}
 	 *  </ul>
 	 * </ul>
 	 */
@@ -1348,86 +1308,65 @@ public final class Grid {
 	 * </ul>
 	 */
 	public void rebuildAllRegionsEmptyCellCounts() {
-		for ( int i=0; i<NUM_REGIONS; ++i )
-			regions[i].emptyCellCount(); // which sets r.emptyCellCount
+		for ( ARegion r : regions )
+			r.emptyCellCount(); // which sets r.emptyCellCount
 	}
 
 	/**
 	 * rebuildAllRegionsSetCands does:<ul>
 	 *  <li>foreach region in {@link Grid#regions}<br>
-	 *   {@link ARegion#setSetCands}
+	 *   rebuild regions setCands and unsetCands
 	 * </ul>
 	 */
 	public void rebuildAllRegionsSetCands() {
-		for ( int i=0; i<NUM_REGIONS; ++i )
-			regions[i].setSetCands();
-	}
-
-	/**
-	 * rebuildAllRegionsIndexsOfAllValues does:<ul>
-	 *  <li>if doContainsValues<br>
-	 *   <li>{@link rebuildAllRegionsContainsValues#rebuildAllRegionsSetCands}
-	 *  <li>foreach region in {@link Grid#regions}<br>
-	 *   <li>{@link ARegion#rebuildIndexsOfAllValues}
-	 * </ul>
-	 * @param doContainsValues
-	 */
-	public void rebuildAllRegionsIndexsOfAllValues(boolean doContainsValues) {
-		// containsValue is used by rebuildIndexsOfAllValues
-		if ( doContainsValues )
-			rebuildAllRegionsSetCands();
-		for ( final ARegion r : regions ) // there are 27 regions
-			r.rebuildIndexsOfAllValues();
-	}
-
-	/**
-	 * rebuildIdxs does:<ul>
-	 *  <li>foreach possible value<br>
-	 *   {@link Grid#idxs}[v].{@link IdxL#clearOK}()
-	 *  <li>foreach cell foreach maybe<br>
-     *   {@link Grid#idxs}[v].{@link IdxL#addOK}(cell.i)
-	 * </ul>
-	 */
-	public void rebuildIdxs() {
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			idxs[v].clearOK();
-		for ( int i=0,m; i<GRID_SIZE; ++i )
-			if ( (m=maybes[i]) != 0 ) // ie cell is not set
-				for ( int v : VALUESES[m] )
-					idxs[v].addOK(i);
-	}
-
-	/**
-	 * rebuildAllRegionsIdxsOfAllValues does:<ul>
-	 *  <li>{@link rebuildIdxs}
-	 *  <li>foreach cell foreach maybe<br>
-	 *   {@link ARegion#rebuildIdxsOfAllValues}
-	 * </ul>
-	 */
-	public void rebuildAllRegionsIdxsOfAllValues() {
-		rebuildIdxs();
-		for ( final ARegion r : regions )
-			r.rebuildIdxsOfAllValues(); // reads idxs
+		for ( ARegion r : regions ) {
+			r.setCands = 0;
+			for ( Cell cell : r.cells )
+				r.setCands |= VSHFT[cell.value];
+			r.unsetCands = BITS9 & ~r.setCands;
+		}
 	}
 
 	/**
 	 * rebuildIndexes does:<ul>
-	 *  <li>{@link #rebuildAllRegionsIndexsOfAllValues(boolean doContainsValues)}
-	 *  <li>{@link #rebuildAllRegionsIdxsOfAllValues}<ul>
-	 *   <li>{@link #rebuildIdxs}<ul>
-	 *    <li>{@link Grid#idxs}[v].{@link IdxL#clearOK()}
-	 *    <li>{@link ARegion#rebuildIdxsOfAllValues}<ul>
-	 *     <li>{@link ARegion#idxs}[v].{@link Idx#setAnd}(idx, {@link Grid#idxs}[v])
-	 *    </ul>
-	 *    <li>{@link Grid#idxs}[v].{@link Idx#addOK}(cell.i)
-	 *   </ul>
-	 *  </ul>
+	 *  <li>if doSetCands then {@link #rebuildAllRegionsSetCands}
+	 *  <li>rebuild all regions places of all values
+	 *  <li>rebuild Grid.idxs of all values
+	 *  <li>rebuild all regions Idxs of all values
 	 * </ul>
-	 * @param doContainsValues should we rebuildAllRegionsSetCands
+	 *
+	 * @param doSetCands should I {@link #rebuildAllRegionsSetCands}
 	 */
-	public void rebuildIndexes(boolean doContainsValues) {
-		rebuildAllRegionsIndexsOfAllValues(doContainsValues);
-		rebuildAllRegionsIdxsOfAllValues(); // does rebuildIdxs
+	public void rebuildIndexes(boolean doSetCands) {
+		int v, sv, i;
+		long m0=0L; int m1=0;
+		// rebuild all regions setCands
+		if ( doSetCands )
+			rebuildAllRegionsSetCands();
+		// rebuild all regions places of all values
+		for ( ARegion r : regions )
+			r.rebuildPlacesOfAllValues();
+		// rebuild grid.idxs of all values
+		for ( v=1; v<VALUE_CEILING; ++v ) {
+			sv = VSHFT[v];
+			i = 0;
+			do
+				// if cell is not set
+				if ( (maybes[i] & sv) > 0 ) // 9bits
+					m0 |= MASKED81[i];
+			while (++i < FIFTY_FOUR);
+			do
+				// if cell is not set
+				if ( (maybes[i] & sv) > 0 ) // 9bits
+					m1 |= MASKED[i];
+			while (++i < GRID_SIZE);
+			idxs[v].setOK(m0, m1);
+			m0 = m1 = 0;
+		}
+		// rebuild all regions idxs of all values
+		for ( final ARegion r : regions )
+			for ( v=1; v<VALUE_CEILING; ++v )
+				r.idxs[v].setAnd(r.idx, idxs[v]);
 	}
 
 	/**
@@ -1444,6 +1383,29 @@ public final class Grid {
 	public void cancelMaybes() {
 		for ( final Cell cell : cells )
 			cell.cancelMaybes();
+	}
+
+	/**
+	 * Used by {@link diuf.sudoku.gen.Generator} before solving the puzzle.
+	 *
+	 * @return
+	 */
+	public Grid prep() {
+		rebuildMaybesAndS__t();
+		rebuildIndexes(false);
+		return this;
+	}
+
+	/**
+	 * I rip-out any wrong cell values as part of the GUIs lastDitchRebuild.
+	 */
+	public void rebuildRemoveWrongCellValues() {
+		final int[] solution = solution();
+		if ( solution == null )
+			throw new IllegalStateException("No Solution!");
+		for ( Cell cell : cells )
+			if ( cell.value!=0 && cell.value!=solution[cell.indice] )
+				cell.value = 0;
 	}
 
 	// ------------------------- the invalidated zone -------------------------
@@ -1465,10 +1427,10 @@ public final class Grid {
 	 * <p>
 	 * Note that invalidity and invalidRegion are cleared each time this method
 	 * executes, creating an inherent race-condition. This will work so long as
-	 * we're single-threaded and the invalidity field is read BEFORE my next
-	 * execution, but if you're calling me from multiple threads on a single
+	 * we are single-threaded and the invalidity field is read BEFORE my next
+	 * execution, but if you are calling me from multiple threads on a single
 	 * Grid instance then you will need a new Invalidity class to hold the two
-	 * fields (renamed message and region), and I will return null meaning it's
+	 * fields (renamed message and region), and I will return null meaning its
 	 * all good, else a new instance of our new Invalidity class.
 	 *
 	 * @return true if this grid is invalid, else false.
@@ -1477,63 +1439,64 @@ public final class Grid {
 		invalidity = null;
 		invalidRegion = null;
 		return hasMissingMaybes()
-			|| firstDoubledValue() != 0
+			|| firstDoubledValue() > 0
 			|| hasHomelessValues();
 	}
 
 	/**
-	 * hasMissingMaybes returns true if any unset cell in this grid has no
-	 * potential values remaining, else false.
+	 * returns true if any unset cell in this grid has no potential values
+	 * remaining, else false. If the grid is invalid then the invalidity field
+	 * is set.
 	 *
-	 * @return Returns true, and set the invalidity message, if an empty cell
-	 * has no potential values, else return false.
+	 * @return does any empty cell have no potential values.
 	 */
 	public boolean hasMissingMaybes() {
-		for ( final Cell cell : cells )
-			if ( cell.value==0 && cell.size==0 ) {
-				invalidity = cell.id+" has no macs remaining";
+		for ( final Cell c : cells )
+			if ( c.value==0 && c.size==0 ) {
+				invalidity = c.id+" has no macs remaining";
 				return true;
 			}
 		return false;
 	}
 
 	/**
-	 * firstDoubledValue returns the first cell.value which appears twice in
-	 * any region in this grid, else 0 meaning none.
+	 * returns the first cell.value which appears twice in any region in this
+	 * grid, else 0 meaning none. If the grid is invalid then the invalidity
+	 * and invalidRegion fields are set. Note that there (silently) may be
+	 * multiple repeated values in the grid, this finds just the first one.
 	 *
 	 * @return 0 (valid) else (invalid) the first cell-value that appears
-	 *  multiple times in any region in this grid, setting invalidity and
-	 *  invalidRegion. Note that there (silently) may be multiple repeated
-	 *  values, and there may be other regions having multiple values.
+	 *  multiple times in any region in this grid.
 	 */
 	public int firstDoubledValue() {
-		for ( final ARegion region : regions ) {
-			int seen = 0;
-			for ( final Cell cell : region.cells )
-				if ( cell.value != 0 )
-					if ( (seen & VSHFT[cell.value]) == 0 )
-						seen |= VSHFT[cell.value];
+		int seen;
+		for ( final ARegion r : regions ) {
+			seen = 0;
+			for ( final Cell c : r.cells )
+				if ( c.value > 0 )
+					if ( (seen & VSHFT[c.value]) == 0 )
+						seen |= VSHFT[c.value];
 					else {
-						invalidity = "Multiple "+cell.value+"'s in "+region;
-						invalidRegion = region;
-						return cell.value;
+						invalidity = "Multiple "+c.value+"s in "+r;
+						invalidRegion = r;
+						return c.value;
 					}
 		}
 		return 0;
 	}
 
 	/**
-	 * hasHomelessValues returns true if any region in this grid has no place
-	 * remaining for any unplaced value, else false.
+	 * returns true if any region in this grid has no place remaining for any
+	 * unplaced value, else false. If the grid is invalid then both the
+	 * invalidity and invalidRegion fields are set.
 	 *
-	 * @return true if any unplaced value has no place remaining in any region,
-	 * and sets the invalidity message and invalidRegion.
+	 * @return does any unplaced value have no place remaining in any region.
 	 */
 	public boolean hasHomelessValues() {
 		for ( final ARegion r : regions )
 			for ( int v=1; v<VALUE_CEILING; ++v )
-				if ( r.ridx[v].size==0 && (r.setCands & VSHFT[v])==0 ) {
-					invalidity = "The value "+v+" has no place in "+r.id;
+				if ( r.places[v]==0 && (r.setCands & VSHFT[v])==0 ) {
+					invalidity = "The value "+v+" has no place in "+r.label;
 					invalidRegion = r;
 					return true;
 				}
@@ -1553,165 +1516,101 @@ public final class Grid {
 	}
 
 	/**
-	 * Get Cell[]'s for ids, for the test-cases.
+	 * Get Cell[]s for ids, for the test-cases.
 	 * <p>
-	 * Prefer getCSV, which accepts toString format. I'm here if you've already
-	 * got an array of id's.
+	 * Prefer getCSV, which accepts toString format. I am here if you have
+	 * already got an array of IDs.
 	 * <p>
-	 * I create a new {@code Cell[]} which is a bit slow Redge. It's under the
-	 * bonnet son.
+	 * I create a new {@code Cell[]} which is a bit slow. One MUST avoid the
+	 * creation of garbage insides ones tight loops, and in Java this sort of
+	 * secret-factory method a GREAT place to hide garbage construction, so we
+	 * do not; we call toArray toArrayNew, for example.
 	 * <p>
 	 * This method is ONLY used in test-cases.
 	 *
-	 * @param ids varargs of cell.id's: "A1", "I9"
+	 * @param ids varargs of cell.ids: "A1", "I9"
 	 * @return Cell[]
 	 */
-	public Cell[] get(final String[] ids) {
+	public Cell[] getNew(final String[] ids) {
 		final int n = ids.length;
 		final Cell[] result = new Cell[n];
-		for ( int i=0; i<n; ++i )
+		for ( int i=0; i<n; ++i ) {
 			result[i] = get(ids[i]);
+		}
 		return result;
 	}
 
 	/**
-	 * Get Cell[]'s for this CSV list of cell.id, for test-cases.
+	 * Get Cell[]s for this CSV list of cell.id, for test-cases.
 	 * <p>
 	 * This method is ONLY used in test-cases.
 	 *
-	 * @param csv of cell.id's: "A1, I9"
+	 * @param csv of cell.ids: "A1, I9"
 	 * @return Cell[]
 	 */
 	public Cell[] getCsv(final String csv) {
-		return get(csv.split(" *, *"));
+		return getNew(csv.split(" *, *"));
 	}
 
 	/**
-	 * Get a set of cells from CSV of cell-ids. Only used by test-cases.
+	 * Returns a new int-array containing the indices of the cells in grid that
+	 * match the filter $f.
+	 * <p>
+	 * Used in {@link diuf.sudoku.solver.hinters.wing.XYWing#findHints }
 	 *
-	 * @param idsCsv CSV of cell-ids
-	 * @return a new {@code MyLinkedHashSet<Cell>}
+	 * @param filter whose accepted cells are added
+	 * @return a new int[numAccepted]
 	 */
-	public MyLinkedHashSet<Cell> getCsvSet(final String idsCsv) {
-		return new MyLinkedHashSet<>(getCsv(idsCsv));
+	public int[] indicesNew(final IFilter<Cell> filter) {
+		// first count accepted cells, coz we need size to construct the array
+		int count=0, i=0;
+		do
+			if ( filter.accept(cells[i]) )
+				++count;
+		while (++i < GRID_SIZE);
+		if ( count < 1 )
+			return THE_EMPTY_INT_ARRAY;
+		final int[] array = new int[count];
+		// populate the array with accepted cells
+		count = i = 0;
+		do
+			if ( filter.accept(cells[i]) )
+				array[count++] = i;
+		while (++i < GRID_SIZE);
+		return array;
 	}
 
-	// WARN: cellsNew was called just "cells" but that breaks the javadoc coz
-	// there's already an array field called "cells" and the javadoc compiler
-	// prefers the method to the field. Just something to be aware of.
 	/**
-	 * Returns a new array of the cells at the given indices.
+	 * Return numSet = the number of set cells
 	 *
-	 * @param indices to fetch
-	 * @return a new Cell[] of cells at indices
-	 */
-	public Cell[] cellsNew(final int[] indices) {
-		final int n = indices.length;
-		final Cell[] result = new Cell[n];
-		for ( int i=0; i<n; ++i )
-			result[i] = cells[indices[i]];
-		return result;
-	}
-
-	/**
-	 * Returns the number of cells in grid that match the filter 'f'.
-	 *
-	 * @param f the filter whose accept'd cells are counted
-	 * @return the number of matching cells
-	 */
-	public int count(final IFilter<Cell> f) {
-		int n = 0;
-		for ( Cell c : cells )
-			if ( f.accept(c) )
-				++n;
-		return n;
-	}
-
-	/**
-	 * Populates result with indices of the cells in grid that match the filter
-	 * 'f', and returns how many. Hammer me with a fixed-size array.
-	 *
-	 * @param f the filter whose accepted cells are added
-	 * @param result array to populate
-	 * @return the number of matching cells
-	 */
-	public int indices(final IFilter<Cell> f, final int[] result) {
-		int cnt = 0;
-		for ( int i=0; i<GRID_SIZE; ++i )
-			if ( f.accept(cells[i]) )
-				result[cnt++] = i;
-		return cnt;
-	}
-
-	/**
-	 * Returns a Lease whose array contains the indices of the cells in grid
-	 * that match the filter 'f'. The Lease is Closeable, so "use" it like a
-	 * Reader.
-	 *
-	 * @param f the filter whose accepted cells are added
-	 * @return the number of matching cells
-	 */
-	public IALease indicesLease(final IFilter<Cell> f) {
-		final int n = count(f);
-		final IALease result = iaLease(n);
-		indices(f, result.array);
-		return result;
-	}
-
-	/**
-	 * Currently only used for logging, to monitor progress.
 	 * @return Count the number of cells with value!=0
 	 */
-	public int countSetCells() {
-		int cnt = 0;
-		for ( int i=0; i<GRID_SIZE; ++i )
-			if ( cells[i].value != 0 )
-				++cnt;
-		return numSet = cnt;
+	public int countNumSet() {
+		int count = 0, i = 0;
+		do
+			if ( cells[i].value > 0 )
+				++count;
+		while (++i < GRID_SIZE);
+		return numSet = count;
 	}
 
 	/**
 	 * Currently only used to log "has grid changed" after hint applied.
 	 * @return Count the total number of maybes of all cells in this grid.
 	 */
-	public int totalSize() {
-		int sum = 0;
-		for ( int i=0; i<GRID_SIZE; ++i )
-			sum += cells[i].size;
-		return totalSize = sum;
-	}
-
-	/**
-	 * Count the number of occurrences of each cell value in this grid.
-	 * <p>
-	 * Currently only used by the Fisherman to workout whether or not we should
-	 * be fishing for each value.
-	 * @return int[VALUE_CEILING] occurrences.
-	 */
-	public int[] countOccurances() {
-		final int[] result = new int[VALUE_CEILING];
-		for ( final Cell cell : cells )
-			++result[cell.value];
-		return result;
+	int countNumMaybes() {
+		int sum=0, i=0; do sum += sizes[i]; while(++i<GRID_SIZE);
+		return numMaybes = sum;
 	}
 
 	// ---------------------------- IS_HACKY stuff ----------------------------
 
 	/**
-	 * hackTop1465() is a HACK controller: It returns: is Settings.isHacky and
-	 * the grid.source (ie the file we're processing) startsWith "top1465".
-	 * @return isHacky && source.filename startsWith top1465
-	 */
-	public boolean hackTop1465() {
-		return THE_SETTINGS.getBoolean(Settings.isHacky)
-			&& source != null
-			&& source.isTop1465;
-	}
-
-	/**
-	 * Get a {@code Deque<Single>} to stash singles.
+	 * Get THE {@code Deque<Single>} in which you stash the singles (cells with
+	 * one possible value or a single place in one of its three regions, ergo
+	 * a Naked or Hidden Single).
 	 *
-	 * @return a queue for stashing singles
+	 * @return THE queue for stashing singles
 	 */
 	public Deque<Single> getSinglesQueue() {
 		if ( singlesQueue == null )
@@ -1719,43 +1618,34 @@ public final class Grid {
 		singlesQueue.clear();
 		return singlesQueue;
 	}
-	private Deque<Single> singlesQueue;
 
-	// --------------------------- toString and s__t --------------------------
+	// ------------------------- toString and friends -------------------------
 
-	// ---------------- toString and friends ----------------
-
-	// append cell values to 'sb' (with '.' as 0)
+	// append cell values to $sb (with '.' as 0)
 	private StringBuilder appendCellValues(final StringBuilder sb) {
-		for ( final Cell cell : cells )
-			if ( cell != null ) // just in case we're still initialising
+		if ( cells[80] != null ) // not under construction
+			for ( final Cell cell : cells )
 				sb.append(DIGITS[cell.value]);
 		return sb;
 	}
 
-	// append string-value of 'maybes' to 'sb'
-	private static void appendMaybes(final StringBuilder sb, final int maybes) {
-		for ( int v : VALUESES[maybes] )
-			sb.append(DIGITS[v]);
-	}
-
 	/**
 	 * @return a String representation of the values in this grid, being a
-	 * single line of 81 cell values, with 0's (empty cells) represented by a
+	 * single line of 81 cell values, with 0s (empty cells) represented by a
 	 * period character (.).
 	 * <p>For example:<pre>
 	 * 1...9..3...2..3.5.7..8.......3..7...9.........48...6...2..........14..79...7.68..
 	 * </pre>
 	 */
 	public String toShortString() {
-		return appendCellValues(new StringBuilder(GRID_SIZE)).toString();
+		return appendCellValues(SB(128)).toString();
 	}
 
 	/**
 	 * Returns a String representation of this Grid.
 	 * <p>
-	 * This String is only-sort-of human readable. It's primary focus is
-	 * technical. It probably shouldn't be displayed to non-expert users.
+	 * This String is sort-of human readable: its primary focus is technical.
+	 * It should be kept away from GUI users/programmers. Kick!
 	 * <p>
 	 * EXAMPLE:<pre>
 	 * 1...9..3...2..3.5.7..8.......3..7...9.........48...6...2..........14..79...7.68..
@@ -1775,17 +1665,15 @@ public final class Grid {
 	 */
 	@Override
 	public String toString() {
-		if ( cells[0] == null ) // under construction
+		if ( cells[80] == null ) // under construction
 			return "constructing";
 		if ( numSet > 80 ) // grid full
 			return toShortString();
-		// append the maybes to the same SB used by toShortString
-		// max observed 447 (conceptis's hardest Sudoku puzzle);
-		final StringBuilder sb = new StringBuilder(512);
+		final StringBuilder sb = SB(512); // max observed 447
 		appendCellValues(sb).append(NL);
-		appendMaybes(sb, maybes[0]);
-		for ( int i=1; i<GRID_SIZE; ++i )
-			appendMaybes(sb.append(','), maybes[i]);
+		// append the maybes
+		sb.append(MAYBES[maybes[0]]);
+		int i=1; do sb.append(',').append(MAYBES[maybes[i]]); while(++i<GRID_SIZE);
 		return sb.toString();
 	}
 
@@ -1794,21 +1682,32 @@ public final class Grid {
 	/**
 	 * Compare two grids for equality on cell values and maybes. O(81).
 	 *
-	 * @param o Object - for other
-	 * @return true if this Grid contains the same values and maybes as 'o',
-	 *  else false.
+	 * @param o o is for other. He Did It!
+	 * @return do I have the same values and maybes as the other guy
 	 */
 	@Override
 	public boolean equals(Object o) {
 		return o!=null && (o instanceof Grid) && equals((Grid)o);
 	}
-	// WARNING: presumes the other Grid is NOT null, for speed!
+
+	/**
+	 * Does each cell in this Grid, be it set (value) or empty (maybes),
+	 * equals each cell in other Grid.
+	 * <p>
+	 * <b>WARNING</b>: presumes the other Grid is NOT null, for speed!
+	 *
+	 * @param other to compare
+	 * @return are all cell values/maybes equal
+	 */
 	public boolean equals(final Grid other) {
-		final Cell[] otherCells = other.cells;
-		for ( int i=0; i<GRID_SIZE; ++i )
-			if ( cells[i].value != otherCells[i].value
-			  || cells[i].maybes != otherCells[i].maybes )
+		final Cell[] him = other.cells;
+		final Cell[] me = this.cells;
+		int i = 0;
+		do
+			if ( me[i].value != him[i].value
+			  || me[i].maybes != him[i].maybes )
 				return false;
+		while (++i<GRID_SIZE);
 		return true;
 	}
 
@@ -1820,8 +1719,8 @@ public final class Grid {
 	 * hashCode.
 	 * <p>
 	 * NB: This hashCode relies on mutable values, which is a bad idea, but we
-	 * never mutate a Grid that is used as Hash-keys, so there is no problem.
-	 * In fact I can't think of anything that uses a Grid as a hash-key!
+	 * never mutate a Grid used as a hashKeys, so no problem. I dont think Grid
+	 * is used as a key, only a value.
 	 *
 	 * @return the hashCode of this Grid.
 	 */
@@ -1835,57 +1734,7 @@ public final class Grid {
 		return hc;
 	}
 
-	// ------------------------- Ayla the arrayonator -------------------------
-
-	/**
-	 * If you don't know what you're doing then don't use this method.
-	 * If you need to use this method anyway then good luck.
-	 * You MUST finally disarrayonateMaybes.
-	 * Used by Aligned2Exclusion and Aligned3Exclusion.
-	 * <p>
-	 * <b>WARNING:</b> The shiftedMaybes array is <b>NOT</b> maintained!
-	 * Create, use, and <b>finally</b> disarrayonateMaybes!
-	 * <p>
-	 * Note that now, no arrays are created, just wired-up.
-	 */
-	public void arrayonateShiftedMaybes() {
-		for ( Cell cell : cells )
-			cell.arrayonateShiftedMaybes();
-	}
-
-	// used by Aligned2Exclusion, Aligned3Exclusion, Aligned4Exclusion.
-	public void disarrayonateMaybes() {
-		for ( Cell cell : cells )
-			cell.disarrayonateMaybes();
-	}
-
-	/**
-	 * Used only in assert, to check grid.maybes equals cell.maybes.
-	 * There seems to be differences when there should be none.
-	 *
-	 * @return do grid.maybes equals the cell.maybes.
-	 */
-	public boolean maybesCheck() {
-		for ( int i=0; i<GRID_SIZE; ++i )
-			if ( maybes[i] != cells[i].maybes )
-				return false;
-		return true;
-	}
-
-	/**
-	 * Used only in assert, to check grid.size equals cell.size.
-	 * There seems to be differences when there should be none.
-	 *
-	 * @return do grid.size equals the cell.size.
-	 */
-	public boolean sizeCheck() {
-		for ( int i=0; i<GRID_SIZE; ++i )
-			if ( size[i] != cells[i].size )
-				return false;
-		return true;
-	}
-
-	// -------------------------------- Idx's ---------------------------------
+	// -------------------------------- Idxs ---------------------------------
 	// NB: My at methods have been replaced by Idx.cells methods.
 
 	/**
@@ -1893,105 +1742,113 @@ public final class Grid {
 	 * @return a CACHED Idx of all empty cells in this grid.
 	 */
 	public Idx getEmpties() {
-		if ( emptiesIdx == null ) // first time for this Grid
-			return emptiesIdx = fetchEmpties(new IdxL());
-		if ( emptiesHN != hintNumber || emptiesPid != pid )
-			return fetchEmpties(emptiesIdx.unlock().clear());
-		return emptiesIdx;
+		if ( empties == null ) // first time for this Grid
+			return empties = fetchEmpties(new IdxL()).lock();
+		if ( emptiesHn!=hintNumber || emptiesPid!=puzzleId )
+			return fetchEmpties(empties.unlock().clearMe()).lock();
+		return empties;
 	}
-	private IdxL fetchEmpties(final IdxL emptiesIdx) {
-		for ( Cell c : cells )
-			if ( c.value == 0 )
-				emptiesIdx.addOnly(c.i);
-		emptiesHN = hintNumber;
-		emptiesPid = pid;
-		return emptiesIdx.lock();
+	private IdxL fetchEmpties(final IdxL idx) {
+		emptiesHn = hintNumber;
+		emptiesPid = puzzleId;
+		long m0=0L; int m1=0, i;
+		// the first 54 go in m0
+		for ( i=0; i<FIFTY_FOUR; ++i )
+			if ( maybes[i] > 0 )
+				m0 |= MASKED81[i];
+		// the last 27 go in m1
+		for ( ; i<GRID_SIZE; ++i )
+			if ( maybes[i] > 0 )
+				m1 |= MASKED[i];
+		return idx.set(m0, m1);
 	}
-	private IdxL emptiesIdx;
-	private int emptiesHN;
-	private long emptiesPid;
-
-	public static final IFilter<Cell> BIV_FILTER = (c) -> c.size==2;
 
 	/**
 	 * Get an Idx of cells in this grid with maybesSize == 2.
 	 *
-	 * @return a LOCKED CACHED Idx of bivalue cells in this grid.
+	 * @return a locked cached Idx of bivalue cells in this grid.
 	 */
 	public IdxL getBivalue() {
 		if ( bivs == null ) {
-			bivs = new IdxL().read(cells, BIV_FILTER).lock();
-			bivsHN = hintNumber;
-			bivsPid = pid;
-		} else if ( bivsHN!=hintNumber || bivsPid!=pid ) {
-			bivs.unlock().clear().read(cells, BIV_FILTER).lock();
-			bivsHN = hintNumber;
-			bivsPid = pid;
+			bivs = new IdxL().read(cells, (c) -> c.size==2).lock();
+			bivsHn = hintNumber;
+			bivsPid = puzzleId;
+		} else if ( bivsHn!=hintNumber || bivsPid!=puzzleId ) {
+			bivs.unlock().clearMe().read(cells, (c) -> c.size==2).lock();
+			bivsHn = hintNumber;
+			bivsPid = puzzleId;
 		}
 		return bivs;
 	}
-	private IdxL bivs; // indices of bivalue cells in this grid (locked)
-	private int bivsHN;
-	private long bivsPid;
+	/**
+	 * if force is true then {@link #getBivalue()} ALWAYS reinitialises; else
+	 * bivs are cached until the grid.hintNumber changes (as per normal).
+	 *
+	 * @param isFetchForced true forces getBivalue to re-fetch? This caters for
+	 *  generate (et al) where the bivalue cells are dirty, because the grid
+	 *  has changed underneath us
+	 * @return {@code getBivalue()}
+	 */
+	public IdxL getBivalue(final boolean isFetchForced) {
+		if ( isFetchForced )
+			bivsHn = -1; // impossible
+		return getBivalue();
+	}
 
 	/**
 	 * Get an IdxL per value of all cells that are "biplaced", ie there are two
 	 * places for this value in a region. So an IdxL contains indices of cells,
-	 * each of which is biplaced in ANY of it's three regions.
+	 * each of which is biplaced in ANY of its three regions.
 	 *
 	 * @return a CACHED IdxL[] of biplaced regions by value.
 	 */
 	public IdxL[] getBiplaces() {
 		if ( bips == null ) {
 			bips = new IdxL[VALUE_CEILING];
-			for ( int v=1; v<10; ++v )
-				bips[v] = new IdxL(); // observed 24
-			return fetchBiplaces();
-		} else if ( bipsHN!=hintNumber || bipsPid!=pid ) {
-			// clearing should be unnecessary, but it's MUCH cleaner
+			for ( int v=1; v<VALUE_CEILING; ++v )
+				bips[v] = new IdxL();
+			fetchBiplaces();
+		} else if ( bipsHn!=hintNumber || bipsPid!=puzzleId ) {
+			// clearing should be unnecessary, but its MUCH cleaner
 			for ( int v=1; v<10; ++v )
 				bips[v].unlock().clear();
-			return fetchBiplaces();
+			fetchBiplaces();
 		}
 		return bips;
 	}
-	private IdxL[] fetchBiplaces() {
-		Indexes[] ridx;
-		int v;
+	private void fetchBiplaces() {
 		for ( ARegion r : regions )
-			for ( ridx=r.ridx,v=1; v<VALUE_CEILING; ++v )
-				if ( ridx[v].size == 2 )
+			for ( int v : VALUESES[r.unsetCands] )
+				if ( r.numPlaces[v] == 2 )
 					bips[v].or(r.idxs[v]);
-		bipsHN = hintNumber;
-		bipsPid = pid;
-		for ( v=1; v<VALUE_CEILING; ++v )
+		bipsHn = hintNumber;
+		bipsPid = puzzleId;
+		for ( int v=1; v<VALUE_CEILING; ++v )
 			bips[v].lock();
-		return bips;
 	}
-	// bivalue regions by value
-	private IdxL[] bips;
-	private int bipsHN;
-	private long bipsPid;
+
+	/**
+	 * Populate the given array with the value of each Cell in this Grid.
+	 *
+	 * @param result the array to populate
+	 * @return the given values array, so that you can create it on-the-fly.
+	 */
+	public int[] getValues(final int[] result) {
+		final Cell[] mine = this.cells;
+		int i = 0;
+		do
+			result[i] = mine[i].value;
+		while (++i < GRID_SIZE);
+		return result;
+	}
 
 	/**
 	 * Returns a new array of the value of each of the 81 cells in this Grid.
 	 *
 	 * @return a new int[GRID_SIZE] of cell values
 	 */
-	public int[] values() {
-		return values(new int[GRID_SIZE]);
-	}
-
-	/**
-	 * Populate the given array with the value of each Cell in this Grid.
-	 *
-	 * @param values the array to populate
-	 * @return the given values array, so that you can create it on-the-fly.
-	 */
-	public int[] values(final int[] values) {
-		for ( int i=0; i<GRID_SIZE; ++i )
-			values[i] = cells[i].value;
-		return values;
+	public int[] getValues() {
+		return getValues(new int[GRID_SIZE]);
 	}
 
 	/**
@@ -2000,24 +1857,12 @@ public final class Grid {
 	 * @param result the array to populate
 	 * @return the passed maybes array, so that you can create it on-the-fly.
 	 */
-	public int[] maybes(final int[] result) {
-		for ( int i=0; i<GRID_SIZE; ++i )
+	public int[] getMaybes(final int[] result) {
+		int i = 0;
+		do
 			result[i] = maybes[i];
+		while (++i < GRID_SIZE);
 		return result;
-	}
-
-	/**
-	 * Repopulate 'result' with the maybes of cells at 'indices'.
-	 *
-	 * @param indices of cells to read
-	 * @param result to repopulate
-	 * @return how many (ie indices.length, incase indices is generated OTF)
-	 */
-	public int maybes(final int[] indices, final int[] result) {
-		int cnt = 0;
-		for ( int i : indices )
-			result[cnt++] = maybes[i];
-		return cnt;
 	}
 
 	/**
@@ -2031,10 +1876,10 @@ public final class Grid {
 	public Pots getCandidatePots(final int value) {
 		final Pots result = new Pots(64, 1.0F);
 		final int sv = VSHFT[value];
-		final Integer integer = sv;
+		final Integer shiftedValue = sv;
 		for ( int i=0; i<GRID_SIZE; ++i )
-			if ( (maybes[i] & sv) != 0 )
-				result.put(cells[i], integer);
+			if ( (maybes[i] & sv) > 0 ) // 9bits
+				result.put(i, shiftedValue);
 		return result;
 	}
 
@@ -2046,7 +1891,7 @@ public final class Grid {
 	 * If $size in 1..5 highlight cells with maybesSize == $size.
 	 * If $size in 6..8 highlight cells with maybesSize in 2..$size-3
 	 *                  so 6=2..3, 7=2..4, 8=2..5.
-	 * If $size == 9 then you're a cheating mofo!
+	 * If $size == 9 then you are a cheating mofo!
 	 * </pre>
 	 *
 	 * @param size the number of maybes in cells to highlight: 1..5 is exact,
@@ -2059,73 +1904,182 @@ public final class Grid {
 			// cells with size == $size
 			for ( Cell cell : cells )
 				if ( cell.size == size )
-					result.put(cell, cell.maybes);
+					result.put(cell.indice, cell.maybes);
 		} else if ( size < 9 ) {
 			// cells with size in 2..$size-2 EXCLUSIVE
 			final int ceiling = size - 2; // 6=4, 7=5, 8=6
 			for ( Cell cell : cells )
 				if ( cell.size>1 && cell.size<ceiling )
-					result.put(cell, cell.maybes);
+					result.put(cell.indice, cell.maybes);
 		} else {
-			// size == 9: you're a cheating mofo!
-			getSolution();
-			if ( solution != null ) // ignore Exception
+			// size == 9
+			final int[] sol = solution();
+			if ( sol != null ) // ignore Exception
 				for ( Cell cell : cells )
 					if ( cell.value == 0 )
-						result.put(cell, VSHFT[solution[cell.i]]);
+						result.put(cell.indice, VSHFT[sol[cell.indice]]);
 		}
 		return result;
 	}
 
 	/**
-	 * Get a cached array containing the correct value of each cell in this
+	 * Returns a Pots containing both Naked and Hidden Singles.
+	 *
+	 * @return a Pots containing any Naked and Hidden Singles.
+	 */
+	public Pots getSinglesPots() {
+		final Pots result = new Pots(64, 1.0F);
+		// Naked Singles
+		for ( Cell c : cells )
+			if ( c.size == 1 )
+				result.put(c.indice, c.maybes);
+		// Hidden Singles
+		for ( ARegion r : regions )
+			for ( int v : VALUESES[r.unsetCands] )
+				if ( r.numPlaces[v] == 1 )
+					result.put(r.indices[IFIRST[r.places[v]]], VSHFT[v]);
+		return result;
+	}
+
+	/**
+	 * returns boxs for $regionType=0, rows for 1, cols for 2.
+	 *
+	 * @param regionType 0=BOX, 1=ROW, 2=COL
+	 * @return regions in this grid of the given type.
+	 */
+	private ARegion[] getRegionsByType(final int regionType) {
+		switch ( regionType ) {
+		case BOX: return boxs;
+		case ROW: return rows;
+		case COL: return cols;
+		default: throw new IllegalArgumentException("Unknown regionType: "+ regionType);
+		}
+	}
+
+	/**
+	 * return a new Pots containing cells/values in regions of $regionType
+	 * (BOX, ROW, or COL) having 2..$maxSize places for values 1..9.
+	 *
+	 * @param maxSize int 2, 3, or 4 please, else behaviour is undefined.
+	 * @param regionType int; either boxs, rows, or cols.
+	 * @return some Pots.
+	 */
+	public Pots getHiddenSets(final int maxSize, final int regionType) {
+		final Pots result = new Pots(64, 1.0F);
+		for ( ARegion r : getRegionsByType(regionType) )
+			for ( int v=1; v<10; ++v )
+				if ( r.numPlaces[v] > 1 && r.numPlaces[v] <= maxSize )
+					for ( int i : INDEXES[r.places[v]] )
+						result.upsert(r.indices[i], VSHFT[v], false);
+		return result;
+	}
+
+	/**
+	 * Store $regions with 2 places for $v in the $pairs array, returning how
+	 * many.
+	 * <p>
+	 * Note that pairs is static. You pass me in my own rows or cols field as
+	 * regions. I collect regions having two places for $v. Well, actually I
+	 * collect the two cells that are the two places for $v, not the regions,
+	 * but brains aren't compilers, and its short, hence meaningful. TLDR has
+	 * overtaken Cornflakes adds as the leading cause of stupidity. One should
+	 * learn the advertisers language, so thine mite render thou asses funny.
+	 * They are DEFINTELY my elderberries you numpty! Malfoy ducks. Petunia was
+	 * pleased.
+	 *
+	 * @param regions grid.rows/grid.cols
+	 * @param v current potential value 1..9
+	 * @param pairs array to add pairs to [howeverMany][2], 20 should do
+	 * @return how many
+	 */
+	public static int pairs(final ARegion[] regions, final int v, final Cell[][] pairs) {
+		int numPairs = 0;
+		for ( ARegion r : regions )
+			if ( r.numPlaces[v] == 2 ) {
+				pairs[numPairs][0] = r.cells[INDEXES[r.places[v]][0]];
+				pairs[numPairs][1] = r.cells[INDEXES[r.places[v]][1]];
+				++numPairs;
+			}
+		return numPairs;
+	}
+
+	/**
+	 * Fetch a cached array containing the correct value of each cell in this
 	 * grid.
 	 *
 	 * @return the solution array of 81 correct cell values.
 	 */
-	public int[] getSolution() {
-		if ( solution == null ) // a hint has not been gotten yet
+	public int[] solution() {
+		// NOTE: BruteForce.solve now tries first with logic and
+		// upon failure without logic, for speed AND reliability.
+		if ( solution==null && numSolutionFailures<5 )
 			try {
-				// getSolution sets solutionValues as a by-product
-				LogicalSolverFactory.get().getSolution(this);
-			} catch (Exception eaten) {
-				// Do nothing
+				solution = LogicalSolverFactory.get().solve(this).getValues();
+			} catch (Exception ex) {
+				++numSolutionFailures;
+				Log.whinge("WARN: "+Log.me()+" failure "+numSolutionFailures, ex);
+				if ( numSolutionFailures > 6 )
+					throw ex;
 			}
 		return solution;
 	}
+	private int numSolutionFailures;
 
 	/**
 	 * Returns a new {@code Set<Cell>} containing cells which have the wrong
-	 * value, ie where the set value does not match the calculated solution.
+	 * value, ie where the cells value does not match the solution; else null
+	 * meaning that there are no wrongens (cells with wrong values). No Warnies
+	 * where harmed in the making of this software, just mildly peeved is all.
 	 *
-	 * @return a {@code Set<Cell>} containing cells with bad values, else null
-	 *  meaning that there are no cells with bad values.
+	 * @return a {@code Set<Cell>} containing cells with incorrect values, else
+	 *  null meaning that there are no incorrect with bad values.
 	 */
-	public Set<Cell> getWrongens() {
-		getSolution(); // cached
-		Set<Cell> wrongens = null;
-		if ( solution != null ) // ignore getSolution failed
-			for ( final Cell cell : cells )
-				if ( cell.value!=0 && cell.value!=solution[cell.i] ) {
-					if ( wrongens == null)
-						wrongens = new HashSet<>();
-					wrongens.add(cell);
-				}
-		return wrongens;
+	public Set<Integer> getWrongens() {
+		Set<Integer> result = null;
+		final int[] sol = solution();
+		if ( sol == null )
+			return result; // ignore solution() failure
+		for ( Cell c : cells )
+			if ( c.value>0 && c.value!=sol[c.indice] ) {
+				if(result == null) result = new HashSet<>();
+				result.add(c.indice);
+			}
+		return result;
+	}
+
+	/**
+	 * Return the region for this id.
+	 *
+	 * @param rid The region.id, eg "box 1" or "col H" or "row 9"
+	 * @return the region with this id
+	 */
+	public ARegion region(final String rid) {
+		return regions[ID_SCHEME.regionIndex(rid)];
+	}
+
+	/**
+	 * Get an array of regions from CSV (Comma Separated Values) of names.
+	 * <p>
+	 * Note that this method is used extensively in the test-cases, so any
+	 * problems here causes LOTS of test-cases to fail.
+	 *
+	 * @param csv Comma Separated Values of region.ids
+	 * @return
+	 */
+	public ARegion[] regions(final String csv) {
+		final String[] fields = csv.split(" *, *"); // region.ids
+		final int n = fields.length;
+		final ARegion[] result = new ARegion[n];
+		for ( int i=0; i<n; ++i )
+			result[i] = region(fields[i]);
+		return result;
 	}
 
 	// ============================ the Cell class ===========================
 
 	/**
-	 * Compares Cells by id ASCENDING.
-	 * For test-cases only.
-	 */
-	public final static Comparator<Cell> BY_ID = (final Cell a, final Cell b) ->
-			a.id.compareTo(b.id);
-
-	/**
 	 * The public inner Cell class represents one of the 81 cells in a Sudoku
-	 * Grid. It's reason for being is to remember stuff, not really do stuff.
+	 * Grid. Its purpose is to remember stuff, not really do stuff.
 	 * <p>
 	 * A Cell holds:<ul>
 	 * <li>i is my index in the Grid.cells array
@@ -2136,17 +2090,8 @@ public final class Grid {
 	 * <li>x is my (horizontal) coordinate in the Grid.matrix
 	 * <li>boxIndex and b: I am {@code grid.boxs[boxIndex].cells[b]}
 	 * <li>b is my index in my box.cells array = {@code (y%3*3) + (x%3)}
-	 * <li>idxdex is the index of my element in the idx array.<br>
-	 *  so: {@code idxdex = i/7}<br>
-	 *  see: shft field (below) for more info.
-	 * <li>shft The left-shifted bitset value of (my i modulo 7) to fit in my
-	 *  idx array element.<br>
-	 *  so: {@code shft = 1<<(i%7);}<br>
-	 *  eg: {@code idx[cell.idxdex] |= cell.shft;} // add cell to idx fast<br>
-	 *  ie: {@code idx[cell.i/7] |= 1<<(cell.i%7); // add cell to idx}
 	 * <li>regions is my Box, my Row, and my Col
 	 * <li>hashCode is {@code = y<<4 + x} so I can be a HashMap key
-	 * <li>skip is used to prevent useless/erroneous assumptions in Chainer
 	 * <li>{@code public int[] maybesArray;} is the potential values of this
 	 * cell. Populated by arrayonateShiftedMaybes() and weweased with
 	 * disarrayonateMaybes(). The array is <b>NOT maintained</b>!
@@ -2155,31 +2100,29 @@ public final class Grid {
 	 * {@code HashMap<String,Object>} (or whatever) and attach it here.
 	 * Also please document it right here!
 	 * </ul>
-	 * So my primary role is to "remember stuff", and my secondary role is to
-	 * help autosolve Sudoku puzzles when {@code isAutosoving = true}.
-	 * I also maintain my Regions {@code ridx[value]} to expedite many of
-	 * the hinters. I've accrued a lot of methods over time, especially for a
-	 * class that "doesn't really do stuff". Don't panic.
+	 * So Grids primary role is to remember stuff to help solve Sudoku puzzles.
+	 * I have accrued lots of methods over time, typical for a class that does
+	 * not actually do anything. Dont panic, yet.
 	 */
 	public final class Cell implements Comparable<Cell> {
 
 		/**
-		 * i is my indice in the grid.cells array, a single index array that is
-		 * used to hold a matrix of cells: 9 rows of 9 cells.
+		 * indice in the grid.cells array, a single index array that holds a
+		 * matrix of cells: 9 rows of 9 cells.
 		 * <pre>
 		 * So: {@code i = y * 9 + x}
 		 * and: {@code y = i / 9} where y is my vertical (row) index
 		 * and: {@code x = i % 9} and x is my horizontal (col) index
-		 * NOTE: In Sudoku Explainer the term "indice" always means a cells
-		 * index in Grid.cells, to differentiate it from all other indexes in
-		 * the codebase, because indices are used heavily, so they're special.
+		 * NOTE: In SE "indice" always means a cells index in grid.cells,
+		 * to differentiate this from all other indexes in the codebase,
+		 * because indices are used heavily, so they are special.
 		 * </pre>
 		 */
-		public final int i;
+		public final int indice;
 
 		/**
 		 * id is a String that uniquely identifies this Cell in the Grid.
-		 * In IdScheme.Chess that's column-letter and row-number: A1..I9.
+		 * In IdScheme.Chess thats column-letter and row-number: A1..I9.
 		 */
 		public final String id;
 
@@ -2199,113 +2142,53 @@ public final class Grid {
 		public int size;
 
 		/**
-		 * boxIndex and b: I am {@code grid.boxs[boxIndex].cells[b]}. <br>
-		 * so: {@code boxIndex = (y/3*3) + (x/3)}
-		 * <p>
-		 * NOTE: The grid.boxs array is coincident with the first 9 elements in
-		 * the grid.regions array. The boxs array is of type Grid.Box, where-as
-		 * the regions array is of Grid.ARegion; Box has a few fields, like
-		 * this one, that are not in ARegion because they're not relevant to
-		 * Row or Col.
-		 */
-		public final int boxIndex;
-
-		/**
-		 * boxIndex and b: I am {@code grid.boxs[boxIndex].cells[b]}. <br>
+		 * I am {@code this.box.cells[b]}. <br>
 		 * so: {@code b = (y%3*3) + (x%3)}
 		 */
 		public final int b;
 
 		/**
-		 * y is my vertical (first) index in the cells matrix. <br>
-		 * also my index in my col.cells array.
+		 * y is my vertical index in my col.
 		 * <p>
-		 * x,y verses row,col where x=col and row=y: There's only 2 possible
-		 * orders, and we habitually use both of them, ergo just shoot me!
+		 * x,y verses row,col where x=col and row=y: There are 2 orders, so we
+		 * use both of them. Houston We Have A Problem. Succinctly, ____wits!
 		 */
 		public final int y;
 
 		/**
-		 * x is my horizontal (second) index in the cells matrix. <br>
-		 * also my index in my row.cells array.
+		 * x is my horizontal index in my row.
 		 * <p>
-		 * x,y verses row,col where x=col and row=y: There's only 2 possible
-		 * orders, and we habitually use both of them, ergo just shoot me!
+		 * x,y verses row,col where x=col and row=y: There are 2 orders, so we
+		 * use both of them. Houston We Have A Problem. Succinctly, ____wits!
 		 */
 		public final int x;
 
 		/**
-		 * indexIn contains my index in my regions cells array (not to be
-		 * confused with my indice in my regions idx, which I've just done).
+		 * The Box which contains this Cell.
 		 */
-		public final int[] indexIn = new int[3];
+		public Box box; // set by Box constructor
 
 		/**
-		 * My idxdex is the index of my element in the idx array.
-		 * <pre>
-		 * so: {@code idxdex = i/27}
-		 * </pre>
-		 * see: shft field for more info.
+		 * The Row which contains this Cell.
 		 */
-		public final int idxdex; // 0..2
+		public Row row; // set by Row constructor
 
 		/**
-		 * My idxshft is the left-shifted bitset-value of my index within my
-		 * idx array element.
-		 * <pre>
-		 * so:{@code idxshft = 1<<(i%27);}
-		 * so: Cell c is present in Idx idx{@code if ( (idx[c.idxdex] & c.idxshft) != 0 )}
-		 * these two example lines of "user code" contrast before and after:
-		 * was:{@code idx[c.i/27] |= 1<<(c.i%27); // add cell to idx}
-		 * now:{@code idx[c.idxdex] |= c.idxshft; // add cell faster}
-		 * idxdex and idxshft are used only by LinkedMatrixCellSet.idx() that's
-		 * hammered by Aligned*Exclusion, saving 28 secs in A234E per top1465.
-		 * To be clear, idxdex and idxshft exist only for speed, because it is
-		 * faster to calculate these values ONCE and store them, than it is to
-		 * recalculate these values trillions of times.
-		 * </pre>
+		 * The Col which contains this Cell.
 		 */
-		public final int idxshft;
+		public Col col; // set by Col constructor
 
 		/**
-		 * the 3 regions which contain this Cell: 0=box, 1=row, 2=col.
-		 */
-		public final ARegion[] regions = new ARegion[3]; // set by Grid constructor
-
-		/**
-		 * skip prevents useless assumptions being made in chaining.
-		 */
-		public boolean skip;
-
-		/**
-		 * This one's weird: arrayonateShiftedMaybes() populates shiftedMaybes
+		 * This one is weird: arrayonateShiftedMaybes() populates shiftedMaybes
 		 * with the left-shifted-bitset-values of this cells maybes.
 		 * See {@link Values} regarding the bitset format.
 		 */
 		public int[] shiftedMaybes;
 
 		/**
-		 * notSees boolean[]: Does this Cell NOT see the given Cell?
-		 * Coincident with Grid.cells.
-		 * <p>
-		 * RE the not: In Aligned*Exclusion we must act if this cell is NOT a
-		 * sibling of other cell; so rather than negate repeatedly with
-		 * {@code boolean ns01 = !c0.sees[i1]} we {@code c0.notSees[i1];}
-		 * just to save a poofteenth of a nanosecond per flip, which add-up
-		 * over top1465. Doing ANYthing a squintillion times takes a while.
-		 */
-		public final boolean[] notSees = new boolean[GRID_SIZE];
-
-		/**
-		 * sees boolean[]: Does this Cell see the given Cell?
-		 * Coincident with Grid.cells.
-		 */
-		public final boolean[] sees = new boolean[GRID_SIZE];
-
-		/**
-		 * The indices of the 20 cells in same box, row, and col as this Cell,
-		 * excepting this cell itself. Note that {@link Grid#BUDDIES} contains
-		 * the same Idx's, to save you getting the cell to get it's buds.
+		 * An Idx of the 20 cells in same box, row, and col as this Cell,
+		 * except this cell itself. Note that {@link Grid#BUDDIES} contains
+		 * the same Idxs, to save you getting the cell to get its buddies.
 		 */
 		public final IdxL buds; // set in constructor
 
@@ -2315,38 +2198,48 @@ public final class Grid {
 		public Cell[] siblings;
 
 		/**
-		 * {@code public Map<String,Object> properties = null;} gives you a
-		 * way to add any additional properties you require. Create a
-		 * {@code new HashMap<String,Object>(8, 0.75F)} and attach it here.
+		 * The 3 regions which contain this Cell: 0=box, 1=row, 2=col.
 		 * <p>
-		 * Please document your properties <b>here</b> as well as where you're
-		 * using them.
+		 * Unusually, regions is populated by the Box/Row/Col constructors, and
+		 * not by the Cell itself.
 		 */
-		public Map<String,Object> properties = null;
+		public final ARegion[] regions = new ARegion[3];
 
-		// NB: If it were possible these would be final, but either the cells
-		// or the regions must be created first and I've chosen cells first.
 		/**
-		 * The Box which contains this Cell.
+		 * Region Indexes BitSet of this cell. 27bits containing the indexes of
+		 * the box, row, and col that contain this cell. These indexes are
+		 * indexes in Grid.regions. Boxes are first 9bits, rows second 9bits,
+		 * and cols third 9bits. If you need to you can demangle this number
+		 * back into the indexes using Indexes.INDEXES on a shifted and masked
+		 * bitset: {@code INDEXES[cell.ribs>>18 & ALL_INDEXES_BITS]} gets you
+		 * the indexes in Grid.cols of this cells col, ergo cell.x.
+		 * <p>
+		 * What I do with these bitsets is look for distinctness in:
+		 * {@link diuf.sudoku.solver.hinters.urt.URT#isLoop}, and
+		 * {@link Regions#commonRibs(diuf.sudoku.Pots)}, and
+		 * {@link diuf.sudoku.solver.hinters.chain.ChainerUnary#cycleHint}
 		 */
-		public Box box;
+		public final int ribs;
+
 		/**
-		 * The Row which contains this Cell.
+		 * My index in the cells array of my Box, Row, and Col.
 		 */
-		public Row row;
+		public final int[] placeIn;
+
 		/**
-		 * The Col which contains this Cell.
+		 * sees boolean[]: Does this Cell see the given Cell?
+		 * Coincident with Grid.cells.
 		 */
-		public Col col;
+		public final boolean[] sees;
 
 		/**
 		 * Construct a new Cell in this grid.
 		 * <b>NOTE</b> the parameters are "logical" x, y (not "physical" y, x).
 		 * <b>NOTE</b> each cell has an intrinsic reference to its containing
 		 * grid, whether you like it or not, so a reference to a Cell holds the
-		 * whole Grid, so clean-up after yourself, or you'll OOME-out. Sigh.
+		 * whole Grid, so dont litter.
 		 *
-		 * @param i the indice of this cell the grid.cells array; <br>
+		 * @param indice the index this cell the grid.cells array; <br>
 		 *  so my y coordinate (row) is i/9, <br>
 		 *  and my x coordinate (col) is i%9, <br>
 		 *  so I am grid.cells[y*9 + x], <br>
@@ -2355,33 +2248,31 @@ public final class Grid {
 		 *  For an empty grid pass me VALL=511="111111111"="123456789". <br>
 		 *  For the copy constructor pass me the source-cells maybes.
 		 */
-		public Cell(final int i, final int cands) {
+		public Cell(final int indice, final int cands) {
 			// set the id first, for the toString method (a cheat)
-			this.id = CELL_IDS[this.i = i];
+			this.id = CELL_IDS[this.indice = indice];
 			// y is my vertical (row) coordinate (0=top, 8=bottom),
-			// nb: my indexIn[COL] is my row coordinate!
-			this.y = this.indexIn[COL] = i / N;
+			this.y = indice / N;
 			// x is my horizontal (col) coordinate (0=left, 8=right),
-			// nb: my indexIn[ROW] is my col coordinate!
-			this.x = this.indexIn[ROW] = i % N;
+			this.x = indice % N;
 			// b is my index in my box.cells (0=top-left, 8=bottom-right)
-			this.b = this.indexIn[BOX] = (y%R*R) + (x%R);
-			// boxIndex is my boxs index in the Grid.boxs array, so I will be
-			// boxs[boxIndex].cells[b] once regions are created (chicken/egg).
-			this.boxIndex = (y/R*R) + (x/R);
-
-			// super-charge LinkedMatrixCellSet.idx() with:
-			//     a[n.cell.idxdex] |= n.cell.shft; // add n.cell.i to idx
-			// coz it's faster than calculating idxdex and idxshft repeatedly
-			this.idxdex = i/BITS_PER_ELEMENT;
-			this.idxshft = 1<<(i%BITS_PER_ELEMENT);
-
-			totalSize += size = VSIZE[maybes = cands];
-			Grid.this.size[i] = size;
-			Grid.this.maybes[i] = maybes;
-			// FINALLY set buds for the toString method (a cheat).
+			this.b = (y%R*R) + (x%R);
+			// my place in my box, row, col; as a places bitset (pre-shifted)
+			this.placeIn = new int[] {
+					  ISHFT[this.b]		// BOX
+					, ISHFT[this.x]		// ROW
+					, ISHFT[this.y]		// COL
+			};
+			this.ribs = RIBS[indice];
+			numMaybes += size = VSIZE[maybes = cands];
+			Grid.this.sizes[indice] = size;
+			Grid.this.maybes[indice] = cands;
+			// get an array of cells that I see (same box/row/col)
+			this.sees = SEES[indice];
+			// FINALLY set buds for the Cell.toString method (a cheat).
 			// To be clear, this MUST be the last constructor instruction.
-			this.buds = Grid.BUDDIES[i];
+			// If you must move it then rejig the Cell.toString cheat.
+			this.buds = BUDDIES[indice];
 		}
 
 		/**
@@ -2390,20 +2281,32 @@ public final class Grid {
 		 * @param src the cell to copy.
 		 */
 		public Cell(final Cell src) {
-			this(src.i, src.maybes);
+			this(src.indice, src.maybes);
 			this.value = src.value;
 		}
 
 		/**
-		 * Copy the cell-value and maybes from the 'src' cell.
+		 * Copy the cell-value and maybes from the $src cell.
 		 *
 		 * @param src the cell to copy.
 		 */
 		public void copyFrom(final Cell src) {
 			value = src.value;
-			Grid.this.maybes[i] = maybes = src.maybes;
-			Grid.this.size[i] = size = src.size;
+			Grid.this.maybes[indice] = maybes = src.maybes;
+			Grid.this.sizes[indice] = size = src.size;
 		}
+
+//KEEP4DOC: only place we do this interesting math.
+//		/**
+//		 * boxIndex is my boxs index in the Grid.boxs array, hence invariant:
+//		 * {@code assert cell = Grid.boxs[cell.boxIndex()].cells[cell.b];}
+//		 *
+//		 * @return the Grid.boxs index of this.box, ergo this.box.index, which
+//		 *  is faster, because it need not do the math.
+//		 */
+//		public int boxIndex() {
+//			return (y/R*R) + (x/R);
+//		}
 
 		/**
 		 * In Grid.load, having set all values, we clean-up the maybes.
@@ -2415,7 +2318,7 @@ public final class Grid {
 		 * it is necessary after loading into a previously-used grid.
 		 */
 		private void initMaybes() {
-			setMaybes(value==0 ? VALL : 0);
+			setMaybes(value==0 ? BITS9 : 0);
 		}
 
 		/**
@@ -2425,159 +2328,131 @@ public final class Grid {
 		 */
 		private void setMaybes(final int cands) {
 			// out with the old, and in with the new
-			totalSize += -size + (size=VSIZE[maybes=cands]);
-			Grid.this.maybes[i] = maybes;
-			Grid.this.size[i] = size;
+			Grid.this.numMaybes += -size + (size=VSIZE[maybes=cands]);
+			Grid.this.maybes[indice] = maybes;
+			Grid.this.sizes[indice] = size;
 		}
 
 		/**
-		 * Remove me (this Cell) from my box.idxs[v], row.idxs[v], and
-		 * col.idxs[v].
+		 * Remove pinkos from this cells box/row/col places and numPlaces.
+		 * <p>
+		 * I am package visible for the test-cases. Sigh.
+		 * <p>
+		 * 2023-06-05: ONLY used in test-cases, to set-up grid, hence retained.
 		 *
-		 * @param v
+		 * @param pinkos a bitset of the potential values to be removed
 		 */
-		private void removeMeFromMyRegionsIdxsOfValue(final int v) {
-			box.idxs[v].remove(i);
-			row.idxs[v].remove(i);
-			col.idxs[v].remove(i);
+		void removeMeFromMyRegionsPlacesOfCands(final int pinkos) {
+			for ( int v : VALUESES[pinkos] ) {
+				// remove me from my regions placesOf
+				box.numPlaces[v] = ISIZE[box.places[v] &= ~ISHFT[b]];
+				row.numPlaces[v] = ISIZE[row.places[v] &= ~ISHFT[x]];
+				col.numPlaces[v] = ISIZE[col.places[v] &= ~ISHFT[y]];
+			}
 		}
 
 		/**
-		 * Remove all of the cands from this cells box, row, and col idxs.
-		 *
-		 * @param cands
-		 */
-		void removeMeFromMyRegionsIdxsOfBits(final int cands) {
-			for ( int v : VALUESES[cands] )
-				removeMeFromMyRegionsIdxsOfValue(v);
-		}
-
-		/**
-		 * Remove me (this Cell) from my box.ridx[v], row.ridx[v], and
-		 * col.ridx[v].
-		 *
-		 * @param v
-		 */
-		private void removeMeFromMyRegionsIndexesOfValue(final int v) {
-			box.ridx[v].remove(b);
-			row.ridx[v].remove(x);
-			col.ridx[v].remove(y);
-		}
-
-		/**
-		 * Remove all of the cands from this cells box, row, and col ridx.
-		 *
-		 * @param pinkos
-		 */
-		void removeMeFromMyRegionsIndexesOfBits(final int pinkos) {
-			for ( int v : VALUESES[pinkos] )
-				removeMeFromMyRegionsIndexesOfValue(v);
-		}
-
-		/**
-		 * Remove all of the pinkos from this cells box, row, and col ridx,
+		 * Remove all of the pinkos from this cells box, row, and col places,
 		 * adding any subsequent hidden singles to the singles queue, from
 		 * whence {@link AHint#applyImpl} retrieves and sets each cell.
 		 *
-		 * @param pinkos bitset of values to be removed
-		 * @param singles to which I add any hidden singles found
+		 * @param pinkos a bitset of values to be removed
+		 * @param singles Queue to which I add any hidden singles I find
 		 */
-		private void removeMeFromMyRegionsIndexesOfBits(final int pinkos, final Deque<Single> singles) {
+		private void removeMeFromMyRegionsPlacesOfCands(final int pinkos, final Deque<Single> singles) {
 			for ( int v : VALUESES[pinkos] ) {
-				if ( box.ridx[v].remove(b) == 1 )
-					singles.add(new Single(box.cells[IFIRST[box.ridx[v].bits]], v));
-				if ( row.ridx[v].remove(x) == 1 )
-					singles.add(new Single(row.cells[IFIRST[row.ridx[v].bits]], v));
-				if ( col.ridx[v].remove(y) == 1 )
-					singles.add(new Single(col.cells[IFIRST[col.ridx[v].bits]], v));
+				if ( (box.numPlaces[v]=ISIZE[box.places[v] &= ~ISHFT[b]]) == 1 )
+					singles.add(new Single(box.indices[IFIRST[box.places[v]]], v));
+				if ( (row.numPlaces[v]=ISIZE[row.places[v] &= ~ISHFT[x]]) == 1 )
+					singles.add(new Single(row.indices[IFIRST[row.places[v]]], v));
+				if ( (col.numPlaces[v]=ISIZE[col.places[v] &= ~ISHFT[y]]) == 1 )
+					singles.add(new Single(col.indices[IFIRST[col.places[v]]], v));
 			}
 		}
 
 		/**
-		 * Remove cands from this cells maybes, and update {@link #count} and
-		 * the {@link Grid#totalSize}; and indexes {@link Grid#idxs},
-		 * {@link ARegion#ridx}, and {@link ARegion#idxs}.
+		 * Remove pinkos from this cells maybes,
+		 * updating {@link #count},
+		 * {@link Grid#maybes},
+		 * {@link Grid#sizes},
+		 * {@link Grid#numMaybes},
+		 * {@link Grid#idxs},
+		 * {@link ARegion#getMaybes},
+		 * {@link ARegion#places},
+		 * {@link ARegion#numPlaces},
+		 * {@link #getMaybes},
+		 * {@link #size},
+		 * and {@link ARegion#idxs}.
 		 *
-		 * @param cands to be removed
+		 * @param pinkos a bitset of values to be removed
 		 * @return the updated size
 		 */
-		private int removeMaybes(final int cands) {
-			final int removed = cands & maybes;
-			if ( removed != 0 ) {
-				for ( int v : VALUESES[removed] ) {
-					idxs[v].removeOK(i);
-					removeMeFromMyRegionsIdxsOfValue(v);
-					removeMeFromMyRegionsIndexesOfValue(v);
-				}
-				size = VSIZE[maybes &= ~removed];
-				totalSize -= VSIZE[removed];
-				Grid.this.maybes[i] = maybes;
-				Grid.this.size[i] = size;
-			}
-			return size;
+		public int removeMaybes(final int pinkos) {
+			int v, values[]=VALUESES[pinkos], n=values.length, i=0;
+			do {
+				v = values[i];
+				idxs[v].removeOK(indice);
+				// remove me from my regions idxs
+				box.idxs[v].remove(indice);
+				row.idxs[v].remove(indice);
+				col.idxs[v].remove(indice);
+				// remove me from my regions places
+				box.numPlaces[v] = ISIZE[box.places[v] &= ~ISHFT[b]];
+				row.numPlaces[v] = ISIZE[row.places[v] &= ~ISHFT[x]];
+				col.numPlaces[v] = ISIZE[col.places[v] &= ~ISHFT[y]];
+			} while(++i < n);
+			numMaybes -= VSIZE[pinkos];
+			Grid.this.maybes[indice] = maybes &= ~pinkos;
+			return sizes[indice] = size = VSIZE[maybes];
 		}
 
 		/**
-		 * Add me (this Cell) back into the idxs[v] of my box, row, and col.
+		 * Add cands to this cells maybes, updating stuff.
 		 *
-		 * @param v
-		 */
-		public void addMeToMyRegionsIdxsOfValue(final int v) {
-			box.idxs[v].add(i);
-			row.idxs[v].add(i);
-			col.idxs[v].add(i);
-		}
-
-		/**
-		 * Add me (this Cell) back into the ridx[v] of my box, row, and col.
-		 *
-		 * @param v
-		 */
-		private void addMeToMyRegionsIndexesOfValue(final int v) {
-			box.ridx[v].add(b);
-			row.ridx[v].add(x);
-			col.ridx[v].add(y);
-		}
-
-		/**
-		 * Add cands to this cells maybes, and update {@link #count} and
-		 * the {@link Grid#totalSize}; and indexes {@link Grid#idxs},
-		 * {@link ARegion#ridx}, and {@link ARegion#idxs}.
+		 * @see #removeMaybes(int)
 		 *
 		 * @param cands to be added
 		 * @return the updated size
 		 */
 		private int addMaybes(final int cands) {
 			final int added = cands & ~maybes;
-			if ( added != 0 ) {
-				for ( int v : VALUESES[added]) {
-					idxs[v].addOK(i);
-					addMeToMyRegionsIdxsOfValue(v);
-					addMeToMyRegionsIndexesOfValue(v);
-				}
+			if ( added > 0 ) {
+				int v, values[]=VALUESES[added], n=values.length, i=0;
+				do {
+					v = values[i];
+					idxs[v].addOK(indice);
+					// add me to my regions idxs
+					box.idxs[v].add(indice);
+					row.idxs[v].add(indice);
+					col.idxs[v].add(indice);
+					// add me to my regions places
+					box.numPlaces[v] = ISIZE[box.places[v] |= ISHFT[b]];
+					row.numPlaces[v] = ISIZE[row.places[v] |= ISHFT[x]];
+					col.numPlaces[v] = ISIZE[col.places[v] |= ISHFT[y]];
+				} while(++i < n);
 				size = VSIZE[maybes |= added];
-				totalSize += VSIZE[added];
-				Grid.this.maybes[i] = maybes;
-				Grid.this.size[i] = size;
+				numMaybes += VSIZE[added];
+				// set the grids maybes
+				Grid.this.maybes[indice] = maybes;
+				Grid.this.sizes[indice] = size;
 			}
 			return size;
 		}
 
 		/**
 		 * Remove all of the existing maybes from this cell.
-		 *
-		 * @return
 		 */
-		public int clearMaybes() {
-			return removeMaybes(maybes);
+		public void clearMaybes() {
+			if ( maybes > 0 )
+				removeMaybes(maybes);
 		}
 
 		/**
-		 * Set this cells value to 0 (empty), and fill it's maybes.
+		 * Set this cells value to 0 (empty), and fill its maybes.
 		 */
 		private void clear() {
 			value = 0;
-			setMaybes(VALL);
+			setMaybes(BITS9);
 		}
 
 		/**
@@ -2585,7 +2460,7 @@ public final class Grid {
 		 * complications: no formerValue, no autosolve, and no SB; which works
 		 * out to be bugger-all faster (sigh), but it is (arguably) simpler.
 		 * <p>
-		 * If you're reverting a cells value in the GUI then it's up to YOU to
+		 * If you are reverting a cells value in the GUI then its up to YOU to
 		 * call the full set method (below): this one will bugger it up!
 		 *
 		 * @param value the cells value to be set.
@@ -2593,11 +2468,11 @@ public final class Grid {
 		 */
 		public int set(final int value) {
 			// this set method is a pencil, not a rubber
-			assert value != 0;
-			if ( value == 0 )
+			assert value > 0;
+			if ( value < 1 )
 				return 0; // ignore
 			// cell.value is a WORM (Write ONCE Read Many)
-			if ( this.value != 0 ) {
+			if ( this.value > 0 ) {
 				// but apply multiple hints can set a cell multiple times
 				if ( value == this.value )
 					return 0; // ignore
@@ -2609,8 +2484,7 @@ public final class Grid {
 			clearMaybes();
 			removeFromMySiblingsMaybes(value);
 			decrementMyRegionsEmptyCellCounts();
-			addValueToMyRegionsContainsValues(value);
-			skip = false;
+			updateMyRegionsSetAndUnsetCands(VSHFT[value]);
 			return 1;
 		}
 
@@ -2620,12 +2494,12 @@ public final class Grid {
 		 * each of my three regions possible positions of my potential values.
 		 *
 		 * @param value to set.
-		 * @param formerValue just pass me the cell.value and don't worry, this
-		 *  won't hurt!
+		 * @param formerValue just pass me the cell.value and dont worry, this
+		 *  wont hurt!
 		 * @param isAutosolving should subsequent naked and hidden singles be
 		 *  sought and set?
 		 * @param sb nullable StringBuilder to which (when not null) I append
-		 *  an "and therefore list", being any Naked/Hidden Singles that're set
+		 *  an "and therefore list", being any Naked/Hidden Singles thatre set
 		 *  as a subsequence of setting the given cell value.
 		 *  Currently not-null only in HintsApplicumulator.
 		 * @return the number of cells actually set. 1 normally, or 0 if this
@@ -2634,7 +2508,7 @@ public final class Grid {
 		public int set(final int value, final int formerValue
 				, final boolean isAutosolving, final StringBuilder sb) {
 			if ( value==this.value && size==0 ) {
-				if ( maybes != 0 ) {
+				if ( maybes > 0 ) { // 9bits
 					clearMaybes();
 					rebuild();
 				}
@@ -2642,7 +2516,10 @@ public final class Grid {
 			}
 			this.value = value;
 			clearMaybes();
-			if ( value == 0 ) { // the user cleared a cell in the GUI
+			if ( value == 0 ) {
+				// NOTE WELL: cells are cleared only in the GUI. I considered
+				// clearing cells in BruteForce and eventually decided against
+				// coz its easier to reset EVERYthing by restoring a Backup.
 				assert !isAutosolving;
 				addMeBackIntoMySiblingsMaybes(formerValue);
 				resetMaybes();
@@ -2650,11 +2527,10 @@ public final class Grid {
 			} else {
 				removeFromMySiblingsMaybes(value);
 				decrementMyRegionsEmptyCellCounts();
-				addValueToMyRegionsContainsValues(value);
+				updateMyRegionsSetAndUnsetCands(VSHFT[value]);
 				++numSet;
 			}
-			skip = false; // Chains: I am NOT an unapplied naked/hidden single
-			// we're done if we're not autosolving
+			// we are done if we are not autosolving
 			int count = 1; // 1 for me
 			// Autosolve: Seek and set any consequent singles.
 			if ( isAutosolving ) {
@@ -2663,11 +2539,11 @@ public final class Grid {
 				boolean ok = true; // avoid continue!
 				for ( ARegion r : regions ) {
 					// look for any subsequent naked singles
-					for ( j=0; j<REGION_SIZE; ++j ) {
+					for ( j=0; j<REGION_SIZE; ++j )
 						if ( r.cells[j].size == 1 ) {
 							if ( (v=VFIRST[(sib=r.cells[j]).maybes]) < 1 ) {
 								// Never happens
-								Log.teeln(Log.me()+": Nargle S__t!");
+								Log.teeln("WARN: "+Log.me()+": Nargle Snot!");
 								sib.clearMaybes();
 								ok = false;
 							}
@@ -2677,14 +2553,13 @@ public final class Grid {
 								count += sib.set(v, 0, true, sb);
 							} else ok = true;
 						}
-					}
 					// look for any subsequent hidden singles
-					for ( v=1; v<VALUE_CEILING; ++v ) {
-						if ( r.ridx[v].size == 1 ) {
-							if ( (first=IFIRST[r.ridx[v].bits]) < 0 ) {
+					for ( v=1; v<VALUE_CEILING; ++v )
+						if ( r.numPlaces[v] == 1 ) {
+							if ( (first=IFIRST[r.places[v]]) < 0 ) {
 								// Never happens
-								Log.teeln(Log.me()+": Hyena S__t!");
-								r.ridx[v].clear();
+								Log.teeln("WARN: "+Log.me()+": Hyena Snot!");
+								r.numPlaces[v] = r.places[v] = 0;
 								ok = false;
 							}
 							if ( ok ) {
@@ -2693,29 +2568,13 @@ public final class Grid {
 										sb.append(CSP).append(sib.id).append(EQUALS).append(v);
 									count += sib.set(v, 0, true, sb);
 								}
-							} else ok = true;
+							} else
+								ok = true;
 						}
-					}
 				}
 			}
 			return count;
 		}
-
-//debug: dump this cells three regions ridx ALL values to stdout
-//		void dumpRIVs() {
-//			final StringBuilder sb = new StringBuilder(128);
-//			String s;
-//			for ( final ARegion r : Cell.this.regions ) {
-//				sb.setLength(0);
-//				sb.append(r.id);
-//				for ( int v=1; v<VALUE_CEILING; ++v ) {
-//					s = r.ridx[v].toString();
-//					s += "         ".substring(0, VALUE_CEILING-s.length());
-//					sb.append(TAB).append(v).append(EQUALS).append(s);
-//				}
-//				System.out.println(sb);
-//			}
-//		}
 
 		/**
 		 * This set method is used by SudokuExplainer (the engine) to set the
@@ -2727,13 +2586,13 @@ public final class Grid {
 		 * @return the number of cells set (no autosolve, so always 1 here).
 		 */
 		public int setManually(final int value, final int formerValue) {
-			set(value, formerValue, Grid.NO_AUTOSOLVE, null);
+			set(value, formerValue, NO_AUTOSOLVE, null);
 			return 1;
 		}
 
 		/** Called ONLY by {@link Grid#cancelMaybes}. */
 		private void cancelMaybes() {
-			if ( value != 0 ) {
+			if ( value > 0 ) {
 				clearMaybes();
 				removeFromMySiblingsMaybes(value);
 			}
@@ -2749,8 +2608,8 @@ public final class Grid {
 				throw new UnsolvableException(Log.me()+": v=0");
 			final int sv = VSHFT[v];
 			for ( Cell sib : siblings )
-				if ( (sib.maybes & sv) != 0 )
-					sib.canNotBe(v);
+				if ( (sib.maybes & sv) > 0 ) // 9bits
+					sib.canNotBeBits(sv);
 		}
 
 		/** Decrements the emptyCellCounts of my box, row, and col. */
@@ -2760,42 +2619,42 @@ public final class Grid {
 			--col.emptyCellCount;
 		}
 
-		/** Adds v to containsValue of my box, row, and col. */
-		private void addValueToMyRegionsContainsValues(final int v) {
-			box.setCands |= VSHFT[v];
-			row.setCands |= VSHFT[v];
-			col.setCands |= VSHFT[v];
-		}
-
 		/**
-		 * Remove the given value from the potential values of this cell,
-		 * and also remove me from each of my regions ridx[v].
-		 * <p>
-		 * This method <b>does nothing</b> if this Cell is set, or if this Cell
-		 * already cannot-be theValue. This is a efficiency/convenience for the
-		 * removeMyValueFromMySiblingsMaybes() to just invoke me for each unset
-		 * sibling, allowing me workout weather I have stuff to do.
-		 * <p>
-		 * 2019-09-02 efficiency: assert cell must maybe before it canNotBe.
-		 *
-		 * @param v between 1 and 9 inclusive.
+		 * Adds sv (shiftedValue) to setCands of my box, row, and col, <br>
+		 * and removes sv from unsetCands of my box, row and col.
 		 */
-		public void canNotBe(final int v) {
-//			assert (this.maybes & VSHFT[v]) != 0;
-			if ( removeMaybes(VSHFT[v]) == 0 ) { // returns updated size
-//// use this for speed
-//				throw NO_MACS;
-// use this if you care about the StackTrace, when you're debugging
-				throw new UnsolvableException("no macs remaining");
-			}
+		private void updateMyRegionsSetAndUnsetCands(final int sv) {
+			box.setCands |= sv;  box.unsetCands &= ~sv;
+			row.setCands |= sv;  row.unsetCands &= ~sv;
+			col.setCands |= sv;  col.unsetCands &= ~sv;
 		}
 
 		/**
-		 * The canNotBeBits method removes the pinkos from the maybes of this
-		 * cell (me).
+		 * Updates the maybes to remove the pinkos from the potential values of
+		 * this cell; throwing an UnsolvableException if that leaves this cell
+		 * with no potential values, so that BruteForce fails ASAP (no problem,
+		 * we just guessed wrong) which is key to BruteForces speed.
+		 *
+		 * @param pinkos a bitset of the values to be removed
+		 * @return the updated size of this cell
+		 * @throws UnsolvableException if this cell has no maybes remaining
+		 */
+		public int canNotBeBits(final int pinkos) {
+			final int numRemoved = VSIZE[pinkos & maybes];
+			if ( removeMaybes(pinkos) < 1 ) { // returns the new size
+				// save time repeatedly constructing exception in Generator
+				if ( noMacsRemain == null )
+					noMacsRemain = new UnsolvableException("No Macs Remain");
+				throw noMacsRemain;
+			}
+			return numRemoved;
+		}
+
+		/**
+		 * The canNotBeBits method removes the $pinkos
+		 * from the maybes of this cell (me).
 		 * <p>
-		 * Note that this one's used only when autosolving! The other one
-		 * (below) handles the "normal" case.
+		 * This one handles autosolving. The other one (below) is "normal".
 		 * <p>
 		 * If singles is not null:<ul>
 		 * <li>If this disenpinkenectomy leaves me Naked then I add myself to
@@ -2805,9 +2664,9 @@ public final class Grid {
 		 * </ul>
 		 * This method is called only by {@code AHint.apply} with these
 		 * <b>PRECONDITIONS:</b><ul>
-		 * <li>pinkos != 0, and
-		 * <li>this.maybes != 0, and
-		 * <li>they intersect: (pinkos & this.maybes) != 0
+		 * <li>pinkos > 0, and
+		 * <li>this.maybes > 0, and
+		 * <li>they intersect: (pinkos & this.maybes) > 0
 		 * </ul>
 		 *
 		 * @param pinkos a bitset of the values that I can not be
@@ -2824,55 +2683,26 @@ public final class Grid {
 		 *  but should be impossible elsewhere, so all other occurrences need
 		 *  to be hunted down and at least explained, if not fixed.
 		 */
-		public int canNotBeBits(final int pinkos, final Deque<Single> singles) {
-			assert pinkos != 0;
-			assert this.maybes != 0;
-			assert (this.maybes & pinkos) != 0;
+		public int canNotBeBits(int pinkos, final Deque<Single> singles) {
+			assert this.maybes > 0;
+			assert pinkos > 0;
+			pinkos &= maybes;
+			assert pinkos > 0;
 			final int pre = maybes; // just for the exception message
 			// this still required to populate singles!
-			removeMeFromMyRegionsIndexesOfBits(pinkos, singles);
+			removeMeFromMyRegionsPlacesOfCands(pinkos, singles);
 			// calculate number of maybes removed BEFORE removing them
-			final int numRmvd = VSIZE[maybes & pinkos];
+			final int numRmvd = VSIZE[pinkos];
 			// remove the pinkBits from the maybes of this cell, and
 			// switch on the number of maybes now remaining in this cell
 			switch ( removeMaybes(pinkos) ) { // returns the new size
 			case 0: // I am rooted, so we fail early
 				throw new UnsolvableException("No maybes: "+id+":"
-					+Values.toString(pre)+" - "+Values.toString(pinkos));
+					+MAYBES_STR[pre]+" - "+MAYBES_STR[pinkos]);
 			case 1: // I am a naked single, to be set by AHint.apply
-				singles.add(new Single(this, VFIRST[maybes]));
+				singles.add(new Single(indice, VFIRST[maybes]));
 			}
 			// returns the new size
-			return numRmvd;
-		}
-
-		/**
-		 * Updates the maybes to remove the pinkos from the potential values of
-		 * this cell; throwing an UnsolvableException if that leaves this cell
-		 * with no potential values, so that BruteForce fails ASAP, which
-		 * is critical to it's speed.
-		 * <p>
-		 * Note that this one's used only when NOT autosolving. The other one
-		 * (above) handles autosolve.
-		 *
-		 * @param pinkos a bitset of the values to be removed
-		 * @return the updated size of this cell
-		 * @throws UnsolvableException if this cell has no maybes remaining
-		 */
-		public int canNotBeBits(final int pinkos) {
-// just for the UnsolvableException message
-			final int preMaybes = maybes;
-			// calculate number of maybes removed BEFORE removing them
-			final int numRmvd = VSIZE[maybes & pinkos];
-			// remove the pinkBits from the maybes of this cell, and
-			// switch on the number of maybes now remaining in this cell
-			if ( removeMaybes(pinkos) == 0 ) { // returns the new size
-// use this one for speed
-				throw NO_MACS;
-//// debug: use this one, with the custom message and stack-trace
-//				throw new UnsolvableException("Empty maybes: "+id+":"
-//					+Values.toString(preMaybes)+" - "+Values.toString(pinkos));
-			}
 			return numRmvd;
 		}
 
@@ -2886,17 +2716,17 @@ public final class Grid {
 		}
 
 		/**
-		 * Called only by Cell.set to reset this cells maybes to all of it's
+		 * Called only by Cell.set to reset this cells maybes to all of its
 		 * potential values when my value is removed (only in the GUI).
 		 */
 		private void resetMaybes() {
-			for ( int v : VALUESES[VALL & ~seesValues()] )
+			for ( int v : VALUESES[BITS9 & ~seesValues()] )
 				canSoBe(v);
 		}
 
 		/**
 		 * Add this value back into the maybes of each of my 20 sibling cells,
-		 * and also update each siblings regions ridx[value].
+		 * and also update each siblings regions places[value].
 		 * <p>
 		 * Only called by Cell.set when clearing a cell in the GUI.
 		 *
@@ -2911,21 +2741,18 @@ public final class Grid {
 					canSoBe(v);
 		}
 
-//KEEP4DOC: not used: keep to show noobs how to JUST CALCULATE IT!
-//		/**
-//		 * Is the given value among this Cell's potential values?
-//		 * <p>
-//		 * It takes longer to invoke this method than the method takes, so we
-//		 * don't invoke any method, unless of course we really want to and we
-//		 * are not on the critical path, like when creating a hint.
-//		 *
-//		 * @param value
-//		 * @return true if the potential values of this cell contain the given
-//		 * value, else false.
-//		 */
-//		public boolean maybe(final int value) {
-//			return (maybes & VSHFT[value]) != 0;
-//		}
+		/**
+		 * Returns does this cells maybes contain $value?
+		 * <p>
+		 * I only exist for convenience. Dont hammer me. It is faster to check
+		 * yourself with {@code (cell.maybes & VSHFT[v]) > 0}
+		 *
+		 * @param value the potential value to test for
+		 * @return does this cells potential values contain $v
+		 */
+		public boolean maybe(final int value) {
+			return (maybes & VSHFT[value]) > 0;
+		}
 
 		/**
 		 * Returns a bitset of the values held by my sibling cells.
@@ -2940,16 +2767,12 @@ public final class Grid {
 		}
 
 		/**
-		 * Returns does this cells potential values contain 'v'?
-		 * <p>
-		 * I only exist for convenience. Don't hammer me. It's faster to check
-		 * yourself with {@code (cell.maybes & VSHFT[v]) != 0}
+		 * Return the instance of Grid that contains this region.
 		 *
-		 * @param v the potential value to test for
-		 * @return does this cells potential values contain 'v'
+		 * @return the grid that contains this region.
 		 */
-		public boolean maybe(final int v) {
-			return (maybes & VSHFT[v]) != 0;
+		public Grid getGrid() {
+			return Grid.this;
 		}
 
 		/**
@@ -2958,13 +2781,13 @@ public final class Grid {
 		 * used in LogicalSolverTester.
 		 * <p>
 		 * NOTE: toString deals with being called while construction is still
-		 * underway by relying on the 'id' field being the first to be set, and
-		 * the 'buds' field being the last to be set, such that all you see is
-		 * my 'id' until the constructor completes; then you see the full Cell
+		 * underway by relying on the $id field being the first to be set, and
+		 * the $buds field being the last to be set, such that all you see is
+		 * my $id until the constructor completes; then you see the full Cell
 		 * definition: "id:size{maybes}" or "id=value" if set.
 		 * <p>
-		 * NOTE: toString IS used in the application (it is not, like most of
-		 * my toString methods, only used for debugging).
+		 * NOTE: toString IS used in the application; it is not, like most
+		 * toString methods, only used for debugging.
 		 *
 		 * @return "${id}:${size}{Values.toString(maybes)}" <br>
 		 *  or "${id}=${value}" if this Cell is set; <br>
@@ -2980,14 +2803,16 @@ public final class Grid {
 		/**
 		 * Returns a String representation of this cell: A1=5 or A2:3{368}.<br>
 		 * Note that toFullString explicitly gets the full string. Currently
-		 * toString returns the same, but don't rely on that not changing when
+		 * toString returns the same, but dont rely on that not changing when
 		 * you really want the full string, so you call me explicitly.
 		 *
 		 * @return "${id}:${size}{Values.toString(maybes)}" <br>
 		 *  or "${id}=${value}" if this Cell is set.
 		 */
 		public String toFullString() {
-			return value!=0 ? id+EQUALS+value : id+":"+size+"{"+Values.toString(maybes)+"}";
+			return value > 0
+				 ? id+EQUALS+value
+				 : id+":"+size+"{"+MAYBES_STR[maybes]+"}";
 		}
 
 		/**
@@ -3001,10 +2826,10 @@ public final class Grid {
 		@Override
 		public boolean equals(Object o) {
 			return o instanceof Cell
-				&& i == ((Cell)o).i; // y<<4^x (identity only)
+				&& indice == ((Cell)o).indice; // y<<4^x (identity only)
 		}
 		public boolean equals(Cell o) {
-			return i == o.i;
+			return indice == o.indice;
 		}
 
 		/**
@@ -3015,19 +2840,7 @@ public final class Grid {
 		 */
 		@Override
 		public int hashCode() {
-			return i;
-		}
-
-		// If you don't know what you're doing then don't use me.
-		// If you need to use this method anyway then good luck.
-		// You MUST finally disarrayonateMaybes.
-		private void arrayonateShiftedMaybes() {
-			shiftedMaybes = maybes==0 ? null : VSHIFTED[maybes];
-		}
-
-		// If you don't know what you're doing then don't use me.
-		private void disarrayonateMaybes() {
-			shiftedMaybes = null;
+			return indice;
 		}
 
 		/**
@@ -3040,80 +2853,61 @@ public final class Grid {
 		 */
 		@Override
 		public int compareTo(final Cell o) {
-			return Integer.compare(i, o.i);
+			return Integer.compare(indice, o.indice);
 		}
 
-// not_used 2022-01-09
-//		/**
-//		 * Add the index of this cells box, row, col to the result idx.
-//		 *
-//		 * @param result to add my regions indexes to.
-//		 */
-//		public void accrueRegions(final Idx result) {
-//			result.add(box.index);
-//			result.add(row.index);
-//			result.add(col.index);
-//		}
-
-		/**
-		 * Return the instance of Grid that contains this region.
-		 *
-		 * @return the grid that contains this region.
-		 */
-		public Grid getGrid() {
-			return Grid.this;
-		}
 	}
 
 	// ============================== The Regions =============================
 
 	/**
-	 * ARegion is an abstract region (a 3*3 Box, a Row, or a Col)
-	 * containing 9 cells in this Sudoku Grid.
+	 * ARegion is an abstract region (a Box, a Row, or a Col)
+	 * that contains 9 cells in this Grid.
 	 */
 	public abstract class ARegion {
 
-		/** My grid.regions array index 0..26. */
+		/**
+		 * My grid.regions array index 0..26.
+		 */
 		public final int index;
 
-		/** 0=Grid.BOX, 1=Grid.ROW, 2=Grid.COL. */
-		public final int typeIndex;
-
-		/** "box", "row", or "col". */
-		public final String typeName;
+		/**
+		 * RegionTypeIndex: 0=Grid.BOX, 1=Grid.ROW, 2=Grid.COL.
+		 */
+		public final int rti;
 
 		/**
-		 * id is a String that uniquely identifies this region in the grid.
+		 * label (aka rid) is a String that uniquely identifies this region in
+		 * the grid.
 		 * <p>
-		 * In {@link IdScheme#Chess} that's "${region.typeName} ${identifier}"
+		 * In {@link IdScheme#Chess} thats "${region.typeName} ${identifier}"
 		 * where the identifier depends on the region-type, for Box and Row
-		 * it's a number 1..9, but for Col it's a letter A..I. <br>
+		 * its a number 1..9, but for Col its a letter A..I. <br>
 		 * Examples: "box 6", "row 2", or "col I".
 		 */
-		public final String id;
+		public final String label;
 
-		/** The boxs which cross this row or col. Empty in a box. */
-		public final Box[] crossingBoxs;
-
-		/** The cells of this region left-to-right and top-to-bottom. */
+		/**
+		 * The cells of this region left-to-right and top-to-bottom.
+		 */
 		public final Cell[] cells = new Cell[REGION_SIZE];
 
 		/**
-		 * Indexes-in-this-region of cells which maybe value 1..9.
-		 * An ridx is an Indexes, which contains indexes of the 9 cells in the
-		 * region.cells array (ie not an Idx of the 81 grid.cells indices).
-		 * <p>
-		 * The motivation for a region having its own cells array and Indexes
-		 * is to abstract-away the regions "shape"; so we can query a region
-		 * without worrying about its type: row, col, or box; since they are
-		 * all fairly similar... but this still requires some care.
+		 * A bitset of indexes in region.cells which maybe value 1..9.
 		 */
-		public final Indexes[] ridx = new Indexes[VALUE_CEILING];
+		public final int[] places = new int[VALUE_CEILING];
+
+		/**
+		 * The number of region.cells which maybe value 1..9.<br>
+		 * For example: {@code if (region.numPlaces[v] == 2)} finds regions
+		 * having two places for the candidate value v.
+		 */
+		public final int[] numPlaces = new int[VALUE_CEILING];
 
 		/**
 		 * The grid.cells indices of cells in this region which maybe each
-		 * potential value 1..9. (not to be confused with {@link #ridx}
-		 * containing indexes in the ARegion.cells array).
+		 * potential value 1..9. (not to be confused with {@link #places}
+		 * that contains indexes in the ARegion.cells array).
 		 * <p>
 		 * SE NOMENCLATURE: the word indice always means a grid.cells indice;
 		 * everything else is an index (or some other not-indice word). An idx
@@ -3122,130 +2916,188 @@ public final class Grid {
 		 */
 		public final Idx[] idxs = new Idx[VALUE_CEILING];
 
-		/** An immutable Idx of the indices of cells in this region. */
+		/**
+		 * An immutable Idx of the indices of cells in this region.
+		 */
 		public final IdxI idx;
 
-		/** The number of cells with value==0 calculated by countEmptyCells()
-		 * which is called by Grid.rebuildAllRegionsEmptyCellCounts(). */
+		/**
+		 * The number of cells with value==0 calculated by
+		 * {@link #emptyCellCount()}, which is called by
+		 * {@link Grid#rebuildAllRegionsEmptyCellCounts}.
+		 */
 		public int emptyCellCount = REGION_SIZE;
 
 		/**
-		 * A bitset of the values of cells that are set in this region; is
-		 * set by the setSetCands() method called by the hasHomelessValues
-		 * validator, at the start of solve and after each hint is applied;
-		 * so all the hinters can just use this array. Setting this thing
-		 * up is pretty confused in the rebuild process; and frankly I doubt
-		 * I've got it straight in my head, so I'm shy of explaining it, but
-		 * what I'm trying to achieve is this bastard is available to the
-		 * hinters, and I don't care about the rebuild process, because it
-		 * doesn't happen often enough to make it an issue, especially now
-		 * that the maybes and indexes are maintained internally. So I shall
-		 * shut the ___-up now and get on with breaking some more stuff.
+		 * A Values bitset of the cell.values that are set in this region. This
+		 * value is initialised by {@link #rebuildAllRegionsSetCands() }, and
+		 * maintained by {@link Cell#updateMyRegionsSetAndUnsetCands(int) },
+		 * for the {@link #hasHomelessValues} validator, at start of solve and
+		 * after each hint is applied; so that hinters can just use the bitset.
+		 * <p>
+		 * I need set/unsetCands in the hinters. I care not about rebuild speed
+		 * because it runs rarely. However, I do care about copyGrid speed, and
+		 * it is merely "fast enough". I require a rich grid, so copyGrid takes
+		 * time. Live with it.
+		 * <p>
+		 * setCands and {@link #unsetCands} are complementary so this inviolate
+		 * always true: {@code assert unsetCands | setCands == Values.BITS9;}.
 		 */
 		public int setCands;
 
-		/** The 3 boxs which intersect this Row or Col; null for Box. */
-		public final Box[] intersectingBoxs;
+		/**
+		 * A Values bitset of the values that are yet to be set in this region,
+		 * that is all values except setCands.
+		 * <p>
+		 * {@link setCands} and unsetCands are complementary so this inviolate
+		 * always true: {@code assert unsetCands | setCands == Values.BITS9;}.
+		 */
+		public int unsetCands = Values.BITS9;
 
+		/**
+		 * For Row and Col intersectors contains the 3 intersecting boxs; <br>
+		 * for Box intersectors contains the 6 intersecting Rows and Cols.
+		 * nb: these 3 intersecting cells are called a "Slot".
+		 */
+		public final ARegion[] intersectors;
+
+		/**
+		 * The Indice of each cell in this region.
+		 */
 		public final int[] indices;
 
 		/**
-		 * The Constructor. I'm a Box, or a Row, or a Col.
+		 * The Constructor. I am a Box, or a Row, or a Col.
 		 *
 		 * @param index the index of this region in the Grid.regions array.
-		 * @param rti regionTypeIndex: BOX, ROW, or COL
+		 * @param regionTypeIndex BOX=0, ROW=1, or COL=2
 		 * @param numCrosses the number of crossingBoxes: 0 for each Box,
 		 *  3 for each Row and Col. Passed-in for crossingBoxes to be final.
+		 * @param numIntersectors the number of intersectors: 6 for each Box,
+		 *  3 for each Row and Col. Passed-in for intersectors to be final.
 		 */
-		protected ARegion(final int index, final int rti, final int numCrosses) {
+		protected ARegion(final int index, final int regionTypeIndex
+				, final int numCrosses, final int numIntersectors) {
 			this.index = index;
-			this.typeName = REGION_TYPE_NAMES[this.typeIndex = rti];
-			this.id = REGION_IDS[index];
-			this.crossingBoxs = new Box[numCrosses];
+			this.rti = regionTypeIndex;
+			this.label = REGION_LABELS[index];
 			// get my idx: an IdxI (immutable) of cells in this region
 			idx = REGION_IDXS[index];
-			// create the ridx and idxs arrays elements.
-			// Note that value 0 remains null in both.
-			for ( int v=1; v<VALUE_CEILING; ++v ) {
-				// indexes in region.cells
-//				REGION_RIDXS[index][v] = ridx[v] = new Indexes();
-				ridx[v] = new Indexes();
-				// indices in grid.cells
+			// create the Idxs (0 remains null).
+			for ( int v=1; v<VALUE_CEILING; ++v )
 				idxs[v] = new Idx(REGION_IDXS[index]);
-			}
-//			intersects = REGIONS_INTERSECT[index];
-			final int[] ibSize = {0, 3, 3};
-			intersectingBoxs = new Box[ibSize[rti]];
+			intersectors = new ARegion[numIntersectors];
 			indices = REGION_INDICES[index];
 		}
 
-		// used by Grid's copyFrom
+		// used by Grid#copyFrom
 		// NOTE: Just to be clear, ALL mutable fields are copied; if you add
 		// a new mutable field to ARegion/Box/Row/Col copy it here. The copy
 		// constructor calls me. If you forget and you use this field in a
 		// hinter then BruteForce and/or Generator will fail.
 		private void copyFrom(final ARegion src) {
-			// deep copy the ridx and idxs of all values 1..9
-			for ( int v=1; v<VALUE_CEILING; ++v )
-				ridx[v].set(src.ridx[v].bits);
+			// copy places and numPlaces of all values 1..9
+			arraycopy(src.places, 1, places, 1, REGION_SIZE);
+			arraycopy(src.numPlaces, 1, numPlaces, 1, REGION_SIZE);
+			// deep copy the idxs of all values 1..9
 			for ( int v=1; v<VALUE_CEILING; ++v )
 				idxs[v].set(src.idxs[v]);
 			emptyCellCount = src.emptyCellCount;
 			setCands = src.setCands;
+			unsetCands = src.unsetCands;
 		}
 
 		/**
-		 * Translate from Region.indexes to the given Idx.
+		 * Set numPlaces[v] = places[v] = 0, ie clear places of v.
 		 *
-		 * @param indexes region.indexes of cells to add
-		 * @param result the Idx to add cells to
-		 * @return the result Idx, for method chaining
+		 * @param v
 		 */
-		public Idx idx(final int indexes, final Idx result) {
-			for ( int i : INDEXES[indexes] )
-				result.add(cells[i].i); // cells is Region.cells
-			return result;
+		public void clearPlaces(int v) {
+			numPlaces[v] = places[v] = 0;
 		}
 
 		/**
-		 * Translate from Region.indexes to a new Idx.
+		 * Get the index of the given cell in this region.cells array.
+		 * <p>The {@code cell} must be in this region (checked with assert).
+		 * Returns the cells b, y, or x index: whichever is appropriate for
+		 * this type of ARegion. So you CANNOT use indexOf as a contains test,
+		 * as you might (reasonably) expect.
+		 * <p>
+		 * If this behaviour upsets you then fix it yourself (check the given
+		 * cells b/x/y against my b/x/y) to return -1, which throws an AIOBE)
+		 * I just prefer speed to correctness upon which I do not rely.
 		 *
-		 * @param indexes region.indexes of cells to add
-		 * @return the new Idx
+		 * @param cell the cell whose index you seek.
+		 * @return the index of the cell in this regions cells array.
 		 */
-		public Idx idxNew(final int indexes) {
-			return idx(indexes, new Idx());
+		public abstract int indexOf(final Cell cell);
+
+		/**
+		 * Does this region contain this Cell? Fast O(1).
+		 *
+		 * @param cell Cell to look for.
+		 * @return true if this region contains this cell, else false.
+		 */
+		public abstract boolean contains(final Cell cell);
+
+		/**
+		 * Count the number of empty (value==0) cells in this region, which is
+		 * recorded in the {@link #emptyCellCount} field for public reference.
+		 * <p>
+		 * emptyCellCount() called by {@link #rebuildAllRegionsEmptyCellCounts}
+		 * ONCE pre-solve, so that hinters can just reference the field.
+		 *
+		 * @return number of empty cells in this region, but my reason to exist
+		 *  is I set {@link #emptyCellCount} for public reference.
+		 */
+		public int emptyCellCount() {
+			int cnt = 0;
+			for ( int i=0; i<REGION_SIZE; ++i )
+				if ( cells[i].value == 0 )
+					++cnt;
+			return emptyCellCount = cnt;
 		}
 
 		/**
-		 * Returns the given Idx populated with the indices of the cells in
-		 * this ARegion which maybe any of the given maybes (a bitset).
+		 * Query invokes action on each region cell where predicate.
+		 * <p>
+		 * Invoke {@code action}
+		 * foreach {@code Cell}
+		 * in this {@code region.cells}
+		 * where {@code predicate} is true.
+		 * <p>
+		 * Used in {@link diuf.sudoku.solver.hinters.nkdset.NakedSet#findHints(Grid grid, IAccumulator accu) } <br>
+		 *
+		 * @param predicate returns true when action is required
+		 * @param visitor takes action when predicate is true
+		 * @return number of times predicate was true (ie num actions taken)
+		 */
+		public int query(final Predicate<Cell> predicate
+				, final IVisitor2<Cell, Integer> visitor) {
+			int count = 0;
+			for ( final Cell cell : cells )
+				if ( predicate.test(cell) )
+					visitor.visit(cell, count++);
+			return count;
+		}
+
+		/**
+		 * Repopulates $result with indices of cells in this region which maybe
+		 * any of the given maybes (a bitset).
 		 *
 		 * @param cands a bitset of the maybes you seek
 		 * @param result the result Idx
 		 * @return the result Idx of cells in this region which maybe maybes
 		 */
 		public Idx idxOf(final int cands, final Idx result) {
-			result.clear();
-			for ( final Cell c : cells )
-				if ( (c.maybes & cands) != 0 )
-					result.add(c.i);
+			long m0=0; int m1=0;
+			for ( int value : VALUESES[cands] ) {
+				m0 |= idxs[value].m0;
+				m1 |= idxs[value].m1;
+			}
+			result.m0 = m0;
+			result.m1 = m1;
 			return result;
-		}
-
-		/**
-		 * Returns a new {@code ArrayList<Cell>} containing the cells at the
-		 * given bits in this regions cells array. Use me sparingly.
-		 *
-		 * @param indexes a bitset of indexes into region.cells
-		 * @return a new {@code ArrayList<Cell>} containing region.cells at
-		 *  indexes
-		 */
-		public ArrayList<Cell> list(final int indexes) {
-			final ArrayList<Cell> list = new ArrayList<>(ISIZE[indexes]);
-			for ( int i : INDEXES[indexes] )
-				list.add(this.cells[i]);
-			return list;
 		}
 
 		/**
@@ -3265,23 +3117,7 @@ public final class Grid {
 		}
 
 		/**
-		 * Returns a lease over a right-sized array populated with the cells at
-		 * the given 'indexes' (ridx bits) in this region.
-		 *
-		 * @param indexes {@code int} a bitset of the indexes to get, where the
-		 *  position (from the right) of each set (1) bit denotes the index in
-		 *  this.cells array of a Cell to retrieve
-		 * @return a lease over an array containing cells at indexes in region
-		 */
-		public CALease atLease(final int indexes) {
-			final int n = ISIZE[indexes];
-			final CALease lease = caLease(n);
-			at(indexes, lease.array);
-			return lease;
-		}
-
-		/**
-		 * Return a new array of the cells at the given index 'bits' in this
+		 * Return a new array of the cells at the given index $bits in this
 		 * region.
 		 *
 		 * @param indexes {@code int} a bitset of the indexes to get, where the
@@ -3291,199 +3127,15 @@ public final class Grid {
 		 */
 		public Cell[] atNew(final int indexes) {
 			final int n = ISIZE[indexes];
-			final Cell[] array = new Cell[n];
-			at(indexes, array);
-			return array;
+			final Cell[] result = new Cell[n];
+			at(indexes, result);
+			return result;
 		}
 
-		/**
-		 * Get the index of the given cell in this region.cells array.
-		 * <p>The {@code cell} must be in this region (checked with assert).
-		 * Returns the cells b, y, or x index: whichever is appropriate for
-		 * this type of ARegion. So you CANNOT use indexOf as a contains test,
-		 * as you might (reasonably) expect.
-		 * <p>
-		 * If this behaviour upsets you then fix it yourself (check the given
-		 * cells b/x/y against my b/x/y) to return -1, which'll throw an AIOBE)
-		 * I just prefer speed to correctness upon which I do not rely.
-		 *
-		 * @param cell the cell whose index you seek.
-		 * @return the index of the cell in this regions cells array.
-		 */
-		public abstract int indexOf(final Cell cell);
-
-		/**
-		 * otherThan returns the other place for 'value' in this ARegion. That
-		 * is the place other than the given cell, obviously.
-		 * <p>
-		 * otherThan is intended for use ONLY on regions with just two places
-		 * for the given value (ergo conjugate pairs). You give me a Cell and
-		 * the value, and I return the other Cell in this region which maybe
-		 * this value, ergo the conjugate (the other cell in a conjugate pair).
-		 * <p>
-		 * If you call me on a region which does not have two places for this
-		 * value then the result is untested and is regarded as indeterminate,
-		 * but here's my best guess at what you'll see:<ul>
-		 * <li>If this region does not contain cell -&gt; first cell in this
-		 *  region which maybe value.
-		 * <li>If this region does not have 2 places value -&gt; first cell in
-		 *  this region which maybe value.
-		 * <li>If value is already placed in this region -&gt; the first cell
-		 *  in this region, period.
-		 * </ul>
-		 * Detecting and dealing with these situation is more complex than just
-		 * solving the core problem, so I haven't even attempted to do so, I'm
-		 * a happy-go-lucky sort of guy, so use me responsibly. tequila += 9mm;
-		 * I'm the 9mm. I doubt this rant will have a significant impact on the
-		 * consumption of tequila, which is just as well really. I you live on
-		 * a planet that's being utterly destroyed by ____sticks, and you can't
-		 * kill the _____sticks, being one yourself, then just get pissed. That
-		 * is "reasonable" advice, isn't it? sigh.
-		 *
-		 * @param c one of two cells in a conjugate pair
-		 * @param v the value to conjugate on
-		 * @return the other cell in the conjugate pair
-		 */
-		public Cell otherThan(final Cell c, final int v) {
-			// lick that one Scoobie!
-			return cells[IFIRST[ridx[v].bits & ~ISHFT[indexOf(c)]]];
-		}
-
-		/**
-		 * Repopulate result with indices of Region.cells EXCEPT excluded, and
-		 * return how many.
-		 *
-		 * @param excluded Idx of the cells to be excluded
-		 * @param result the result Idx to set
-		 * @return the result Idx, for method chaining
-		 */
-		public Idx otherThan(final Idx excluded, final Idx result) {
-			return result.setAnd(idx, getEmpties()).andNot(excluded);
-		}
-
-		/**
-		 * Does this region contain this Cell? Fast O(1).
-		 *
-		 * @param cell Cell to look for.
-		 * @return true if this region contains this cell, else false.
-		 */
-		public abstract boolean contains(final Cell cell);
-
-		/**
-		 * Does this region intersect 'r'.
-		 *
-		 * @param r to examine
-		 * @return Does this region intersect 'r'?
-		 */
-		public abstract boolean intersects(ARegion r);
-
-		/** @return a bitset of the values of set cells in this region. */
-		public int setSetCands() {
-			setCands = 0;
-			for ( Cell cell : cells )
-				setCands |= VSHFT[cell.value];
-			return setCands;
-		}
-
-		/**
-		 * Called maybe because cellsWhichMaybe is too long.
-		 * <p>
-		 * Repopulate 'result' with cells in this region that maybe 'cands' and
-		 * return how many. The given 'array' must be large enough. I don't
-		 * null-terminate or anything, I just return the number of cells added
-		 * to 'result', for use with a fixed-size array.
-		 *
-		 * @param cands a bitset of the value/s you seek.
-		 * @param result {@code Cell[]} to populate. The array is presumed to
-		 *  be large enough.
-		 * @return the number of cells added to 'result'.
-		 */
-		public int maybe(final int cands, final Cell[] result) {
-			final int capacity = result.length;
-			int size = 0;
-			for ( final Cell cell : cells )
-				if ( (cell.maybes & cands) != 0 ) {
-					if ( size < capacity )
-						result[size] = cell;
-					++size;
-				}
-			return size;
-		}
-
-		/**
-		 * Return the cells in this region which maybe 'bits'.
-		 * <p>
-		 * This method used by URT.createType4Hint only.
-		 *
-		 * @param bits bitset (one-or-more left-shifted values) to get.
-		 * @param results the {@code Collection<Cell>} to which I add
-		 * @return the given results {@code Collection<Cell>}
-		 */
-		public Collection<Cell> maybe(final int bits, final Collection<Cell> results) {
-			results.clear();
-			for ( final Cell cell : cells )
-				if ( (cell.maybes & bits) != 0 )
-					results.add(cell);
-			return results;
-		}
-
-		/**
-		 * Count the number of empty (value==0) cells in this region,
-		 * remembering that value in my {@link emptyCellCount} field.
-		 * <p>
-		 * emptyCellCount runs once at commencement of solving, so we can call
-		 * emptyCellCount BEFORE calling emptyCells, which sets emptyCellCount.
-		 *
-		 * @return int the count.
-		 */
-		public int emptyCellCount() {
-			int cnt = 0;
-			for ( int i=0; i<REGION_SIZE; ++i )
-				if ( cells[i].value == 0 )
-					++cnt;
-			return emptyCellCount = cnt;
-		}
-
-		/**
-		 * Populate 'result' with empty cells in this region and return it,
-		 * setting the {@link #emptyCellCount} field so that you can use a
-		 * fixed-size array, for speed.
-		 *
-		 * @param result number of empty cells in result
-		 * @return the result array, and sets the emptyCellCount field which
-		 *  is a bit s__t really, because you need the emptyCellCount to get
-		 *  the right-sized array to pass to me. It was designed to be used
-		 *  with a re-usable array of 9 cells, not a right-sized array, which
-		 *  is how it's actually being used.
-		 */
-		public int emptyCells(final Cell[] result) {
-			int cnt = 0;
-			for ( final Cell cell : cells )
-				if ( cell.value == 0 )
-					result[cnt++] = cell;
-			return emptyCellCount = cnt;
-		}
-
-		/** @return id - so just access the id directly, it's faster. */
+		/** @return id - so just access the id directly, it is faster. */
 		@Override
 		public String toString() {
-			return id;
-		}
-
-		/**
-		 * Returns the first cell in this region which maybe v.
-		 * <p>
-		 * There must be atleast one cell in this region which maybe v.
-		 * If there are none then I return the first cell in this region, which
-		 * is a bit s__t, but it's fast this way.
-		 * <p>
-		 * It's faster to do this in-line, but the method is only one
-		 * invocation slower, so exists for brevity and documentation.
-		 *
-		 * @param v the candidate value
-		 * @return the first cell which maybe v */
-		public Cell first(final int v) {
-			return cells[IFIRST[ridx[v].bits]];
+			return label;
 		}
 
 		/**
@@ -3508,239 +3160,224 @@ public final class Grid {
 		}
 
 		/**
-		 * Rebuild all this cells s__t, or to be more precise:<ul>
-		 *  <li>{@link emptyCellCount()}
-		 *  <li>{@link setSetCands}
-		 *  <li>{@link rebuildIndexsOfAllValues()}
-		 *  <li>{@link rebuildIdxsOfAllValues()}
-		 * </ul>
+		 * Rebuild the {@link #places} of each value 1..9 with the index
+		 * in this {@link #cells} of each Cell which maybe v.
 		 */
-		public void rebuildAllS__t() {
-			emptyCellCount();
-			setSetCands();
-			rebuildIndexsOfAllValues();
-			rebuildIdxsOfAllValues();
-		}
-
-		/**
-		 * Rebuild the {@link #ridx} of each value 1..9 with the index in this
-		 * {@link #cells} of each Cell which maybe v.
-		 */
-		private void rebuildIndexsOfAllValues() {
+		private void rebuildPlacesOfAllValues() {
 			int i, bits, sv, v;
 			for ( v=1; v<VALUE_CEILING; ++v ) {
 				sv = VSHFT[v];
-				if ( (setCands & sv) != 0 )
-					ridx[v].clear();
-				else {
-					bits = 0;
-					for ( i=0; i<REGION_SIZE; ++i )
-						if ( (cells[i].maybes & sv) != 0 )
+				if ( (setCands & sv) > 0 ) // 9bits
+					numPlaces[v] = places[v] = 0;
+				else { // v is not set, so it's still a maybe
+					for ( i=bits=0; i<REGION_SIZE; ++i )
+						if ( (cells[i].maybes & sv) > 0 )
 							bits |= ISHFT[i];
-					ridx[v].set(bits);
+					numPlaces[v] = ISIZE[places[v]=bits];
 				}
 			}
 		}
 
 		/**
-		 * Rebuild the {@link #idxs ARegion.idxs} with the indice in grid.cells
-		 * of each cell in this region that maybe each value 1..9.
+		 * Returns the index as my hashCode.
+		 * <p>
+		 * LockingSpeedMode uses ARegion as a hash key.
+		 *
+		 * @return index as my hashCode
 		 */
-		private void rebuildIdxsOfAllValues() {
-			for ( int v=1; v<VALUE_CEILING; ++v )
-				idxs[v].setAnd(idx, Grid.this.idxs[v]);
+		@Override
+		public int hashCode() {
+			return index;
 		}
 
 		/**
-		 * Repopulates 'result' with cells in this region having
-		 * size 2(inclusive)..ceiling(EXCLUSIVE)
-		 * and returns hows many.
+		 * Returns is the given Object an ARegion, with the same index.
 		 *
-		 * @param ceiling the maximum size of wanted cells + 1 (exclusive)
-		 * @param result to repopulate
-		 * @return how many
+		 * @param obj
+		 * @return is obj ARegion with same index
 		 */
-		public int sized(final int ceiling, final Cell[] result) {
-			int size, cnt = 0;
-			for ( final Cell c : cells )
-				if ( (size=c.size)>1 && size<ceiling )
-					result[cnt++] = c;
-			return cnt;
+		@Override
+		public boolean equals(Object obj) {
+			return (obj instanceof ARegion)
+				&& index == ((ARegion)obj).index;
 		}
 
 	}
 
-	/** A box (a 3-by-3 block of cells) in this Sudoku Grid. */
+	/**
+	 * A box (a 3-by-3 block of cells) in this Sudoku Grid.
+	 */
 	public final class Box extends ARegion {
+
 		/** Vertical index of this box: 0=top, 1=middle, 2=bottom */
 		public final int vNum;
+
 		/** Top y of this box: 0=top, 3=middle, 6=bottom */
 		public final int top;
+
 		/** Horizontal index of this box: 0=left, 1=middle, 2=right */
 		public final int hNum;
+
 		/** Left x of this box: 0=left, 3=middle, 6=right */
 		public final int left;
-		/** Index of this box in the Grids boxs array, which (by design)
-		 * is coincident with the Grids regions array. Each Cell also knows
-		 * it's boxIndex, upon which contains relies, coz it's Fast. */
-		public final int boxIndex;
+
 		/**
 		 * Construct a new Box in this Grid.
+		 * <p>
+		 * When we process all regions its boxs first because humans find it
+		 * easier to find stuff in a Box verses a Row or Col, I think because
+		 * the brain finds it easier to search three threes, verses nine. Or
+		 * it may be that our vision renders a spot, not a strip, which is, I
+		 * think, the square-root of 42.
+		 * <p>
+		 * Atleast I avoided all the Box jokes, for now. Pick a box Dave?
 		 *
 		 * @param index of this Box (0..8) in the Grid.boxs array, which is (by
-		 *  design) coincident with the first 9 elements in Grid.regions. When
-		 *  we process all regions we usually want to process the boxs first
-		 *  because humans find it easier to find things in a Box verses a Row
-		 *  or Col of the same size, I think because the brain finds it easier
-		 *  to search three threes verses nine. Or it could be that our vision
-		 *  renders a spot, not a strip. Anyway, my mental limit is seven.
-		 *  Beyond that it registers as just "many", so upto 7 "feels real",
-		 *  beyond seven is just an abstract concept, not "reality". I think
-		 *  that Mathematicians demur, mainly BECAUSE they demur. <br>
-		 *  <br>
-		 *  I think this is WHY "standard" humans find Sudoku seductive, coz we
-		 *  suck at it, and it's very nearly da simplest thing that we suck at,
-		 *  so we think we shouldn't suck at it, so we suck on it, so suck less
-		 *  at it, so we go right ahead and suck on it some more, BECAUSE we
-		 *  suck at it, but we think we shouldn't suck at it, so we suck on it,
-		 *  ad-infinitum! <br>
-		 *  <br>
-		 *  Not knowing is far more engaging than knowing. Nearly knowing is
-		 *  such a profound pain in the ass that it drives scientists mental,
-		 *  so mental in fact that they turn themselves into scientists. This,
-		 *  I think, is the square-root of 42. Wisdom is accepting that you can
-		 *  never know, and writing a computer program to figure it all out.
-		 *  One step at a time. Intelligence is a two-edged sword. Mix-in even
-		 *  a small dose of stupidity and self-extinction becomes warrantable.
+		 *  design) coincident with the first 9 elements in Grid.regions.
 		 */
-		public Box(final int index) {
-			super(index, BOX, 0);
+		private Box(final int index) {
+			super(index, BOX, 0, R*2);
 			this.hNum = index%R;
 			this.left = hNum*R;
 			this.vNum = index/R;
 			this.top = vNum*R;
-			this.boxIndex = top + hNum;
+//			this.boxIndex = top + hNum;
 			final Box me = this;
+			final Cell[] gcs = Grid.this.cells;
 			for ( int i=0; i<N; ++i )
-				// nb: it sets cells[i] first, then it's attributes
-				(cells[i]=Grid.this.cells[((top+i/R)*N)+(left+i%R)])
-						.regions[BOX] = cells[i].box = me;
+				// nb: it sets cells[i] first, then its attributes
+				// nb: Yes, that gcs maths is a bitch too!
+				(cells[i]=gcs[((top+i/R)*N)+(left+i%R)]).regions[BOX] = cells[i].box = me;
 		}
-		/** Return the index of the given cell in this Regions cells array.
-		 * This region MUST contain the given cell.
-		 * @return Actually just returns the given cells 'b' index (for box),
-		 *  we check that thisRegion.contains(cell) with an assert. */
+
+		// Boxs are created BEFORE Rows and Cols, so delayed til all exist.
+		private void initIntersectors() {
+			intersectors[0] = rows[top];
+			intersectors[1] = rows[top + 1];
+			intersectors[2] = rows[top + 2];
+			intersectors[3] = cols[left];
+			intersectors[4] = cols[left + 1];
+			intersectors[5] = cols[left + 2];
+		}
+
+		/**
+		 * Return the index of the given cell in this Regions cells array.
+		 * This region MUST contain the given cell, checked with an assert.
+		 *
+		 * @return cell.b (for box)
+		 */
 		@Override
 		public int indexOf(final Cell cell) {
 			assert contains(cell);
 			return cell.b; // cell.y%3*3 + cell.x%3;
 		}
-		/** @return Does this Box contain the given cell? */
+
+		/**
+		 * @return Does this Box contain the given cell?
+		 */
 		@Override
 		public boolean contains(final Cell cell) {
-			// boxIndex contains the index of box in Grid.regions
-			return cell.boxIndex == this.boxIndex;
-		}
-		@Override
-		public boolean intersects(final ARegion r) {
-			switch (r.typeIndex) {
-				case BOX: return this == r;
-				case ROW: return ((Row)r).y >= this.top && ((Row)r).y <= this.top+2;
-				case COL: return ((Col)r).x >= this.left && ((Col)r).x <= this.left+2;
-				default: return false; // Never
-			}
+			return cell.box == this;
 		}
 	}
 
-	/** A row in this Sudoku Grid. */
+	/**
+	 * A row in this Sudoku Grid.
+	 */
 	public final class Row extends ARegion {
+
 		/** The index of this Row: 0=top, 8=bottom. */
 		public final int y;
+
 		/** The vertical index of the 3 Boxs which I cross. */
 		public final int vNum;
-		/** Constructs a new Row in this Grid.
-		 * @param y int 0..8 the row (vertical) index */
-		public Row(final int y) {
-			super(N+y, ROW, R);
+
+		/**
+		 * Constructs a new Row in this Grid.
+		 *
+		 * @param y int 0..8 the row (vertical) index
+		 */
+		private Row(final int y) {
+			super(N+y, ROW, R, R);
 			this.y = y;
-			this.vNum = y / R;
-			final int floor = y * N; // indice of first cell in this Row
-			final Row me = this;
+			vNum = y / R;
+			final Cell[] gcs = Grid.this.cells; // shorthand
+			final int floor = BY9[y]; //y*N; // indice of first cell in this Row
+			final Row me = this; // defeat IDE warn leaking this in constr
 			for ( int i=0; i<N; ++i )
-				(cells[i]=Grid.this.cells[floor+i])
-						.regions[ROW] = cells[i].row = me;
-			this.intersectingBoxs[0] = Grid.this.boxs[vNum];
-			this.intersectingBoxs[1] = Grid.this.boxs[vNum+1];
-			this.intersectingBoxs[2] = Grid.this.boxs[vNum+2];
+				(cells[i]=gcs[floor+i]).regions[ROW] = cells[i].row = me;
+			final int left = y/R*R;
+			intersectors[0] = boxs[left];
+			intersectors[1] = boxs[left+1];
+			intersectors[2] = boxs[left+2];
 		}
-		/** Returns the index of the given Cell in this regions cells array.
+
+		/**
+		 * Returns the index of the given Cell in this regions cells array.
 		 * This region MUST contain the given cell.
+		 *
 		 * @param cell Cell to get the index of.
 		 * @return the x (horizontal index) of the given Cell, we check that
-		 * {@code thisRegion.contains(cell)} with an assert. */
+		 * {@code thisRegion.contains(cell)} with an assert.
+		 */
 		@Override
 		public int indexOf(final Cell cell) {
 			assert contains(cell);
 			return cell.x;
 		}
-		/** @return Does this Row contain the given Cell? */
+
+		/**
+		 * @return Does this Row contain the given Cell?
+		 */
 		@Override
 		public boolean contains(final Cell cell) {
 			return cell.y == this.y;
-		}
-		@Override
-		public boolean intersects(final ARegion r) {
-			switch (r.typeIndex) {
-				case BOX: return y >= ((Box)r).top && y <= ((Box)r).top+2;
-				case ROW: return this == r;
-				case COL: return true;
-				default: return false; // Never
-			}
 		}
 	}
 
 	/** A column in this Sudoku Grid */
 	public final class Col extends ARegion {
+
 		/** The index of this Col: 0=leftmost, 8=rightmost */
 		public final int x;
-		/** The horizontal index of the 3 Boxs which I cross. */
-		public final int hNum;
-		/** Constructs a new Col in this Grid.
-		 * @param x int 0..8 the col (horizontal) index */
-		public Col(final int x) {
-			super(FIRST_COL+x, COL, R);
+
+		/**
+		 * Constructs a new Col in this Grid.
+		 *
+		 * @param x int 0..8 the col (horizontal) index
+		 */
+		private Col(final int x) {
+			super(FIRST_COL+x, COL, R, R);
 			this.x = x;
-			this.hNum = x / R;
-			final Col me = this;
+			final int hNum = x / R;
+			final Cell[] gcs = Grid.this.cells; // shorthand
+			final Col me = this; // defeat IDE warn leaking this in constr
 			for ( int i=0; i<N; ++i )
-				(cells[i]=Grid.this.cells[i*N+x])
-						.regions[COL] = cells[i].col = me;
-			this.intersectingBoxs[0] = Grid.this.boxs[hNum];
-			this.intersectingBoxs[1] = Grid.this.boxs[hNum+3];
-			this.intersectingBoxs[2] = Grid.this.boxs[hNum+6];
+				(cells[i]=gcs[i*N+x]).regions[COL] = cells[i].col = me;
+			intersectors[0] = boxs[hNum];
+			intersectors[1] = boxs[hNum+3];
+			intersectors[2] = boxs[hNum+6];
 		}
-		/** Returns the index of the given Cell in this regions cells array.
+
+		/**
+		 * Returns the index of the given Cell in this regions cells array.
 		 * This region MUST contain the given cell.
+		 *
 		 * @return the y (vertical index) of the given Cell, we check that
-		 * {@code thisRegion.contains(cell)} with an assert. */
+		 * {@code thisRegion.contains(cell)} with an assert.
+		 */
 		@Override
 		public int indexOf(final Cell cell) {
 			assert contains(cell);
 			return cell.y;
 		}
-		/** @return Does this Col contain the given Cell? */
+
+		/**
+		 * @return Does this Col contain the given Cell?
+		 */
 		@Override
 		public boolean contains(final Cell cell) {
 			return cell.x == this.x;
-		}
-		@Override
-		public boolean intersects(final ARegion r) {
-			switch (r.typeIndex) {
-				case BOX: return x >= ((Box)r).left && x <= ((Box)r).left+2;
-				case ROW: return true;
-				case COL: return this == r;
-				default: return false; // Never
-			}
 		}
 	}
 
@@ -3750,187 +3387,15 @@ public final class Grid {
 	 * @author Keith Corlett 2021-06-18
 	 */
 	public static class Single {
-		public final Cell cell;
+		public final int indice;
 		public final int value;
-		public Single(final Cell cell) {
-			this.cell = cell;
-			this.value = 0;
-		}
-		public Single(final Cell cell, final int value) {
-			this.cell = cell;
+		public Single(final int indice, final int value) {
+			this.indice = indice;
 			this.value = value;
 		}
-	}
-
-	/**
-	 * DEBUG: Diff two grids: original and copy.
-	 * <p>
-	 * I'm an inner class coz I access ALL of Grid's privates.
-	 * <p>
-	 * Used by {@link diuf.sudoku.solver.checks.BruteForce} when you
-	 * modify code to switch me on. I am a DEBUG only tool.
-	 * <pre>
-	 * <u><b>WARNING:</b></u>
-	 * Ensure Diff code is still current BEFORE you rely on it!
-	 * Attributes get added but missed by Diff, which may make
-	 * BillyGoneBuggerUp.txt look like a picnic in the bloody park,
-	 * with a really smoking hot chick, and her little sister, who
-	 * is even hotter, and a total... Slap! Reality is persistant.
-	 * </pre>
-	 */
-	public static class Diff {
-		public final Grid g0;
-		public final Grid g1;
-		public boolean any = false;
-		public PrintStream out;
-		/**
-		 * Diff two grids
-		 * @param g0 original
-		 * @param g1 copy
-		 */
-		public Diff(final Grid g0, final Grid g1) {
-			this.g0 = g0;
-			this.g1 = g1;
-		}
-		public boolean diff(final PrintStream out) {
-			this.out = out;
-			any = false;
-
-			//
-			// all output is original (g0) then copy (g1)
-			//
-
-			// If you get a poke in the 'i' you can forget the blunt stick
-			for ( int i=0; i<GRID_SIZE; ++i ) {
-				final Cell c0 = g0.cells[i];
-				final Cell c1 = g1.cells[i];
-				if ( c0.i != c1.i ) {
-					return differs(""+i+": i "+c0.i+" != "+c1.i);
-				}
-			}
-
-			// Cells
-			for ( int i=0; i<GRID_SIZE; ++i ) {
-				final Cell c0 = g0.cells[i];
-				final Cell c1 = g1.cells[i];
-				if ( c0.value != c1.value )
-					differs(""+i+": value "+c0.value+" != "+c1.value);
-				if ( c0.maybes != c1.maybes )
-					differs(""+i+": maybes "+c0.maybes+" != "+c1.maybes);
-				if ( c0.b != c1.b )
-					differs(""+i+": b "+c0.b+" != "+c1.b);
-				if ( c0.x != c1.x )
-					differs(""+i+": x "+c0.x+" != "+c1.x);
-				if ( c0.y != c1.y )
-					differs(""+i+": y "+c0.y+" != "+c1.y);
-				if ( !c0.box.id.equals(c1.box.id) )
-					differs(""+i+": box "+c0.box+" != "+c1.box);
-				if ( !c0.col.id.equals(c1.col.id) )
-					differs(""+i+": col "+c0.col+" != "+c1.col);
-				if ( !c0.row.id.equals(c1.row.id) )
-					differs(""+i+": row "+c0.row+" != "+c1.row);
-				if ( c0.boxIndex != c1.boxIndex )
-					differs(""+i+": boxIndex "+c0.boxIndex+" != "+c1.boxIndex);
-				if ( c0.idxdex != c1.idxdex )
-					differs(""+i+": idxdex "+c0.idxdex+" != "+c1.idxdex);
-				if ( c0.idxshft != c1.idxshft )
-					differs(""+i+": shft "+c0.idxshft+" != "+c1.idxshft);
-				if ( c0.skip != c1.skip )
-					differs(""+i+": skip "+c0.skip+" != "+c1.skip);
-				for ( int j=0; j<3; ++j )
-					// my indexIn each of my three constraints (regions)
-					if ( c0.indexIn[j] != c1.indexIn[j] )
-						differs(""+i+": indexIn["+j+"] "+c0.indexIn[j]+" != "+c1.indexIn[j]);
-				for ( int j=0; j<c0.notSees.length; ++j )
-					if ( c0.notSees[j] != c1.notSees[j] )
-						differs(""+i+": notSees["+j+"] "+c0.notSees[j]+" != "+c1.notSees[j]);
-				for ( int r=0; r<3; ++r ) {
-					// each cell is in 3 constraints (regions). just ensure
-					// they're the same ones: compared independantly later.
-					final ARegion r0 = c0.regions[r];
-					final ARegion r1 = c1.regions[r];
-					if ( !r0.id.equals(r1.id) )
-						differs(""+i+": regions "+r0.id+" != "+r1.id);
-				}
-				if ( c0.properties!=null && c1.properties!=null && !c0.properties.equals(c1.properties) )
-					differs(""+i+": properties "+c0.properties+" != "+c1.properties);
-			}
-
-			// Boxs
-			for ( int b=0; b<REGION_SIZE; ++b ) {
-				final Box b0 = g0.boxs[b];
-				final Box b1 = g1.boxs[b];
-				if ( b0.boxIndex != b1.boxIndex )
-					differs(""+b+": boxIndex "+b0.boxIndex+" != "+b1.boxIndex);
-				if ( b0.hNum != b1.hNum )
-					differs(""+b+": hNum "+b0.hNum+" != "+b1.hNum);
-				if ( b0.vNum != b1.vNum )
-					differs(""+b+": vNum "+b0.vNum+" != "+b1.vNum);
-				if ( b0.top != b1.top )
-					differs(""+b+": top "+b0.top+" != "+b1.top);
-				if ( b0.left != b1.left )
-					differs(""+b+": left "+b0.left+" != "+b1.left);
-			}
-			// Rows
-			for ( int r=0; r<REGION_SIZE; ++r ) {
-				final Row r0 = g0.rows[r];
-				final Row r1 = g1.rows[r];
-				if ( r0.vNum != r1.vNum )
-					differs(""+r+": vNum "+r0.vNum+" != "+r1.vNum);
-				if ( r0.y != r1.y )
-					differs(""+r+": y "+r0.y+" != "+r1.y);
-			}
-			// Cols
-			for ( int c=0; c<REGION_SIZE; ++c ) {
-				final Col r0 = g0.cols[c];
-				final Col r1 = g1.cols[c];
-				if ( r0.hNum != r1.hNum )
-					differs(""+c+": hNum "+r0.hNum+" != "+r1.hNum);
-				if ( r0.x != r1.x )
-					differs(""+c+": x "+r0.x+" != "+r1.x);
-			}
-
-			// All Regions
-			for ( int r=0; r<NUM_REGIONS; ++r ) {
-				final ARegion r0 = g0.regions[r];
-				final ARegion r1 = g1.regions[r];
-				if ( !r0.id.equals(r1.id) )
-					differs(""+r+": id "+r0.id+" != "+r1.id);
-				if ( r0.index != r1.index )
-					differs(""+r+": index "+r0.index+" != "+r1.index);
-				if ( r0.typeIndex != r1.typeIndex )
-					differs(""+r+": typeIndex "+r0.typeIndex+" != "+r1.typeIndex);
-				if ( !r0.typeName.equals(r1.typeName) )
-					differs(""+r+": typeName "+r0.typeName+" != "+r1.typeName);
-				if ( !Arrays.equals(r0.cells, r1.cells) )
-					differs(""+r+": cells "+Arrays.toString(r0.cells)+" != "+Arrays.toString(r1.cells));
-				if ( r0.setCands != r1.setCands )
-					differs(""+r+": setCands "+Values.toString(r0.setCands)+" != "+Values.toString(r1.setCands));
-				// nb: for some reason Arrays.equals returns a false negative
-				//     when toString returns the same for both arrays. IDKFA!
-				if ( r0.crossingBoxs.length != r1.crossingBoxs.length )
-					differs(""+r+": crossingBoxs.length "+r0.crossingBoxs.length+" != "+r1.crossingBoxs.length);
-				if ( r > 8 ) // suppress for boxes (which don't HAVE crossingBoxs, allthough one of them once toungue-pashed a hot cross bun. Don't tell the Easter bunny! She gets jealous, and you don't want to make her cross; unless you WANT chocolate nuts for Christmas. Not that sort of nuts Byron, ya putz!)
-					for ( int b=0; b<3; ++b )
-						if ( !r0.crossingBoxs[b].equals(r1.crossingBoxs[b]) )
-							differs(""+r+": crossingBoxs["+b+"] "+r0.crossingBoxs[b]+" != "+r1.crossingBoxs[b]);
-				if ( r0.emptyCellCount != r1.emptyCellCount )
-					differs(""+r+": emptyCellCount "+r0.emptyCellCount+" != "+r1.emptyCellCount);
-				if ( !r0.idx.equals(r1.idx) )
-					differs(""+r+": idx "+r0.idx+" != "+r1.idx);
-				for ( int v=1; v<VALUE_CEILING; ++v ) {
-					if ( !r0.idxs[v].equals(r1.idxs[v]) )
-						differs(""+r+": idxs["+v+"] "+r0.idxs[v]+" != "+r1.idxs[v]);
-					if ( !r0.ridx[v].equals(r1.ridx[v]) )
-						differs(""+r+": ridx["+v+"] "+r0.ridx[v]+" != "+r1.ridx[v]);
-				}
-			}
-			return any;
-		}
-
-		private boolean differs(String msg) {
-			out.println(msg);
-			return any = true;
+		@Override
+		public String toString() {
+			return CELL_IDS[indice]+"="+value;
 		}
 	}
 

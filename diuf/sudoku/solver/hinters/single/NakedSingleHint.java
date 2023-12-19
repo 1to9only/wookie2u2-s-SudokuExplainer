@@ -1,14 +1,15 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.single;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.ADirectHint;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
@@ -23,8 +24,8 @@ import static diuf.sudoku.utils.Frmt.COLON_SP;
  */
 public final class NakedSingleHint extends ADirectHint {
 
-	public NakedSingleHint(AHinter hinter, Cell cell, int value) {
-		super(hinter, null, cell, value);
+	public NakedSingleHint(Grid grid, IHinter hinter, Cell cell, int value) {
+		super(grid, hinter, null, cell, value);
 	}
 
 	@Override
@@ -36,10 +37,8 @@ public final class NakedSingleHint extends ADirectHint {
 	}
 
 	@Override
-	public String toStringImpl() {
-		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(super.toStringImpl())
-		  .toString();
+	public StringBuilder toStringImpl() {
+		return SB(64).append(getHintTypeName()).append(COLON_SP).append(super.toStringImpl());
 	}
 
 	@Override

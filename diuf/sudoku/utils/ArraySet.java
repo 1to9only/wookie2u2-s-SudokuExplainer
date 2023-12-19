@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -12,32 +12,53 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * ArraySet implements {@code Set<T>} using an array of Object. Unlike other
- * implementations of java.util.Set, this one does NOT enforce uniqueness, so
- * it's only useful if you already have distinct elements to add to it. On the
- * bright side the {@link #array} field is public, as is the {@link #size} so
- * you can iterate the array quickly using a fast array-iterator, instead of an
- * O(2n) Iterator. Basically I'm just a Set interface for an array, so you can
- * populate me as a Set (with above caveat), and then iterate me as an array.
+ * ArraySet presents an array of Object as a {@code Set<T>}.
  * <p>
- * Oh, and I do <b>NOT</b> allow null elements!
+ * NOTE WELL: ArraySet does <b>NOT</b> allow null elements!
+ * <p>
+ * NOTE WELL: that unlike other implementations of java.util.Set, ArraySet does
+ * not enforce uniqueness, breaking the java.util contract. Hence, ArraySet is
+ * only useful if you already have distinct elements to add to it.
+ * <p>
+ * The up-side is the {@link #array} field is public, as is the {@link #size}
+ * so you can iterate the array using an array-iterator, which is much faster
+ * an Iterator, which requires O(2n) method calls.
+ * <p>
+ * Basically I am just a Set interface for an array, so you populate me as a
+ * Set, and iterate the actual array.
  *
  * @author Keith Corlett 2021-09-28
+ * @param <T>
  */
 public class ArraySet<T> implements Set<T> {
 
 	public static final int NOT_FOUND = -1;
 
-	public static final int MAX_CAPACITY = 1024;
+	public static final int MIN_CAPACITY = 8;
+	public static final int MAX_CAPACITY = 15*1024;
 
-	public final int maxCapacity;
+	public int maxCapacity;
 	public T[] array;
-	private int lastIndex;
 	public int capacity;
-	public int size;
+	public int size; // number of elements currently in this set
 
 	public ArraySet(final int initialCapacity) {
 		this(initialCapacity, MAX_CAPACITY);
+	}
+
+	public ArraySet() {
+		this(MIN_CAPACITY, MAX_CAPACITY);
+	}
+
+	public ArraySet(T[] a) {
+		this(a.length, MAX_CAPACITY);
+		final int len = a.length;
+		// nb: arraycopy is slower for tiny arrays, but does not slow down as
+		// quickly as the array length increases, so arraycopy is faster for
+		// large arrays, and about "a method call" slower for small ones.
+		// src, srcPos, dest, destPos, length
+		System.arraycopy(a, 0, array, 0, len);
+		size = len;
 	}
 
 	@SuppressWarnings({"unchecked"})
@@ -46,45 +67,46 @@ public class ArraySet<T> implements Set<T> {
 	}
 
 	public ArraySet(final int initialCapacity, final int maxCapacity) {
-		if ( maxCapacity > MAX_CAPACITY ) {
-			throw new IllegalArgumentException("maxCapacity exceeds MAX_CAPACITY="+MAX_CAPACITY+" so use another Set, because my indexOf (et al) is an O(n) operation, so large ArraySets are too slow.");
-		}
+		if ( maxCapacity > MAX_CAPACITY )
+			throw new IllegalArgumentException("maxCapacity="+maxCapacity+" > MAX_CAPACITY="+MAX_CAPACITY+", so use another type of Set.");
 		this.maxCapacity = maxCapacity;
-		if ( initialCapacity > maxCapacity ) {
-			throw new IllegalArgumentException("initialCapacity exceeds maxCapacity="+maxCapacity);
-		}
-		final int size;
-		if ( initialCapacity < 8 ) {
-			size = 8;
-		} else {
-			size = initialCapacity;
-		}
-		array = newArray(capacity=size);
-		lastIndex = capacity - 1;
+		if ( initialCapacity > maxCapacity )
+			throw new IllegalArgumentException("initialCapacity="+initialCapacity+" > maxCapacity="+maxCapacity);
+		array = newArray(capacity=(initialCapacity < MIN_CAPACITY ? MIN_CAPACITY : initialCapacity));
 	}
 
-	public void grow(final int newCapacity) {
-		if ( newCapacity > maxCapacity ) {
-			throw new ArrayIndexOutOfBoundsException("growth exceeded maxCapacity="+maxCapacity);
-		}
+	public void grow(int newCapacity) {
+		if ( newCapacity > maxCapacity )
+			if ( maxCapacity < MAX_CAPACITY )
+				newCapacity = maxCapacity = MAX_CAPACITY;
+			else
+				throw new ArrayIndexOutOfBoundsException("newCapacity exceeds MAX_CAPACITY="+MAX_CAPACITY);
 		T[] newArray = newArray(newCapacity);
 		System.arraycopy(array, 0, newArray, 0, size);
 		array = newArray;
 		capacity = newCapacity;
-		lastIndex = capacity - 1;
 	}
 
 	@Override
 	public boolean add(final T e) {
-		if ( e == null ) {
-			throw new NullPointerException(Log.me()+" precludes null");
-		}
-		if ( size >= capacity ) {
+		if ( e == null )
+			throw new NullPointerException(Log.me()+" e is null");
+		if ( size >= capacity )
 			grow(capacity<<1);
-		}
 		array[size] = e;
-		++size; // nb: size++ above is WRONGLY incremented before AIOOBE
+		++size; // nb: size++ above is incremented before AIOOBE
 		return true;
+	}
+
+	/**
+	 * A faster add, available when reference type is the specific ArraySet.
+	 * Note that justAdd does not grow array, and does not check for null e.
+	 *
+	 * @param e to be added to this Set, must NOT be null!
+	 */
+	public void justAdd(final T e) {
+		array[size] = e;
+		++size; // nb: size++ above is incremented before AIOOBE
 	}
 
 	@Override
@@ -98,8 +120,8 @@ public class ArraySet<T> implements Set<T> {
 	}
 
 	/**
-	 * Cast Object to T. This method exists to limit the scope for
-	 * @SuppressWarnings({"unchecked"}).
+	 * Cast Object to the generic type T. This method exists to minimise the
+	 * scope of {@code @SuppressWarnings({"unchecked"})} to just the cast.
 	 *
 	 * @throws ClassCastException if unconvertible.
 	 */
@@ -109,13 +131,17 @@ public class ArraySet<T> implements Set<T> {
 	}
 
 	public int indexOf(Object o) {
-		if ( o != null ) {
-			final T t = cast(o);
-			for ( int i=0; i<size; ++i ) {
-				if ( t.equals(array[i]) ) {
+		if ( o == null ) {
+			// ALWAYS search forwards for null!
+			for ( int i=0; i<size; ++i )
+				if ( array[i] == null )
 					return i;
-				}
-			}
+		} else {
+			// search backways coz last-added is most common use of indexOf.
+			final T target = cast(o);
+			for ( int i=size-1; i>-1; --i )
+				if ( target.equals(array[i]) )
+					return i;
 		}
 		return NOT_FOUND; // -1
 	}
@@ -123,11 +149,6 @@ public class ArraySet<T> implements Set<T> {
 	@Override
 	public boolean contains(Object o) {
 		return indexOf(o) > NOT_FOUND;
-	}
-
-	@Override
-	public Iterator<T> iterator() {
-		return new MyIterator();
 	}
 
 	@Override
@@ -141,17 +162,22 @@ public class ArraySet<T> implements Set<T> {
 		return toArray(newArray(size));
 	}
 
+	/**
+	 * <b>NOTE WELL that the remove(int) method is, as yet, untested.</b>
+	 *
+	 * @param i the index of the element to remove
+	 * @return was the element removed; always true, else an exception is
+	 * thrown.
+	 */
 	public boolean remove(final int i) {
-		if ( i > lastIndex ) {
-			throw new ArrayIndexOutOfBoundsException(""+i+" > "+lastIndex);
-		} else if ( i == lastIndex ) {
-			array[lastIndex] = null;
-		} else {
-			// copy existing trailer over the last element.
-			for ( int j=i; j<size; ++j ) {
-				array[j] = array[j+1];
-			}
-		}
+		if ( i < 0 )
+			throw new ArrayIndexOutOfBoundsException("i="+i+" is less than zero");
+		if ( i > size-1 )
+			return false;
+		// copy trailing elements left one place.
+		for ( int j=i; j<size; ++j )
+			array[j] = array[j+1];
+		array[size-1] = null; // for the GC
 		--size;
 		return true;
 	}
@@ -181,10 +207,10 @@ public class ArraySet<T> implements Set<T> {
 	}
 
 	@Override
-	public boolean retainAll(final Collection<?> c) {
+	public boolean retainAll(final Collection<?> keep) {
 		boolean result = false;
 		for ( final Iterator<T> it = iterator(); it.hasNext(); ) {
-			if ( !c.contains(it.next()) ) {
+			if ( !keep.contains(it.next()) ) {
 				it.remove();
 				result = true;
 			}
@@ -207,15 +233,31 @@ public class ArraySet<T> implements Set<T> {
 		size = 0;
 	}
 
+	@Override
+	public Iterator<T> iterator() {
+		return new MyIterator();
+	}
+
+	/**
+	 * MyIterator implements an {@code Iterator<T>} over {@code ArraySet<T>}.
+	 * <p>
+	 * NOTE: MyIterator had a bug with index incrementation that remove()
+	 * tripped over. Index was post-incremented by next, so remove(i) killed
+	 * the element FOLLOWING the current one, instead of the current one.
+	 * To fix this we start with the index BEFORE the first element and
+	 * pre-increment it in next(), so that the following call to remove()
+	 * kills the current element. Sigh.
+	 */
 	private class MyIterator implements Iterator<T> {
-		private int i; // index
+		private int i = -1; // index is before first
+		private final int m = ArraySet.this.size - 1; // m is one before n
 		@Override
 		public boolean hasNext() {
-			return i < size;
+			return i < m;
 		}
 		@Override
 		public T next() {
-			return array[i++];
+			return array[++i];
 		}
 		@Override
 		public void remove() {

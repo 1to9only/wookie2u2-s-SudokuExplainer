@@ -60,7 +60,7 @@ allow you to expand the coloring clusters beyond the single digit boundary.
 
 Here is a pencilmarked grid that has no more basic solving techniques:
 
-Medusa 1.png
+Medusa_1.png
 
 For this grid, the starting digit is an easy choice, looking at the pattern for
 digit 3. All remaining candidates form a single cluster, and there are 8
@@ -77,7 +77,7 @@ ends in each pair have opposite parities.
 
 In our example, it is not too difficult to color this cluster:
 
-Medusa 2.png
+Medusa_2.png
 
 Mark opposite parities in bivalue cells
 ---------------------------------------
@@ -91,14 +91,15 @@ individual candidates within a cell. All candidates for digit 3 that have a
 particular parity have the same color, but now we have used the complementary
 color for all bivalue cells that contain a colored digit:
 
-Medusa 3.png
+Medusa_3.png
 
 For the purpose of this example, we continue coloring the remaining digits.
 However, in this stage you could already see something peculiar...
 
 [being unfamiliar with 3D Mesusa, I see many peculiar things, but I have no
-idea which one the author alludes to here, if it isn't an idiot author. Say it
-or not. Don't tease! And NEVER tease then stay stum. ~KRC]
+idea which one the author alludes to here, if it isn't an idiot author, then
+I am an idiot that writes seriously complex computer programmes. Say it or not.
+Never tease! Certainly NEVER tease and then stay stum. ~KRC]
 
 Expand the cluster for the newly added digits
 ---------------------------------------------
@@ -114,7 +115,7 @@ In our example, we've added candidates for digits 7, 8 & 9 in the previous
 step. After expanding the cluster with conjugate pairs for these digits, we get
 this cluster:
 
-Medusa 4.png
+Medusa_4.png
 
 Repeat the last 2 steps until finished
 --------------------------------------
@@ -154,7 +155,7 @@ The last type of elimination is only possible in 3D coloring.
 
 In our example, the candidate for digit 7 in r9c4 can see both colors:
 
-Medusa 5.png
+Medusa_5.png
 
 We can therefore eliminate digit 7 from this cell, which allows us to place the
 remaining digit 2.

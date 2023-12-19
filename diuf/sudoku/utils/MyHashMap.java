@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -50,17 +50,17 @@ import java.util.TreeMap;
 /**
  * MyHashMap is hashtable based implementation of the <tt>MyMap</tt> interface,
  * which extends java.util.Map to add the "visit" method. I also eradicated
- * ternaries, coz they're slower, so they should be avoided in low-level code,
+ * ternaries, coz they are slower, so they should be avoided in low-level code,
  * such as collections.
  * <p>
  * This implementation is not intended for "general use". If what you need is
  * a standard HashMap then you should use the standard java.util.HashMap. Note
  * that this implementation started as a copy of Java 1.7's java.util.HashMap.
- * I'm now using Java 1.8 whose HashMap is faster than this.
+ * I am now using Java 1.8 whose HashMap is faster than this.
  * <p>
  * This implementation provides all of the optional map operations, and permits
  * <tt>null</tt> values and the <tt>null</tt> key. The <tt>HashMap</tt> class
- * is roughly equivalent to <tt>Hashtable</tt>, except that it's unsynchronised
+ * is roughly equivalent to <tt>Hashtable</tt>, except that it is unsynchronised
  * and permits nulls. This class does not guarantee the order of the map; in
  * particular, it does not guarantee that the order remains constant over time.
  * <p>
@@ -69,7 +69,7 @@ import java.util.TreeMap;
  * elements properly among the buckets. Iteration over collection views takes
  * time proportional to the "capacity" of the <tt>HashMap</tt> instance (the
  * number of buckets) plus its size (the number of key-value mappings). Thus,
- * it's very important not to set the initial capacity too high (or the load
+ * it is very important not to set the initial capacity too high (or the load
  * factor too low) if iteration performance is important.
  * <p>
  * An instance of <tt>HashMap</tt> has two parameters affecting performance:
@@ -148,15 +148,12 @@ import java.util.TreeMap;
  * @since   1.2
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
-public class MyHashMap<K,V>
-	extends AMyMap<K,V>
-	implements IMyMap<K,V>, Cloneable, Serializable
-{
+public class MyHashMap<K,V> extends AMyMap<K,V> implements Cloneable, Serializable {
 
 	/**
 	 * The default initial capacity - MUST be a power of two.
 	 */
-	static final int DEFAULT_INITIAL_CAPACITY = 16;
+	static final int DEFAULT_CAPACITY = 8;
 
 	/**
 	 * The maximum capacity, used if a higher value is implicitly specified
@@ -168,7 +165,7 @@ public class MyHashMap<K,V>
 	/**
 	 * The load factor used when none specified in constructor.
 	 */
-	static final float DEFAULT_LOAD_FACTOR = 0.75f;
+	static final float DEFAULT_LOAD_FACTOR = 0.75F;
 
 	/**
 	 * The table, resized as necessary. Length MUST Always be a power of two.
@@ -197,7 +194,7 @@ public class MyHashMap<K,V>
 	/**
 	 * The number of times this HashMap has been structurally modified
 	 * Structural modifications are those that change the number of mappings in
-	 * the HashMap or otherwise modify its internal structure (e.g.,
+	 * the HashMap or otherwise modify its internal structure (eg,
 	 * rehash).  This field is used to make iterators on Collection-views of
 	 * the HashMap fail-fast.  (See ConcurrentModificationException).
 	 */
@@ -205,32 +202,44 @@ public class MyHashMap<K,V>
 
 	/**
 	 * The value stored against the null key. Remains null until a null key
-	 * is added to this map, when it's set.
+	 * is added to this map, when it is set.
 	 */
 	transient V nullKeyValue;
+
+	/**
+	 * A lambda that when not null is invoked when the table has been resized,
+	 * passing {@code int newCapacity}, to enable you to monitor the capacity
+	 * of each MyHashMap.
+	 */
+	public IntVisitor resizeMonitor;
 
 	/**
 	 * Constructs an empty <tt>HashMap</tt> with the specified initial
 	 * capacity and load factor.
 	 *
-	 * @param  initialCapacity the initial capacity
-	 * @param  loadFactor      the load factor
+	 * @param  initialCapacity the desired initial capacity, which is ignored
+	 *  if its too small (&lt; DEFAULT_CAPACITY=8),
+	 *  or too large (&gt; MAXIMUM_CAPACITY 1&lt;&lt;30)
+	 * @param  loadFactor the load factor
 	 * @throws IllegalArgumentException if the initial capacity is negative
 	 *         or the load factor is nonpositive
 	 */
 	public MyHashMap(int initialCapacity, float loadFactor) {
-		if (initialCapacity < 0)
-			throw new IllegalArgumentException("Illegal initial capacity: "+initialCapacity);
+		// validate params
+//		if (initialCapacity < 0)
+//			throw new IllegalArgumentException("Negative initial capacity: "+initialCapacity);
+		if (initialCapacity < DEFAULT_CAPACITY)
+			initialCapacity = DEFAULT_CAPACITY;
 		if (initialCapacity > MAXIMUM_CAPACITY)
 			initialCapacity = MAXIMUM_CAPACITY;
-		if (loadFactor <= 0 || Float.isNaN(loadFactor))
-			throw new IllegalArgumentException("Illegal load factor: "+loadFactor);
-
-		// Find a power of 2 >= initialCapacity
+		if (loadFactor < 0.5f || Float.isNaN(loadFactor))
+//			throw new IllegalArgumentException("Illegal load factor: "+loadFactor);
+			loadFactor = DEFAULT_LOAD_FACTOR;
+		// find lowest power of 2 >= initialCapacity
 		int capacity = 1;
 		while (capacity < initialCapacity)
 			capacity <<= 1;
-
+		// create and initialise
 		this.loadFactor = loadFactor;
 		threshold = (int)(capacity * loadFactor);
 		table = new Entry[capacity];
@@ -255,8 +264,8 @@ public class MyHashMap<K,V>
 	 */
 	public MyHashMap() {
 		this.loadFactor = DEFAULT_LOAD_FACTOR;
-		threshold = (int)(DEFAULT_INITIAL_CAPACITY * DEFAULT_LOAD_FACTOR);
-		table = new Entry[DEFAULT_INITIAL_CAPACITY];
+		threshold = (int)(DEFAULT_CAPACITY * DEFAULT_LOAD_FACTOR);
+		table = new Entry[DEFAULT_CAPACITY];
 		mask = table.length - 1;
 		initialise();
 	}
@@ -271,8 +280,8 @@ public class MyHashMap<K,V>
 	 * @throws  NullPointerException if the specified map is null
 	 */
 	public MyHashMap(Map<? extends K, ? extends V> m) {
-		this(Math.max((int) (m.size() / DEFAULT_LOAD_FACTOR) + 1
-				, DEFAULT_INITIAL_CAPACITY), DEFAULT_LOAD_FACTOR);
+		this(Math.max((int)(m.size()/DEFAULT_LOAD_FACTOR)+1, DEFAULT_CAPACITY)
+				, DEFAULT_LOAD_FACTOR);
 		putAllForCreate(m);
 	}
 
@@ -335,6 +344,16 @@ public class MyHashMap<K,V>
 	}
 
 	/**
+	 * Returns <tt>true</tt> if this map contains no key-value mappings.
+	 *
+	 * @return <tt>true</tt> if this map contains no key-value mappings
+	 */
+	@Override
+	public boolean any() {
+		return size > 0;
+	}
+
+	/**
 	 * Returns the value to which the specified key is mapped,
 	 * or {@code null} if this map contains no mapping for the key.
 	 *
@@ -344,7 +363,7 @@ public class MyHashMap<K,V>
 	 * it returns {@code null}.  (There can be at most one such mapping.)
 	 *
 	 * <p>A return value of {@code null} does not <i>necessarily</i>
-	 * indicate that the map contains no mapping for the key; it's also
+	 * indicate that the map contains no mapping for the key; it is also
 	 * possible that the map explicitly maps the key to {@code null}.
 	 * The {@link #containsKey containsKey} operation may be used to
 	 * distinguish these two cases.
@@ -361,47 +380,6 @@ public class MyHashMap<K,V>
 			if ( e.hash==hash && ((k=e.key)==key || key.equals(k)) )
 				return e.value;
 		return null;
-	}
-
-	/**
-	 * Visit does a get-else-put, ie an addOnly operation, with no update: It
-	 * either finds the given key and returns false, or (if key doesn't already
-	 * exist) it puts the given key and value and returns true, which is very
-	 * useful in a Set where the associated value is irrelevant.
-	 * <p>
-	 * A call to <tt>visit</tt> takes a bit more than half of the time of a
-	 * <tt>get</tt> then a <tt>put</tt> because it: calculates hash, finds the
-	 * entry, and searches the linked-list ONCE; which is also more atomic (an
-	 * oxymoron), by which I mean that there is a greatly reduced probability
-	 * of another thread getting in-between the get and the put, but if you are
-	 * using this Map across multiple threads then reliability still requires
-	 * you to synchronise operations on it externally (see class comments).
-	 *
-	 * @param key
-	 * @param value
-	 * @return
-	 */
-	@Override
-	public boolean visit(K key, V value) {
-		// real techies do not put null keys in HashMaps!
-		assert key != null : Log.me()+": null key denied!";
-		// first deal with null key
-		if ( key == null ) {
-			++modCount;
-			return putForNullKey(value)==null; // null already existed
-		}
-		K k;
-		int h = key.hashCode();
-		h ^= (h >>> 20) ^ (h >>> 12);
-		final int hash = h ^ (h >>> 7) ^ (h >>> 4);
-		final int i = hash & mask;
-		for ( Entry<K,V> e=table[i]; e!=null; e=e.next )
-			if ( e.hash==hash && ((k=e.key)==key || key.equals(k)) )
-				return false; // it already existed
-		// not found, so put it
-		++modCount;
-		addEntry(hash, key, value, i);
-		return true; // it was added
 	}
 
 	/**
@@ -428,6 +406,9 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public boolean containsKey(Object key) {
+		if ( key == null ) {
+			return getForNullKey() != null;
+		}
 		return getEntry(key) != null;
 	}
 
@@ -437,12 +418,8 @@ public class MyHashMap<K,V>
 	 * for the key.
 	 */
 	final Entry<K,V> getEntry(Object key) {
-		if ( key == null ) {
-			for ( Entry<K,V> e=table[0]; e!=null; e=e.next )
-				if ( e.key==null )
-					return e;
-			return null;
-		}
+		if ( key == null )
+			return new Entry(0, null, getForNullKey(), null);
 		final int hash = hash(key.hashCode());
 		K k;
 		for ( Entry<K,V> e=table[hash & mask]; e!=null; e=e.next )
@@ -469,18 +446,21 @@ public class MyHashMap<K,V>
 	 * Associates the specified value with the specified key in this map.
 	 * If the map contains an existing entry for this key, then the old
 	 * value is replaced.
+	 * <p>
+	 * NOTE WELL: if you require null keys or values use a java.util.HashMap!
 	 *
-	 * @param key the key with which the specified value is to be associated
-	 * @param value value to be associated with the specified key
-	 * @return the previous value associated with <tt>key</tt>, or <tt>null</tt>
-	 * if there was no mapping for <tt>key</tt>. Note that I reject null-keys;
-	 * if you require null-keys use a java.util.HashMap.
+	 * @param key the key with which the specified value is to be associated,
+	 *  which may be null, but I cannot guarantee ANY results from a MyHashMap
+	 *  that contains a null key or null values.
+	 * @param value value to be associated with the specified key, which may be
+	 *  null, but I cannot guarantee ANY results from a MyHashMap that contains
+	 *  a null key or null values.
+	 * @return the previous value associated with <tt>key</tt> or <tt>null</tt>
+	 *  if there was no mapping for <tt>key</tt>.
+	 *
 	 */
 	@Override
 	public V put(K key, V value) {
-		// A HashMap containing a null key or value is MUCH less useful,
-		// because we loose the ability to detect not-found simply.
-		assert key != null : "MyHashMap.put: key is null!";
 		// first handle null key
 		if ( key == null ) {
 			++modCount;
@@ -488,14 +468,11 @@ public class MyHashMap<K,V>
 		}
 		K k;
 		V previousValue;
-		final int hash, i;
-		{ // this block just localises h
-			int h = key.hashCode();
-			h ^= (h >>> 20) ^ (h >>> 12);
-			hash = h ^ (h >>> 7) ^ (h >>> 4);
-			i = hash & mask;
-		}
-		for ( Entry<K,V> e=table[i]; e!=null; e=e.next )
+		final int i;
+		int h = key.hashCode();
+		               h ^= (h >>> 20) ^ (h >>> 12);
+		final int hash = h ^ (h >>> 7) ^ (h >>> 4);
+		for ( Entry<K,V> e=table[i=hash & mask]; e!=null; e=e.next )
 			if ( e.hash==hash && ( (k=e.key)==key || key.equals(k) ) ) {
 				previousValue = e.value;
 				e.value = value;
@@ -506,10 +483,16 @@ public class MyHashMap<K,V>
 		return null;
 	}
 
+	/**
+	 * Add the given $key with the given $value. By calling me you are taking
+	 * responsibility for assuring that key does not already exist. Note that
+	 * $key is not null: I hate null in HashMap. Use another data-structure.
+	 *
+	 * @param key
+	 * @param value
+	 * @return
+	 */
 	public boolean addOnly(K key, V value) {
-		// A HashMap containing a null key or value is MUCH less useful,
-		// because we loose the ability to detect not-found simply.
-		assert key != null : "MyHashMap.put: key is null!";
 		// first handle null key
 		if ( key == null ) {
 			++modCount;
@@ -521,9 +504,8 @@ public class MyHashMap<K,V>
 			int h = key.hashCode();
 			h ^= (h >>> 20) ^ (h >>> 12);
 			hash = h ^ (h >>> 7) ^ (h >>> 4);
-			i = hash & mask;
 		}
-		for ( Entry<K,V> e=table[i]; e!=null; e=e.next )
+		for ( Entry<K,V> e=table[i=hash & mask]; e!=null; e=e.next )
 			if ( e.hash==hash && ( (k=e.key)==key || key.equals(k) ) )
 				return false;
 		++modCount;
@@ -554,7 +536,7 @@ public class MyHashMap<K,V>
 
 	/**
 	 * This method handles finding the existing entry with a null key, and
-	 * if one exists it's value is returned, else the proffered value is added
+	 * if one exists it is value is returned, else the proffered value is added
 	 * to the null key.
 	 *
 	 * @param value
@@ -619,14 +601,16 @@ public class MyHashMap<K,V>
 	 *        is irrelevant).
 	 */
 	void resize(int newCapacity) {
-		final Entry[] theTable = table;
-		if ( theTable.length == MAXIMUM_CAPACITY ) {
+		if ( table.length == MAXIMUM_CAPACITY ) {
 			threshold = Integer.MAX_VALUE;
 			return;
 		}
 		table = transfer(new Entry[newCapacity]);
 		mask = table.length - 1;
 		threshold = (int)(newCapacity * loadFactor);
+		if ( resizeMonitor != null ) {
+			resizeMonitor.visit(newCapacity);
+		}
 	}
 
 	/**
@@ -636,7 +620,7 @@ public class MyHashMap<K,V>
 		Entry<K,V> e, next;
 		int i;
 		final Entry[] src = table;
-		// length is a power of 2, so length-1 is all 1's.
+		// newTable.length is a power of 2, so length-1 is all 1's.
 		final int newMask = newTable.length - 1;
 		for ( int j=0,n=src.length; j<n; ++j ) {
 			if ( (e=src[j]) != null ) {
@@ -701,6 +685,11 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public V remove(Object key) {
+		if ( key == null ) {
+			V value = nullKeyValue;
+			nullKeyValue = null;
+			return value;
+		}
 		Entry<K,V> e = removeEntryForKey((K)key);
 		if ( e == null )
 			return null;
@@ -713,12 +702,14 @@ public class MyHashMap<K,V>
 	 * for this key.
 	 */
 	final Entry<K,V> removeEntryForKey(K key) {
-		int hash;
-		if (key == null)
-			hash = 0;
-		else
-			hash = hash(key.hashCode());
-		final int i = indexFor(hash, table.length);
+		if ( key == null ) {
+			Entry<K,V> entry = new Entry(0, null, nullKeyValue, null);
+			nullKeyValue = null;
+			return entry;
+		}
+		final int hash = hash(key.hashCode());
+//		final int i = indexFor(hash, table.length);
+		final int i = hash & mask;
 		Entry<K,V> prev = table[i];
 		Entry<K,V> e = prev;
 		Entry<K,V> next;
@@ -811,6 +802,7 @@ public class MyHashMap<K,V>
 		Entry[] myTable = table;
 		for ( int i=0, n=myTable.length; i<n; ++i )
 			myTable[i] = null;
+		nullKeyValue = null;
 		size = 0;
 	}
 
@@ -824,8 +816,10 @@ public class MyHashMap<K,V>
 	 */
 	@Override
 	public boolean containsValue(Object value) {
-		if (value == null)
+		if ( value == null )
 			return containsNullValue();
+		if ( value == nullKeyValue )
+			return true;
 		final Entry[] tab = table;
 		Entry e;
 		for ( int i=0, n=tab.length; i<n; ++i )
@@ -917,16 +911,17 @@ public class MyHashMap<K,V>
 		}
 		@Override
 		public final int hashCode() {
-			if ( key == null )
+			if ( key == null ) {
 				if ( value == null )
 					return 0;
 				else
 					return value.hashCode();
-			else
+			} else {
 				if ( value == null )
 					return key.hashCode();
 				else
 					return key.hashCode() | value.hashCode();
+			}
 		}
 		@Override
 		public final String toString() {
@@ -940,7 +935,7 @@ public class MyHashMap<K,V>
 
 	/**
 	 * Adds a new entry with the given key, value and hash to the given bucket
-	 * of my table; and also resizes the table if it's now too small.
+	 * of my table; and also resizes the table if it is now too small.
 	 * <p>
 	 * Subclasses override this to alter the behaviour of the put method.
 	 */
@@ -948,7 +943,7 @@ public class MyHashMap<K,V>
 		Entry<K,V> e = table[bucketIndex];
 		table[bucketIndex] = new Entry<>(hash, key, value, e);
 		if ( ++size > threshold )
-			resize(2 * table.length);
+			resize(table.length<<1);
 	}
 
 	/**
@@ -1139,15 +1134,16 @@ public class MyHashMap<K,V>
 			return newEntryIterator();
 		}
 		@Override
-		public boolean contains(Object o) {
-			if (!(o instanceof Map.Entry))
-				return false;
-			Map.Entry<K,V> e = (Map.Entry<K,V>) o;
-			Entry<K,V> candidate = getEntry(e.getKey());
-			return candidate != null && candidate.equals(e);
+		public boolean contains(final Object o) {
+			return o instanceof Map.Entry
+				&& contains((Map.Entry<K,V>) o);
+		}
+		public boolean contains(final Map.Entry<K,V> e) {
+			final Entry<K,V> candidate = getEntry(e.getKey());
+			return candidate!=null && candidate.equals(e);
 		}
 		@Override
-		public boolean remove(Object o) {
+		public boolean remove(final Object o) {
 			return removeMapping(o) != null;
 		}
 		@Override
@@ -1161,7 +1157,7 @@ public class MyHashMap<K,V>
 	}
 
 	/**
-	 * Save the state of the <tt>HashMap</tt> instance to a stream (i.e.,
+	 * Save the state of the <tt>HashMap</tt> instance to a stream (ie,
 	 * serialize it).
 	 *
 	 * @serialData The <i>capacity</i> of the HashMap (the length of the
@@ -1202,7 +1198,7 @@ public class MyHashMap<K,V>
 	private static final long serialVersionUID = 362498820763181265L;
 
 	/**
-	 * Reconstitute the <tt>HashMap</tt> instance from a stream (i.e.,
+	 * Reconstitute the <tt>HashMap</tt> instance from a stream (ie,
 	 * deserialize it).
 	 */
 	private void readObject(java.io.ObjectInputStream s)

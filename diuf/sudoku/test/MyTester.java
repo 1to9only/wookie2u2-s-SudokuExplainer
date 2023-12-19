@@ -1,20 +1,22 @@
 package diuf.sudoku.test;
 
-import static diuf.sudoku.test.TestHelpers.*;
+import static diuf.sudoku.test.TestHelp.*;
 import static diuf.sudoku.Indexes.*;
 import static diuf.sudoku.Values.*;
 import static java.util.Calendar.*;
 
 import diuf.sudoku.*;
+import static diuf.sudoku.Constants.F;
+import static diuf.sudoku.Constants.T;
 import diuf.sudoku.Grid.*;
+import static diuf.sudoku.Grid.BY9;
+import static diuf.sudoku.Grid.CELL_IDS;
 import static diuf.sudoku.Grid.GRID_SIZE;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.solver.*;
 import diuf.sudoku.solver.hinters.*;
-import diuf.sudoku.solver.hinters.align.AAlignedSetExclusionBase;
 import diuf.sudoku.solver.hinters.chain.*;
-import diuf.sudoku.solver.hinters.nkdset.*;
 import diuf.sudoku.utils.*;
 
 import java.io.*;
@@ -24,12 +26,20 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
 import static diuf.sudoku.Grid.SQRT;
+import diuf.sudoku.Idx.MyIntQueue;
+import diuf.sudoku.io.StdErr;
+import static java.lang.Integer.bitCount;
+import static java.lang.Integer.parseInt;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import static javax.swing.JOptionPane.ERROR_MESSAGE;
+import static javax.swing.JOptionPane.showMessageDialog;
 //import sun.security.action.GetPropertyAction;
 //import sudoku.SudokuSet;
 
 
 /**
- * I use this class just to find-out stuff. It's not referenced elsewhere in
+ * I use this class just to find-out stuff. It is not referenced elsewhere in
  * the project, but I import whatever classes I want, and leave them there...
  * so do NOT Ctrl-Shift-I.
  * <p>
@@ -66,8 +76,9 @@ public final class MyTester {
 //				ttl += c;
 //			totalA[i] = ttl;
 //			if ( i == 0 )
-//				for (int r=0; r<27; ++r)  for (int v=1; v<10; ++v)
-//					assert grid.regions[r].ridx[v].equals(copy.regions[r].ridx[v]);
+//				for (int r=0; r<27; ++r)
+//					for (int v=1; v<10; ++v)
+//						assert grid.regions[r].places[v] = copy.regions[r].places[v];
 //		}
 //		finish = System.nanoTime();
 //		System.out.format("%9s %,9d %,15d\n", "copyTo", HOW_MANY, finish-start);
@@ -81,8 +92,9 @@ public final class MyTester {
 //				ttl += c;
 //			totalB[i] = ttl;
 //			if ( i == 0 )
-//				for (int r=0; r<27; ++r)  for (int v=1; v<10; ++v)
-//					assert grid.regions[r].ridx[v].equals(copy.regions[r].ridx[v]);
+//				for (int r=0; r<27; ++r)
+//					for (int v=1; v<10; ++v)
+//						assert grid.regions[r].places[v] = copy.regions[r].places[v];
 //		}
 //		finish = System.nanoTime();
 //		System.out.format("%9s %,9d %,15d\n", "copyCon", HOW_MANY, finish-start);
@@ -141,10 +153,11 @@ public final class MyTester {
 //	}
 
 //	public static void main(String[] args) {
-//		Indexes o = null;
-//		boolean isIndexes = o instanceof Indexes;
-//		System.out.println("isIndexes="+isIndexes);
+//		Ass a = null;
+//		boolean isInstance = a instanceof Ass;
+//		System.out.println("isInstance="+isInstance);
 //	}
+//	//isInstance=false
 
 //	static final int HOW_MANY = 100 * 1000;
 //	public static void main(String[] args) {
@@ -204,7 +217,7 @@ public final class MyTester {
 //		for ( int times=0; times<TIMES; ++times ) {
 //			n = 0;
 //			for ( int i=0; i<9; ++i ) // 9*9 = 81
-//				if ( r1s[i].ridx[v].size>1 && r1s[i].ridx[v].size<=dd )
+//				if ( r1s[i].numPlaces[v]>1 && r1s[i].numPlaces[v]<=dd )
 //					candiIdxs[n++] = i;
 //		}
 //
@@ -212,7 +225,7 @@ public final class MyTester {
 //		for ( int times=0; times<TIMES; ++times ) {
 //			n = 0;
 //			for ( int i=0; i<9; ++i ) { // 9*9 = 81
-//				final int card = r1s[i].ridx[v].size;
+//				final int card = r1s[i].numPlaces[v];
 //				if ( card>1 && card<=dd )
 //					candiIdxs[n++] = i;
 //			}
@@ -691,7 +704,7 @@ public final class MyTester {
 ///*
 //       next		   ntz+1<<i		     0+1<<i		      array
 // 25,000,000		 25,000,000		 25,000,000		 25,000,000
-// 98,083,764		 29,636,169		 48,055,479		112,408,840 // with 1000 toArray's
+// 98,083,764		 29,636,169		 48,055,479		112,408,840 // with 1000 toArrays
 // 99,267,295		 29,857,984		 50,012,293		 12,103,633 // without
 // 97,459,663		 29,773,547		 50,278,038		 12,191,703
 //insert "0+shft" before "array"
@@ -754,7 +767,7 @@ public final class MyTester {
 //     92,878,215	     44,006,361
 // */
 
-///* Q: What's the fastest way to iterate the siblings? Do we:
+///* Q: Whats the fastest way to iterate the siblings? Do we:
 // *    (a) getSiblingsSet() OR getSiblingsArray()?
 // *    (b) use a for-i loop or a foreach loop?
 // *	for ( y=0; y<9; ++y )
@@ -766,7 +779,7 @@ public final class MyTester {
 // */
 //	// KRC2017-12-21 Performance: array iterator VERSES for-i loop
 //	// KRC2019-09-02 Performance: Does caching cell.value in ArrayIterator matter?
-//	// NB: there's 2 mains in this session. The 2nd processes output of 1st.
+//	// NB: there is 2 mains in this session. The 2nd processes output of 1st.
 //	private static final int HOW_MANY = 1000*1000;
 //	public static void main(String[] args) {
 //		final File file = new File("C:/Users/User/Documents/SudokuPuzzles/Test/LoadTest.txt");
@@ -835,7 +848,7 @@ public final class MyTester {
 //     19,801,469	      2,502,623
 //* not caching sib in for-i loop
 //     for-i loop	       iterator
-//      8,216,128	      6,212,032 // WTF: How come iterator is slower? It hasn't changed.
+//      8,216,128	      6,212,032 // WTF: How come iterator is slower? It has not changed.
 //     12,769,361	      6,234,521
 //     27,505,590	     24,348,346
 //      8,328,502	      6,042,598
@@ -858,9 +871,9 @@ public final class MyTester {
 //  2,834,832,918	  2,492,400,501	  4,278,087,718
 //  2,677,628,023	  2,481,310,683	  4,307,073,804
 //  2,507,369,303	  2,502,931,308	  4,308,725,061
-//* So it looks like there's ____-all in it speed-wise, though I must admit that
+//* So it looks like there is ____-all in it speed-wise, though I must admit that
 //  array iterator is faster (NOT what I expected), and the syntax is simpler,
-//	so I'll prefer the array iterator where-ever practicable.
+//	so I will prefer the array iterator where-ever practicable.
 //* KRC2019-09-02 Performance: Does caching cell.value in ArrayIterator matter?
 //  HOW_MANY = 1000*1000
 //      for-i loop	       array it	     ai cache v	   Set iterator
@@ -901,7 +914,7 @@ public final class MyTester {
 ////		}
 ////	}
 
-//	// Q: What's the fastest way to implement a containsAny(Values) method?
+//	// Q: What is the fastest way to implement a containsAny(Values) method?
 //	// KRC2017-12-24 Locally anding bits is 10 times faster.
 //	private static final int HOW_MANY = 1000*1000;
 //	/** An array of "shifted" bitset-values (faster than 1<<v-1) */
@@ -1104,7 +1117,7 @@ public final class MyTester {
 //
 //*/
 
-//	Q: What's the value of (1<<5)-1
+//	Q: What is the value of (1<<5)-1
 //	private static final int XSHFT = (1<<5)-1;
 //	public static void main(String[] args) {
 //		try {
@@ -1114,7 +1127,7 @@ public final class MyTester {
 //		}
 //	}
 
-//	// Q: What's the value of exlusive-bitwise-or (^) VERSES bitwise-or (|)
+//	// Q: What is the value of exlusive-bitwise-or (^) VERSES bitwise-or (|)
 //	public static void main(String[] args) {
 //		try {
 //			System.out.format("3^5=%d, 3|5=%d\n", 3^5, 3|5);
@@ -1123,7 +1136,7 @@ public final class MyTester {
 //		}
 //	}
 
-//	// Q: What's in System.getProperties()?
+//	// Q: What is in System.getProperties()?
 //	public static void main(String[] args) {
 //		try {
 //			System.out.format("getProperties()\n");
@@ -1154,7 +1167,7 @@ public final class MyTester {
 //		}
 //	}
 
-//  // Q: What's the value of ((1<<4)-1)<<4 to hard-code?
+//  // Q: What is the value of ((1<<4)-1)<<4 to hard-code?
 //	public static void main(String[] args) {
 //		try {
 //			int i = ((1<<4)-1)<<4;
@@ -1190,12 +1203,12 @@ public final class MyTester {
 //		}
 //	}
 
-//	// Q: There can't actually be a ____nuckle Java API team, surely?
+//	// Q: There cannot actually be a ____nuckle Java API team, surely?
 //	public static void main(String[] args) {
 //		try {
 //			System.out.println("a".equals("b")
 //					? "Yep, \"a\".equals(\"b\") Well ____ Me Sideways!"
-//					: "Nope, it's just you who's the ____nuckle. Sigh.");
+//					: "Nope, it is just you who's the ____nuckle. Sigh.");
 //		} catch (Exception ex) {
 //			ex.printStackTrace(System.out);
 //		}
@@ -1205,16 +1218,16 @@ public final class MyTester {
 //	// Q: How do you format a date in Java?
 // /*
 // // The following conversion characters are used for formatting times:
-// // 'c' decription                 : i.e.
+// // 'c' decription                 : ie
 // // 'H' 2 digit 24-hour of the day : 00 - 23.
 // // 'I' 2 digit 12-Hour of the day : 01 - 12.
 // // 'M' 2 digit Minute             : 00 - 59.
 // // 'S' 2 digit Seconds            : 00 - 60 (nb "60" supports leap seconds).
 // // 'L' 3 digit Milliseconds       : 000 - 999.
 // // 'N' 9 Digit Nanoseconds        : 000000000 - 999999999.
-// // 'p' Locale-specific morning or afternoon marker in lower case, e.g."am" or "pm".
+// // 'p' Locale-specific morning or afternoon marker in lower case, eg "am" or "pm".
 // //     Use of the conversion prefix 'T' forces this output to upper case.
-// // 'z' RFC 822 style numeric time zone offset from GMT, e.g. -0800. This value will
+// // 'z' RFC 822 style numeric time zone offset from GMT, eg -0800. This value will
 // //     be adjusted as necessary for Daylight Saving Time. For long, Long, and Date
 // //     the time zone used is the default time zone for this instance of the Java
 // //     virtual machine.
@@ -1224,35 +1237,35 @@ public final class MyTester {
 // // 	virtual machine. The Formatter's locale will supersede the locale of the
 // // 	argument (if any).
 // // 's' Seconds since the beginning of the epoch starting at 1 January 1970 00:00:00
-// // 	UTC, i.e. Long.MIN_VALUE/1000 to Long.MAX_VALUE/1000.
+// // 	UTC, ie Long.MIN_VALUE/1000 to Long.MAX_VALUE/1000.
 // // 'Q' Milliseconds since the beginning of the epoch starting at 1 January 1970
-// // 	00:00:00 UTC, i.e. Long.MIN_VALUE to Long.MAX_VALUE.
+// // 	00:00:00 UTC, ie Long.MIN_VALUE to Long.MAX_VALUE.
 // //
 // // The following conversion characters are used for formatting dates:
 // // 'B' Locale-specific full month name,
-// //     e.g. "January", "February".
+// //     eg "January", "February".
 // // 'b' Locale-specific abbreviated month name,
-// //     e.g. "Jan", "Feb".
+// //     eg "Jan", "Feb".
 // // 'h' Same as 'b'.
 // // 'A' Locale-specific full name of the day of the week,
-// //     e.g. "Sunday", "Monday"
+// //     eg "Sunday", "Monday"
 // // 'a' Locale-specific short name of the day of the week,
-// //     e.g. "Sun", "Mon"
+// //     eg "Sun", "Mon"
 // // 'C' Four-digit year divided by 100, formatted as two digits with leading zero
 // //     as necessary,
-// //     i.e. 00 - 99
+// //     ie 00 - 99
 // // 'Y' Year, formatted as at least four digits with leading zeros as necessary,
-// //     e.g. 0092 equals 92 CE for the Gregorian calendar.
+// //     eg 0092 equals 92 CE for the Gregorian calendar.
 // // 'y' Last two digits of the year, formatted with leading zeros as necessary,
-// //     i.e. 00 - 99.
+// //     ie 00 - 99.
 // // 'j' Day of year, formatted as three digits with leading zeros as necessary,
-// //     e.g. 001 - 366 for the Gregorian calendar.
+// //     eg 001 - 366 for the Gregorian calendar.
 // // 'm' Month, formatted as two digits with leading zeros as necessary,
-// //     i.e. 01 - 13.
+// //     ie 01 - 13.
 // // 'd' Day of month, formatted as two digits with leading zeros as necessary,
-// //     i.e. 01 - 31
+// //     ie 01 - 31
 // // 'e' Day of month, formatted as two digits,
-// //     i.e. 1 - 31.
+// //     ie 1 - 31.
 // // The following conversion characters are used for formatting common date/time
 // // 	compositions.
 // // 'R' Time formatted for the 24-hour clock as "%tH:%tM"
@@ -1262,7 +1275,7 @@ public final class MyTester {
 // // 'D' Date formatted as "%tm/%td/%ty".
 // // 'F' ISO 8601 complete date formatted as "%tY-%tm-%td".
 // // 'c' Date and time formatted as "%ta %tb %td %tT %tZ %tY",
-// //     e.g. "Sun Jul 20 16:17:00 EDT 1969".
+// //     eg "Sun Jul 20 16:17:00 EDT 1969".
 // */
 //	// Q: How do you format a date in Java?
 //	public static void main(String[] args) {
@@ -1276,15 +1289,15 @@ public final class MyTester {
 // 			// NB: the argument_index$ syntax is used to reference the same arg
 // 			// 3 times: %[argument_index$][flags][width][.precision]conversion
 // 			// IMPL: return new Formatter().format(format, args).toString();
-// 			// NB: It doesn't retain the Formatter(), which ain't cheap to make.
-// 			// So don't use the convenience method in a loop! These assmongels
+// 			// NB: It does not retain the Formatter(), which ain't cheap to make.
+// 			// So do not use the convenience method in a loop! These assmongels
 // 			// wonder why smart people think these assmongels is assmongels.
-// 			// Retain the formatter ya' ____ing assmongols! It's stateless! And
-//			// if it's not stateless then rip-out whatever to make it bloody
-//			// stateless; and retain the bastard... coz it's fast. I'd chuck
+// 			// Retain the formatter ya' ____ing assmongols! It is stateless! And
+//			// if it is not stateless then rip-out whatever to make it bloody
+//			// stateless; and retain the bastard... coz it is fast. I'd chuck
 //			// Java's formatter to the dump and just boost GNU's printf (even
 //			// if the assmongels need to wrap it in format method) because
-//			// it's a thousand times faster than this pile of crap.
+//			// it is a thousand times faster than this pile of crap.
 // 			String s = String.format("Run away!!!!!! %1$tb %1$te, %1$tY", c);
 // 			System.out.format("%s\n", s);	// Local time   : 06:11:13
 // 			// 'F' ISO 8601 complete date formatted as "%tY-%tm-%td".
@@ -1296,14 +1309,14 @@ public final class MyTester {
 // 			// 'S' 2 digit Seconds            : 00 - 60 (leap seconds).
 // 			// YYYY-MM-DD.hh-mm-ss
 // 			System.out.format("%s built %s ran %3$tF.%3$tH-%3$tM-%3$tS\n"
-// 					, Settings.ATV, Settings.BUILT, new Date() );
+// 					, Config.ATV, Config.BUILT, new Date() );
 // 		} catch (Exception ex) {
 // 			ex.printStackTrace(System.out);
 // 		}
 // 	}
 
 // 	// Q: Is System.nanoTime() slow compared to System.currentTimeMillis()?
-// 	//    I've instituted a c__k-block on A*E and I want to know if I should
+// 	//    I have instituted a c__k-block on A*E and I want to know if I should
 // 	//    use a tape-measure, or something a little more English?
 // 	public static void main(String[] args) {
 // 		try {
@@ -1327,7 +1340,7 @@ public final class MyTester {
 // so System.currentTimeMillis() runs in about 14.72% of the time
 // that System.nanoTime() does (today on my machine). Anglify now!
 // Also interesting that all my debug timings are in nanoseconds,
-// but for LogicalSolverTester and Aligned*Exclusion I'm interested
+// but for LogicalSolverTester and Aligned*Exclusion I am interested
 // in how many minutes the bastard takes, so @maybe I should be using
 // currentTimeMillis() for debug timings, despite its horendous name.
 // */
@@ -1490,7 +1503,7 @@ public final class MyTester {
 //  col A=135      col B=035      col C=         col D=0157     col E=035      col F=0137     col G=         col H=         col I=
 // */
 
-//	// Q: What's the cost of accessing a field over a local? And what about a
+//	// Q: What is the cost of accessing a field over a local? And what about a
 //	//    static field?
 //	private int field = 0;
 //	private int lcl2Fld = 0;
@@ -1543,9 +1556,9 @@ public final class MyTester {
 //			++staticField;
 //	}
 ///*
-//At face value it's quite expensive to hammer a field. The local is taking just
-//over 1% of the field time, so DO NOT HAMMER A FIELD!!! but I'm also thinking
-//that it's a lot less clear-cut in the real world.
+//At face value it is quite expensive to hammer a field. The local is taking just
+//over 1% of the field time, so DO NOT HAMMER A FIELD!!! but I am also thinking
+//that it is a lot less clear-cut in the real world.
 //local  =     1,383,671	2,147,483,647
 //field  =   133,768,980	2,147,483,647
 //static =   120,163,234	2,147,483,647
@@ -1559,7 +1572,7 @@ public final class MyTester {
 //lcl/fld =     1,519,781	2,147,483,647
 //field   =   124,899,945	2,147,483,647
 //static  =   151,632,584	2,147,483,647
-//change the order because I've seen that dramatically effect results previously.
+//change the order because I have seen that dramatically effect results previously.
 //static  =   148,385,682	2,147,483,647
 //field   =   137,202,417	2,147,483,647
 //lcl/fld =     1,743,694	2,147,483,647
@@ -1577,7 +1590,7 @@ public final class MyTester {
 // 	}
 
 //	// Q: Can a generic generic narrowCast method work?
-//	// A: Yes: But JESUS H CHRIST it's ugly!
+//	// A: Yes: But JESUS H CHRIST it is ugly!
 // 	public static void main(String[] args) {
 // 		try {
 //			LogicalSolver solver = new LogicalSolver();
@@ -1596,7 +1609,7 @@ public final class MyTester {
 // 	}
 
 //	// Q: Does the MyArrays.filter method work?
-//	// A: Yes. But it does NOT downcast it's elements!!!
+//	// A: Yes. But it does NOT downcast it is elements!!!
 // 	public static void main(String[] args) {
 // 		try {
 //			final IFilter<IHinter> ACTIVATABLES_FILTER
@@ -1610,7 +1623,7 @@ public final class MyTester {
 //					= new IFormatter<IHinter>(){
 //				@Override
 //				public String format(IHinter e) {
-//					return e.getTech().name();
+//					return e.getTechName();
 //				}
 //			};
 //			LogicalSolver solver = new LogicalSolver();
@@ -1639,7 +1652,7 @@ public final class MyTester {
 //			final IFilter<IHinter> QUAD = new IFilter<IHinter>() {
 //				@Override
 //				public boolean accept(IHinter h) {
-//					return (h.getTech().name().toLowerCase().contains("quad") );
+//					return (h.getTechName().toLowerCase().contains("quad") );
 //				}
 //			};
 //			LogicalSolver solver = new LogicalSolver();
@@ -1655,7 +1668,7 @@ public final class MyTester {
 //	private static final IFormatter<IHinter> HINTER_TECH_NAME = new IFormatter<IHinter>(){
 //		@Override
 //		public String format(IHinter e) {
-//			return e.getTech().name();
+//			return e.getTechName();
 //		}
 //	};
 //	private static void println(String hdr, List<IHinter> list) {
@@ -1669,7 +1682,7 @@ public final class MyTester {
 //	}
 /*
 Oct 29, 2019 12:15:46 PM java.util.prefs.WindowsPreferences <init>
-WARNING: Could not open/create prefs root node Software\JavaSoft\Prefs at root 0x80000002. Windows RegCreateKeyEx(...) returned error code 5.
+WARN: Could not open/create prefs root node Software\JavaSoft\Prefs at root 0x80000002. Windows RegCreateKeyEx(...) returned error code 5.
 LogicalSolver: unwanted: HiddenQuad
 LogicalSolver: unwanted: NakedPent
 LogicalSolver: unwanted: HiddenPent
@@ -1742,7 +1755,7 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 // 	}
 
 //	// Q: Does Java evaluate both expressions in a ?: operation?
-//	// A: NO, at least it doesn't if there's side-effects, which I presume
+//	// A: NO, at least it does not if there is side-effects, which I presume
 //	//    means that it just evaluates the selected path.
 // 	public static void main(String[] args) {
 // 		try {
@@ -1756,7 +1769,7 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 // 		}
 // 	}
 
-//	// Q: What's the ammortised cost of totalSibCollisions?
+//	// Q: What is the ammortised cost of totalSibCollisions?
 //	// A: See below
 // 	public static void main(String[] args) {
 // 		try {
@@ -1827,10 +1840,10 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //	flip =  1,156,248,100	5000000
 //	   ~ =    643,801,900	9000000
 //	flip =  1,221,313,200	9000000
-//	ERGO: Yes, it's actaully faster to ~ it repeatedly!
+//	ERGO: Yes, it is actaully faster to ~ it repeatedly!
 //*/
 
-//	// Q: What's a good serialVersionUID?
+//	// Q: What is a good serialVersionUID?
 //	// A: Blow it out your ass HAL, ya bitwit!
 // 	public static void main(String[] args) {
 // 		try {
@@ -1865,14 +1878,14 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 
 //	// Q: Is (m1|m2)!=0 faster or slower than (m1!=0 || m2!=0)
 //	// A: Yeah, it appears to be a bit faster, but only a bit; so I shall use
-//	// the (m1|m2)!=0 method because it's more succinct; I just wanted to check
-//	// that it wasn't actually slower.
+//	// the (m1|m2)!=0 method because it is more succinct; I just wanted to check
+//	// that it was not actually slower.
 // 	public static void main(String[] args) {
 // 		try {
 //			// Do it 1 billion 247 million times
 //			final int HOW_MANY = Integer.MAX_VALUE;
-//			// randomise the "bitsets" to be evaluated, to check it's actually
-//			// being executed HOW_MANY times, ergo the test hasn't been chopped
+//			// randomise the "bitsets" to be evaluated, to check it is actually
+//			// being executed HOW_MANY times, ergo the test has not been chopped
 //			// as a "no-op" by the bloody JIT compiler.
 //			Random r = Grid.RANDOM;
 //			long m1=r.nextBoolean()?1:0, m2=r.nextBoolean()?1:0;
@@ -1904,8 +1917,8 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //0,1; m1|m2 took 2,570,300  m1!=0||m2!= took 2,165,000
 //1,0: m1|m2 took 2,508,100  m1!=0||m2!= took 2,864,500
 //0,1: m1|m2 took 2,770,300  m1!=0||m2!= took 2,388,500
-//1,0: m1|m2 took 2,276,000  m1!=0||m2!= took 3,581,900 // <<-- that's a 3!
-//1,0: m1|m2 took 2,341,700  m1!=0||m2!= took 4,628,100 // <<-- that's a 4!
+//1,0: m1|m2 took 2,276,000  m1!=0||m2!= took 3,581,900 // <<-- that is a 3!
+//1,0: m1|m2 took 2,341,700  m1!=0||m2!= took 4,628,100 // <<-- that is a 4!
 //1000*1000*1000:
 //m1|m2 took 2192400 m1!=0||m2!= took 2173300
 //*/
@@ -1926,11 +1939,11 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //	// Q2: How how does that compare to "going the full monty" and splitting
 //	// the set into mask1 and mask2 which are calculated locally?
 //	//
-//	// A: I don't know! Really! It was ship-loads faster A, B, C; but then I
+//	// A: I do not know! Really! It was ship-loads faster A, B, C; but then I
 //	// just swapped the order of the tests around to C, B, A to assure myself
 //	// that the order in which tests are run is NOT effecting there timings;
 //	// and I find to my horror that it DOES in fact effect timings. So the
-//	// honest answer is: I don't know, but I still strongly suspect that "the
+//	// honest answer is: I do not know, but I still strongly suspect that "the
 //	// full monty" is fastest, but only by 22.95% (not the expected shipload).
 //	//
 //	// Original order: A, B, C:                                        AVERAGE
@@ -1939,7 +1952,7 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //	// C took    5,192,000    6,202,300    5,053,900    5,190,200    5,409,600
 //	// which (as expected) indicates that the full monty is fastest.
 //	//
-//	// Swap the order of tests to assure myself it doesn't affect timings:
+//	// Swap the order of tests to assure myself it does not affect timings:
 //	// C took   12,709,800    8,528,100    7,707,100    7,814,300    9,189,825
 //	// B took   11,503,300    8,552,100   11,765,900   13,772,500   11,398,450
 //	// A took   12,373,900   30,711,600    9,460,100    7,808,900   15,088,625
@@ -1959,12 +1972,12 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //	// B took   12,117,800   10,923,100    8,682,600   13,509,300   11,308,200
 //	// C took    5,737,100    6,426,300    7,245,900    7,996,600    6,851,475
 //	//
-//	// Now look at the "A times" verses A, B, C (they're nuts!) and all timings
+//	// Now look at the "A times" verses A, B, C (they are nuts!) and all timings
 //	// are now all over the place (unlike uniform A, B, C) -> WTWTFF?
 //	//
-//	// It's like the compiler is conspiring to prove anything you like, so long
+//	// It is like the compiler is conspiring to prove anything you like, so long
 //	// as you test possibilities logically: orginal, version 1, version 2!
-//	// So the honest answer is I don't know, meaning that I failed to prove or
+//	// So the honest answer is I do not know, meaning that I failed to prove or
 //	// disprove otherwise (I tested my test and it FAILED); but I THINK so.
 //	// And I also think that my test MUST be defective somehow. But How? What
 //	// have I done wrong now? Arrgghh!?!?!?!?!?
@@ -2130,7 +2143,7 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //modified average took=31,683,276
 //*/
 
-//	// Q: What's the System LAF?
+//	// Q: What is the System LAF?
 //	// A: null
 // 	public static void main(String[] args) {
 // 		try {
@@ -2206,7 +2219,7 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //	// size 14+   : 0, 1, 2, 3, 4, 5, 7, 9, 11, 14, 17, 21, 26, 32, 39, 47, 57, 69, 83, 100, 121, 146, 176, 212, 212
 //
 //	// java.util.ArrayList growth factor is 1.5, which seems like overkill.
-//	// The IAS doesn't need to grow often, so it should grow well, mimimising
+//	// The IAS does not need to grow often, so it should grow well, mimimising
 //	// the fat inherent in the system.
 //	// formula: (int)(n*factor) + 1
 //	// product: 0,1,2,4,7,11,14,17,21,26,32,39,47,58,70,85,103,124,149,179
@@ -2216,7 +2229,7 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 //		return 1.5D; // grow early by 50% at a time
 //	}
 //
-//	// growIas grows the IAS[cnt] array, and returns a new array, so it's as if
+//	// growIas grows the IAS[cnt] array, and returns a new array, so it is as if
 //	// the AIOOBE never happened.
 //	// @param size of the required cached array.
 //	private static int grow(final int size, final int oldN) {
@@ -2244,29 +2257,514 @@ BUILD SUCCESSFUL (total time: 0 seconds)
 
 	// ========================================================================
 
-	// Q: HOW Big are the IASs?
-	// A: Big enough: 15,747 * 4 bytes per int = 63k
-	private static final int[] IAS_CAPACITY = {
-		   0, 88, 76, 87, 67, 65, 67, 70, 66, 64
-		, 60, 56, 77, 58, 51, 35, 45, 28, 28, 33
-		, 21, 22, 21, 21, 15, 15, 26, 14, 11,  8
- 		,  5, 13,  6, 10,  4,  8,  2,  4,  0,  2
-		,  2,  2,  0,  0,  0,  2,  0,  0,  0,  0
-		,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
-		,  0,  0,  0,  0,  0
-	};
+//	// Q: HOW Big are the IASs?
+//	// A: Big enough: 15,747 * 4 bytes per int = 63k
+//	private static final int[] IAS_CAPACITY = {
+//		   0, 88, 76, 87, 67, 65, 67, 70, 66, 64
+//		, 60, 56, 77, 58, 51, 35, 45, 28, 28, 33
+//		, 21, 22, 21, 21, 15, 15, 26, 14, 11,  8
+// 		,  5, 13,  6, 10,  4,  8,  2,  4,  0,  2
+//		,  2,  2,  0,  0,  0,  2,  0,  0,  0,  0
+//		,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+//		,  0,  0,  0,  0,  0
+//	};
+//
+// 	public static void main(String[] args) {
+// 		try {
+//			int sum = 0;
+//			for ( int i=0; i<IAS_CAPACITY.length; ++i ) {
+//				if ( i>0 && i % 10 == 0 )
+//					System.out.println();
+//				System.out.format(", %3d", i*IAS_CAPACITY[i]);
+//				sum += i*IAS_CAPACITY[i];
+//			}
+//			System.out.println();
+//			System.out.println(sum);
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
 
+//	// ========================================================================
+//
+//	// Q: What does 0..26 look like in binary
+//	// A: Pretty sexy. Sigh.
+// 	public static void main(String[] args) {
+// 		try {
+//			for ( int i=0; i<27; ++i )
+//				System.out.format("%2d %5s\n", i, Integer.toBinaryString(i));
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//	// ========================================================================
+//
+//	// Q: What are these binaries in decimal
+//	// A: Pretty sexy. Sigh.
+// 	public static void main(String[] args) {
+// 		try {
+//			final int[] a = {
+//		  parseInt("000"
+//				 + "011"
+//				 + "011", 2) //        {0, 1, 3, 4}  2, 2
+//		, parseInt("000"
+//				 + "101"
+//				 + "101", 2) //        {0, 2, 3, 5}  2, 1
+//		, parseInt("000"
+//				 + "110"
+//				 + "110", 2) //        {1, 2, 4, 5}  2, 0
+//		// row 2
+//		, parseInt("011"
+//				 + "000"
+//				 + "011", 2) //        {0, 1, 6, 7}  1, 2
+//		, parseInt("101"
+//				 + "000"
+//				 + "101", 2) //        {0, 2, 6, 8}  1, 1
+//		, parseInt("110"
+//				 + "000"
+//				 + "110", 2) //        {1, 2, 7, 8}  1, 0
+//		// row 3
+//		, parseInt("011"
+//				 + "011"
+//				 + "000", 2) //        {3, 4, 6, 7}  0, 2
+//		, parseInt("101"
+//				 + "101"
+//				 + "000", 2) //        {3, 5, 6, 8}  0, 1
+//		, parseInt("110"
+//				 + "110"
+//				 + "000", 2) //        {4, 5, 7, 8} 0, 0
+//			};
+//			System.out.println(java.util.Arrays.toString(a));
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//	// ========================================================================
+//
+//	// Q: What are these binaries in decimal
+//	// A: Pretty sexy. Sigh.
+// 	public static void main(String[] args) {
+// 		try {
+//	final int SLOT1 = parseInt("000"
+//						   + "000"
+//						   + "111", 2); // 7=1+2+4
+//	final int SLOT2 = parseInt("000"
+//						   + "111"
+//						   + "000", 2); // 56=7<<3
+//	final int SLOT3 = parseInt("111"
+//						   + "000"
+//						   + "000", 2); // 448=7<<6
+//	// col slots
+//	final int SLOT4 = parseInt("001"
+//						   + "001"
+//						   + "001", 2); // 73=1+8+64
+//	final int SLOT5 = parseInt("010"
+//						   + "010"
+//						   + "010", 2); // 146=73<<1
+//	final int SLOT6 = parseInt("100"
+//						   + "100"
+//						   + "100", 2); // 292=73<<2
+//			final int[] a = {SLOT1,SLOT2,SLOT3,SLOT4,SLOT5,SLOT6};
+//			System.out.println(java.util.Arrays.toString(a));
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//	// ========================================================================
+//	static boolean whinge(final String msg) {
+//		return StdErr.whinge(msg);
+//	}
+//
+//	static void complain(final String msg, final String title) {
+//		whinge(msg);
+//		showMessageDialog(null, msg, title, ERROR_MESSAGE);
+//	}
+//
+//	// Q: Why will not my forskin stretch over a rain barrel?
+//	// A: ?
+// 	public static void main(String[] args) {
+//		Exception x = new UnsolvableException("it is rooted");
+// 		try {
+//			complain("FUBAR: lastDitchRebuild: "+x+"\n"
+//					+"It looks like this puzzle is ____ed. Try reloading it.\n"
+//					+"If it ____s-up again try restarting Sudoku Explainer.\n"
+//					+"Failing that this puzzle really is ____ing ____ed.\n"
+//					+"Email it to the Kingon war fleet!\n"
+//					, "Sudoku Explainer is Fubared!");
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//    /**
+//     * Returns the number of one-bits in the two's complement binary
+//     * representation of the specified {@code int} value.  This function is
+//     * sometimes referred to as the <i>population count</i>.
+//     *
+//     * @param i the value whose bits are to be counted
+//     * @return the number of one-bits in the two's complement binary
+//     *     representation of the specified {@code int} value.
+//     * @since 1.5
+//     */
+//    public static int bitCount(int i) {
+//		// Figure 5-2, Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+//		//
+//		// for example, lets say i is binary 1011 (decimal 11)
+//		// 1. i = i - ((i >>> 1) & 0x55555555);
+//		//    i = 1011 - (101 & 1010101010101010101010101010101)
+//		//    -> 110 (decimal 6)
+//        // 2. i = (i & 0x33333333) + ((i >>> 2) & 0x33333333);
+//		//    i = (110 & ‭00110011001100110011001100110011‬) + (1 & ‭00110011001100110011001100110011‬)
+//		//    i = (10) + (1)
+//		//    -> 11
+//        // 3. i = (i + (i >>> 4)) & 0x0f0f0f0f;
+//		//    i = (11 + (11 >>> 4)) & ‭1111000011110000111100001111‬;
+//		//    i = (11 + 0) & ‭1111000011110000111100001111‬;
+//		//    -> 11
+//		// 4. i = i + (i >>> 8);
+//		//    i = 11 + (11 >>> 8);
+//		//    i = 11 + (0)
+//		//    -> 11
+//        // 5. i = i + (i >>> 16);
+//		//    i = 11 + (11 >>> 16);
+//		//    i = 11 + (0);
+//		//    -> 11
+//        // 6. return i & 0x3f;
+//		//    return 11 & ‭00111111‬;
+//		//    -> 11
+//		// So 1011 contains three 1s, and 11 in binary is three in decimal.
+//        i = i - ((i >>> 1) & 0x55555555);
+//        i = (i & 0x33333333) + ((i >>> 2) & 0x33333333);
+//        i = (i + (i >>> 4)) & 0x0f0f0f0f;
+//        i = i + (i >>> 8);
+//        i = i + (i >>> 16);
+//        return i & 0x3f;
+//    }
+//
+//	// Q: Why will not my forskin stretch over a rain barrel?
+//	// A: ?
+// 	public static void main(String[] args) {
+// 		try {
+//			final int i = 11;
+//			System.out.format("%s\n", Integer.toBinaryString((i >>> 1)));
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//	// Q: How many bean counters does it take to make a cup of coffee these
+//	//    days (in Australia)?
+//	// A: ? Hmm... ?
+// 	public static void main(String[] args) {
+// 		try {
+//			final int i = Integer.MIN_VALUE;
+//			System.out.format("%s\n", Integer.toBinaryString(i));
+//			// -> 10, so >>> ignores the sign bit
+//			System.out.format("%s\n", Integer.toBinaryString((i >>> 29)));
+//			// -> 11111111111111111111111111111110, so >> drags sign bit down
+//			System.out.format("%s\n", Integer.toBinaryString((i >> 29)));
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//	// ========================================================================
+//
+//	/**
+//	 * Explanation: These Enums know each other. A Basic may contain an Averter
+//	 * and/or a Remover (both, one, or neither), and both Averter and Remover
+//	 * contains a Basic. This is a chicken-egg problem. Interesting. Thats all.
+//	 * Just interesting. I presume that Java creates undefined Enum types for
+//	 * construction (sort of like a place-holder for a post, which is of course
+//	 * a post, but is not painted yet, let alone carved, with nice bristlings,
+//	 * nor a gannet, let alone a newt; sigh) then does a second pass to refine
+//	 * atleast one of those types.
+//	 */
+//
+//	private static enum Averter {
+//		    GrometAverter	(Basic.Franga, T)
+//		  , MarriageAverter	(Basic.Franga, F)
+//		;
+//		public final Basic basic;
+//		public final boolean isC;
+//		Averter(Basic basic, boolean isC) {
+//			this.basic = basic;
+//			this.isC = isC;
+//		}
+//		@Override
+//		public String toString() {
+//			return name()+": columbian="+isC;
+//		}
+//	}
+//
+//	private static enum Remover {
+//		  EarwaxRemover		(Basic.Earwax,		F, T)
+//		, PineappleRemover	(Basic.Pineapple,	T, F)
+//		;
+//		public final Basic basic;
+//		public final boolean isC;
+//		public final boolean isD;
+//		Remover(Basic basic, boolean isC, boolean isD) {
+//			this.basic = basic;
+//			this.isC = isC;
+//			this.isD = isD;
+//		}
+//		@Override
+//		public String toString() {
+//			return name()+": plastic="+isC+" tasty="+isD;
+//		}
+//	}
+//
+//	private static enum Basic {
+//		  Earwax	(T, F, null, Remover.EarwaxRemover)
+//		, Pineapple	(F, T, null, Remover.PineappleRemover)
+//		, Franga	(F, F, Averter.GrometAverter, null)
+//		;
+//		public final boolean isA;
+//		public final boolean isB;
+//		public final Averter averter;
+//		public final Remover remover;
+//		public final String toString;
+//		Basic(boolean isA, boolean isB, Averter averter, Remover remover) {
+//			this.isA = isA;
+//			this.isB = isB;
+//			this.averter = averter;
+//			this.remover = remover;
+//			// construct toString ONCE (All my enums are immutable)
+//			String s = name()+": horse="+isA+" chucker="+isB;
+//			if ( averter != null )
+//				s += " averter=["+averter+"]";
+//			if ( remover != null )
+//				s += " remover=["+remover+"]";
+//			this.toString = s;
+//		}
+//		@Override
+//		public String toString() {
+//			return toString;
+//		}
+//	}
+//
+//	// Q: How is it possible to include an as yet undefined Enum type in
+//	//    another Enum? Maybe its the same for classes? Object then specify?
+//	// A: BFIIK?
+// 	public static void main(String[] args) {
+// 		try {
+//			for ( Basic b : Basic.values() )
+//				System.out.format("%s\n", b);
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+//	// ========================================================================
+//
+//	// Q: Is greater than (>) faster than not equal to (!=)
+//	// G: I think greater than (>) is a simpler faster binary operation.
+//	//    But I suspect it may depend on which you test first. Sigh.
+//	// A: YMMV. I have failed to determine this empirically. Go with my gut!
+//	// ACTUAL A: It makes ____all difference, so do not worry about it!
+//	// NB: I take results only from those random runs where a > b, obviously,
+//	// else != will win every time, but a substantial margin.
+//	// FYI: COUNTS and TIMES were static, now local -> ~40% time drop
+//	// So, are you actually testing what you think you are testing?
+//	// Does it matter?
+// 	public static void main(String[] args) {
+// 		try {
+//			int i;
+//			long start;
+//			long counts0=0L, counts1=0L;
+//			long times0, times1;
+//			final Random random = new Random();
+//			final int a = random.nextInt();
+//			final int b = random.nextInt();
+//			final int howMany = 1024 * 1024 * 1024; // A BILLION
+//			// Greater than: >
+//			start = System.nanoTime();
+//			for ( i=0; i<howMany; ++i )
+//				if ( a > b )
+//					++counts1;
+//			times1 = System.nanoTime() - start;
+//
+//			// Not equals: !=
+//			start = System.nanoTime();
+//			for ( i=0; i<howMany; ++i )
+//				if ( a != b )
+//					++counts0;
+//			times0 = System.nanoTime() - start;
+//
+//			// output
+//			System.out.format("              %13s\t%13s\n", "TIMES", "COUNTS");
+//			System.out.format("Greater than: %,13d\t%,13d\n", times1, counts1);
+//			System.out.format("Not equals  : %,13d\t%,13d\n", times0, counts0);
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+///*
+//                      TIMES	       COUNTS
+//STATIC
+//Greater than:    50,703,000	1,073,741,824
+//Not equals  :    46,779,800	1,073,741,824
+//Greater than:    47,157,800	1,073,741,824
+//Not equals  :    52,057,100	1,073,741,824
+//Greater than:    47,921,600	1,073,741,824
+//Not equals  :    46,567,400	1,073,741,824
+//
+//LOCAL
+//Greater than:    29,813,500	1,073,741,824
+//Not equals  :    29,138,400	1,073,741,824
+//Greater than:    31,128,000	1,073,741,824
+//Not equals  :    26,953,100	1,073,741,824
+//Greater than:    31,108,700	1,073,741,824
+//Not equals  :    28,755,500	1,073,741,824
+// */
+
+//	// ========================================================================
+//
+//	// Q: What REs match start and end of a puzzle in a batch log.
+//	// A: Answers here-in, verified by asserts, to be sure that each puzzle:
+//	//    (a) starts at the beginning (hintNumber==1).
+//	//    (b) is being processed (puzzleNumber==prevPN+1), and
+//	// This is a regularity run: totes dependant on the logFile format,
+//	// which was DESIGNED to facilitate this sort of s__t.
+// 	public static void main(String[] args) {
+// 		try {
+//			final File logFile = new File(IO.HOME+"top1465.d5.2023-06-20.20-38-29.log");
+//			// beginningOfPuzzleRegularExpression "1/1#" .. "63/1465#"
+//			final Matcher bopRE = Pattern.compile("^\\d+/\\d+#.*").matcher("");
+//			// endOfPuzzleRegularExpression: "     1,805,873,600" .. "   140,404,100,500"
+//			final Matcher eopRE = Pattern.compile("^ {3,11}[\\d,]{0,13}\\d\\d\\d*$").matcher("");
+//			String line;
+//			int hintNumber, prevPN, puzzleNumber=0, slash;
+//			try ( final BufferedReader reader = new BufferedReader(new FileReader(logFile)) ) {
+//				PARSER: while ( (line=reader.readLine()) != null ) {
+//					if ( !bopRE.reset(line).matches() ) {
+////						System.out.println("#"+line);
+//						continue;
+//					}
+//					System.out.println(line);
+//					slash = line.indexOf('/');
+//					hintNumber = Integer.parseInt(line.substring(0, slash));
+//					assert hintNumber == 1;
+//					prevPN = puzzleNumber;
+//					puzzleNumber = Integer.parseInt(line.substring(slash+1, line.indexOf('#')));
+//					assert puzzleNumber == prevPN + 1;
+//					while ( (line=reader.readLine()) != null )
+//						if ( eopRE.reset(line).matches() ) {
+////							System.out.println("@"+line);
+//							continue PARSER;
+//						}
+//				}
+//			}
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+// ========================================================================
+
+//	// Q: how to use System.arraycopy to omit one src element?
+// 	public static void main(String[] args) {
+// 		try {
+//			final int[] src = {1,2,3,4,5,6,7,8,9};
+//			final int[] dst = new int[src.length-1];
+//			System.arraycopy(src, 0, dst, 0, 4);
+//			System.arraycopy(src, 5, dst, 4, dst.length-4);
+//			System.out.println(java.util.Arrays.toString(dst));
+// 		} catch (Exception ex) {
+// 			ex.printStackTrace(System.out);
+// 		}
+// 	}
+
+// ========================================================================
+
+//public static void main(String[] args) {
+//	try {
+//		int i;
+//		long start;
+//		long times0, times1;
+//		long counts0=0L, counts1=0L;
+//		final int howMany = 1024 * 1024; // A MILLION
+//		// generate a "random" Idx
+//		final Random random = new Random();
+//		final int a = random.nextInt(1<<27);
+//		final int b = random.nextInt(1<<27);
+//		final int c = random.nextInt(1<<27);
+//		final int[] indices = new Idx(a, b, c).toArrayNew();
+//
+//		// make it compile the Idx class
+//		for ( i=0; i<12; ++i ) {
+//			IdxI.of(indices); // switch
+//			IdxI.of2(indices); // array
+//		}
+//
+//		// switch
+//		start = System.nanoTime();
+//		for ( i=0; i<howMany; ++i )
+//			counts1 += IdxI.of(indices).size();
+//		times1 = System.nanoTime() - start;
+//
+//		// array
+//		start = System.nanoTime();
+//		for ( i=0; i<howMany; ++i )
+//			counts0 += IdxI.of2(indices).size();
+//		times0 = System.nanoTime() - start;
+//
+//		// output
+//		System.out.format("        %13s\t%13s\n", "TIMES", "COUNTS");
+//		System.out.format("switch: %,13d\t%,13d\n", times1, counts1);
+//		System.out.format("array : %,13d\t%,13d\n", times0, counts0);
+//	} catch (Exception ex) {
+//		ex.printStackTrace(System.out);
+//	}
+//}
+///*
+//array :    77,653,300	   39,845,888
+//switch:    42,863,900	   39,845,888
+//
+//array :    92,221,900	   50,331,648
+//switch:    52,711,300	   50,331,648
+//
+//array :    80,140,400	   39,845,888
+//switch:    42,165,100	   39,845,888
+//
+//REVERSE ORDER
+//switch:    54,892,200	   42,991,616
+//array :    71,823,000	   42,991,616
+//
+//switch:    54,064,500	   39,845,888
+//array :    77,077,100	   39,845,888
+//
+//switch:    54,615,800	   45,088,768
+//array :    75,477,000	   45,088,768
+// */
+
+// ========================================================================
+
+	// Q: How many bitwise-ors in one statement?
+	// A: More than enough.
+	// WTF: This does NOT seem to be the case in AlsFinder!
  	public static void main(String[] args) {
  		try {
-			int sum = 0;
-			for ( int i=0; i<IAS_CAPACITY.length; ++i ) {
-				if ( i>0 && i % 10 == 0 )
-					System.out.println();
-				System.out.format(", %3d", i*IAS_CAPACITY[i]);
-				sum += i*IAS_CAPACITY[i];
+			int zer0=0,zer1=0,zer2=0;
+			int uno0=0,uno1=0,uno2=0;
+			int duo0=0,duo1=0,duo2=0;
+			int tri0=0,tri1=0,tri2=0;
+			int qud0=0,qud1=0,qud2=0;
+			int pen0=0,pen1=0,pen2=0;
+			int hex0=0,hex1=0,hex2=0;
+			int sep0=0,sep1=0,sep2=0;
+			int oct0=0,oct1=0,oct2=0;
+			int non0=0,non1=0,non2=0;
+			int dec0=0,dec1=0,dec2=1;
+			if ( (zer0|zer1|zer2 | uno0|uno1|uno2 | duo0|duo1|duo2 | tri0|tri1|tri2 | qud0|qud1|qud2 | pen0|pen1|pen2 | hex0|hex1|hex2 | sep0|sep1|sep2 | oct0|oct1|oct2 | non0|non1|non2 |dec0|dec1|dec2) > 0 ) {
+				System.out.println("Yep");
+			} else {
+				System.out.println("Nope");
 			}
-			System.out.println();
-			System.out.println(sum);
  		} catch (Exception ex) {
  			ex.printStackTrace(System.out);
  		}

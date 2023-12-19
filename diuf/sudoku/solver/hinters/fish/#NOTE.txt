@@ -24,7 +24,7 @@ Here is hobiwan's licence statement:
 
 ===============================================================================
 
-BasicFisherman1 is a reimplementation of BasicFisherman using hobiwans "stack
+ComplexFisherman is a reimplementation of BasicFisherman using hobiwans "stack
 technique" to search all possible combinations of bases; because it's faster
 (but more complex) than Nicholas Juillerats Permutations technique. The next
 method of the Permutations class is still a bit slow. A stack is faster, it's

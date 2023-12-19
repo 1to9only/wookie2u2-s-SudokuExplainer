@@ -9,7 +9,7 @@ can not be <b>{0}</b> (The value can appear only once in the {4}),<br>
 so <b>{9}</b> must be <b>{0}</b> (The value must appear in the {6}),<br>
 so <b>{2}</b> can not be <b>{0}</b> (The value can appear only once in the {4}).
 <p>
-If the value <b1><b>{0}</b></b1> is in <b2><b>{7}</b></b2> then <b>{2}</b>
+If the value <b1><b>{0}</b></b1> is in <b2><b>{5}</b></b2> then <b>{2}</b>
 can not be <b>{0}</b> (The value can appear only once in the {6})
 <p>
 Hence there are only two possible configurations, neither of which allow
@@ -18,9 +18,10 @@ Hence there are only two possible configurations, neither of which allow
 Therefore <r>we can remove <b>{11}</b></r>.
 <p><!-- tag: ROW or COL: how this hint was found -->{10}
 <hr>
-<u>Note</u>
+<u>To Be or Not To Be</u>
 <p>
-An Empty Rectangle is a specific Region Forcing Chain. The EmptyRectangle hinter
-exists because it is arguably a "simpler hint type" that is easier to find, 
-hence is faster per elimination than Region Forcing Chains.
+The Chainers find all EmptyRectangle's (ER's) among others, but ER finds this
+specific pattern faster, and IMHO an ER hint is easier to follow, so I contend
+that ER is a simpler hint-type, hence SE has ERs, but leaves using them (or not)
+up to you. Personally I want ER, but you may demur.
 </body></html>

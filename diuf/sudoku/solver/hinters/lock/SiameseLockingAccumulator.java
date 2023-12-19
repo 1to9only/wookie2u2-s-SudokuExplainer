@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
@@ -16,14 +16,14 @@ import java.util.List;
 
 /**
  * The SiameseLockingAccumulator is an IAccumulator that helps merge Siamese
- * Locking hints. Hints are considered "Siamese" if there's multiple hints on
+ * Locking hints. Hints are considered "Siamese" if there is multiple hints on
  * different values in the same "slot" (the intersection of a row-or-col and a
  * box in the grid). I take the hints from the base Locking class, and callback
  * SiameseLocking at the end of each region, to give him a chance to merge
  * "siamese" hints into a single hint, and/or upgrade them to HiddenSet hints,
  * whichever produces more eliminations or crying bastards (English EXCLUDED).
  * <p>
- * I'm only a thin wrapper around an ArrayList of LockingHint. All the tricky
+ * I am only a thin wrapper around an ArrayList of LockingHint. All the tricky
  * stuff is delegated back to the SiameseLocking which injects me into Locking.
  *
  * @author Keith Corlett 2021-07-12.
@@ -31,7 +31,7 @@ import java.util.List;
 public final class SiameseLockingAccumulator implements IAccumulator {
 
 	private final SiameseLocking parent;
-	private final ArrayList<LockingHint> list = new ArrayList<>();
+	private final ArrayList<AHint> list = new ArrayList<>();
 
 	public SiameseLockingAccumulator(SiameseLocking parent) {
 		this.parent = parent;
@@ -53,7 +53,7 @@ public final class SiameseLockingAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public AHint getHint() {
+	public AHint poll() {
 		if ( list.isEmpty() )
 			return null;
 		return list.remove(0);
@@ -71,7 +71,7 @@ public final class SiameseLockingAccumulator implements IAccumulator {
 
 	@Override
 	public boolean any() {
-		return !list.isEmpty();
+		return size() > 0;
 	}
 
 	@Override
@@ -80,7 +80,7 @@ public final class SiameseLockingAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void reset() {
+	public void clear() {
 		list.clear();
 	}
 
@@ -97,19 +97,20 @@ public final class SiameseLockingAccumulator implements IAccumulator {
 	// ---------------- unique to SiameseLockingAccumulator ----------------
 
 	void startRegion(ARegion r) {
-		reset();
+		clear();
 	}
 
 	boolean endRegion(ARegion r) {
 		switch ( list.size() ) {
 		case 0: return false;
-		case 1: return parent.add(list.remove(0));
+		case 1: return parent.add((LockingHint)list.remove(0));
+		// two or more hints (size is NEVER negative)
 		default: return parent.mergeSiameseHints(r, list);
 		}
 	}
 
 	@Override
-	public List<? extends AHint> getList() {
+	public List<AHint> getList() {
 		return list;
 	}
 

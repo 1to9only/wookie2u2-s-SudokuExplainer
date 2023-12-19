@@ -1,6 +1,7 @@
-NOTE: The package name: sdp stands for Single Digit Pattern, because these
+NOTE: The package name: sdp stands for Single Dickhead Pattern, because these
 solving techniques all revolve around a single potential value. Just think of
-this as miscellaneous hinters and you won't be too far wrong.
+this as miscellaneous hinters and you won't be too far wrong. Those Dockheads
+are actually Dodgets, obviously. Sigh.
 
 EmptyRectangle, Skyscraper and TwoStringKite are from the HoDoKu class
 SingleDigitPatternSolver, by hobiwan. I have not copied hobiwans code, just the

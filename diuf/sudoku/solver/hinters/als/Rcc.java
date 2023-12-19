@@ -1,13 +1,13 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
- * The Rcc class is boosted from HoDoKu's RestrictedCommonCandidate class.
+ * The Rcc class is boosted from HoDoKu RestrictedCommonCandidate class.
  * Kudos to hobiwan. Mistakes are mine.
  *
- * Here's hobiwans standard licence statement:
+ * Here is hobiwans standard licence statement:
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -30,35 +30,37 @@
  */
 package diuf.sudoku.solver.hinters.als;
 
+import static diuf.sudoku.Constants.SB;
+import static diuf.sudoku.Values.VFIRST;
 import static diuf.sudoku.Values.VSHFT;
 
 /**
- * An RCC is a Restricted Common Candidate.
+ * RCC means Restricted Common Candidate/s: one-or-two-values linking a source
+ * ALS to a related ALS, where all occurrences of those value/s in either ALS
+ * see each other, hence one of the two ALSs must contain the value.
  * <pre>
- * That is one-or-two values of two ALSs:
- *   that all see each other (that's the nominative restriction);
- *   and are not in the overlap (if any) of the two ALS's;
- *   and are more than one cell (a bivalue cell is NOT an ALS in my world);
- *   option allowOverlaps: are the two ALS's allowed to overlap;
- *   option forwardOnly: true for distinct pairs {a-b only}
- *                   or false for ALL pairs {a-b and b-a}
+ * An RC-value is a value in two ALSs:
+ *   that all see each other (that is the nominative restriction);
+ *   and are not in the overlap (if any) of the two ALSs;
+ *   and are more than one cell (a bivalue cell is NOT an ALS in SE).
+ * Approximately 9% of RCCs have two RC-values, never three.
  * </pre>
  * KRC: Rcc is debeanified: it exposes public fields instead of getters/setters
  * on private fields, coz these getters/setters added 0 value, and are slower.
- * It's faster to access a public field than it is to invoke a getter/setter.
+ * It is faster to access a public field than it is to invoke a getter/setter.
  * However, my performance-testing post debeanification was SLOWER, hence I am
- * steadfastly ignoring the ____ out of it, in the hope that it will just go
- * away, a bit like the Liberal and his physicist. sigh.
+ * steadfastly ignoring the ____ out of, in the hope that it will all just go
+ * away, much like a Conservative and reality. Have you asked your gopher about
+ * Cleetus change? Mockingjay is afraid it's quite extensive. Sigh.
  * <p>
- * KRC 2021-10-12 Rcc is now immutable: it's state is completely set in the
- * constructor, and this instance cannot subsequently be modified. I'm vague
- * about my motives for this change: "it just feels right". I was right! This
- * simple change reduces top1465 time by 4 seconds. Also removed the unused
- * {@code implements Serializable, Comparable<Rcc>}, just to keep it simple.
+ * KRC 2021-10-12 Rcc is immutable: state is set completely in the constructor,
+ * and cannot subsequently change. My motives for this change are pretty vague.
+ * It just feels right. It reduces top1465 time by 4 seconds. Removed unused
+ * {@code implements Serializable, Comparable<Rcc>} to keep it simple.
  *
- * @author hobiwan, but this version has been well-hacked by KRC.
+ * @author hobiwan, but KRCs Rcc has been stupified.
  */
-public class Rcc {
+public final class Rcc {
 
 	/** Index of source-ALS in the external alss array. */
 	public final int source;
@@ -66,50 +68,44 @@ public class Rcc {
 	/** Index of related-ALS in the external alss array. */
 	public final int related;
 
-	/** First RC, must be != 0. */
-	public final int v1;
-
-	// I'd make v2 final except it makes creating an Rcc much harder.
-	/** Second RC; if {@code v2==0} als1 and als2 have only one RC value. */
-	public final int v2;
-
 	/** Cands is a bitset of v1 and v2. */
 	public final int cands;
 
-	/**
-	 * The AlsChain constructor, with the leaf parameter.
-	 * <p>
-	 * Constructs a new {@code Rcc}. An RCC is the one-or-two values that link
-	 * the sourceAls to the relatedAls, where all occurrences of those value/s
-	 * in either ALS see each other, so that either the sourceAls will contain
-	 * the value, or the relatedAls will contain the value, but not both.
-	 *
-	 * @param source index of the sourceAls in the alss array
-	 * @param related index of the relatedAls in the alss array
-	 * @param v1 the first RC-value, a restricted (they all see each other,
-	 *  and none appear in the physical overlap, if any, of these two ALSs)
-	 *  candidate value common to both the source and related ALSs
-	 * @param v2 the occasional second RC-value
+	/** First RC, must be &gt; 0. */
+	public final int v1;
+
+	/** Second RC; if {@code v2==0} als1 and als2 have only one RC value.
+	 * About 95% of RCCs have just one RC value. The rest have two. There are
+	 * no RCCs with three RC-values, hence the software does not support it.
 	 */
-	public Rcc(final int source, final int related, final int v1, final int v2) {
+	public final int v2;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param source the index of the sourceAls in the alss array
+	 * @param related the index of the relatedAls in the alss array
+	 * @param cands both RC-values as a bitset
+	 */
+	public Rcc(final int source, final int related, final int cands) {
 		this.source = source;
 		this.related = related;
-		this.cands = VSHFT[this.v1=v1] | VSHFT[this.v2=v2];
+		this.cands = cands;
+		// first RC-value is mandatory (always >0).
+		this.v1 = VFIRST[cands];
+		// second RC-value is optional. Used in ~9% of Rccs. 0 means none.
+		this.v2 = VFIRST[cands & ~VSHFT[v1]]; // nb: VFIRST[0] is 0
 	}
 
 	/**
-	 * Returns a String representation of this Rcc.
-	 * <p>
-	 * Used only to DEBUG, so you can do whatever you like to it.
+	 * For debugging.
 	 *
 	 * @return a String representation of this Rcc
 	 */
 	@Override
 	public String toString() {
-		return "alss=" + source + "/" + related
-			 + " cands=" + v1 + "/" + v2
-//			 + " ("+cands+")"
-			 ;
+		return SB(32).append("alss=").append(source).append("/").append(related)
+		.append(" cands=").append(v1).append("/").append(v2).toString();
 	}
 
 }

@@ -1,25 +1,26 @@
 <html><body>
 <h2>HoDoKu Two String Kite</h2>
 <p>
-There are only two places for <b>{0}</b> in both <g><b>{1}</b></g> and
-<g><b>{2}</b></g> (the two strings) which intersect in box <b1><b>{3}</b></b1>
+There are only two places for <b>{0}</b> in both <b><g>{1}</g></b> and
+<g><b>{2}</b></g> (the two strings) which intersect in <b><b1>{3}</b1></b>
 (the kite), therefore <b>{4}</b> cannot be <b>{0}</b>.
 <p>
-The logic is: There are only two possible positions for {0} in {1}:<ol>
-<li>If cell {5} is {0} then {7} cannot be {0} (same box),<br>
-hence {8} must be {0} (only remaining position in col),<br>
+The logic is: There are only two places for {0} in {1}:<ol>
+<li>If {5} is {0} then {7} cannot be {0} (same box),<br>
+hence {8} must be {0} (last place in col),<br>
 therefore {4} cannot be {0} (same row).</li>
 <li>Alternately, if {6} is {0} then {4} cannot be {0} (same col).</li>
 </ol>
-Hence there's only two places for {0} in {1}, and neither allows {4} to be {0}.
+Hence there are only two places for {0} in {1}, and we have proven (above)
+that neither of those places allows {4} to be {0}.
 <p>
 Therefore <r>we can remove <b>{9}</b></r>.
 <hr>
 <u>To Be or Not To Be</u>
 <p>
-A TwoStringKite (TSK) is a Unary (single digit) Chain; so SEs UnaryChainer finds
-all TSK's (among others), but TSK finds this specific pattern faster and in my
-humble opinion a TSK hint is easier to follow, so one might argue that TSK is a
-simpler hint-type, hence SE has a TSK hinter, but leaves the decision to use it
-(or not) up to you. Personally I always use TSK, but you may demur.
+The Chainers find all TwoStringKites (among others) but TSK finds
+this specific pattern faster, and IMHO a TSK hint is a bit easier to
+follow, so I contend that TSK is a simpler hint-type; hence SE has
+TSK, but leaves using them (or not) up to you. Personally I want
+TSK because I want speed, but you may demur.
 </body></html>

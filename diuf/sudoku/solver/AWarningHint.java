@@ -1,26 +1,24 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver;
 
 import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import java.util.Set;
-
 
 /**
  * A hint that is not really a hint for solving a Sudoku, just a message
- * about the Sudoku.
+ * about the Sudoku or it is state, typically a validation error.
  */
 public abstract class AWarningHint extends AHint {
 
-	public AWarningHint(AHinter hinter) {
-		super(hinter, AHint.WARNING, null, 0, null, null, null, null, null, null);
+	public AWarningHint(Grid grid, IHinter hinter) {
+		super(grid, hinter, AHint.WARNING, null, 0, null, null, null, null, null, null);
 	}
 
 	@Override
@@ -34,16 +32,16 @@ public abstract class AWarningHint extends AHint {
 	}
 
 	@Override
-	public Pots getGreens(int viewNum) {
+	public Pots getGreenPots(int viewNum) {
 		return null;
 	}
 
 	@Override
-	public Pots getReds(int viewNum) {
+	public Pots getRedPots(int viewNum) {
 		return null;
 	}
 
-	public Set<Cell> getRedCells() {
+	public Set<Integer> getRedBgIndices() {
 		return null;
 	}
 

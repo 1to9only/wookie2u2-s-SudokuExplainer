@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters;
@@ -20,18 +20,19 @@ import diuf.sudoku.solver.LogicalSolver;
  * must be prepared separately. This still acceptable BECAUSE test-cases are
  * the only places where hinters exist out-side of a LogicalSolver, everwhere
  * else in Sudoku Explainer an IHinter implementation exists ONLY in the
- * context of it's "parent" LogicalSolver; so that when the LogicalSolver
- * is replaced with a new one (because Settings have changed) all of it's
- * hinters are recreated also, so that a Logical Solver and all of it's
- * hinters are logically "locked onto" there specific Settings.
+ * context of it is "parent" LogicalSolver; so that when the LogicalSolver
+ * is replaced with a new one (because Config have changed) all of it is
+ * hinters are recreated also, so that a Logical Solver and all of it is
+ * hinters are logically "locked onto" there specific Config.
  * <p>
  * <code>
- * New Settings -> new LogicalSolver -> new Hinters. <b>Simples!</b>
+ * New Config -> new LogicalSolver -> new Hinters. <b>Simples!</b>
  * </code>
  *
  * @author Keith Corlett 2020-03-07
  */
 public interface IPrepare {
+
 	/**
 	 * Some hinters need to prepare for each puzzle, which happens after the
 	 * LogicalSolver is created/configured, but before the first getHints, to
@@ -44,4 +45,5 @@ public interface IPrepare {
 	 * @param logicalSolver
 	 */
 	public void prepare(Grid grid, LogicalSolver logicalSolver);
+
 }

@@ -1,20 +1,19 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
 
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
@@ -29,7 +28,7 @@ import static diuf.sudoku.utils.Frmt.CSP;
  * XColoringHintBig is the DTO for Type 2 and Type 3 Extended Coloring hints.
  * The "big" alludes to the fact that it sets multiple cells. This is the only
  * hint-type in the whole of Sudoku Explainer which does so. Note that links
- * are always empty for Type 2 hints, but there's really no need for two hint
+ * are always empty for Type 2 hints, but there is really no need for two hint
  * types, so long as we accept that links are always empty for Type 2.
  *
  * @author Keith Corlett 2021-03-03
@@ -41,18 +40,18 @@ public class XColoringHintBig extends AHint  {
 	private final String greenCellIds;
 	private final String blueCellIds;
 	private final Pots setPots;
-	private final Set<Cell> cause;
-	private final int resultColor;
+	private final Set<Integer> cause;
+	private final int setPotsColor;
 	private final String steps;
 	private final Collection<Link> links;
 	private final ARegion region;
 
-	public XColoringHintBig(AHinter hinter, int v, int subtype
-			, Idx[] colorSet, Set<Cell> cause, int resultColor, String steps
+	public XColoringHintBig(Grid grid, IHinter hinter, int v, int subtype
+			, Idx[] colorSet, Set<Integer> cause, int setPotsColor, String steps
 			, Pots setPots, Pots greens, Pots blues, Collection<Link> links
 			, Pots oranges, ARegion region) {
-		super(hinter, AHint.MULTI, null, 0
-		   , null, greens, oranges, blues
+		super(grid, hinter, AHint.MULTI, null, 0
+		   , null, greens, oranges, blues // nb reds are null (not empty)
 		   , null, null);
 		this.v = v;
 		this.subtype = subtype;
@@ -64,17 +63,22 @@ public class XColoringHintBig extends AHint  {
 			this.blueCellIds = blues.ids();
 		}
 		this.cause = cause;
-		this.resultColor = resultColor;
+		this.setPotsColor = setPotsColor;
 		this.steps = steps;
 		this.setPots = setPots;
 		this.links = links;
 		this.region = region;
 	}
 
+	@Override
+	public ARegion[] getPinkRegions() {
+		return Regions.array(region);
+	}
+
 	// super does both blue and green, so override again for none.
 	// I now paint "the problem" pink, so it stands out a bit more.
 	@Override
-	public Set<Cell> getAquaCells(int viewNum) {
+	public Set<Integer> getAquaBgIndices(int viewNum) {
 		return null;
 	}
 
@@ -82,35 +86,34 @@ public class XColoringHintBig extends AHint  {
 	// * Type 3: all cells in region, which see cells of this color; or
 	// * Type 2: the two-or-more cells in a region which are this color
 	@Override
-	public Set<Cell> getPinkCells(int viewNum) {
+	public Set<Integer> getPinkBgIndices(int viewNum) {
 		return cause;
 	}
 
 	@Override
-	public ARegion[] getPinkos() {
-		return Regions.array(region);
-	}
-
-	@Override
-	public Set<Cell> getBlueCells(int viewNum) {
+	public Set<Integer> getBlueBgIndices(int viewNum) {
 		return blues.keySet();
 	}
 
 	@Override
-	public Set<Cell> getGreenCells(int viewNum) {
+	public Set<Integer> getGreenBgIndices(int viewNum) {
 		return greens.keySet();
 	}
 
 	// These are painted as larger green/blue digits in the SudokuGridPanel
 	@Override
-	public Pots getResults() {
+	public Pots getSetPots() {
 		return setPots;
 	}
 
-	// Paint as green/blue digits
+	/**
+	 * Paint setPots in green or blue
+	 *
+	 * @return Constants.GREEN, Constants.BLUE, or -1 meaning NONE
+	 */
 	@Override
-	public int getResultColor() {
-		return resultColor;
+	public int getSetPotsColor() {
+		return setPotsColor;
 	}
 
 	// The GUI sorts hints by Score then Indice, and this is the only hint in
@@ -129,21 +132,18 @@ public class XColoringHintBig extends AHint  {
 
 	@Override
 	public int applyImpl(boolean isAutosolving, Grid grid) {
-		return setPots.setCells(isAutosolving) * 10;
+		return setPots.setCells(isAutosolving, grid) * 10;
 	}
 
 	@Override
 	protected String getHintTypeNameImpl() {
-		return hinter.tech.name()+" Type " + subtype;
+		return hinter.getTechName()+" Type " + subtype;
 	}
 
 	@Override
-	protected String toStringImpl() {
-		return Frmt.getSB().append(getHintTypeName())
-		  .append(COLON_SP).append(greenCellIds)
-		  .append(CSP).append(blueCellIds)
-		  .append(ON).append(v)
-		  .toString();
+	protected StringBuilder toStringImpl() {
+		return SB(64).append(getHintTypeName()).append(COLON_SP)
+		.append(greenCellIds).append(CSP).append(blueCellIds).append(ON).append(v);
 	}
 
 	@Override
@@ -175,7 +175,7 @@ public class XColoringHintBig extends AHint  {
 
 	@Override
 	protected String toHtmlImpl() {
-		StringBuilder sb = new StringBuilder(1024);
+		StringBuilder sb = SB(1024);
 		sb.append("<html><body>").append(NL)
 		  .append("<h2>").append(htmlHintTypeName()).append("</h2>").append(NL);
 		if ( subtype != 1 ) // not wanted for "normal" elimination hints

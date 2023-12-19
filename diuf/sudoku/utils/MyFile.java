@@ -1,13 +1,15 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
 
+import diuf.sudoku.SourceID;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 
 /**
  * MyFile exposes static helper methods to help me deal with java.io.File's.
@@ -29,30 +31,35 @@ public final class MyFile {
 	/**
 	 * OS_NAME aware filePath.endsWith(ext);
 	 * <pre>
-	 * NB: I don't know wether or not mac-OS file-system is case sensitive,
+	 * NB: I do not know wether or not mac-OS file-system is case sensitive,
 	 *     but I presume so, coz that'd be reasonable, unlike winblows, coz
 	 *     anybody who based anything on Windows is an idiot; and Apple folk
-	 *     are many things, but they're not idiots.
+	 *     are many things, but they are not idiots.
 	 * </pre>
-	 * @param filepath
+	 * @param filename
 	 * @param ext
 	 * @return true if the given filename endsWith the given ext, respecting
 	 * the case-sensitivity rules of the operating system upon which I run.
 	 */
-	public static boolean nameEndsWith(String filepath, String ext) {
+	public static boolean nameEndsWith(String filename, String ext) {
+		// The Windows file-system IS NOT case sensitive
 		if ( WINBLOWS )
-			// Windows file-system is not case sensitive
-			return filepath.toLowerCase().endsWith(ext.toLowerCase());
-		return filepath.endsWith(ext);
+			return filename.toLowerCase().endsWith(ext.toLowerCase());
+		// The *nix file-system IS case sensitive
+		return filename.endsWith(ext);
+	}
+
+	public static boolean nameEndsWith(File file, String ext) {
+		return nameEndsWith(file.getName(), ext);
 	}
 
 	/**
 	 * OS_NAME aware filePath.contains(target);
 	 * <pre>
-	 * NB: I don't know wether or not mac-OS file-system is case sensitive,
+	 * NB: I do not know wether or not mac-OS file-system is case sensitive,
 	 *     but I presume so, coz that'd be reasonable, unlike winblows, coz
 	 *     anybody who based anything on Windows is an idiot; and Apple folk
-	 *     are many things, but they're not idiots.
+	 *     are many things, but they are not idiots.
 	 * </pre>
 	 * @param filepath
 	 * @param target
@@ -64,6 +71,20 @@ public final class MyFile {
 			// Windows file-system is not case sensitive
 			return filepath.toLowerCase().contains(target.toLowerCase());
 		return filepath.contains(target);
+	}
+
+	/**
+	 * Does fileName exist?
+	 *
+	 * @param filename
+	 * @return {@code new File(filename).exists()} else false on Exception.
+	 */
+	public static boolean exists(String filename) {
+		try {
+			return new File(filename).exists();
+		} catch (Exception ex) {
+			return false;
+		}
 	}
 
 	/**
@@ -89,4 +110,5 @@ public final class MyFile {
 			return filename;
 		return filename.substring(0, i);
 	}
+
 }

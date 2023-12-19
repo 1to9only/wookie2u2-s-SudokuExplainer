@@ -7,7 +7,7 @@
 All the <c>possible positions</c> of the value <b>{1}</b>
 in {4} <b1>base {2}s</b1>
 are in the same {4} <b2>cover {3}s</b2>;
-except <b1>{5}</b1> which {9} extra <b1>fins {7}</b1>,
+except <b1>{5}</b1> which {9} extra <b1>fins{7}</b1>,
 but each elimination sees all of the fins.
 <p>
 Hence if any of the fins were {1} then {6} still could not be {1}, and {1} must
@@ -23,11 +23,17 @@ hints produced, at the cost of limited eliminations. A prima facea look at fins
 says it breaks the core Fish covenant: <i>N</i> bases have <u>only</u> <i>N</i>
 places for value, hence the value is "locked into" these bases, but adding the
 restriction that each elimination sees all of the fins props-up the whole deal,
-so it's logically valid, it's just a bit slow Redge.
+so it is logically valid, it is just a bit slow; by finding more fish with less
+eliminations per fish.
 <p>
-Note that BasicFisherman is S__TLOADS faster than ComplexFisherman coz it's much
-simpler. A genius would work-out how to find finned fish efficiently. I'm just a
-stupid programmer. This is the best I can do: A bit s__t; and it only gets worse
-from here, in terms of complexity, if not time.
+A Sashimi fish is a finned fish in which ONE base is missing value from it is
+intersection with ONE of the covers. This base typically has one or two fins,
+ergo it is a nearly-finned-fish, but the rules are the same for Sashimi as for
+other finned fish: eliminations see all of the fins. Note that just ONE base
+can go Sashimi.
+<p>
+BasicFisherman is faster than ComplexFisherman because it is simpler. A smart
+person would work-out how to find finned fish efficiently. I am only a
+programmer, so this is the best I can do: a bit s__t. I wish I was smart.
 </body>
 </html>

@@ -1,8 +1,8 @@
-//not used 2020-10-23 but I'm loath to remove any of this crap
+//not used 2020-10-23 but I am loath to remove any of this crap
 ///*
 // * Project: Sudoku Explainer
 // * Copyright (C) 2006-2007 Nicolas Juillerat
-// * Copyright (C) 2013-2022 Keith Corlett
+// * Copyright (C) 2013-2023 Keith Corlett
 // * Available under the terms of the Lesser General Public License (LGPL)
 // */
 //package diuf.sudoku.utils;
@@ -33,13 +33,13 @@
 //		boolean[][] matrix = new boolean[9][9];
 //		for ( Cell c : cells ) {
 //			if ( c == null )
-//				break; // it's a null terminated list
+//				break; // it is a null terminated list
 //			matrix[c.y][c.x] = true;
 //		}
 //		return matrix;
 //	}
 //
-//turns out it's faster to do with with an int index instead of a 9*9 matrix
+//turns out it is faster to do with with an int index instead of a 9*9 matrix
 //	public static void of(boolean[][] matrix, Cell[] cells) {
 //		clear(matrix);
 //		for ( Cell c : cells )

@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -11,8 +11,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 
+
 /**
- * Uniq prints distinct lines from it's input file, which must be pre-sorted.
+ * Uniq prints distinct lines from it is input file, which must be pre-sorted.
  * @author Keith Corlett 2020 Mar 04
  */
 public class Uniq {

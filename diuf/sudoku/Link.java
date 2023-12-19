@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -17,30 +17,30 @@ public final class Link {
 	public final int srcIndice;  public final int srcValue;
 	public final int endIndice;  public final int endValue;
 
-	public Link(Ass src, Ass dst) {
-		this.srcIndice = src.cell.i;  this.srcValue = src.value;
-		this.endIndice = dst.cell.i;  this.endValue = dst.value;
+	public Link(final Ass src, final Ass dst) {
+		this.srcIndice = src.indice;  this.srcValue = src.value;
+		this.endIndice = dst.indice;  this.endValue = dst.value;
 	}
 
-	public Link(Cell srcCell, int srcValue, Cell dstCell, int dstValue) {
-		this.srcIndice = srcCell.i;  this.srcValue = srcValue;
-		this.endIndice = dstCell.i;  this.endValue = dstValue;
+	public Link(final Cell srcCell, final int srcValue, final Cell dstCell, final int dstValue) {
+		this.srcIndice = srcCell.indice;  this.srcValue = srcValue;
+		this.endIndice = dstCell.indice;  this.endValue = dstValue;
 	}
-	public Link(int srcIndice, int srcValue, int dstIndice, int dstValue) {
+	public Link(final int srcIndice, final int srcValue, final int dstIndice, final int dstValue) {
 		this.srcIndice = srcIndice;  this.srcValue = srcValue;
 		this.endIndice = dstIndice;  this.endValue = dstValue;
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		// instanceof returns false when null but maybe that's vendor dependant
-		// coz generated code always tests explicitly for null first. I dunno!
+	public boolean equals(final Object obj) {
+		// instanceof returns false when null but may be vendor dependant coz
+		// generated code always tests explicitly for null first; so I dunno!
 		return obj instanceof Link && equals((Link)obj);
 	}
-	public boolean equals(Link that) {
+	public boolean equals(final Link that) {
 		return srcValue == that.srcValue
-			&& endValue == that.endValue
 			&& srcIndice == that.srcIndice
+			&& endValue == that.endValue
 			&& endIndice == that.endIndice;
 	}
 
@@ -48,9 +48,9 @@ public final class Link {
 	public int hashCode() {
 		if ( hashCode == 0 ) {
 			int h = srcIndice;
-			h = (h<<4) + srcValue;
-			h = (h<<8) + endIndice;
-			h = (h<<4) + endValue;
+			h = (h<<4) ^ srcValue;
+			h = (h<<8) ^ endIndice;
+			h = (h<<4) ^ endValue;
 			hashCode = h;
 		}
 		return hashCode;
@@ -60,7 +60,7 @@ public final class Link {
 	@Override
 	public String toString() {
 // to build links statement in test-case from error message
-//		return "\""+CELL_IDS[srcIndice]+"\""; 
+//		return "\""+CELL_IDS[srcIndice]+"\"";
 		return CELL_IDS[srcIndice]+MINUS+srcValue+"->"+CELL_IDS[endIndice]+MINUS+endValue;
 	}
 }

@@ -245,3 +245,11 @@ SHORTCOMINGS
    chains are simpler than Franken and Mutant Swordfish, and are several orders
    of magnitude simpler than Franken and Mutant Jellyfish, but it is possible
    that my implementation of Complex/KrakenFisherman is complete crap!
+
+===============================================================================
+
+As of 2023-05-23 KrakenFisherman has been replaced by Superfischerman. The
+classes ComplexFisherman, KrakenFisherman, KrakenTables, and Eff will all be
+removed at some unspecified future date.
+
+===============================================================================

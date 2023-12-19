@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -31,9 +31,14 @@ import java.util.function.Consumer;
  * (3) changed copy-constructor to call addAll(size, c) directly, for speed.
  * (4) override isEmpty() to return the local size==0, overriders must BEWARE.
  * KRC 2019-09-10
- * (5) made all attributes and the Node class and it's attributes public.
- *     I'm putting speed before dry'ness. Chainer now uses knowledge of the
+ * (5) made all attributes and the Node class and it is attributes public.
+ *     I am putting speed before dry'ness. Chainer now uses knowledge of the
  *     MyLinkedList classes internal structures to gain 10-to-15 seconds.
+ * KRC 2023-06-16
+ * (6) dealt with most of the Netbeans code quality warnings, like Override
+ *     annotations. Also made everything that can be final final, because the
+ *     optimiser can, I believe, do things with a final variable that it dare
+ *     not do otherwise, for safety.
  */
 
 
@@ -92,10 +97,12 @@ import java.util.function.Consumer;
  * @param <E> the type of elements held in this collection
  */
 
-public class MyLinkedList<E>
-	extends AbstractSequentialList<E>
+public class MyLinkedList<E> extends AbstractSequentialList<E>
 	implements List<E>, Deque<E>, Cloneable, java.io.Serializable
 {
+	/**
+	 * The number of elements currently in this List.
+	 */
 	public transient int size = 0;
 
 	/**
@@ -126,7 +133,7 @@ public class MyLinkedList<E>
 	 * @param  c the collection whose elements are to be placed into this list
 	 * @throws NullPointerException if the specified collection is null
 	 */
-	public MyLinkedList(Collection<? extends E> c) {
+	public MyLinkedList(final Collection<? extends E> c) {
 		this();
 		addAll(size, c);
 	}
@@ -136,14 +143,17 @@ public class MyLinkedList<E>
 	 *
 	 * <p>Extenders BEWARE: This implementation returns <tt>size == 0</tt>.
 	 */
+	@Override
 	public boolean isEmpty() {
 		return size == 0;
 	}
 
 	/**
 	 * Links e as first element.
+	 *
+	 * @param e
 	 */
-	public void linkFirst(E e) {
+	public void linkFirst(final E e) {
 		final Node<E> f = first;
 		final Node<E> newNode = new Node<>(null, e, f);
 		first = newNode;
@@ -157,12 +167,14 @@ public class MyLinkedList<E>
 
 	/**
 	 * Links e as last element.
+	 *
+	 * @param e
 	 */
-	public void linkLast(E e) {
-		final Node<E> l = last; // null when I'm empty
+	public void linkLast(final E e) {
+		final Node<E> l = last; // null when I am empty
 		final Node<E> newNode = new Node<>(l, e, null);
 		last = newNode;
-		if (l == null) // I was an empty list prior to this call
+		if ( l == null ) // I was an empty list prior to this call
 			first = newNode;
 		else
 			l.next = newNode;
@@ -171,26 +183,51 @@ public class MyLinkedList<E>
 	}
 
 	/**
-	 * Inserts element e before non-null Node succ.
+	 * Links e as last element.
+	 *
+	 * @param e
+	 * @return the new Node
 	 */
-	public void linkBefore(E e, Node<E> succ) {
-		// assert succ != null;
-		final Node<E> pred = succ.prev;
-		final Node<E> newNode = new Node<>(pred, e, succ);
-		succ.prev = newNode;
-		if (pred == null)
+	public Node<E> linkLast2(final E e) {
+		final Node<E> l = last; // null when I am empty
+		final Node<E> newNode = new Node<>(l, e, null);
+		last = newNode;
+		if ( l == null ) // I was an empty list prior to this call
 			first = newNode;
 		else
-			pred.next = newNode;
+			l.next = newNode;
+		++size;
+		++modCount;
+		return newNode;
+	}
+
+	/**
+	 * Inserts element e before non-null Node successor.
+	 *
+	 * @param e
+	 * @param successor
+	 */
+	public void linkBefore(final E e, final Node<E> successor) {
+		//assert successor != null;
+		final Node<E> prev = successor.prev;
+		final Node<E> newNode = new Node<>(prev, e, successor);
+		successor.prev = newNode;
+		if ( prev == null )
+			first = newNode;
+		else
+			prev.next = newNode;
 		++size;
 		++modCount;
 	}
 
 	/**
 	 * Unlinks non-null first node f.
+	 *
+	 * @param f the first node
+	 * @return the element of the now unlinked node
 	 */
-	public E unlinkFirst(Node<E> f) {
-		// assert f == first && f != null;
+	public E unlinkFirst(final Node<E> f) {
+		//assert f == first && f != null;
 		final E element = f.item;
 		final Node<E> next = f.next;
 		f.item = null;
@@ -207,9 +244,12 @@ public class MyLinkedList<E>
 
 	/**
 	 * Unlinks non-null last node l.
+	 *
+	 * @param l the last node
+	 * @return the element of the now unlinked node
 	 */
-	public E unlinkLast(Node<E> l) {
-		// assert l == last && l != null;
+	public E unlinkLast(final Node<E> l) {
+		//assert l == last && l != null;
 		final E element = l.item;
 		final Node<E> prev = l.prev;
 		l.item = null;
@@ -226,9 +266,12 @@ public class MyLinkedList<E>
 
 	/**
 	 * Unlinks non-null node x.
+	 *
+	 * @param x the node to unlink
+	 * @return the element of the now unlinked node
 	 */
-	public E unlink(Node<E> x) {
-		// assert x != null;
+	public E unlink(final Node<E> x) {
+		//assert x != null;
 		final E element = x.item;
 		final Node<E> next = x.next;
 		final Node<E> prev = x.prev;
@@ -259,6 +302,7 @@ public class MyLinkedList<E>
 	 * @return the first element in this list
 	 * @throws NoSuchElementException if this list is empty
 	 */
+	@Override
 	public E getFirst() {
 		final Node<E> f = first;
 		if (f == null)
@@ -272,6 +316,7 @@ public class MyLinkedList<E>
 	 * @return the last element in this list
 	 * @throws NoSuchElementException if this list is empty
 	 */
+	@Override
 	public E getLast() {
 		final Node<E> l = last;
 		if (l == null)
@@ -285,9 +330,10 @@ public class MyLinkedList<E>
 	 * @return the first element from this list
 	 * @throws NoSuchElementException if this list is empty
 	 */
+	@Override
 	public E removeFirst() {
 		final Node<E> f = first;
-		if (f == null)
+		if ( f == null )
 			throw new NoSuchElementException();
 		return unlinkFirst(f);
 	}
@@ -298,9 +344,10 @@ public class MyLinkedList<E>
 	 * @return the last element from this list
 	 * @throws NoSuchElementException if this list is empty
 	 */
+	@Override
 	public E removeLast() {
 		final Node<E> l = last;
-		if (l == null)
+		if ( l == null )
 			throw new NoSuchElementException();
 		return unlinkLast(l);
 	}
@@ -310,18 +357,20 @@ public class MyLinkedList<E>
 	 *
 	 * @param e the element to add
 	 */
-	public void addFirst(E e) {
+	@Override
+	public void addFirst(final E e) {
 		linkFirst(e);
 	}
 
 	/**
 	 * Appends the specified element to the end of this list.
-	 *
-	 * <p>This method is equivalent to {@link #add}.
+	 * <p>
+	 * This method is equivalent to {@link #add}.
 	 *
 	 * @param e the element to add
 	 */
-	public void addLast(E e) {
+	@Override
+	public void addLast(final E e) {
 		linkLast(e);
 	}
 
@@ -334,7 +383,8 @@ public class MyLinkedList<E>
 	 * @param o element whose presence in this list is to be tested
 	 * @return {@code true} if this list contains the specified element
 	 */
-	public boolean contains(Object o) {
+	@Override
+	public boolean contains(final Object o) {
 		return indexOf(o) != -1;
 	}
 
@@ -343,6 +393,7 @@ public class MyLinkedList<E>
 	 *
 	 * @return the number of elements in this list
 	 */
+	@Override
 	public int size() {
 		return size;
 	}
@@ -352,10 +403,11 @@ public class MyLinkedList<E>
 	 *
 	 * <p>This method is equivalent to {@link #addLast}.
 	 *
-	 * @param e element to be appended to this list
+	 * @param e element to append to this list
 	 * @return {@code true} (as specified by {@link Collection#add})
 	 */
-	public boolean add(E e) {
+	@Override
+	public boolean add(final E e) {
 		linkLast(e);
 		return true;
 	}
@@ -373,7 +425,8 @@ public class MyLinkedList<E>
 	 * @param o element to be removed from this list, if present
 	 * @return {@code true} if this list contained the specified element
 	 */
-	public boolean remove(Object o) {
+	@Override
+	public boolean remove(final Object o) {
 		if (o == null) {
 			for (Node<E> x = first; x != null; x = x.next) {
 				if (x.item == null) {
@@ -393,17 +446,35 @@ public class MyLinkedList<E>
 	}
 
 	/**
+	 * Faster than remove(Object) when you KNOW that $o is NOT null because
+	 * there are no-nulls in your List.
+	 *
+	 * @param o
+	 * @return
+	 */
+ 	public boolean removeNotNull(final Object o) {
+		for (Node<E> x = first; x != null; x = x.next) {
+			if ( o.equals(x.item) ) {
+				unlink(x);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Appends all of the elements in the specified collection to the end of
 	 * this list, in the order that they are returned by the specified
 	 * collection's iterator.  The behavior of this operation is undefined if
 	 * the specified collection is modified while the operation is in
 	 * progress.  (Note that this will occur if the specified collection is
-	 * this list, and it's nonempty.)
+	 * this list, and it is nonempty.)
 	 *
 	 * @param c collection containing elements to be added to this list
 	 * @return {@code true} if this list changed as a result of the call
 	 * @throws NullPointerException if the specified collection is null
 	 */
+	@Override
 	public boolean addAll(Collection<? extends E> c) {
 		return addAll(size, c);
 	}
@@ -415,6 +486,23 @@ public class MyLinkedList<E>
 	 * the right (increases their indices).  The new elements will appear
 	 * in the list in the order that they are returned by the
 	 * specified collection's iterator.
+	 * <p>
+	 * Note that addAll is final only because it is called from constructor,
+	 * which Netbeans (correctly I think) warns about; so to override addAll
+	 * one either removes the final and tests the hell out of it (which is a
+	 * complex problem in itself), or simply replaces the addAll in constructor
+	 * with a copy of this method called myAddAll (or whatever) that cannot be
+	 * overridden, because it is final.
+	 * <p>
+	 * Most addAll overrides are unnecessary; instead one injects overridable
+	 * before, after, and element methods, presuming that, as here, one can
+	 * change what they are overriding. Thats why this is <b>My</b>LinkedList.
+	 * It pisses me that an API developer must presume there customers are
+	 * completely incompetent, because thats a statistically valid assumption.
+	 * But I am only partially incompetent, except on Tuesdays. I am perfect on
+	 * Tuesdays. Ask god. I asked god once, but he carried on like a ____wit
+	 * for two minutes to avoid answering the ____ing question. Politics. Sigh.
+	 * Petunianic Tulip Eels Batman! Thats it. Give it a nice round sound.
 	 *
 	 * @param index index at which to insert the first element
 	 *              from the specified collection
@@ -423,11 +511,12 @@ public class MyLinkedList<E>
 	 * @throws IndexOutOfBoundsException {@inheritDoc}
 	 * @throws NullPointerException if the specified collection is null
 	 */
-	public boolean addAll(int index, Collection<? extends E> c) {
+	@Override
+	public final boolean addAll(final int index, final Collection<? extends E> c) {
 		checkPositionIndex(index);
 
-		Object[] a = c.toArray();
-		int numNew = a.length;
+		final Object[] a = c.toArray();
+		final int numNew = a.length;
 		if (numNew == 0)
 			return false;
 
@@ -441,7 +530,7 @@ public class MyLinkedList<E>
 		}
 
 		for (Object o : a) {
-			@SuppressWarnings("unchecked") E e = (E) o;
+			@SuppressWarnings("unchecked") final E e = (E) o;
 			Node<E> newNode = new Node<>(pred, e, null);
 			if (pred == null)
 				first = newNode;
@@ -466,6 +555,7 @@ public class MyLinkedList<E>
 	 * Removes all of the elements from this list.
 	 * The list will be empty after this call returns.
 	 */
+	@Override
 	public void clear() {
 		// Clearing all of the links between nodes is "unnecessary", but:
 		// - helps a generational GC if the discarded nodes inhabit
@@ -493,7 +583,8 @@ public class MyLinkedList<E>
 	 * @return the element at the specified position in this list
 	 * @throws IndexOutOfBoundsException {@inheritDoc}
 	 */
-	public E get(int index) {
+	@Override
+	public E get(final int index) {
 		checkElementIndex(index);
 		return node(index).item;
 	}
@@ -507,10 +598,11 @@ public class MyLinkedList<E>
 	 * @return the element previously at the specified position
 	 * @throws IndexOutOfBoundsException {@inheritDoc}
 	 */
-	public E set(int index, E element) {
+	@Override
+	public E set(final int index, final E element) {
 		checkElementIndex(index);
-		Node<E> x = node(index);
-		E oldVal = x.item;
+		final Node<E> x = node(index);
+		final E oldVal = x.item;
 		x.item = element;
 		return oldVal;
 	}
@@ -524,7 +616,8 @@ public class MyLinkedList<E>
 	 * @param element element to be inserted
 	 * @throws IndexOutOfBoundsException {@inheritDoc}
 	 */
-	public void add(int index, E element) {
+	@Override
+	public void add(final int index, final E element) {
 		checkPositionIndex(index);
 
 		if (index == size)
@@ -542,21 +635,28 @@ public class MyLinkedList<E>
 	 * @return the element previously at the specified position
 	 * @throws IndexOutOfBoundsException {@inheritDoc}
 	 */
-	public E remove(int index) {
+	@Override
+	public E remove(final int index) {
 		checkElementIndex(index);
 		return unlink(node(index));
 	}
 
 	/**
 	 * Tells if the argument is the index of an existing element.
+	 *
+	 * @param index
+	 * @return
 	 */
-	public boolean isElementIndex(int index) {
+	public boolean isElementIndex(final int index) {
 		return index >= 0 && index < size;
 	}
 
 	/**
 	 * Tells if the argument is the index of a valid position for an
 	 * iterator or an add operation.
+	 *
+	 * @param index
+	 * @return
 	 */
 	public boolean isPositionIndex(int index) {
 		return index >= 0 && index <= size;
@@ -567,26 +667,28 @@ public class MyLinkedList<E>
 	 * Of the many possible refactorings of the error handling code,
 	 * this "outlining" performs best with both server and client VMs.
 	 */
-	private String outOfBoundsMsg(int index) {
+	private String ioobMsg(final int index) {
 		return "Index: "+index+", Size: "+size;
 	}
 
-	public void checkElementIndex(int index) {
+	public void checkElementIndex(final int index) {
 		if (!isElementIndex(index))
-			throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
+			throw new IndexOutOfBoundsException(ioobMsg(index));
 	}
 
-	public void checkPositionIndex(int index) {
+	public void checkPositionIndex(final int index) {
 		if (!isPositionIndex(index))
-			throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
+			throw new IndexOutOfBoundsException(ioobMsg(index));
 	}
 
 	/**
 	 * Returns the (non-null) Node at the specified element index.
+	 *
+	 * @param index
+	 * @return
 	 */
 	public Node<E> node(int index) {
-		// assert isElementIndex(index);
-
+		//assert isElementIndex(index);
 		if (index < (size >> 1)) {
 			Node<E> x = first;
 			for (int i = 0; i < index; ++i)
@@ -613,6 +715,7 @@ public class MyLinkedList<E>
 	 * @return the index of the first occurrence of the specified element in
 	 *         this list, or -1 if this list does not contain the element
 	 */
+	@Override
 	public int indexOf(Object o) {
 		int index = 0;
 		if (o == null) {
@@ -642,7 +745,8 @@ public class MyLinkedList<E>
 	 * @return the index of the last occurrence of the specified element in
 	 *         this list, or -1 if this list does not contain the element
 	 */
-	public int lastIndexOf(Object o) {
+	@Override
+	public int lastIndexOf(final Object o) {
 		int index = size;
 		if (o == null) {
 			for (Node<E> x = last; x != null; x = x.prev) {
@@ -668,6 +772,7 @@ public class MyLinkedList<E>
 	 * @return the head of this list, or {@code null} if this list is empty
 	 * @since 1.5
 	 */
+	@Override
 	public E peek() {
 		final Node<E> f = first;
 		return (f == null) ? null : f.item;
@@ -680,6 +785,7 @@ public class MyLinkedList<E>
 	 * @throws NoSuchElementException if this list is empty
 	 * @since 1.5
 	 */
+	@Override
 	public E element() {
 		return getFirst();
 	}
@@ -690,6 +796,7 @@ public class MyLinkedList<E>
 	 * @return the head of this list, or {@code null} if this list is empty
 	 * @since 1.5
 	 */
+	@Override
 	public E poll() {
 		final Node<E> f = first;
 		if ( f == null )
@@ -716,6 +823,7 @@ public class MyLinkedList<E>
 	 * @throws NoSuchElementException if this list is empty
 	 * @since 1.5
 	 */
+	@Override
 	public E remove() {
 		return removeFirst();
 	}
@@ -727,7 +835,8 @@ public class MyLinkedList<E>
 	 * @return {@code true} (as specified by {@link Queue#offer})
 	 * @since 1.5
 	 */
-	public boolean offer(E e) {
+	@Override
+	public boolean offer(final E e) {
 		return add(e);
 	}
 
@@ -739,7 +848,8 @@ public class MyLinkedList<E>
 	 * @return {@code true} (as specified by {@link Deque#offerFirst})
 	 * @since 1.6
 	 */
-	public boolean offerFirst(E e) {
+	@Override
+	public boolean offerFirst(final E e) {
 		addFirst(e);
 		return true;
 	}
@@ -751,7 +861,8 @@ public class MyLinkedList<E>
 	 * @return {@code true} (as specified by {@link Deque#offerLast})
 	 * @since 1.6
 	 */
-	public boolean offerLast(E e) {
+	@Override
+	public boolean offerLast(final E e) {
 		addLast(e);
 		return true;
 	}
@@ -764,6 +875,7 @@ public class MyLinkedList<E>
 	 *         if this list is empty
 	 * @since 1.6
 	 */
+	@Override
 	public E peekFirst() {
 		final Node<E> f = first;
 		return (f == null) ? null : f.item;
@@ -777,6 +889,7 @@ public class MyLinkedList<E>
 	 *         if this list is empty
 	 * @since 1.6
 	 */
+	@Override
 	public E peekLast() {
 		final Node<E> l = last;
 		return (l == null) ? null : l.item;
@@ -790,6 +903,7 @@ public class MyLinkedList<E>
 	 *     this list is empty
 	 * @since 1.6
 	 */
+	@Override
 	public E pollFirst() {
 		final Node<E> f = first;
 		return (f == null) ? null : unlinkFirst(f);
@@ -803,6 +917,7 @@ public class MyLinkedList<E>
 	 *     this list is empty
 	 * @since 1.6
 	 */
+	@Override
 	public E pollLast() {
 		final Node<E> l = last;
 		return (l == null) ? null : unlinkLast(l);
@@ -817,7 +932,8 @@ public class MyLinkedList<E>
 	 * @param e the element to push
 	 * @since 1.6
 	 */
-	public void push(E e) {
+	@Override
+	public void push(final E e) {
 		addFirst(e);
 	}
 
@@ -832,6 +948,7 @@ public class MyLinkedList<E>
 	 * @throws NoSuchElementException if this list is empty
 	 * @since 1.6
 	 */
+	@Override
 	public E pop() {
 		return removeFirst();
 	}
@@ -845,8 +962,10 @@ public class MyLinkedList<E>
 	 * @return {@code true} if the list contained the specified element
 	 * @since 1.6
 	 */
-	public boolean removeFirstOccurrence(Object o) {
-		return remove(o);
+	@Override
+	@SuppressWarnings("unchecked")
+	public boolean removeFirstOccurrence(final Object o) {
+		return remove((E)o);
 	}
 
 	/**
@@ -858,6 +977,7 @@ public class MyLinkedList<E>
 	 * @return {@code true} if the list contained the specified element
 	 * @since 1.6
 	 */
+	@Override
 	public boolean removeLastOccurrence(Object o) {
 		if (o == null) {
 			for (Node<E> x = last; x != null; x = x.prev) {
@@ -898,7 +1018,8 @@ public class MyLinkedList<E>
 	 * @throws IndexOutOfBoundsException {@inheritDoc}
 	 * @see List#listIterator(int)
 	 */
-	public ListIterator<E> listIterator(int index) {
+	@Override
+	public ListIterator<E> listIterator(final int index) {
 		checkPositionIndex(index);
 		return new ListItr(index);
 	}
@@ -915,32 +1036,33 @@ public class MyLinkedList<E>
 			nextIndex = index;
 		}
 
+		@Override
 		public boolean hasNext() {
 			return nextIndex < size;
 		}
 
+		@Override
 		public E next() {
-//KRC: 2019-10-10 trying to get the last drops of blood out of this stoner!
-//it's an iterator forchrisake, it'll allways be slow!
+//KRC: 2019-10-10 Reduce stackwork for performance.
 //			checkForComodification();
 			if (modCount != expectedModCount)
 				throw new ConcurrentModificationException();
-//KRC: 2019-10-10 trying to get the last drops of blood out of this stoner!
-//it's an iterator forchrisake, it'll allways be slow!
+//KRC: 2019-10-10 Reduce stackwork for performance.
 //			if (!hasNext())
-			if (nextIndex >= size) // is ge slower than invocation? Can't be!
+			if (nextIndex >= size) // is ge slower than invocation? Cannot be!
 				throw new NoSuchElementException();
-
 			lastReturned = next;
 			next = next.next;
 			++nextIndex;
 			return lastReturned.item;
 		}
 
+		@Override
 		public boolean hasPrevious() {
 			return nextIndex > 0;
 		}
 
+		@Override
 		public E previous() {
 			checkForComodification();
 			if (!hasPrevious())
@@ -951,14 +1073,17 @@ public class MyLinkedList<E>
 			return lastReturned.item;
 		}
 
+		@Override
 		public int nextIndex() {
 			return nextIndex;
 		}
 
+		@Override
 		public int previousIndex() {
 			return nextIndex - 1;
 		}
 
+		@Override
 		public void remove() {
 			checkForComodification();
 			if (lastReturned == null)
@@ -974,14 +1099,16 @@ public class MyLinkedList<E>
 			++expectedModCount;
 		}
 
-		public void set(E e) {
+		@Override
+		public void set(final E e) {
 			if (lastReturned == null)
 				throw new IllegalStateException();
 			checkForComodification();
 			lastReturned.item = e;
 		}
 
-		public void add(E e) {
+		@Override
+		public void add(final E e) {
 			checkForComodification();
 			lastReturned = null;
 			if (next == null)
@@ -992,7 +1119,8 @@ public class MyLinkedList<E>
 			++expectedModCount;
 		}
 
-		public void forEachRemaining(Consumer<? super E> action) {
+		@Override
+		public void forEachRemaining(final Consumer<? super E> action) {
 			Objects.requireNonNull(action);
 			while (modCount == expectedModCount && nextIndex < size) {
 				action.accept(next.item);
@@ -1023,6 +1151,7 @@ public class MyLinkedList<E>
 	/**
 	 * @since 1.6
 	 */
+	@Override
 	public Iterator<E> descendingIterator() {
 		return new DescendingIterator();
 	}
@@ -1032,12 +1161,15 @@ public class MyLinkedList<E>
 	 */
 	private class DescendingIterator implements Iterator<E> {
 		private final ListItr itr = new ListItr(size);
+		@Override
 		public boolean hasNext() {
 			return itr.hasPrevious();
 		}
+		@Override
 		public E next() {
 			return itr.previous();
 		}
+		@Override
 		public void remove() {
 			itr.remove();
 		}
@@ -1058,18 +1190,16 @@ public class MyLinkedList<E>
 	 *
 	 * @return a shallow copy of this {@code LinkedList} instance
 	 */
+	@Override
 	public Object clone() {
-		MyLinkedList<E> clone = superClone();
-
+		final MyLinkedList<E> clone = superClone();
 		// Put clone into "virgin" state
 		clone.first = clone.last = null;
 		clone.size = 0;
 		clone.modCount = 0;
-
 		// Initialize clone with our elements
 		for (Node<E> x = first; x != null; x = x.next)
 			clone.linkLast(x.item);
-
 		return clone;
 	}
 
@@ -1087,6 +1217,7 @@ public class MyLinkedList<E>
 	 * @return an array containing all of the elements in this list
 	 *         in proper sequence
 	 */
+	@Override
 	public Object[] toArray() {
 		Object[] result = new Object[size];
 		int i = 0;
@@ -1103,7 +1234,7 @@ public class MyLinkedList<E>
 	 * array is allocated with the runtime type of the specified array and
 	 * the size of this list.
 	 *
-	 * <p>If the list fits in the specified array with room to spare (i.e.,
+	 * <p>If the list fits in the specified array with room to spare (ie,
 	 * the array has more elements than the list), the element in the array
 	 * immediately following the end of the list is set to {@code null}.
 	 * (This is useful in determining the length of the list <i>only</i> if
@@ -1134,18 +1265,17 @@ public class MyLinkedList<E>
 	 * @throws NullPointerException if the specified array is null
 	 */
 	@SuppressWarnings("unchecked")
+	@Override
 	public <T> T[] toArray(T[] a) {
 		if (a.length < size)
 			a = (T[])java.lang.reflect.Array.newInstance(
-								a.getClass().getComponentType(), size);
+						a.getClass().getComponentType(), size);
 		int i = 0;
-		Object[] result = a;
+		final Object[] result = a;
 		for (Node<E> x = first; x != null; x = x.next)
 			result[i++] = x.item;
-
 		if (a.length > size)
 			a[size] = null;
-
 		return a;
 	}
 
@@ -1159,7 +1289,7 @@ public class MyLinkedList<E>
 	 *             contains) is emitted (int), followed by all of its
 	 *             elements (each an Object) in the proper order.
 	 */
-	private void writeObject(java.io.ObjectOutputStream s)
+	private void writeObject(final java.io.ObjectOutputStream s)
 		throws java.io.IOException {
 		// Write out any hidden serialization magic
 		s.defaultWriteObject();
@@ -1177,16 +1307,16 @@ public class MyLinkedList<E>
 	 * (that is, deserializes it).
 	 */
 	@SuppressWarnings("unchecked")
-	private void readObject(java.io.ObjectInputStream s)
+	private void readObject(final java.io.ObjectInputStream s)
 		throws java.io.IOException, ClassNotFoundException {
 		// Read in any hidden serialization magic
 		s.defaultReadObject();
 
 		// Read in size
-		int size = s.readInt();
+		final int n = s.readInt();
 
 		// Read in all elements in the proper order.
-		for (int i = 0; i < size; ++i)
+		for (int i = 0; i < n; ++i)
 			linkLast((E)s.readObject());
 	}
 
@@ -1208,7 +1338,7 @@ public class MyLinkedList<E>
 	 */
 	@Override
 	public Spliterator<E> spliterator() {
-		return new LLSpliterator<E>(this, -1, 0);
+		return new LLSpliterator<>(this, -1, 0);
 	}
 
 	/** A customized variant of Spliterators.IteratorSpliterator */
@@ -1221,7 +1351,7 @@ public class MyLinkedList<E>
 		int expectedModCount; // initialized when est set
 		int batch;            // batch size for splits
 
-		LLSpliterator(MyLinkedList<E> list, int est, int expectedModCount) {
+		LLSpliterator(final MyLinkedList<E> list, final int est, final int expectedModCount) {
 			this.list = list;
 			this.est = est;
 			this.expectedModCount = expectedModCount;
@@ -1242,8 +1372,10 @@ public class MyLinkedList<E>
 			return s;
 		}
 
+		@Override
 		public long estimateSize() { return (long) getEst(); }
 
+		@Override
 		public Spliterator<E> trySplit() {
 			Node<E> p;
 			int s = getEst();
@@ -1253,9 +1385,11 @@ public class MyLinkedList<E>
 					n = s;
 				if (n > MAX_BATCH)
 					n = MAX_BATCH;
-				Object[] a = new Object[n];
+				final Object[] a = new Object[n];
 				int j = 0;
-				do { a[j++] = p.item; } while ((p = p.next) != null && j < n);
+				do {
+					a[j++] = p.item;
+				} while ((p=p.next) != null && j<n);
 				current = p;
 				batch = j;
 				est = s - j;
@@ -1264,7 +1398,8 @@ public class MyLinkedList<E>
 			return null;
 		}
 
-		public void forEachRemaining(Consumer<? super E> action) {
+		@Override
+		public void forEachRemaining(final Consumer<? super E> action) {
 			Node<E> p; int n;
 			if (action == null) throw new NullPointerException();
 			if ((n = getEst()) > 0 && (p = current) != null) {
@@ -1280,7 +1415,8 @@ public class MyLinkedList<E>
 				throw new ConcurrentModificationException();
 		}
 
-		public boolean tryAdvance(Consumer<? super E> action) {
+		@Override
+		public boolean tryAdvance(final Consumer<? super E> action) {
 			Node<E> p;
 			if (action == null) throw new NullPointerException();
 			if (getEst() > 0 && (p = current) != null) {
@@ -1295,6 +1431,7 @@ public class MyLinkedList<E>
 			return false;
 		}
 
+		@Override
 		public int characteristics() {
 			return Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED;
 		}

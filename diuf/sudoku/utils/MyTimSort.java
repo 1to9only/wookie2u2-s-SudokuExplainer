@@ -70,12 +70,12 @@
 //	/**
 //	 * KRC late 2019: Sort the first 'n' (which is small ie &lt; MIN_MERGE=32)
 //	 * elements of array 'a' by Comparator 'c'. If 'a' is not small the results
-//	 * are indeterminate, so use Arrays.sort if you're not sure: it'll call
+//	 * are indeterminate, so use Arrays.sort if you are not sure: it will call
 //	 * TimSort.small if appropriate. This method exists just to eliminate the
 //	 * step of deciding to go small, coz my arrays are all small, and I have
 //	 * ____ING SQUINTILIONS of them: 1465 * 81 * (9^10).
 //	 * <p>
-//	 * 
+//	 *
 //	 * @param <T> the element type
 //	 * @param a the array of elements
 //	 * @param n the number of elements actually in 'a'
@@ -95,7 +95,7 @@
 //	 * This constant should be a power of two.  It was 64 in Tim Peter's C
 //	 * implementation, but 32 was empirically determined to work better in
 //	 * this implementation.  In the unlikely event that you set this constant
-//	 * to be a number that's not a power of two, you'll need to change the
+//	 * to be a number that is not a power of two, you will need to change the
 //	 * {@link #minRunLength} computation.
 //	 *
 //	 * If you decrease this constant, you must change the stackLen
@@ -149,12 +149,12 @@
 //
 //	/**
 //	 * A stack of pending runs yet to be merged.  Run i starts at
-//	 * address base[i] and extends for len[i] elements.  It's always
+//	 * address base[i] and extends for len[i] elements.  It is always
 //	 * true (so long as the indices are in bounds) that:
 //	 *
 //	 *     runBase[i] + runLen[i] == runBase[i + 1]
 //	 *
-//	 * so we could cut the storage for this, but it's a minor amount,
+//	 * so we could cut the storage for this, but it is a minor amount,
 //	 * and keeping all the info explicit simplifies the code.
 //	 */
 //	private int stackSize = 0;  // Number of pending runs on stack
@@ -196,7 +196,7 @@
 //		 * Allocate runs-to-be-merged stack (which cannot be expanded).  The
 //		 * stack length requirements are described in listsort.txt.  The C
 //		 * version always uses the same stack length (85), but this was
-//		 * measured to be too expensive when sorting "mid-sized" arrays (e.g.,
+//		 * measured to be too expensive when sorting "mid-sized" arrays (eg,
 //		 * 100 elements) in Java.  Therefore, we use smaller (but sufficiently
 //		 * large) stack lengths for smaller arrays.  The "magic numbers" in the
 //		 * computation below must be changed if MIN_MERGE is decreased.  See
@@ -331,7 +331,7 @@
 //			 * The invariants still hold: pivot >= all in [lo, left) and
 //			 * pivot < all in [left, start), so pivot belongs at left.  Note
 //			 * that if there are elements equal to pivot, left points to the
-//			 * first slot after them -- that's why this sort is stable.
+//			 * first slot after them -- that is why this sort is stable.
 //			 * Slide elements over to make room for pivot.
 //			 */
 //			int n = start - left;  // The number of elements to move
@@ -416,13 +416,13 @@
 //	 *
 //	 * Roughly speaking, the computation is:
 //	 *
-//	 * <codeblock><pre>{@code 
-//	 *  If n < MIN_MERGE, return n (it's too small to bother with fancy stuff).
+//	 * <codeblock><pre>{@code
+//	 *  If n < MIN_MERGE, return n (it is too small to bother with fancy stuff).
 //	 *  Else if n is an exact power of 2, return MIN_MERGE/2.
 //	 *  Else return an int k in: MIN_MERGE/2 <= k <= MIN_MERGE, such that n/k
 //	 *   is close to, but strictly less than, an exact power of 2.
 //	 * }</pre></codeblock>
-//	 * 
+//	 *
 //	 * For the rationale, see listsort.txt.
 //	 *
 //	 * @param n the length of the array to be sorted
@@ -454,7 +454,7 @@
 //	 * Examines the stack of runs waiting to be merged and merges adjacent runs
 //	 * until the stack invariants are reestablished:
 //	 *
-//	 * <codeblock><pre>{@code 
+//	 * <codeblock><pre>{@code
 //	 *     1. runLen[i-3] > runLen[i-2] + runLen[i-1]
 //	 *     2. runLen[i-2] > runLen[i-1]
 //	 * }</pre></codeblock>
@@ -512,7 +512,7 @@
 //
 //		/*
 //		 * Record the length of the combined runs; if i is the 3rd-last
-//		 * run now, also slide over the last run (which isn't involved
+//		 * run now, also slide over the last run (which is not involved
 //		 * in this merge).  The current run (i+1) goes away in any case.
 //		 */
 //		runLen[i] = len1 + len2;
@@ -524,7 +524,7 @@
 //
 //		/*
 //		 * Find where the first element of run2 goes in run1. Prior elements
-//		 * in run1 can be ignored (because they're already in place).
+//		 * in run1 can be ignored (because they are already in place).
 //		 */
 //		int k = gallopRight(a[base2], a, base1, len1, 0, c);
 //		assert k >= 0;
@@ -535,7 +535,7 @@
 //
 //		/*
 //		 * Find where the last element of run1 goes in run2. Subsequent elements
-//		 * in run2 can be ignored (because they're already in place).
+//		 * in run2 can be ignored (because they are already in place).
 //		 */
 //		len2 = gallopLeft(a[base1 + len1 - 1], a, base2, len2, len2 - 1, c);
 //		assert len2 >= 0;
@@ -632,11 +632,11 @@
 //	 * @param a the array in which to search
 //	 * @param base the index of the first element in the range
 //	 * @param len the length of the range; must be > 0
-//	 * @param hint the index at which to begin the search, 
+//	 * @param hint the index at which to begin the search,
 //	 * {@code 0 <= hint < n}. The closer hint is to the result, the faster this
 //	 * method will run.
 //	 * @param c the comparator used to order the range, and to search
-//	 * @return the int k, {@code 0 <= k <= n} 
+//	 * @return the int k, {@code 0 <= k <= n}
 //	 * such that {@code a[b+k-1] <= key < a[b+k]}
 //	 */
 //	private static <T> int gallopRight(T key, T[] a, int base, int len

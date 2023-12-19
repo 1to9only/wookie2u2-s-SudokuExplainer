@@ -1,27 +1,28 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
 
+import static diuf.sudoku.Constants.*;
 import diuf.sudoku.Build;
 import diuf.sudoku.Grid;
 import diuf.sudoku.GridClipboard;
+import diuf.sudoku.Regions;
 import diuf.sudoku.SourceID;
 import diuf.sudoku.Run;
-import diuf.sudoku.Settings;
-import static diuf.sudoku.Settings.*;
+import diuf.sudoku.Config;
+import static diuf.sudoku.Config.*;
 import diuf.sudoku.Tech;
-import diuf.sudoku.gen.Generator;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import diuf.sudoku.solver.AHint;
 import diuf.sudoku.solver.AWarningHint;
 import diuf.sudoku.solver.IPretendHint;
 import diuf.sudoku.solver.UnsolvableException;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.EmptyHint;
 import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.solver.hinters.als.AlsHelper;
 import static diuf.sudoku.utils.Frmt.AND;
@@ -29,9 +30,11 @@ import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.IAsker;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
-import diuf.sudoku.utils.StringPrintWriter;
 import java.awt.*;
 import static diuf.sudoku.gui.Event.*;
+import diuf.sudoku.utils.MyClipboard;
+import static diuf.sudoku.utils.MyFile.nameEndsWith;
+import static diuf.sudoku.utils.StringPrintWriter.stackTraceOf;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.*;
 import java.awt.event.*;
@@ -49,7 +52,6 @@ import java.util.regex.Pattern;
 import javax.swing.*;
 import static javax.swing.JOptionPane.*;
 import javax.swing.event.*;
-import javax.swing.filechooser.FileFilter;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Caret;
 import javax.swing.text.Document;
@@ -59,31 +61,31 @@ import javax.swing.tree.*;
  * The SudokuFrame is the main window of the application.
  * <p>
  * Pretty much all the actions are delegated to the {@link SudokuExplainer}
- * class. The GUI handles files itself because it's easier to display errors
+ * class. The GUI handles files itself because it is easier to display errors
  * from within the GUI.
  * <p>
  * <b>Programmers Hidden GUI Features</b><br>
  * I thought I should write a list of all the "handy stuff" I built into the GUI
  * while debugging this project and playing with Sudoku puzzles, so some handy
  * features are:<ul>
- * <li>You can Alt-right-click on a cell to set it's background grey (move the
- * mouse to another cell and you'll see it), and Alt-right-click again to remove
+ * <li>You can Alt-right-click on a cell to set it is background grey (move the
+ * mouse to another cell and you will see it), and Alt-right-click again to remove
  * it (ie a toggle). This allows you to highlight cells in a hint, which is
  * pretty handy when you have a log entry describing the hint, but the current
- * version of the software doesn't produce the damn hint any longer, and that's
- * why you want to look at the damn hint, which you can't see. Sigh.
+ * version of the software does not produce the damn hint any longer, and thats
+ * why you want to look at the damn hint, which you cannot see. Sigh.
  * <li>You can select hint/s in the hintsTree and then right-click to copy all
- * selected hints toFullString to the clipboard, which is handy. Don't forget to
+ * selected hints toFullString to the clipboard, which is handy. Do not forget to
  * copy the grid as well. And now they even come with there Tech.name().
  * <li>You can Ctrl-right-click in the hintsTree to copy all UNFILTERED hints to
- * the clipboard. Now includes Tech.name(). Don't forget the grid!
+ * the clipboard. Now includes Tech.name(). Do not forget the grid!
  * <li>You can right-click in the hintDetailPanel to copy the hint-HTML to the
  * clipboard, so you can paste it into a .html file and view it your browser,
  * which I find handy because my browser enables me to enlarge the font.
  * <li>Good luck with A*E, and may all of your camels be well watered.
  * </ul>
  */
-@SuppressWarnings("Convert2Lambda") // I prefer to treat all warnings as errors, and replacing inner classes with lambda expressions is more trouble than it's worth (in my humble opinion), so this warning message should ONLY apply to new projects, not existing code-bases, but Netbeans authors lack the intelligence to see that.
+@SuppressWarnings("Convert2Lambda") // I treat warnings as errors, for consistency, and replacing inner classes with lambda expressions is more trouble than it is worth (in my humble opinion), so this warning message should ONLY apply to new projects, not pre-existing code-bases, but Netbeans authors lack the intelligence to see that.
 public final class SudokuFrame extends JFrame implements IAsker {
 
 	private static final long serialVersionUID = 8247189707924329043L;
@@ -92,54 +94,84 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	// the clearHintsTree method may happen often, it depends on the user.
 	private static final List<AHint> EMPTY_HINTS_LIST = Collections.emptyList();
-	private static final HintNode EMPTY_HINTS_TREE
-			= new HintsTreeBuilder().build(EMPTY_HINTS_LIST);
+	private static final HintNode EMPTY_HINTS_TREE = new HintsTreeBuilder().build(EMPTY_HINTS_LIST);
 
 	private static final Pattern CELL_ID_PATTERN = Pattern.compile("[A-I][1-9]");
+	private static final Pattern CELL_INDICE_PATTERN = Pattern.compile("\\d\\d?");
 	private static final Pattern ALS_ID_PATTERN = Pattern.compile("[a-z][a-z]?");
+	private static final Pattern REGION_LABEL_PATTERN = Pattern.compile("box \\d|row \\d|col [A-I]");
 
-	private static final DecimalFormat RATING = new DecimalFormat("#0.00");
+	private static final DecimalFormat RATING = new DecimalFormat("#,##0");
 
-	// I suspect that 128 is bigger than the biggest hint, but now it's
-	// bounded so that it can't run away towards infinity and break s__t.
-	// If 128 proves too small then double it again. There's no problem
+	// I suspect that 128 is bigger than the biggest hint, but now it is
+	// bounded so that it cannot run away towards infinity and break s__t.
+	// If 128 proves too small then double it again. There is no problem
 	// with it being bigger (within reason) it just MUST be bounded.
 	private final static int MAX_VIEWS = 128;
 	private static final String[] VIEWS = new String[MAX_VIEWS];
+	static {
+		for ( int i=0; i<MAX_VIEWS; ++i )
+			VIEWS[i] = "View " + (i + 1);
+	}
 
 	// EmptyHint should flash past when tree cleared before hint-search.
 	private static final TreeModel EMPTY_TREE_MODEL
 			= new DefaultTreeModel(new HintNode(new EmptyHint()));
 
-	static {
-		for (int i = 0; i < MAX_VIEWS; ++i) {
-			VIEWS[i] = "View " + (i + 1);
-		}
+	final static Image createImage(final String path) {
+		return createImageIcon(path).getImage();
 	}
 
-	private final SudokuExplainer engine;
-	/**
-	 * SudokuGridPanel displays the Sudoku grid.
-	 */
-	public final SudokuGridPanel gridPanel;
+	final static ImageIcon createImageIcon(final String path) {
+		java.net.URL url = SudokuFrame.class.getResource(path);
+		if ( url == null ) {
+			StdErr.whinge("createImageIcon: Resource not found: " + path);
+			return null;
+		}
+		return new ImageIcon(url);
+	}
 
+	/**
+	 * SudokuExplainer is the "business delegate" (engine) underneath this GUI.
+	 */
+	private final SudokuExplainer engine;
+
+	/**
+	 * SudokuGridPanel displays the current Sudoku puzzle in a 9*9 grid.
+	 */
+	private final SudokuGridPanel gridPanel;
+
+	/**
+	 * The GenerateDialog allows the user to generate Sudoku puzzles.
+	 */
 	private GenerateDialog generateDialog; // Generate Sudoku Puzzles Dialog
-	private TechSelectDialog techSelectDialog; // Solving Techniques Dialog
+
+	/**
+	 * The TechSelectDialog allows the user to un/want Sudoku Solving
+	 * Tech(niques).
+	 */
+	private TechSelectDialog techSelectDialog; // Solving Techniques Configuration Dialog
+
+	/**
+	 * The RecentFilesDialog allows the user to open a recent file.
+	 */
 	private RecentFilesDialog recentFilesDialog; // Recently Used Files Dialog
 
-	private JFrame dummyFrameKnife;
+	private JFrame dummyFrameKnife; // I have no idea, but it works!
 	private JPanel contentPane, viewSelectPanel, hintsTreePanel, northPanel
 		, sudokuGridPanelHolder, hintDetailPanel, buttonsPane, buttonsPanel
-		, hintsSouthPanel, ratingPanel, disabledTechsWarnPanel;
+		, hintsSouthPanel, hintsSouthWestPanel, ratingPanel
+		, disabledTechsWarnPanel;
 	private JScrollPane hintDetailsScrollPane, hintsTreeScrollpane;
 	private JTree hintsTree;
 	private JEditorPane hintDetailPane;
 	private String hintDetailHtml; // contents of hintDetailArea because when
-	// you get it back out of the JEditorPane it's been wrapped, badly, and we
+	// you get it back out of the JEditorPane it is been wrapped, badly, and we
 	// want to copy it to the clipboard so that it can be re-used, or whatever.
 	private JButton btnGetAllHints, btnSolveStep, btnGetNextHint, btnValidate
 		, btnApplyHint;
 	private JCheckBox chkFilterHints;
+	private JLabel lblUseCache;
 	private JComboBox<String> cmbViewSelector;
 	private JLabel lblPuzzleRating, lblDisabledTechsWarning;
 
@@ -157,12 +189,13 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private JMenuItem mitResetPotentialValues, mitClearHints, mitSolveStep
 		, mitSolveStepBig, mitGetNextHint, mitApplyHint, mitGetAllHints
 		, mitGetAllHintsMore, mitGetClueSmall, mitGetClueBig, mitCheckValidity
-		, mitSolve, mitAnalyse, mitAnalyseVerbose, mitAnalyseTiming, mitLogView;
+		, mitSolve, mitAnalyse, mitAnalyseVerbose, mitAnalyseTiming, mitLogView
+		, mitLogFollow, mitLibate;
 	// Options
 	private JMenu optionsMenu; // a sub-menu under optionsMenu
-	private JMenuItem mitSelectTechniques, mitSaveSettings;
-	private JCheckBoxMenuItem mitFilterHints, mitShowMaybes, mitGreenFlash
-		, mitAntialiasing, mitHacky, mitGod;
+	private JMenuItem mitSelectTechniques, mitSaveConfig;
+	private JCheckBoxMenuItem mitFilterHints, mitCacheHints, mitShowMaybes
+		, mitGreenFlash, mitAntialiasing, mitHacky, mitGod;
 	// Help
 	private JMenu helpMenu;
 	private JMenuItem mitShowWelcome, mitAbout;
@@ -173,66 +206,93 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private File logViewFile = null;
 	private String regex;
 
+	private JLabel lblCheatName;
+
+	/**
+	 * Does Frame cache hints? Stored in {@link Config#isCachingHints}.
+	 * <p>
+	 * I use {@link #cacheHints} to cache hints before {@link #getAllHints} is
+	 * run by the user, to (mostly) make the GUI snappy when you step through
+	 * solving a puzzle, by just repeatedly pressing enter. NestedUnary is the
+	 * only hinter that I use which is slower than me, everybody else finds the
+	 * next hint before I grock the current one.
+	 * <p>
+	 * I know not if this is always true, but my puzzles (top1465) start with
+	 * an easy hint. The only way to start with a hard-hint is save maybes as
+	 * per test-cases. Interesting. I wonder if there is an explanation and/or
+	 * name for this phenomenon? Anyway its convenient for caching, because the
+	 * priming read is superfluous.
+	 */
+	private boolean useCache = CFG.getBoolean(Config.isCachingHints, true);
+
 	/**
 	 * The directory which the open-file and save-file dialogs start in.
 	 */
 	File defaultDirectory;
 
-	/**
-	 * Should {@link #getAllHintsInBackground} logHints to the Log.
-	 */
-	public final boolean logHints = true;
-	/**
-	 * Should {@link #getAllHintsInBackground} printHints to System.out.
-	 */
-	public final boolean printHints = true;
+	/** Is {@link #getAllHintsInBackground} currently running? */
+	private volatile boolean isGettingAllHintsInBackground = false;
+	/** Should {@link #getAllHintsInBackground} logHints to the Log */
+	private final boolean logHints = true;
+	/** Should {@link #getAllHintsInBackground} printHints to System.out */
+	private final boolean printHints = true;
 
 	/**
-	 * The Constructor. Note that it's only package visible, for use only by the
+	 * The Constructor. Note that it is only package visible, for use only by the
 	 * SudokuExplainer (controller) to create the view (me). The model is the
-	 * Grid class, and it's assorted cheese. We pass around instances of the
+	 * Grid class, and it is assorted cheese. We pass around instances of the
 	 * model (grids) instead of having the GUI and controller lock-onto an
 	 * instance of the model, which is the more usual approach.
 	 */
-	SudokuFrame(Grid grid, SudokuExplainer engine) {
+	SudokuFrame(final Grid grid, final SudokuExplainer engine) {
 		super();
 		this.engine = engine;
 		this.gridPanel = new SudokuGridPanel(grid, engine, this);
-
 		initialise();
 		resetViewSelector();
-		final SudokuFrame me = this; // to supress IDE leak warning
-		AutoBusy.addFullAutoBusy(me);
-		showWelcomeText();
+		showWelcomeHtml();
 		setIconImage(createImage("Icon_Sudoku.gif"));
 		setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 		// inform user if any Sudoku Solving Techniques are disabled
 		disabledTechsWarnPanel.setVisible(refreshDisabledRulesWarning());
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				gridPanel.requestFocusInWindow();
-			}
+		AutoBusy.addFullAutoBusy(this);
+		SwingUtilities.invokeLater(() -> {
+			if(useCache) updateHintsCache();
 		});
+		SwingUtilities.invokeLater(()->gridPanel.requestFocusInWindow());
 	}
 
 	private void initialise() {
-		this.setTitle(Build.ATV);
+		this.setTitle();
 		this.setJMenuBar(getMyMainMenuBar());
 		this.setContentPane(getJContentPane());
 		setDropTargetToRecievePlainTextString();
 	}
 
+	@Override
+	public void setTitle(final String title) {
+		super.setTitle(Build.ATV+"    "+title);
+	}
+
+	void setTitle(final SourceID source) {
+		if ( source != null )
+			setTitle(source.toString());
+	}
+
+	void setTitle() {
+		super.setTitle(Build.ATV+"    "+Build.BUILT);
+	}
+
 	private void setDropTargetToRecievePlainTextString() {
 		this.setDropTarget(new DropTarget(gridPanel, new DropTargetAdapter() {
 			@Override
-			public void drop(DropTargetDropEvent dtde) {
+			public void drop(final DropTargetDropEvent dtde) {
 				try {
-					String stringData = GridClipboard.read(dtde);
+					final String stringData = GridClipboard.read(dtde);
 					//System.out.println("SudokuFrame.drop: plain/text;java.lang.String:\n"+stringData);
 					engine.loadStringIntoGrid(stringData);
 					gridPanel.repaint();
-					setTitle(Build.ATV + "   (dropped in)");
+					setTitle("(dropped in)");
 					hintDetailPane.setText("Sudoku dropped!");
 				} catch (UnsupportedFlavorException | IOException ex) {
 					displayError(ex);
@@ -242,38 +302,22 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	/**
-	 * Displays the welcome to my nightmare message in the hint-details area.
+	 * Display Welcome.html (Sudoku Explainers help) in the hint-details area.
 	 */
-	final void showWelcomeText() {
+	final void showWelcomeHtml() {
 		engine.clearHints();
-		// caching this HTML wasted big RAM. Nobody gives a ____ if it takes
-		// two seconds to load help, but if it takes ten cache it.
-		setHintDetailArea(Html.load(this, "Welcome.html", true, false));
-	}
-
-	final Image createImage(String path) {
-		return createImageIcon(path).getImage();
-	}
-
-	final ImageIcon createImageIcon(String path) {
-		java.net.URL imgURL = SudokuFrame.class.getResource(path);
-		if (imgURL != null) {
-			return new ImageIcon(imgURL);
-		} else {
-			StdErr.whinge("Couldn't find file: " + path);
-			return null;
-		}
+		setHintDetailArea(Html.load(this, "Welcome.html", true, false)); // NO cache
 	}
 
 	/**
 	 * Sets the contents of the hintsTree JTree control.
 	 */
-	void setHintsTree(HintNode root, HintNode selected) {
+	void setHintsTree(final HintNode root, final HintNode selected) {
 		getHintsTree();
 		hintsTree.setEnabled(false);
 		hintsTree.setModel(new DefaultTreeModel(root));
 		// Dis/enable the Filter checkbox and menu item.
-		chkFilterHints.setSelected(THE_SETTINGS.isFilteringHints());
+		chkFilterHints.setSelected(CFG.isFilteringHints());
 		chkFilterHints.setEnabled(true);
 		mitFilterHints.setSelected(chkFilterHints.isSelected());
 		mitFilterHints.setEnabled(chkFilterHints.isEnabled());
@@ -291,93 +335,104 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	/**
-	 * Repaints the SudokuGridPanel with the currHint.
+	 * Repaints the SudokuGridPanel with the given hint.
+	 */
+	private static void repaintHint(final AHint h, final SudokuGridPanel p, final int viewNum) {
+		p.clearSelection(true);
+		if ( h == null )
+			clear(p);
+		else
+			display(h, p, viewNum);
+		p.repaint();
+	}
+
+	/**
+	 * Repaints the SudokuGridPanel with the current Hint.
 	 */
 	private void repaintHint() {
 		repaintHint(currHint, gridPanel, viewNum);
 	}
-	private static void repaintHint(final AHint h, final SudokuGridPanel p, final int viewNum) {
-		p.clearSelection(true);
-		if ( h == null ) { // clear it
-			p.setResult(null);
-			p.setResults(null);
-			p.setResultColor(-1); // meaning none
-			p.setAquaBGCells(null);
-			p.setPinkBGCells(null);
-			p.setPinkos(null);
-			p.setRedBGCells(null);
-			p.setGreenBGCells(null);
-			p.setOrangeBGCells(null);
-			p.setBlueBGCells(null);
-			p.setYellowBGCells(null);
-			p.setGreenPots(null);
-			p.setRedPots(null);
-			p.setOrangePots(null);
-			p.setBluePots(null);
-			p.setYellowPots(null);
-			p.setPurplePots(null);
-			p.setBrownPots(null);
-			p.setAlss(null);
-			p.setLinks(null);
-			p.setBases(null);
-			p.setCovers(null);
-			p.setSupers(null);
-			p.setSubs(null);
-		} else { // display it
-			p.setResult(h.getResult());
-			p.setResults(h.getResults());
-			p.setResultColor(h.getResultColor());
-			p.setAquaBGCells(h.getAquaCells(viewNum)); // null OK
-			p.setPinkBGCells(h.getPinkCells(viewNum)); // null OK
-			p.setPinkos(h.getPinkos()); // null OK
-			if ( h instanceof AWarningHint )
-				p.setRedBGCells(((AWarningHint) h).getRedCells());
-			p.setGreenBGCells(h.getGreenCells(viewNum)); // null OK
-			p.setOrangeBGCells(h.getOrangeCells(viewNum)); // null OK
-			p.setBlueBGCells(h.getBlueCells(viewNum)); // null OK
-			p.setYellowBGCells(h.getYellowCells(viewNum)); // null OK
-			p.setGreenPots(h.getGreens(viewNum));
-			p.setRedPots(h.getReds(viewNum));
-			p.setOrangePots(h.getOranges(viewNum));
-			p.setBluePots(h.getBlues(p.getGrid(), viewNum));
-			// The three extra colors are currently only in the ColoringHint,
-			// but other hint-types may use them in future, so don't go round.
-			p.setYellowPots(h.getYellows());
-			p.setPurplePots(h.getPurples());
-			p.setBrownPots(h.getBrowns());
-			p.setAlss(h.getAlss());
-			// rendered as brown arrows
-			p.setLinks(h.getLinks(viewNum));
-			p.setBases(h.getBases());
-			p.setCovers(h.getCovers());
-			p.setSupers(h.getOns());
-			p.setSubs(h.getOffs());
-		}
-		p.repaint();
+
+	private static void clear(final SudokuGridPanel p) {
+		p.setResults(null);
+		p.setSetPots(null);
+		p.setSetPotsColor(-1); // meaning none
+		p.setPinkRegions(null);
+		p.setAquaBgIndices  (null);
+		p.setPinkBgIndices  (null);
+		p.setRedBgIndices   (null);
+		p.setGreenBgIndices (null);
+		p.setOrangeBgIndices(null);
+		p.setBlueBgIndices  (null);
+		p.setYellowBgIndices(null);
+		p.setGreenPots (null);
+		p.setRedPots   (null);
+		p.setOrangePots(null);
+		p.setBluePots  (null);
+		p.setYellowPots(null);
+		p.setPurplePots(null);
+		p.setBrownPots (null);
+		p.setAlss(null);
+		p.setLinks(null);
+		p.setBases(null);
+		p.setCovers(null);
+		p.setSupers(null);
+		p.setSubs(null);
 	}
 
-	private int bounded(int vc) { // viewCount
-		if (vc < 1) {
-			vc = 1;
-		} else if (vc > MAX_VIEWS) {
+	private static void display(final AHint h, final SudokuGridPanel p, final int viewNum) {
+		p.setResults(h.getResults());
+		p.setSetPots(h.getSetPots());
+		p.setSetPotsColor(h.getSetPotsColor());
+		p.setPinkRegions(h.getPinkRegions()); // null OK
+		p.setAquaBgIndices  (h.getAquaBgIndices(viewNum)); // null OK
+		p.setPinkBgIndices  (h.getPinkBgIndices(viewNum)); // null OK
+		if ( h instanceof AWarningHint )
+			p.setRedBgIndices(((AWarningHint) h).getRedBgIndices());
+		p.setGreenBgIndices (h.getGreenBgIndices(viewNum)); // null OK
+		p.setOrangeBgIndices(h.getOrangeBgIndices(viewNum)); // null OK
+		p.setBlueBgIndices  (h.getBlueBgIndices(viewNum)); // null OK
+		p.setYellowBgIndices(h.getYellowBgIndices(viewNum)); // null OK
+		p.setGreenPots (h.getGreenPots(viewNum));
+		p.setRedPots   (h.getRedPots(viewNum));
+		p.setOrangePots(h.getOrangePots(viewNum));
+		p.setBluePots  (h.getBluePots(p.getGrid(), viewNum));
+		p.setYellowPots(h.getYellowPots());
+		p.setPurplePots(h.getPurplePots());
+		p.setBrownPots (h.getBrownPots());
+		p.setAlss(h.getAlss());
+		// rendered as brown arrows
+		p.setLinks(h.getLinks(viewNum));
+		p.setBases(h.getBases());
+		p.setCovers(h.getCovers());
+		p.setSupers(h.getSupers());
+		p.setSubs(h.getSubs());
+	}
+
+	private int bounded(final int vc) { // viewCount
+		if ( vc < 1 ) {
+			return 1;
+		}
+		if ( vc > MAX_VIEWS ) {
 			// this goes to StdErr, to tell the developer we have a problem.
 			engine.whinge("SudokuFrame: viewCount=" + vc + " > MAX_VIEWS=" + MAX_VIEWS);
-			vc = MAX_VIEWS;
+			return MAX_VIEWS;
 		}
 		return vc;
 	}
 
 	/**
 	 * Displays the given hint.
+	 *
 	 * @param hint
-	 * @param isApplyEnabled
+	 * @param isApplicable
 	 */
-	public void setCurrentHint(AHint hint, boolean isApplyEnabled) {
+	public void setCurrentHint(final AHint hint, final boolean isApplicable) {
 		this.currHint = hint;
-		btnApplyHint.setEnabled(isApplyEnabled);
-		mitApplyHint.setEnabled(isApplyEnabled);
+		btnApplyHint.setEnabled(isApplicable);
+		mitApplyHint.setEnabled(isApplicable);
 		viewNum = 0;
-		if (hint == null) {
+		if ( hint == null ) {
 			viewCount = 1;
 			resetViewSelector();
 			gridPanel.setBases(null);
@@ -389,9 +444,10 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			// Set explanations
 			setHintDetailArea(hint.toHtml());
 			// NB: AnalysisHint is "actual" despite not being an actual hint.
-			if ( !(hint instanceof IPretendHint) ) {
+			if ( hint instanceof IPretendHint )
+				lblPuzzleRating.setText("    0");
+			else
 				lblPuzzleRating.setText(RATING.format(hint.getDifficulty()));
-			}
 		}
 		repaintHint();
 		this.repaint();
@@ -400,52 +456,10 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	private void resetViewSelector() {
 		cmbViewSelector.setEnabled(false);
 		cmbViewSelector.removeAllItems();
-		for (int i = 0; i < viewCount; ++i) {
+		for ( int i=0; i<viewCount; ++i )
 			cmbViewSelector.addItem(VIEWS[i]);
-		}
 		cmbViewSelector.setSelectedIndex(viewNum);
 		cmbViewSelector.setEnabled(viewCount > 1);
-	}
-
-	// Display a warning icon-label when hinter/s are disabled or unavailable.
-	// AlignedPent may be unavailable, as apposed to merely dis/enabled.
-	// return does the warning panel need to be visible.
-	boolean refreshDisabledRulesWarning() {
-		// build the disabled-rules warning message
-		final EnumSet<Tech> wanted = THE_SETTINGS.getWantedTechs();
-		// -2 for [The Solution, Single Solution]
-		final int numDisabled = Settings.ALL_TECHS.size() - 2 - wanted.size();
-		String msg = ""+numDisabled+" techniques disabled.";
-		// these Tech's are far too slow for practical use.
-		if ( wanted.contains(Tech.KrakenJellyfish)
-		  || wanted.contains(Tech.MutantJellyfish) )
-			msg += " Jellylegs!";
-		// these Tech's are too slow for practical use.
-		if ( wanted.contains(Tech.AlignedSept)
-		  || wanted.contains(Tech.AlignedOct)
-		  || wanted.contains(Tech.AlignedNona)
-		  || wanted.contains(Tech.AlignedDec) )
-			msg += " Megaligned!";
-		// set the warning JLabel's text
-		lblDisabledTechsWarning.setText(msg);
-		// make the warning panel in/visible
-		// turns out I allways want to see this warning.
-		disabledTechsWarnPanel.setVisible(true);
-		return true;
-	}
-
-	private static class EmptyHint extends AWarningHint implements IPretendHint {
-		public EmptyHint() {
-			super(new diuf.sudoku.solver.hinters.DummyHinter());
-		}
-		@Override
-		protected String toHtmlImpl() {
-			return ("<html><body>Coodies!</body></html>");
-		}
-		@Override
-		protected String toStringImpl() {
-			return "EmptyHint: is empty";
-		}
 	}
 
 	private final class HintsTreeCellRenderer implements TreeCellRenderer {
@@ -453,17 +467,18 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		// this Renderer "wraps" a DefaultTreeCellRenderer to handle HintNodes
 		private final DefaultTreeCellRenderer DTCR = new DefaultTreeCellRenderer();
 
-		public HintsTreeCellRenderer() {
+		HintsTreeCellRenderer() {
 			DTCR.setLeafIcon(createImageIcon("Icon_Light.gif"));
 		}
 
 		@Override
-		public Component getTreeCellRendererComponent(JTree tree, Object value
-				, boolean selected, boolean expanded, boolean leaf, int row
-				, boolean hasFocus) {
+		public Component getTreeCellRendererComponent(final JTree tree
+				, final Object value, final boolean selected
+				, boolean expanded, boolean leaf, final int row
+				, final boolean hasFocus) {
 			if ( value instanceof HintNode ) {
-				final HintNode hn = (HintNode)value;
-				final boolean isEmpty = !hn.hasHint() && hn.getChildCount()==0;
+				final HintNode n = (HintNode)value;
+				final boolean isEmpty = !n.hasHint() && n.getChildCount()==0;
 				expanded |= isEmpty;
 				leaf &= !isEmpty;
 			}
@@ -474,171 +489,226 @@ public final class SudokuFrame extends JFrame implements IAsker {
 
 	private JPanel getJContentPane() {
 		if ( contentPane == null ) {
-			contentPane = new JPanel(new BorderLayout());
-			contentPane.add(getNorthPanel(), BorderLayout.NORTH);
-			contentPane.add(getHintDetailPanel(), BorderLayout.CENTER);
-			contentPane.add(getButtonsContainer(), BorderLayout.SOUTH);
+			final JPanel jp = new JPanel(new BorderLayout());
+			jp.add(getNorthPanel(), BorderLayout.NORTH);
+			jp.add(getHintDetailPanel(), BorderLayout.CENTER);
+			jp.add(getButtonsContainer(), BorderLayout.SOUTH);
+			contentPane = jp;
 		}
 		return contentPane;
 	}
 
 	private JScrollPane getHintDetailsScrollPane() {
-		if (hintDetailsScrollPane == null) {
-			hintDetailsScrollPane = new JScrollPane();
-			if (getToolkit().getScreenSize().height < 800) {
-				hintDetailsScrollPane.setPreferredSize(new Dimension(700, 110));
-			} else {
-				hintDetailsScrollPane.setPreferredSize(new Dimension(1000, 510));
-			}
-			hintDetailsScrollPane.setViewportView(getHintDetailPane());
+		if ( hintDetailsScrollPane == null ) {
+			final JScrollPane jsp = new JScrollPane();
+			if ( getToolkit().getScreenSize().height < 800 )
+				jsp.setPreferredSize(new Dimension(700, 110));
+			else
+				jsp.setPreferredSize(new Dimension(1000, 510));
+			jsp.setViewportView(getHintDetailPane());
+			hintDetailsScrollPane = jsp;
 		}
 		return hintDetailsScrollPane;
 	}
 
 	private ArrayList<HintNode> getSelectedHintNodes() {
-		ArrayList<HintNode> result = new ArrayList<>();
-		TreePath[] pathes = hintsTree.getSelectionPaths();
-		if (pathes != null) {
-			for (TreePath path : pathes) {
-				result.add((HintNode) path.getLastPathComponent());
-			}
-		}
+		final ArrayList<HintNode> result = new ArrayList<>();
+		final TreePath[] pathes = hintsTree.getSelectionPaths();
+		if ( pathes == null )
+			return result;
+		// if user selects any other than the first hint (3rd row of tree) then
+		// hintsCache is invalid coz it PRESUMES dat first hint will be applied
+		final int[] rows = hintsTree.getSelectionRows();
+		if ( rows == null )
+			return result;
+		if ( rows.length!=1 || rows[0]!=2 )
+			engine.cacheHintsClear();
+		for ( TreePath path : pathes )
+			result.add((HintNode) path.getLastPathComponent());
 		return result;
+	}
+
+	private boolean setSelectedHintNode(final String text) {
+		if ( text != null )
+			try {
+				final HintNode root = (HintNode)hintsTree.getModel().getRoot();
+				for ( HintNode n : root.getHintNodes() ) {
+					if ( n.getName().startsWith(text) ) {
+						hintsTree.setSelectionPath(new TreePath(n));
+						return true;
+					}
+				}
+			} catch (Exception ex) {
+				Log.teeln("WARN: "+Log.me()+": "+ex);
+			}
+		return false;
 	}
 
 	/**
 	 * remove all hints from the given deadTech
-	 * and disable hinter until a puzzle is prepare'd.
+	 * and disable hinter until a puzzle is prepared.
 	 *
-	 * @param dead the deceased Tech
+	 * @param deadTech the deceased Tech
 	 */
-	private void removeHintsAndDisableHinter(Tech dead) {
+	private void removeHintsAndDisableHinter(final Tech deadTech) {
 		// disable the hinter; which is re-enabled by loading a puzzle
-		IHinter hinter = engine.solver.getWantedHinter(dead);
-		if ( hinter != null ) {
-			hinter.setIsEnabled(false);
-		}
+		final IHinter zombie = engine.getWantedHinter(deadTech);
+		if ( zombie != null )
+			zombie.setIsEnabled(false);
 		// remove the hints
-		engine.removeHintsFrom(dead);
+		engine.removeHintsFrom(deadTech);
 	}
 
 	private JTree getHintsTree() {
-		if (hintsTree != null) {
-			return hintsTree;
-		}
-		hintsTree = new JTree();
-		hintsTree.setShowsRootHandles(true);
-		hintsTree.getSelectionModel().setSelectionMode(
-				TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
-		hintsTree.setCellRenderer(new HintsTreeCellRenderer());
-		hintsTree.setExpandsSelectedPaths(true);
-		hintsTree.addTreeSelectionListener(new TreeSelectionListener() {
-			@Override
-			public void valueChanged(TreeSelectionEvent e) {
-				if (hintsTree.isEnabled()) {
-					engine.hintsSelected(getSelectedHintNodes());
-				}
-			}
-		;
-		});
-		// WARN: This KeyListener is replicated in the hintDetailPane. If you
-		// change here then change there too; or methodise it all (BFIIK).
-		hintsTree.addKeyListener(new KeyAdapter() {
-			@Override
-			public void keyPressed(KeyEvent e) {
-				final int keyCode = e.getKeyCode();
-				if ( keyCode == KeyEvent.VK_ENTER ) {
-					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
-					e.consume();
-				} else if ( keyCode == KeyEvent.VK_DELETE ) {
-					final ArrayList<HintNode> hintNodes = getSelectedHintNodes();
-					hintsTree.clearSelection();
-					if ( hintNodes==null || hintNodes.isEmpty() ) {
-						engine.beep();
-					} else {
-						// disable this hinter
-						final Tech dead = hintNodes.get(0).getHint().hinter.tech;
-						// NEVER disable Naked/Hidden Singles (mandatory)
-						if ( dead==Tech.NakedSingle || dead==Tech.HiddenSingle ) {
-							engine.beep();
-						} else {
-							removeHintsAndDisableHinter(dead);
-							// clear the hintsTree
-							hintsTree.setModel(EMPTY_TREE_MODEL);
-							repaint();
-							// get hints again now that this hinter is disabled
-							getAllHintsInBackground(e.isShiftDown(), e.isControlDown());
-						}
+		if ( hintsTree == null ) {
+			final JTree jt = new JTree();
+			// NOTE: fixed-height averts NPE from VariableHeightLayoutCache when
+			// the tree is painted whilst empty, which is stupid hence annoying!
+			jt.setRowHeight(17);
+			jt.setShowsRootHandles(true);
+			jt.getSelectionModel().setSelectionMode(
+					TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
+			jt.setCellRenderer(new HintsTreeCellRenderer());
+			jt.setExpandsSelectedPaths(true);
+			jt.addTreeSelectionListener(new TreeSelectionListener() {
+				@Override
+				public void valueChanged(final TreeSelectionEvent e) {
+					if ( hintsTree.isEnabled() ) {
+						engine.hintsSelected(getSelectedHintNodes());
 					}
-					e.consume();
 				}
-			}
-		});
-		hintsTree.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseClicked(MouseEvent e) {
-				int btn = e.getButton();
-				int cnt = e.getClickCount();
-				int mod = e.getModifiersEx();
-				if ( btn==BUTTON1 && cnt==2 ) {
-					// double-left-click: as per VK_ENTER
-					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
-					e.consume();
-				} else if ( btn==BUTTON3 && cnt==1 ) {
-					// single-right-click
-					if ( (mod & InputEvent.CTRL_DOWN_MASK) != 0 ) {
+			;
+			});
+			// WARN: This KeyListener is replicated in the hintDetailPane. If you
+			// change here then change there too; or methodise it all (BFIIK).
+			jt.addKeyListener(new KeyAdapter() {
+				@Override
+				public void keyPressed(final KeyEvent e) {
+					final int keyCode = e.getKeyCode();
+					if ( keyCode == KeyEvent.VK_ENTER ) {
+						applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
+						e.consume();
+					} else if ( keyCode == KeyEvent.VK_DELETE ) {
+						final ArrayList<HintNode> shins = getSelectedHintNodes();
+						hintsTree.clearSelection();
+						if ( shins==null || shins.isEmpty() )
+							beep();
+						else {
+							// disable this hinter
+							final Tech dead = shins.get(0).getHint().getTech();
+							// NEVER disable Naked/Hidden Singles (mandatory)
+							if ( dead==Tech.NakedSingle || dead==Tech.HiddenSingle )
+								beep();
+							else {
+								removeHintsAndDisableHinter(dead);
+								// clear the hintsTree
+								hintsTree.setModel(EMPTY_TREE_MODEL);
+								repaint();
+								// get hints again now that this hinter is disabled
+								getAllHintsInBackground(e.isShiftDown(), e.isControlDown());
+							}
+						}
+						e.consume();
+					}
+				}
+			});
+			jt.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(final MouseEvent e) {
+					final int btn = e.getButton();
+					final int cnt = e.getClickCount();
+					final int mod = e.getModifiersEx();
+					// double-left-click
+					if ( btn==BUTTON1 && cnt==2 ) {
+						// apply the selected hint, then get the next hint
+						applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
+						e.consume(); // supress default action
+					} else if ( btn==BUTTON3 && cnt==1 ) {
 						// Ctrl-single-right-click
-						if (!engine.copyUnfilteredHintsListToClipbard()) {
-							engine.beep();
-						}
-					} else {
+						if ( (mod & InputEvent.CTRL_DOWN_MASK) != 0 ) {
+							// copy all hints to the clipboard
+							if (!engine.copyUnfilteredHintsListToClipboard()) {
+								beep();
+								e.consume(); // supress default action
+							}
+						// Alt-single-right-click
+						} else if ( (mod & InputEvent.ALT_DOWN_MASK) != 0 ) {
+							// find clipboard hint in hints tree
+							final String hintToString = MyClipboard.getText();
+							if ( !setSelectedHintNode(hintToString) ) {
+								beep();
+								e.consume(); // supress default action
+							}
 						// plain-single-right-click
-						if (!engine.copyToClipboard(getSelectedHintNodes())) {
-							engine.beep();
+						} else {
+							// copy selected hint to the clipboard
+							if (!engine.copyToClipboard(getSelectedHintNodes())) {
+								beep();
+								e.consume(); // supress default action
+							}
 						}
 					}
 				}
-			}
-		});
+			});
+			hintsTree = jt;
+		}
 		return hintsTree;
+	}
+
+	/**
+	 * Run hintsTree.requestFocusInWindow() on the EDT.
+	 */
+	private void hintsTreeRequestFocus() {
+		SwingUtilities.invokeLater(()->hintsTree.requestFocusInWindow());
 	}
 
 	/**
 	 * Invokes engine.getAllHints(wantMore) in a background thread, because it
 	 * may take a while (in the order of 10 seconds or 15 seconds, or upto 2
-	 * minutes if you wantMore), so we can't have it blocking the EDT.
+	 * minutes if you wantMore), so we cannot have it blocking the EDT.
 	 * <p>
 	 * Called by hintsTree.VK_ENTER, applySelectedHintsAndGetNextHint,
 	 * btnGetAllHints & mitGetAllHints, and mitGetMoreAllHints.
+	 * <p>
+	 * Note that hint-caching may cause unforseeable problems; so there is a
+	 * {@link Config#isCachingHints} to disable caching.
 	 *
 	 * @param wantMore are more hints wanted
 	 */
 	private void getAllHintsInBackground(final boolean wantMore, final boolean wantSolution) {
 		// One at a time!
-		if ( isGettingAllHints ) {
-			return;
-		}
-		isGettingAllHints = true;
+		// NOTE: blocking the EDT is bad form, but how else?
+		// If user holdsDown VK_ENTER, how else prevent/ignore repeats?
+		while ( isGettingAllHintsInBackground )
+			lieDown(64);
+		isGettingAllHintsInBackground = true;
 		setHintDetailArea("Searching for" + (wantMore ? " MORE" : "") + " hints...");
 		repaint();
-		Thread getAllHintsThread = new Thread("getAllHints") {
+		final Thread goat = new Thread("getAllHints") {
 			@Override
 			public void run() {
-				engine.getAllHints(wantMore, wantSolution, logHints, printHints);
-				isGettingAllHints = false;
+				if ( useCache )
+					while ( engine.isCachingHints() )
+						lieDown(50);
+				engine.getAllHints(wantMore, wantSolution, logHints, logHints, printHints);
 				hintsTreeRequestFocus();
+				repaint();
+				if ( useCache )
+					// No log on cache, only on "get", which sux for bugs!
+					engine.cacheHints(wantMore, wantSolution, false, false, printHints);
+				isGettingAllHintsInBackground = false;
 			}
 		};
-		getAllHintsThread.setDaemon(true);
-		getAllHintsThread.start();
+		goat.setDaemon(true);
+		goat.start();
 	}
-	private volatile boolean isGettingAllHints = false;
 
-	private void applySelectedHintsAndGetNextHint(boolean wantMore, boolean wantSolution) {
+	// apply the currently selected hint, if any, and then get the next hint.
+	private void applySelectedHintsAndGetNextHint(final boolean wantMore, final boolean wantSolution) {
 		try {
-			if ( engine.getGrid().numSet > 80 ) {
-				setCurrentHint(engine.solver.solvedHint, false);
-			} else {
+			if ( engine.getGrid().numSet > 80 )
+				setCurrentHint(engine.getSolvedHint(), false);
+			else {
 				engine.applySelectedHints(); // throws UnsolvableException
 				getAllHintsInBackground(wantMore, wantSolution);
 			}
@@ -646,7 +716,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			// already logged
 		} catch (UnsolvableException ex) {
 //			// UnsolvableException: the grid is rooted! Either the given puzzle
-//			// is invalid, or there's a bug leading to an invalid hint being
+//			// is invalid, or there is a bug leading to an invalid hint being
 //			// applied (still possible, apparently, despite my best efforts to
 //			// avert this situation) so you should dig into this to (at least)
 //			// workout which hinter is buggered, and raise an RFC or fix it
@@ -663,20 +733,14 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 *
 	 * @param ex
 	 */
-	public void logError(Exception ex) {
-		// wait for stdout so stderr doesn't interleave
-		try {
-			Thread.sleep(1);
-		} catch (InterruptedException eaten) {
-		}
-		Log.whinge("GUI Error!", ex);
-	}
-
-	public static String stackTrace(Exception ex) {
-		final StringPrintWriter writer = new StringPrintWriter();
-		ex.printStackTrace(writer);
-		writer.flush();
-		return writer.toString();
+	void logError(final Exception ex) {
+		// wait for stdout so stderr does not interleave
+		// Sleep on this thread does not work, it stops stdout writing,
+		// so try stderring in the background after a little lie down.
+		SwingUtilities.invokeLater(()->{
+			lieDown();
+			Log.whinge("GUI Error!", ex);
+		});
 	}
 
 	/**
@@ -685,19 +749,16 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 *
 	 * @param ex Exception to display.
 	 */
-	public void displayError(Exception ex) {
-		// wait for stdout so stderr doesn't interleave
-		try{Thread.sleep(1);} catch (InterruptedException eaten) {}
-		System.err.println();
-		System.err.flush();
-		ex.printStackTrace(System.err);
-		System.err.println();
-		System.err.flush();
-		// html of the stack trace
-		setHintDetailArea("<html><body><font color=\"red\"><pre>"
-				+ stackTrace(ex)
-				+ "</pre></font></body></html>");
-		engine.beep();
+	void displayError(final Exception ex) {
+		SwingUtilities.invokeLater(()->{
+			// html of the stack trace
+			setHintDetailArea("<html><body><font color=\"red\"><pre>"
+					+ stackTraceOf(ex)
+					+ "</pre></font></body></html>");
+			beep();
+		});
+		// printStackTrace waits for stdout so stderr does not interleave.
+		StdErr.printStackTrace(ex);
 	}
 
 	/**
@@ -713,85 +774,93 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 */
 	void setHintDetailArea(String htmlText) {
 		// the empty string displays an empty unumbered list, which sucks.
-		if (htmlText != null && htmlText.length() == 0) {
+		if ( htmlText!=null && htmlText.length()==0 )
 			htmlText = null;
-		}
-		JEditorPane hdp = getHintDetailPane();
+		final JEditorPane jep = getHintDetailPane();
 		// remember the html ourselves because hintDetailHtml.getText() wraps!
-		hdp.setText(hintDetailHtml = htmlText);
-		hdp.setCaretPosition(0);
+		jep.setText(hintDetailHtml = htmlText);
+		jep.setCaretPosition(0);
 		// same length as a difficulty or the label jumps around distractingly
-		lblPuzzleRating.setText("0.00");
+		lblPuzzleRating.setText("    0");
 	}
 
 	private JEditorPane getHintDetailPane() {
-		if (hintDetailPane != null) {
-			return hintDetailPane;
-		}
-		hintDetailPane = new JEditorPane("text/html", null) {
-			private static final long serialVersionUID = -5658720148768663350L;
-			@Override
-			public void paint(Graphics g) {
-				Graphics2D g2 = (Graphics2D) g;
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-				super.paint(g);
-			}
-		};
-		hintDetailPane.setEditable(false);
-		hintDetailPane.addMouseListener(new java.awt.event.MouseAdapter() {
-			@Override
-			public void mouseClicked(java.awt.event.MouseEvent e) {
-				final int btn = e.getButton();
-				final int clks = e.getClickCount();
-				// right-click: copy the html-text to the clipboard
-				if ( clks==1 && (btn==BUTTON2 || btn==BUTTON3) ) {
-					if (hintDetailHtml != null) {
-						engine.copyToClipboard(hintDetailHtml);
-					} else {
-						engine.beep();
-					}
-					e.consume();
-				// double-left-click: if the selected text looks like a cell id
-				// then focus on (yellow background) that cell in the grid;
-				// else if id is an ALS-ID then repaint ALS over the others
-				} else if ( clks==2 && btn==BUTTON1 ) {
-					final String id = hintDetailPane.getSelectedText();
-					if ( id.length()==2 && CELL_ID_PATTERN.matcher(id).matches() ) {
-						gridPanel.setFocusedCellById(id);
-					} else if ( ( (id.length()==1 || id.length()==2) && ALS_ID_PATTERN.matcher(id).matches() )
-							// hintType: ALS-XZ, ALS-Wing, and ALS-Chain
-					         && hintDetailHtml.contains("ALS") ) {
-						// id looks like an ALS-ID, so selectAls, to repaint it
-						// over the top of the others, so that you can see it.
-						gridPanel.selectAls(AlsHelper.alsIndex(id));
+		if ( hintDetailPane == null ) {
+			final JEditorPane jep = new JEditorPane("text/html", null) {
+				private static final long serialVersionUID = -5658720148768663350L;
+				@Override
+				public void paint(final Graphics g) {
+					final Graphics2D g2 = (Graphics2D) g;
+					g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+					g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+					super.paint(g);
+				}
+			};
+			jep.setEditable(false);
+			jep.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(final MouseEvent e) {
+					final int btn = e.getButton();
+					final int clks = e.getClickCount();
+					// right-click: copy the html-text to the clipboard
+					if ( clks==1 && (btn==BUTTON2 || btn==BUTTON3) ) {
+						if (hintDetailHtml != null) {
+							engine.copyToClipboard(hintDetailHtml);
+						} else {
+							beep();
+						}
+						e.consume();
+					// double-left-click: if the selected text looks like a cell id
+					// then focus on (yellow background) that cell in the grid;
+					// else if id is an ALS-ID then repaint ALS over the others
+	//				} else if ( clks==2 && btn==BUTTON1 ) {
+					} else if ( btn==BUTTON1 ) {
+						final String s = hintDetailPane.getSelectedText();
+						if ( s != null ) {
+							final int len = s.length();
+							if ( len==2 && CELL_ID_PATTERN.matcher(s).matches() ) {
+								gridPanel.setFocusedCellById(s);
+							} else if ( len==2 && CELL_INDICE_PATTERN.matcher(s).matches() ) {
+								gridPanel.setFocusedCellByIndice(s);
+							} else if ( ( (len==1||len==2) && ALS_ID_PATTERN.matcher(s).matches() )
+									// hintType: ALS-XZ, ALS-Wing, and ALS-Chain
+									 && hintDetailHtml.contains("ALS") ) {
+								// id looks like an ALS-ID, so selectAls, to repaint it
+								// over the top of the others, so that you can see it.
+								gridPanel.selectAls(AlsHelper.alsIndex(s));
+							} else if ( len==5 && REGION_LABEL_PATTERN.matcher(s).matches() ) {
+								try {
+									gridPanel.setBases(Regions.array(gridPanel.getGrid().region(s)));
+									gridPanel.repaint();
+								} catch ( IllegalArgumentException eaten ) {
+									// Do nothing
+								}
+							}
+						}
 					}
 				}
-			}
-		});
-		// make keys do same in hintDetailPane as in the hintsTree
-		hintDetailPane.addKeyListener(new KeyAdapter() {
-			private String target;
-			private int place;
-			@Override
-			public void keyPressed(KeyEvent e) {
-				final int keyCode = e.getKeyCode();
-				if ( keyCode == KeyEvent.VK_ENTER ) {
-					applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
-					e.consume();
-				} else if ( keyCode == KeyEvent.VK_DELETE ) {
-					// this mess averts all possible NPE's getting deadTech.
-					// It's ugly but safe.
-					try {
-						final ArrayList<HintNode> nodes = getSelectedHintNodes();
-						if ( nodes!=null && !nodes.isEmpty() ) {
-							final HintNode node = nodes.get(0);
-							if ( node != null ) {
-								final AHint hint = node.getHint();
-								if ( hint != null ) {
-									final AHinter hinter = hint.hinter;
-									if ( hinter != null ) {
-										final Tech deadTech = hinter.tech;
+			});
+			// make keys do same here as in the hintsTree
+			jep.addKeyListener(new KeyAdapter() {
+				private String target;
+				private int place;
+				@Override
+				public void keyPressed(final KeyEvent e) {
+					final int keyCode = e.getKeyCode();
+					if ( keyCode == KeyEvent.VK_ENTER ) {
+						applySelectedHintsAndGetNextHint(e.isShiftDown(), e.isControlDown());
+						e.consume();
+					} else if ( keyCode == KeyEvent.VK_DELETE ) {
+						// this mess averts all possible NPEs getting deadTech.
+						// It is ugly but safe.
+						try {
+							final ArrayList<HintNode> nodes = getSelectedHintNodes();
+							if ( nodes!=null && !nodes.isEmpty() ) {
+								final HintNode node = nodes.get(0);
+								if ( node != null ) {
+									final AHint hint = node.getHint();
+									if ( hint != null ) {
+										final Tech deadTech = hint.getTech();
 										if ( deadTech != null ) {
 											removeHintsAndDisableHinter(deadTech);
 											hintsTree.clearSelection();
@@ -800,39 +869,56 @@ public final class SudokuFrame extends JFrame implements IAsker {
 									}
 								}
 							}
+						} catch (Exception eaten) {
+							// Do nothing, no biggy, it is only a hack
 						}
-					} catch (Exception eaten) {
-						// Do nothing, no biggy, it's only a hack
-					}
-					e.consume();
-				// Ctrl-F or Ctrl-F3 to find
-				} else if ( (keyCode==KeyEvent.VK_F || keyCode==KeyEvent.VK_F3)
-						 && e.isControlDown() ) {
-					findFirst();
-					e.consume();
-				// F3 to find next
-				} else if ( keyCode==KeyEvent.VK_F3 ) {
-					if ( target==null || target.isEmpty() || place==-1 ) {
+						e.consume();
+					// Ctrl-F or Ctrl-F3 to find
+					} else if ( (keyCode==KeyEvent.VK_F || keyCode==KeyEvent.VK_F3)
+							 && e.isControlDown() ) {
 						findFirst();
-					} else {
-						findNext();
+						e.consume();
+					// F3 to find next
+					} else if ( keyCode==KeyEvent.VK_F3 ) {
+						if ( target==null || target.isEmpty() || place==-1 )
+							findFirst();
+						else
+							findNext();
+						e.consume();
 					}
-					e.consume();
 				}
-			}
-			private void findFirst() {
-				target = askForString("Target", "Find hint details");
-				if ( target==null || target.isEmpty() ) {
-					place = -1;
-				} else {
+				private void findFirst() {
+					target = askForString("Target", "Find hint details");
+					if ( target==null || target.isEmpty() )
+						place = -1;
+					else
+						try {
+							final Caret caret = hintDetailPane.getCaret();
+							final Document doc = hintDetailPane.getDocument();
+							final String text = doc.getText(0, doc.getLength());
+							place = text.indexOf(target);
+							if ( place == -1 ) {
+								caret.setDot(0);
+								beep();
+							} else {
+								caret.setDot(place);
+								caret.moveDot(place+target.length());
+							}
+						} catch (BadLocationException ex) {
+							// Do nothing
+						}
+				}
+				private void findNext() {
+					assert target!=null && !target.isEmpty();
+					assert place > -1;
 					try {
 						final Caret caret = hintDetailPane.getCaret();
 						final Document doc = hintDetailPane.getDocument();
 						final String text = doc.getText(0, doc.getLength());
-						place = text.indexOf(target);
+						place = text.indexOf(target, place+target.length());
 						if ( place == -1 ) {
 							caret.setDot(0);
-							engine.beep();
+							beep();
 						} else {
 							caret.setDot(place);
 							caret.moveDot(place+target.length());
@@ -841,68 +927,54 @@ public final class SudokuFrame extends JFrame implements IAsker {
 						// Do nothing
 					}
 				}
-			}
-			private void findNext() {
-				assert target!=null && !target.isEmpty();
-				assert place > -1;
-				try {
-					final Caret caret = hintDetailPane.getCaret();
-					final Document doc = hintDetailPane.getDocument();
-					final String text = doc.getText(0, doc.getLength());
-					place = text.indexOf(target, place+target.length());
-					if ( place == -1 ) {
-						caret.setDot(0);
-						engine.beep();
-					} else {
-						caret.setDot(place);
-						caret.moveDot(place+target.length());
-					}
-				} catch (BadLocationException ex) {
-					// Do nothing
-				}
-			}
-		});
+			});
+			hintDetailPane = jep;
+		}
 		return hintDetailPane;
 
 	}
 
 	private JScrollPane getHintsTreeScrollPane() {
-		if (hintsTreeScrollpane == null) {
-			hintsTreeScrollpane = new JScrollPane();
-			hintsTreeScrollpane.setPreferredSize(new Dimension(100, 100));
-			hintsTreeScrollpane.setViewportView(getHintsTree());
+		if ( hintsTreeScrollpane == null ) {
+			final JScrollPane jsp = new JScrollPane();
+			jsp.setPreferredSize(new Dimension(100, 100));
+			jsp.setViewportView(getHintsTree());
+			hintsTreeScrollpane = jsp;
 		}
 		return hintsTreeScrollpane;
 	}
 
 	private JPanel getNorthPanel() {
-		if (northPanel == null) {
-			northPanel = new JPanel(new BorderLayout());
-			northPanel.add(getSudokuGridPanelHolder(), BorderLayout.WEST);
-			northPanel.add(getHintsTreePanel(), BorderLayout.CENTER);
+		if ( northPanel == null ) {
+			final JPanel jp = new JPanel(new BorderLayout());
+			jp.add(getSudokuGridPanelHolder(), BorderLayout.WEST);
+			jp.add(getHintsTreePanel(), BorderLayout.CENTER);
+			northPanel = jp;
 		}
 		return northPanel;
 	}
 
 	private JPanel getSudokuGridPanelHolder() {
-		if (sudokuGridPanelHolder == null) {
-			sudokuGridPanelHolder = new JPanel(new BorderLayout());
-			sudokuGridPanelHolder.add(gridPanel, BorderLayout.CENTER);
-			sudokuGridPanelHolder.add(getViewSelectionPanel(), BorderLayout.SOUTH);
+		if ( sudokuGridPanelHolder == null ) {
+			final JPanel jp = new JPanel(new BorderLayout());
+			jp.add(gridPanel, BorderLayout.CENTER);
+			jp.add(getViewSelectionPanel(), BorderLayout.SOUTH);
+			sudokuGridPanelHolder = jp;
 		}
 		return sudokuGridPanelHolder;
 	}
 
 	private JPanel getHintDetailPanel() {
-		if (hintDetailPanel == null) {
-			hintDetailPanel = new JPanel(new BorderLayout());
-			hintDetailPanel.add(getHintDetailsScrollPane(), BorderLayout.CENTER);
+		if ( hintDetailPanel == null ) {
+			final JPanel jp = new JPanel(new BorderLayout());
+			jp.add(getHintDetailsScrollPane(), BorderLayout.CENTER);
+			hintDetailPanel = jp;
 		}
 		return hintDetailPanel;
 	}
 
-	private GridBagConstraints newGBC(int gridx, int gridy) {
-		GridBagConstraints gbc = new GridBagConstraints();
+	private GridBagConstraints newGBC(final int gridx, final int gridy) {
+		final GridBagConstraints gbc = new GridBagConstraints();
 		gbc.gridx = gridx;
 		gbc.weightx = 1.0D;
 		gbc.gridy = gridy;
@@ -910,44 +982,47 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	private JPanel getButtonsPane() {
-		if (buttonsPane == null) {
-			buttonsPane = new JPanel(new GridBagLayout());
-			buttonsPane.add(getBtnValidate(), newGBC(0, 0));
-			buttonsPane.add(getBtnSolveStep(), newGBC(1, 0));
-			buttonsPane.add(getBtnGetNextHint(), newGBC(2, 0));
-			buttonsPane.add(getBtnApplyHint(), newGBC(4, 0));
-			buttonsPane.add(getBtnGetAllHints(), newGBC(5, 0));
+		if ( buttonsPane == null ) {
+			final JPanel jp = new JPanel(new GridBagLayout());
+			jp.add(getBtnValidate(), newGBC(0, 0));
+			jp.add(getBtnSolveStep(), newGBC(1, 0));
+			jp.add(getBtnGetNextHint(), newGBC(2, 0));
+			jp.add(getBtnApplyHint(), newGBC(4, 0));
+			jp.add(getBtnGetAllHints(), newGBC(5, 0));
+			buttonsPane = jp;
 		}
 		return buttonsPane;
 	}
 
 	private JButton getBtnGetNextHint() {
-		if (btnGetNextHint == null) {
-			btnGetNextHint = newJButton("Get next hint", KeyEvent.VK_N
+		if ( btnGetNextHint == null ) {
+			final JButton jb = newJButton("Get next hint", KeyEvent.VK_N
 					, "Get the next bloody hint");
-			btnGetNextHint.addActionListener(new ActionListener() {
+			jb.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.invokeGetNextHint(false, false);
 				}
 			});
+			btnGetNextHint = jb;
 		}
 		return btnGetNextHint;
 	}
 
 	private JButton getBtnGetAllHints() {
-		if (btnGetAllHints == null) {
-			btnGetAllHints = newJButton("Get all hints", KeyEvent.VK_A
+		if ( btnGetAllHints == null ) {
+			final JButton jb = newJButton("Get all hints", KeyEvent.VK_A
 					, "Get all hints applicable on the current situation");
-			btnGetAllHints.addActionListener(new ActionListener() {
+			jb.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
-					int mod = e.getModifiers();
-					boolean wantMore = (mod & SHIFT_MASK) != 0;
-					boolean wantSolution = (mod & CTRL_MASK) != 0;
+				public void actionPerformed(final ActionEvent e) {
+					final int mod = e.getModifiers();
+					final boolean wantMore = (mod & SHIFT_MASK) != 0;
+					final boolean wantSolution = (mod & CTRL_MASK) != 0;
 					getAllHintsInBackground(wantMore, wantSolution);
 				}
 			});
+			btnGetAllHints = jb;
 		}
 		return btnGetAllHints;
 	}
@@ -958,271 +1033,340 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 * visible so that SudokuPanel.keyTyped can give me the focus.
 	 */
 	JButton getBtnSolveStep() {
-		if (btnSolveStep == null) {
-			btnSolveStep = newJButton("Solve step", KeyEvent.VK_S
+		if ( btnSolveStep == null ) {
+			final JButton jb = newJButton("Solve step", KeyEvent.VK_S
 					, "Apply the selected hint (if any) and get the next one");
-			btnSolveStep.setFont(DIALOG_BOLD_12);
-			btnSolveStep.addActionListener(new ActionListener() {
+			jb.setFont(DIALOG_BOLD_12);
+			jb.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.solveStep(false);
 				}
 			});
+			btnSolveStep = jb;
 		}
 		return btnSolveStep;
 	}
 
 	private JPanel getButtonsContainer() {
-		if (buttonsPanel == null) {
-			buttonsPanel = new JPanel(new GridLayout(1, 1));
-			buttonsPanel.add(getButtonsPane(), null);
+		if ( buttonsPanel == null ) {
+			final JPanel jp = new JPanel(new GridLayout(1, 1));
+			jp.add(getButtonsPane(), null);
+			buttonsPanel = jp;
 		}
 		return buttonsPanel;
 	}
 
 	private JPanel getViewSelectionPanel() {
-		if (viewSelectPanel == null) {
-			viewSelectPanel = new JPanel(new FlowLayout());
+		if ( viewSelectPanel == null ) {
+			final JPanel jp = new JPanel(new FlowLayout());
 			// nb: cheatName remains "" until cheats are authorised
-			viewSelectPanel.add(getLblCheatName());
-			viewSelectPanel.add(getCmbViewSelector());
+			jp.add(getLblCheatName());
+			jp.add(getCmbViewSelector());
+			viewSelectPanel = jp;
 		}
 		return viewSelectPanel;
 	}
 
 	private JPanel getHintsTreePanel() {
-		if (hintsTreePanel == null) {
-			hintsTreePanel = new JPanel();
-			hintsTreePanel.setLayout(new BorderLayout());
-			hintsTreePanel.add(getHintsTreeScrollPane(), BorderLayout.CENTER);
-			hintsTreePanel.add(getHintsSouthPanel(), BorderLayout.SOUTH);
+		if ( hintsTreePanel == null ) {
+			final JPanel jp = new JPanel();
+			jp.setLayout(new BorderLayout());
+			jp.add(getHintsTreeScrollPane(), BorderLayout.CENTER);
+			jp.add(getHintsSouthPanel(), BorderLayout.SOUTH);
+			hintsTreePanel = jp;
 		}
 		return hintsTreePanel;
 	}
 
 	private JButton getBtnValidate() {
-		if (btnValidate == null) {
-			btnValidate = newJButton("Validate", KeyEvent.VK_V
+		if ( btnValidate == null ) {
+			final JButton jb = newJButton("Validate", KeyEvent.VK_V
 					, "Check the Sudoku is valid (has exactly one solution)");
-			btnValidate.addActionListener(new ActionListener() {
+			jb.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					// Ctrl-Shft-V to validate noisily
-					boolean quite = (e.getModifiers() & Event.SHIFT_MASK) == 0;
-					if (engine.validatePuzzleAndGrid(quite)) {
+					final boolean quite = (e.getModifiers() & Event.SHIFT_MASK) == 0;
+					if ( engine.validatePuzzleAndGrid(quite) )
 						setHintDetailArea(Html.load(SudokuFrame.this, "Valid.html"));
-					}
 				}
 			});
+			btnValidate = jb;
 		}
 		return btnValidate;
 	}
 
 	private JButton getBtnApplyHint() {
-		if (btnApplyHint == null) {
-			btnApplyHint = newJButton("Apply hint", KeyEvent.VK_P
+		if ( btnApplyHint == null ) {
+			final JButton jb = newJButton("Apply hint", KeyEvent.VK_P
 					, "Apply the selected hint(s)");
-			btnApplyHint.setEnabled(false);
-			btnApplyHint.addActionListener(new ActionListener() {
+			jb.setEnabled(false);
+			jb.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.applySelectedHints();
 				}
 			});
+			btnApplyHint = jb;
 		}
 		return btnApplyHint;
 	}
 
 	private JComboBox<String> getCmbViewSelector() {
-		if (cmbViewSelector == null) {
-			cmbViewSelector = new JComboBox<>();
-			cmbViewSelector.setToolTipText(
-					"Toggle view, especially for chaining hints");
-			cmbViewSelector.addItemListener(new ItemListener() {
+		if ( cmbViewSelector == null ) {
+			JComboBox<String> jcb = new JComboBox<>();
+			jcb.setToolTipText("Toggle view, especially for chaining hints");
+			jcb.addItemListener(new ItemListener() {
 				@Override
-				public void itemStateChanged(ItemEvent e) {
-					if (e.getStateChange() == ItemEvent.SELECTED
-							&& cmbViewSelector.isEnabled()) {
+				public void itemStateChanged( ItemEvent e) {
+					if ( e.getStateChange() == ItemEvent.SELECTED
+					  && cmbViewSelector.isEnabled() ) {
 						viewNum = cmbViewSelector.getSelectedIndex();
 						repaintHint();
 					}
 				}
 			});
+			cmbViewSelector = jcb;
 		}
 		return cmbViewSelector;
 	}
 
 	// ========================== HINTS SOUTH PANEL ===========================
+
 	private JPanel getHintsSouthPanel() {
-		if (hintsSouthPanel == null) {
-			hintsSouthPanel = new JPanel(new BorderLayout());
-			hintsSouthPanel.add(getDisabledTechsWarnPanel(), BorderLayout.NORTH);
-			hintsSouthPanel.add(getChkFilterHints(), BorderLayout.WEST);
-			hintsSouthPanel.add(getRatingPanel(), BorderLayout.EAST);
+		if ( hintsSouthPanel == null ) {
+			final JPanel jp = new JPanel(new BorderLayout());
+			jp.add(getHintsSouthWestPanel(), BorderLayout.WEST);
+			jp.add(getRatingPanel(), BorderLayout.EAST);
+			hintsSouthPanel = jp;
 		}
 		return hintsSouthPanel;
 	}
 
+	private JPanel getHintsSouthWestPanel() {
+		if ( hintsSouthWestPanel == null ) {
+			final JPanel jp = new JPanel(new FlowLayout());
+			jp.add(getUseChacheLabel());
+			jp.add(getChkFilterHints());
+			jp.add(getDisabledTechsWarnPanel());
+			hintsSouthWestPanel = jp;
+		}
+		return hintsSouthWestPanel;
+	}
+
 	private JPanel getDisabledTechsWarnPanel() {
-		if (disabledTechsWarnPanel == null) {
-			JLabel lbl = new JLabel();
-			lbl.setText("");
-			lbl.setToolTipText(
+		if ( disabledTechsWarnPanel == null ) {
+			final JLabel jl = new JLabel();
+			jl.setText("");
+			jl.setToolTipText(
 					 "<html><body>"
 					+"Not all the available Sudoko solving techniques are enabled.<br>"
 					+"Click here to dis/enable solving techniques."
 					+"</body></html>");
-			lbl.setIcon(createImageIcon("Icon_Warning.gif"));
-			lbl.addMouseListener(new java.awt.event.MouseAdapter() {
+			jl.setIcon(createImageIcon("Icon_Warning.gif"));
+			jl.addMouseListener(new MouseAdapter() {
 				@Override
-				public void mouseClicked(MouseEvent e) {
+				public void mouseClicked(final MouseEvent e) {
 					selectSodokuSolvingTechniques();
 				}
 			});
-			lblDisabledTechsWarning = lbl;
-			JPanel pnl = new JPanel(new FlowLayout(FlowLayout.LEFT));
-			pnl.add(lbl, null);
-			pnl.setVisible(false);
-			disabledTechsWarnPanel = pnl;
+			lblDisabledTechsWarning = jl;
+			final JPanel jp = new JPanel(new FlowLayout(FlowLayout.LEFT));
+			jp.add(jl, null);
+			jp.setVisible(false);
+			disabledTechsWarnPanel = jp;
 		}
 		return disabledTechsWarnPanel;
 	}
 
 	private JCheckBox getChkFilterHints() {
-		if (chkFilterHints == null) {
-			chkFilterHints = new JCheckBox("Filter hints");
-			chkFilterHints.setMnemonic(KeyEvent.VK_I);
-			chkFilterHints.setToolTipText("Filter hints with similar outcome");
-			chkFilterHints.setSelected(THE_SETTINGS.isFilteringHints());
-			chkFilterHints.setEnabled(false);
-			chkFilterHints.addItemListener(new ItemListener() {
+		if ( chkFilterHints == null ) {
+			final JCheckBox jcb = new JCheckBox("Filter hints");
+			jcb.setMnemonic(KeyEvent.VK_I);
+			jcb.setToolTipText("Filter-out hints with repeat effects");
+			jcb.setSelected(CFG.isFilteringHints());
+			jcb.setEnabled(false);
+			jcb.addItemListener(new ItemListener() {
 				@Override
-				public void itemStateChanged(ItemEvent e) {
-					boolean isSelected = chkFilterHints.isSelected();
-					getMitFilterHints().setSelected(isSelected);
+				public void itemStateChanged(final ItemEvent e) {
+					final boolean isSelected = chkFilterHints.isSelected();
+					getMitFilterHints(0).setSelected(isSelected);
 					engine.setFiltered(isSelected);
 				}
 			});
+			chkFilterHints = jcb;
 		}
 		return chkFilterHints;
 	}
 
+	private JLabel getUseChacheLabel() {
+		if ( lblUseCache == null ) {
+			final JLabel jl = new JLabel();
+			lblUseCacheUpdate(jl);
+			jl.setEnabled(true);
+			jl.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(final MouseEvent e) {
+					setUseCache(!useCache);
+				}
+			});
+			lblUseCache = jl;
+		}
+		return lblUseCache;
+	}
+
+	// a method to do ONCE, consistently
+	private void lblUseCacheUpdate(final JLabel jl) {
+		if ( useCache ) {
+			jl.setToolTipText("hint cache is enabled");
+			jl.setIcon(createImageIcon("Icon_Cache.gif"));
+		} else {
+			jl.setToolTipText("hint cache is disabled");
+			jl.setIcon(createImageIcon("Icon_CacheDisabled.gif"));
+		}
+	}
+
+	// a method to update both controls when either changes
+	private void setUseCache(final boolean b) {
+		useCache = b;
+		// update GUI
+		getMitCacheHints(0).setSelected(useCache);
+		CFG.setBoolean(Config.isCachingHints, useCache);
+		lblUseCacheUpdate(lblUseCache);
+		// fetch when caching is switched on
+		updateHintsCache();
+	}
+
+	void updateHintsCache() {
+		if ( useCache )
+			engine.cacheHints(false, false, false, false, false);
+		else
+			engine.cacheHintsClear();
+	}
+
 	private JPanel getRatingPanel() {
-		if (ratingPanel == null) {
-			ratingPanel = new JPanel(new FlowLayout(java.awt.FlowLayout.LEFT));
-			ratingPanel.add(new JLabel("Hint rating: "), null);
+		if ( ratingPanel == null ) {
+			final JPanel jp = new JPanel(new FlowLayout(FlowLayout.LEFT));
+			jp.add(new JLabel("Hint rating: "), null);
 			// same length as a difficulty or label jumps around distractingly
-			ratingPanel.add(this.lblPuzzleRating = new JLabel("0.00"), null);
+			jp.add(this.lblPuzzleRating = new JLabel("    0"), null);
+			ratingPanel = jp;
 		}
 		return ratingPanel;
 	}
 
 	// ============================= MAIN MENU =============================
+
 	private JMenuBar getMyMainMenuBar() {
-		if (menuBar == null) {
-			menuBar = new JMenuBar();
-			menuBar.add(getFileMenu());
-			menuBar.add(getEditMenu());
-			menuBar.add(getToolMenu());
-			menuBar.add(getOptionsMenu());
-			menuBar.add(getHelpMenu());
+		if ( menuBar == null ) {
+			final JMenuBar jmb = new JMenuBar();
+			jmb.add(getFileMenu());
+			jmb.add(getEditMenu());
+			jmb.add(getToolMenu());
+			jmb.add(getOptionsMenu());
+			jmb.add(getHelpMenu());
+			menuBar = jmb;
 		}
 		return menuBar;
 	}
 
 	// menu keyboard-shortcut: normal (no modifier keys)
-	private JMenuItem norm(int keyCode, JMenuItem mit) {
+	private JMenuItem norm(final int keyCode, final JMenuItem mit) {
 		mit.setAccelerator(KeyStroke.getKeyStroke(keyCode, 0));
 		return mit;
 	}
 
 	// menu keyboard-shortcut: alt (alternate)
-	private JMenuItem alt(int keyCode, JMenuItem mit) {
+	private JMenuItem alt(final int keyCode, final JMenuItem mit) {
 		mit.setAccelerator(KeyStroke.getKeyStroke(keyCode, ALT_MASK));
 		return mit;
 	}
 
 	// menu keyboard-shortcut: shft (move your ass)
-	private JMenuItem shft(int keyCode, JMenuItem mit) {
+	private JMenuItem shft(final int keyCode, final JMenuItem mit) {
 		mit.setAccelerator(KeyStroke.getKeyStroke(keyCode, SHIFT_MASK));
 		return mit;
 	}
 
 	// menu keyboard-shortcut: ctrl (control)
-	private JMenuItem ctrl(char ch, JMenuItem mit) {
+	private JMenuItem ctrl(final char ch, final JMenuItem mit) {
 		mit.setAccelerator(KeyStroke.getKeyStroke(ch, CTRL_MASK));
 		return mit;
 	}
 
 	// ============================= FILE MENU =============================
+
 	private JMenu getFileMenu() {
-		if (fileMenu == null) {
-			fileMenu = newJMenu("File", KeyEvent.VK_F
-					, "Load and dump s__t");
-			fileMenu.add(ctrl('N', getMitFileNew()));
-			fileMenu.add(ctrl('G', getMitFileGenerate()));
-			fileMenu.addSeparator();
-			fileMenu.add(ctrl('M', getMitFilesRecent()));
-			fileMenu.addSeparator();
-			fileMenu.add(ctrl('O', getMitFileOpen()));
-			fileMenu.add(ctrl('R', getMitFileReload()));
-			fileMenu.add(ctrl('P', getMitFileNext()));
-			fileMenu.add(ctrl('S', getMitFileSave()));
-			fileMenu.addSeparator();
-			fileMenu.add(ctrl('L', getMitLogView()));
-			fileMenu.addSeparator();
-			fileMenu.add(ctrl('Q', getMitQuit()));
+		if ( fileMenu == null ) {
+			final JMenu jm = newJMenu("File", KeyEvent.VK_F, "Load and s__t");
+			jm.add(ctrl('N', getMitFileNew(KeyEvent.VK_N)));
+			jm.add(ctrl('G', getMitFileGenerate(KeyEvent.VK_G)));
+			jm.addSeparator();
+			jm.add(ctrl('M', getMitFilesRecent(KeyEvent.VK_M)));
+			jm.addSeparator();
+			jm.add(ctrl('O', getMitFileOpen(KeyEvent.VK_O)));
+			jm.add(ctrl('R', getMitFileReload(KeyEvent.VK_R)));
+			jm.add(ctrl('P', getMitFileNext(KeyEvent.VK_P)));
+			jm.add(ctrl('S', getMitFileSave(KeyEvent.VK_S)));
+			jm.addSeparator();
+			jm.add(ctrl('L', getMitLogView(KeyEvent.VK_L)));
+			jm.add(ctrl('F', getMitLogFollow(KeyEvent.VK_F)));
+			jm.addSeparator();
+			jm.add(ctrl('Q', getMitQuit(KeyEvent.VK_Q)));
+			fileMenu = jm;
 		}
 		return fileMenu;
 	}
 
-	private JMenuItem getMitFileNew() {
-		if (mitNew == null) {
-			mitNew = newJMenuItem("New", KeyEvent.VK_N, "Clear the grid");
-			mitNew.addActionListener(new ActionListener() {
+	private JMenuItem getMitFileNew(final int keyEvent) {
+		if ( mitNew == null ) {
+			final JMenuItem jmi = newJMenuItem("New", keyEvent, "Clear the grid");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.clearGrid();
-					setTitle(Build.ATV);
+					setTitle();
 				}
 			});
+			mitNew = jmi;
 		}
 		return mitNew;
 	}
 
-	private JMenuItem getMitFileGenerate() {
-		if (mitGenerate == null) {
-			mitGenerate = newJMenuItem("Generate...", KeyEvent.VK_G
+	private JMenuItem getMitFileGenerate(final int keyEvent) {
+		if ( mitGenerate == null ) {
+			final JMenuItem jmi = newJMenuItem("Generate...", keyEvent
 					, "Open a dialog to generate a random Sudoku puzzle");
-			mitGenerate.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
-					GenerateDialog dialog = generateDialog;
-					if (dialog == null) {
-						dialog = GenerateDialog.getGenerateDialog();
-						dialog.pack();
-						// top-right
-						dialog.setLocation(getToolkit().getScreenSize().width
-								- dialog.getSize().width, 0);
-						generateDialog = dialog;
+				public void actionPerformed(final ActionEvent e) {
+					if ( generateDialog == null ) {
+						final GenerateDialog gd = GenerateDialog.getInstance();
+						// pack() the dialog in order to get its width
+						gd.pack();
+						final int w = getToolkit().getScreenSize().width;
+						gd.setLocation(w - gd.getSize().width, 0); // top-right of screen
+						generateDialog = gd;
 					}
-					setTitle(Build.ATV);
+					setTitle();
 					generateDialog.setVisible(true);
 				}
 			});
+			mitGenerate = jmi;
 		}
 		return mitGenerate;
 	}
 
-	private JMenuItem getMitFilesRecent() {
-		if (mitRecentFiles == null) {
-			mitRecentFiles = newJMenuItem("Recent Files...", KeyEvent.VK_M
+	private JMenuItem getMitFilesRecent(final int keyEvent) {
+		if ( mitRecentFiles == null ) {
+			final JMenuItem jmi = newJMenuItem("Recent Files...", keyEvent
 					, "Open a dialog to select a recently accessed file");
-			mitRecentFiles.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					RecentFilesDialog rfd = recentFilesDialog;
-					if (rfd == null) {
+					if ( rfd == null ) {
 						rfd = new RecentFilesDialog(SudokuFrame.this, engine);
 						rfd.pack();
 						rfd.setLocation(0, 0);
@@ -1231,102 +1375,40 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					recentFilesDialog.setVisible(true);
 				}
 			});
+			mitRecentFiles = jmi;
 		}
 		return mitRecentFiles;
 	}
 
-	private JMenuItem getMitFileOpen() {
-		if (mitLoad == null) {
-			mitLoad = newJMenuItem("Open...", KeyEvent.VK_O
+	private JMenuItem getMitFileOpen(final int keyEvent) {
+		if ( mitLoad == null ) {
+			final JMenuItem jmi = newJMenuItem("Open...", keyEvent
 					, "Open a puzzle file");
-			mitLoad.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					try {
 						openFile();
-						showWelcomeText();
+						showWelcomeHtml();
 						repaint();
 					} catch (Exception ex) {
 						showError(ex);
 					}
 				}
 			});
+			mitLoad = jmi;
 		}
 		return mitLoad;
 	}
 
 	private void openFile() {
 		try {
-			final File selectedFile = chooseFile(new PuzzleFileFilter());
-			if ( selectedFile != null ) {
-				// handle SourceID special case, for example:
-				// 347#C:\\Users\\User\\Documents\\NetBeansProjects\\DiufSudoku\\top1465.d5.mt
-				// without the escaped backslashes, obviously.
-				SourceID pid = selectedFile.exists()
-						? new SourceID(selectedFile, 0)
-						: extractPuzzleID(selectedFile.toString());
-				setTitle(Build.ATV + "   " + engine.loadFile(pid));
-			}
+			final FileOpener opener = new FileOpener(this, engine, defaultDirectory);
+			final SourceID source = engine.loadFile(opener.puzzleSource());
+			defaultDirectory = opener.defaultDirectory;
+			setTitle(source);
 		} catch (Exception ex) {
 			displayError(ex);
-		}
-	}
-
-	private final class PuzzleFileFilter
-			extends javax.swing.filechooser.FileFilter {
-
-		@Override
-		public boolean accept(File f) {
-			if (f.isDirectory()) {
-				return true;
-			}
-			final String n = f.getName().toLowerCase();
-			return n.endsWith(".txt") || n.endsWith(".mt");
-		}
-
-		@Override
-		public String getDescription() {
-			return "Puzzle files (*.txt;*.mt)";
-		}
-	}
-
-	// user chooses a File from the given filter, else null
-	// called by openFile() above and mitLogView ActionListener
-	private File chooseFile(FileFilter fileFilter) {
-		JFileChooser chooser = new JFileChooser();
-		chooser.setFileFilter(fileFilter);
-		if (defaultDirectory != null) {
-			chooser.setCurrentDirectory(defaultDirectory);
-		}
-		int result = chooser.showOpenDialog(SudokuFrame.this);
-		defaultDirectory = chooser.getCurrentDirectory();
-		return result == JFileChooser.APPROVE_OPTION
-				? chooser.getSelectedFile()
-				: null;
-	}
-
-	// Extract a SourceID from the selectedFile.toString().
-	// This is required because Swing prepends the current directory to whatever
-	// the user typed, because that absolutely MUST be a file name, right?
-	// So we remove the preceeding current-directory-path, and parse the rest
-	// of the string as a SourceID, and return it.
-	private SourceID extractPuzzleID(String s) {
-		try {
-			// no hash means there's definately no SourceID here
-			if (s.indexOf('#') < 0) { // ie -1 meaning not found
-				carp("'#' not found in:" + NL + s, "File Open");
-				return null;
-			}
-			// strip prepended current directory path
-			String defDir = defaultDirectory.getAbsolutePath();
-			if (s.startsWith(defDir, 0)) {
-				s = s.substring(defDir.length() + 1);
-			}
-			// parse the rest into a SourceID and return it
-			return SourceID.parse(s);
-		} catch (Exception ex) {
-			carp(ex, "File Open");
-			return null;
 		}
 	}
 
@@ -1335,81 +1417,90 @@ public final class SudokuFrame extends JFrame implements IAsker {
 			, "Ohhh bugger");
 	}
 
-	private JMenuItem getMitFileReload() {
-		if (mitReload == null) {
-			mitReload = newJMenuItem("Reload", KeyEvent.VK_R
+	private JMenuItem getMitFileReload(final int keyEvent) {
+		if ( mitReload == null ) {
+			final JMenuItem jmi = newJMenuItem("Reload", keyEvent
 					, "reload the current puzzle into the grid");
-			mitReload.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					try {
-						SourceID pid = engine.reloadFile();
-						setTitle(Build.ATV + (pid != null ? "    " + pid : ""));
+						setTitle(engine.reloadFile());
 						repaint();
 					} catch (Exception ex) {
 						showError(ex);
 					}
 				}
 			});
+			mitReload = jmi;
 		}
 		return mitReload;
 	}
 
-	private JMenuItem getMitFileNext() {
-		if (mitLoadNext == null) {
-			mitLoadNext = newJMenuItem("load next Puzzle", KeyEvent.VK_P
+	private JMenuItem getMitFileNext(final int keyEvent) {
+		if ( mitLoadNext == null ) {
+			final JMenuItem jmi = newJMenuItem("load next Puzzle", keyEvent
 					, "load the next puzzle from the current MagicTour file");
-			mitLoadNext.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					try {
-						// there is no "next" without a source for "this"
-						SourceID src = engine.getGrid().source;
-						if (src == null) {
-							return;
-						}
-						// special: Ctrl-P generates next puzzle in generate.
-						GenerateDialog gd = generateDialog;
-						if (gd != null && IO.GENERATED_FILE.equals(src.file)) {
-							gd.setVisible(true);
-							gd.generate();
-							hintsTree.requestFocusInWindow();
-							return;
-						}
-						// load the next puzzle
-						String filename = src.file.getName().toLowerCase();
-						SourceID pid;
-						if (filename.endsWith(".mt")) {
-							clearHintDetailArea();
-							pid = engine.loadNextPuzzle();
-						} else if (filename.endsWith(".txt")) {
-							clearHintDetailArea();
-							pid = engine.loadFile(engine.nextTxtFile(src.file), 0);
-						} else {
-							return;
-						}
-						setTitle(Build.ATV + (pid != null ? "    " + pid : ""));
-						repaint();
-						// auto-analyse
-						analyseInTheBackground(Logging.of(e.getModifiers()));
+						nextFile(Logging.of(e.getModifiers()));
 					} catch (Exception ex) {
 						showError(ex);
 					}
 				}
-			;
-		}
-		);
+			});
+			mitLoadNext = jmi;
 		}
 		return mitLoadNext;
 	}
 
-	private JMenuItem getMitFileSave() {
-		if (mitSave == null) {
-			mitSave = newJMenuItem("Save...", KeyEvent.VK_S
+	private void nextFile(final Logging logging) {
+		// there is no "next" without a source for "this"
+		final SourceID src = engine.getGrid().source;
+		if ( src == null ) {
+			engine.cacheHintsClear();
+			return;
+		}
+		// special: Ctrl-P generates next puzzle in generate.
+		final GenerateDialog gd = generateDialog;
+		if ( gd!=null && IO.GENERATED_FILE.equals(src.file) ) {
+			gd.setVisible(true);
+			gd.generate();
+			hintsTreeRequestFocus();
+			engine.cacheHintsClear();
+			return;
+		}
+		// load the next puzzle (normally)
+		final SourceID pid;
+		if ( nameEndsWith(src.file, ".mt") ) {
+			clearHintDetailArea();
+			pid = engine.loadNextPuzzle();
+		} else if ( nameEndsWith(src.file, ".txt") ) {
+			clearHintDetailArea();
+			pid = engine.loadFile(engine.nextTxtFile(src.file), 0);
+		} else {
+			hintsTreeRequestFocus();
+			engine.cacheHintsClear();
+			return;
+		}
+		setTitle(pid);
+		repaint();
+		// auto-analyse
+		analyseInTheBackground(logging);
+		hintsTreeRequestFocus();
+		engine.cacheHintsClear();
+
+	}
+
+	private JMenuItem getMitFileSave(final int keyEvent) {
+		if ( mitSave == null ) {
+			final JMenuItem jmi = newJMenuItem("Save...", keyEvent
 					, "Save this puzzle to a file");
-			mitSave.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					try {
 						saveFile();
 						repaint();
@@ -1418,49 +1509,18 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					}
 				}
 			});
+			mitSave = jmi;
 		}
 		return mitSave;
 	}
 
 	private void saveFile() {
-		JFileChooser chooser = new JFileChooser();
-		chooser.setFileFilter(new TextFileFilter());
-		if (defaultDirectory != null) {
-			chooser.setCurrentDirectory(defaultDirectory);
-		}
-		if (chooser.showSaveDialog(SudokuFrame.this)
-				!= JFileChooser.APPROVE_OPTION) {
+		final FileOpener opener = new FileOpener(this, engine, defaultDirectory);
+		final File file = opener.toSave();
+		defaultDirectory = opener.defaultDirectory;
+		if ( file == null )
 			return;
-		}
-		defaultDirectory = chooser.getCurrentDirectory();
-		File file = chooser.getSelectedFile();
-		if (!file.getName().toLowerCase().endsWith(".txt")) {
-			file = new File(file.getAbsolutePath() + ".txt");
-		}
-		if (file.exists()
-				&& !ask("The file \"" + file.getName() + "\" already exists." + NL
-						+ "Do you want to replace the existing file ?")) {
-			return;
-		}
-		String puzzleID = engine.saveFile(file);
-		setTitle(Build.ATV + "    " + puzzleID);
-	}
-
-	private final class TextFileFilter // is still required for Save dialog
-			extends javax.swing.filechooser.FileFilter {
-
-		@Override
-		public boolean accept(File f) {
-			if (f.isDirectory()) {
-				return true;
-			}
-			return f.getName().toLowerCase().endsWith(".txt");
-		}
-
-		@Override
-		public String getDescription() {
-			return "Text files (*.txt)";
-		}
+		setTitle(engine.saveFile(file));
 	}
 
 	// I reckon only techies will ever use LogicalSolverTester. This menu item
@@ -1469,93 +1529,115 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	//   in the log-File. Only hint-text (char 65 on) is matched
 	// * Use the menu to start a new search (even if search exists)
 	// * Then press Ctrl-L to find-next (or start a new search, if none exists)
-	private JMenuItem getMitLogView() {
-		if ( mitLogView != null )
-			return mitLogView;
-		mitLogView = newJMenuItem("Log View", KeyEvent.VK_W
-				, "View hints that match a regular expresion in an existing LogicalSolverTester .log file");
-		mitLogView.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				// no log yet
-				if ( logViewFile==null || !logViewFile.exists()
-				  // or no regex yet
-				  || regex==null || regex.isEmpty()
-				  // or initiated by the menu
-				  || (e.getModifiers() & CTRL_MASK) == 0 ) {
-					// get the .log File
-					logViewFile = chooseFile(new LogFileFilter());
-					if ( logViewFile == null || !logViewFile.exists() )
-						return;
-					// re/start the search
-					engine.startLine = 0;
-					// LogViewHintRegexDialog.btnOk calls-back logView (below)
-					new LogViewHintRegexDialog(SudokuFrame.this).setVisible(true);
-				} else {
-					// view the next occurrence of regex in logViewFile
-					logView(regex);
+	private JMenuItem getMitLogView(final int keyEvent) {
+		if ( mitLogView == null ) {
+			final JMenuItem jmi = newJMenuItem("Log View", keyEvent
+					, "View hints that match a regular expresion in an"
+					+ " existing LogicalSolverTester .log file");
+			jmi.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(final ActionEvent e) {
+					// no log yet
+					if ( logViewFile==null || !logViewFile.exists()
+					  // or no regex yet
+					  || regex==null || regex.isEmpty()
+					  // or initiated by the menu
+					  || (e.getModifiers() & CTRL_MASK) == 0
+					) {
+						// get the .log File
+						final FileOpener opener = new FileOpener(
+								SudokuFrame.this, engine, defaultDirectory);
+						logViewFile = opener.logFile();
+						defaultDirectory = opener.defaultDirectory;
+						if ( logViewFile == null || !logViewFile.exists() )
+							return;
+						// re/start the search
+						engine.startLine = 0;
+						// LogViewHintRegexDialog.btnOk calls-back logView (below)
+						new LogViewHintRegexDialog(SudokuFrame.this).setVisible(true);
+					} else {
+						// view the next occurrence of regex in logViewFile
+						logView(regex);
+					}
 				}
-			}
-		});
+			});
+			mitLogView = jmi;
+		}
 		return mitLogView;
 	}
 
 	// LogViewHintRegexDialog.btnOk calls-back this method
-	void logView(String re) {
+	void logView(final String re) {
 		regex = engine.logView(logViewFile, re);
-		setTitle(Build.ATV + "   " + engine.getGrid().source);
+		setTitle(engine.getGrid().source);
 	}
 
-	// for mitLogView
-	private final class LogFileFilter extends FileFilter {
-
-		@Override
-		public boolean accept(File f) {
-			if (f.isDirectory()) {
-				return true;
-			}
-			final String n = f.getName().toLowerCase();
-			return n.endsWith(".log");
-		}
-
-		@Override
-		public String getDescription() {
-			return "Log files (*.log)";
-		}
-	}
-
-	private JMenuItem getMitQuit() {
-		if (mitQuit == null) {
-			mitQuit = newJMenuItem("Quit", KeyEvent.VK_Q, "Bye bye");
-			mitQuit.addActionListener(new ActionListener() {
+	// Techie follows the batch hintpath in *.log file.
+	private JMenuItem getMitLogFollow(final int keyEvent) {
+		if ( mitLogFollow == null ) {
+			final JMenuItem jmi = newJMenuItem("Log Follow", keyEvent
+					, "Follow hints in a batch *.log file");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
+					// default to the logFile followed last time
+					final File defualt = new File(CFG.getString(Config.logToFollow));
+					final FileOpener opener = new FileOpener(SudokuFrame.this, engine, defaultDirectory);
+					final File logFile = opener.logFile(defualt);
+					if ( logFile != null ) {
+						if ( logFile.exists() ) {
+							// remember this logFile as next times default
+							CFG.setString(Config.logToFollow, logFile.getAbsolutePath());
+							final boolean was = useCache;
+							useCache = false;
+							engine.logFollow(logFile);
+							useCache = was;
+						} else {
+							beep();
+						}
+					}
+				}
+			});
+			mitLogFollow = jmi;
+		}
+		return mitLogFollow;
+	}
+
+	private JMenuItem getMitQuit(final int keyEvent) {
+		if ( mitQuit == null ) {
+			final JMenuItem jmi = newJMenuItem("Quit", keyEvent, "Bye bye");
+			jmi.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(final ActionEvent e) {
 					dispose();
 				}
 			});
+			mitQuit = jmi;
 		}
 		return mitQuit;
 	}
 
 	// ============================= EDIT MENU =============================
+
 	private JMenu getEditMenu() {
-		if (editMenu == null) {
-			editMenu = newJMenu("Edit", KeyEvent.VK_E, "Edit the grid.");
-			editMenu.add(ctrl('C', getMitCopy()));
-			editMenu.add(ctrl('V', getMitPaste()));
-			editMenu.addSeparator();
-			editMenu.add(ctrl('E', getMitClear()));
+		if ( editMenu == null ) {
+			final JMenu jm = newJMenu("Edit", KeyEvent.VK_E, "Edit the grid.");
+			jm.add(ctrl('C', getMitCopy(KeyEvent.VK_C)));
+			jm.add(ctrl('V', getMitPaste(KeyEvent.VK_P)));
+			jm.addSeparator();
+			jm.add(ctrl('E', getMitClear(KeyEvent.VK_E)));
+			editMenu = jm;
 		}
 		return editMenu;
 	}
 
-	private JMenuItem getMitCopy() {
-		if (mitCopy == null) {
-			mitCopy = newJMenuItem("Copy grid", KeyEvent.VK_C
+	private JMenuItem getMitCopy(final int keyEvent) {
+		if ( mitCopy == null ) {
+			final JMenuItem jmi = newJMenuItem("Copy grid", keyEvent
 					, "Copy the grid to the clipboard as plain text");
-			mitCopy.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					try {
 						engine.copyGridToClipboard();
 					} catch (Exception ex) {
@@ -1563,17 +1645,18 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					}
 				}
 			});
+			mitCopy = jmi;
 		}
 		return mitCopy;
 	}
 
-	private JMenuItem getMitPaste() {
-		if (mitPaste == null) {
-			mitPaste = newJMenuItem("Paste grid", KeyEvent.VK_P
+	private JMenuItem getMitPaste(final int keyEvent) {
+		if ( mitPaste == null ) {
+			final JMenuItem jmi = newJMenuItem("Paste grid", keyEvent
 					, "Replace the grid with the content of the clipboard");
-			mitPaste.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					try {
 						engine.pastePuzzle();
 					} catch (Exception ex) {
@@ -1581,309 +1664,327 @@ public final class SudokuFrame extends JFrame implements IAsker {
 					}
 				}
 			});
+			mitPaste = jmi;
 		}
 		return mitPaste;
 	}
 
-	private JMenuItem getMitClear() {
-		if (mitClear == null) {
-			mitClear = newJMenuItem("Clear grid", KeyEvent.VK_E
+	private JMenuItem getMitClear(final int keyEvent) {
+		if ( mitClear == null ) {
+			final JMenuItem jmi = newJMenuItem("Clear grid", keyEvent
 					, "Clear the grid");
-			mitClear.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.clearGrid();
 				}
 			});
+			mitClear = jmi;
 		}
 		return mitClear;
 	}
 
 	// ============================= TOOL MENU =============================
+
 	private JMenu getToolMenu() {
-		if (toolsMenu != null) {
-			return toolsMenu;
+		if ( toolsMenu == null ) {
+			final JMenu jm = newJMenu("Tools", KeyEvent.VK_T
+					, "Saw, pin, wax, axe. Careful Eugeene!");
+			// NOTE WELL: Each menu-item has ONE accelerator key only, so every
+			// combo of norm/shft/alt/ctrl needs it is very own menu item, which
+			// really s__ts me. There simply MUST be a better way to do it, so
+			// the User does not see all my expert modifiers! Anybody who can read
+			// the code (it will always be open source) could see all the advanced
+			// stuff, but the GUI looks simple and vanilla, so that peeps can work
+			// out how to use the bastard!
+			// BTW: create method shftCtrl (or whatever) if/when you use it.
+			jm.add(ctrl('#', getMitResetPotentials(KeyEvent.VK_NUMBER_SIGN)));
+			jm.add(ctrl('D', getMitClearHints(KeyEvent.VK_D)));
+			jm.addSeparator();
+			jm.add(norm(KeyEvent.VK_F2, getMitSolveStep(KeyEvent.VK_S)));
+			jm.add(shft(KeyEvent.VK_F2, getMitSolveStepBig(KeyEvent.VK_U)));
+			jm.addSeparator();
+			jm.add(norm(KeyEvent.VK_F3, getMitGetNextHint(KeyEvent.VK_N)));
+			jm.add(norm(KeyEvent.VK_F4, getMitApplyHint(KeyEvent.VK_A)));
+			jm.add(norm(KeyEvent.VK_F5, getMitGetAllHints(KeyEvent.VK_H)));
+			jm.add(shft(KeyEvent.VK_F5, getMitGetAllHintsMore(KeyEvent.VK_M)));
+			jm.addSeparator();
+			jm.add(norm(KeyEvent.VK_F6, getMitGetClueSmall(KeyEvent.VK_C)));
+			jm.add(shft(KeyEvent.VK_F6, getMitGetClueBig(KeyEvent.VK_B)));
+			jm.addSeparator();
+			jm.add(norm(KeyEvent.VK_F7, getMitCheckValidity(KeyEvent.VK_V)));
+			jm.addSeparator();
+			jm.add(norm(KeyEvent.VK_F8, getMitSolve(KeyEvent.VK_O)));
+			jm.add(norm(KeyEvent.VK_F9, getMitAnalyse(KeyEvent.VK_Y)));
+			jm.add(shft(KeyEvent.VK_F9, getMitAnalyseVerbose(KeyEvent.VK_J)));
+			jm.add(alt(KeyEvent.VK_F9, getMitAnalyseTiming(KeyEvent.VK_T)));
+			if ( Run.ASSERTS_ENABLED ) {
+				jm.addSeparator();
+				jm.add(norm(KeyEvent.VK_L, getMitLibate(KeyEvent.VK_L)));
+			}
+			toolsMenu = jm;
 		}
-		toolsMenu = newJMenu("Tools", KeyEvent.VK_T
-				, "Saw, pin, wax, axe. Careful Eugeene!");
-		// NOTE WELL: Each menu-item has ONE accelerator key only, so every
-		// combo of norm/shft/alt/ctrl needs it's very own menu item, which
-		// really s__ts me. There simply MUST be a better way to do it, so
-		// the User dosn't see all my "expert" modifiers! Anybody who can read
-		// the code (it'll always be open source) could see all the "advanced"
-		// stuff, but the GUI looks simple and vanilla, so that c___ts can work
-		// out how to use the bastard!
-		// BTW: create method shftCtrl (or whatever) if/when you use it.
-		toolsMenu.add(ctrl('#', getMitResetPotentials()));
-		toolsMenu.add(ctrl('D', getMitClearHints()));
-		toolsMenu.addSeparator();
-		toolsMenu.add(norm(KeyEvent.VK_F2, getMitSolveStep()));
-		toolsMenu.add(shft(KeyEvent.VK_F2, getMitSolveStepBig()));
-		toolsMenu.addSeparator();
-		toolsMenu.add(norm(KeyEvent.VK_F3, getMitGetNextHint()));
-		toolsMenu.add(norm(KeyEvent.VK_F4, getMitApplyHint()));
-		toolsMenu.add(norm(KeyEvent.VK_F5, getMitGetAllHints()));
-		toolsMenu.add(shft(KeyEvent.VK_F5, getMitGetAllHintsMore()));
-		toolsMenu.addSeparator();
-		toolsMenu.add(norm(KeyEvent.VK_F6, getMitGetClueSmall()));
-		toolsMenu.add(shft(KeyEvent.VK_F6, getMitGetClueBig()));
-		toolsMenu.addSeparator();
-		toolsMenu.add(norm(KeyEvent.VK_F7, getMitCheckValidity()));
-		toolsMenu.addSeparator();
-		toolsMenu.add(norm(KeyEvent.VK_F8, getMitSolve()));
-		toolsMenu.add(norm(KeyEvent.VK_F9, getMitAnalyse()));
-		toolsMenu.add(shft(KeyEvent.VK_F9, getMitAnalyseVerbose()));
-		toolsMenu.add(alt(KeyEvent.VK_F9, getMitAnalyseTiming()));
 		return toolsMenu;
 	}
 
-	private JMenuItem getMitResetPotentials() {
-		if (mitResetPotentialValues == null) {
-			mitResetPotentialValues = newJMenuItem("Reset potential values"
-					, KeyEvent.VK_NUMBER_SIGN // #
-					, "Recompute the remaining potential values for"
-					 +" the empty cells");
-			mitResetPotentialValues.addActionListener(new ActionListener() {
+	private JMenuItem getMitResetPotentials(final int keyEvent) {
+		if ( mitResetPotentialValues == null ) {
+			final JMenuItem jmi = newJMenuItem("Reset potential values"
+					, keyEvent // #
+					, "Recompute the remaining potential values for the empty cells");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.resetPotentialValues();
 				}
 			});
+			mitResetPotentialValues = jmi;
 		}
 		return mitResetPotentialValues;
 	}
 
-	private JMenuItem getMitClearHints() {
-		if (mitClearHints == null) {
-			mitClearHints = newJMenuItem("Clear hint(s)", KeyEvent.VK_C
+	private JMenuItem getMitClearHints(final int keyEvent) {
+		if ( mitClearHints == null ) {
+			final JMenuItem jmi = newJMenuItem("Clear hint(s)", keyEvent
 					, "Clear the hint list");
-			mitClearHints.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.clearHints();
 				}
 			});
+			mitClearHints = jmi;
 		}
 		return mitClearHints;
 	}
 
-	private JMenuItem getMitSolveStep() {
-		if (mitSolveStep == null) {
-			mitSolveStep = newJMenuItem("Solve step", KeyEvent.VK_S
+	private JMenuItem getMitSolveStep(final int keyEvent) {
+		if ( mitSolveStep == null ) {
+			final JMenuItem jmi = newJMenuItem("Solve step", keyEvent
 					, getBtnSolveStep().getToolTipText());
-			mitSolveStep.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.solveStep(false);
 				}
 			});
+			mitSolveStep = jmi;
 		}
 		return mitSolveStep;
 	}
 
-	private JMenuItem getMitSolveStepBig() {
-		if (mitSolveStepBig == null) {
-			mitSolveStepBig = newJMenuItem("Solve big step", KeyEvent.VK_U
-					, "apply hint and get next BIG hint (aggregate chains"
-					 +" and solve with singles).");
-			mitSolveStepBig.addActionListener(new ActionListener() {
+	private JMenuItem getMitSolveStepBig(final int keyEvent) {
+		if ( mitSolveStepBig == null ) {
+			final JMenuItem jmi = newJMenuItem("Solve big step", keyEvent
+					, "apply hint and get next BIG hint (aggregate chains and"
+					+ " solve with singles).");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.solveStep(true);
 				}
 			});
+			mitSolveStepBig = jmi;
 		}
 		return mitSolveStepBig;
 	}
 
-	private JMenuItem getMitGetNextHint() {
-		if (mitGetNextHint == null) {
-			mitGetNextHint = newJMenuItem("Get next hint", KeyEvent.VK_N
+	private JMenuItem getMitGetNextHint(final int keyEvent) {
+		if ( mitGetNextHint == null ) {
+			final JMenuItem jmi = newJMenuItem("Get next hint", keyEvent
 					, getBtnGetNextHint().getToolTipText());
-			mitGetNextHint.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.invokeGetNextHint(false, false);
 				}
 			});
+			mitGetNextHint = jmi;
 		}
 		return mitGetNextHint;
 	}
 
-	private JMenuItem getMitApplyHint() {
-		if (mitApplyHint == null) {
-			mitApplyHint = newJMenuItem("Apply hint", KeyEvent.VK_A
+	private JMenuItem getMitApplyHint(final int keyEvent) {
+		if ( mitApplyHint == null ) {
+			final JMenuItem jmi = newJMenuItem("Apply hint", keyEvent
 					, getBtnApplyHint().getToolTipText());
-			mitApplyHint.setEnabled(false);
-			mitApplyHint.addActionListener(new ActionListener() {
+			jmi.setEnabled(false);
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.applySelectedHints();
 				}
 			});
+			mitApplyHint = jmi;
 		}
 		return mitApplyHint;
 	}
 
-	private JMenuItem getMitGetAllHints() {
-		if (mitGetAllHints == null) {
-			mitGetAllHints = newJMenuItem("Get all hints", KeyEvent.VK_H
+	private JMenuItem getMitGetAllHints(final int keyEvent) {
+		if ( mitGetAllHints == null ) {
+			final JMenuItem jmi = newJMenuItem("Get all hints", keyEvent
 					, getBtnGetAllHints().getToolTipText());
-			mitGetAllHints.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					getAllHintsInBackground(false, false);
 				}
 			});
+			mitGetAllHints = jmi;
 		}
 		return mitGetAllHints;
 	}
 
-	private JMenuItem getMitGetAllHintsMore() {
-		if (mitGetAllHintsMore == null) {
-			mitGetAllHintsMore = newJMenuItem("Get MORE all hints"
-					, KeyEvent.VK_H
+	private JMenuItem getMitGetAllHintsMore(final int keyEvent) {
+		if ( mitGetAllHintsMore == null ) {
+			final JMenuItem jmi = newJMenuItem("Get MORE all hints", keyEvent
 					, "Get MORE all hints (from all selected Techs).");
-			mitGetAllHintsMore.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					getAllHintsInBackground(true, false);
 				}
 			});
+			mitGetAllHintsMore = jmi;
 		}
 		return mitGetAllHintsMore;
 	}
 
-	private JMenuItem getMitGetClueSmall() {
-		if (mitGetClueSmall == null) {
-			mitGetClueSmall = newJMenuItem("Get a small clue", KeyEvent.VK_M
-					, "Get some information on the next solving step");
-			mitGetClueSmall.addActionListener(new ActionListener() {
+	private JMenuItem getMitGetClueSmall(final int keyEvent) {
+		if ( mitGetClueSmall == null ) {
+			final JMenuItem jmi = newJMenuItem("Get a small clue", keyEvent
+					, "What is the next solving step?");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.getClue(false);
 				}
 			});
+			mitGetClueSmall = jmi;
 		}
 		return mitGetClueSmall;
 	}
 
-	private JMenuItem getMitGetClueBig() {
-		if (mitGetClueBig == null) {
-			mitGetClueBig = newJMenuItem("Get a big clue", KeyEvent.VK_B
-					, "Get more information on the next solving step");
-			mitGetClueBig.addActionListener(new ActionListener() {
+	private JMenuItem getMitGetClueBig(final int keyEvent) {
+		if ( mitGetClueBig == null ) {
+			final JMenuItem jmi = newJMenuItem("Get a big clue", keyEvent
+					, "What and where is the next solving step?");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.getClue(true);
 				}
 			});
+			mitGetClueBig = jmi;
 		}
 		return mitGetClueBig;
 	}
 
-	private JMenuItem getMitCheckValidity() {
-		if (mitCheckValidity == null) {
-			mitCheckValidity = newJMenuItem("Check validity", KeyEvent.VK_V
-					, "Check the Sudoku is valid (has exactly one solution)");
-			mitCheckValidity.addActionListener(new ActionListener() {
+	private JMenuItem getMitCheckValidity(final int keyEvent) {
+		if ( mitCheckValidity == null ) {
+			final JMenuItem jmi = newJMenuItem("Check validity", keyEvent
+					, "Is this Sudoku valid (has exactly one solution)?");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					// hold down the Shift key to log the validations
-					boolean quite = (e.getModifiers() & Event.SHIFT_MASK) == 0;
-					if (engine.validatePuzzleAndGrid(quite)) {
+					final boolean quite = (e.getModifiers() & Event.SHIFT_MASK) == 0;
+					if ( engine.validatePuzzleAndGrid(quite) ) {
 						setHintDetailArea(Html.load(SudokuFrame.this, "Valid.html"));
 					}
 				}
 			});
+			mitCheckValidity = jmi;
 		}
 		return mitCheckValidity;
 	}
 
-	private JMenuItem getMitSolve() {
-		if (mitSolve == null) {
-			mitSolve = newJMenuItem("Solve", KeyEvent.VK_O
-					, "Highlight the solution");
-			mitSolve.addActionListener(new ActionListener() {
+	private JMenuItem getMitSolve(final int keyEvent) {
+		if ( mitSolve == null ) {
+			final JMenuItem jmi = newJMenuItem("Solve", keyEvent
+					, "Just solve the bastard, asap.");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					engine.solveASAP();
 				}
 			});
+			mitSolve = jmi;
 		}
 		return mitSolve;
 	}
 
-	private JMenuItem getMitAnalyse() {
-		if ( mitAnalyse != null )
-			return mitAnalyse;
-		mitAnalyse = newJMenuItem("Analyse", KeyEvent.VK_Y
-			, "Summarise a simplest possible solution to this Sudoku");
-		mitAnalyse.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				analyseInTheBackground(Logging.NORMAL);
-			}
-		});
+	private JMenuItem getMitAnalyse(final int keyEvent) {
+		if ( mitAnalyse == null ) {
+			final JMenuItem jmi = newJMenuItem("Analyse", keyEvent
+				, "Summarise a (not the) simplest possible solution to this Sudoku");
+			jmi.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(final ActionEvent e) {
+					analyseInTheBackground(Logging.NORMAL);
+				}
+			});
+			mitAnalyse = jmi;
+		}
 		return mitAnalyse;
 	}
-
-	private JMenuItem getMitAnalyseVerbose() {
-		if (mitAnalyseVerbose != null)
-			return mitAnalyseVerbose;
-		mitAnalyseVerbose = newJMenuItem("Analyse (verbose)", KeyEvent.VK_J
-			, "Summarise the Sudoku, logging hints (verbose)");
-		mitAnalyseVerbose.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				analyseInTheBackground(Logging.HINTS);
-			}
-		});
+	private JMenuItem getMitAnalyseVerbose(final int keyEvent) {
+		if ( mitAnalyseVerbose == null ) {
+			final JMenuItem jmi = newJMenuItem("Analyse (verbose)", keyEvent
+				, "Summarise the Sudoku, logging each hint (verbose)");
+			jmi.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(final ActionEvent e) {
+					analyseInTheBackground(Logging.HINTS);
+				}
+			});
+			mitAnalyseVerbose = jmi;
+		}
 		return mitAnalyseVerbose;
 	}
-
-	private JMenuItem getMitAnalyseTiming() {
-		if (mitAnalyseTiming != null)
-			return mitAnalyseTiming;
-		mitAnalyseTiming = newJMenuItem("Analyse (very verbose)", KeyEvent.VK_K
-			, "Summarise the Sudoku, logging hinter timings (very verbose)");
-		mitAnalyseTiming.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				analyseInTheBackground(Logging.HINTERS);
-			}
-		});
+	private JMenuItem getMitAnalyseTiming(final int keyEvent) {
+		if ( mitAnalyseTiming == null ) {
+			final JMenuItem jmi = newJMenuItem("Analyse (very verbose)", keyEvent
+				, "Summarise the Sudoku, logging hinter timings (very verbose)");
+			jmi.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(final ActionEvent e) {
+					analyseInTheBackground(Logging.HINTERS);
+				}
+			});
+			mitAnalyseTiming = jmi;
+		}
 		return mitAnalyseTiming;
 	}
-
 	private static enum Logging{
 		  NORMAL
 		, HINTS
 		, HINTERS;
-		static Logging of(final int modifier) {
+		static Logging of(final int keyModifier) {
 			// upside down: HINTERS implies HINTS which implies NORMAL.
-			if((modifier & ALT_MASK) != 0) return HINTERS; // plus timings of each hinter (timings)
-			if((modifier & SHIFT_MASK) !=0) return HINTS; // plus log the hints used during solve (verbose)
+			if((keyModifier & ALT_MASK) != 0) return HINTERS; // plus timings of each hinter (timings)
+			if((keyModifier & SHIFT_MASK) !=0) return HINTS; // plus log the hints used during solve (verbose)
 			return NORMAL; // just the analyse summary ("normal" output)
 		}
 	}
 	// analyse can take a while, so run it in a background thread
 	// if isNoisy is true (SHIFT down) then print hints to SudokuExplainer.log
-	private void analyseInTheBackground(Logging logging) {
+	private void analyseInTheBackground(final Logging logging) {
 		setHintDetailArea("Analysing ...");
 		getHintDetailPane().repaint();
 		final Runnable analyser = new Runnable() {
 			@Override
 			public void run() {
-				if ( Generator.isGeneratorRunning() )
+				if ( Generator.isRunning() )
 					return;
 				try {
-					long start = System.nanoTime();
 					boolean myLogHints = logging != Logging.NORMAL;
 					boolean myLogHinters = logging == Logging.HINTERS;
-					Run.setStopGenerate(false);
+					Run.setHinterrupt(false);
+					long start = System.nanoTime();
 					engine.analysePuzzle(myLogHints, myLogHinters);
-					Log.teef("Analyse took %,d ns\n", System.nanoTime() - start);
+					long took = System.nanoTime() - start;
+					Log.teef("Analyse took %,d ns\n", took);
 					hintsTreeRequestFocus();
 				} catch (UnsolvableException ex) {
 					displayError(ex);
@@ -1905,125 +2006,176 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		});
 	}
 
-	private void hintsTreeRequestFocus() {
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				hintsTree.requestFocusInWindow();
-			}
-		});
+	private JMenuItem getMitLibate(final int keyEvent) {
+		if ( mitLibate == null ) {
+			final JMenuItem jmi = newJMenuItem("Libate", keyEvent
+				, "Libate");
+			jmi.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(final ActionEvent e) {
+					engine.libate();
+				}
+			});
+			mitLibate = jmi;
+		}
+		return mitLibate;
 	}
 
 	// ============================= OPTIONS MENU =============================
+
 	private JMenu getOptionsMenu() {
-		if (optionsMenu == null) {
-			optionsMenu = newJMenu("Options", KeyEvent.VK_O
-					, "Turn s__t off and on, or on and off");
-			optionsMenu.add(getMitFilterHints());
-			optionsMenu.add(getMitShowMaybes());
-			optionsMenu.add(getMitGreenFlash());
-			optionsMenu.add(getMitSelectTechniques());
-			optionsMenu.add(getMitHacky());
-			optionsMenu.add(getMitGod());
-			optionsMenu.addSeparator();
-			optionsMenu.add(getMitAntiAliasing());
-			optionsMenu.add(getMitSaveSettings());
+		if ( optionsMenu == null ) {
+			final JMenu jm = newJMenu("Options", KeyEvent.VK_O
+			, "Turn s__t off and on, or on and off. Whatevs.");
+			jm.add(getMitFilterHints(KeyEvent.VK_F));
+			jm.add(getMitCacheHints(KeyEvent.VK_H));
+			jm.add(getMitShowMaybes(KeyEvent.VK_S));
+			jm.add(getMitGreenFlash(KeyEvent.VK_G));
+			jm.add(getMitSelectTechniques(KeyEvent.VK_T));
+			jm.add(getMitHacky(KeyEvent.VK_1));
+			jm.add(getMitGod(KeyEvent.VK_D));
+			jm.addSeparator();
+			jm.add(getMitAntiAliasing(KeyEvent.VK_A));
+			jm.add(getMitSaveConfig(KeyEvent.VK_K));
+			optionsMenu = jm;
 		}
 		return optionsMenu;
 	}
 
-	private JCheckBoxMenuItem getMitFilterHints() {
-		if (mitFilterHints == null) {
-			mitFilterHints = newJCheckBoxMenuItem(
-					  "Filter hints with repeat effects"
-					, KeyEvent.VK_F, getChkFilterHints().getToolTipText()
-					, Settings.isFilteringHints, false, false, true);
-			mitFilterHints.addItemListener(new ItemListener() {
+	private JCheckBoxMenuItem getMitFilterHints(final int keyEvent) {
+		if ( mitFilterHints == null ) {
+			final String tip = getChkFilterHints().getToolTipText();
+			final JCheckBoxMenuItem mi = newJCheckBoxMenuItem("Filter hints"
+					, keyEvent, tip, Config.isFilteringHints, T, F, T);
+			mi.addItemListener(new ItemListener() {
 				@Override
-				public void itemStateChanged(ItemEvent e) {
-					boolean isSelected = mitFilterHints.isSelected();
+				public void itemStateChanged(final ItemEvent e) {
+					final boolean isSelected = mitFilterHints.isSelected();
 					getChkFilterHints().setSelected(isSelected);
 					engine.setFiltered(isSelected);
 				}
 			});
+			mitFilterHints = mi;
 		}
 		return mitFilterHints;
 	}
 
-	private JCheckBoxMenuItem getMitShowMaybes() {
-		if (mitShowMaybes == null) {
-			mitShowMaybes = newJCheckBoxMenuItem("Show maybes", KeyEvent.VK_C
+	private JCheckBoxMenuItem getMitCacheHints(final int keyEvent) {
+		if ( mitCacheHints == null ) {
+			final JCheckBoxMenuItem mi = newJCheckBoxMenuItem("Cache hints"
+					, keyEvent, "Make the Enter key snappy"
+					, Config.isCachingHints, T, F, T);
+			mi.addItemListener(new ItemListener() {
+				@Override
+				public void itemStateChanged(final ItemEvent e) {
+					setUseCache(mitCacheHints.isSelected());
+				}
+			});
+			mitCacheHints = mi;
+		}
+		return mitCacheHints;
+	}
+
+	private JCheckBoxMenuItem getMitShowMaybes(final int keyEvent) {
+		if ( mitShowMaybes == null ) {
+			mitShowMaybes = newJCheckBoxMenuItem("Show maybes", keyEvent
 					, "Display each cells potential values in small digits"
-					, Settings.isShowingMaybes, true, true, true);
+					, Config.isShowingMaybes, true, true, true);
 		}
 		return mitShowMaybes;
 	}
 
-	private JCheckBoxMenuItem getMitGreenFlash() {
-		if (mitGreenFlash == null) {
-			mitGreenFlash = newJCheckBoxMenuItem("Green flash", KeyEvent.VK_G
+	private JCheckBoxMenuItem getMitGreenFlash(final int keyEvent) {
+		if ( mitGreenFlash == null ) {
+			mitGreenFlash = newJCheckBoxMenuItem("Green flash", keyEvent
 					, "Flash green when the puzzle solves with singles"
-					, Settings.isGreenFlash, true, true, true);
+					, Config.isGreenFlash, true, true, true);
 		}
 		return mitGreenFlash;
 	}
 
-	private JMenuItem getMitSelectTechniques() {
-		if (mitSelectTechniques == null) {
-			mitSelectTechniques = newJMenuItem("Solving techniques..."
-					, KeyEvent.VK_T, "En/disable Sudoku solving techniques");
-			mitSelectTechniques.addActionListener(new java.awt.event.ActionListener() {
+	private JMenuItem getMitSelectTechniques(final int keyEvent) {
+		if ( mitSelectTechniques == null ) {
+			final JMenuItem jmi = newJMenuItem("Solving techniques..."
+					, keyEvent, "En/disable Sudoku solving techniques");
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
+				public void actionPerformed(final ActionEvent e) {
 					selectSodokuSolvingTechniques();
 				}
 			});
+			mitSelectTechniques = jmi;
 		}
 		return mitSelectTechniques;
 	}
 
+	// Display a warning icon-label when hinter/s are disabled or unavailable.
+	// AlignedPent may be unavailable, as apposed to merely dis/enabled.
+	// return does the warning panel need to be visible.
+	boolean refreshDisabledRulesWarning() {
+		// build the disabled-rules warning message
+		final EnumSet<Tech> techs = CFG.getWantedTechs();
+		// -2 for [The Solution, Single Solution]
+		final int numDisabled = Config.ALL_TECHS.size() - 2 - techs.size();
+		String msg = ""+numDisabled+" techniques disabled.";
+		// all these Techs are inconveniently slow.
+		if ( techs.contains(Tech.KrakenJellyfish)
+		  || techs.contains(Tech.MutantJellyfish) )
+			msg += " Jellylegs!";
+		if ( techs.contains(Tech.AlignedSept)
+		  || techs.contains(Tech.AlignedOct)
+		  || techs.contains(Tech.AlignedNona)
+		  || techs.contains(Tech.AlignedDec) )
+			msg += " Misaligned!";
+		// set the warning JLabels text
+		lblDisabledTechsWarning.setText(msg);
+		// make the warning panel in/visible
+		// turns out I allways want to see this warning.
+		disabledTechsWarnPanel.setVisible(true);
+		return true;
+	}
+
 	private void selectSodokuSolvingTechniques() {
-		TechSelectDialog tsd = techSelectDialog;
-		if (tsd == null) {
-			tsd = new TechSelectDialog(this, SudokuFrame.this.engine);
-			tsd.pack();
+		showWelcomeHtml();
+		if ( techSelectDialog == null ) {
+			final JDialog dialog = new TechSelectDialog(this, engine);
+			dialog.pack();
 			// top-right
-			Dimension screenSize = getToolkit().getScreenSize();
-			tsd.setLocation(screenSize.width - tsd.getSize().width, 0);
-			techSelectDialog = tsd;
+			final Dimension ss = getToolkit().getScreenSize();
+			dialog.setLocation(ss.width - dialog.getSize().width, 0);
+			techSelectDialog = (TechSelectDialog)dialog;
 		}
 		refreshDisabledRulesWarning();
 		techSelectDialog.setVisible(true);
 	}
 
-	private JCheckBoxMenuItem getMitHacky() {
-		if (mitHacky == null) {
-			mitHacky = newJCheckBoxMenuItem("Hack top1465"
-					, KeyEvent.VK_H
-					, "<html><body>"
-					 +"Use hacks in Aligned*Exclusion for a faster solve of top1465 only"
-					 +"</body></html>"
-					, Settings.isHacky, true, true, false);
+	private JCheckBoxMenuItem getMitHacky(final int keyEvent) {
+		if ( mitHacky == null ) {
+			mitHacky = newJCheckBoxMenuItem("Hack top1465", keyEvent
+				, "<html><body>"
+				 +"Use hacks in Aligned*Exclusion for a faster solve of top1465 only"
+				 +"</body></html>"
+				, Config.isHacky, true, true, false);
 		}
 		return mitHacky;
 	}
 
-	private JCheckBoxMenuItem getMitGod() {
-		if (mitGod == null) {
-			JCheckBoxMenuItem item = new JCheckBoxMenuItem("God Mode");
-			item.setMnemonic(KeyEvent.VK_D);
-			item.setToolTipText("for lazy bastards, like me");
-			item.setEnabled(true);
-			item.setSelected(engine.god);
-			mitGod = item;
-			mitGod.addItemListener(new ItemListener() {
+	private JCheckBoxMenuItem getMitGod(final int keyEvent) {
+		if ( mitGod == null ) {
+			final JCheckBoxMenuItem mi = new JCheckBoxMenuItem("God Mode");
+			mi.setMnemonic(keyEvent);
+			mi.setToolTipText("for lazy bastards, like me");
+			mi.setEnabled(true);
+			mi.setSelected(engine.god);
+			mi.addItemListener(new ItemListener() {
 				@Override
-				public void itemStateChanged(ItemEvent e) {
+				public void itemStateChanged(final ItemEvent e) {
 					// god is non-persistant. A shame really.
 					// cok vs god decomposes into non-determinism.
 					engine.cheater = engine.god = mitGod.isSelected() && god();
 				}
 			});
+			mitGod = mi;
 		}
 		return mitGod;
 	}
@@ -2032,157 +2184,166 @@ public final class SudokuFrame extends JFrame implements IAsker {
 		return "IDDQD".equals("I" + askForString("assword:", "God", "DDQ"));
 	}
 
-	private JCheckBoxMenuItem getMitAntiAliasing() {
-		if (mitAntialiasing == null) {
-			mitAntialiasing = newJCheckBoxMenuItem("high quality renDering"
-					, KeyEvent.VK_D, "Use slower high quality rendering"
-					, Settings.isAntialiasing, true, true, true);
+	private JCheckBoxMenuItem getMitAntiAliasing(final int keyEvent) {
+		if ( mitAntialiasing == null ) {
+			mitAntialiasing = newJCheckBoxMenuItem("High Quality Rendering"
+				, keyEvent, "Use anti-aliasing, which is indiscernably slower on decent GPUs"
+				, Config.isAntialiasing, true, true, true);
 		}
 		return mitAntialiasing;
 	}
 
-	private JMenuItem getMitSaveSettings() {
-		if (mitSaveSettings == null) {
-			mitSaveSettings = newJMenuItem("Save the settings"
-					, KeyEvent.VK_ASTERISK
-					, "Persist the settings, so it's all the same next time");
-			mitSaveSettings.addActionListener(new java.awt.event.ActionListener() {
+	private JMenuItem getMitSaveConfig(final int keyEvent) {
+		if ( mitSaveConfig == null ) {
+			final JMenuItem mi = newJMenuItem("Save the config", keyEvent
+				, "Persist the configuration, so SE is like now next time");
+			mi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
-					THE_SETTINGS.save();
+				public void actionPerformed(final ActionEvent e) {
+					CFG.save();
 				}
 			});
+			mitSaveConfig = mi;
 		}
-		return mitSaveSettings;
+		return mitSaveConfig;
 	}
 
 	// ============================= HELP MENU =============================
+
 	private JMenu getHelpMenu() {
-		if (helpMenu == null) {
-			helpMenu = newJMenu("Help", KeyEvent.VK_H
+		if ( helpMenu == null ) {
+			final JMenu m = newJMenu("Help", KeyEvent.VK_H
 					, "Help me Rhonda, Help help me Rhonda... ");
-			helpMenu.add(getMitShowWelcome());
-			KeyStroke key = KeyStroke.getKeyStroke(KeyEvent.VK_F1, 0);
-			getMitShowWelcome().setAccelerator(key);
-			helpMenu.addSeparator();
-			helpMenu.add(getMitAbout());
+			final JMenuItem mi = getMitShowWelcome(KeyEvent.VK_W);
+			mi.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F1, 0));
+			m.add(mi);
+			m.addSeparator();
+			m.add(getMitAbout(KeyEvent.VK_A));
+			helpMenu = m;
 		}
 		return helpMenu;
 	}
 
-	private JMenuItem getMitShowWelcome() {
-		if (mitShowWelcome == null) {
-			mitShowWelcome = newJMenuItem("Show welcome message"
-					, KeyEvent.VK_W
+	private JMenuItem getMitShowWelcome(final int keyEvent) {
+		if ( mitShowWelcome == null ) {
+			final JMenuItem jmi = newJMenuItem("Show welcome message", keyEvent
 					, "Display that big long welcome message");
-			mitShowWelcome.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
-					showWelcomeText();
+				public void actionPerformed(final ActionEvent e) {
+					showWelcomeHtml();
 				}
 			});
+			mitShowWelcome = jmi;
 		}
 		return mitShowWelcome;
 	}
 
-	private JMenuItem getMitAbout() {
-		if (mitAbout == null) {
-			mitAbout = newJMenuItem("About", KeyEvent.VK_A
+	private JMenuItem getMitAbout(final int keyEvent) {
+		if ( mitAbout == null ) {
+			final JMenuItem jmi = newJMenuItem("About", keyEvent
 					, "Sudoku Explainer application version number");
-			mitAbout.addActionListener(new ActionListener() {
+			jmi.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent e) {
-					JFrame dfk = dummyFrameKnife;
-					if (dfk == null) {
-						dfk = new JFrame();
-						ImageIcon icon = createImageIcon("Icon_Knife.gif");
+				public void actionPerformed(final ActionEvent e) {
+					if ( dummyFrameKnife == null ) {
+						final JFrame dfk = new JFrame();
+						final ImageIcon icon = createImageIcon("Icon_Knife.gif");
 						dfk.setIconImage(icon.getImage());
 						dummyFrameKnife = dfk;
 					}
-					AboutDialog ad = new AboutDialog(dummyFrameKnife);
+					final AboutDialog ad = new AboutDialog(dummyFrameKnife);
 					// top-right
 					ad.setLocation(getToolkit().getScreenSize().width
 							- ad.getSize().width, 0);
 					ad.setVisible(true);
 				}
 			});
+			mitAbout = jmi;
 		}
 		return mitAbout;
 	}
 
+	SudokuGridPanel getGridPanel() {
+		return gridPanel;
+	}
+
 	// =============================== HELPERS ================================
-	private JMenu newJMenu(String text, int mnemonic, String toolTipText) {
-		JMenu menu = new JMenu(text);
+
+	private JMenu newJMenu(final String text, final int mnemonic, final String toolTipText) {
+		final JMenu menu = new JMenu(text);
 		menu.setMnemonic(mnemonic);
 		menu.setToolTipText(toolTipText);
 		return menu;
 	}
 
-	private JMenuItem newJMenuItem(String text, int mnemonic, String toolTipText) {
-		JMenuItem item = new JMenuItem(text, mnemonic);
+	private JMenuItem newJMenuItem(final String text, final int mnemonic, final String toolTipText) {
+		final JMenuItem item = new JMenuItem(text, mnemonic);
 		item.setToolTipText(toolTipText);
 		return item;
 	}
 
-	private JCheckBoxMenuItem newJCheckBoxMenuItem(String text, int mnemonic
-			, String toolTipText, String settingName, boolean isEnabled
-			, boolean wantStandardListener, boolean defualtSetting) {
-		JCheckBoxMenuItem item = new JCheckBoxMenuItem(text);
-		item.setMnemonic(mnemonic);
-		item.setToolTipText(toolTipText);
-		item.setSelected(THE_SETTINGS.getBoolean(settingName, defualtSetting));
-		item.setEnabled(isEnabled);
+	private JCheckBoxMenuItem newJCheckBoxMenuItem(final String text
+			, final int mnemonic, final String toolTipText
+			, final String settingName, final boolean isEnabled
+			, final boolean wantStandardListener
+			, final boolean defualtSetting) {
+		final JCheckBoxMenuItem mi = new JCheckBoxMenuItem(text);
+		mi.setMnemonic(mnemonic);
+		mi.setToolTipText(toolTipText);
+		mi.setSelected(CFG.getBoolean(settingName, defualtSetting));
+		mi.setEnabled(isEnabled);
 		if ( wantStandardListener ) {
-			item.addItemListener(new ItemListener() {
+			mi.addItemListener(new ItemListener() {
 				@Override
-				public void itemStateChanged(ItemEvent e) {
-					THE_SETTINGS.setBoolean(settingName, item.isSelected());
+				public void itemStateChanged(final ItemEvent e) {
+					CFG.setBoolean(settingName, mi.isSelected());
 					repaint();
 				}
 			});
 		}
-		return item;
+		return mi;
 	}
 
-	private JButton newJButton(String text, int mnemonic, String toolTipText) {
-		JButton btn = new JButton(text);
+	private JButton newJButton(final String text, final int mnemonic, final String toolTipText) {
+		final JButton btn = new JButton(text);
 		btn.setMnemonic(mnemonic);
 		btn.setToolTipText(toolTipText);
 		return btn;
 	}
 
 	// =============================== PLUMBING ===============================
+
 	/**
 	 * Clean-up everything upon shutdown - specifically closes the
 	 * SudokuExplainer which saves the RecentFiles list.
 	 */
 	@Override
 	public void dispose() {
-		THE_SETTINGS.setBounds(SudokuFrame.this.getBounds());
+		CFG.setBounds(SudokuFrame.this.getBounds());
 		SudokuFrame.this.setVisible(false);
 		try {
-			if (engine != null) {
-				// nb: engine is final so I can't set it to null, but the stuff
-				// it closes are nullable, so calling engine.close() a second+
-				// time is a no-op.
+			if ( engine != null ) {
+				// engine is final so no setting it null, but stuff it closes
+				// is nullable so subsequent engine.close() calls is a no-op.
 				engine.close();
 			}
 		} catch (IOException ex) {
 //			engine.whinge(ex);
 		}
-		if (dummyFrameKnife != null) {
+		if ( dummyFrameKnife != null ) {
 			dummyFrameKnife.dispose();
 			dummyFrameKnife = null;
 		}
-		if (generateDialog != null) {
+		if ( generateDialog != null ) {
 			generateDialog.dispose();
 			generateDialog = null;
 		}
-		if (recentFilesDialog != null) {
+		if ( recentFilesDialog != null ) {
 			recentFilesDialog.dispose();
 			recentFilesDialog = null;
 		}
-		if (techSelectDialog != null) {
+		if ( techSelectDialog != null ) {
 			techSelectDialog.dispose();
 			techSelectDialog = null;
 		}
@@ -2198,7 +2359,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 * @return
 	 */
 	@Override
-	public boolean ask(String question) {
+	public boolean ask(final String question) {
 		return ask(question, getTitle());
 	}
 
@@ -2210,7 +2371,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 * @return
 	 */
 	@Override
-	public boolean ask(String question, String title) {
+	public boolean ask(final String question, final String title) {
 		return showConfirmDialog(this, question, title, YES_NO_OPTION)
 				== YES_OPTION;
 	}
@@ -2223,9 +2384,9 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 * @return
 	 */
 	@Override
-	public String askForString(String question, String title) {
-		question = question.replaceAll("\\n", NL); // sigh
-		return showInputDialog(this, question, title, PLAIN_MESSAGE);
+	public String askForString(final String question, final String title) {
+		final String q = question.replaceAll("\\n", NL); // sigh
+		return showInputDialog(this, q, title, PLAIN_MESSAGE);
 	}
 
 	/**
@@ -2237,7 +2398,7 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 * @return
 	 */
 	@Override
-	public String askForString(String question, String title, String defualt) {
+	public String askForString(final String question, final String title, final String defualt) {
 		return (String)showInputDialog(this, question, title, PLAIN_MESSAGE
 				, null, (Object[])null, (Object)defualt);
 	}
@@ -2251,28 +2412,30 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	 * @return the int from the user
 	 */
 	@Override
-	public int askForInt(String question, int min, int max) {
+	public int askForInt(final String question, int min, int max) {
 		assert min <= max;
-		question = question.replaceAll("\\n", NL);
-		String response = JOptionPane.showInputDialog(this, question
-			, "Please enter an integer between "+min+AND+max);
-		final String retryMessage =
-			"An integer between "+min+AND+max+" is required."+NL+question;
+		final String qstn = question.replaceAll("\\n", NL);
+		final String rtry = qstn+NL+"An integer between "+min+AND+max+" is required.";
+		final String dflt = "Please enter an integer between "+min+AND+max;
+		String rspc = JOptionPane.showInputDialog(this, qstn, dflt);
 		while ( true ) {
-			if ( response!=null && response.length()>0 ) {
-				int value;
+			if ( rspc!=null && rspc.length()>0 ) {
 				try {
-					value = Integer.parseInt(response);
+					final int value = Integer.parseInt(rspc);
 					if ( value >= min && value <= max )
 						return value;
 				} catch (NumberFormatException ex) {
 //Irrelevant so eaten
 //					StdErr.whinge(ex);
-					engine.beep();
+					beep();
 				}
 			}
-			response = JOptionPane.showInputDialog(this, retryMessage, "Try again.");
+			rspc = JOptionPane.showInputDialog(this, rtry, ""+min);
 		}
+	}
+
+	void msgBox(final String msg, final String title) {
+		showMessageDialog(this, msg, title, INFORMATION_MESSAGE);
 	}
 
 	/**
@@ -2285,41 +2448,40 @@ public final class SudokuFrame extends JFrame implements IAsker {
 	}
 
 	/**
-	 * Complain to the user: with String 'msg' and 'title'.
+	 * Complain to the user: with String $msg and $title.
 	 *
 	 * @param msg
 	 * @param title
 	 */
 	@Override
-	public void carp(String msg, String title) {
+	public void carp(final String msg, final String title) {
 		showMessageDialog(this, msg, title, ERROR_MESSAGE);
 	}
 
 	/**
-	 * Complain to the user: with Exception 'ex' and 'title'.
+	 * Complain to the user: with Exception $ex and $title.
 	 *
 	 * @param ex
 	 * @param title
 	 */
 	@Override
-	public void carp(Exception ex, String title) {
-		String message = ex.toString();
-		for (Throwable t = ex.getCause(); t != null; t = t.getCause()) {
-			message += NL + t.toString();
+	public void carp(final Exception ex, final String title) {
+		String msg = ex.toString();
+		for ( Throwable t=ex.getCause(); t!=null; t=t.getCause() ) {
+			msg += NL + t.toString();
 		}
-		showMessageDialog(this, message, title, ERROR_MESSAGE);
+		showMessageDialog(this, msg, title, ERROR_MESSAGE);
 	}
 
 	// ================================ CHEAT =================================
 
 	// this method is package visible to be called by SudokuGridPanel,
-	// which sets my text to the cheat-name in it's mouse-over event
+	// which sets my text to the cheat-name in it is mouse-over event
 	JLabel getLblCheatName() {
 		if ( lblCheatName == null ) {
 			lblCheatName = new JLabel();
 		}
 		return lblCheatName;
 	}
-	private JLabel lblCheatName;
 
 }

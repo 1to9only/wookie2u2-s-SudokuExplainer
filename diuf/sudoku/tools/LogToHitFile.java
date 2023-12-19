@@ -1,18 +1,21 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
 
+import static diuf.sudoku.Constants.SB;
 import diuf.sudoku.io.IO;
+import diuf.sudoku.io.StdErr;
 import diuf.sudoku.utils.MyInteger;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import static diuf.sudoku.utils.Frmt.TAB;
 import static diuf.sudoku.utils.Frmt.CSP;
 import static diuf.sudoku.utils.Frmt.SP;
+
 
 /**
  * Create a .hit from an a10e.log file.
@@ -24,10 +27,10 @@ public class LogToHitFile {
 		try ( BufferedReader reader = new BufferedReader(new FileReader(IO.HOME+"a10e.log")) ) {
 			int puzz, hintNum;
 			String line, cells;
-			StringBuilder sb = new StringBuilder(32);
+			StringBuilder sb = SB(32);
 			reader.readLine(); // skip the header line
 			while ( (line=reader.readLine()) != null ) {
-/*			
+/*
           1         2
 0123456789 123456789 123456789
 puzz hn ce eb cl sb hi|cells                                                                                                         |redPots                  |usedCmnExcl
@@ -48,8 +51,7 @@ puzz hn ce eb cl sb hi|cells                                                    
 			}
 			System.out.flush();
 		} catch (Exception ex) {
-			try {Thread.sleep(50);}catch(InterruptedException eaten) {}
-			ex.printStackTrace(System.err);
+			StdErr.printStackTrace(ex);
 		}
 	}
 }

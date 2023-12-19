@@ -1,34 +1,33 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.lock;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.REGION_TYPE_NAMES;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSHFT;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Frmt;
 import diuf.sudoku.utils.Html;
-import java.util.HashSet;
 import java.util.Set;
 import static diuf.sudoku.utils.Frmt.COLON_SP;
 import static diuf.sudoku.utils.Frmt.ON;
 import static diuf.sudoku.utils.Frmt.AND;
 
 /**
- * A Siamese Locking Hint is the merger of two or three Pointing or Claiming
- * Hints from one region all into one hint, so that they're displayed as one in
- * the GUI. I'm not used in LogicalSolverTester where display is irrelevant;
- * nor am I used in the BruteForce where speed is King (finding me is
- * slow).
+ * A SiameseLockingHint is a merger of two or three Pointing or Claiming Hints
+ * from one region all into one hint, so that they are displayed as one in the
+ * GUI. Im not used in LogicalSolverTester where display is irrelevant; and Im
+ * not used in BruteForce where speed is King (finding Siamese is slow).
  *
  * @author Keith Corlett 2020 June 18
  */
@@ -36,8 +35,7 @@ public final class SiameseLockingHint extends AHint  {
 
 	final boolean isPointing;
 	final int maybesToRemove;
-	final Set<Cell> cellSet;
-	final Idx idx = new Idx();
+	final Idx indices = new Idx();
 	final Pots greenPots = new Pots();
 	final ARegion base;
 	final ARegion cover;
@@ -45,21 +43,20 @@ public final class SiameseLockingHint extends AHint  {
 
 	/**
 	 * Constructs a new SiameseLockingHint.
+	 * @param grid
 	 * @param hinter the hinter which produced this hint.
 	 * @param hints the LockingHint[] which have been found to be Siamese.
 	 * @param isPointing is this a Pointing hint, or a Claiming hint.
 	 */
-	public SiameseLockingHint(AHinter hinter, LockingHint[] hints, boolean isPointing) {
-		super(hinter, new Pots());
+	public SiameseLockingHint(Grid grid, IHinter hinter, LockingHint[] hints, boolean isPointing) {
+		super(grid, hinter, new Pots());
 		this.isPointing = isPointing;
 		int maybes = 0;
-		cellSet = new HashSet<>();
-		for ( LockingHint pfh : hints ) {
-			maybes |= VSHFT[pfh.valueToRemove];
-			cellSet.addAll(pfh.cellSet);
-			idx.or(pfh.idx());
-			greenPots.upsertAll(pfh.greens);
-			reds.upsertAll(pfh.reds);
+		for ( LockingHint hint : hints ) {
+			maybes |= VSHFT[hint.valueToRemove];
+			indices.or(hint.indices);
+			greenPots.upsertAll(hint.greens);
+			reds.upsertAll(hint.reds);
 		}
 		valuesToRemove = Values.andString(maybesToRemove = maybes);
 		base = hints[0].base;
@@ -68,10 +65,10 @@ public final class SiameseLockingHint extends AHint  {
 
 	// Weird: Locking is only place we use one Tech for two hint-types.
 	@Override
-	public double getDifficulty() {
-		double d = super.getDifficulty();
+	public int getDifficulty() {
+		int d = super.getDifficulty();
 		if ( !isPointing ) // Claiming
-			d += 0.1;
+			d += 1;
 		return d;
 	}
 
@@ -83,12 +80,12 @@ public final class SiameseLockingHint extends AHint  {
 	}
 
 	@Override
-	public Set<Cell> getAquaCells(int notUsed) {
-		return cellSet;
+	public Set<Integer> getAquaBgIndices(int notUsed) {
+		return indices;
 	}
 
 	@Override
-	public Pots getGreens(int viewNum) {
+	public Pots getGreenPots(int viewNum) {
 		return greenPots;
 	}
 
@@ -111,11 +108,9 @@ public final class SiameseLockingHint extends AHint  {
 	}
 
 	@Override
-	public String toStringImpl() {
-		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(base).append(AND).append(cover)
-		  .append(ON).append(valuesToRemove)
-		  .toString();
+	public StringBuilder toStringImpl() {
+		return SB(64).append(getHintTypeName()).append(COLON_SP)
+		.append(base).append(AND).append(cover).append(ON).append(valuesToRemove);
 	}
 
 	@Override
@@ -123,15 +118,16 @@ public final class SiameseLockingHint extends AHint  {
 		// WARN: LockingHint.html is also used in LockingHint,
 		// so any arguements changes here must also happen there.
 		return Html.produce(this, "LockingHint.html"
-				, getHintTypeName()		// {0}
-				, valuesToRemove		//  1
-				, base.typeName			//  2
-				, cover.typeName		//  3
-				, reds.toString()	//  4
-				// {5} debugMessage hijacked to explain the Siamese concept.
-				, "<p>"+NL+"<u>Explanation</u>"+NL+"<p>"+NL
-				  +"Note that \"Siamese\" hints are an agglomeration of two distinct hints."+NL
-				  +"It's just nice to see them as one, and so it is, that's all."+NL
+		, getHintTypeName()				// {0}
+		, valuesToRemove				//  1
+		, REGION_TYPE_NAMES[base.rti]	//  2
+		, REGION_TYPE_NAMES[cover.rti]	//  3
+		, reds.toString()				//  4
+		// {5} debugMessage hijacked to explain the Siamese concept.
+		, "<p>"+NL+"<u>Explanation</u>"+NL+"<p>"+NL
+		  +"Note that \"Siamese\" hints are an agglomeration of two distinct hints."+NL
+		  +"It is just nice to see them as one, and so it is."+NL
 		);
 	}
+
 }

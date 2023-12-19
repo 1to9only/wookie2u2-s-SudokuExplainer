@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
 
+import static diuf.sudoku.Constants.SB;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.io.StdErr;
 import static diuf.sudoku.utils.Frmt.TAB;
@@ -19,6 +20,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
+
 
 /**
  * Sort the RecursiveSolverTester.stdout.log by solve time (the second column)
@@ -37,7 +39,7 @@ public class SortRecursiveSolverTesterLog {
 				lines[count++] = line.split(TAB, 3);
 			while ( (line=reader.readLine()) != null )
 				trailer.add(line);
-			
+
 			Arrays.sort(lines, new Comparator<String[]>() {
 				@Override
 				public int compare(String[] o1, String[] o2) {
@@ -55,11 +57,11 @@ public class SortRecursiveSolverTesterLog {
 			for ( String myLine : trailer )
 				System.out.println(myLine);
 		} catch (IOException ex) {
-			StdErr.whinge(Log.me()+" exception", ex);
+			StdErr.whinge("WARN: "+Log.me()+" exception", ex);
 		}
 	}
 
-	private static final StringBuilder SB = new StringBuilder(132);
+	private static final StringBuilder SB = SB(256);
 	private static String format(String[] a) {
 		SB.setLength(0);
 		SB.append(a[0]);

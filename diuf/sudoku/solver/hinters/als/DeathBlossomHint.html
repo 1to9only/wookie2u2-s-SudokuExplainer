@@ -4,12 +4,14 @@
 <k>Stem : {0}</k>
 ALSs : {1}
 </b></pre>
-Regardless of the correct value of the stem cell {2}, one of these Almost Locked
-Sets (ALSs) will become a Locked Set (LS), and they <b>ALL</b> preclude the same
-candidate/s.
+Regardless of the value of the stem cell <b><k>{2}</k></b>, one of the Almost
+Locked Sets (ALSs) looses a candidate, and an ALS may lose just one candidate
+(making it a Locked Set (LS)) before it becomes invalid. So all other common
+value/s are effectively "locked into" all of these ALSs, and all of these ALSs
+"see" the same common buddies.
 <p>
-Hence we can eliminate those common candidates/s without knowing which ALS will
-become an LS.
+Hence we can eliminate those "other common values" from common buddies without
+needing to know which Almost Locked Set will become a Locked Set.
 <p>
 Therefore <r>we can remove <b>{3}</b></r>.
 <p>
@@ -17,27 +19,41 @@ Therefore <r>we can remove <b>{3}</b></r>.
 <u>Explanation</u> based on https://www.sudopedia.org/wiki
 <p>
 A Death Blossom consists of a "stem" cell and an Almost Locked Set (or ALS)
-foreach of the stem cell's candidates. The ALS associated with a particular
-candidate of the stem cell has that value as one of its own candidates, and
-every cell in the ALS that has that value as a candidate sees the stem-cell.
-The ALSs can't overlap; ie no cell can belong to more than one ALS. Also, there
-must be at least one value that is a candidate of every ALS, and is not a
-candidate of the stem cell. These are the value/s (usually one) to eliminate.
+foreach of the stem cell's candidates (most stem cells are bivalue, and just
+occasionally trivalue). The ALS associated with a particular candidate of the
+stem cell has that value as one of its own candidates, and every cell in the
+ALS that has that value as a candidate sees the stem-cell. The ALSs cannot
+overlap; ie no cell can belong to more than one ALS. Also, there must be at
+least one value that is a candidate of all ALSs, and is not a candidate of the
+stem cell. These are the value/s (usually one) to eliminate.
 <p>
 Having found a Death Blossom, the value/s to eliminate (in all ALSs and not in
-the stem cell) are eliminated from each outside cell (not in any of the ALSs)
-which sees all occurrences of that value in the Death Blossom.
+the stem cell) are eliminated from each outside cell (not in any of the ALSs or
+the stem cell) which sees all occurrences of that value in all the ALSs.
+<p>
+I need to explain the statement that "an ALS may lose just one candidate
+(making it a Locked Set (LS)) before it becomes invalid". An Almost Locked Set
+that loses one candidate (ie the candidate is removed as a potential value from
+all cells in the Set) becomes a Locked Set. A Locked Set has the same number of
+candidates as cells, ergo a candidate for each cell; so if we remove one of
+those candidates from all cells in a Locked Set we have one less candidates than
+cells, hence one of the cells will be left with no value, which is just ____ed.
+So, being polite, we say that "the Sudoku is invalid".
+<p>
+When I say "Both of these ALSs "see" the same common buddies" I mean that all
+cells that maybe this "common candidate" value in both ALSs share a box, row,
+or col with each victim cell (which itself maybe this candidate value, sigh).
 <p>
 <hr>
 Implementation notes:
 <p>
 1. Sudoku Explainer handles the elimination of multiple values because there is
-nothing to stop a DeathBlossom eliminating multiple values, it's just rarer than
-rocking horse s__t. It happens just ONCE (69#top1465.d5.mt) in top1465.
+nothing to stop a DeathBlossom eliminating multiple values, but it is rare. It
+happens just once in top1465, in 69#top1465.d5.mt.
 <p>
-2. Sudoku Explainer examines stem-cells with upto <b>3</b> maybes, because DB is slow and
-top1465 doesn't contain any DB's on stem-cells with 4 values, but I'm too thick
-to prove they cannot exist, so the rest of the code handles them (caveat emptor
-on this). I guess a stickler for correctness would change that &lt; 4 to &lt; 5,
-but I'm prone to excessive efficiency, ergo I'm a lazy bastard.
+2. Sudoku Explainer examines stem-cells with upto <b>3</b> maybes, because DB
+is slow and top1465 does not contain any DB's on stem-cells with 4 values, but
+I am too thick to prove that they cannot exist, so the rest of the code should
+handle them, but caveat emptor. I guess correctness demands that we change
+that &lt; 4 to &lt; 5, but I prefer efficiency, ergo I am a lazy bastard.
 </body></html>

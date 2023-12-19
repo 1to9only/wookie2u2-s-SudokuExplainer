@@ -1,11 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
 
+import static diuf.sudoku.Constants.lieDown;
 import diuf.sudoku.io.StdErr;
 import java.awt.Component;
 import java.awt.Container;
@@ -29,7 +30,7 @@ import javax.swing.event.ListSelectionListener;
 import javax.swing.text.JTextComponent;
 
 /**
- * Utilities to improve Swings perceived speed.
+ * Utilities to provide automatic wait icons in swing.
  * <p>
  * When a long/hard action is performed as a result of a GUI action, the user
  * interface is not refreshed until the action has completed, giving the user
@@ -37,14 +38,14 @@ import javax.swing.text.JTextComponent;
  * <p>
  * This class wraps all existing action-listeners to provide:
  * <ul>
- *  <li>The actions are performed <i>after</i> swing has refreshed the GUI.
- *  <li>The busy mouse-pointer is displayed if the action hasn't finished after
- *   a small delay (currently 250 milliseconds, or a quarter of a second).
+ *  <li>Actions are performed <i>after</i> swing has refreshed the GUI.
+ *  <li>Busy mouse-pointer is displayed if the action has not finished after
+ *   a small delay (currently 250 milliseconds).
  * </ul>
  */
-public final class AutoBusy {
+final class AutoBusy {
 
-	static Window getWindow(Component cmp) {
+	static Window getWindow(final Component cmp) {
 		if (cmp == null)
 			return null;
 		if (cmp instanceof JComponent)
@@ -54,16 +55,16 @@ public final class AutoBusy {
 		return AutoBusy.getWindow(cmp.getParent());
 	}
 
-	static Window getWindow(EventObject e) {
+	static Window getWindow(final EventObject e) {
 		return AutoBusy.getWindow((Component)e.getSource());
 	}
 
-	public static void setBusy(Component cmp, boolean busy) {
+	static void setBusy(final Component cmp, final boolean busy) {
 		int cc;
 		if(busy) cc=Cursor.WAIT_CURSOR; else cc=Cursor.DEFAULT_CURSOR;
-		Cursor cmpCursor = Cursor.getPredefinedCursor(cc);
+		final Cursor cmpCursor = Cursor.getPredefinedCursor(cc);
 		if(busy) cc=Cursor.WAIT_CURSOR; else cc=Cursor.TEXT_CURSOR;
-		Cursor txtCursor = Cursor.getPredefinedCursor(cc);
+		final Cursor txtCursor = Cursor.getPredefinedCursor(cc);
 		if ( cmp == null )
 			for ( Frame frame : Frame.getFrames() )
 				AutoBusy.setCursor(frame, cmpCursor, txtCursor);
@@ -71,14 +72,14 @@ public final class AutoBusy {
 			AutoBusy.setCursor(cmp, cmpCursor, txtCursor);
 	}
 
-	private static void setCursor(Component cmp, Cursor cmpCursor, Cursor txtCursor) {
-		if (cmp instanceof TextComponent || cmp instanceof JTextComponent)
+	private static void setCursor(final Component cmp, final Cursor cmpCursor, final Cursor txtCursor) {
+		if ( cmp instanceof TextComponent || cmp instanceof JTextComponent )
 			cmp.setCursor(txtCursor);
 		else
 			cmp.setCursor(cmpCursor);
-		if (cmp instanceof Container) {
-			Component[] childs = ((Container)cmp).getComponents();
-			for (int i = 0; i < childs.length; i++)
+		if ( cmp instanceof Container ) {
+			final Component[] childs = ((Container)cmp).getComponents();
+			for ( int i=0; i<childs.length; ++i )
 				AutoBusy.setCursor(childs[i], cmpCursor, txtCursor);
 		}
 	}
@@ -92,25 +93,28 @@ public final class AutoBusy {
 	static final class BusyActionListener implements ActionListener
 			, ItemListener, ChangeListener, ListSelectionListener {
 		EventListener[] als;
-		public BusyActionListener(EventListener[] als) {
+
+		BusyActionListener(final EventListener[] als) {
 			this.als = als;
 		}
+
 		private final class DelayedBusy extends Thread {
-			Component cmp;
-			public volatile boolean isFinished = false;
-			public DelayedBusy(Component cmp) {
+			final Component cmp;
+			volatile boolean isFinished = false;
+			DelayedBusy(final Component cmp) {
 				this.setName("AutoBusy.DelayedBusy");
 				this.cmp = cmp;
 			}
 			@Override
 			public void run() {
-				try{Thread.sleep(250);}catch(InterruptedException eaten){}
+				lieDown(250);
 				synchronized(this) {
 					if (!isFinished)
 						AutoBusy.setBusy(cmp, true);
 				}
 			}
 		}
+
 		private void event(final EventObject e) {
 			final DelayedBusy db = new DelayedBusy(getWindow(e));
 			db.start();
@@ -121,8 +125,8 @@ public final class AutoBusy {
 						@Override
 						public void run() {
 							try {
-for (int i = 0; i < als.length; i++) {
-	if (!(als[i] instanceof BusyActionListener)) {
+for ( int i=0,n=als.length; i<n; ++i ) {
+	if ( !(als[i] instanceof BusyActionListener) ) {
 		if (als[i] instanceof ActionListener)
 			((ActionListener)als[i]).actionPerformed((ActionEvent)e);
 		else if (als[i] instanceof ItemListener)
@@ -133,8 +137,8 @@ for (int i = 0; i < als.length; i++) {
 			((ListSelectionListener)als[i]).valueChanged((ListSelectionEvent)e);
 	}
 }
-							} catch(Throwable ex) {
-								StdErr.whinge("BusyActionListener.event.run exception", ex);
+							} catch(Exception ex) {
+								StdErr.whinge("WARN: BusyActionListener.event.run exception", ex);
 							}
 							synchronized(db) {
 								db.isFinished = true;
@@ -147,20 +151,24 @@ for (int i = 0; i < als.length; i++) {
 				}
 			});
 		}
+
 		@Override
-		public void actionPerformed(ActionEvent e) {
+		public void actionPerformed(final ActionEvent e) {
 			event(e);
 		}
+
 		@Override
-		public void itemStateChanged(ItemEvent e) {
+		public void itemStateChanged(final ItemEvent e) {
 			event(e);
 		}
+
 		@Override
-		public void stateChanged(ChangeEvent e) {
+		public void stateChanged(final ChangeEvent e) {
 			event(e);
 		}
+
 		@Override
-		public void valueChanged(ListSelectionEvent e) {
+		public void valueChanged(final ListSelectionEvent e) {
 			event(e);
 		}
 	}
@@ -176,31 +184,30 @@ for (int i = 0; i < als.length; i++) {
 	 * </ul>
 	 * @param cmp the component whose listeners to modify
 	 */
-	public static void addFullAutoBusy(Component cmp) {
-		synchronized (cmp.getTreeLock()) {
-			if (cmp instanceof Container) {
-				Component[] childs = ((Container)cmp).getComponents();
-				for (int i = 0; i < childs.length; i++)
+	static void addFullAutoBusy(final Component cmp) {
+		synchronized ( cmp.getTreeLock() ) {
+			if ( cmp instanceof Container ) {
+				final Component[] childs = ((Container)cmp).getComponents();
+				for ( int i=0,n=childs.length; i<n; ++i )
 					addFullAutoBusy(childs[i]);
 			}
-			if (cmp instanceof AbstractButton) {
+			if ( cmp instanceof AbstractButton )
 				addAutoBusy((AbstractButton)cmp);
-			}
 		}
 	}
 
-	private static void addAutoBusy(AbstractButton button) {
-		ActionListener[] als = button.getListeners(ActionListener.class);
+	private static void addAutoBusy(final AbstractButton button) {
+		final ActionListener[] als = button.getListeners(ActionListener.class);
 		if (als.length > 0 && als[0] instanceof BusyActionListener)
 			return;
-		for (int i = 0; i < als.length; i++)
+		for ( int i=0,n=als.length; i<n; ++i )
 			button.removeActionListener(als[i]);
 		button.addActionListener(new BusyActionListener(als));
 
-		ItemListener[] ils = button.getListeners(ItemListener.class);
-		if (ils.length > 0 && ils[0] instanceof BusyActionListener)
+		final ItemListener[] ils = button.getListeners(ItemListener.class);
+		if ( ils.length>0 && ils[0] instanceof BusyActionListener )
 			return;
-		for (int i = 0; i < ils.length; i++)
+		for ( int i=0,n=ils.length; i<n; ++i )
 			button.removeItemListener(ils[i]);
 		button.addItemListener(new BusyActionListener(ils));
 	}

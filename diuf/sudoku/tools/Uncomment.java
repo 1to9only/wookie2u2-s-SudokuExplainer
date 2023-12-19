@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -12,21 +12,21 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 
+
 /**
  * Uncomment reads a .java file (which presumably contains java source-code)
  * and prints it to $file.unco.java with the comments and blank-lines removed,
- * enabling one to see the actual bloody code. sigh.
+ * enabling one to see/parse the actual code.
  * <pre>
  * Ideally this would also remove lines containing only whitespace/s
  * and then remove all repeated end-of-line sequences;
- * BUT sorry I know not how to do it, so I do it "manually" in Netbeans
- * using search and replace regular expressions
+ * but I am too lazy to workout how, so I just search & replace with RE's.
  * ^[\t ]+$, EMPTY: to remove whitespace from whitespace-only lines
  * \n\n+, \n: takes out repeated newlines (run it repeatedly until not found)
  * and if the first line is empty just take it out manually. sigh.
  * and if the last line is empty just take it out manually. sigh.
- * 
- * I wish I was smart enough to write jksh: for uniphiles on windows
+ *
+ * I wish I was smart enough to write my own cygwin.
  * </pre>
  *
  * @author Keith Corlett 2021-06-03
@@ -35,12 +35,12 @@ public class Uncomment {
 
 	// the FILENAME of the input .java file
 	private static final String HOME = "C:\\Users\\User\\Documents\\NetBeansProjects\\DiufSudoku\\";
-	private static final String DIR = HOME+"src\\diuf\\sudoku\\solver\\hinters\\als\\";
-	private static final String FILENAME = DIR+"BigWings.java";
-	
+	private static final String DIR = HOME+"src\\diuf\\sudoku\\solver\\hinters\\color\\";
+	private static final String FILENAME = DIR+"GEM.java";
+
 	public static void main(String[] args) {
 		int len; // the number of characters actually read
-		int i; // the index of the character that we're upto in chars buffer
+		int i; // the index of the character that we are upto in chars buffer
 		final char[] chars = new char[4096]; // a buffer to read
 		boolean quoted = false ; // are we currently in a quoted string?
 		boolean blockC = false; // are we currently in a block comment?
@@ -79,7 +79,7 @@ public class Uncomment {
 						}
 					}
 					// ok, write the previous character now
-					// if it's NOT commented-out, and not empty
+					// if it is NOT commented-out, and not empty
 					if ( !blockC && !lineC && p!=0
 					  // skip blank lines
 					  && !(pp=='\n' && p=='\n') )

@@ -1,15 +1,15 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
 
-import diuf.sudoku.utils.MyInteger;
 import diuf.sudoku.utils.MyLong;
 import java.io.BufferedReader;
 import java.io.FileReader;
+
 
 /**
  * Average two columns in a tab separated values file.

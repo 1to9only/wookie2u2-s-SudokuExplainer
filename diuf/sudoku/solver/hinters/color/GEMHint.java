@@ -1,21 +1,17 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
 
-import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Grid;
 import diuf.sudoku.Idx;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
-import diuf.sudoku.Tech;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.solver.hinters.Validator;
-import static diuf.sudoku.solver.hinters.Validator.prevMessage;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Html;
 import java.util.Collection;
 import java.util.Set;
@@ -37,11 +33,11 @@ public class GEMHint extends AHint  {
 	private final Collection<Link> links;
 	private final Idx[][] ons;
 	private final Idx[][] offs;
-	public GEMHint(AHinter hinter, int v, Pots reds
+	public GEMHint(Grid grid, IHinter hinter, int v, Pots reds
 			, Pots greens, Pots blues, Idx[] colorSet, String steps
 			, Collection<Link> links, Idx[][] ons, Idx[][] offs
 	) {
-		super(hinter, reds, greens, null, blues, null, null);
+		super(grid, hinter, reds, greens, null, blues, null, null);
 		this.v = v;
 		if ( colorSet != null ) {
 			this.greenCells = colorSet[0].ids();
@@ -57,17 +53,17 @@ public class GEMHint extends AHint  {
 	}
 
 	@Override
-	public Set<Cell> getAquaCells(int viewNum) {
+	public Set<Integer> getAquaBgIndices(int viewNum) {
 		return null;
 	}
 
 	@Override
-	public Set<Cell> getBlueCells(int viewNum) {
+	public Set<Integer> getBlueBgIndices(int viewNum) {
 		return blues.keySet();
 	}
 
 	@Override
-	public Set<Cell> getGreenCells(int viewNum) {
+	public Set<Integer> getGreenBgIndices(int viewNum) {
 		return greens.keySet();
 	}
 
@@ -77,12 +73,12 @@ public class GEMHint extends AHint  {
 	}
 
 	@Override
-	public Idx[][] getOns() {
+	public Idx[][] getSupers() {
 		return ons;
 	}
 
 	@Override
-	public Idx[][] getOffs() {
+	public Idx[][] getSubs() {
 		return offs;
 	}
 
@@ -91,16 +87,14 @@ public class GEMHint extends AHint  {
 	 * eliminations * 0.01.
 	 */
 	@Override
-	public double getDifficultyTotal() {
-		return getDifficulty() + (reds.totalSize() * 0.1);
+	public int getDifficultyTotal() {
+		return getDifficulty() + reds.totalSize();
 	}
 
 	@Override
-	protected String toStringImpl() {
-		return Frmt.getSB().append(getHintTypeName()).append(COLON_SP)
-		  .append(greenCells).append(CSP).append(blueCells)
-		  .append(ON).append(v)
-		  .toString();
+	protected StringBuilder toStringImpl() {
+		return SB(64).append(getHintTypeName()).append(COLON_SP)
+		.append(greenCells).append(CSP).append(blueCells).append(ON).append(v);
 	}
 
 	@Override
@@ -117,11 +111,11 @@ public class GEMHint extends AHint  {
 
 	@Override
 	protected String toHtmlImpl() {
-		StringBuilder sb = new StringBuilder(10*1024);
+		StringBuilder sb = SB(10 * 1024); // 10K
 		sb.append("<html><body>").append(NL);
 		if ( isInvalid )
 			sb.append("<h2>").append("<r>INVALID</r> ").append(getHintTypeName()).append("</h2>").append(NL)
-			  .append("<r><b>").append(prevMessage).append("</b></r><p>").append(NL);
+			  .append("<r><b>").append(debugMessage).append("</b></r><p>").append(NL);
 		else
 			sb.append("<h2>").append(htmlHintTypeName()).append("</h2>").append(NL);
 	    sb.append("There are two extended coloring sets:<pre>").append(NL)

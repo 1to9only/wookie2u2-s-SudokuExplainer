@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -23,6 +23,10 @@ import diuf.sudoku.Ass;
 public final class MyFunkyLinkedHashMap<K,V> extends MyLinkedHashMap<K,V> {
 
 	private static final long serialVersionUID = 6976230105L;
+
+	public MyFunkyLinkedHashMap() {
+		super();
+	}
 
 	public MyFunkyLinkedHashMap(int initialCapacity, float loadFactor) {
 		super(initialCapacity, loadFactor);
@@ -55,7 +59,7 @@ public final class MyFunkyLinkedHashMap<K,V> extends MyLinkedHashMap<K,V> {
 		final int hash = hash(key.hashCode());
 		final int i = hash & mask; // truncate to table length.
 		K k; // I wonder why java.util.LinkedHashMap uses Object k? I guesse
-		     // because that's all that's actually REQUIRED. I think this is
+		     // because that is all that is actually REQUIRED. I think this is
 			 // faster though, especially if K has an equals(K), but not sure.
 		for ( MyHashMap.Entry<K,V> e=table[i]; e!=null; e=e.next )
 			if ( e.hash==hash && ((k=e.key)==key || key.equals(k)) )
@@ -74,12 +78,12 @@ public final class MyFunkyLinkedHashMap<K,V> extends MyLinkedHashMap<K,V> {
 	 * WARN: This method will throw type-cast-exceptions unless the
 	 *     generic type K is-or-extends {@link diuf.sudoku.Ass}
 	 * NB: EVERY assumption has a unique hashCode, so hashCode serves as
-	 *     identity, so there's no need to call Ass.equals, which JUST
+	 *     identity, so there is no need to call Ass.equals, which JUST
 	 *     compares the two hashCodes!
 	 * NB: requires Ass.hashCode field be public rather than wear the cost
 	 *     of invoking hashCode() for each entry in this bucket.
 	 *     EVERY invocation does you damage. Extranious stackwork adds-up.
-	 * NB: This method need only be package-visible coz it's exposed by
+	 * NB: This method need only be package-visible coz it is exposed by
 	 *     {@link MyFunkyLinkedHashSet#getAss}, which is public.
 	 * </pre>
 	 *

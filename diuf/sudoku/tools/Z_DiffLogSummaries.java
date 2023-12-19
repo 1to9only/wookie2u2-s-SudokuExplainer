@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -20,7 +20,7 @@ import java.util.Set;
 
 /**
  * <p>KRC 2019-10-09 <b>This approach is superceeded by DiffLogs</b>.
- * 
+ *
  * Show the differences between two log-summaries. A diff basically tells you
  * how to turn the left-hand file into the right-hand file. So we have the
  * following 3 cases to deal with.<ul>
@@ -28,7 +28,7 @@ import java.util.Set;
  * <li>if the puzzle is in the right-hand log only then we ADD
  * <li>if the puzzle is in both logs then there is no output.
  * </ul>
- * <p>NB: I'll just do this hard bit now, and then automate producing the
+ * <p>NB: I will just do this hard bit now, and then automate producing the
  * log-summaries later (it at all). Currently I just do RE search in Notepad++
  * and then manually remove the puzzles-with-no-hints.
  * <p>Deprecated. Use the tools/DiffLogs class instead.
@@ -47,7 +47,7 @@ public class Z_DiffLogSummaries {
 	public static void main(String[] args) {
 		try {
 			// the two lists of PuzzleSummary: which is just puzzleNumber + contents
-			// with any/all puzzles which don't have any hint-lines removed.
+			// with any/all puzzles which do not have any hint-lines removed.
 			List<PuzzleSummary> leftList = PuzzleSummary.parse(IO.slurp(LEFT_FILE));
 			List<PuzzleSummary> rightList = PuzzleSummary.parse(IO.slurp(RIGHT_FILE));
 			// the two sets

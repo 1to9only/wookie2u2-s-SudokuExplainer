@@ -1,15 +1,16 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
 
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 
@@ -18,19 +19,20 @@ public final class URT2Hint extends AURTHint {
 	private final Cell[] cellsWithExtraValues;
 	private final int valueToRemove;
 
-	public URT2Hint(AHinter hinter, Cell[] loop, int loopSize, int v1, int v2
-			, Pots redPots, Cell[] cellsWithExtraValues, int valueToRemove) {
-		super(2, hinter, loop, loopSize, v1, v2, redPots);
+	public URT2Hint(Grid grid, IHinter hinter, Cell[] loop, int loopSize
+			, int v1, int v2, Pots redPots, Cell[] cellsWithExtraValues
+			, int valueToRemove) {
+		super(grid, 2, hinter, loop, loopSize, v1, v2, redPots);
 		this.cellsWithExtraValues = cellsWithExtraValues;
 		this.valueToRemove = valueToRemove;
 	}
 
 	@Override
-	public Pots getOranges(int viewNum) {
+	public Pots getOrangePots(int viewNum) {
 		if ( orangePots == null ) {
 			Pots pots = new Pots(cellsWithExtraValues.length, 1F);
 			for ( Cell c : cellsWithExtraValues )
-				pots.put(c, VSHFT[valueToRemove]); // orange
+				pots.put(c.indice, VSHFT[valueToRemove]); // orange
 			orangePots = pots;
 		}
 		return orangePots;
@@ -50,4 +52,5 @@ public final class URT2Hint extends AURTHint {
 			, reds.toString()	// 7
 		);
 	}
+
 }

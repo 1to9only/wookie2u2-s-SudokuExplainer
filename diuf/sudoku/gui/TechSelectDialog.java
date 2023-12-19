@@ -1,15 +1,13 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
 
 import diuf.sudoku.Difficulty;
 import diuf.sudoku.Tech;
-import static diuf.sudoku.Tech.BIG_WING_TECHS;
-import static diuf.sudoku.Settings.THE_SETTINGS;
 import static diuf.sudoku.utils.Frmt.SP;
 import diuf.sudoku.utils.Log;
 import java.awt.BorderLayout;
@@ -30,12 +28,21 @@ import javax.swing.JPanel;
 import javax.swing.border.TitledBorder;
 import static javax.swing.JOptionPane.WARNING_MESSAGE;
 import static javax.swing.JOptionPane.showMessageDialog;
+import static diuf.sudoku.utils.Frmt.NL;
+import java.util.HashMap;
+import java.util.Map;
+import static diuf.sudoku.Config.CFG;
+import static diuf.sudoku.Constants.beep;
+import static diuf.sudoku.gui.Event.CTRL_MASK;
+import static diuf.sudoku.gui.SudokuGridPanel.COLOR_AQUA;
+import java.awt.Rectangle;
+import java.util.LinkedList;
 
 /**
  * A JDialog for the user to de/select which Sudoku solving Tech(niques) are
  * used to find hints in the GUI.
  * <p>
- * De/selecting a Tech here sets LogicalSolver's wantedTechs which is used to
+ * De/selecting a Tech here sets LogicalSolvers wantedTechs which is used to
  * build wantedHinters, which effects LogicalSolverTester which developers use
  * to metricate the performance of the latest hinter. We value what we measure.
  */
@@ -43,8 +50,18 @@ class TechSelectDialog extends JDialog {
 
 	private static final long serialVersionUID = -7071292711961723801L;
 
+	/** Number of Techs (check-boxes) per line on this form. */
+	private static final int NUM_COLS = 7;
+
+	// Fisch: when a fish is selected, auto-unselect all other fish.
+	// Finned/Franken/Mutant * Swamp/Sword/Finned = 9 techs
+	private final EnumSet<Tech> fishyTechs = Tech.where((t)->t.isFishy && !t.name().startsWith("Kraken"));
+
+	// Krakens are separate
+	private final EnumSet<Tech> krakenTechs = Tech.where((t)->t.name().startsWith("Kraken"));
+
 	private final SudokuExplainer engine;
-	private final SudokuFrame parentFrame;
+	private final SudokuFrame frame;
 
 	private JPanel contentPanel = null;
 	private JPanel northPanel = null;
@@ -54,17 +71,28 @@ class TechSelectDialog extends JDialog {
 	private JButton btnOk = null;
 	private JPanel cancelButtonPanel = null;
 	private JButton btnCancel = null;
-	private JLabel lblExplanations = null;
 
-	// a private copy of THE_SETTINGS.wantedTechs, which I mutate, then on OK I
-	// set the whole THE_SETTINGS.wantedTechs, and save to file.
-	private EnumSet<Tech> wantedTechs;
+	// a private copy of CFG.wantedTechs, which I mutate, then on OK I
+	// set the whole CFG.wantedTechs, and save to file.
+	private EnumSet<Tech> myWantedTechs;
+	private final Map<Tech, JCheckBox> techBoxes = new HashMap<>(32, 0.75F);
 
-	/** Constructor. */
-	TechSelectDialog(SudokuFrame parent, SudokuExplainer engine) {
-		super(parent, "Solving Techniques Selection", true);
+	private final LinkedList<JCheckBox> fishTank = new LinkedList<>();
+
+	/**
+	 * Constructor.
+	 *
+	 * @param frame the SudokuFrame which is my parent in the GUI
+	 * @param engine the SudokuExplainer is a business delegate upon which I
+	 *  shall execute a method or two, specifically when the user presses OK
+	 *  I need to clear any old hints out of the GUI, and recreate the whole
+	 *  LogicalSolver, thus recreating all of the hinters. Basically, start
+	 *  again from scratch.
+	 */
+	TechSelectDialog(final SudokuFrame frame, final SudokuExplainer engine) {
+		super(frame, "Solving Techniques Selection", true);
 		this.engine = engine;
-		this.parentFrame = parent;
+		this.frame = frame;
 		initialise();
 		fillTechniques();
 	}
@@ -76,53 +104,60 @@ class TechSelectDialog extends JDialog {
 
 	// ================================ CENTER ================================
 
-	/** Number of Tech's (check-boxes) per line on this form. */
-	private static final int NUM_COLS = 6;
-
 	/**
-	 * Populate the TechSelectDialog form with a CheckBox for each Tech.
+	 * Populate the centerPanel with a CheckBox for each Tech.
 	 */
 	private void fillTechniques() {
-		wantedTechs = THE_SETTINGS.getWantedTechs();
+		final boolean isColorful = CFG.getBoolean("isTechSelectDialogColorful");
+		// getWantedTechs returns a COPY of CFG.wantedTechs, which I mutate,
+		// then my save button sets CFG.wantedTechs. Simple. Transactional.
+		myWantedTechs = CFG.getWantedTechs();
 		int count = 0;
-		for ( final Tech tech : Tech.allHinters() ) { // no validators
+		// foreach hinter tech (wanted or not)
+		for ( final Tech tech : Tech.hinters() ) { // no validators
 			boolean enable = true;
-			final JCheckBox checkBox = new JCheckBox();
-			checkBox.setText(tech.text());
-			checkBox.setToolTipText(tech.tip);
-			// "core" techs are always wanted, so the user can't unwant them.
-			// NB: You can't unwant the validators either.
+			final JCheckBox box = new JCheckBox();
+			box.setText(tech.text());
+			box.setToolTipText(tech.tip);
+			box.setActionCommand(tech.name());
+			// disable so user cannot unwant these core techs
 			switch (tech) {
 			case NakedSingle:
 			case HiddenSingle:
-				checkBox.setSelected(true);
-				checkBox.setEnabled(false);
+				box.setSelected(true);
+				box.setEnabled(false);
 				enable = false;
 			}
-			// if we're not already on a new line then
-			if ( count%NUM_COLS != 0 ) {
-				// each of these techs is the first on a line, to organise
-				// techs into (roughly) a line per Difficulty.
-				// first tech in each Difficulty on a new line "automatically".
+			if ( fishyTechs.contains(tech) )
+				fishTank.add(box);
+			if ( tech == Tech.FrankenSwampfish )
+				box.setEnabled(false); // FrankenSwampfish do not exist!
+			if ( isColorful )
+				box.setForeground(techColor(tech));
+			// map the Tech to its CheckBox, for unselect.
+			techBoxes.put(tech, box);
+			// if we are not already on a new line then
+			if ( count%NUM_COLS > 0 ) { // NEVER negative
+				// techs are organised (roughly) into a line per Difficulty.
 				if ( Difficulty.isaFloor(tech) ) {
 					// add an invisible JLabels to put tech on a new line
-					while ( count%NUM_COLS != 0 ) {
+					while ( count%NUM_COLS > 0 ) { // NEVER negative
 						centerPanel.add(new JLabel());
 						++count;
 					}
 				} else {
-					// extra individual line breaks per Tech "manually".
+					// put each of these Techs first on a line
 					switch (tech) {
-					// Difficulty no fit on line, so these just look nicer
-					case Coloring: case DeathBlossom:
-				    // Frankens and Krakens are oddly interleaved for speed
-					case FrankenSwampfish: case KrakenSwampfish:
-					   // hacked checkbox goes to the right of each of big A*E
-					case AlignedPair: case AlignedPent: case AlignedHex:
-					case AlignedSept: case AlignedOct: case AlignedNona:
-					case AlignedDec:
+					// just to look nice
+					case Coloring: //fallthrough
+				    // Finned/Franken/Mutant/Kraken are interleaved for speed
+					case FinnedSwampfish: //fallthrough
+					case FinnedSwordfish: //fallthrough
+					case FinnedJellyfish: //fallthrough
+					// Krakens go on there own line
+					case KrakenSwampfish:
 						// add an invisible JLabels to put tech on a new line
-						while ( count%NUM_COLS != 0 ) {
+						while ( count%NUM_COLS > 0 ) { // NEVER negative
 							centerPanel.add(new JLabel());
 							++count;
 						}
@@ -132,102 +167,183 @@ class TechSelectDialog extends JDialog {
 			// if this tech is to be enabled
 			if ( enable ) {
 				// set the CheckBoxs selected state
-				checkBox.setSelected(wantedTechs.contains(tech));
+				box.setSelected(myWantedTechs.contains(tech));
 				// add an action listener to the checkbox
-				checkBox.addActionListener((ActionEvent e) -> {
-					if ( checkBox.isSelected() ) {
+				box.addActionListener((ActionEvent e) -> {
+					if ( box.isSelected() ) {
 						// carp if toolTip is set and warning is true
-						if ( tech.warning && tech.tip!=null ) {
+						if ( tech.isWarning && tech.tip!=null )
 							showMessageDialog(TechSelectDialog.this
 									, tech.name()+SP+tech.tip, "WARNING"
 									, WARNING_MESSAGE);
-						}
 						// unselect any mutually exclusive techs
 						switch ( tech ) {
 							// Locking XOR LockingBasic
 							case Locking: unselect(Tech.LockingBasic); break;
 							case LockingBasic: unselect(Tech.Locking); break;
-							// BigWings XOR individual BigWing
-							case BigWings: unselect(BIG_WING_TECHS); break;
-							case WXYZ_Wing: case VWXYZ_Wing: case UVWXYZ_Wing:
-							case TUVWXYZ_Wing: case STUVWXYZ_Wing:
-								unselect(Tech.BigWings); break;
 							// Medusa3D is counter-productive with GEM.
-							case GEM: unselect(Tech.Medusa3D);
+							case GEM: unselect(Tech.Medusa3D); break;
+							// unselect all other fish //fallthrough all
+							case FinnedSwampfish: case FinnedSwordfish: case FinnedJellyfish:
+							case FrankenSwordfish: case FrankenSwampfish: case FrankenJellyfish:
+							case MutantSwampfish:  case MutantSwordfish: case MutantJellyfish:
+								// CTRL=multi-select so unselect is reduced to
+								// fish above and to the left-of this checkBox,
+								// except this checkBox itself.
+								if ( (e.getModifiers() & CTRL_MASK) != 0 )
+									unselect(aboveLeft(fishTank, box), "weed");
+								else // unselect ALL other fishy checkBoxes
+									unselect(Tech.where((t)->t!=tech, fishyTechs), "wave");
+								break;
+							case KrakenSwampfish: case KrakenSwordfish: case KrakenJellyfish:
+								unselect(Tech.where((t)->t!=tech, krakenTechs), "wewease");
+								break;
 						}
 						// Locking xor LockingBasic
-						// BigWings is prefered to individual BigWing's.
+						// BigWings is prefered to individual BigWings.
 						// then selecting any BigWing unselects BigWings.
 						// Medusa3d is counter-productive with GEM
-						wantedTechs.add(tech);
-					} else
-						wantedTechs.remove(tech);
+						myWantedTechs.add(tech);
+					} else {
+// No {TableChains, Abduction, or UnaryChain} causes invalid StaticChains
+//						// No UnaryChain causes invalid StaticChains
+//						if ( tech == Tech.UnaryChain )
+//							unselect(Tech.StaticChain);
+						myWantedTechs.remove(tech);
+					}
 				});
 			}
-			// add the checkBox to it's panel
-			centerPanel.add(checkBox);
+			// add the checkBox to it is panel
+			centerPanel.add(box);
 			++count;
-			// hacked checkbox goes to the right of each of big A*E
-			switch ( tech ) {
-			case AlignedPent: case AlignedHex: case AlignedSept:
-			case AlignedOct: case AlignedNona: case AlignedDec:
-				centerPanel.add(newHackBox(tech.degree));
-				++count;
+		}
+	}
+
+	/**
+	 * Returns an {@code EnumSet<Tech>} of the $pond that are above and to the
+	 * left-of $targetFish, excluding $targetFish itself. These fishy techs are
+	 * both smaller (Tech.degree) and simpler (fishType) than me. Fish get
+	 * bigger top-to-bottom, and more complex left-to-right. Krakens have there
+	 * own pond, at the bottom; they get bigger left-to-right.
+	 * <p>
+	 * This relies on checkBox.actionCommand being tech.name(). In fact all
+	 * checkBox.actionCommands are set to tech.name(), for me, and whatever.
+	 * My result is passed to unselect when the user CTRL-multiselects the
+	 * CheckBox of any of the 9 "grouped" complex fisherman.
+	 * <p>
+	 * Unusually, this logic is based on the position of each control on the
+	 * form, which works only because each Fisherman finds all Fish that are
+	 * smaller (above me) and simpler (to my left) than me; which are placed
+	 * above me and to my left, by design. You could base the same logic on
+	 * tech attributes, but that would require a fishType attribute, where as
+	 * my cheat uses the existing attribute: position, hence I implemented it
+	 * this way.
+	 * <p>
+	 * This technique is dependant upon the order of fishy Techs in Tech,
+	 * especially that Fish increase in complexity left-to-right, and upon each
+	 * fish-size appearing on it's own line in the TechSelectDialog. If you
+	 * MUST change any of that then create a fishType attribute in Tech, which
+	 * must be comparable, hence an int taking its value from
+	 * <pre>{@code diuf.sudoku.solver.hinters.fish.FishType.BASIC_FTYPE (IDE bug in link)}</pre>
+	 * and the existing {@link Tech#degree}, then rewrite this mess based on "the real
+	 * logic". It would have been faster to write it than explain it. Sigh.
+	 *
+	 * @param pond JCheckBoxes of all isFishy techs, excluding Krakens
+	 * @param targetFish bottom right corner of the rectangle from which all
+	 *  techs need to be unselected, myself excluded
+	 * @return a new {@code EnumSet<Tech> } of pond techs that are above and
+	 *  to the left of targetBox, excluding the targetFish, obviously. Sigh.
+	 */
+	private EnumSet<Tech> aboveLeft(final Iterable<JCheckBox> pond, final JCheckBox targetFish) {
+		Rectangle cb;
+		final EnumSet<Tech> result = EnumSet.noneOf(Tech.class);
+		final Rectangle tb = targetFish.getBounds(); // targetBounds
+		for ( JCheckBox fish : pond ) { // candidateBox
+			cb = fish.getBounds(); // candidateBounds
+			if ( cb.x<=tb.x && cb.y<=tb.y && fish!=targetFish )
+				result.add(Tech.valueOf(fish.getActionCommand()));
+		}
+		return result;
+	}
+
+//DEBUG: aboveLeft (above) not sure if he's to me left. Difficult!
+//	private String format(final LinkedList<JCheckBox> fishTank, final JCheckBox checkBox) {
+//		final StringBuilder sb = SB(64+(fishTank.size()<<5)); // * 32
+//		sb.append(checkBox.getActionCommand())
+//		.append(" ").append(checkBox.getBounds().x)
+//		.append(" ").append(checkBox.getBounds().y);
+//		for ( JCheckBox box : fishTank ) {
+//			sb.append(", ").append(box.getActionCommand())
+//			.append(" ").append(box.getBounds().x)
+//			.append(" ").append(box.getBounds().y);
+//		}
+//		return sb.toString();
+//	}
+
+	/**
+	 * Get the JCheckBox whose actionCommand==tech.name().
+	 *
+	 * @param tech to get
+	 * @return the JCheckBox that represents the given tech
+	 */
+	private JCheckBox boxFor(final Tech tech) {
+		// techBoxes is populated with every tech=>JCheckBox upon creation
+		JCheckBox box = techBoxes.get(tech);
+		// so slow search is Plan B (should never happen).
+		if ( box == null ) {
+			final String techName = tech.name();
+			for ( Component c : centerPanel.getComponents() ) {
+				if ( c instanceof JCheckBox
+				  && techName.equals(((JCheckBox)c).getActionCommand()) ) {
+					box = (JCheckBox)c;
+					techBoxes.put(tech, box);
+					break;
+				}
 			}
 		}
+		return box;
 	}
 
 	// Unselect the JCheckBox and unwant this Tech
 	// return was it found and unselected
-	private boolean unselect(Tech t) {
-		final String text = t.text();
-		JCheckBox chk;
-		for ( Component c : centerPanel.getComponents() ) {
-			if ( c instanceof JCheckBox
-			  && text.equals((chk=(JCheckBox)c).getText()) ) {
-				// chk.actionPerformed may not exist yet
-				chk.setSelected(false);
-				// so also "manually" remove the given tech
-				wantedTechs.remove(t);
-				repaint();
-				return true;
-			}
-		}
-		return false;
+	private boolean unselect(final Tech tech) {
+		final JCheckBox box = boxFor(tech);
+		if ( box == null )
+			return false;
+		// box.actionPerformed may not exist yet
+		box.setSelected(false);
+		// so also "manually" remove the given tech
+		myWantedTechs.remove(tech);
+		repaint();
+		return true;
 	}
 
 	// Unselect all of the given techs
-	private void unselect(Tech[] techs) {
-		for ( Tech tech : techs )
-			unselect(tech);
-	}
-
-	// create a new hacked JCheckBox
-	private static JCheckBox newHackBox(final int degree) {
-		final String settingName = "isa"+degree+"ehacked";
-		final JCheckBox checkBox = new JCheckBox("hacked");
-		checkBox.setSelected(THE_SETTINGS.getBoolean(settingName));
-		checkBox.addActionListener((ActionEvent e) ->
-			THE_SETTINGS.setBoolean(settingName, checkBox.isSelected())
-		);
-		return checkBox;
+	private boolean unselect(final EnumSet<Tech> techs, final String label) {
+		assert !techs.isEmpty();
+		boolean result = true;
+		for ( Tech tech : techs ) {
+			if ( !unselect(tech) ) {
+				carp(label+": unselectable: "+tech);
+				result = false;
+			}
+		}
+		return result;
 	}
 
 	private JPanel getCenterPanel() {
-		if (centerPanel == null) {
-			TitledBorder titledBorder = BorderFactory.createTitledBorder(
+		if ( centerPanel == null ) {
+			final TitledBorder tb = BorderFactory.createTitledBorder(
 				  null
-				, "Available solving techniques"
+				, "" // "Available solving techniques"
 				, TitledBorder.CENTER
 				, TitledBorder.DEFAULT_POSITION
 				, new Font("Dialog", Font.BOLD, 12)
 				, new Color(51, 51, 51)
 			);
-			titledBorder.setBorder(null);
-			titledBorder.setTitle("");
-			centerPanel = new JPanel();
-			centerPanel.setLayout(new GridLayout(0, NUM_COLS)); // rows, cols
-			centerPanel.setBorder(titledBorder);
+			final JPanel jp = new JPanel(new GridLayout(0, NUM_COLS)); // rows, cols
+			jp.setBorder(tb);
+			centerPanel = jp;
 		}
 		return centerPanel;
 	}
@@ -235,54 +351,49 @@ class TechSelectDialog extends JDialog {
 	// ================================ NORTH ================================
 
 	private JPanel getNorthPanel() {
-		if (northPanel == null) {
-			FlowLayout flowLayout = new FlowLayout();
-			flowLayout.setAlignment(FlowLayout.LEFT);
-			lblExplanations = new JLabel();
-			lblExplanations.setText("Select the solving techniques to use:");
-			lblExplanations.setToolTipText("ticked Solving techniques are used"
-			+" to solve and analyze Sudokus, unticked are not.");
-			northPanel = new JPanel();
-			northPanel.setLayout(flowLayout);
-			northPanel.add(lblExplanations, null);
+		if ( northPanel == null ) {
+			final JPanel jp = new JPanel(new FlowLayout(FlowLayout.LEFT));
+			jp.add(newLblExplanations(), null);
+			northPanel = jp;
 		}
 		return northPanel;
 	}
 
+	private JLabel newLblExplanations() {
+		final JLabel jl = new JLabel("Wanted Sudoku solving techniques:");
+		jl.setToolTipText("ticked Techs are used to solve/analyse Sudokus."
+		+ " Mouse-over is a precis. F1 for help.");
+		return jl;
+	}
 	// ================================ SOUTH ================================
 
 	private JPanel getSouthPanel() {
-		if (southPanel == null) {
-			GridLayout gridLayout = new GridLayout();
-			gridLayout.setRows(1);
-			gridLayout.setColumns(3);
-			southPanel = new JPanel();
-			southPanel.setLayout(gridLayout);
-			southPanel.add(getOkButtonPanel(), null);
-			southPanel.add(getCancelButtonPanel(), null);
+		if ( southPanel == null ) {
+			final JPanel jp = new JPanel(new GridLayout(1, 3));
+			jp.add(getOkButtonPanel(), null);
+			jp.add(getCancelButtonPanel(), null);
+			southPanel = jp;
 		}
 		return southPanel;
 	}
 
 	private JPanel getOkButtonPanel() {
-		if (okButtonPanel == null) {
-			okButtonPanel = new JPanel();
-			okButtonPanel.setLayout(new FlowLayout());
-			okButtonPanel.add(getBtnOk(), null);
+		if ( okButtonPanel == null ) {
+			final JPanel jp = new JPanel(new FlowLayout());
+			jp.add(getBtnOk(), null);
+			okButtonPanel = jp;
 		}
 		return okButtonPanel;
 	}
 
-	private JButton getBtnOk() {
-		if (btnOk == null) {
-			btnOk = new JButton();
-			btnOk.setText("OK");
-			btnOk.setMnemonic(KeyEvent.VK_O);
-			btnOk.addActionListener((java.awt.event.ActionEvent e) -> {
-				commit();
-			});
-		}
-		return btnOk;
+	// --------- btnOk ---------
+
+	// does wantedTechs.containsAny(techs)?
+	private boolean anyWanted(final Tech... techs) {
+		for ( Tech t : techs )
+			if ( myWantedTechs.contains(t) ) // O(n) is fast enough here
+				return true;
+		return false;
 	}
 
 	private void commit() {
@@ -291,72 +402,64 @@ class TechSelectDialog extends JDialog {
 		// finding solutions to puzzles that SE can solve. Just be patient!
 		// DynamicPlus misses on expert puzzles, but NestedUnary ALWAYS hints,
 		// as do all thereafter.
-		if ( !anyWanted(Tech.DynamicPlus, Tech.NestedUnary, Tech.NestedMultiple
-			, Tech.NestedDynamic, Tech.NestedPlus) && !confirmNoSafetyNet() ) {
+		if ( !anyWanted(Tech.DynamicPlus, Tech.NestedUnary, Tech.NestedStatic
+			, Tech.NestedDynamic, Tech.NestedPlus) && !confirmNoSafetyNet() )
 			return;
-		}
 		// Locking XOR LockingBasic, never neither, never both.
-		if ( wantedTechs.contains(Tech.Locking) ) {
-			wantedTechs.remove(Tech.LockingBasic);
-		} else {
-			wantedTechs.add(Tech.LockingBasic);
-		}
-		// BigWings (slower, but faster overall) XOR individual BigWing
-		if ( wantedTechs.contains(Tech.BigWings) ) {
-			for ( Tech t : BIG_WING_TECHS ) {
-				wantedTechs.remove(t);
-			}
-		} else if ( anyWanted(BIG_WING_TECHS) ) {
-			wantedTechs.remove(Tech.BigWings);
-		}
-		THE_SETTINGS.justSetWantedTechs(wantedTechs);
-		THE_SETTINGS.save();
+		if ( myWantedTechs.contains(Tech.Locking) )
+			myWantedTechs.remove(Tech.LockingBasic);
+		else
+			myWantedTechs.add(Tech.LockingBasic);
+		CFG.setAndSaveWantedTechs(myWantedTechs);
 		setVisible(false);
 		engine.clearHints();
 		Log.teeln("\nTechSelectDialog updating wanted hinters...");
 		engine.recreateLogicalSolver();
-		parentFrame.refreshDisabledRulesWarning();
+		frame.refreshDisabledRulesWarning();
 		dispose();
 	}
 
-	// does wantedTechs.containsAny(techs)?
-	private boolean anyWanted(Tech... techs) {
-		for ( Tech t : techs )
-			if ( wantedTechs.contains(t) )
-				return true;
-		return false;
+	private JButton getBtnOk() {
+		if ( btnOk == null ) {
+			final JButton jb = new JButton("OK");
+			jb.setMnemonic(KeyEvent.VK_O);
+			jb.addActionListener((ActionEvent e) -> commit());
+			btnOk = jb;
+		}
+		return btnOk;
 	}
 
-	private static final String NO_SAFETY_NET_QUESTION =
-"Select \"Dynamic Plus\" as a safety-net for \"normal\" Sudoku puzzles;"+System.lineSeparator()
-+"and/or \"Nested Unary\" as a safety-net for ALL Sudoku puzzles,"+System.lineSeparator()
-+"or alternately Nested Multiple/Dynamic/Plus. If you don't select"+System.lineSeparator()
-+"a catch-all you risk not getting solutions to Sudoku puzzles that"+System.lineSeparator()
-+"Sudoku Explainer can actually solve. Just be patient!"+System.lineSeparator()
-+"Do you wish to ignore this most excellent advice and continue anyway?";
+	// -------------------------
 
 	private boolean confirmNoSafetyNet() {
-		return parentFrame.ask(NO_SAFETY_NET_QUESTION, "Confirm no safety-net");
+		return frame.ask(
+"Select \"Dynamic Plus\" as a safety-net for \"normal\" Sudoku puzzles;"+NL
++"and/or \"Nested Unary\" as a safety-net for ALL Sudoku puzzles,"+NL
++"or alternately Nested Multiple/Dynamic/Plus. If you do not select"+NL
++"a catch-all you risk not getting solutions to Sudoku puzzles that"+NL
++"Sudoku Explainer can actually solve. Just be patient!"+NL
++"Do you wish to ignore this most excellent advice and continue anyway?"
+		, "Confirm no safety-net");
 	}
 
 	private JPanel getCancelButtonPanel() {
-		if (cancelButtonPanel == null) {
-			cancelButtonPanel = new JPanel();
-			cancelButtonPanel.setLayout(new FlowLayout());
-			cancelButtonPanel.add(getBtnCancel(), null);
+		if ( cancelButtonPanel == null ) {
+			final JPanel jp = new JPanel(new FlowLayout());
+			jp.add(getBtnCancel(), null);
+			cancelButtonPanel = jp;
 		}
 		return cancelButtonPanel;
 	}
 
 	private JButton getBtnCancel() {
-		if (btnCancel == null) {
-			btnCancel = new JButton();
-			btnCancel.setText("Cancel");
-			btnCancel.setMnemonic(KeyEvent.VK_C);
-			btnCancel.addActionListener((java.awt.event.ActionEvent e) -> {
+		if ( btnCancel == null ) {
+			final JButton bc = new JButton("Cancel");
+			bc.setMnemonic(KeyEvent.VK_C);
+			bc.addActionListener((ActionEvent e) -> {
 				TechSelectDialog.this.setVisible(false);
 				TechSelectDialog.this.dispose();
 			});
+			btnCancel = bc;
 		}
 		return btnCancel;
 	}
@@ -364,14 +467,31 @@ class TechSelectDialog extends JDialog {
 	// =============================== CONTENT ================================
 
 	private JPanel getContentPanel() {
-		if (contentPanel == null) {
-			contentPanel = new JPanel();
-			contentPanel.setLayout(new BorderLayout());
-			contentPanel.add(getNorthPanel(), BorderLayout.NORTH);
-			contentPanel.add(getCenterPanel(), BorderLayout.CENTER);
-			contentPanel.add(getSouthPanel(), BorderLayout.SOUTH);
+		if ( contentPanel == null ) {
+			final JPanel cp = new JPanel(new BorderLayout());
+			cp.add(getNorthPanel(), BorderLayout.NORTH);
+			cp.add(getCenterPanel(), BorderLayout.CENTER);
+			cp.add(getSouthPanel(), BorderLayout.SOUTH);
+			contentPanel = cp;
 		}
 		return contentPanel;
+	}
+
+	@SuppressWarnings("fallthrough")
+	private Color techColor(final Tech tech) {
+		if ( tech.tip == null )
+			return this.getForeground();
+		switch ( tech.tip.substring(0, 4) ) {
+			case "WANT": return Color.green.darker();
+			case "KEEP": return COLOR_AQUA.darker();
+			case "WANK": case "DROP": return Color.orange;
+			default: return this.getForeground();
+		}
+	}
+
+	private static void carp(String msg) {
+		Log.teeln(msg);
+		beep();
 	}
 
 }

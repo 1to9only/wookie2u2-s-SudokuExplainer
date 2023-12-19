@@ -1,19 +1,20 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
 
 import diuf.sudoku.Cells;
+import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VSIZE;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 
@@ -33,7 +34,7 @@ public final class URT3NakedSetHint extends AURTHint {
 	// values in the naked set
 	private final int nkdSetCands;
 
-	// local degree overridding AHint.degree is required because it's too damn
+	// local degree overridding AHint.degree is required because it is too damn
 	// difficult to set the inherited one to anything other than the default
 	// value, which is hardcoded in Tech. I probably should have implemented it
 	// as a method, which I could have overridden. Sigh.
@@ -41,6 +42,8 @@ public final class URT3NakedSetHint extends AURTHint {
 
 	/**
 	 * Construct a new URT3NakedSetHint.
+	 *
+	 * @param grid
 	 * @param hinter
 	 * @param loop
 	 * @param loopSize
@@ -51,13 +54,14 @@ public final class URT3NakedSetHint extends AURTHint {
 	 * @param c2
 	 * @param extraCands
 	 * @param region
-	 * @param otherCells WARNING: DO NOT STORE otherCells, IT IS CACHED!
+	 * @param otherCells WARN: DO NOT STORE otherCells, IT IS CACHED!
 	 * @param nkdSetCands
 	 */
-	public URT3NakedSetHint(AHinter hinter, Cell[] loop, int loopSize
-			, int v1, int v2, Pots redPots, Cell c1, Cell c2, int extraCands
-			, ARegion region, Cell[] otherCells, int nkdSetCands) {
-		super(3, hinter, loop, loopSize, v1, v2, redPots);
+	public URT3NakedSetHint(Grid grid, IHinter hinter, Cell[] loop
+		, int loopSize, int v1, int v2, Pots redPots, Cell c1, Cell c2
+		, int extraCands, ARegion region, Cell[] otherCells, int nkdSetCands
+	) {
+		super(grid, 3, hinter, loop, loopSize, v1, v2, redPots);
 		this.c1 = c1;
 		this.c2 = c2;
 		this.extraCands = extraCands;
@@ -68,23 +72,24 @@ public final class URT3NakedSetHint extends AURTHint {
 	}
 
 	@Override
-	public double getDifficulty() {
+	public int getDifficulty() {
 		// get my base difficulty := hinter.tech.difficulty
-		double d = super.getDifficulty();
+		int d = super.getDifficulty();
 		// Pair+=0.1, Triple+=0.2, Quad+=0.3
-		d += (degree-1) * 0.1;
+		d += (degree-1);
 		// return the result
 		return d;
 	}
 
 	@Override
-	public Pots getOranges(int viewNum) {
+	public Pots getOrangePots(int viewNum) {
 		if ( orangePots == null ) {
 			Pots pots = new Pots();
-			pots.put(c1, extraCands);
-			pots.put(c2, extraCands);
-			for ( Cell c : otherCells )
-				pots.upsert(c, nkdSetCands, false);
+			pots.put(c1.indice, extraCands);
+			pots.put(c2.indice, extraCands);
+			for ( Cell c : otherCells ) {
+				pots.upsert(c.indice, nkdSetCands, DUMMY);
+			}
 			orangePots = pots;
 		}
 		return orangePots;
@@ -108,14 +113,14 @@ public final class URT3NakedSetHint extends AURTHint {
 	 * @return does this s__t equal this other s__t?
 	 */
 	@Override
-	public boolean equals(Object o) {
-		if ( !(o instanceof URT3NakedSetHint)
-		  || !super.equals(o) )
+	public boolean equals(final Object o) {
+		if ( !(o instanceof URT3NakedSetHint) || !super.equals(o) ) {
 			return false;
+		}
 		URT3NakedSetHint other = (URT3NakedSetHint)o;
-		if ( this.region != other.region
-		  || this.degree != other.degree )
+		if ( this.region != other.region || this.degree != other.degree ) {
 			return false;
+		}
 		return this.nkdSetCands == other.nkdSetCands
 			&& Cells.arraysEquals(otherCells, other.otherCells);
 	}
@@ -133,7 +138,7 @@ public final class URT3NakedSetHint extends AURTHint {
 			, GROUP_NAMES[degree-2]			// 7
 			, Frmu.and(otherCells)			// 8
 			, Values.andString(nkdSetCands)	// 9
-			, region.id						//10
+			, region.label						//10
 			, reds.toString()				//11
 		);
 	}

@@ -1,15 +1,15 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
 
 /**
  * ResourceException is thrown by Html.actuallyLoad when either a resource 
- * (a HTML-file that's been packed into the .jar file) is not found or an
- * IOException (cause) is thrown when we're loading the little fooker.
+ * (a HTML-file that is been packed into the .jar file) is not found or an
+ * IOException (cause) is thrown when we are loading the little fooker.
  * @author Keith Corlett 2018 Mar
  */
 public final class ResourceException extends Exception {

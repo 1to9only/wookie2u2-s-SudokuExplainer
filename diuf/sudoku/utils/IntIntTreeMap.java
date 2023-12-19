@@ -8,7 +8,7 @@
 // * java.util.Map!
 // * 
 // * It is presumed that integers in this map will all be positive. The NOT_FOUND
-// * value is currently -1. If that doesn't work for you then change the value
+// * value is currently -1. If that does not work for you then change the value
 // * of NOT_FOUND, but beware that you must retest all usages of IntIntTreeMap.
 // *
 // * My requirement is for a fast red/black tree: a self balancing binary tree to
@@ -18,7 +18,7 @@
 // * The retained operations I actually use are: clear, put, get and the
 // * underlying red/black operations. size() is also retained, just in case.
 // * There is no iterator(), or keySet() or values() or anything you associate
-// * with a Map, coz I'm not a Map, just a basic red-black tree of two ints.
+// * with a Map, coz I am not a Map, just a basic red-black tree of two ints.
 // *
 // * Initially I tried "doing it the hard way" and went mad twice, over two days,
 // * trying to implement a "raw int" version of everything that TreeMap uses, and
@@ -30,7 +30,7 @@
 // */
 //public final class IntIntTreeMap {
 //
-//	/** Get returns NOT_FOUND (-1) when he can't find your s__t. */
+//	/** Get returns NOT_FOUND (-1) when he cannot find your s__t. */
 //	public static final int NOT_FOUND = -1;
 //
 //	private transient Entry root;
@@ -94,7 +94,7 @@
 //	 *         does not permit null keys
 //	 */
 //	public int put(int key, int value) {
-//		assert value != NOT_FOUND; // don't add my NOT_FOUND value!
+//		assert value != NOT_FOUND; // do not add my NOT_FOUND value!
 //		Entry t = root;
 //		if (t == null) {
 //			root = new Entry(key, value, null);
@@ -124,7 +124,7 @@
 //	}
 //
 //	/**
-//	 * Removes the mapping for the given key from this map and returns it's
+//	 * Removes the mapping for the given key from this map and returns it is
 //	 * value, else returns NOT_FOUND (-1).
 //	 *
 //	 * @param  key key for which mapping should be removed

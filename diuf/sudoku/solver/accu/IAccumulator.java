@@ -1,12 +1,11 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.accu;
 
-import diuf.sudoku.Grid;
 import diuf.sudoku.solver.AHint;
 import java.util.Collection;
 import java.util.Comparator;
@@ -14,19 +13,18 @@ import java.util.List;
 
 /**
  * The common interface of an Accumulator of Hints.
- *
- * <p>There are multiple implementations:<ul>
- * <li>The GUI (getAllHints) uses a
- * (Default)HintsAccumulator to find all available hints.
- * <li>The GUI (getFirstHint) and the LogicalSolverTester use a
- * SingleHintsAccumulator to find the first available hint.
- * <li>The BruteForce uses a SingleHintsAccumulator; and also a funky
- * HintsApplicumulator which applies each hint as soon as it's found allowing
- * it's hinters (HiddenSingle, NakedSingle, Locking, NakedPair,
- * HiddenPair, and Swampfish) to solve in one pass through the grid.
- * <li>The chainers use there own local ChainersHintsAccumulator to translate
- * hints into the underlying parent Ass's (assumptions) which must be true in
- * order for this hint to become applicable.
+ * <p>
+ * There are multiple implementations:<ul>
+ * <li>The GUIs getAllHints uses a (Default){@link HintsAccumulator} to find
+ * all available hints.
+ * <li>The GUIs getFirstHint and LogicalSolverTester use a
+ * {@link SingleHintsAccumulator} to find the first available hint.
+ * <li>BruteForce uses a {@link SingleHintsAccumulator}, and a
+ * {@link HintsApplicumulator} to apply each hint as soon as its found,
+ * allowing its hinters (HiddenSingle, NakedSingle, Locking, NakedPair,
+ * HiddenPair, and Swampfish) to solve the puzzle in one pass.
+ * <li>The chainers use a ChainersHintsAccumulator that translates hints into
+ * Asses (assumptions).
  * </ul>
  */
 public interface IAccumulator {
@@ -37,35 +35,32 @@ public interface IAccumulator {
 	 * NOTE this method is part of the interface in preference to everyone
 	 * testing if the given accu is an instanceOf SingleHintsAccumulator, which
 	 * is type dependant: so what if we create another type of Accumulator that
-	 * also wants to find a single hint? So here's a method: plain and simple.
+	 * also wants to find a single hint? So here is a method that does that.
 	 *
-	 * @return true if I'm a SingleHintsAccumulator (or another-future-type of
+	 * @return true if I am a SingleHintsAccumulator (or another-future-type of
 	 * IAccumulator that only wants to find a single hint), else false.
 	 */
 	public boolean isSingle();
 
 	/**
-	 * Add a hint to this accumulator. Null hints are ignored, as are those
-	 * that do not haveWorth, as are duplicates.
+	 * Add a hint to this accumulator, ignoring null.
 	 *
-	 * @param hint the hint to add
+	 * @param hint the hint to add, null is simply ignored
 	 * @return true only if the caller should exit immediately, false if it
 	 * should continue its search for more hints. So the SingleHintsAccumulator
 	 * returns true (unless the hint is null) to find the first hint, and the
 	 * (Default)HintsAccumulator always returns false, to find all possible
 	 * hints in the given grid.
 	 * <p>
-	 * Note that no exceptions are thrown (any longer) because just raising and
-	 * catching an exception is expensive. Binning the HintException spead up
-	 * LogicalSolverTester top1465.d5.mt by nearly 10 seconds, and let's see you
-	 * get that sort of gain out of ANY of my single hinters, without porting it
-	 * to CSharp (et al). Makes you think doesn't it. We often loose the woods
-	 * in all those damn trees.
+	 * Exceptions may be thrown, but raising and catching an Exception is an
+	 * expensive operation, so we try to avoid it. ValidatingHintsAccumulator
+	 * breaks this rule, but its not used in the production IDE or routinely in
+	 * the batch, only during development, where performance does not matter.
 	 */
 	public boolean add(AHint hint);
 
 	/**
-	 * Add all hints to this accumulator. Hints are just added. There is ZERO
+	 * Add all hints to this accumulator. Hints are just added, there is ZERO
 	 * validation.
 	 *
 	 * @param hints the hint to add
@@ -78,7 +73,7 @@ public interface IAccumulator {
 	 *
 	 * @return The next hint, once only.
 	 */
-	public AHint getHint();
+	public AHint poll();
 
 	/**
 	 * Peek is borrowed from the Queue interface. It returns the first hint
@@ -101,7 +96,7 @@ public interface IAccumulator {
 	 * Does this IAccumulator contain any hint/s?
 	 *
 	 * @return Does this accumulator contain a first/next hint. This method is
-	 * the opposite of the JAPI standard isEmpty, because it's what we almost
+	 * the opposite of the JAPI standard isEmpty, because it is what we almost
 	 * always actually want to know. Ergo: isEmpty is/was a mistake, IMHO, not
 	 * that it really matters.
 	 */
@@ -117,7 +112,7 @@ public interface IAccumulator {
 	 * single instance in a loop (not have to create a new instance for each
 	 * iteration). Clears the hints-list if any.
 	 */
-	public void reset();
+	public void clear();
 
 	/**
 	 * Sorts the hints in a HintsAccumulator by scored descending.
@@ -131,6 +126,10 @@ public interface IAccumulator {
 	 */
 	public void removeAll(List<AHint> toRemove);
 
-	public List<? extends AHint> getList();
+	public List<AHint> getList();
+
+	public default boolean isChaining() {
+		return false;
+	}
 
 }

@@ -1,24 +1,23 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
 
-import static diuf.sudoku.test.TestHelpers.*;
+import static diuf.sudoku.test.TestHelp.*;
 import static diuf.sudoku.utils.Frmt.NL;
 import diuf.sudoku.utils.MyFile;
 import diuf.sudoku.utils.ParseException;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.util.List;
 
 
 /**
- * InputFileSorter main sorts an input LogicalSolverTester logFile by 
+ * InputFileSorter main sorts an input LogicalSolverTester logFile by
  * solve-time descending, to output a new MagicTour (.mt) file.
  * <p>
  * @author Keith Corlett, August 2019
@@ -47,7 +46,7 @@ public final class InputFileSorter {
 			final String inputLogFilename = args[0];
 			MyFile.mustExist(inputLogFilename);
 
-			// open outputFile BEFORE attempting to parse input, in case it's
+			// open outputFile BEFORE attempting to parse input, in case it is
 			// locked by a certain text-editor. I miss EditPlus! Sigh.
 			final String outputFilename = args[1];
 			final File outputFile = new File(outputFilename);
@@ -55,7 +54,7 @@ public final class InputFileSorter {
 				List<Line> lines = slurp(inputLogFilename);
 				// parse the logFile lines to get the execution times.
 				// nb: if parse errors we remove the error line AND all lines
-				//     there-after from lines; then sort and output lines; so 
+				//     there-after from lines; then sort and output lines; so
 				//     that we end-up with whatever was parsed before the error
 				try {
 					for ( Line line : lines )
@@ -65,12 +64,12 @@ public final class InputFileSorter {
 						lines.remove(ex.lineNumber);
 				}
 				// sort by solveNanos DESCENDING
-				lines.sort(Line.BY_TIME_DESC);		
+				lines.sort(Line.BY_TIME_DESC);
 				// print the output file = the mt lines by execution time descending
 				for ( Line line : lines )
 					out.println(line.puzzle);
 			}
-		} catch (Throwable t) {
+		} catch (Exception t) {
 			t.printStackTrace(System.out);
 		}
 	}

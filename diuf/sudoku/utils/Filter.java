@@ -1,13 +1,13 @@
 ///*
 // * Project: Sudoku Explainer
 // * Copyright (C) 2006-2007 Nicolas Juillerat
-// * Copyright (C) 2013-2022 Keith Corlett
+// * Copyright (C) 2013-2023 Keith Corlett
 // * Available under the terms of the Lesser General Public License (LGPL)
 // */
 //package diuf.sudoku.utils;
 //
 //import diuf.sudoku.utils.Counter;
-//import diuf.sudoku.Settings;
+//import diuf.sudoku.Config;
 //
 //
 ///**
@@ -19,22 +19,22 @@
 // * A*E's which use Filter's should also declare that they implement IFilterer,
 // * which is actually implemented in AAlignedSetExclusionBase with methods that
 // * just delegate back to me (the Filter). Look at the methods in IFilterer and
-// * the below static methods. It's pretty straight forward; and if you need to
+// * the below static methods. It is pretty straight forward; and if you need to
 // * do "something more interesting" than you can override these default
 // * implementations... like a MaxFilter just for instance.
 // * <p>
 // * Note that IFilterer extends java.io.Closeable, and LogicalSolverTester closes
 // * its LogicalSolver which closes each Closeable IHinter, which closes each of
-// * it's "filters" (by default), so that each Min and Max is stored in registry.
+// * it is "filters" (by default), so that each Min and Max is stored in registry.
 // * <p>
 // * Aligned8Exclusion_1C is currently the only place that Filter is used.
 // * @author Keith Corlett
 // * <pre>
 // * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// *				     @Deprecated: IT'S TOO BLOODY SLOW!
+// *				     @Deprecated: IT IS TOO BLOODY SLOW!
 // * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // * Using Filter's in Aligned8Exclusion_1C and _2H proved to be too slow.
-// * It's faster with the previous: use a Counter and a manual-filter and just
+// * It is faster with the previous: use a Counter and a manual-filter and just
 // * comment them in/out as required. The only gain is the IReporter interface.
 // * Not to mention how much of pain in the ass it is to set them all up and
 // * buggerise around with the registry, and backup and restore, and OH GOD!!!
@@ -59,7 +59,7 @@
 //		}
 //	}
 //
-//	// Counter already has min & max, so they're f for Filter.
+//	// Counter already has min & max, so they are f for Filter.
 //	private int fMin, fMax;
 //
 //	/**
@@ -70,8 +70,8 @@
 //	public Filter(String name) {
 //		super(name);
 //		// getInt reads the raw Preferences
-//		fMin = THE_SETTINGS.getInt(name+"Min", Integer.MIN_VALUE);
-//		fMax = THE_SETTINGS.getInt(name+"Max", Integer.MAX_VALUE);
+//		fMin = CFG.getInt(name+"Min", Integer.MIN_VALUE);
+//		fMax = CFG.getInt(name+"Max", Integer.MAX_VALUE);
 //	}
 //
 //	/**

@@ -1,135 +1,172 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.utils.IntVisitor;
+import diuf.sudoku.utils.IntQueue;
+import static diuf.sudoku.utils.IntQueue.QEMPTY;
+import java.util.Iterator;
+import java.util.Set;
 
 /**
- * IdxI is an IdxL that is immutable post construction. Any attempt to mutate
- * an IdxI throws an ImmutableException, so just don't, final; but note that I
- * am NOT final, so you can Adams D. me if you really really want to.
+ * IdxI is an immutable Idx, ie an IdxL that is immutable post construction.
+ * Any attempt to mutate an IdxI throws an ImmutableException, so just dont.
+ * Note IdxI is final, so you cant AdamsD me, but only if you really want to.
  * <p>
  * The problem with people who think they know everything is that they think
- * that they know everything. It's that thinking that is the problem, not the
- * people. Solve the problem. Retain the people. Solving the people gets hard
+ * that they know everything. Its that thinking that is the problem, not the
+ * people. Solve the problem, retain the people. Solving the people gets ugly
  * fast. Our government is currently undertaking a major effort to solve the
- * people. It will not work. Advertising can't cure corona, or global warming.
- * But then, I'm not psychopath or a psychophant, hence I despise governance.
+ * people. It will not work. Advertising wont cure Corona, or global warming.
+ * But then, I am not a psychopath, or a psychophant, so I respect governance.
+ * I dont like it, but I do respect it. Our government however can go and get
+ * ____ed. They have no respect for anything, let alone governance.
+ * <p>
  * Intelligent people can and will always make-up there own minds, about
- * <u>EVERY</u>thing, quite insightfully, employing high-quality extrapolation
+ * <u>every</u>thing, quite insightfully, employing high-quality extrapolation
  * of quality information. Trying to con the bastards is fundamentally useless,
- * and just makes you look like a Prize ___ing Dick! Take it or leave it. So no
- * I am most certainly NOT final, coz my missus didn't say so. Sigh.
+ * and just makes you look like a ___ing Dick! Take it or leave it. So no, I am
+ * most certainly NOT finally final, coz my missus cant say I have to be. Sigh.
  *
  * @author Keith Corlett 2020-07-13
  */
-public class IdxI extends IdxL implements Cloneable {
+public class IdxI extends IdxL {
 
 	private static final long serialVersionUID = 4598934L;
 
-	/** THE Immutable empty Idx. */
-	public static final IdxI EMPTY = new IdxI();
+	/** THE empty immutable Idx. */
+	public static final IdxI EMPTY = new IdxI() {
+		private static final long serialVersionUID = 2222222598713497292L;
+		@Override
+		public boolean isEmpty() { return true; }
+		@Override
+		public boolean any() { return false; }
+		@Override
+		public int size() { return 0; }
+		@Override
+		public Iterator<Integer> iterator() {
+			return new Iterator<Integer>() {
+				@Override
+				public boolean hasNext() { return false; }
+				@Override
+				public Integer next() { return QEMPTY; }
+			};
+		}
+		@Override
+		public IntQueue indices() {
+			return new IntQueue() {
+				@Override
+				public int poll() { return QEMPTY; }
+			};
+		}
+	};
 
+	// SPEED: switch tested substantially faster than array
 	public static IdxI of(final int[] indices) {
-		int a0=0,a1=0,a2=0;
+		long m0=0L; int m1=0;
 		for ( int i : indices )
-			if ( i < BITS_PER_ELEMENT )
-				a0 |= IDX_SHFT[i];
-			else if ( i < BITS_TWO_ELEMENTS )
-				a1 |= IDX_SHFT[i-BITS_PER_ELEMENT];
+			if ( i < FIFTY_FOUR )
+				m0 |= MASKED81[i];
 			else
-				a2 |= IDX_SHFT[i-BITS_TWO_ELEMENTS];
-		return new IdxI(a0, a1, a2);
+				m1 |= MASKED[i];
+		return new IdxI(m0, m1, indices.length);
 	}
 
 	public static IdxI of(final Cell[] cells) {
 		return of(cells, cells.length);
 	}
 
-	public static IdxI of(Cell[] cells, int n) {
-		int i, a0=0,a1=0,a2=0;
+	public static IdxI of(final Cell[] cells, final int n) {
+		long m0=0L; int i, m1=0;
 		for ( int j=0; j<n; ++j )
-			if ( (i=cells[j].i) < BITS_PER_ELEMENT )
-				a0 |= IDX_SHFT[i];
-			else if ( i < BITS_TWO_ELEMENTS )
-				a1 |= IDX_SHFT[i-BITS_PER_ELEMENT];
+			if ( (i=cells[j].indice) < FIFTY_FOUR )
+				m0 |= MASKED81[i];
 			else
-				a2 |= IDX_SHFT[i-BITS_TWO_ELEMENTS];
-		return new IdxI(a0, a1, a2);
+				m1 |= MASKED[i];
+		return new IdxI(m0, m1, n);
 	}
 
 	public static IdxI of(final Cell[] cells, final int[] indexes) {
-		int i, a0=0,a1=0,a2=0;
+		long m0=0L; int i, m1=0;
 		for ( int j : indexes )
-			if ( (i=cells[j].i) < BITS_PER_ELEMENT )
-				a0 |= IDX_SHFT[i];
-			else if ( i < BITS_TWO_ELEMENTS )
-				a1 |= IDX_SHFT[i-BITS_PER_ELEMENT];
+			if ( (i=cells[j].indice) < FIFTY_FOUR )
+				m0 |= MASKED81[i];
 			else
-				a2 |= IDX_SHFT[i-BITS_TWO_ELEMENTS];
-		return new IdxI(a0, a1, a2);
+				m1 |= MASKED[i];
+		return new IdxI(m0, m1, indexes.length);
 	}
 
 	public static IdxI of(final Cell[] cells, final int[] indexes, final int n) {
-		int a0=0,a1=0,a2=0;
-		for ( int i,j=0; j<n; ++j )
-			if ( (i=cells[indexes[j]].i) < BITS_PER_ELEMENT )
-				a0 |= IDX_SHFT[i];
-			else if ( i < BITS_TWO_ELEMENTS )
-				a1 |= IDX_SHFT[i-BITS_PER_ELEMENT];
+		long m0=0L; int i, m1=0;
+		for ( int j=0; j<n; ++j )
+			if ( (i=cells[indexes[j]].indice) < FIFTY_FOUR )
+				m0 |= MASKED81[i];
 			else
-				a2 |= IDX_SHFT[i-BITS_TWO_ELEMENTS];
-		return new IdxI(a0, a1, a2);
+				m1 |= MASKED[i];
+		return new IdxI(m0, m1, n);
 	}
+
+	public static IdxI of(final int[] indices, final int[] indexes, final int n) {
+		long m0=0L; int i, m1=0;
+		for ( int j=0; j<n; ++j )
+			if ( (i=indices[indexes[j]]) < FIFTY_FOUR )
+				m0 |= MASKED81[i];
+			else
+				m1 |= MASKED[i];
+		return new IdxI(m0, m1, n);
+	}
+
+	// immutable: cache everything!
+	private int size = -1;
+	private boolean anySet;
+	private boolean any;
+	private String ts;
 
 	public IdxI() {
 		super();
 	}
 
-	public IdxI(boolean isFull) {
+	public IdxI(final boolean isFull) {
 		super(isFull);
 	}
 
-	public IdxI(Idx src) {
+	public IdxI(final Idx src) {
 		super(src);
 	}
 
-	public IdxI(int a0, int a1, int a2) {
-		super(a0, a1, a2);
+	public IdxI(final long m0, final int m1) {
+		super(m0, m1);
 	}
 
-	// IdxI is immutable, so you can cache everything.
+	public IdxI(final long m0, final int m1, final int n) {
+		super(m0, m1);
+		size = n;
+	}
+
+	public IdxI(final Set<Integer> indices) {
+		super(indices);
+	}
+
+	// IdxI is immutable: cache everything!
 	@Override
 	public int size() {
-		if ( size == 0 )
+		if ( size < 0 )
 			size = super.size();
 		return size;
 	}
-	private int size;
 
+	// IdxI is immutable: cache everything!
 	@Override
-	public void forEach(IntVisitor v) {
-		super.forEach(v);
-	}
-
-	/**
-	 * You clone an IdxI BECAUSE it's permanently locked, so my clone method,
-	 * rather oddly, returns an IdxL that is unlocked (NOT an IdxI, which is
-	 * as pointless as cloning an Integer with the value 1. Sigh).
-	 * <p>
-	 * I add nothing: behaviour doesn't change if I don't exist. I'm retained
-	 * to explicitly document the pernicious bogee flavour of reality.
-	 *
-	 * @return an IdxL that is unlocked.
-	 */
-	@Override
-	public IdxL clone() {
-		return super.clone();
+	public boolean any() {
+		if ( !anySet ) {
+			anySet = true;
+			any = size() > 0;
+		}
+		return any;
 	}
 
 	/**
@@ -141,9 +178,23 @@ public class IdxI extends IdxL implements Cloneable {
 		throw new ImmutableException();
 	}
 
+	/**
+	 * Throws an ImmutableException, always. This is an IdxI. You should NOT be
+	 * attempting to unlock me. You have probably muddled-up your Idxs.
+	 *
+	 * @return never: always throws
+	 */
+	@Override
+	public IdxI unlock() {
+		throw new ImmutableException();
+	}
+
 	@Override
 	public String toString() {
-		return "IdxI: "+super.toString();
+		if ( ts == null ) {
+			ts = super.toString();
+		}
+		return ts;
 	}
 
 	private static class ImmutableException extends RuntimeException {

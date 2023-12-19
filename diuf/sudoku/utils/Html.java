@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -9,7 +9,7 @@ package diuf.sudoku.utils;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.Ass;
 import static diuf.sudoku.utils.Frmt.NL;
-import static diuf.sudoku.utils.MyStrings.replaceAll;
+import static diuf.sudoku.utils.MyStrings.SB;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,14 +57,13 @@ public final class Html {
 		final InputStream input = cc.getResourceAsStream(filename);
 		if ( input == null )
 			throw new ResourceException("Resource not found: "+key);
-		try ( BufferedReader reader = new BufferedReader(
-				new InputStreamReader(input, "ISO-8859-1")) ) {
+		try ( BufferedReader reader = new BufferedReader(new InputStreamReader(input, "ISO-8859-1")) ) {
 			char[] buffer = new char[BUFFER_SIZE];
-			StringBuilder mysb = new StringBuilder(BUFFER_SIZE); // grows
+			StringBuilder mysb = SB(BUFFER_SIZE); // grows
 			int n;
 			while ( (n=reader.read(buffer)) > 0 )
 				mysb.append(buffer, 0, n);
-			return mysb.toString(); // copies char array but like whatever!
+			return mysb.toString(); // copies char array. Piece of s__t!
 		} catch (IOException ex) {
 			throw new ResourceException("Resource load error: "+key+NL
 					+ex.toString(), ex);
@@ -81,8 +80,8 @@ public final class Html {
 	 * @param filename the name of the HTML file
 	 * @param wantColor true if you want any custom color tags in the HTML
 	 *  replaced with standard HTML font tags.
-	 * @param wantCache true if it's OK to store the HTML content in a HashMap
-	 *  instead of repeatedly extracting him out of the jar-file. If you're
+	 * @param wantCache true if it is OK to store the HTML content in a HashMap
+	 *  instead of repeatedly extracting him out of the jar-file. If you are
 	 *  running low on RAM then the latter might actually be faster overall.
 	 * @return the content of the HTML file
 	 * @throws diuf.sudoku.utils.ResourceException
@@ -103,7 +102,7 @@ public final class Html {
 		if ( wantColor )
 			html = colorIn(html);
 		if ( wantCache )
-			CACHE.put(key, html); // it's up to you to be consistent with colors
+			CACHE.put(key, html); // it is up to you to be consistent with colors
 		return html;
 	}
 
@@ -113,12 +112,12 @@ public final class Html {
 	 * @param filename the name of the HTML file
 	 * @param wantColor if true then colorIn is called BEFORE the document is
 	 * cached to replace custom color tags with regular HTML color tags.
-	 * You must be careful with this. Some documents can't be cached because
+	 * You must be careful with this. Some documents cannot be cached because
 	 * there coloring-in varies each time. A*E hint comes to mind. Or maybe we
-	 * should cache the document BEFORE it's colored-in and just run color
+	 * should cache the document BEFORE it is colored-in and just run color
 	 * in every time load is requested, and maybe have a switch to cache before
-	 * or after coloring-in... but FMS that's all getting complicated fast, and
-	 * I don't like complications. I like s__t that works. And there one goes
+	 * or after coloring-in... but FMS that is all getting complicated fast, and
+	 * I do not like complications. I like s__t that works. And there one goes
 	 * now out of my ass at about forty! Yearrrs, thank you Ritchie. More gopher
 	 * Cleetus? Cockroaches? Ten bucks on the octopus! Yep, McFly's ____ed!
 	 * Looks like Darwin laughs last. But who knew, right?
@@ -178,7 +177,7 @@ public final class Html {
 
 	private static final String[] COLORS = new String[] { // startIndex
 	 "<r>", "<font color=\"red\">"     ,"</r>", "</font>" //  0 red candidate
-	,"<c>", "<font color=\"#00AAAA\">" ,"</c>", "</font>" //  4 cyan cell bg
+	,"<c>", "<font color=\"#00AAAA\">" ,"</c>", "</font>" //  4 cyan
 	,"<g>", "<font color=\"#009000\">" ,"</g>", "</font>" //  8 green candi
 	,"<o>", "<font color=\"#E08000\">" ,"</o>", "</font>" // 12 orange candi
 	,"<k>", "<font color=\"#FF00FF\">" ,"</k>", "</font>" // 16 pink candi
@@ -202,7 +201,7 @@ public final class Html {
 	 */
 	public static String colorIn(String html) {
 		for ( int i=0, N=COLORS.length; i<N; i+=2 )
-			html = replaceAll(html, COLORS[i], COLORS[i+1]);
+			html = MyStrings.replaceAll(html, COLORS[i], COLORS[i+1]);
 		return html;
 	}
 
@@ -237,8 +236,7 @@ public final class Html {
 		if ( args.length > MAX_ARGS )
 			throw new IllegalArgumentException("args.length="+args.length+" > "+MAX_ARGS);
 		for ( int i=0,n=args.length; i<n; ++i )
-			// NB: String.valueOf(s) is a null-safe version of s.toString()
-			html = replaceAll(html, PATTERNS[i], String.valueOf(args[i]));
+			html = MyStrings.replaceAll(html, PATTERNS[i], String.valueOf(args[i]));
 		return html;
 	}
 

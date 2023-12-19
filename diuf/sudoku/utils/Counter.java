@@ -1,12 +1,12 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
 
-import static diuf.sudoku.Settings.THE_SETTINGS;
+import static diuf.sudoku.Config.CFG;
 
 
 /**
@@ -26,7 +26,7 @@ import static diuf.sudoku.Settings.THE_SETTINGS;
 public class Counter {
 
 	public enum Type {
-		  Both // the default, so it's the first (0) entry
+		  Both // the default, so it is the first (0) entry
 		, Pass
 		, MinMax
 	}
@@ -46,9 +46,9 @@ public class Counter {
 
 	/**
 	 * Constructs a new Counter.
-	 * @param name use all lower case names if you're saving hitMin and hitMax
+	 * @param name use all lower case names if you are saving hitMin and hitMax
 	 * to the registry, which inserts a slash in the name before /Each /Capital
-	 * /Letter. At least it's not a bloody backslash.
+	 * /Letter. At least it is not a bloody backslash.
 	 */
 	public Counter(String name) {
 		this(name, Type.Both);
@@ -56,9 +56,9 @@ public class Counter {
 
 	/**
 	 * Constructs a new Counter.
-	 * @param name use all lower case names if you're saving hitMin and hitMax
+	 * @param name use all lower case names if you are saving hitMin and hitMax
 	 * to the registry, which inserts a slash in the name before /Each /Capital
-	 * /Letter. At least it's not a bloody backslash.
+	 * /Letter. At least it is not a bloody backslash.
 	 * @param type one of the Counter.Type enums
 	 */
 	public Counter(String name, Type type) {
@@ -74,7 +74,7 @@ public class Counter {
 		}
 	}
 
-// The cnt field is now public to be incremented externally, coz that's faster.
+// The cnt field is now public to be incremented externally, coz that is faster.
 // 4.2 BILLION method calls take a wee while.
 //	@Deprecated
 //	public void count() {
@@ -96,7 +96,7 @@ public class Counter {
 		if(val>dMax) dMax=val;
 	}
 
-// The pass field is now public to be incremented externally, coz that's faster.
+// The pass field is now public to be incremented externally, coz that is faster.
 // 4.2 BILLION method calls take a wee while.
 //  @Deprecated
 //	public void pass() {
@@ -121,7 +121,7 @@ public class Counter {
 		if ( isDouble ) {
 			Log.teef("// %s min=%,5.3f/%,5.3f max=%,5.3f/%,5.3f pass %,d of %,d skip %,d = %4.2f%%\n"
 					// nb: the -/+ 0.001 avoids rounding error cutting off the min/max.
-					// remember that it's already done (now), and don't do it again.
+					// remember that it is already done (now), and do not do it again.
 					, name, hitDMin-0.001, dMin, hitDMax+0.001, dMax, pass, cnt, skip, Log.pct(skip,cnt));
 		} else {
 			Log.teef("// %s min=%,d/%,d max=%,d/%,d pass %,d of %,d skip %,d = %4.2f%%\n"
@@ -147,10 +147,10 @@ public class Counter {
 
 	public void save() {
 		// if hit() was called and hitMax was set to a valid value.
-		// I really don't want crap values to be stored in the registry.
+		// I really do not want crap values to be stored in the registry.
 		if ( hitCnt>0  && hitMax!=0 ) {
-			THE_SETTINGS.putInt(name+"Min", hitMin);
-			THE_SETTINGS.putInt(name+"Max", hitMax);
+			CFG.putInt(name+"Min", hitMin);
+			CFG.putInt(name+"Max", hitMax);
 		}
 	}
 

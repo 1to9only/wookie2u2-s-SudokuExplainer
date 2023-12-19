@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -9,17 +9,16 @@ package diuf.sudoku.utils;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import diuf.sudoku.solver.hinters.align.CellSet;
 import diuf.sudoku.Ass;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import static diuf.sudoku.Grid.VALUE_CEILING;
-import static diuf.sudoku.Pots.EMPTY;
+import diuf.sudoku.Indexes;
 import static diuf.sudoku.utils.Frmt.NL;
 import java.io.PrintStream;
-import java.util.HashMap;
 import java.util.List;
 import static diuf.sudoku.utils.Frmt.CSP;
 import static diuf.sudoku.utils.Frmt.SP2;
+import static diuf.sudoku.utils.MyStrings.SB;
 
 /**
  * Static utility methods for debugging.
@@ -33,8 +32,20 @@ public final class Debug {
 	/** @see Log.out, DevNull.out */
 	public static PrintStream out = System.out;
 
-	// switch this on/off to activate/deactive your breakpoints. It's faster!
+	// switch this on/off to activate/deactive your breakpoints. It is faster!
 	public static boolean isOn;
+
+	// These method names look odd because they are intended to look odd!
+	// use unindented Debug.PRINT calls; not static import.
+	public static void PRINT(final String msg) { System.out.print(msg); }
+	public static void PRINTLN() { System.out.println(); }
+	public static void PRINTLN(final String msg) { System.out.println(msg); }
+	public static void PRINTLN(final Object o) { System.out.println(String.valueOf(o)); }
+	public static void FORMAT(final String frmt, final Object... args) { System.out.format(frmt, args); }
+	public static void TABS(final int n) {
+		for ( int i=0; i<n; ++i )
+			System.out.print("\t");
+	}
 
 	/**
 	 * breakpoint() is a no-op for conditional breakpoints. The JIT compiler
@@ -42,23 +53,23 @@ public final class Debug {
 	 * <p>
 	 * Netbeans (which I use) and other IDE's now have conditional breakpoints,
 	 * but this "in code" technique is still MUCH faster, so I still use it
-	 * routinely; that way I don't have to think "How many times does this run"
+	 * routinely; that way I do not have to think "How many times does this run"
 	 * when creating a conditional breakpoint that otherwise is never tripped
 	 * because Netbeans conditional breakpoint implementation is so slow it
 	 * takes for ever to reach the break-point condition.
 	 * <p>
-	 * I expected lambdas to expedite CBP's, but they haven't. yet Sigh.
+	 * I expected lambdas to expedite CBP's, but they have not. yet Sigh.
 	 */
-	public static void breakpoint() { // @check No usages (Find Usages)
+	public static void breakpoint() { // true @check false: Find Usages
 	}
 
-	private static boolean startsWith(String s, String[] targets) {
+	private static boolean startsWith(final String s, final String[] targets) {
 		for ( String t : targets )
 			if ( s.startsWith(t) )
 				return true;
 		return false;
 	}
-	public static boolean isCaller(int n, String... targets) {
+	public static boolean isCaller(final int n, final String... targets) {
 		int i = 0;
 		for ( StackTraceElement e : Thread.currentThread().getStackTrace() )
 			if ( startsWith(e.toString(), targets) )
@@ -67,7 +78,7 @@ public final class Debug {
 				return false;
 		return false;
 	}
-	public static StackTraceElement getCaller(int n, String... targets) {
+	public static StackTraceElement getCaller(final int n, final String... targets) {
 		int i = 0;
 		for ( StackTraceElement e : Thread.currentThread().getStackTrace() )
 			if ( startsWith(e.toString(), targets) )
@@ -77,34 +88,35 @@ public final class Debug {
 		return null;
 	}
 
-	public static boolean isClassNameInTheCallStack(int n, String className) {
+	public static boolean isClassNameInTheCallStack(final int n, final String className) {
 		return isInTheCallStack(n+1, (e)->e.getClassName().contains(className));
 	}
 
-	public static boolean isMethodNameInTheCallStack(int n, String methodName) {
+	public static boolean isMethodNameInTheCallStack(final int n, final String methodName) {
 		return isInTheCallStack(n+1, (e)->e.getMethodName().contains(methodName));
 	}
 
 	// s.containsAny(targets)
-	private static boolean containsAny(String s, String[] targets) {
+	private static boolean containsAny(final String s, final String[] targets) {
 		for ( String t : targets )
 			if ( s.contains(t) )
 				return true;
 		return false;
 	}
-	public static boolean isMethodNameInTheCallStack(int n, String[] methodNames) {
+	public static boolean isMethodNameInTheCallStack(final int n, final String[] methodNames) {
 		return isInTheCallStack(n+1, (e)->containsAny(e.getMethodName(), methodNames));
 	}
 
-	public static boolean isInTheCallStack(int n, String className, String methodName) {
+	public static boolean isInTheCallStack(final int n, final String className, final String methodName) {
 		return isInTheCallStack(n+1, (e) -> e.getClassName().equals(className)
 									   && e.getMethodName().equals(methodName));
 	}
 
-	public static boolean isInTheCallStack(int n, IFilter<StackTraceElement> filter) {
+	public static boolean isInTheCallStack(final int n, final IFilter<StackTraceElement> filter) {
 		final StackTraceElement[] stack = Thread.currentThread().getStackTrace();
 		// 3 is getStackTrace, me, and my caller, which are all unsearchable
-		for ( int i=3,N=MyMath.min(n, stack.length); i<N; ++i )
+		final int N = MyMath.min(n, stack.length);
+		for ( int i=3; i<N; ++i )
 			if ( filter.accept(stack[i]) )
 				return true;
 		return false;
@@ -118,7 +130,7 @@ public final class Debug {
 	 * @param grid the Grid to get regions from.
 	 * @return a {@code new ARegion[]} of these regions in the given grid
 	 */
-	public static ARegion[] parse(String csv, Grid grid) {
+	public static ARegion[] parse(final String csv, final Grid grid) {
 		if ( csv==null || csv.length()<5 )
 			return new ARegion[0]; // an empty array
 		String[] ids = csv.split(CSP);
@@ -134,7 +146,7 @@ public final class Debug {
 	 * @param regions An array of regions to be marked as used.
 	 * @return a new boolean[27] with the given regions true.
 	 */
-	public static boolean[] usedRegions(ARegion[] regions) {
+	public static boolean[] usedRegions(final ARegion[] regions) {
 		boolean[] result = new boolean[27];
 		for ( ARegion r : regions )
 			result[r.index] = true;
@@ -143,19 +155,19 @@ public final class Debug {
 
 	/**
 	 * Creates a new boolean[27] and sets the given regions to true.
-	 * @param regions CSV of regions that're used: "box 2, row 3, col H"
+	 * @param regions CSV of regions that are used: "box 2, row 3, col H"
 	 * @param grid the Grid to get regions from.
 	 * @return a new boolean[27] with the given regions true.
 	 */
-	public static boolean[] usedRegions(String regions, Grid grid) {
+	public static boolean[] usedRegions(final String regions, final Grid grid) {
 		return usedRegions(parse(regions, grid));
 	}
 
-	public static void println(String message) {
+	public static void println(final String message) {
 		if(IS_ON) out.println(message);
 	}
 
-	public static void println(Object object) {
+	public static void println(final Object object) {
 		if(IS_ON) out.println(object);
 	}
 
@@ -163,68 +175,77 @@ public final class Debug {
 		if(IS_ON) out.println();
 	}
 
-	public static void print(String message) {
+	public static void print(final String message) {
 		if(IS_ON) out.print(message);
 	}
 
-	public static void format(String format, Object... args) {
+	public static void format(final String format, final Object... args) {
 		if(IS_ON) out.format(format, args);
 	}
 
-	// used internally so doesn't respect IS_ON
-	public static void indentf(char c, int depth, String fmt, Object... args) {
+	// used internally so does not respect IS_ON
+	public static void indentf(final char c, final int depth, final String fmt, final Object... args) {
 		out.print(Debug.repeat(c, depth));
 		out.format(fmt, args);
 	}
 
-	public static String indent(int howMany) {
+	public static String indent(final int howMany) {
 		return repeat(' ', howMany);
 	}
 
-	public static String repeat(char c, int howMany) {
-		final StringBuilder sb = new StringBuilder(howMany);
+	public static String repeat(final char c, final int howMany) {
+		final StringBuilder sb = SB(howMany);
 		for ( int i=0; i<howMany; ++i )
 			sb.append(c);
 		return sb.toString();
 	}
 
-	public static void dumpAncestors(List<Ass> targets) {
+	private static final String SPACES = SP2; // "  "
+
+	public static void dumpAncestors(final List<Ass> targets) {
 		out.println();
 		out.println("dumpAncestors:");
 		for ( Ass a : targets )
-			recursivelyDumpAncestors(SP2, a);
+			recursivelyDumpAncestors(SPACES, a);
 		out.println();
 	}
-	public static void recursivelyDumpAncestors(String spaces, Ass a) {
-		out.format("%s%s cause=%s; explanation=%s nestedChain=%s\n"
-				, spaces, a, a.cause, a.explanation, a.nestedChain);
-		spaces += SP2;
-		if ( a.hasParents() ) // fast enough for Debug
+	public static void recursivelyDumpAncestors(final String spaces, final Ass a) {
+		// output one line per ass, with only present optional attributes
+		out.format("%s%s", spaces, a);
+		if(a.cause!=null) out.format(" cause=%s", a.cause);
+		if(a.explanation!=null) out.format(" explanation=%s", a.explanation);
+		if(a.nestedChain!=null) out.format(" nestedChain=%s", a.nestedChain);
+		out.println();
+		if ( a.parents != null ) {
+			final String moreSpaces = spaces + SPACES;
 			for ( Ass p : a.parents )
-				recursivelyDumpAncestors(spaces, p);
+				recursivelyDumpAncestors(moreSpaces, p);
+		}
 	}
 
-	// for debugging only DON'T DELETE UNLESS YOU REALLY REALLY WANT TO
-	public static boolean dumpValuesEffectsAncestors(IAssSet[] valueEffects, Ass target) {
+	// for debugging only DO NOT DELETE UNLESS YOU REALLY REALLY WANT TO
+	public static boolean dumpValuesEffectsAncestors(final IAssSet[] valueEffects, final Ass target) {
 		out.format("VALUE EFFECTS target=%s:%s", target, NL);
 		for ( int v=1; v<VALUE_CEILING; ++v ) {
 			if ( valueEffects[v] != null ) {
 				out.println("VALUE: "+v);
-				if ( valueEffects[v].isEmpty() )
-					out.println(EMPTY);
-				else {
+				if ( valueEffects[v].isEmpty() ) {
+					out.println("#empty#");
+				} else {
 					boolean found = false;
 					for ( Ass a : valueEffects[v] ) {
 						if ( a == target ) { // we want THE instance
 							found = true;
-							recursivelyDumpAncestors(SP2, a);
+							recursivelyDumpAncestors(SPACES, a);
 							break;
 						}
 					}
-					if ( !found ) { // NB: it'll probably go through here
-						out.println("target "+target+" not found in:");
-						for ( Ass a : valueEffects[v] )
-							recursivelyDumpAncestors(SP2, a);
+					if ( !found ) { // NB: it will probably go through here
+						out.println("target="+target+" not found in:");
+						for ( Ass a : valueEffects[v] ) {
+							recursivelyDumpAncestors(SPACES, a);
+						}
+						out.println("target="+target+" not found.");
 					}
 				}
 				out.println();
@@ -234,49 +255,24 @@ public final class Debug {
 		return false; // used by assert
 	}
 
-	public static boolean atleastOneIsTrue(boolean... bools) {
+	public static boolean atleastOneIsTrue(final boolean... bools) {
 		for ( boolean bool : bools )
 			if ( bool )
 				return true;
 		return false;
 	}
 
-	/**
-	 * diff two Exclusion Maps. Left is before removals. Right is after.
-	 * Dumps the elements that are only in the left map to stdout.
-	 * @param lMap left {@code HashMap<Cell, CellSet>}
-	 * @param rMap right {@code HashMap<Cell, CellSet>}
-	 */
-	public static void diff(HashMap<Cell, CellSet> lMap, HashMap<Cell, CellSet> rMap) {
-		out.format("HDR: WAS=%s\n", Frmu.excludersMap(lMap));
-		out.format("HDR: NOW=%s\n", Frmu.excludersMap(rMap));
-		for ( Cell key : lMap.keySet() ) { // leftKey
-			CellSet lv = lMap.get(key);
-			CellSet rv = rMap.get(key);
-			if ( rv == null )
-				out.format("ALL: %-12s WAS=%d:[%s]\n", key, lv.size(),Frmu.csv(lv));
-			else if ( lv.size() == rv.size() )
-				out.format("NON: %-12s BOT=%d:[%s]\n", key, lv.size(),Frmu.csv(lv));
-			else {
-				CellSet xv = new CellSet(lv);  xv.removeAll(rv);
-				out.format("SOM: %-12s WAS=%d:[%s]\n", key, lv.size(),Frmu.csv(lv));
-				out.format("               - NOW=%d:[%s]\n", rv.size(),Frmu.csv(rv));
-				out.format("               = GON=%d:[%s]\n", xv.size(),Frmu.csv(xv));
-			}
-		}
-	}
-
 	// =========== these just here coz I think they might be useful ===========
 
 	// prints the maybes to stdout in standard format
- 	public static void dumpAllCellsMaybes(Grid grid) {
+ 	public static void dumpAllCellsMaybes(final Grid grid) {
  		try {
  			boolean isFirst = true;
  			for ( Cell cell : grid.cells ) {
  				if ( isFirst )
  					isFirst = false;
  				else
- 					out.print(cell.i%REGION_SIZE==0 ? "\n" : ", ");
+ 					out.print(cell.indice%REGION_SIZE==0 ? "\n" : ", ");
  				out.format("%-6s", cell.maybes);
  			}
  			out.println();
@@ -295,14 +291,14 @@ public final class Debug {
 // 2468  , 478   , -     , 2678  , 68    , -     , 278   , 2347  , -
 
   	// prints all cells maybes to stdout in binary format.
- 	public static void dumpAllCellsMaybesBinary(Grid grid) {
+ 	public static void dumpAllCellsMaybesBinary(final Grid grid) {
  		try {
  			boolean isFirst = true;
  			for ( Cell cell : grid.cells ) {
  				if ( isFirst )
  					isFirst = false;
  				else
- 					out.print(cell.i%REGION_SIZE==0 ? "\n" : ", ");
+ 					out.print(cell.indice%REGION_SIZE==0 ? "\n" : ", ");
  				String s = Integer.toBinaryString(cell.maybes);
  				indentf('0', REGION_SIZE-s.length(), "%s", s);
  			}
@@ -322,12 +318,12 @@ public final class Debug {
 // 010101010, 011001000, 000000000, 011100010, 010100000, 000000000, 011000010, 001001110, 000000000
 
   	// prints all the regions indexes of all values to stdout in standard format
- 	public static void dumpRegionsIndexesOfAllValues(Grid grid) {
+ 	public static void dumpRegionsIndexesOfAllValues(final Grid grid) {
  		try {
  			for ( int v=1; v<VALUE_CEILING; ++v ) {
  				out.println("value = "+v);
  				for ( ARegion r : grid.regions ) {
-					out.format(" %s=%-8s", r.id, r.ridx[v]);
+					out.format(" %s=%s:{%s}", r.label, r.numPlaces[v], Indexes.toString(r.places[v]));
  					if ( (r.index+1)%REGION_SIZE == 0 )
  						out.println();
  				}
@@ -385,13 +381,13 @@ public final class Debug {
 // */
 
   	// prints all the regions indexes of all values to stdout in binary-format
- 	public static void dumpRegionsIndexesOfAllValuesBinary(Grid grid) {
+ 	public static void dumpRegionsIndexesOfAllValuesBinary(final Grid grid) {
  		try {
  			for ( int v=1; v<VALUE_CEILING; ++v ) {
  				out.println("value = "+v);
  				for ( ARegion r : grid.regions ) {
- 					out.format("    %s=", r.id);
- 					String s = Integer.toBinaryString(r.ridx[v].bits);
+ 					out.format("    %s=", r.label);
+ 					String s = Integer.toBinaryString(r.places[v]);
  					indentf('0', REGION_SIZE-s.length(), "%s", s);
  					if ( (r.index+1)%REGION_SIZE == 0 )
  						out.println();
@@ -447,11 +443,27 @@ public final class Debug {
 //     row 1=000111010    row 2=000101001    row 3=000000000    row 4=000110011    row 5=000000000    row 6=000011011    row 7=000000000    row 8=000101000    row 9=000000000
 //     col A=000101010    col B=000101001    col C=000000000    col D=010100011    col E=000101001    col F=010001011    col G=000000000    col H=000000000    col I=000000000
 
-	public static void dump(String label, Iterable<?> c) {
+	public static void dump(final String label, final Iterable<?> c) {
 		System.out.println(label);
 		for ( Object e : c )
 			System.out.println(e);
 	}
+
+	public static String cellIds(int[] indices) {
+		if ( indices==null || indices.length==0 )
+			return "";
+		StringBuilder sb = SB(indices.length<<2);
+		sb.append(Grid.CELL_IDS[indices[0]]);
+		for ( int i=1; i<indices.length; ++i )
+			sb.append(", ").append(Grid.CELL_IDS[indices[i]]);
+		return sb.toString();
+	}
+
+	public static boolean tautology() {
+		++count;
+		return true;
+	}
+	public static long count;
 
 	private Debug() {} // never used
 }

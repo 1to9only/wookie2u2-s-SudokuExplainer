@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  *
  * Sudoku Explainer is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by the
@@ -22,10 +22,10 @@ import static diuf.sudoku.utils.Frmt.EQUALS;
 import static diuf.sudoku.utils.Frmt.SP;
 
 /**
+ * LongLongHashMap exists specifically to NOT wrap long primitives, for speed!
+ * <p>
  * LongLongHashMap is a {@code java.util.HashMap<long, long>} which supports
  * just the operations I actually use: put and get, and clean.
- * <p>
- * LongLongHashMap's only reason for existence is speed!
  *
  * @author Keith Corlett 2020-12-07 created based on IntIntHashMap
  */
@@ -34,10 +34,10 @@ public class LongLongHashMap {
 	public static final int NOT_FOUND = -1;
 
 	protected static class Entry {
-		long key;
+		final long key;
 		long value;
 		Entry next;
-		public Entry(long key, long value, Entry next) {
+		public Entry(final long key, final long value, final Entry next) {
 			this.key = key;
 			this.value = value;
 			this.next = next;
@@ -47,10 +47,10 @@ public class LongLongHashMap {
 			return ""+key+EQUALS+value+SP+next; // No loops!
 		}
 		@Override
-		public boolean equals(Object o) {
+		public boolean equals(final Object o) {
 			return o instanceof Entry && equals((Entry)o);
 		}
-		public boolean equals(Entry o) {
+		public boolean equals(final Entry o) {
 			return key==o.key && value==o.value;
 		}
 		@Override
@@ -64,43 +64,44 @@ public class LongLongHashMap {
 
 	/** table.length - 1. */
 	protected final int mask; // table.length - 1;
-	
+
 	/** readonly to public or I kill you. */
 	public int size;
 
 	/**
-	 * Construct a new LongLongHashMap to hold upto capacity entries. Unlike
-	 * java.util.HashMap this data-structure does NOT grow, so getting the
-	 * capacity right really matters! To do that guess, run it, and max the
-	 * size() before you clear the map in cleanUp after each puzzle. That tells
-	 * you ABOUT how big to make it: choose a power-of-2 around there, it may
-	 * be a bit more or less; so long as it's in the vacinity you'll be OK.
-	 * Then test it for speed; I was surprised to find that under-sized maps
-	 * are faster overall, coz I guess I must be running out of RAM. Too many
-	 * fat-bastards like this: buying CPU-time with profligate RAM usage.
+	 * Construct a new LongLongHashMap to hold upto capacity entries.
+	 * Unlike java.util.HashMap this data-structure does NOT grow, so
+	 * getting the capacity right really matters! To do that, run it,
+	 * and max the size() before you clear the map in cleanUp after
+	 * each puzzle. That tells you ABOUT how big to make it: choose a
+	 * power-of-2 around there, it may be a bit more or less; so long
+	 * as it is in the vacinity you will be OK.
+	 * Then test it for speed; I was surprised to find that under-sized
+	 * maps are faster overall. Too many fat-bastards like me I guess.
 	 *
 	 * @param capacity is always a power of 2 so 16, 32, 64, 128, 256, 512,
 	 *  1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288
+	 *  beyond that you are on your own; and if it's under 16 just use array
 	 */
-	public LongLongHashMap(int capacity) {
+	public LongLongHashMap(final int capacity) {
 		table = new Entry[capacity];
 		mask = capacity - 1;
 		size = 0;
 	}
 
 	// convert a long key into an int, for the table index
-	protected static int hash(long key) {
+	protected static int hash(final long key) {
 		return (int)(key ^ (key >> 32));
 	}
 
-	public long get(long key) {
+	public long get(final long key) {
 		for ( Entry e=table[(hash(key)) & mask]; e!=null; e=e.next )
 			if ( e.key == key )
 				return e.value; // found
 		return NOT_FOUND;
 	}
 
-	public long put(long key, long value) {
+	public long put(final long key, final long value) {
 		// if you add NOT_FOUND as a key bad things happen; but what you can do
 		// is change IntIntMap.NOT_FOUND to Integer.MIN_VALUE, or whatever.
 		assert key != NOT_FOUND;

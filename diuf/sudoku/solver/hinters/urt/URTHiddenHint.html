@@ -24,13 +24,13 @@ As explained above, one of the four rectangle corners must not be one of the
 two rectangle values in order to avoid the second possible solution trap, so
 we eliminate one of these values ASAP.<ul>
 <li>If we presume that D ({7}) is {2} then both B ({6}) and C ({8}) will be
- {1} because they're the only remaining places for {1} in B-D and C-D; leaving
+ {1} because they are the only remaining places for {1} in B-D and C-D; leaving
  the bivalue A ({5}) with {2}.
 <li>But this solution is invalid because we can swap values {2} and {1} to
  produce a <i>second possible solution</i>.
 <li>Hence we can remove {2} from D ({7}).
 <li>"B-D" means a region common to both cell B and cell D, which has these two
- cells as it's only possible locations for this value (and likewise "C-D").
+ cells as it is only possible locations for this value (and likewise "C-D").
 </ul>
 <hr>
 <p>

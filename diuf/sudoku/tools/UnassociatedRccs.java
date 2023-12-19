@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -9,6 +9,7 @@ package diuf.sudoku.tools;
 import diuf.sudoku.io.IO;
 import diuf.sudoku.utils.MyInteger;
 import java.io.File;
+
 
 /**
  * Sort a file lexicographically ASCENDING.

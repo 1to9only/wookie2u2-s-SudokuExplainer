@@ -1,13 +1,13 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
- * This class is based on HoDoKu's Als class, by Bernhard Hobiger. Kudos to
+ * This class is based on HoDoKu Als class, by Bernhard Hobiger. Kudos to
  * hobiwan. Mistakes are mine.
  *
- * Here's hobiwans standard licence statement:
+ * Here is hobiwans standard licence statement:
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -31,166 +31,203 @@
 package diuf.sudoku.solver.hinters.als;
 // Almost Locked Set from HoDoKu
 
-import diuf.sudoku.Grid;
-import diuf.sudoku.Grid.ARegion;
+import static diuf.sudoku.Constants.SB;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Idx;
 import diuf.sudoku.IdxI;
-import diuf.sudoku.Values;
 import static diuf.sudoku.Values.VALUESES;
 import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+import static diuf.sudoku.Grid.BUDS_M0;
+import static diuf.sudoku.Grid.BUDS_M1;
+import static diuf.sudoku.Grid.GRID_SIZE;
+import static diuf.sudoku.Grid.MAYBES_STR;
+import static diuf.sudoku.Grid.REGION_LABELS;
+import static diuf.sudoku.Values.VSHFT;
+import static diuf.sudoku.utils.Frmt.*;
 
 /**
- * An Almost Locked Set (ALS) is N cells in a region with N+1 maybes between
- * them. The largest possible ALS is one smaller than the number of empty cells
- * in the region.
+ * Als (Almost Locked Set) is N cells in a region with N+1 maybes between
+ * them. The largest possible ALS is one smaller than the number of empty
+ * cells in the region.
  * <p>
- * ALSs of size one (a cell with two maybes) are ignored. Cells that take part
- * in an actual Locked Set (a Naked Pair/Triple/etc) in this region are ignored
- * by ALS_Chain.
+ * ALSs of size one (a cell with two maybes) are ignored. Cells that take
+ * part in an actual Locked Set (a Naked Pair/Triple/etc) in this region
+ * are ignored by ALS_Chain.
  * <p>
- * Sudoku Explainer picked-up Almost Locked Sets from HoDoKu.
+ * I stole Als (Almost Locked Set) from HoDoKu. Kudos to hobiwan. Mistakes
+ * are all mine. ~KRC.
  * <pre>
- * KRC 2021-10-05 Formerly Als held cell references, now it exposes JUST an idx
- * which can be used to get the cells in this Almost Locked Set, but does not
- * hold the cell-references itself, so that any Als-based-fields don't hold the
- * whole Grid in memory.
+ * KRC 2021-10-05 Formerly Als held cell references, now it exposes JUST
+ * indices/indexes which can be used to get the cells/regions from a
+ * grid, but Als does not hold the cell/regions itself, so any hangovers
+ * do not hold the whole Grid in memory.
  * </pre>
  *
  * @author hobiwan. Adapted to SE by KRC.
  */
 public class Als {
 
-//public static long cfTook;
-//private static long start;
-
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ static stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	/**
+	 * THE empty boolean[GRID_SIZE].
+	 */
+	private static final boolean[] EMPTY_BOOLEANS = new boolean[GRID_SIZE];
 
 	public static ArrayList<Als> list(Als[] alss) {
 		final ArrayList<Als> result = new ArrayList<>(alss.length);
-		for ( Als a : alss )
+		for ( Als a : alss ) {
 			result.add(a);
+		}
 		return result;
 	}
 
-	static List<ARegion> regionsList(Als[] alss) {
-		final List<ARegion> result = new LinkedList<>();
-		for ( Als a : alss )
-			if ( a != null ) // sometimes the last als in alss is null
-				result.add(a.region);
-		return result;
+	public static StringBuilder regionLabels(final Als[] alss, final String sep) {
+		final StringBuilder sb = SB(alss.length<<3); // * 8
+		boolean first = true;
+		for ( Als als : alss ) {
+			if ( als != null ) {
+				if(first) first = false; else sb.append(sep);
+				sb.append(REGION_LABELS[als.regionIndex]);
+			}
+		}
+		return sb;
 	}
-
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~~ instance stuff ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-	/** The indices of the cells in this ALS. */
-	public final IdxI idx;
-	/** this.idx exploded, which is always nice when you're purloining it. */
-	public final int i0,i1,i2;
-
-	/** A bitset of the combined potential values of the cells in this ALS.
-	 * Invariant: VSIZE[maybes] == idx.size() + 1; // or it's NOT an ALS. */
-	public final int maybes;
-
-	/** The region which contains this ALS. */
-	public final ARegion region;
-
-	/** The indices of cells in this ALS which maybe each value of this ALS. */
-	public final Idx[] vs = new Idx[VALUE_CEILING];
-
-	/** Buddies of all cells in this ALS which maybe each ALS value, excluding
-	 * the ALS cells themselves, ergo buds of vs. Other values remain null. */
-	public final Idx[] vBuds = new Idx[VALUE_CEILING];
-
-	/** Buddies of all cells in this ALS which maybe each ALS value, plus the
-	 * ALS cells themselves, ergo vBuds plus vs. Other values remain null. */
-	public final Idx[] vAll = new Idx[VALUE_CEILING];
-
-	/** The aggregate of the buddies of all values in this ALS. */
-	public Idx buds;
-
-	/** The index of this Als in the alss array. sigh. */
-	public int index;
-
-	// prevent toString errors during construction
-	private final boolean initialised;
 
 	/**
-	 * Constructs a new ALS.
+	 * Get CSV of $alss array.
+	 * <p>
+	 * In Als (not Frmt) because the last als in alss may be null,
+	 * and I cause a generics type-erasure collision in Frmt.
+	 *
+	 * @param alss
+	 * @return a comma separated values string.
+	 */
+	public static String csv(Als[] alss) {
+		if ( alss == null )
+			return "null";
+		final StringBuilder sb = SB(alss.length<<4); // * 16 is just a guess
+		boolean first = true;
+		for ( Als als : alss ) {
+			if ( als != null ) { // the last als in alss may be null. sigh.
+				if(first) first=false; else sb.append(CSP);
+				sb.append(als.toString());
+			}
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * The indices of the cells in this ALS.
+	 */
+	public final IdxI idx;
+
+	/**
+	 * An exploded Idx of cells in this ALS, to avert double-dereferencing.
+	 */
+	public final long m0;
+	public final int  m1;
+
+	/**
+	 * A bitset of the combined potential values of the cells in this ALS.
+	 * Invariant: VSIZE[maybes] == idx.size() + 1; // or it is NOT an ALS.
+	 */
+	public final int maybes;
+
+	/**
+	 * Each of these maybes has vBuds, that is all cells in this als which
+	 * maybe any of these values have some common buddies
+	 */
+	int buddedMaybes;
+
+	/**
+	 * The index in Grid.regions of the region which contains this ALS.
+	 */
+	public final int regionIndex;
+
+	/**
+	 * The indices of cells in this ALS which maybe each value of this ALS.
+	 */
+	public final IdxI[] vs = new IdxI[VALUE_CEILING];
+
+	/**
+	 * vs plus vBuds: cells in this ALS that maybe each ALS value (vs),
+	 * plus (|) common buddies of those cells which maybe v (vBuds),
+	 * ergo all the vs, or vAll.
+	 */
+	public final IdxI[] vAll = new IdxI[VALUE_CEILING];
+
+	/**
+	 * Buddies common to every cell in this ALS which maybe each ALS value,
+	 * excluding the ALS cells themselves, ergo buds of vs, or vBuds.
+	 */
+	public final IdxI[] vBuds = new IdxI[VALUE_CEILING];
+
+	/**
+	 * vBuds Exploded into an array of 81 booleans, for speed in
+	 * {@link diuf.sudoku.solver.hinters.als.DeathBlossom#recurse } (et al).
+	 */
+	public final boolean[][] vBudsB = new boolean[VALUE_CEILING][]; //GRID_SIZE
+
+	/**
+	 * The aggregate of the buddies of all values in this ALS.
+	 */
+	public final IdxI buds;
+
+	/**
+	 * Constructs a new Almost Locked Set (ALS), being a set of cells that has
+	 * one more combined maybes than there are cells.
 	 * <p>
 	 * <b>WARN:</b> You must call {@link #computeFields} before use!
 	 * <b>WARN:</b> I store the passed Idx, so YOU create a new one to pass
 	 * to me if you are (as is usual) reusing an Idx.
 	 *
-	 * @param idx
-	 * @param maybes
-	 * @param region
+	 * @param idxs grid.idxs of the grid we search
+	 * @param me indices of the cells in this ALS
+	 * @param maybes the combined maybes of cells in this ALS
+	 * @param regionIndex the index in Grid.regions of the region that contains
+	 *  the cells in this ALS
 	 */
-	public Als(final IdxI idx, final int maybes, final ARegion region) {
-		this.idx = idx;
-		i0=idx.a0; i1=idx.a1; i2=idx.a2;
+	public Als(final Idx[] idxs, final IdxI me, final int maybes, final int regionIndex) {
+		long vsM0; int vsM1; // vBuds exploded
+		long vBudsM0; int vBudsM1; // vBuds exploded
+		long allBudsM0=0L; int allBudsM1=0; // budsAll: buds of all values in this ALS
+		this.idx = me;
+		this.m0 = me.m0;
+		this.m1 = me.m1;
 		this.maybes = maybes;
-		this.region = region;
-		this.initialised = true;
-	}
-
-	/**
-	 * computeFields after construction, to not run on double-ups.
-	 * You MUST computeFields of each ALS before you query it!
-	 * I populate cells when Idx constructor was used (AlsFinder)!
-	 *
-	 * @param grid the Grid we're currently solving
-	 * @param index the index of this Als in the alss array
-	 * @return this Als for method chaining
-	 */
-	public Als computeFields(final Grid grid, final int index) {
-//		start = System.nanoTime();
-//		if ( false ) {
-//			// UNFASTARDISED
-//			final Idx[] idxs = grid.idxs; // indices of cells that maybe 1..9
-//			this.buds = new Idx();
-//			for ( int v : VALUESES[maybes] ) {
-//				vs[v] = Idx.ofAnd(idx, idxs[v]);
-//				vBuds[v] = vs[v].commonBuddies(new Idx()).andNot(idx).and(idxs[v]);
-//				vAll[v] = Idx.ofOr(vs[v], vBuds[v]);
-//				buds.or(vBuds[v]);
-//			}
-//			this.index = index;
-//		} else {
-			// FASTARDISED: Idx ops done inline, for speed.
-			Idx iv, vv;
-			int b0=0, b1=0, b2=0;
-			final Idx[] idxs = grid.idxs; // indices of cells that maybe 1..9
-			for ( int v : VALUESES[maybes] ) {
-				vv = vs[v] = new IdxI(i0&(iv=idxs[v]).a0, i1&iv.a1, i2&iv.a2);
-// commonBuddies is slow, which really means forEach is slow. BFFIIK.
-// So I went mental and wrote forBuds, which is just as slow, but fancier!
-// PRE: 9,200,267,800 7908 1,163,412 2013 4,570,426 ALS_XZ
-// PST: 9,216,938,200 7908 1,165,520 2013 4,578,707 ALS_XZ
-// AGN: 9,296,150,600 7908 1,175,537 2013 4,618,057 ALS_XZ
-// So yeah, not faster, just fancier.
-//				vb = vBuds[v] = vv.commonBuddies(new Idx());
-				vv.forBuds( // visit b = BUDDIES[indice]
-					  (b) -> {vb0=b.a0; vb1=b.a1; vb2=b.a2;} // first
-					, (b) -> {vb0&=b.a0; vb1&=b.a1; vb2&=b.a2;} // subsequent
-				);
-				vb0 &= ~i0 & iv.a0;
-				vb1 &= ~i1 & iv.a1;
-				vb2 &= ~i2 & iv.a2;
-				vBuds[v] = new IdxI(vb0,vb1,vb2);
-				vAll[v] = new IdxI(vv.a0|vb0, vv.a1|vb1, vv.a2|vb2);
-				b0|=vb0; b1|=vb1; b2|=vb2;
+		// calculate fields
+		for ( int v : VALUESES[maybes] ) {
+			// vBuds: starts as all cells in the grid which maybe v
+			// and end-up as common buddies which maybe v
+			vBudsM0 = idxs[v].m0;
+			vBudsM1 = idxs[v].m1;
+			// vs[v]: indices of cells in this als which maybe v
+			// calculate cells that see all vs in this ALS
+			NON_LOOP: for(;;) {
+			for ( int i : vs[v]=new IdxI(vsM0=m0&vBudsM0, vsM1=m1&vBudsM1) ) {
+				if ( ( (vBudsM0 &= BUDS_M0[i])
+					 | (vBudsM1 &= BUDS_M1[i]) ) < 1L ) {
+					vBuds[v] = IdxI.EMPTY;
+					vBudsB[v] = EMPTY_BOOLEANS;
+					vAll[v] = vs[v];
+					break NON_LOOP;
+				}
 			}
-			this.buds = new IdxI(b0,b1,b2);
-			this.index = index;
-//		}
-//		cfTook += System.nanoTime() - start;
-		return this;
+			buddedMaybes |= VSHFT[v];
+			vBuds[v] = new IdxI(vBudsM0, vBudsM1);
+			vBudsB[v] = vBuds[v].toBooleans();
+			// vAll are cells in this ALS which maybe v
+			// plus there common buddies which maybe v
+			vAll[v] = new IdxI(vsM0|vBudsM0, vsM1|vBudsM1);
+			// aggregate buds of all values in this ALS
+			allBudsM0 |= vBudsM0;
+			allBudsM1 |= vBudsM1;
+			break;
+			}
+		}
+		this.regionIndex = regionIndex;
+		// toString requires setting buds to be my last statement
+		this.buds = new IdxI(allBudsM0, allBudsM1);
 	}
-	// fields can be referenced from a lambda expression
-	private int vb0, vb1, vb2;
 
 	/**
 	 * Two ALSs are equal if regions and idxs are equal.
@@ -212,7 +249,7 @@ public class Als {
 	 * @return {@code region.index==o.region.index && idx.equals(o.idx)}
 	 */
 	public boolean equals(Als other) {
-		return region.index == other.region.index
+		return regionIndex == other.regionIndex
 			&& idx.equals(other.idx);
 	}
 
@@ -222,43 +259,39 @@ public class Als {
 	 */
 	@Override
 	public int hashCode() {
-		return idx.hashCode() ^ region.index;
+		return idx.hashCode() ^ regionIndex;
 	}
 
 	/**
 	 * The format method returns a human readable String representation of
 	 * this Als suitable for use in hint HTML.
 	 *
-	 * @return "region.id: cell.ids {maybes}"<br>
-	 * Note that if region is null then "^[^:]+: " goes MIA.
+	 * @return Pattern: "region.label: cell.ids {maybes}" <br>
+	 *  Example: "row 1: A1, D1, E1 {1347}"
 	 */
-	public String format() {
-		// region should now never be null. Never say never.
-		final String rid; if(region==null) rid=""; else rid=region.id+": ";
-		return rid+idx.ids(", ")+" {"+Values.toString(maybes)+"}";
+	public StringBuilder format() {
+		// be generous on SB size, coz other stuff is appended to it
+		return SB(128).append(REGION_LABELS[regionIndex])
+		.append(COLON_SP).append(idx.idsSB(CSP, CSP))
+		.append(" {").append(MAYBES_STR[maybes]).append("}");
 	}
 
 	/**
-	 * Return a human readable String representation of this Almost Locked Set
-	 * (ALS). An ALS is N cells in a region with N+1 maybes between them. The
-	 * largest possible ALS is one smaller than the number of empty cells in
-	 * the region. ALSs of size one (a cell with two maybes) are ignored. Cells
-	 * that take part in an actual Locked Set (a Naked Pair/Triple/etc) in this
-	 * region are ignored in ALS_Chains.
+	 * Return a human readable String representation of this Almost Locked Set.
+	 * toString is cached because an ALS is immutable. It doesnt change once
+	 * fields are computed.
+	 *
 	 * @return "$region.id $idx {$maybes}"
 	 */
 	@Override
 	public String toString() {
 		// prevent errors during construction
-		if ( !initialised )
+		if ( buds == null )
 			return "#Als#";
-		if ( ts == null )
-			ts =
-// for debug AlsChain, but breaks test-cases
-//				""+index+": "+ // @check commented out (fails test-cases)
-				region.id+": "+idx+" {"+Values.toString(maybes)+"}";
-		return ts;
+		if ( toString == null )
+			toString = REGION_LABELS[regionIndex]+": "+idx+" {"+MAYBES_STR[maybes]+"}";
+		return toString;
 	}
-	private String ts;
+	private String toString; // toString cache
 
 }

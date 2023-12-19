@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.gui;
@@ -15,36 +15,38 @@ import javax.swing.tree.DefaultMutableTreeNode;
  * A tree node representing a hint in the hints tree
  * of the user interface.
  */
-public final class HintNode extends DefaultMutableTreeNode {
+final class HintNode extends DefaultMutableTreeNode {
 
 	private static final long serialVersionUID = 7857073221166387482L;
 
 	private final AHint hint;
 	private String name;
 
-	public HintNode(AHint hint) {
+	HintNode(final AHint hint) {
 		super();
 		this.hint = hint;
+//DEBUG to see elims, but beware some do not override toFullString
+//		this.name = hint.toFullString();
 		this.name = hint.toString();
-		if ( hint.hinter!=null && hint.hinter.tech.isNested )
+		if ( hint.hinter!=null && hint.hinter.isNesting() )
 			name += " (" + hint.getViewCount() + ")";
 	}
 
-	HintNode(String name) {
+	HintNode(final String name) {
 		super();
 		this.hint = null;
 		this.name = name;
 	}
 
-	public AHint getHint() {
+	AHint getHint() {
 		return this.hint;
 	}
 
-	public String getName() {
+	String getName() {
 		return this.name;
 	}
 
-	public boolean hasHint() {
+	boolean hasHint() {
 		return this.hint != null;
 	}
 
@@ -53,7 +55,7 @@ public final class HintNode extends DefaultMutableTreeNode {
 		return this.hint == null;
 	}
 
-	public HintNode getNodeFor(final AHint hint) {
+	HintNode getNodeFor(final AHint hint) {
 		if(hint == null) return null;
 		if(hint.equals(this.hint)) return this;
 		HintNode node;
@@ -63,7 +65,7 @@ public final class HintNode extends DefaultMutableTreeNode {
 		return null;
 	}
 
-	public List<HintNode> getHintNodes() {
+	List<HintNode> getHintNodes() {
 		if ( hns != null )
 			return hns; // cached!
 		hns = new LinkedList<>();
@@ -75,7 +77,7 @@ public final class HintNode extends DefaultMutableTreeNode {
 	}
 	private List<HintNode> hns; // hintNodes
 
-	private void recurseChildren(List<HintNode> result) {
+	private void recurseChildren(final List<HintNode> result) {
 		assert this.hint == null; // ie: this is NOT a leaf
 		HintNode child;
 		for ( int i=0,n=getChildCount(); i<n; ++i )

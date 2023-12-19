@@ -1,67 +1,59 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.fish;
 
 import diuf.sudoku.Ass;
+import diuf.sudoku.Difficulty;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.hinters.AHinter;
-import static diuf.sudoku.utils.Frmt.AND;
-import diuf.sudoku.utils.Frmu;
+import diuf.sudoku.solver.hinters.IHinter;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Html;
 import diuf.sudoku.utils.Log;
 import diuf.sudoku.utils.MyFunkyLinkedHashSet;
 import diuf.sudoku.utils.MyLinkedFifoQueue;
 import diuf.sudoku.utils.MyLinkedHashSet;
-import diuf.sudoku.utils.MyStrings;
+import static diuf.sudoku.utils.MyMath.bound;
+import static diuf.sudoku.utils.StringPrintWriter.stackTraceOf;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
 
 /**
- * KrakenFishHint is the data transfer object for a Kraken Fish hint.
+ * KrakenFishHint is the DTO for a Kraken Fish hint.
  * <p>
  * A KrakenFishHint "wraps" the "cause" ComplexFishHint to modify the reported
- * hint-type-name and hint-HTML, and provide links to portray the chains.
+ * hint-type-name and hint-HTML, and display the chains with links.
  *
  * @author Keith Corlett 2020-10-07
  */
 public class KrakenFishHint extends AHint  {
 
-	static enum Type {
-		  ONE("Kraken type 1")
-		, TWO("Kraken type 2")
-		;
-		public final String name;
-		Type(String name) {
-			this.name = name;
-		}
-	}
+	// 128 is arbitrary: its intended to be not too much
+	// larger than the length of the longest valid chain.
+	private static final int MAX_CHAIN_LENGTH = 128; // power of 2
 
+	private final String krakenHintTypeName;
 	private final ComplexFishHint cause;
-	private final Type hType;
-	private final List<Ass> chains;
-	KrakenFishHint(AHinter hinter
-			, Pots reds
-			, ComplexFishHint cause
-			, Type type
-			, List<Ass> chains
-	) {
-		super(hinter, reds);
+	private final List<Ass> chainTargets; // Effs thatre back-linked
+	private final int candidate; // the fish candidate value
+	KrakenFishHint(final Grid grid, final IHinter hinter
+			, final String krakenHintTypeName, final Pots reds
+			, final ComplexFishHint cause, final List<Ass> chainTargets
+			, final int candidate) {
+		super(grid, hinter, reds);
+		this.krakenHintTypeName = krakenHintTypeName;
 		this.cause = cause;
-		this.hType = type;
-		this.chains = chains;
-		cleanPots();
+		this.chainTargets = chainTargets;
+		this.candidate = candidate;
 	}
 
 	// needed to squeeze the bloody hint toString!
@@ -70,41 +62,34 @@ public class KrakenFishHint extends AHint  {
 		return true;
 	}
 
-	private void cleanPots() {
-		// add the cause hints eliminations (if any) to mine
-		// and if it's a red then it's a RED only!
-		reds.addAll(cause.reds).removeFromAll(getGreens(0), getOranges(0)
-					, getBlues(null, 0), getPurples(), getYellows());
+	@Override
+	public Pots getGreenPots(int viewNum) {
+		return cause.getGreenPots(viewNum);
 	}
 
 	@Override
-	public Pots getGreens(int viewNum) {
-		return cause.getGreens(viewNum);
+	public Pots getOrangePots(int viewNum) {
+		return cause.getOrangePots(viewNum);
 	}
 
 	@Override
-	public Pots getOranges(int viewNum) {
-		return cause.getOranges(viewNum);
+	public Pots getBluePots(Grid grid, int viewNum) {
+		return cause.getBluePots(grid, viewNum);
 	}
 
 	@Override
-	public Pots getBlues(Grid grid, int viewNum) {
-		return cause.getBlues(grid, viewNum);
+	public Pots getPurplePots() {
+		return cause.getPurplePots();
 	}
 
 	@Override
-	public Pots getPurples() {
-		return cause.getPurples();
+	public Pots getYellowPots() {
+		return cause.getYellowPots();
 	}
 
 	@Override
-	public Pots getYellows() {
-		return cause.getYellows();
-	}
-
-	@Override
-	public Set<Cell> getAquaCells(int viewNum) {
-		return cause.getAquaCells(viewNum);
+	public Set<Integer> getAquaBgIndices(int viewNum) {
+		return cause.getAquaBgIndices(viewNum);
 	}
 
 	@Override
@@ -117,25 +102,36 @@ public class KrakenFishHint extends AHint  {
 		return cause.covers;
 	}
 
+	@Override
+	public int getDifficulty() {
+		if ( difficulty == null ) {
+			int d = hinter.getTech().difficulty + cause.fishType.complexity();
+			difficulty = bound(d, Difficulty.Fisch.min, Difficulty.Fisch.max-1);
+		}
+		return difficulty;
+	}
+	private Integer difficulty;
+
 	/**
-	 * Used by getLinks (a copy-paste from ChainerBase rather than make ChainerBase
-	 * visible outside of the package just to make this static method visible
-	 * to me, or move this method to a FishTools class, ie I should create a
-	 * new FishTools class, but find myself currently unable to do so coz my
-	 * tackle-box has crumpetitis and lemmings won't suicide by themselves).
+	 * Used by getLinks, this method is a copy-paste from AChainerBase rather
+	 * than make AChainerBase visible outside of the chains package just to make
+	 * this static method visible to me, or move this method to a Tools class,
+	 * ie I should create a new Tools class, but find myself currently unable
+	 * to do so because my tackle-box has crumpetitis and these faaaaaaarking
+	 * Lemmings wont suicide by themselves ya know.
 	 */
-	private ArrayList<Ass> getAncestorsList(Ass target) {
+	private ArrayList<Ass> ancestors(Ass target) {
 		// We need each distinct ancestor (my parents, and my parents parents,
 		// and there parents, and so on) of the target Ass.
 		// MyFunkyLinkedHashSet does the distinct for us, quickly & easily
-		// because it's add-method is add-only (it doesn't update existing).
+		// because its add-method is add-only (it doesnt update existing).
 		// A HashSet of 128 has enough bits for Ass.hashCode (8 bits).
 		final Set<Ass> distinctSet = new MyFunkyLinkedHashSet<>(128, 1F);
 		// we append the parents of each assumption to the end of a FIFO queue,
 		// and then poll-off the head of the queue until the queue is empty.
 		final MyLinkedFifoQueue<Ass> todo = new MyLinkedFifoQueue<>();
 		for ( Ass a=target; a!=null; a=todo.poll() )
-			if ( distinctSet.add(a) ) // add only, doesn't update existing
+			if ( distinctSet.add(a) ) // add only, doesnt update existing
 				todo.addAll(a.parents); // addAll ignores a null list
 		return new ArrayList<>(distinctSet);
 	}
@@ -143,88 +139,84 @@ public class KrakenFishHint extends AHint  {
 	@Override
 	public Collection<Link> getLinks(int viewNum) {
 		try {
-			// Unusually, use a distinct-set instead of list, otherwise the
-			// grid disappears under a plethora of extraneous duplicate links.
-			final Set<Link> links = new MyLinkedHashSet<>(512);
-			// p for parent, c for child
-			chains.forEach((target) -> getAncestorsList(target).stream()
-				.filter((c) -> c!=null && c.parents!=null)
-				.forEachOrdered((c) -> c.parents.forEach((p) -> links.add(new Link(p, c)))));
+			// Use a Set instead of a List, to supress duplicates.
+			final Set<Link> links = new MyLinkedHashSet<>(64); // let it grow!
+			for ( Ass target : chainTargets )
+				for ( Ass c : ancestors(target) )
+					if ( c!=null && c.parents!=null )
+						for ( Ass p : c.parents )
+							links.add(new Link(p, c));
 			return links;
-		} catch (Throwable ex) {
-			// I'm only ever called in the GUI, so just log it.
+		} catch (Exception ex) {
+			// Im only ever called in the GUI, so just log it.
 			Log.println("KrakenFishHint.getLinks: "+ ex);
 			return null;
 		}
 	}
 
-	// append a line of HTML to sb for each chain
-	private StringBuilder appendChains(final StringBuilder sb) {
-		final int initialLength = sb.length();
-		try {
-			// kf2: each target ass is the same elimination, but the chain to
-			// get there differs, each ending in one of the fin (blue) cells.
-			final Set<String> set = new MyLinkedHashSet<>(512);
-			final StringBuilder line = new StringBuilder(128); // just a guess
-			int len; // we need an arbitrary max chain length, apparently
-			for ( Ass target : chains ) {
-				if ( target == null )
-					continue; //WTF: Can't happen, but happened (now fixed)
-				line.setLength(0); // clear the line
-				line.append(target);
-				len = 0;
-				for ( Ass a=target.firstParent(); a!=null; a=a.firstParent() ) {
-					// " <- H4-6"
-					line.append(" &lt;- ").append(a);
-					// 128 is arbitrary: it's intended to be not too much
-					// larger than the length of the longest valid chain.
-					if ( ++len > 127 ) // happened in KrakenFisherman1
-						throw new RuntimeException("endless loop");
-				}
-				line.append(NL);
-				if ( set.add(line.toString()) )
-					sb.append(line);
+	// used only in the test-cases
+	public List<Ass> getChainTargets() {
+		return chainTargets;
+	}
 
+	// returns a line of HTML for each chain
+	private String chainsString() {
+		final StringBuilder sb = SB(1024);
+		try {
+			final Set<String> distinct = new MyLinkedHashSet<>(MAX_CHAIN_LENGTH);
+			final StringBuilder line = SB(128);
+			for ( Ass target : chainTargets ) {
+				if ( target != null ) {
+					line.setLength(0);
+					Ass.appendChain(line, target, " &lt;- ").append(NL);
+					if ( distinct.add(line.toString()) ) {
+						sb.append(line);
+					}
+				}
 			}
 		} catch (Throwable ex) {
 			// esp out of memory error (now reported as RTE: endless loop)
-			sb.setLength(initialLength);
-			sb.append("<font color=\"red\"><i>")
-			  .append("KrakenFishHint.appendChains: ").append(ex)
-			  .append("</i></font>").append(NL);
+			sb.setLength(0);
+			sb.append("<font color=\"red\"><i>").append(NL)
+			.append("KrakenFishHint.appendChains: ").append(ex).append(NL)
+			.append(stackTraceOf(ex))
+			.append("</i></font>").append(NL);
 		}
-		return sb;
+		return sb.toString();
 	}
 
 	@Override
 	protected String getHintTypeNameImpl() {
-		return hType.name + COLON_SP + cause.getHintTypeName();
+		return krakenHintTypeName;
 	}
 
 	@Override
-	protected String toStringImpl() {
-		final StringBuilder sb = Frmu.getSB();
+	protected StringBuilder toStringImpl() {
+		final StringBuilder sb = SB(128);
 		if ( isInvalid )
 			sb.append("#");
-		return sb.append(hType.name).append(COLON_SP).append(cause).toString();
+		StringBuilder cb = cause.toStringImpl();
+		int i;
+		if ( (i=cb.indexOf("#")) > -1 )
+			cb.delete(i, i+1);
+		sb.append(krakenHintTypeName).append(cb);
+		return sb;
 	}
 
 	@Override
 	protected String toHtmlImpl() {
-		// add some color to toString() to make it easier to see what's what.
-		// NOTE: replaceSecond to cater for the odd "wrapped" hint name:
-		// Kraken type 2: Finned Swampfish: col D, col H and row 2, row 6 on 3
-		String coloredHint = MyStrings.replaceSecond(toString(), COLON_SP, ": <b1>")
-				.replaceFirst(AND, "</b1> and <b2>")
-				.replaceFirst(" on", "</b2> on");
-		coloredHint = Html.colorIn(coloredHint);
-		final String chainsString = appendChains(new StringBuilder(1024))
-				.toString();
+		// color-in my toString() to make it easier to see whats what.
+		final String coloredHint = Html.colorIn(
+			toString().replaceFirst(COLON_SP, ": <b1>")
+					  .replaceFirst(AND, "</b1> and <b2>")
+					  .replaceFirst(" on", "</b2> on"));
 		return Html.produce(this, "KrakenFishHint.html"
-			, getHintTypeName()		// {0}
-			, coloredHint			//  1
-			, chainsString			//  2
-			, reds.toString()	//  3
+			, getHintTypeName()				// {0}
+			, coloredHint					//  1
+			, chainsString()				//  2
+			, reds.toString()				//  3
+			, Integer.toString(candidate)	//  4
+			, debugMessage					//  5
 		);
 	}
 

@@ -1,29 +1,33 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
-import static diuf.sudoku.Grid.BUDDIES;
+import static diuf.sudoku.Constants.SB;
+import diuf.sudoku.utils.IntArray;
 import static diuf.sudoku.Grid.CELL_IDS;
 import static diuf.sudoku.Grid.CELL_ID_LENGTH;
 import diuf.sudoku.Grid.Cell;
+import static diuf.sudoku.Grid.GRID_SIZE;
 import static diuf.sudoku.Grid.RIBS;
-import diuf.sudoku.IntArrays.IALease;
-import static diuf.sudoku.IntArrays.iaLease;
+import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.utils.IFilter;
-import diuf.sudoku.utils.IVisitor;
-import diuf.sudoku.utils.IntFilter;
-import diuf.sudoku.utils.IntIntVisitor;
-import diuf.sudoku.utils.IntVisitor;
 import diuf.sudoku.utils.Mutator;
 import java.io.Serializable;
-import static java.lang.Integer.bitCount;
-import static java.lang.Integer.numberOfTrailingZeros;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Consumer;
+import static diuf.sudoku.Idx.FIFTY_FOUR;
+import static diuf.sudoku.utils.Frmt.NL;
+import static diuf.sudoku.utils.IntArray.THE_EMPTY_INT_ARRAY;
+import diuf.sudoku.utils.IntQueue;
+import static diuf.sudoku.utils.IntQueue.QEMPTY;
+import static diuf.sudoku.utils.MyMath.powerOf2;
 
 /**
  * An Idx (an index) wraps an {@code int[3]} each of 27 used bits for the 81
@@ -37,16 +41,16 @@ import java.util.Set;
  * <pre>{@code
  *     Idx i0 = set0.idx();
  *     Idx i1 = set1.idx();
- *     Idx intersection = new Idx(); // it'd be faster to re-use existing!
- *     intersection.a0 = i0.a0 & i1.a0;
- *     intersection.a1 = i0.a1 & i1.a1;
- *     intersection.a2 = i0.a2 & i1.a2;
+ *     Idx intersection = new Idx(); // it is faster to re-use existing!
+ *     intersection.m0 = i0.m0 & i1.m0;
+ *     intersection.m1 = i0.m1 & i1.m1;
+ *     intersection.m2 = i0.m2 & i1.m2;
  * }</pre>
  * which is bulls__tquick(TM) compared to the alternative using Sets addAll()
  * and retainAll() methods.
  * <p>
  * FYI: the equivalent method looks simpler, but requires invocation, which is
- * always a bit slow, so we use it "normally", when speed's not uber-critical:
+ * always a bit slow, so we use it "normally", when speeds not uber-critical:
  * <pre>{@code
  *     Idx i0 = set0.idx();
  *     Idx i1 = set1.idx();
@@ -55,8 +59,8 @@ import java.util.Set;
  * <p>
  * So the Idx class exposes a number of methods that do bitset-index stuff,
  * both as "raw" {@code int[]} arrays and as instances of Idx, which basically
- * just encapsulates it's own {@code int[]} which it calls the static methods
- * on, in case you're currently towel-placement-challenged. The static int[]
+ * just encapsulates its own {@code int[]} which it calls the static methods
+ * on, in case you are currently towel-placement-challenged. The static int[]
  * methods tend to be more efficient, mainly because (as above) you can do the
  * calcs yourself locally, without having to wear the expense of invoking any
  * methods.
@@ -65,21 +69,28 @@ import java.util.Set;
  * Aligned*Exclusion classes, but Idx is no longer used there, for speed.
  * Idx was later restored and converted to expose instances for use in the
  * XYWing class, where performance is much less critical. So Idx() has same
- * specifications as int[], but A*E doesn't use Idx's, it uses raw int[]
+ * specifications as int[], but A*E does not use Idxs, it uses raw int[]
  * arrays instead, because speed is King; where-as XYWing holds instances of
  * Idx, which have internal int[] arrays, because speed is a mere prince.
  * <p>
- * Later I picked-up HoDoKu, which makes extensive use of Idx's (its SudokuSet)
- * so Idx's are now used in Aligned*Exclusion, Almost Locked Sets (als), the
+ * Later I picked-up HoDoKu, which makes extensive use of Idxs (its SudokuSet)
+ * so Idxs are now used in Aligned*Exclusion, Almost Locked Sets (als), the
  * various Fisherman, and pretty much everywhere because they are very useful.
  * Just pushing the cheese around on my cracker. Ye rolls yon dice and ye moves
  * yon mice. I apologise for any confusion.
  * <p>
- * NOTE: because Idx is wholey structured around a GRID_SIZE of 81 it does not
- * use GRID_SIZE or any of the related constants.
+ * Use the @Mutator annotation to denote methods that mutate the Idxs state,
+ * hence are overridden by IdxL, to check the lock. If ALL IdxL mutators check
+ * the lock then a locked IdxL cannot be modified, but missing just one renders
+ * IdxL pointless. See {@link diuf.sudoku.tools.CheckIdxLMutators}.
+ * <p>
+ * because Idx is structured around a GRID_SIZE of 81 it does not use GRID_SIZE
+ * or any of the associated constants. Changing the GRID_SIZE means rewriting
+ * or adapting the whole Idx class to suit the new size, or resorting to Bitset
+ * (which is still overkill) to support variable sized Idxs.
  * <p>
  * <pre>
- * See: diuf.sudoku.solver.hinters.xyz.XYWing // uses Idx's
+ * See: diuf.sudoku.solver.hinters.xyz.XYWing // uses Idxs
  * See: diuf.sudoku.solver.hinters.align.Aligned5Exclusion_1C // uses int[]
  * See: diuf.sudoku.solver.hinters.align.LinkedMatrixCellSet.idx()
  * See: diuf.sudoku.Grid.cellsAt(int[] idx)
@@ -90,219 +101,257 @@ import java.util.Set;
  *
  * KRC 2020-10-22 IdxL extends Idx to provide a locking mechanism, but
  * <b>PLEASE NOTE</b> that IdxL <b>MUST</b> override <b>EVERY</b> mutator, or
- * it's basically useless!
+ * its basically useless!
  *
  * KRC 2021-05-20 I really want to eradicate the BitIdx class, so I just tried
  * moving Idx into Grid as an inner-class, to get rid of the need to pass the
- * grid into forEach et al, but then you need a grid instance to create an Idx,
+ * grid into each et al, but then you need a grid instance to create an Idx,
  * and the Grids static Idxs are "needed" for speed, so I gave up; leaving Idx
  * as an independant class, and just wear passing the Grid around, and the need
- * for a BitIdx to iterate Idx'd cells. It's messy, but the only other way I
- * can think of is a new IdxIt class which overrides Idx's forEach et al to
- * pass in Grid.this to iterate, but then the cut-lunch Idx's would lack this
+ * for a BitIdx to iterate Idxd cells. It is messy, but the only other way I
+ * can think of is a new IdxIt class which overrides Idxs each et al to
+ * pass in Grid.this to iterate, but then the cut-lunch Idxs would lack this
  * feature, rendering it more-or-less useless, I think. sigh.
  * </pre>
  *
+ * @see IdxL
+ * @see Mutator
+ * @see diuf.sudoku.tools.CheckIdxLMutators
  * @author Keith Corlett 2019 DEC
  */
-public class Idx implements Cloneable, Serializable, Comparable<Idx> {
+public class Idx implements Serializable, Comparable<Idx>, Iterable<Integer>, Set<Integer> {
 
-//Idx MAX_SIZE=[3, 1, 1, 1, 3, 1, 3, 2, 3, 2, 3, 2, 3, 2, 2, 2, 2, 2, 1, 2, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-//	public static final int[] MAX_SIZE = new int[81];
+//	public static final long[] COUNTS = new long[3];
 
 	private static final long serialVersionUID = 342L;
 
-//	/** my array (a) has 3 elements. */
-//	public static final int ELEMENTS_PER_IDX = 3;
-//	/** we use 3 * 9 bit "words" = 27 bits in each element. */
-//	public static final int WORDS_PER_ELEMENT = 3;
-	/** we use 3 * 9 bit "words" = 27 bits in each element. */
+	/** Three 9bit "words" = 27 bits per mask, and 3 masks per Idx. */
 	public static final int BITS_PER_WORD = 9;
-	/** we use 3 * 9 bit "words" = 27 bits in each element. */
+
+	/** Three 9bit "words" = 27 bits per mask, and 3 masks per Idx. */
 	public static final int BITS_PER_ELEMENT = 27;
-	/** number of bits in two elements. */
-	public static final int BITS_TWO_ELEMENTS = BITS_PER_ELEMENT<<1;
-	/** the value of a full "word" (9 set bits). */
-	public static final int WORD_MASK = 0x1FF; // Binary 1111, Decimal 15
+	/** 27 1's in a 32 bit int */
+	public static final int BITS27 = (1<<BITS_PER_ELEMENT)-1;
+
+	/** the value of a full "word" is 9 set (1) bits. <br>
+	 * Decimal=511  Hexadecimal=0x1FF  Octal=777  Binary=1,1111,1111   9 1s */
+	public static final int WORD_MASK = 0x1FF;
 
 	/** The number of combinations possible in 9 bits: 512. */
-	public static final int WORDS_SIZE = 1<<BITS_PER_WORD; // 512
-
-	/** the value of a full Idx element (a0,a1,a2): 27 1's. */
-	public static final int IDX_ALL = (1<<BITS_PER_ELEMENT)-1;
+	private static final int WORDS_SIZE = 1<<BITS_PER_WORD; // 512
 
 	/** the left-shifted bitset value of each possible index. */
 	public static final int[] IDX_SHFT = new int[BITS_PER_ELEMENT];
+
+	/** the number of ints per Idx. */
+	public static final int THREE = 3;
+
 	/** WORDS[9-bit-word] contains the indexes that are in this 9-bit-word.
 	 * There are 3 words per 27-bit element. The size of each sub-array is
 	 * variable 0..9, depending on the number of set (1) bits in my "word",
 	 * ie my index. Sigh. */
 	public static final int[][] WORDS = new int[WORDS_SIZE][];
 	static {
-		for ( int i=0,n=IDX_SHFT.length; i<n; ++i )
+		for ( int i=0; i<BITS_PER_ELEMENT; ++i )
 			IDX_SHFT[i] = 1<<i;
-		for ( int i=0; i<WORDS.length; ++i )
-			WORDS[i] = Indexes.toValuesArrayNew(i);
+		for ( int i=0; i<WORDS_SIZE; ++i )
+			WORDS[i] = Indexes.toIndexesArrayNew(i);
 	}
 
-	/** THE empty int[]. */
-	public static final int[] EMPTY_INT_ARRAY = new int[0];
+	/** number of bits in two elements: 54 = 2*27. */
+	public static final int FIFTY_FOUR = BITS_PER_ELEMENT<<1;
 
-	/** self-documenting Idx constructor param */
+	// -----------------------------------------------------------------
+	// these fields where added for the long mask 'a' int 'b' conversion
+	// -----------------------------------------------------------------
+
+	/**
+	 * Idx's first mask is a long (64 bits) of which 6 * 9 = 54 bits are used.
+	 * WARN: The unused 10 bits remain 0. Care is required with any BITWISE-OR
+	 * operations to ensure this. If you OR-in odd high-order-bits then things
+	 * WILL go bad fast, and they can be VERY difficult to find! So just dont
+	 * introduce them in the first place. You have been warned.
+	 * <p>
+	 * Because only 54 bits are used this mask is positive (bit64 is never (1))
+	 * and &gt; or &lt; are faster than != or = (YMMV!), so I can get away with
+	 * using the faster comparator operators on Idx masks. Whenever I use these
+	 * "cheat" &gt; or &lt; operator I try to remember to mark it: "// ?bits"
+	 * where ? is the number of bits in this bitset; to remind me that I rely
+	 * on NEVER negative bitset values.
+	 * <p>
+	 * Similarly, the second int mask uses 27/32 bits, so its always positive,
+	 * never negative, except, on Tuesdays. We dont like Tuesdays, right
+	 * Pauline. And that Friday bastard. Hang him, for thinking for himself.
+	 * We bloody lost. AnIdokneewanna believe it. Fush munusta, and Chups.
+	 * The pig raped my auntie!
+	 * <p>
+	 * YMMV! Your mileage may vary. There's a lot going on under Javas hood.
+	 * We have a JVM with a JIT compiler and an optimiser, all running on
+	 * arbitrary hardware. Hence overarching statements can be misleading or
+	 * just plain WRONG. So when I say that "&gt; or &lt; are faster" what I
+	 * actually mean is "this is usually the case", but YMMV! Mind you, this
+	 * particular overarching statement is safe, until those subatomic bastards
+	 * change the game again. Rely on it, but what this space.
+	 */
+	/** 54 1's in a 64 bit long, for use with long 'M0' masks */
+	public static final long BITS54L = (1L<<FIFTY_FOUR)-1L;
+
+	/** 9 1's in a 64 bit long, for use with long 'M0' masks */
+	public static final long LONG9 = 0x1FFL;
+
+	/** 27 1's in a 64 bit long, for use with long 'M0' masks */
+	public static final long LONG27 = (1L<<27)-1L;
+
+	/** the left-shifted bitset value of each possible index. */
+	public static final long[] MASKED81 = new long[GRID_SIZE];
+	static {
+		for ( int i=0; i<GRID_SIZE; ++i )
+			MASKED81[i] = 1L<<(i%FIFTY_FOUR);
+	}
+
+	/** self-documenting Idx constructor param. */
 	public static final boolean FULL = true;
 
-	public static Idx empty() {
-		return new Idx(); // they're empty by default
-	}
-	public static Idx full() {
-		return new Idx(true); // they're full by adding a dodgy true
+	/**
+	 * MASKOF is the mask (0, 1, or 2) this indice belongs-in. <br>
+	 * It facilitates adding an indice to an Exploded Idx, as in:
+	 * <pre>
+	 *    {@code explodedIdxArray[MASKOF[indice] |= MASKED[indice];}
+	 * </pre>
+	 * It also facilitates removing an indice from an Exploded Idx, as in:
+	 * <pre>
+	 *    {@code explodedIdxArray[MASKOF[indice] &= UNMASKED[indice];}
+	 * </pre>
+	 * My value is:
+	 * <pre>
+	 *    {@code i / BITS_PER_ELEMENT }
+	 * </pre>
+	 * <p>
+	 * This field was modified for the long 'a' int 'b' conversion.
+	 * Its now (0, or 1) coz there are now only two masks, for speed.
+	 */
+	public static final int[] MASKOF = {
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//		2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+	};
+
+	/**
+	 * MASKED contains the 27bit bitset representation of this cell indice. <br>
+	 * It enables the inclusion of an indice in an exploded Idx, as in:
+	 * <pre>
+	 *    {@code explodedIdx[MASKOF[indice] |= MASKED[indice];}
+	 * </pre>
+	 * My value is:
+	 * <pre>
+	 *    {@code 1 << (i % BITS_PER_ELEMENT)}
+	 * </pre>
+	 */
+	public static final int[] MASKED = new int[GRID_SIZE];
+	static {
+		for ( int i=0; i<GRID_SIZE; ++i )
+			MASKED[i] = IDX_SHFT[i % BITS_PER_ELEMENT];
 	}
 
 	/**
 	 * Returns a new Idx containing the given cell indice.
 	 *
-	 * @param indice the grid.cells indice of the cell to be added to this Idx
-	 * @return a new Idx containing only the given cell indice.
+	 * @param indice indice of the cell to add
+	 * @return a new Idx containing the given indice.
 	 */
 	public static final Idx of(final int indice) {
-		final Idx idx = new Idx();
-		idx.add(indice);
-		return idx;
+		if ( indice < FIFTY_FOUR )
+			return new Idx(MASKED81[indice], 0);
+		return new Idx(0L, MASKED[indice]);
 	}
 
 	/**
-	 * Returns a new Idx containing the given cells.
+	 * Returns a new Idx containing the given cell indices.
 	 *
-	 * @param cells
-	 * @return
+	 * @param indice0 indice of first cell to add
+	 * @param indice1 indice of second cell to add
+	 * @return a new Idx containing the given indices.
 	 */
-	public static final Idx of(final Iterable<Cell> cells) {
-		final Idx idx = new Idx();
-		for ( Cell c : cells )
-			idx.add(c.i);
-		return idx;
-	}
-
-	/**
-	 * Returns a new Idx of 'cells'.
-	 *
-	 * @param cells to add
-	 * @return a new Idx of 'cells'
-	 */
-	public static Idx of(final Cell[] cells) {
-		return of(cells, cells.length);
-	}
-
-	/**
-	 * Returns a new Idx of the first 'n' 'cells'.
-	 *
-	 * @param cells to add
-	 * @param n how many cells to add, so you can reuse a fixed-size array
-	 * @return a new Idx of the first 'n' 'cells'
-	 */
-	public static Idx of(final Cell[] cells, final int n) {
-		final Idx result = new Idx();
-		for ( int i=0; i<n; ++i )
-			result.add(cells[i].i);
+	public static Idx of(final int indice0, final int indice1) {
+		final Idx result = Idx.of(indice0);
+		result.add(indice1);
 		return result;
 	}
 
 	/**
-	 * Set this Idx to indices of cells at indexes in the given cells array.
-	 * nb: 'indexes' contains indexes in 'cells', not indices in Grid.cells.
-	 * I do that conversion.
+	 * Returns a new Idx containing the given cell indices.
 	 *
-	 * @param cells
-	 * @param indexes
-	 * @return this Idx, for method chaining.
+	 * @param indice0 indice of first cell to add
+	 * @param indice1 indice of second cell to add
+	 * @param indice2 indice of third cell to add
+	 * @return a new Idx containing the given indices.
 	 */
-	public static Idx of(final Cell[] cells, final int[] indexes) {
-		final Idx result = new Idx();
-		for ( int i : indexes )
-			result.add(cells[i].i);
+	public static Idx of(final int indice0, final int indice1, final int indice2) {
+		final Idx result = Idx.of(indice0);
+		result.add(indice1);
+		result.add(indice2);
 		return result;
 	}
 
 	/**
-	 * Returns a new Idx of 'n' cells at 'indexes' in 'cells'.
+	 * Returns a new Idx containing the given cell indices.
 	 *
-	 * @param cells to read
-	 * @param indexes array of indexes in the cells array
-	 * @param n number of indexes in indexes (for reusable array)
-	 * @return a new Idx
+	 * @param indice0 indice of first cell to add
+	 * @param indice1 indice of second cell to add
+	 * @param indice2 indice of third cell to add
+	 * @param indice3 indice of fourth cell to add
+	 * @return a new Idx containing the given indices.
 	 */
-	public static Idx of(final Cell[] cells, final int[] indexes, final int n) {
-		final Idx result = new Idx();
-		for ( int i=0; i<n; ++i )
-			result.add(cells[indexes[i]].i);
+	public static Idx of(final int indice0, final int indice1, final int indice2, final int indice3) {
+		final Idx result = Idx.of(indice0);
+		result.add(indice1);
+		result.add(indice2);
+		result.add(indice3);
 		return result;
 	}
 
 	/**
-	 * Returns a new Idx containing indices.
-	 * <p>
-	 * Overridden by IdxL!
+	 * Build a new Idx of this Collection of Integer: indices.
 	 *
-	 * @param indices
-	 * @return
+	 * @param col is untyped, but must contain Integers (indices)
+	 * @return a new Idx containing indices
 	 */
-	public static Idx of(final int[] indices) {
-		int a0=0, a1=0, a2=0;
-		for ( int i : indices )
-			if ( i < BITS_PER_ELEMENT )
-				a0 |= IDX_SHFT[i];
-			else if ( i < BITS_TWO_ELEMENTS )
-				a1 |= IDX_SHFT[i%BITS_PER_ELEMENT];
-			else
-				a2 |= IDX_SHFT[i%BITS_PER_ELEMENT];
-		return new Idx(a0, a1, a2);
+	private static Idx of(final Collection<?> col) {
+		long m0=0L; int m1=0, i; Object f;
+		if ( (f=first(col)) instanceof Integer )
+			for ( Object obj : col )
+				if ( (i=(Integer)obj) < FIFTY_FOUR )
+					m0 |= MASKED81[i];
+				else
+					m1 |= MASKED[i];
+		else if ( f instanceof String ) {
+			for ( Object obj : col )
+				if ( (i=Grid.indice((String)obj)) < FIFTY_FOUR )
+					m0 |= MASKED81[i];
+				else
+					m1 |= MASKED[i];
+		}
+		return new Idx(m0, m1);
 	}
 
 	/**
-	 * Returns a new Idx of ids.
-	 * <p>
-	 * Note that this method is currently only used by test-cases, where it's
-	 * pretty central, so if this fails then many test-cases will fail.
+	 * Constructs a new Idx(idxA & idxB).
 	 *
-	 * @param ids an array of cell-id's to add to the new Idx. Note that the
-	 *  format of each cell-id must match the current Grid.ID_SCHEME, which is
-	 *  currently Chess, so A1..I9
-	 * @return a new Idx containing the indices of the cells in the given
-	 *  array of cell-ids.
+	 * @param idxA
+	 * @param idxB
+	 * @return the new index
 	 */
-	static final Idx of(final String[] ids) {
-		final Idx result = new Idx();
-		for ( String id : ids )
-			result.add(Grid.indice(id));
-		return result;
+	public static Idx ofAnd(final Idx idxA, final Idx idxB) {
+		return new Idx(idxA.m0&idxB.m0, idxA.m1&idxB.m1);
 	}
 
 	/**
-	 * Constructs a new Idx(a & b).
-	 * @param a
-	 * @param b
-	 * @return
-	 */
-	public static final Idx ofAnd(final Idx a, final Idx b) {
-		return new Idx(a.a0&b.a0, a.a1&b.a1, a.a2&b.a2);
-	}
-
-	/**
-	 * Constructs a new Idx(a | b).
-	 * @param a
-	 * @param b
-	 * @return
-	 */
-	public static final Idx ofOr(final Idx a, final Idx b) {
-		return new Idx(a.a0|b.a0, a.a1|b.a1, a.a2|b.a2);
-	}
-
-	/**
-	 * Parse an Idx from CSV (comma separated values) of Cell.id's.
+	 * Parse an Idx from CSV (comma separated values) of Cell.ids.
 	 * <p>
 	 * For example: "E3, H3, I3, H8, I8, E6, I6"
 	 *
-	 * @param csv a comma separated values String of Cell.id's.
+	 * @param csv a comma separated values String of Cell.ids.
 	 * @return a new Idx.
 	 */
 	public static final Idx ofCsv(final String csv) {
@@ -315,180 +364,397 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Parse an Idx from SSV (space separated values) of Cell.id's,
+	 * Parse an Idx from SSV (space separated values) of Cell.ids,
 	 * for use in the test-cases only.
 	 * <p>
 	 * For example: "E3 H3 I3 H8 I8 E6 I6"
 	 * <p>
-	 * Note that this is Idx's standard toString format!
-	 * What was I thinking with CSV and not SSV? I'm a putz!
+	 * Note that this is Idxs standard toString format!
+	 * What was I thinking with CSV and not SSV? I am a putz!
 	 *
-	 * @param ssv space separated values (Cell.id's).
+	 * @param ssv space separated values (Cell.ids).
 	 * @return a new Idx.
 	 */
 	public static final Idx ofSsv(final String ssv) {
 		if ( ssv.isEmpty() ) // throws NPE if null
 			throw new IllegalArgumentException("empty ssv");
 		final Idx result = new Idx();
-		for ( final String id : ssv.split(" +") )
+		for ( final String id : ssv.split(",? +") )
 			result.add(Grid.indice(id));
 		return result;
 	}
 
 	/**
-	 * Return the cardinality of the "virtual Idx" a0, a1, a2.
+	 * Return the cardinality of the virtual Idx: m0, m1, m2.
 	 * <p>
-	 * NB: Uses bitCount, coz that's faster than initialising.
+	 * NB: bitCount is faster than anything. Cant beat it. Trust me, I tried.
+	 * If you CAN beat it then my only question is WTF.
 	 *
-	 * @param a0
-	 * @param a1
-	 * @param a2
+	 * @param m0 mask 0: 27 used bits
+	 * @param m1 mask 1: 27 used bits
 	 * @return the number of set (1) bits in the Idx
 	 */
-	public static final int size(final int a0, final int a1, final int a2) {
-		return bitCount(a0)+bitCount(a1)+bitCount(a2);
+	public static final int size(final long m0, final int m1) {
+		return Long.bitCount(m0) + Integer.bitCount(m1);
 	}
 
 	/**
-	 * Returns is size(a0,a1,a2) &lt;= max.
-	 *
-	 * @param a0
-	 * @param a1
-	 * @param a2
-	 * @param max
-	 * @return
-	 */
-	public static final boolean sizeLTE(final int a0, final int a1, final int a2, final int max) {
-		return bitCount(a0)+bitCount(a1)+bitCount(a2) <= max;
-	}
-
-	// These static queries have euphamistic names to differentiate them
-	// from instance queries, which all have logic-based names.
-
-	/**
-	 * Returns (a & b) != 0.
-	 *
-	 * @param a
-	 * @param b
-	 * @return
-	 */
-	public static final boolean intersect(final Idx a, final Idx b) {
-		return ( (a.a0 & b.a0)
-			   | (a.a1 & b.a1)
-			   | (a.a2 & b.a2) ) != 0;
-	}
-
-	/**
-	 * Returns (a & b) == 0.
-	 *
-	 * @param a
-	 * @param b
-	 * @return
-	 */
-	public static final boolean disjunct(final Idx a, final Idx b) {
-		return (a.a0 & b.a0) == 0
-			&& (a.a1 & b.a1) == 0
-			&& (a.a2 & b.a2) == 0;
-	}
-
-	/**
-	 * Returns a lease over an array containing the indices in the virtual
-	 * Idx(a0,a1,a2) without creating the Idx or even (usually) a new array.
-	 * So double-down on your KY order: McKraken is flappin.
-	 *
-	 * @param a0 Idx element 0: 27 used bits
-	 * @param a1 Idx element 1: 27 used bits
-	 * @param a2 Idx element 2: 27 used bits
-	 * @return a Lease on a cached array of indices in the given Idx
-	 */
-	public static final IALease toArrayLease(final int a0, final int a1, final int a2) {
-		final int n = bitCount(a0)+bitCount(a1)+bitCount(a2);
-		final IALease lease = iaLease(n);
-		final int[] a = lease.array;
-		forEach(a0,a1,a2, (i, e) -> a[i] = e); // index, element
-		return lease;
-	}
-
-	/**
-	 * Static forEach invokes {@code v.visit(index, indice)} for each cell in
-	 * the virtual Idx(a0,a1,a2); where index is 0-based number visited so far,
-	 * and indice of each cell in the virtual Idx.
+	 * Returns (idxA & idxB) > 0 (27bits),
+	 * ie the two sets share common elements,
+	 * ergo they overlap.
 	 * <p>
-	 * I'm a bit proud of this. It allows a single implementation of the indice
-	 * finder to do whatever with the indices. It's clever, as are closures
-	 * (lambda expressions) used to implement visitor succinctly.
+	 * I must explain the 27bits thing. Each Idx mask contains just 27 bits and
+	 * in Javas integer-number system the 32nd bit is used as the sign-bit, so
+	 * negative numbers have 1 (a set bit) as there 32nd bit. An Idx uses just
+	 * 27 bits, hence I can get away with testing for empty using &lt; 1, and
+	 * for not-empty using &gt; 0. The equals and not-equals operations are
+	 * slower than greater-than and less-than IN HARDWARE. Its under the bonnet
+	 * son. Java runs through a virtual machine, so your milage may vary. Sigh.
+	 * I leave a // 27bit breadcrumb wherever I do this coz using the 32nd bit
+	 * WILL cause mahem. I dont control the future. I merely plan to meat it.
 	 *
-	 * @param a0 Idx element 0: 27 used bits
-	 * @param a1 Idx element 1: 27 used bits
-	 * @param a2 Idx element 2: 27 used bits
-	 * @param v visitor is invoked with index (0-based how many),
-	 *  and indice (of this cell in the grid)
-	 * @return the number of indices visited, ie the end count.
+	 * @param idxA the first Idx
+	 * @param idxB the second Idx
+	 * @return does idxA intersect idxB
 	 */
-	public static final int forEach(final int a0, final int a1, final int a2, final IntIntVisitor v) {
-		int ka[], j, kn,ki, i = 0; // ALL vars, for one stackframe
-		if ( a0 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a0>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(i++, j+ka[ki]);
-		if ( a1 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a1>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(i++, BITS_PER_ELEMENT+j+ka[ki]);
-		if ( a2 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a2>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(i++, BITS_TWO_ELEMENTS+j+ka[ki]);
-		return i;
+	public static final boolean overlaps(final Idx idxA, final Idx idxB) {
+		return ((idxA.m0&idxB.m0) | (idxA.m1&idxB.m1)) > 0;
 	}
 
 	/**
-	 * Static forEach visits each indice in a1,a2,a3: ie invokes
-	 * {@code v.visit(indice)} for each set (1) bit in the Idx(a1,a2,a3).
+	 * seers is for {@link diuf.sudoku.solver.hinters.als.RccFinderAll#find}
+	 * which is currently its only use, and I expect it will remain that way.
+	 * <p>
+	 * Returns (idxA & idxB & idxC) == idxC,
+	 * ie do both idxA and idxA contain all elements in idxC,
+	 * ergo do the bastards see 'c'.
+	 * <p>
+	 * This method exists for performance. Its faster all in one statement, to
+	 * not test mask 'b' unless 'a' is true, and likewise not test 'c' unless
+	 * both 'a' and 'b' are true. Thats the bloody theory anyway. If you have
+	 * empirical evidence demurring from this contention then I am all ears.
 	 *
-	 * @param a0 Idx element 0: 27 used bits
-	 * @param a1 Idx element 1: 27 used bits
-	 * @param a2 Idx element 2: 27 used bits
-	 * @param v your implementation of Visitor1 does whatever with indice
+	 * @param idxA the first Idx
+	 * @param idxB the second Idx
+	 * @param idxC the idx that is, allegedly, contained by both a and b
+	 * @return (idxA & idxB & idxC) == idxC
 	 */
-	public static final void forEach(final int a0, final int a1, final int a2, final IntVisitor v) {
-		int j;
-		if ( a0 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a0>>j)&WORD_MASK] )
-					v.visit(j+k);
-		if ( a1 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a1>>j)&WORD_MASK] )
-					v.visit(BITS_PER_ELEMENT+j+k);
-		if ( a2 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(a2>>j)&WORD_MASK] )
-					v.visit(BITS_TWO_ELEMENTS+j+k);
+	public static boolean seers(final Idx idxA, final Idx idxB, final Idx idxC) {
+		return (idxA.m0 & idxB.m0 & idxC.m0) == idxC.m0
+			&& (idxA.m1 & idxB.m1 & idxC.m1) == idxC.m1;
 	}
 
-	public static final String toString(final int a0, final int a1, final int a2) {
+	/**
+	 * if size(m0,m1)==1 return the only indice; else -1.
+	 *
+	 * @param m0 the first mask of 54bits
+	 * @param m1 the second mask of 27bits
+	 * @return the only indice in the virtual Idx(m0,m1); else -1
+	 */
+	public static int only(final long m0, final int m1) {
+		int x, y, n;
+		if ( m0 > 0L ) {
+			if ( m1 > 0 )
+				return -1; // two masks means size > 1
+			long l = m0 & -m0;
+			if ( (m0 & ~l) > 0L )
+				return -1; // any remaining means size > 1
+			//return Long.numberOfTrailingZeros(l); // inline for speed
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 63;
+			y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+			y= x<<16; if(y!=0){n-=16; x=y;}
+			y= x<< 8; if(y!=0){n-= 8; x=y;}
+			y= x<< 4; if(y!=0){n-= 4; x=y;}
+			y= x<< 2; if(y!=0){n-= 2; x=y;}
+			return n - ((x<<1)>>>31);
+		}
+		if ( m1 > 0 ) {
+			// nb: we get here only when m0 is 0
+			x = m1 & -m1;
+			if ( (m1 & ~x) > 0L )
+				return -1; // any remaining means size > 1
+			//return FIFTY_FOUR + Integer.numberOfTrailingZeros(m1);
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+			y=x<<16; if(y!=0){n-=16; x=y;}
+			y=x<< 8; if(y!=0){n-= 8; x=y;}
+			y=x<< 4; if(y!=0){n-= 4; x=y;}
+			y=x<< 2; if(y!=0){n-= 2; x=y;}
+			return n - ((x<<1)>>>31);
+		}
+		return QEMPTY;
+	}
+
+	/**
+	 * Count the number of values offed from each cell in the grid.
+	 * <p>
+	 * Note that this method exists for GEM only (currently), but it's better
+	 * to keep the bit-twiddling in Idx if at all possible, so that I can be
+	 * the responsibility solely of the team bit-twiddler, instead of spreading
+	 * my overly complex s__t throughout the whole app.
+	 *
+	 * @param offs offs of the current color
+	 * @param counts output number of values offed from each cell
+	 */
+	public static void offCounts(final Idx[] offs, final int[] counts) {
+		long m0, l;
+		int m1, i, y, n, x;
+		i = 0; // i is the indice
+		do
+			counts[i] = 0;
+		while(++i < GRID_SIZE);
+		i = 1; // i is now v
+		do
+			if ( offs[i] != null ) {
+				// read the Idx inline, for speed
+				// pre: 314 ms (0.8%)
+				// pst: 193 ms (0.5%)
+				m0 = offs[i].m0;
+				m1 = offs[i].m1;
+				while ( m0 > 0L ) {
+					l = m0 & -m0; // lowestOneBit
+					m0 &= ~l; // remove l
+					//return Long.numberOfTrailingZeros(l);
+					//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+					n = 63;
+					y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+					y=x<<16; if(y!=0){n-=16; x=y;}
+					y=x<< 8; if(y!=0){n-= 8; x=y;}
+					y=x<< 4; if(y!=0){n-= 4; x=y;}
+					y=x<< 2; if(y!=0){n-= 2; x=y;}
+					++counts[n - ((x<<1)>>>31)];
+				}
+				while ( m1 > 0 ) {
+					x = m1 & -m1; // lowestOneBit
+					m1 &= ~x; // remove x
+					//return FIFTY_FOUR + Integer.numberOfTrailingZeros(i);
+					//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+					n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+					y=x<<16; if(y!=0){n-=16; x=y;}
+					y=x<< 8; if(y!=0){n-= 8; x=y;}
+					y=x<< 4; if(y!=0){n-= 4; x=y;}
+					y=x<< 2; if(y!=0){n-= 2; x=y;}
+					++counts[n - ((x<<1)>>>31)];
+				}
+			}
+		while (++i < VALUE_CEILING);
+	}
+
+	/**
+	 * Read indices from the virtual Idx(m0,m1) into result, and return how
+	 * many, so that you can re-use a fixed-sized array.
+	 *
+	 * @param m0 mask 0: 54 bit long
+	 * @param m1 mask 1: 27 bit int
+	 * @param result array to populate with indices
+	 * @return how many
+	 */
+	public static int toArray(long m0, int m1, final int[] result) {
+		long l; int x, y, n, count = 0;
+		while ( m0 > 0L ) {
+			l = m0 & -m0; // lowestOneBit
+			m0 &= ~l; // remove l
+			//return Long.numberOfTrailingZeros(l); // inline for speed
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 63;
+			y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+			y= x<<16; if(y!=0){n-=16; x=y;}
+			y= x<< 8; if(y!=0){n-= 8; x=y;}
+			y= x<< 4; if(y!=0){n-= 4; x=y;}
+			y= x<< 2; if(y!=0){n-= 2; x=y;}
+			result[count++] = n - ((x<<1)>>>31);
+		}
+		while ( m1 > 0 ) {
+			x = m1 & -m1; // lowestOneBit
+			m1 &= ~x; // remove x
+			//return FIFTY_FOUR + Integer.numberOfTrailingZeros(i); // inline for speed
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+			y=x<<16; if(y!=0){n-=16; x=y;}
+			y=x<< 8; if(y!=0){n-= 8; x=y;}
+			y=x<< 4; if(y!=0){n-= 4; x=y;}
+			y=x<< 2; if(y!=0){n-= 2; x=y;}
+			result[count++] = n - ((x<<1)>>>31);
+		}
+		return count;
+	}
+
+	public static int[] toArrayNew(long m0, int m1) {
+		final int[] result = new int[size(m0,m1)];
+		toArray(m0, m1, result);
+		return result;
+	}
+
+	/**
+	 * Append space separated cell-IDs (SSV) of the given Idx(m0,m1) to
+	 * the given StringBuilder. First ensureCapacity of length + the given $n.
+	 * <p>
+	 * Each bitset uses 27 least significant (rightmost) bits, for 81 cells.
+	 *
+	 * @param sb to append to
+	 * @param m0 mask 0: 54 bit long
+	 * @param m1 mask 1: 27 bit int
+	 * @return the given StringBuilder for method chaining.
+	 */
+	public static StringBuilder append(final StringBuilder sb, final long m0, final int m1) {
+		int i;
+		final IntQueue q = new MyIntQueue(m0,m1);
+		if ( (i=q.poll()) > QEMPTY ) {
+			sb.append(CELL_IDS[i]);
+			while ( (i=q.poll()) > QEMPTY )
+				sb.append(" ").append(CELL_IDS[i]);
+		}
+		return sb;
+	}
+
+	/**
+	 * Returns a cell-ids String of m0, m1, m2; as if they where an Idx array.
+	 * <p>
+	 * NOTE: toString is no longer used in hint-HTML, so performance does not
+	 * really matter any longer, so we COULD use a each and a Visitor.
+	 *
+	 * @param m0 mask 0: 54 bit long
+	 * @param m1 mask 1: 27 bit int
+	 * @return the cell-ids of indices in this Idx.
+	 */
+	public static String toStringCellIds(final long m0, final int m1) {
+		return append(SB(size(m0,m1)<<2), m0,m1).toString();
+	}
+
+	/**
+	 * For debugging.
+	 *
+	 * @param m0 mask 0: 54 bit long
+	 * @param m1 mask 1: 27 bit int
+	 * @return SSV indices (not cell-ids)
+	 */
+	public static String toStringIndices(final long m0, final int m1) {
+		int i;
+		final StringBuilder sb = SB(size(m0,m1)<<2); // * 4
+		final IntQueue q = new MyIntQueue(m0,m1);
+		if ( (i=q.poll()) > QEMPTY ) {
+			sb.append(i);
+			while ( (i=q.poll()) > QEMPTY )
+				sb.append(" ").append(i);
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * RETAIN: for debugging. Don't care if unused. My uncle Rodney concurs.
+	 * <p>
+	 * Stringify elims: an array of exploded Idxs, one per value 1..9.
+	 *
+	 * @param elims Exploded Idxs [value 1..9][mask 0..2]
+	 * @return Nine lines for 9 Idxs, or a haiku.
+	 */
+	public static String toString(final long[][] elims) {
+		final StringBuilder sb = SB(1024);
+		if ( elims.length == 10 && elims[1].length == 2 ) {
+			for ( int v=1; v<10; ++v ) {
+				sb.append(v).append(": ");
+				append(sb, elims[v][0], (int)elims[v][1]).append(NL);
+			}
+		} else {
+			sb.append("1: I just want my mom.").append(NL)
+			  .append("2: My uncle Rodney wants my mom too.").append(NL)
+			  .append("3: I format only elims[10][2].").append(NL)
+			  .append("4: My uncle Rodney is a dirty old man!").append(NL);
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Get the toString() of a virtual Idx.
+	 *
+	 * @param m0 mask 0: 27 used bits
+	 * @param m1 mask 1: 27 used bits
+	 * @return the cell.ids (or plain indexes when debugging)
+	 */
+	public static final String toString(final long m0, final int m1) {
 		if ( true ) // @check true
 			// cell-ids toString for normal use
-			return toStringCellIds(a0, a1, a2);
+			return toStringCellIds(m0, m1);
 		// debug only: the raw indices
-		return toStringIndices(a0, a1, a2);
+		return toStringIndices(m0, m1);
+	}
+
+	/**
+	 * Hash this Idx: fold each int in half and offset them. The result is a
+	 * pretty trashy hashCode, but we are smashing 81 bits into 32, so some
+	 * loss, and therefore collisions, are inevitable. The trick is minimising
+	 * the collisions, and I have not really done that: just thrown something
+	 * together that works a bit, because I am not a mathematicians asshole.
+	 * <p>
+	 * My humour is a bit off too! Binary LOLs! What is LOL in binary! NANANA!
+	 * Come at me with that fruit!
+	 *
+	 * @param m0 mask 0: 27 used bits
+	 * @param m1 mask 1: 27 used bits
+	 * @return the hashCode for this Idx
+	 */
+	public static int hashCode(final long m0, final int m1) {
+		// NASTY: m1 is an int: fold it in half;
+		// m0 is a long: fold it in half and quarters;
+		// thus increasing probabilty of lower 16 bits containing 1's
+		// ----------------------------------------------------------
+		// If you want small fast hashes then you should also m*&>>>8
+		// to increase probability of lower 8 bits containing 1's.
+		// I say here that I care not for small hash performance.
+		// 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16K 32K
+		// 1 2 3 4  5  6  7   8   9  10   11   12   13   14  15  16
+		// ----------------------------------------------------------
+		return ((m1^(m1>>>16))<<3) ^ (int)(m0^(m0>>>32)^(m0>>>16));
+	}
+
+	/**
+	 * Hash this Idx into a long.
+	 *
+	 * @param m0 mask 0: 54 used bits
+	 * @param m1 mask 1: 27 used bits
+	 * @return the long hashCode of this Idx
+	 */
+	public static long hashCode64(final long m0, final long m1) {
+		return (m0<<10L) ^ m1;
 	}
 
 	// ============================ instance stuff ============================
 
-	/** The 3 ints, each of 27 used bits, for the 81 cells in a Grid. These
-	 * fields are readonly to the public; don't modify unless you have to. */
-	public int a0, a1, a2;
+	/**
+	 * A long and b int are a bitset of the 81 cells in a grid. 54 bits of the
+	 * long are used, and 27 bits of the int, and 54+27=81; one bit for each
+	 * cell in a Grid. If the bit is set (1) it denotes that cell is present in
+	 * this Set. Simples. We can do all-sorts of bitwise magic on bitsets, just
+	 * for fun.
+	 * <p>
+	 * These mask fields are readonly to public. Please avoid modifying them,
+	 * unless you really want to (Adams D.), but please provide a comment
+	 * justifying your decision, even if its only (Adams D.). Give it some
+	 * thought. That's all.
+	 * <p>
+	 * You can axedintely mutate an IdxI by sticking your hand down his pants.
+	 * You dont want that. Rules create more interesting solutions than Grud.
+	 * Grug STROOONG! Grud good. Grud take! The only rule is that you cannot
+	 * tell me what the rules are. Be patient, and invest the time in letting
+	 * me work them out for myself. I really am quite intelligent you know. But
+	 * when Grud thinks he has the right to destroy my planet, for money, then
+	 * I find myself compelled to shoot the bastard. Twas ever thus. Sigh. I'll
+	 * just stick to being a smartass then shall I. Peace works too ya know.
+	 */
+	public long m0; // long of 2*27=54 used bits
+	public int m1; // int of 27 used bits (54+27=81 == GRID_SIZE)
+
+	/** for {@link #hashCode() } */
+	private int hashCode;
 
 	/**
 	 * Constructs a new empty Idx.
 	 * <p>
-	 * Design Note: There are no fields to initialise, so construction is fast
-	 * compared to the previous 'a' array set-up. But we no longer needlessly
-	 * construct an Idx, anywhere in the code, so there's little or no gain
-	 * from this "upgrade", just more code handling a0, a1, and a2, which used
-	 * to be the array 'a'. Sigh.
+	 * Design Note: There are few fields to initialise, so construction is fast
+	 * compared to the previous array param set-up. But we no longer needlessly
+	 * construct an Idx, anywhere in the code, so there is little or no gain,
+	 * just more code handling m0,m1 that used to be an array. Sigh.
 	 */
 	public Idx() {
 	}
@@ -496,52 +762,42 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	/**
 	 * The Copy Constructor: Returns a new Idx containing a copy of src.
 	 *
-	 * @param a to copy
+	 * @param src the source Idx to copy
 	 */
-	public Idx(final Idx a) {
-		a0 = a.a0;
-		a1 = a.a1;
-		a2 = a.a2;
-	}
-
-	/**
-	 * Constructs a new Idx containing the given 'bitsets': a0, a1, a2.
-	 * <p>
-	 * This constructor is currently only used by LinkedMatrixCellSet, of which
-	 * there are two: in align (to be replaced) and align2 (the replacement).
-	 *
-	 * @param bitsets a0, a1, a2.
-	 */
-	public Idx(final int[] bitsets) {
-		a0 = bitsets[0];
-		a1 = bitsets[1];
-		a2 = bitsets[2];
+	public Idx(final Idx src) {
+		this.m0 = src.m0;
+		this.m1 = src.m1;
 	}
 
 	/**
 	 * Constructs a new Idx and if isFull then fills it with all of the cells
-	 * in a Grid (0..80) by calling the fill() method internally.
+	 * in a Grid (0..80) by doing the fill() method in-line.
 	 * <p>
 	 * We currently only ever call this with true, but isFull might be handy
 	 * down the track, so here it is.
+	 * <p>
+	 * NOTE: This constructor is currently used only in the test-cases, where
+	 * its used to test other-stuff, hence its retained despite never being
+	 * invoked in the actual system.
 	 *
 	 * @param isFull true to fill this idx, false leaves it empty.
 	 */
 	public Idx(final boolean isFull) {
-		if ( isFull )
-			a0 = a1 = a2 = IDX_ALL; // 27 1's
+		if ( isFull ) {
+			m0 = BITS54L; // 54 1's
+			m1 = BITS27; // 27 1's
+		}
 	}
 
 	/**
 	 * Constructor from raw array values.
-	 * @param a0
-	 * @param a1
-	 * @param a2
+	 *
+	 * @param m0 mask 0: 27 used bits
+	 * @param m1 mask 1: 27 used bits
 	 */
-	public Idx(final int a0, final int a1, final int a2) {
-		this.a0 = a0;
-		this.a1 = a1;
-		this.a2 = a2;
+	public Idx(final long m0, final int m1) {
+		this.m0 = m0;
+		this.m1 = m1;
 	}
 
 	/**
@@ -549,134 +805,222 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 *
 	 * @param cells to add to this Idx
 	 */
-	public Idx(Cell[] cells) {
-		for ( Cell c : cells )
-			add(c.i);
+	public Idx(final Cell[] cells) {
+		long m0=0L; int i, m1=0;
+		for ( Cell cell : cells )
+			if ( (i=cell.indice) < FIFTY_FOUR )
+				m0 |= MASKED81[i];
+			else
+				m1 |= MASKED[i];
+		this.m0 = m0; this.m1 = m1;
 	}
 
 	/**
-	 * Constructs a new Idx containing the complement of this Idx.
+	 * Constructor from cells collection.
+	 *
+	 * @param cells to add to this Idx
+	 */
+	public Idx(final Collection<Cell> cells) {
+		long m0=0L; int i, m1=0;
+		for ( Cell cell : cells )
+			if ( (i=cell.indice) < FIFTY_FOUR )
+				m0 |= MASKED81[i];
+			else
+				m1 |= MASKED[i];
+		this.m0 = m0; this.m1 = m1;
+	}
+
+	/**
+	 * Constructor from indices array.
+	 *
+	 * @param indices to add
+	 * @param n number of indices to add
+	 */
+	public Idx(final int[] indices, final int n) {
+		long m0=0L; int i, j, m1=0;
+		for ( j=0; j<n; ++j )
+			if ( (i=indices[j]) < FIFTY_FOUR )
+				m0 |= MASKED81[i];
+			else
+				m1 |= MASKED[i];
+		this.m0 = m0; this.m1 = m1;
+	}
+
+	/**
+	 * Constructor for indice Set.
+	 *
+	 * @param indices
+	 */
+	public Idx(final Set<Integer> indices) {
+		if ( indices instanceof Idx ) {
+			m0 = ((Idx)indices).m0;
+			m1 = ((Idx)indices).m1;
+		} else {
+			long m0=0L; int m1=0;
+			for ( int i : indices )
+				if ( i < FIFTY_FOUR )
+					m0 |= MASKED81[i];
+				else
+					m1 |= MASKED[i];
+			this.m0 = m0; this.m1 = m1;
+		}
+	}
+
+	/**
+	 * Constructor for array of masks.
+	 *
+	 * @param masks three ints that are my raw bitset mask values
+	 * @param dummy says theses are mask values, not indices
+	 */
+	public Idx(final int[] masks, final boolean dummy) {
+		m0 = masks[0];
+		m1 = masks[1];
+	}
+
+	/**
+	 * Constructs a new Idx containing the complement of this Idx,
+	 * ergo all indices EXCEPT those in this Idx.
 	 *
 	 * @return a new Idx of all EXCEPT this Idx.
 	 */
 	Idx not() {
-		return new Idx(IDX_ALL & ~a0, IDX_ALL & ~a1, IDX_ALL & ~a2);
-	}
-
-	/**
-	 * Returns a new Idx containing a copy of the contents of this Idx.
-	 * @return
-	 */
-	@Override
-	public Idx clone() {
-		try {
-			Idx clone = (Idx)super.clone();
-			clone.a0 = a0;
-			clone.a1 = a1;
-			clone.a2 = a2;
-			return clone;
-		} catch (CloneNotSupportedException eaten) {
-			return null; // Object.clone() never fails!
-		}
+		return new Idx(BITS54L & ~m0, BITS27 & ~m1);
 	}
 
 	// ------------------------------- mutators -------------------------------
 
 	/**
-	 * Add 'cells' which match 'f' into this Idx.
+	 * Fill this Idx with all 81 indices.
 	 *
-	 * @param cells to read (usually Grid.cells)
-	 * @param f the filter which accept's cells to be added to this Idx
+	 * @return this Idx, for method chaining
+	 */
+	@Mutator
+	public Idx fill() {
+		m0 = BITS54L;
+		m1 = BITS27;
+		return this;
+	}
+
+	/**
+	 * Read the $cells matching $filter into this Idx.
+	 *
+	 * @param cells source (usually grid.cells)
+	 * @param filter a closure whose accept method determines which cells are
+	 *  added to this Idx; FYI a "closure" is "code encapsulated by pattern"
 	 * @return this Idx for method chaining
 	 */
 	@Mutator
-	public Idx read(final Cell[] cells, final IFilter<Cell> f) {
-		for ( final Cell c : cells )
-			if ( f.accept(c) )
-				addOnly(c.i);
+	public Idx read(final Cell[] cells, final IFilter<Cell> filter) {
+		long m0=0L; int m1=0, i=0;
+		do
+			if ( filter.accept(cells[i]) )
+				m0 |= MASKED81[i];
+		while (++i < FIFTY_FOUR);
+		do
+			if ( filter.accept(cells[i]) )
+				m1 |= MASKED[i];
+		while (++i < GRID_SIZE);
+		this.m0 = m0; this.m1 = m1;
 		return this;
 	}
 
 	/**
-	 * Set this = a.
+	 * Set this Idx to contain only the given indice.
 	 *
-	 * @param a
+	 * @param indice
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public Idx set(final Idx a) {
-		a0 = a.a0;
-		a1 = a.a1;
-		a2 = a.a2;
+	public Idx setIndice(final int indice) {
+		if ( indice < FIFTY_FOUR ) {
+			m0 = MASKED81[indice]; m1 = 0;
+		} else {
+			m0 = 0; m1 = MASKED[indice];
+		}
 		return this;
 	}
 
 	/**
-	 * Set this = trues in b.
+	 * Set this Idx to contain only the given indices.
 	 *
-	 * @param bits an array of 81 booleans
+	 * @param indiceA
+	 * @param indiceB
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public Idx set(final boolean[] bits) {
-		int i = 0;
-		for ( ; i<27; ++i )
-			if ( bits[i] )
-				a0 |= IDX_SHFT[i];
-		for ( ; i<54; ++i )
-			if ( bits[i] )
-				a1 |= IDX_SHFT[i%BITS_PER_ELEMENT];
-		for ( ; i<81; ++i )
-			if ( bits[i] )
-				a2 |= IDX_SHFT[i%BITS_PER_ELEMENT];
+	public Idx setIndices(final int indiceA, final int indiceB) {
+		m0 = m1 = 0;
+		add(indiceA);
+		add(indiceB);
 		return this;
 	}
 
 	/**
-	 * Set this = src; if src is null then this Idx is empty.
-	 * <p>
-	 * This null-safe version of set is required by KrakenFisherman only, where
-	 * it IS required, else there's s__t loads of ____ing around to avoid it.
+	 * Set this Idx to contain only the given indices.
+	 *
+	 * @param indiceA
+	 * @param indiceB
+	 * @param indiceC
+	 * @return this Idx, for method chaining.
+	 */
+	@Mutator
+	public Idx setIndices(final int indiceA, final int indiceB, final int indiceC) {
+		m0 = m1 = 0;
+		add(indiceA);
+		add(indiceB);
+		add(indiceC);
+		return this;
+	}
+
+	/**
+	 * Set this Idx to contain only the given indices.
+	 *
+	 * @param indiceA
+	 * @param indiceB
+	 * @param indiceC
+	 * @param indiceD
+	 * @return this Idx, for method chaining.
+	 */
+	@Mutator
+	public Idx setIndices(final int indiceA, final int indiceB, final int indiceC, final int indiceD) {
+		m0 = m1 = 0;
+		add(indiceA);
+		add(indiceB);
+		add(indiceC);
+		add(indiceD);
+		return this;
+	}
+
+	/**
+	 * Set this = src,
+	 * ergo copy src into this Idx.
 	 *
 	 * @param src
-	 */
-	@Mutator
-	public void setNullSafe(final Idx src) {
-		// null check required by KrakenFisherman. sigh.
-		if ( src == null ) {
-			a0 = a1 = a2 = 0; // clear
-		} else {
-			a0 = src.a0;
-			a1 = src.a1;
-			a2 = src.a2;
-		}
-	}
-
-	/**
-	 * Set this Idx to the raw array entries a0, a1, and a2.
-	 *
-	 * @param a0
-	 * @param a1
-	 * @param a2
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public Idx set(final int a0, final int a1, final int a2) {
-		this.a0 = a0;
-		this.a1 = a1;
-		this.a2 = a2;
+	public Idx set(final Idx src) {
+		m0 = src.m0;
+		m1 = src.m1;
 		return this;
 	}
 
 	/**
-	 * Set this Idx to the indices of the given cells.
+	 * Set this Idx to the raw masks/bitsets: a, b.
+	 * <p>
+	 * This allows you to calculate an Idx using native ops, and set it into an
+	 * Idx for storage, or to use Idxs more complex operations. This is da most
+	 * heavily-used Idx operation, because it suits hammered code.
 	 *
-	 * @param cells to add
+	 * @param m0 mask 0: 27 used bits
+	 * @param m1 mask 1: 27 used bits
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public Idx set(final Cell[] cells) {
-		return set(cells, cells.length);
+	public Idx set(final long m0, final int m1) {
+		this.m0 = m0;
+		this.m1 = m1;
+		return this;
 	}
 
 	/**
@@ -688,222 +1032,164 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	@Mutator
 	public Idx set(final Cell[] cells, final int n) {
-		a0 = a1 = a2 = 0;
-		for ( int i=0; i<n; ++i )
-			add(cells[i].i);
+		m0 = m1 = 0;
+		for ( int i, j=0; j<n; ++j ) {
+			if ( (i=cells[j].indice) < FIFTY_FOUR )
+				m0 |= MASKED81[i];
+			else
+				m1 |= MASKED[i];
+		}
 		return this;
 	}
 
 	/**
-	 * Set this Idx to the indices of the given cells.
+	 * Set this = masks (a,b), and return any.
 	 *
-	 * @param indices to add
+	 * @param m0 a 54bit long of the first 54 indices in the Idx
+	 * @param m1 a 27bit int of the second 27 indices in the Idx
+	 * @return not empty
+	 */
+	@Mutator
+	public boolean setAny(final long m0, final int m1) {
+		this.m0 = m0;
+		this.m1 = m1;
+		return (m0|m1) > 0L;
+	}
+
+	/**
+	 * Set this = (idxA & idxB).
+	 *
+	 * @param idxA
+	 * @param idxB
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public Idx set(final int[] indices) {
-		a0 = a1 = a2 = 0;
-		for ( int i : indices )
-			add(i);
+	public Idx setAnd(final Idx idxA, final Idx idxB) {
+		m0 = idxA.m0 & idxB.m0;
+		m1 = idxA.m1 & idxB.m1;
 		return this;
 	}
 
 	/**
-	 * Set this = (a0,a1,a2) and return any.
+	 * Set this = (idxA & idxB & idxC),
+	 * ergo common to all three indexes.
 	 *
-	 * @param a0 the mask of the first 27 indices in the Idx
-	 * @param a1 the mask of the second 27 indices in the Idx
-	 * @param a2 the mask of the third 27 indices in the Idx
-	 * @return not empty
-	 */
-	@Mutator
-	public boolean setAny(final int a0, final int a1, final int a2) {
-		this.a0 = a0;
-		this.a1 = a1;
-		this.a2 = a2;
-		return (a0|a1|a2) != 0;
-	}
-
-	/**
-	 * Set this = (a & b).
-	 *
-	 * @param a
-	 * @param b
+	 * @param idxA
+	 * @param idxB
+	 * @param idxC
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public Idx setAnd(final Idx a, final Idx b) {
-		a0 = a.a0 & b.a0;
-		a1 = a.a1 & b.a1;
-		a2 = a.a2 & b.a2;
+	public Idx setAnd(final Idx idxA, final Idx idxB, final Idx idxC) {
+		m0 = idxA.m0 & idxB.m0 & idxC.m0;
+		m1 = idxA.m1 & idxB.m1 & idxC.m1;
 		return this;
 	}
 
 	/**
-	 * Set this = (a & b) and returns any.
+	 * Set this = (idxA & idxB) and returns any,
+	 * ergo common to both indexes.
 	 *
-	 * @param a
-	 * @param b
+	 * @param idxA
+	 * @param idxB
 	 * @return not empty
 	 */
 	@Mutator
-	public boolean setAndAny(final Idx a, final Idx b) {
-		a0 = a.a0 & b.a0;
-		a1 = a.a1 & b.a1;
-		a2 = a.a2 & b.a2;
-		return (a0|a1|a2) != 0;
+	public boolean setAndAny(final Idx idxA, final Idx idxB) {
+		m0 = idxA.m0 & idxB.m0;
+		m1 = idxA.m1 & idxB.m1;
+		return (m0|m1) > 0L;
 	}
 
 	/**
-	 * Set this = (a & b & c) and returns any.
+	 * Set this = (idxA & idxB & idxC) and returns any,
+	 * ergo common to all three indexes.
 	 *
-	 * @param a
-	 * @param b
-	 * @param c
+	 * @param idxA
+	 * @param idxB
+	 * @param idxC
 	 * @return not empty
 	 */
 	@Mutator
-	public boolean setAndAny(final Idx a, final Idx b, final Idx c) {
-		a0 = a.a0 & b.a0 & c.a0;
-		a1 = a.a1 & b.a1 & c.a1;
-		a2 = a.a2 & b.a2 & c.a2;
-		return (a0|a1|a2) != 0;
+	public boolean setAndAny(final Idx idxA, final Idx idxB, final Idx idxC) {
+		return ( (m0 = idxA.m0 & idxB.m0 & idxC.m0)
+			   | (m1 = idxA.m1 & idxB.m1 & idxC.m1) ) > 0L;
 	}
 
 	/**
-	 * Set this = (a & b) and returns size() > 1.
+	 * Set this = (idxA & idxB) and returns size() > 1,
+	 * ergo get the many that are common to both indexes.
 	 *
-	 * @param a
-	 * @param b
+	 * @param idxA
+	 * @param idxB
 	 * @return 2 or more
 	 */
 	@Mutator
-	public boolean setAndMany(final Idx a, final Idx b) {
-		a0 = a.a0 & b.a0;
-		a1 = a.a1 & b.a1;
-		a2 = a.a2 & b.a2;
-		return (a0|a1|a2)!=0 && size()>1;
+	public boolean setAndMany(final Idx idxA, final Idx idxB) {
+		m0 = idxA.m0 & idxB.m0;
+		m1 = idxA.m1 & idxB.m1;
+		return (m0|m1)>0L && ((m0>0L && m1>0) || size()>1);
 	}
 
 	/**
-	 * Set this = (a & b) and returns size()>=min.
+	 * Set this = (idxA | idxB),
+	 * ergo set me to the union.
 	 *
-	 * @param a
-	 * @param b
-	 * @param min
+	 * @param idxA
+	 * @param idxB
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public boolean setAndMin(final Idx a, final Idx b, final int min) {
-		a0 = a.a0 & b.a0;
-		a1 = a.a1 & b.a1;
-		a2 = a.a2 & b.a2;
-		return (a0|a1|a2)!=0 && size()>=min;
-	}
-
-	/**
-	 * Set this = src then remove indice and return self.
-	 *
-	 * @param src the source Idx
-	 * @param indice to be removed
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx setExcept(final Idx src, final int indice) {
-		set(src);
-		remove(indice);
+	public Idx setOr(final Idx idxA, final Idx idxB) {
+		m0 = idxA.m0 | idxB.m0;
+		m1 = idxA.m1 | idxB.m1;
 		return this;
 	}
 
 	/**
-	 * Set this = ALL & ~excluded.
+	 * Set this = idxA & ~idxB,
+	 * ergo set me to a-only elements.
 	 *
-	 * @param excluded indices of cells to be excluded
+	 * @param idxA
+	 * @param idxB
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public Idx setAllExcept(final Idx excluded) {
-		a0 = IDX_ALL & ~excluded.a0;
-		a1 = IDX_ALL & ~excluded.a1;
-		a2 = IDX_ALL & ~excluded.a2;
+	public Idx setAndNot(final Idx idxA, final Idx idxB) {
+		m0 = idxA.m0 & ~idxB.m0;
+		m1 = idxA.m1 & ~idxB.m1;
 		return this;
 	}
 
 	/**
-	 * Set this = (a | b).
+	 * Set this = idxA & ~idxB, and return any(),
+	 * ergo set me to a-only elements.
 	 *
-	 * @param a
-	 * @param b
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx setOr(final Idx a, final Idx b) {
-		a0 = a.a0 | b.a0;
-		a1 = a.a1 | b.a1;
-		a2 = a.a2 | b.a2;
-		return this;
-	}
-
-	/**
-	 * Set this = a & ~b.
-	 *
-	 * @param a
-	 * @param b
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx setAndNot(final Idx a, final Idx b) {
-		a0 = a.a0 & ~b.a0;
-		a1 = a.a1 & ~b.a1;
-		a2 = a.a2 & ~b.a2;
-		return this;
-	}
-
-	/**
-	 * Set this = a & ~b & ~c.
-	 *
-	 * @param a
-	 * @param b
-	 * @param c
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx setAndNot(final Idx a, final Idx b, final Idx c) {
-		a0 = a.a0 & ~b.a0 & ~c.a0;
-		a1 = a.a1 & ~b.a1 & ~c.a1;
-		a2 = a.a2 & ~b.a2 & ~c.a2;
-		return this;
-	}
-
-	/**
-	 * Set this = a & ~b, and return any()
-	 *
-	 * @param a
-	 * @param b
+	 * @param idxA
+	 * @param idxB
 	 * @return are there any indices in this Idx
 	 */
 	@Mutator
-	public boolean setAndNotAny(final Idx a, final Idx b) {
-		a0 = a.a0 & ~b.a0;
-		a1 = a.a1 & ~b.a1;
-		a2 = a.a2 & ~b.a2;
-		return (a0|a1|a2) != 0;
+	public boolean setAndNotAny(final Idx idxA, final Idx idxB) {
+		m0 = idxA.m0 & ~idxB.m0;
+		m1 = idxA.m1 & ~idxB.m1;
+		return (m0|m1) > 0L;
 	}
 
 	/**
-	 * Set this = a & ~b & ~c, and return any()
+	 * Set this = idxA & ~idxB & ~idxC, and return any()
+	 * ergo set me to a-only elements.
 	 *
-	 * @param a
-	 * @param b
-	 * @param c
+	 * @param idxA
+	 * @param idxB
+	 * @param idxC
 	 * @return are there any indices in this Idx
 	 */
 	@Mutator
-	public boolean setAndNotAny(final Idx a, final Idx b, final Idx c) {
-		a0 = a.a0 & ~b.a0 & ~c.a0;
-		a1 = a.a1 & ~b.a1 & ~c.a1;
-		a2 = a.a2 & ~b.a2 & ~c.a2;
-		return (a0|a1|a2) != 0;
+	public boolean setAndNotAny(final Idx idxA, final Idx idxB, final Idx idxC) {
+		m0 = idxA.m0 & ~idxB.m0 & ~idxC.m0;
+		m1 = idxA.m1 & ~idxB.m1 & ~idxC.m1;
+		return (m0|m1) > 0L;
 	}
 
 	/**
@@ -912,304 +1198,165 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return this Idx, for method chaining.
 	 */
 	@Mutator
-	public Idx clear() {
-		a0 = a1 = a2 = 0;
+	public Idx clearMe() {
+		m0 = m1 = 0;
 		return this;
 	}
 
 	/**
-	 * Add the given indice 'i' to this Idx.
+	 * Clears this Idx, ie removes all indices.
+	 */
+	@Mutator
+	@Override
+	public void clear() {
+		m0 = m1 = 0;
+	}
+
+	/**
+	 * Add the given indice to this Idx.
+	 * <p>
+	 * SPEED: When adding many it is faster to build your masks locally and set
+	 * the Idx ONCE. This reduces stack-work.
 	 *
-	 * @param i
+	 * @param i indice to add to this Idx
 	 */
 	@Mutator
 	public void add(final int i) {
-		assert i>=0 && i<81;
-//		if ( i < BITS_PER_ELEMENT )
-//			a0 |= IDX_SHFT[i];
-//		else if ( i < BITS_TWO_ELEMENTS )
-//			a1 |= IDX_SHFT[i%BITS_PER_ELEMENT];
-//		else
-//			a2 |= IDX_SHFT[i%BITS_PER_ELEMENT];
-		switch ( i / BITS_PER_ELEMENT ) {
-			case 0: a0 |= IDX_SHFT[i]; break;
-			case 1: a1 |= IDX_SHFT[i%BITS_PER_ELEMENT]; break;
-			default: a2 |= IDX_SHFT[i%BITS_PER_ELEMENT];
-		}
+		assert i>-1 && i<81;
+		if ( i < FIFTY_FOUR )
+			m0 |= MASKED81[i];
+		else
+			m1 |= MASKED[i];
 	}
 
 	/**
-	 * Add the given indice 'i' to this Idx if it doesn't already exist, and
-	 * return was it added; ie an indice visitor, returning true the first time
-	 * an indice is seen, and false there-after.
-	 * <p>
-	 * My advantage is I'm only one method call verses contains(i) then add(i),
-	 * so I'm faster outright. I am NOT atomic, as you might reasonably expect.
-	 * I don't know how to do this operation atomically.
-	 *
-	 * @param i the indice to add.
-	 * @return was 'i' added to this Idx?
-	 */
-	@Mutator
-	public boolean addOnly(final int i) {
-		assert i>=0 && i<81;
-		if ( i < BITS_PER_ELEMENT ) {
-			if ( (a0 & IDX_SHFT[i]) != 0 )
-				return false;
-			a0 |= IDX_SHFT[i];
-		} else if ( i < BITS_TWO_ELEMENTS ) {
-			if ( (a1 & IDX_SHFT[i-BITS_PER_ELEMENT]) != 0 )
-				return false;
-			a1 |= IDX_SHFT[i-BITS_PER_ELEMENT];
-		} else {
-			if ( (a2 & IDX_SHFT[i-BITS_TWO_ELEMENTS]) != 0 )
-				return false;
-			a2 |= IDX_SHFT[i-BITS_TWO_ELEMENTS];
-		}
-		return true;
-	}
-
-	/**
-	 * Add the indice of each of the given cells to this Idx.
-	 * <p>
-	 * You can override this one!
-	 *
-	 * @param cells
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx addAll(final Cell[] cells) {
-		for ( Cell c : cells )
-			add(c.i);
-		return this;
-	}
-
-
-	/**
-	 * Add each of the given indices to this Idx.
-	 *
-	 * @param cells
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	Idx addAll(int[] indices) {
-		for ( int i : indices )
-			add(i);
-		return this;
-	}
-
-	/**
-	 * Remove the given indice 'i' from this Idx.
+	 * Remove the given indice from this Idx.
 	 *
 	 * @param i the indice to be removed from this Idx
 	 */
 	@Mutator
 	public void remove(final int i) {
-		if ( i < BITS_PER_ELEMENT )
-			a0 &= ~IDX_SHFT[i];
-		else if ( i < BITS_TWO_ELEMENTS )
-			a1 &= ~IDX_SHFT[i-BITS_PER_ELEMENT];
+		assert i>-1 && i<81;
+		if ( i < FIFTY_FOUR )
+			m0 &= ~MASKED81[i];
 		else
-			a2 &= ~IDX_SHFT[i-BITS_TWO_ELEMENTS];
+			m1 &= ~MASKED[i];
 	}
 
 	/**
-	 * Remove indices that are accept'ed by the given IntFilter 'f'.
+	 * Visit: If has(i) then remove(i) and return true, else just return false.
 	 *
-	 * @param f an IntFilter whose accept method returns true when the given
-	 *  indice is to be removed.
+	 * @param i the indice to remove, if present
+	 * @return was i present (if so then he's gone now)
 	 */
 	@Mutator
-	public void remove(final IntFilter f) {
-		int ka[], j, kn,ki, i; // ALL vars, for one stackframe
-		if ( a0 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a0>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					if ( f.accept(i=j+ka[ki]) )
-						a0 &= ~IDX_SHFT[i];
-		if ( a1 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a1>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					if ( f.accept(j+ka[ki]+BITS_PER_ELEMENT) )
-						a1 &= ~IDX_SHFT[j+ka[ki]];
-		if ( a2 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a2>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					if ( f.accept(j+ka[ki]+BITS_TWO_ELEMENTS) )
-						a2 &= ~IDX_SHFT[j+ka[ki]];
-	}
-
-	/**
-	 * Remove all of the given cells indices from this Set.
-	 *
-	 * @param cells
-	 */
-	@Mutator
-	public void removeAll(final Iterable<Cell> cells) {
-		for ( Cell c : cells )
-			remove(c.i);
-	}
-
-	/**
-	 * Remove all of the given cells indices from this Set.
-	 *
-	 * @param cells
-	 * @return this Idx for method chaining
-	 */
-	@Mutator
-	public Idx removeAll(final Cell[] cells) {
-		for ( Cell c : cells )
-			remove(c.i);
-		return this;
-	}
-
-	/**
-	 * Mutate this &= a.
-	 *
-	 * @param a
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx and(final Idx a) {
-		a0 &= a.a0;
-		a1 &= a.a1;
-		a2 &= a.a2;
-		return this;
-	}
-
-	/**
-	 * Mutate this &= a returning any.
-	 *
-	 * @param a
-	 * @return does this Idx contain any indices.
-	 */
-	@Mutator
-	public boolean andAny(final Idx a) {
-		a0 &= a.a0;
-		a1 &= a.a1;
-		a2 &= a.a2;
-		return (a0|a1|a2) != 0;
-	}
-
-	/**
-	 * Mutate this = this & a & b.
-	 * Two and's, no waiting.
-	 * @param a
-	 * @param b
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx and(final Idx a, final Idx b) {
-		a0 &= a.a0 & b.a0;
-		a1 &= a.a1 & b.a1;
-		a2 &= a.a2 & b.a2;
-		return this;
-	}
-
-	/**
-	 * Mutate this &= ~a.
-	 *
-	 * @param a
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx andNot(final Idx a) {
-		a0 &= ~a.a0;
-		a1 &= ~a.a1;
-		a2 &= ~a.a2;
-		return this;
-	}
-
-	/**
-	 * Mutate this |= a
-	 *
-	 * @param a
-	 * @return this Idx, for method chaining.
-	 */
-	@Mutator
-	public Idx or(final Idx a) {
-		a0 |= a.a0;
-		a1 |= a.a1;
-		a2 |= a.a2;
-		return this;
-	}
-
-	/**
-	 * Mutate this |= (a & b & c)
-	 * Add the intersection of the given sets to this set.
-	 *
-	 * @param a
-	 * @param b
-	 * @param c
-	 */
-	@Mutator
-	public void orAnd(final Idx a, final Idx b, final Idx c) {
-		a0 |= (a.a0 & b.a0 & c.a0);
-		a1 |= (a.a1 & b.a1 & c.a1);
-		a2 |= (a.a2 & b.a2 & c.a2);
-	}
-
-	// ----------------------- mutators that're queries -----------------------
-
-	/**
-	 * If 'i' is already in this Idx then I return false,
-	 * else 'i' is added, and I return true;
-	 * to visit each 'i' ONCE.
-	 * <p>
-	 * Basically, I'm an addIfNotExists method, returning was it added.
-	 * I'm disproportionately proud of inventing this method.
-	 * But I'm sure others must have done likewise before me.
-	 *
-	 * @param i in 0..80, typically a cell indice
-	 * @return did this Idx NOT already contain this 'i', coz it does now!
-	 */
-	@Mutator
-	boolean visit(final int i) {
-		if ( i < BITS_PER_ELEMENT ) {
-			if ( (a0 & IDX_SHFT[i]) != 0 )
-				return false;
-			a0 |= IDX_SHFT[i];
-		} else if ( i < BITS_TWO_ELEMENTS ) {
-			if ( (a1 & IDX_SHFT[i%BITS_PER_ELEMENT]) != 0 )
-				return false;
-			a1 |= IDX_SHFT[i%BITS_PER_ELEMENT];
-		} else {
-			if ( (a2 & IDX_SHFT[i%BITS_PER_ELEMENT]) != 0 )
-				return false;
-			a2 |= IDX_SHFT[i%BITS_PER_ELEMENT];
+	public boolean visit(int i) {
+		if ( i < FIFTY_FOUR ) {
+			if ( (m0 & MASKED81[i]) > 0L ) {
+				m0 &= ~MASKED81[i];
+				return true;
+			}
+		} else if ( (m1 & MASKED[i]) > 0 ) {
+			m1 &= ~MASKED[i];
+			return true;
 		}
-		return true;
+		return false;
 	}
+
+	/**
+	 * Mutate this &= idx,
+	 * ergo set this to the intersection of both sets.
+	 *
+	 * @param idx
+	 * @return this Idx, for method chaining.
+	 */
+	@Mutator
+	public Idx and(final Idx idx) {
+		m0 &= idx.m0;
+		m1 &= idx.m1;
+		return this;
+	}
+
+	/**
+	 * Mutate this &= ~idx.
+	 *
+	 * @param idx
+	 * @return this Idx, for method chaining.
+	 */
+	@Mutator
+	public Idx andNot(final Idx idx) {
+		m0 &= ~idx.m0;
+		m1 &= ~idx.m1;
+		return this;
+	}
+
+	/**
+	 * Mutate this |= idx
+	 *
+	 * @param idx
+	 * @return this Idx, for method chaining.
+	 */
+	@Mutator
+	public Idx or(final Idx idx) {
+		m0 |= idx.m0;
+		m1 |= idx.m1;
+		return this;
+	}
+
+	/**
+	 * Mutate this |= idxA | idxB
+	 *
+	 * @param idxA
+	 * @param idxB
+	 * @return this Idx, for method chaining.
+	 */
+	@Mutator
+	public Idx or(final Idx idxA, final Idx idxB) {
+		m0 |= idxA.m0 | idxB.m0;
+		m1 |= idxA.m1 | idxB.m1;
+		return this;
+	}
+
+	// ----------------------- mutators that are queries ----------------------
 
 	/**
 	 * Remove and return the first (lowest) indice in this Set.
 	 * <p>
-	 * The poll() method is my invention. It's intent is to be fast, not just
-	 * here, but also in the calling loop.
+	 * The poll() method is my invention. Its intent is to make the calling
+	 * loop faster.
 	 *
 	 * @return the first (lowest) indice that is removed from this Set,
 	 *  else (this Set is empty) return -1.
 	 */
 	@Mutator
 	public int poll() {
-		int x;
-		if ( a0 != 0 ) {
-			x = a0 & -a0;	// lowestOneBit
-			a0 &= ~x;		// remove x
-			return numberOfTrailingZeros(x);
+		int x, y, n;
+		if ( m0 > 0L ) {
+			long l = m0 & -m0; // lowestOneBit
+			m0 &= ~l; // remove l
+			//return Long.numberOfTrailingZeros(m0);
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 63;
+			y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+			y= x<<16; if(y!=0){n-=16; x=y;}
+			y= x<< 8; if(y!=0){n-= 8; x=y;}
+			y= x<< 4; if(y!=0){n-= 4; x=y;}
+			y= x<< 2; if(y!=0){n-= 2; x=y;}
+			return n - ((x<<1)>>>31);
 		}
-		if ( a1 != 0 ) {
-			x = a1 & -a1;	// lowestOneBit
-			a1 &= ~x;		// remove x
-			return BITS_PER_ELEMENT + numberOfTrailingZeros(x);
+		if ( m1 > 0 ) {
+			x = m1 & -m1; // lowestOneBit
+			m1 &= ~x; // remove x
+			//return FIFTY_FOUR + Integer.numberOfTrailingZeros(m1);
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+			y=x<<16; if(y!=0){n-=16; x=y;}
+			y=x<< 8; if(y!=0){n-= 8; x=y;}
+			y=x<< 4; if(y!=0){n-= 4; x=y;}
+			y=x<< 2; if(y!=0){n-= 2; x=y;}
+			return n - ((x<<1)>>>31);
 		}
-		if ( a2 != 0 ) {
-			x = a2 & -a2;	// lowestOneBit
-			a2 &= ~x;		// remove x
-			// 54 is 2 * Idx.BITS_PER_ELEMENT
-			return BITS_TWO_ELEMENTS + numberOfTrailingZeros(x);
-		}
-		return -1; // this set is empty
+		return QEMPTY;
 	}
 
 	// -------------------------------- queries -------------------------------
@@ -1221,13 +1368,31 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return the value of the first (lowest) indice in this Idx
 	 */
 	public int peek() {
-		if ( a0 != 0 )
-			return numberOfTrailingZeros(a0);
-		if ( a1 != 0 )
-			return BITS_PER_ELEMENT + numberOfTrailingZeros(a1);
-		if ( a2 != 0 )
-			return BITS_TWO_ELEMENTS + numberOfTrailingZeros(a2);
-		return -1;
+		int x, y, n;
+		if ( m0 > 0L ) {
+			long l = m0 & -m0; // lowestOneBit
+			//return Long.numberOfTrailingZeros(l);
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 63;
+			y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+			y= x<<16; if(y!=0){n-=16; x=y;}
+			y= x<< 8; if(y!=0){n-= 8; x=y;}
+			y= x<< 4; if(y!=0){n-= 4; x=y;}
+			y= x<< 2; if(y!=0){n-= 2; x=y;}
+			return n - ((x<<1)>>>31);
+		}
+		if ( m1 > 0 ) {
+			x = m1 & -m1; // lowestOneBit
+			//return FIFTY_FOUR + Integer.numberOfTrailingZeros(b);
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+			y=x<<16; if(y!=0){n-=16; x=y;}
+			y=x<< 8; if(y!=0){n-= 8; x=y;}
+			y=x<< 4; if(y!=0){n-= 4; x=y;}
+			y=x<< 2; if(y!=0){n-= 2; x=y;}
+			return n - ((x<<1)>>>31);
+		}
+		return QEMPTY;
 	}
 
 	/**
@@ -1236,7 +1401,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return does this Idx contain no indices.
 	 */
 	public boolean none() {
-		return (a0|a1|a2) == 0;
+		return (m0|m1) < 1L; // 54bits can NEVER be negative
 	}
 
 	/**
@@ -1245,19 +1410,46 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return does this Idx contain any indices.
 	 */
 	public boolean any() {
-		return (a0|a1|a2) != 0;
+		return (m0|m1) > 0L; // 54bits can NEVER be negative
 	}
 
 	/**
 	 * Return the number of indices in this Idx.
 	 * <p>
-	 * NOTE: I've tried everything, and just bitCounting all three segments
-	 * and adding them together seems to be the fastest. KISS it!
+	 * PERFORMANCE: I have tried everything, and just bitCounting all three
+	 * masks and adding them together seems to be the fastest. KISS it! The
+	 * downside is that bitCount is a bit slow for the number of times it is
+	 * invoked. An actual smart person might make quite a lot of money by
+	 * implementing bitCount in firmware and selling it to PC manufacturers;
+	 * to allow lazy programmers to performantly get-away with this s__t.
+	 * Also 3*Integer.bitCount faster than 2*Long.bitCount hence int masks.
 	 *
-	 * @return {@code bitCount(a0)+bitCount(a1)+bitCount(a2)}
+	 * @return {@code return Long.bitCount(a)+Integer.bitCount(b); }
 	 */
+	@Override
 	public int size() {
-		return bitCount(a0)+bitCount(a1)+bitCount(a2);
+//Inline for speed. Jury still out on whether or not it's actually any faster.
+//I suspect MUCH slower until it gets compiled, and the more the bastard runs
+//sans modification the better it seems to get at compiling s__t early. Guess
+//the JVM is using stats to determine what to compile. New jar means new stats.
+//		return Long.bitCount(a) + Integer.bitCount(b);
+		//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+		// Long.bitCount(a)
+		long l = m0;
+        l = l - ((l >>> 1) & 0x5555555555555555L);
+        l = (l & 0x3333333333333333L) + ((l >>> 2) & 0x3333333333333333L);
+        l = (l + (l >>> 4)) & 0x0f0f0f0f0f0f0f0fL;
+        l = l + (l >>> 8);
+        l = l + (l >>> 16);
+        l = l + (l >>> 32);
+		// Integer.bitCount(b)
+		int i = m1;
+        i = i - ((i >>> 1) & 0x55555555);
+        i = (i & 0x33333333) + ((i >>> 2) & 0x33333333);
+        i = (i + (i >>> 4)) & 0x0f0f0f0f;
+        i = i + (i >>> 8);
+        i = i + (i >>> 16);
+        return ((int)l & 0x7f) + (i & 0x3f);
 	}
 
 	/**
@@ -1265,11 +1457,11 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * <p>
 	 * CAUTION: Query only! To mutate: {@code idx.and(a).any()}.
 	 *
-	 * @param a
+	 * @param x
 	 * @return is the intersection of this and other NOT empty.
 	 */
-	public boolean intersects(final Idx a) {
-		return ( (a0 & a.a0) | (a1 & a.a1) | (a2 & a.a2) ) != 0;
+	public boolean intersects(final Idx x) {
+		return ( (m0 & x.m0) | (m1 & x.m1) ) > 0L;
 	}
 
 	/**
@@ -1277,110 +1469,116 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * <p>
 	 * CAUTION: Query only! To mutate: {@code idx.and(a).none()}.
 	 *
-	 * @param a
+	 * @param x
 	 * @return is the intersection of this and other empty.
 	 */
-	public boolean disjunct(final Idx a) {
-		return ( (a0 & a.a0) | (a1 & a.a1) | (a2 & a.a2) ) == 0;
+	public boolean disjunct(final Idx x) {
+		return ( (m0 & x.m0) | (m1 & x.m1) ) < 1L;
 	}
 
 	/**
-	 * Does this Idx contain the given indice 'i'?
+	 * Does this Idx contain the given indice $i?
 	 * <p>
-	 * I'm called "has" for brevity, formerly "contains".
+	 * I am called "has" for brevity, formerly "contains".
 	 *
 	 * @param i
 	 * @return true if this Idx contains the given indice.
 	 */
 	public boolean has(final int i) {
-		if ( i < BITS_PER_ELEMENT )
-			return (a0 & IDX_SHFT[i]) != 0;
-		else if ( i < BITS_TWO_ELEMENTS )
-			return (a1 & IDX_SHFT[i%BITS_PER_ELEMENT]) != 0;
-		return (a2 & IDX_SHFT[i%BITS_TWO_ELEMENTS]) != 0;
+		if ( i < FIFTY_FOUR )
+			return (m0 & MASKED81[i]) > 0L;
+		return (m1 & MASKED[i]) > 0;
 	}
 
 	/**
-	 * Return (this & a) == a?
-	 * ie is 'a' a subset of this?
-	 * or is this a superset of 'a'?
+	 * Return (this & x) == x.
+	 * <pre>
+	 * ie do I have everything in $x,
+	 * ergo a containsAll plex,
+	 * which I call hasAll, because I like sex.
+	 * Yeah na, its just a short meaningful name.
+	 * Dont overthink it. Just let it stick.
+	 * </pre>
 	 *
-	 * @param a the other Idx
-	 * @return does other Idx contain all indices in this Idx?
-	 */
-	public boolean hasAll(final Idx a) {
-		return (a0 & a.a0) == a.a0
-			&& (a1 & a.a1) == a.a1
-			&& (a2 & a.a2) == a.a2;
-	}
-
-	/**
-	 * Return (this & a) == this? <br>
-	 * ie is this a subset of 'a'?
-	 *
-	 * @param a the other Idx
+	 * @param x the other Idx
 	 * @return does this Idx contain all indices in the other Idx?
 	 */
-	public boolean allIn(final Idx a) {
-		return (a0 & a.a0) == a0
-			&& (a1 & a.a1) == a1
-			&& (a2 & a.a2) == a2;
+	public boolean hasAll(final Idx x) {
+		return (m0 & x.m0) == x.m0
+			&& (m1 & x.m1) == x.m1;
 	}
 
 	/**
-	 * Returns (this & a) == this || (this & a) == a. <br>
-	 * ie is this a superset or a subset of a? <br>
-	 * ergo does either set wholey contain the other?
+	 * Return (this & x) == this.
+	 * <pre>
+	 * ie has $x got all of this,
+	 * ergo an isContainedBy bliss,
+	 * which I call allIn, because I drink piss.
+	 * Yeah na, its just a short meaningful name.
+	 * Dont overthink it. Just let it stick.
+	 * </pre>
 	 *
-	 * @param a the other Idx
-	 * @return does either set wholey contain the other?
+	 * @param x the other Idx
+	 * @return does the other Idx contain all indices in this Idx?
 	 */
-	public boolean inbread(final Idx a) {
-		final int m0 = a0 & a.a0
-				, m1 = a1 & a.a1
-				, m2 = a2 & a.a2;
-		return (m0==a0 && m1==a1 && m2==a2)
-			|| (m0==a.a0 && m1==a.a1 && m2==a.a2);
+	public boolean allIn(final Idx x) {
+		return (m0 & x.m0) == m0
+			&& (m1 & x.m1) == m1;
 	}
 
 	/**
-	 * When this Idx contains two indices, I return the one other than 'i'.
+	 * When this Idx contains two indices, I return the one other than $i.
 	 * <p>
 	 * I do NOT mutate this Idx (remove then peek would mutate this Idx).
 	 * <p>
-	 * This method should only be called on an Idx containing two indices. I'm
-	 * untested on Idx's containing other than two indices, but here's what I
+	 * This method should only be called on an Idx containing two indices. I am
+	 * untested on Idxs containing other than two indices, but here is what I
 	 * think it returns:<ul>
-	 * <li>When I contain ONE indice -&gt; first other than i, or 32 when 'i'
+	 * <li>When I contain ONE indice -&gt; first other than i, or 32 when $i
 	 *  is my only indice.
 	 * <li>When I contain more than two indices -&gt; first other than i
-	 * <li>When 'i' is not one of my indices -&gt; first
-	 * <li>These are all untested!
+	 * <li>When $i is not one of my indices -&gt; first
+	 * <li>Caveat emptor: all these statements are untested.
 	 * </ul>
 	 *
-	 * @param i
+	 * @param indice
 	 * @return the other indice in this Idx
 	 */
-	public int otherThan(final int i) {
-		assert i>-1 && i<81;
+	public int otherThan(final int indice) {
+		assert indice>-1 && indice<81;
 		// a mutable local copy of this Idx
-		int m0=this.a0, m1=this.a1, m2=this.a2;
-		// remove i
-		if ( i < BITS_PER_ELEMENT )
-			m0 &= ~IDX_SHFT[i];
-		else if ( i < BITS_TWO_ELEMENTS )
-			m1 &= ~IDX_SHFT[i%BITS_PER_ELEMENT];
+		long m0=this.m0; int m1=this.m1;
+		// remove indice
+		if ( indice < FIFTY_FOUR )
+			m0 &= ~MASKED81[indice];
 		else
-			m2 &= ~IDX_SHFT[i%BITS_PER_ELEMENT];
+			m1 &= ~MASKED[indice];
 		// peek
-		if ( m0 != 0 )
-			return numberOfTrailingZeros(m0);
-		if ( m1 != 0 )
-			return BITS_PER_ELEMENT + numberOfTrailingZeros(m1);
-		if ( m2 != 0 )
-			return BITS_TWO_ELEMENTS + numberOfTrailingZeros(m2);
-		// found none
-		return -1;
+		int x, y, n;
+		if ( m0 > 0L ) {
+			long l = m0 & -m0; // lowestOneBit
+			//return Long.numberOfTrailingZeros(m0);
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 63;
+			y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+			y= x<<16; if(y!=0){n-=16; x=y;}
+			y= x<< 8; if(y!=0){n-= 8; x=y;}
+			y= x<< 4; if(y!=0){n-= 4; x=y;}
+			y= x<< 2; if(y!=0){n-= 2; x=y;}
+			return n - ((x<<1)>>>31);
+		}
+		if ( m1 > 0 ) {
+			x = m1 & -m1; // lowestOneBit
+			//return FIFTY_FOUR + Integer.numberOfTrailingZeros(m1);
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+			y=x<<16; if(y!=0){n-=16; x=y;}
+			y=x<< 8; if(y!=0){n-= 8; x=y;}
+			y=x<< 4; if(y!=0){n-= 4; x=y;}
+			y=x<< 2; if(y!=0){n-= 2; x=y;}
+			return n - ((x<<1)>>>31);
+		}
+		return QEMPTY; // empty
 	}
 
 	// ----------------------------- toArray -----------------------------
@@ -1389,14 +1587,16 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Returns the given array (which is presumed to be of sufficient size)
 	 * populated with the indices in this Idx.
 	 * <p>
-	 * Note that the array is NOT cleared first. It's presumed new or empty;
-	 * or you want to add to the existing contents.
+	 * The result array is NOT cleared first. It is presumed new or empty;
+	 * or you want to just overwrite the existing contents. The given array
+	 * must be atleast as large as this.size(), or you will get an
+	 * ArrayIndexOutOfBoundsException.
 	 *
-	 * @param result
+	 * @param result an int-array of length &gt;= this.size()
 	 * @return the given array, for method chaining.
 	 */
 	public int[] toArray(final int[] result) {
-		forEach((count, indice) -> result[count] = indice);
+		Idx.toArray(m0, m1, result);
 		return result;
 	}
 
@@ -1409,450 +1609,109 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return
 	 */
 	public int[] toArrayNew() {
-		// there is no need for a new 0-length array coz it's immutable.
-		if ( (a0|a1|a2) == 0 )
-			return EMPTY_INT_ARRAY;
-		return toArray(new int[size()]);
+		// There is ONE 0-length array coz it's immutable.
+		if ( (m0|m1) < 1L )
+			return THE_EMPTY_INT_ARRAY;
+		final int[] result = new int[size()];
+		Idx.toArray(m0, m1, result);
+		return result;
 	}
 
 	/**
 	 * Read indices in this Idx into the given array, and return how many, so
 	 * that you can use a re-usable (fixed-size) array.
 	 *
-	 * @param array
+	 * @param result must be large enough to hold size()
 	 * @return the number of elements added (ergo idx.size())
 	 */
-	public int toArrayN(final int[] array) {
-		try {
-			return forEach((cnt, i) -> array[cnt] = i);
-		} catch ( ArrayIndexOutOfBoundsException ex ) {
-			return array.length;
-		}
+	public int toArrayN(final int[] result) {
+		return Idx.toArray(m0, m1, result);
 	}
 
-	public boolean[] toArrayBooleanNew() {
-		final boolean[] result = new boolean[81];
-		forEach((i) -> result[i]=true);
+	/**
+	 * Returns a new boolean[GRID_SIZE] with true meaning indice in this Idx.
+	 * Exists to expedite has/contains/sees operations where hammered.
+	 *
+	 * @return an array of 81 booleans where true means indice is in this Idx
+	 */
+	public boolean[] toBooleans() {
+		assert (m0|m1) > 0;
+		final boolean[] result = new boolean[GRID_SIZE];
+		long l, m0=this.m0;
+		int x, y, n, m1=this.m1;
+		while ( m0 > 0L ) {
+			l = m0 & -m0; // lowestOneBit
+			m0 &= ~l; // remove l
+			//return Long.numberOfTrailingZeros(l); // inline for speed
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 63;
+			y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+			y= x<<16; if(y!=0){n-=16; x=y;}
+			y= x<< 8; if(y!=0){n-= 8; x=y;}
+			y= x<< 4; if(y!=0){n-= 4; x=y;}
+			y= x<< 2; if(y!=0){n-= 2; x=y;}
+			result[n - ((x<<1)>>>31)] = true;
+		}
+		while ( m1 > 0 ) {
+			x = m1 & -m1; // lowestOneBit
+			m1 &= ~x; // remove x
+			//return FIFTY_FOUR + Integer.numberOfTrailingZeros(i); // inline for speed
+			//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+			n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+			y=x<<16; if(y!=0){n-=16; x=y;}
+			y=x<< 8; if(y!=0){n-= 8; x=y;}
+			y=x<< 4; if(y!=0){n-= 4; x=y;}
+			y=x<< 2; if(y!=0){n-= 2; x=y;}
+			result[n - ((x<<1)>>>31)] = true;
+		}
 		return result;
 	}
 
 	// ----------------------------- to Set -----------------------------
 
-	public Set<Cell> toCellSet(final Cell[] cells) {
+	/**
+	 * Get cells of the indices in this Idx.
+	 *
+	 * @param gridCells to read cells from
+	 * @return a {@code LinkedHashSet<Cell>} of the cells in this Idx.
+	 */
+	public Set<Cell> toCellSet(final Cell[] gridCells) {
 		final Set<Cell> result = new LinkedHashSet<>(size(), 1F);
-		forEach((i) -> result.add(cells[i]));
+		int i;
+		for ( final IntQueue q=new MyIntQueue(m0,m1); (i=q.poll())>QEMPTY; )
+			result.add(gridCells[i]);
 		return result;
 	}
 
-	// ---------------------- a leased array of indices -----------------------
-
-	public IALease toArrayLease() {
-		final int n = size();
-		final IALease lease = iaLease(n);
-		if ( n > 0 )
-			toArray(lease.array);
-		return lease;
-	}
-
-	// ------------------------------- visitors -------------------------------
-
-	// NB: Previously each of these forEach methods called it's static
-	// implementation, but repeating the code here is a bit faster.
-	//
-	// Invoking the static impl's costs about a second in top1465, which is
-	// three-parts of eff-all really, but in my racing brain that's kenages!
-	//
-	// Downside: If the visitor modifies this Idx during iteration then hitting
-	// each indice is indeterminate: it takes changes to subsequent words, but
-	// ignores changes to this-and-previous words. The static impl's copy this
-	// Idx BEFORE iterating to obviate da whole concurrent modification problem
-	// completely: the iteration simply doesn't "see" any changes.
-	//
-	// If you're doing this sort of thing for-reals, just call the static impl!
-	// This is adequate for solving Sudokus, but not for ICBM guidance systems.
-
 	/**
-	 * This forEach facilitates adding each cell in this Idx to an array.
-	 * It invokes v.visit for each indice in this Idx passing:<ul>
-	 * <li>index: 0-based number of indices visited so far.
-	 * <li>indice: of this cell in Grid.cells.
-	 * </ul>
-	 *
-	 * @param v an implementation of IntIntVisitor, typically a lambda
-	 * @return total number of indices visited, ie the size of this Idx
-	 */
-	public int forEach(final IntIntVisitor v) {
-//		if ( (a0|a1|a2) == 0 )
-//			return;
-		assert (a0|a1|a2) != 0;
-		int ka[], j, kn,ki, i = 0; // ALL vars, for one stackframe
-		if ( a0 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a0>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(i++, j+ka[ki]);
-		if ( a1 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a1>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(i++, BITS_PER_ELEMENT+j+ka[ki]);
-		if ( a2 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a2>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(i++, BITS_TWO_ELEMENTS+j+ka[ki]);
-		return i;
-	}
-
-	/**
-	 * forEach invokes {@code v.visit(indice)} for each indice in this Idx.
-	 *
-	 * @param v your implementation of Visitor1 does whatever with indice
-	 */
-	public void forEach(final IntVisitor v) {
-//		if ( (a0|a1|a2) == 0 )
-//			return;
-		assert (a0|a1|a2) != 0;
-		int ka[], j, kn,ki; // ALL vars, for one stackframe
-		if ( a0 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a0>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(j+ka[ki]);
-		if ( a1 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a1>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(BITS_PER_ELEMENT+j+ka[ki]);
-		if ( a2 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a2>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					v.visit(BITS_TWO_ELEMENTS+j+ka[ki]);
-	}
-
-	public static interface IdxVisitor {
-		public void visit(Idx idx);
-	}
-
-	/**
-	 * forBuds invokes {@code first.visit(BUDDIES[indice])} for the first
-	 * indice in this Idx, and then {@code subsequent.visit(BUDDIES[indice])}
-	 * for each subsequent indice in this Idx.
-	 *
-	 * @param first visits BUDDIES[indice] of the first indice
-	 * @param subsequent visits BUDDIES[indice] of each subsequent indice
-	 */
-	public synchronized void forBuds(final IdxVisitor first, final IdxVisitor subsequent) {
-//		if ( (a0|a1|a2) == 0 )
-//			return;
-		// This lambda calls first and swaps itself over to subsequent. Kinky!
-		// Note that this method is synchronized to avert concurrent execution.
-		forBudsVisitor = (Idx idx) -> {
-			first.visit(idx);
-			forBudsVisitor = subsequent;
-		};
-		assert (a0|a1|a2) != 0;
-		int ka[], j, kn,ki; // ALL vars, for one stackframe
-		if ( a0 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a0>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					forBudsVisitor.visit(BUDDIES[j+ka[ki]]);
-		if ( a1 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a1>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					forBudsVisitor.visit(BUDDIES[BITS_PER_ELEMENT+j+ka[ki]]);
-		if ( a2 != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( ka=WORDS[(a2>>j)&WORD_MASK],kn=ka.length,ki=0; ki<kn; ++ki )
-					forBudsVisitor.visit(BUDDIES[BITS_TWO_ELEMENTS+j+ka[ki]]);
-	}
-	// forBudsVisitor is a field to be mutated in a lambda.
-	private IdxVisitor forBudsVisitor;
-
-	/**
-	 * doWhile invokes {@code f.accept(indice)} for each indice in this Idx,
-	 * stopping as soon as accept returns false.
+	 * Returns the RIBS (Regions Indexes BitSet) of regions that are common to
+	 * all indices/cells in this Idx.
 	 * <p>
-	 * I use doWhile to stop and-ing when my result Idx is empty.
+	 * <b>WARNING</b>: Common is a concept that applies to two or more things.
+	 * When called on an Idx that contains less then two indices commonRibs
+	 * just returns 0, meaning NONE.
 	 *
-	 * @param f your implementation of IntFilter does whatever with the given
-	 *  indice to determine if it's accepted, and if not I exit early.
-	 * @return the return value of the last f.accept call. The return value is
-	 *  intended to be "any remaining", but this depends on your IntFilter.
-	 */
-	public boolean doWhile(final IntFilter f) {
-		if ( (a0|a1|a2) == 0 )
-			return false;
-		int bits, j;
-		if ( (bits=a0) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( !f.accept(j+k) )
-						return false;
-		if ( (bits=a1) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( !f.accept(BITS_PER_ELEMENT+j+k) )
-						return false;
-		if ( (bits=a2) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( !f.accept(BITS_TWO_ELEMENTS+j+k) )
-						return false;
-		return true;
-	}
-
-	public int forEach(final Cell[] gridCells, final IVisitor<Cell> v) {
-		int bits, j, cnt = 0;
-		if ( (bits=a0) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-					v.visit(gridCells[j+k]);
-					++cnt;
-				}
-		if ( (bits=a1) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-					v.visit(gridCells[BITS_PER_ELEMENT+j+k]);
-					++cnt;
-				}
-		if ( (bits=a2) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-					v.visit(gridCells[BITS_TWO_ELEMENTS+j+k]);
-					++cnt;
-				}
-		return cnt;
-	}
-
-	// ---------------------------- common buddies ----------------------------
-
-	/**
-	 * This forEach invokes 'first' for the first indice in this Idx, and then
-	 * 'subsequent' for each subsequent indice in this Idx.
-	 * <p>
-	 * It's intended for use by the commonBuddies method, but there's no
-	 * reason to not use it elsewhere.
-	 *
-	 * @param first Visitor1 invoked for the first indice;
-	 *  where commonBuddies does buds.set(BUDDIES[i])
-	 * @param subsequent Visitor1 invoked for each subsequent indice;
-	 *  where commonBuddies does buds.and(BUDDIES[i])
-	 */
-	public void forEach(final IntVisitor first, final IntVisitor subsequent) {
-		IntVisitor v = first;
-		int bits, j;
-		if ( (bits=a0) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-					v.visit(j+k);
-					v = subsequent;
-				}
-		if ( (bits=a1) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-					v.visit(BITS_PER_ELEMENT+j+k);
-					v = subsequent;
-				}
-		if ( (bits=a2) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] ) {
-					v.visit(BITS_TWO_ELEMENTS+j+k);
-					v = subsequent;
-				}
-	}
-
-	/**
-	 * Repopulates result with those cells which see (same box, row, or col)
-	 * <b>ALL</b> of the cells in this Idx, and returns the result.
-	 *
-	 * @param result is repopulated with the buddies of ALL cells in this Idx.
-	 * @return result
-	 */
-	public Idx commonBuddies(final Idx result) {
-		forBuds((b)->result.set(b), (b)->result.and(b));
-		return result;
-	}
-
-// time commonBuddies in Als.computeFields only
-//	public Idx commonBuddiesNew() {
-//		final Idx result = new Idx();
-//		start = System.nanoTime();
-//		commonBuddies(result);
-//		cbnTook += System.nanoTime() - start;
-//		return result;
-//	}
-//	public static long cbnTook;
-//	private static long start;
-
-	/**
-	 * Returns the RIBS (Regions Indexes BitSet) that are common to all cells
-	 * in this Idx.
-	 *
-	 * @return RIBS (Regions Indexes BitSet)
+	 * @return RIBS (Regions Indexes BitSet) is a 27 bit bitset, one for each
+	 *  index in the Grid.regions array.
 	 */
 	public int commonRibs() {
-		assert size() > 1; // I must be 2 or more cells
-		forEach(
-			  (i) -> ribs = RIBS[i] // first
-			, (i) -> ribs &= RIBS[i] // subsequent
-		);
+		int ribs = 0;
+		if ( size() > 1 ) { // common applies to two or more cells.
+			int i;
+			final IntQueue q = new MyIntQueue(m0, m1);
+			if ( (i=q.poll()) > QEMPTY ) {
+				ribs = RIBS[i];
+				while ( (i=q.poll()) > QEMPTY )
+					ribs &= RIBS[i];
+			}
+		}
 		return ribs;
 	}
-	// I know not why, but a lamda mutates a heap-field, but not a stack-local
-	private int ribs;
-
-	// -------------------------------- where --------------------------------
-
-	/**
-	 * Returns a new Idx containing cells in this Idx that are accept'ed by
-	 * this {@code IFilter<Cell>}.
-	 *
-	 * @param cells grid.cells to pass to filter.accept
-	 * @param f the filter is usually a lambda expression which returns true
-	 *  if the given cell should be included in the result
-	 * @return a new Idx containing accepted members of this Idx.
-	 */
-	public Idx where(final Cell[] cells, final IFilter<Cell> f) {
-		int bits, j, r0=0,r1=0,r2=0; // the result
-		if ( (bits=a0) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(cells[j+k]) )
-						r0 |= IDX_SHFT[j+k];
-		if ( (bits=a1) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(cells[BITS_PER_ELEMENT+j+k]) )
-						r1 |= IDX_SHFT[j+k];
-		if ( (bits=a2) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(cells[BITS_TWO_ELEMENTS+j+k]) )
-						r2 |= IDX_SHFT[j+k];
-		return new Idx(r0,r1,r2);
-	}
-
-	/**
-	 * Returns a new Idx containing indices in this Idx that are accept'ed by
-	 * the given {@code IntFilter}.
-	 * <p>
-	 * This method is a way of filtering an Idx. It separates the forEach code
-	 * from the filter-code. I think it's quite clever, but I'm mad on foreach,
-	 * I just wish it could be done generically WITHOUT sacrificing speed. If
-	 * you toArray everything you wear creating an array, or pissing about with
-	 * a cache, or you foreach, and every foreach has to have it's own foreach
-	 * when I think it should be possible to do it generically, if I could just
-	 * workout how, but I'm a putz! So, this is AS GENERICALLY as I know how.
-	 *
-	 * @param f the filter is usually a lambda expression which returns true
-	 *  if the given indice should be included in the result
-	 * @return a new Idx containing only the accepted indices of this Idx.
-	 */
-	public Idx where(final IntFilter f) {
-		int bits, j, r0=0,r1=0,r2=0; // the result
-		if ( (bits=a0) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(j+k) )
-						r0 |= IDX_SHFT[j+k];
-		if ( (bits=a1) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(BITS_PER_ELEMENT+j+k) )
-						r1 |= IDX_SHFT[j+k];
-		if ( (bits=a2) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(BITS_TWO_ELEMENTS+j+k) )
-						r2 |= IDX_SHFT[j+k];
-		return new Idx(r0,r1,r2);
-	}
-
-	/**
-	 * Repopulates 'dest' with 'src' cells that're accept'ed by this
-	 * {@code IFilter<Cell>}.
-	 *
-	 * @param gridCells the source grid.cells
-	 * @param result the array to repopulate with matching cells
-	 * @param f the filter is usually a lambda expression, returning true if
-	 *  the given Cell should be included in the result
-	 * @return the number cells added to 'dest'
-	 */
-	public int where(final Cell[] gridCells, final Cell[] result, final IFilter<Cell> f) {
-		int bits, j, cnt=0;
-		Cell c;
-		if ( (bits=a0) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(c=gridCells[j+k]) )
-						result[cnt++] = c;
-		if ( (bits=a1) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(c=gridCells[BITS_PER_ELEMENT+j+k]) )
-						result[cnt++] = c;
-		if ( (bits=a2) != 0 )
-			for ( j=0; j<BITS_PER_ELEMENT; j+=BITS_PER_WORD )
-				for ( int k : WORDS[(bits>>j)&WORD_MASK] )
-					if ( f.accept(c=gridCells[BITS_TWO_ELEMENTS+j+k]) )
-						result[cnt++] = c;
-		return cnt;
-	}
-
-	// --------------------------------- buds --------------------------------
-
-	/**
-	 * Get a cached Idx of this Idx plus the buddies of cells in this Idx.
-	 * If this is the first buds call, or this idx has changed since the
-	 * previous buds call, then buds are (re)calculated.
-	 *
-	 * @return the indices in this Idx and all of there buddies, CACHED!
-	 */
-	public Idx plusBuds() {
-		if ( plusBuds == null ) {
-			plusBuds = new Idx(this);
-			forEach((i) -> plusBuds.or(BUDDIES[i]));
-			pb0=a0; pb1=a1; pb2=a2;
-		} else if ( a0!=pb0 || a1!=pb1 || a2!=pb2 ) {
-			plusBuds.set(this);
-			forEach((i) -> plusBuds.or(BUDDIES[i]));
-			pb0=a0; pb1=a1; pb2=a2;
-		}
-		return plusBuds;
-	}
-	private Idx plusBuds;
-	private int pb0, pb1, pb2;
-
-	/**
-	 * Get an Idx of the buddies of cells in this Idx.
-	 *
-	 * @param exceptThese after or-ing all buds should I buds.andNot(this)
-	 * @return the buddies of cells in this idx (uncached).
-	 */
-	public Idx buds(final boolean exceptThese) {
-		if ( buds == null )
-			buds = new Idx();
-		else
-			buds.clear();
-		forEach((i) -> buds.or(BUDDIES[i]));
-		// remove me from buds, in case I contain cells which see each other.
-		if ( exceptThese )
-			buds.andNot(this);
-		return buds;
-	}
-	private Idx buds;
 
 	// --------------------------------- cells --------------------------------
 
 	/**
-	 * Returns a new array 'cells' in this Idx. Note that creating a new
-	 * array takes time, so cellsN(grid, reusableArray) is a bit faster.
-	 *
-	 * @param gridCells to read
-	 * @return a new {@code Cell[]} containing the cells in this Idx.
-	 */
-	public Cell[] cellsNew(final Cell[] gridCells) {
-		return cells(gridCells, new Cell[size()]);
-	}
-
-	/**
-	 * Repopulate 'result' with 'cells' in this Idx.
+	 * Repopulate $result with $source cells whose indices are in this Idx.
 	 * <p>
 	 * Use this one with the right sized array, which is returned.
 	 * <p>
@@ -1860,135 +1719,62 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * Be warned that the passed array is NOT null terminated (as you might
 	 * reasonably expect, from experience, sigh).
 	 *
-	 * @param gridCells to read
+	 * @param gridCells cells to read, typically grid.cells
 	 * @param result the destination array to populate
-	 * @return the given cells array, so create new if you must.
+	 * @return the given $result cells array
 	 */
 	public Cell[] cells(final Cell[] gridCells, final Cell[] result) {
-		forEach((count, indice) -> result[count] = gridCells[indice]);
+		int i, count = 0;
+		for ( final IntQueue q=new MyIntQueue(m0,m1); (i=q.poll())>QEMPTY; )
+			result[count++] = gridCells[i];
 		return result;
 	}
 
 	/**
-	 * Return an array of the three bloody masks.
+	 * Returns a new array $cells in this Idx. Note that creating a new
+	 * array takes time, so cellsN(grid, reusableArray) is a bit faster.
 	 *
-	 * @return {@code new int[]{a0,a1,a2}}
+	 * @param cells to read
+	 * @return a new {@code Cell[]} containing the cells in this Idx.
 	 */
-	public int[] masks() {
-		if ( masks == null )
-			masks = new int[]{a0,a1,a2};
-		return masks;
+	public Cell[] cellsNew(final Cell[] cells) {
+		return cells(cells, new Cell[size()]);
 	}
-	private int[] masks;
-
-	// cellsN is hammered by Aligned*Exclusion, so we create ONE instance of
-	// CellsNVisitor, just to be more memory efficient, that's all.
-	// package visible for the test-case
-	private static final class CellsNVisitor implements IntIntVisitor {
-		public Cell[] src; // to read
-		public Cell[] dest; // resulting cells
-		@Override
-		public void visit(final int count, final int indice) {
-			dest[count] = src[indice];
-		}
-	}
-	// package visible for the test-case
-	private static final CellsNVisitor CELLS_N_VISITOR = new CellsNVisitor();
-	/**
-	 * Get cells in Grid at indices in this Idx, and return how many. Use this
-	 * one with a re-usable fixed-sized (atleast as large as required) array.
-	 *
-	 * @param grid the Grid to read
-	 * @param result the array to populate with cells in this Idx.
-	 * @return the number of indices visited, ie the size of this Idx
-	 */
-	public int cellsN(final Grid grid, final Cell[] result) {
-		// NOTE: I tried native but the visitor is actually FASTER!
-		final int count;
-		try {
-			CELLS_N_VISITOR.src = grid.cells;
-			CELLS_N_VISITOR.dest = result;
-			count = forEach(CELLS_N_VISITOR);
-		} finally {
-			// clean-up ALL Cell references, ya dummy!
-			CELLS_N_VISITOR.src = CELLS_N_VISITOR.dest = null;
-		}
-		return count;
-	}
-
-	// maybes is hammered by AlignedExclusion, so we create ONE instance of
-	// MaybesVisitor, to be memory efficient. Note well I'm static. My public
-	// fields are set by AlignedExclusion once per findHints, which is millions
-	// of times less often than it fetches maybes from various Idxs.
-	public static final class MaybesVisitor implements IntIntVisitor {
-		public int[] gridMaybes; // source
-		public int[] result; // destination
-		@Override
-		public void visit(final int count, final int indice) {
-			result[count] = gridMaybes[indice];
-		}
-	}
-
-	/**
-	 * You setup the static MAYBES_VISITOR once at start of each findHints,
-	 * then call maybes repeatedly on whatever Idx's,
-	 * and finally tear it down at the end.
-	 * <pre>
-	 * * Set my cells to grid.cells of the grid you are searching
-	 * * Set my maybes to an int array that is large enough for however many
-	 *   cells you are processing, ie however large your Idx's are. If you do
-	 *   not know then the max possible would be 64 = 81 - 17 (min clues).
-	 *   Too large doesn't matter, too small throws an AIOOBE.
-	 * </pre>
-	 */
-	public static final MaybesVisitor MAYBES_VISITOR = new MaybesVisitor();
-
-	/**
-	 * You setup the static MAYBES_VISITOR once at start of each findHints,
-	 * then call maybes repeatedly on whatever Idx's,
-	 * and finally tear it down at the end.
-	 *
-	 * @return the number of maybes added to the maybes array you setup
-	 */
-	public int maybes() {
-		return forEach(MAYBES_VISITOR);
-	}
-
-	// ----------------------------- stringy stuff ----------------------------
 
 	// NOTE: The ids methods exist mainly to avoid having to get the grid in
-	// order to get the cells just to turn those cells into id's, which are a
+	// order to get the cells just to turn those cells into ids, which are a
 	// static attribute of the Grid, so we do NOT need a grid instance as long
-	// as it's all done here, I think, where its convenient, except that we're
+	// as its all done here, I think, where its convenient, except that we are
 	// imbedding formatting concerns in the model, which is bad practice, but
-	// then they're all the way through the grid, and the test-cases, so stuff
-	// it, let's just hack something together that works then let smarty-pants
-	// design gurus worry about design when stuff works. Rome wasn't designed
+	// then theyre all the way through the grid, and the test-cases, so stuff
+	// it, lets just hack something together that works then let smarty-pants
+	// design gurus worry about design when stuff works. Rome was not designed
 	// in a day either. In fact it was just cobbled together, and look how that
 	// worked out for them. sigh. Robbing Peter to pay Paul works great right
-	// up until it doesn't, and Peter shows up at your house, burns it down,
+	// up until it does not, and Peter shows up at your house, burns it down,
 	// shoots you and your missus and rapes the ass of your kids (gender
 	// non-specifically, of course; We are the MODERN hun) and generally makes
-	// a mess out of everything, because you've made a mess out of everything.
-	// Big sigh.
+	// a mess out of everything, coz you have made a mess out of everything.
+	// Sigh.
 	public StringBuilder idsSB(final StringBuilder sb, final int n
 			, final String sep, final String lastSep) {
+		int i, count=0;
 		final int m = n - 1;
-		forEach((cnt, i) -> {
-			if ( cnt > 0 )
-				if ( cnt == m )
-					sb.append(lastSep);
-				else
-					sb.append(sep);
+		final IntQueue q = new MyIntQueue(m0,m1);
+		if ( (i=q.poll()) > QEMPTY ) {
 			sb.append(CELL_IDS[i]);
-		});
+			while ( (i=q.poll()) > QEMPTY ) {
+				sb.append(++count==m ? lastSep : sep);
+				sb.append(CELL_IDS[i]);
+			}
+		}
 		return sb;
 	}
 	public StringBuilder idsSB(final String sep, final String lastSep) {
 		final int n = size();
 		final int capacity = (CELL_ID_LENGTH+sep.length())*n
 				+ Math.max(lastSep.length() - sep.length(), 0);
-		return idsSB(new StringBuilder(capacity), n, sep, lastSep);
+		return idsSB(SB(capacity), n, sep, lastSep);
 	}
 	public String ids(final String sep, final String lastSep) {
 		return idsSB(sep, lastSep).toString();
@@ -1998,7 +1784,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	}
 
 	/**
-	 * Returns SSV (Space Separated Values) of the ID's of cells in this Idx.
+	 * Returns SSV (Space Separated Values) of the ids of cells in this Idx.
 	 *
 	 * @return SSV of my cell-ids.
 	 */
@@ -2006,63 +1792,7 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 		return idsSB(" ", " ").toString();
 	}
 
-	/**
-	 * Append space separated cell-IDs (SSV) of the given Idx(a0, a1, a2) to
-	 * the given StringBuilder. First ensureCapacity of length + the given 'n'.
-	 * <p>
-	 * Each bitset uses 27 least significant (rightmost) bits, for 81 cells.
-	 *
-	 * @param sb to append to
-	 * @param a0 the first bitset of the Idx
-	 * @param a1 the second bitset of the Idx
-	 * @param a2 the third bitset of the Idx
-	 * @return the given StringBuilder for method chaining.
-	 */
-	public static StringBuilder append(final StringBuilder sb, final int a0
-			, final int a1, final int a2) {
-		forEach(a0, a1, a2, (cnt, i) -> {
-			if ( cnt > 0 )
-				sb.append(' ');
-			sb.append(CELL_IDS[i]);
-		});
-		return sb;
-	}
-
-	/**
-	 * Returns a cell-id's String of a0, a1, a2; as if they where an Idx array.
-	 * <p>
-	 * NOTE: toString is no longer used in hint-HTML, so performance doesn't
-	 * really matter any longer, so we COULD use a forEach and a Visitor.
-	 *
-	 * @param a0 the first mask
-	 * @param a1 the second mask
-	 * @param a2 the third mask
-	 * @return the cell-id's of indices in this Idx.
-	 */
-	public static String toStringCellIds(final int a0, final int a1, final int a2) {
-		return append(getSB(size(a0,a1,a2)*3), a0, a1, a2).toString();
-	}
-
-	/**
-	 * For debugging.
-	 *
-	 * @param a0
-	 * @param a1
-	 * @param a2
-	 * @return
-	 */
-	public static String toStringIndices(final int a0, final int a1, final int a2) {
-		final StringBuilder sb = getSB(size(a0,a1,a2) * 3);
-		forEach(a0, a1, a2, (cnt, i) -> {
-			if ( cnt > 0 )
-				sb.append(' ');
-			sb.append(i); // the raw indice
-		});
-		return sb.toString();
-	}
-	public String toIndiceString() {
-		return toStringIndices(a0, a1, a2);
-	}
+	// ------------------------------- plumbing -------------------------------
 
 	/**
 	 * Returns a String representation of this Idx.
@@ -2073,21 +1803,10 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	public String toString() {
 		if ( true ) // @check true
 			// cell-ids toString for normal use
-			return toStringCellIds(a0, a1, a2);
+			return Idx.toStringCellIds(m0, m1);
 		// debug only: the raw indices
-		return toStringIndices(a0, a1, a2);
+		return Idx.toStringIndices(m0, m1);
 	}
-
-	// get my StringBuilder... I keep ONE that grows.
-	private static StringBuilder getSB(final int capacity) {
-		if ( SB == null )
-			return SB = new StringBuilder(capacity);
-		SB.setLength(0);
-		if ( capacity > SB.capacity() )
-			SB.ensureCapacity(capacity);
-		return SB;
-	}
-	private static StringBuilder SB;
 
 	/**
 	 * Returns Comma Separated Values of CELL_IDS of the cells in this Idx.
@@ -2095,103 +1814,57 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 * @return a CSV String of the cells in this Idx.
 	 */
 	public String csv() {
-		final StringBuilder sb = getSB(size()<<2); // * 4
-		forEach( (i)->sb.append(CELL_IDS[i])
-			  ,  (i)->sb.append(", ").append(CELL_IDS[i]) );
+		final StringBuilder sb = SB(size()<<2); // * 4
+		int i;
+		final IntQueue it = new MyIntQueue(m0,m1);
+		if ( (i=it.poll()) > QEMPTY ) {
+			sb.append(CELL_IDS[i]);
+			while ( (i=it.poll()) > QEMPTY )
+				sb.append(", ").append(CELL_IDS[i]);
+		}
 		return sb.toString();
 	}
 
-	// ------------------------------- plumbing -------------------------------
-
 	/**
-	 * Returns -1, 0, 1 as this is less than, equal, or more than a.
+	 * Returns the default order for Idx: first cell comes first. <br>
+	 * ie: The earlier my first indice, the sooner I come in the list.
+	 * <p>
+	 * First compare Mask 'a' low 27, then top 27 ('a' is a 54 bit long),
+	 * then compare the 27 bits in 'b' ('b' is a 27 bit int);
+	 * <p>
+	 * NOTE: Looks like I'm unused, or used rarely. Difficult to say.
+	 * But if an Idx ever goes in a TreeSet/Map I will be used. Hence
+	 * I am retained despite not being used (by the debugger method).
 	 *
-	 * @param a
-	 * @return
+	 * @param other Idx to compare this Idx to
+	 * @return this compared to other for order
 	 */
 	@Override
-	public int compareTo(final Idx a) {
+	public int compareTo(final Idx other) {
 		int diff;
-		if ( (diff=a2 - a.a2) == 0
-		  && (diff=a1 - a.a1) == 0 )
-			diff = a0 - a.a0;
-		if ( diff < 0 )
-			return -1;
-		if ( diff > 0 )
-			return 1;
-		return 0;
-	}
-
-	// ------------------------------- plumbing -------------------------------
-
-	/**
-	 * Hash this Idx: fold each int in half and offset them a tad. The result
-	 * is a pretty trashy hashCode, but we're smashing 81 bits into 32, so some
-	 * loss, and therefore collisions, are inevitable. The trick is minimizing
-	 * the collisions, and I haven't really done that: just thrown something
-	 * together that works a bit, because I'm not a mathematicians asshole.
-	 * <p>
-	 * My humour is a bit off too! Binary LOLs! What's LOL in binary! NANANA!
-	 * Come at me with that fruit!
-	 *
-	 * @param a0
-	 * @param a1
-	 * @param a2
-	 * @return the hashCode for this Idx
-	 */
-	public static int hashCode(final int a0, final int a1, final int a2) {
-		return ((a2^(a2>>>16))<<5)
-			 ^ ((a1^(a1>>>16))<<3)
-			 ^ (a0^(a0>>>16));
+		// if the low-order 27 bits of 'a' are equal
+		if ( (diff=(int)(this.m0&BITS27 - other.m0&BITS27)) == 0
+		  // and the high-order 27 bits of 'a' are equal
+		  && (diff=(int)(this.m0>>27 - other.m0>>27)) == 0 )
+			// then compare 'b'
+			diff = this.m1 - other.m1;
+		return diff;
 	}
 
 	/**
 	 * Note that the returned hashCode is cached, so it will NOT change after
-	 * it's gotten, and so will not reflect any changes in this Idx; which
-	 * breaks the {@code equals <-> hashCode} contract... so DO NOT modify an
-	 * Idx AFTER you've added it a hash-anything. Clear! Which, luckily enough
-	 * is how things tend to work anyways. You get it, you modify it, you stash
-	 * it... it's just some assholes think they can reorder things without
-	 * consequence because they're special, when they're not: the requirement
-	 * for respect of the laws of physics is universal. This is just another
-	 * annoying rule, like the zeroeth law of thermodynamics: if you piss the
-	 * smart people off enough, they'll kill you, and ALL of your friends,
-	 * your family, your neighborhood, your city, it's sister city, all the
-	 * capital cities, and then set-about kicking the absolute living s__t out
-	 * of the Pauline voters. Straight to the meat works.
+	 * its gotten, and so will not reflect any changes in this Idx; breaking
+	 * the {@code equals <-> hashCode} contract; so <b>DO NOT</b> modify an
+	 * Idx AFTER adding it to a hash-anything. Which, luckily enough, is how
+	 * things typically work anyway: input, process, output.
 	 *
 	 * @return
 	 */
 	@Override
 	public int hashCode() {
-		if ( hc == 0 )
-			hc = hashCode(a0, a1, a2);
-		return hc;
-	}
-	private int hc;
-
-	/**
-	 * Hash this Idx into a long.
-	 *
-	 * @param a0
-	 * @param a1
-	 * @param a2
-	 * @return the long hashCode of this Idx
-	 */
-	public static long hashCode64(final long a0, final long a1, final long a2) {
-		return (a2<<54L) ^ (a1<<13L) ^ a0;
-	}
-
-	/**
-	 * Does this Idx equal the virtual Idx(o0,o1,o2).
-	 *
-	 * @param o0
-	 * @param o1
-	 * @param o2
-	 * @return
-	 */
-	public boolean equals(final int o0, final int o1, final int o2) {
-		return a0==o0 && a1==o1 && a2==o2;
+		if ( hashCode == 0 )
+			hashCode = hashCode(m0, m1);
+		return hashCode;
 	}
 
 	/**
@@ -2202,19 +1875,313 @@ public class Idx implements Cloneable, Serializable, Comparable<Idx> {
 	 */
 	@Override
 	public boolean equals(final Object o) {
-		return this==o || o instanceof Idx && equals((Idx)o);
+		if ( o instanceof Idx ) {
+			final Idx other = (Idx)o;
+			return other.m0==m0 && other.m1==m1;
+		}
+		return false;
 	}
 
 	/**
-	 * Return does this == o.
+	 * Return does this == other.
 	 *
-	 * @param o
-	 * @return
+	 * @param o other Idx
+	 * @return {@code a==o.a && b==o.b}
 	 */
 	public boolean equals(final Idx o) {
-		return a0 == o.a0
-			&& a1 == o.a1
-			&& a2 == o.a2;
+		return m0==o.m0 && m1==o.m1;
+	}
+
+	// ============================= Set<Integer> =============================
+
+	private static boolean illegalArgumentType(final Object o) {
+		throw new IllegalArgumentException("Unknown type: "+(o==null?"null":o.getClass().getCanonicalName()));
+	}
+
+	@Override
+	public boolean isEmpty() {
+		return (m0|m1) == 0;
+	}
+
+	@Override
+	public boolean contains(final Object o) {
+		if (o instanceof Integer)
+			return has((Integer)o);
+		if (o instanceof Idx)
+			return hasAll((Idx)o);
+		return illegalArgumentType(o);
+	}
+
+	@Override
+	public Object[] toArray() {
+		return IntArray.integerArray(toArrayNew());
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T> T[] toArray(final T[] array) {
+		int count=0, i;
+		for ( final IntQueue q=new MyIntQueue(m0,m1); (i=q.poll())>QEMPTY; )
+			//Ignore IDE warning: unecessary boxing. It is necessary!
+			array[count++] = (T)Integer.valueOf(i);
+		return array;
+	}
+
+	@Override
+	public boolean add(final Integer e) {
+		final int i = e;
+		final boolean ret = !has(i);
+		add(i);
+		return ret;
+	}
+
+	@Override
+	public boolean remove(final Object o) {
+		if ( o instanceof Integer ) {
+			final int i = (Integer)o;
+			final boolean ret = has(i);
+			remove(i);
+			return ret;
+		}
+		if ( o instanceof String ) {
+			final int i = Grid.indice((String)o);
+			final boolean ret = has(i);
+			remove(i);
+			return ret;
+		}
+		if ( o instanceof Idx ) {
+			return removeAll((Idx)o);
+		}
+		if ( o instanceof Collection ) {
+			return removeAll((Collection) o);
+		}
+		return illegalArgumentType(o);
+	}
+
+	public static Object first(final Collection<?> col) {
+		try {
+			return col.iterator().next();
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+
+	@Override
+	public boolean containsAll(final Collection<?> col) {
+		if ( col instanceof Idx )
+			return hasAll((Idx)col);
+		final Object f;
+		if ( (f=first(col)) instanceof Integer )
+			return hasAll(Idx.of(col));
+		if ( f instanceof String ) {
+			if ( !has(Grid.indice((String)f)) )
+				return false;
+			for ( Object o : col )
+				if ( !has(Grid.indice((String)o)) )
+					return false;
+			return true;
+		}
+		return illegalArgumentType(f);
+	}
+
+	@Override
+	public boolean addAll(final Collection<? extends Integer> col) {
+		if ( col instanceof Idx ) {
+			final int pre = size();
+			or((Idx)col);
+			return size() > pre;
+		}
+		final Object f;
+		if ( (f=first(col)) instanceof Integer ) {
+			final int pre = size();
+			or(Idx.of(col));
+			return size() > pre;
+		}
+		if ( f instanceof String ) {
+			final int pre = size();
+			or(Idx.of(col));
+			return size() > pre;
+		}
+		return illegalArgumentType(f);
+	}
+
+	@Override
+	public boolean retainAll(final Collection<?> keepers) {
+		if ( keepers instanceof Idx ) {
+			final int pre = size();
+			and((Idx)keepers);
+			return size() < pre;
+		}
+		final Object f;
+		if ( (f=first(keepers)) instanceof Integer
+		  || f instanceof String ) {
+			final int pre = size();
+			and(Idx.of(keepers)); // reads either
+			return size() < pre;
+		}
+		return illegalArgumentType(f);
+	}
+
+	@Override
+	public boolean removeAll(final Collection<?> col) {
+		if ( col instanceof Idx ) {
+			final int pre = size();
+			andNot((Idx)col);
+			return size() < pre;
+		}
+		final Object f;
+		if ( (f=first(col)) instanceof Integer ) {
+			int i; boolean result = false;
+			for ( Object o : col ) {
+				i = (Integer)o;
+				result |= has(i);
+				remove(i);
+			}
+			return result;
+		}
+		if ( f instanceof String ) {
+			int i; boolean result = false;
+			for ( Object o : col ) {
+				i = Grid.indice((String)o);
+				result |= has(i);
+				remove(i);
+			}
+			return result;
+		}
+		return illegalArgumentType(f);
+	}
+
+	@Override
+	public void forEach(Consumer<? super Integer> action) {
+		for ( int indice : this.toArrayNew() )
+			action.accept(indice);
+	}
+
+	/**
+	 * Returns a new {@code Iterator<Integer>} over the indices in this Idx.
+	 * <p>
+	 * <b>NOTE WELL</b>: The {@link #indices() IntQueue} achieves the same ends
+	 * as an Iterator, except it makes ONE call per indice, and does NOT box
+	 * and unbox each int into an Integer, so it's faster. Iterator is NOT the
+	 * preferred option peeps!
+	 *
+	 * @return a new Iterator, which is NOT the preferred option!
+	 */
+	@Override
+	public Iterator<Integer> iterator() {
+//		if ( Debug.isClassNameInTheCallStack(12, Medusa3D.class.getName()) )
+//			Debug.breakpoint();
+		return new MyIterator(m0, m1);
+	}
+
+	private static class MyIterator implements Iterator<Integer> {
+		private long m0;
+		private int m1;
+		public MyIterator(final long m0, final int m1) {
+			this.m0 = m0;
+			this.m1 = m1;
+		}
+		@Override
+		public boolean hasNext() {
+			return (m0|m1) > 0L;
+		}
+		@Override
+		public Integer next() {
+			int x, y, n;
+			if ( m0 > 0L ) {
+				long l = m0 & -m0; // lowestOneBit
+				m0 &= ~l; // remove l
+				//return Long.numberOfTrailingZeros(l); // inline for speed
+				//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+				n = 63;
+				y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+				y= x<<16; if(y!=0){n-=16; x=y;}
+				y= x<< 8; if(y!=0){n-= 8; x=y;}
+				y= x<< 4; if(y!=0){n-= 4; x=y;}
+				y= x<< 2; if(y!=0){n-= 2; x=y;}
+				return n - ((x<<1)>>>31);
+			}
+			if ( m1 > 0 ) {
+				x = m1 & -m1; // lowestOneBit
+				m1 &= ~x; // remove x
+				//return FIFTY_FOUR + Integer.numberOfTrailingZeros(i); // inline for speed
+				//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+				n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+				y=x<<16; if(y!=0){n-=16; x=y;}
+				y=x<< 8; if(y!=0){n-= 8; x=y;}
+				y=x<< 4; if(y!=0){n-= 4; x=y;}
+				y=x<< 2; if(y!=0){n-= 2; x=y;}
+				return n - ((x<<1)>>>31);
+			}
+//			return new NoSuchElementException();
+			return null;
+		}
+	}
+
+	/**
+	 * Returns an {@link IntQueue} of the indices in this Idx.
+	 *
+	 * @return a new {@link MyIntQueue}
+	 */
+	public IntQueue indices() {
+		return new MyIntQueue(m0, m1);
+	}
+
+	/**
+	 * MyIntQueue implements the {@link IntQueue} interface to iterate the
+	 * indices in the given virtual Idx(m0,m1). It exists simply because
+	 * {@code Iterator<Integer>} is a bit slow Redge. It's under the bonnet
+	 * son. Avery Iterator requires two invocations per element, and O(n*2)
+	 * is always slower than O(n), hence IntQueue is a queue, exposing only
+	 * the {@link #poll()} method, hence there is ONE invocation per element.
+	 * Further, the no-natives nature of Java require that each int, which I
+	 * have, and my user requires, must be wrapped in an instance of the
+	 * Integer class, which are atleast cached (Sigh), but both boxing and
+	 * unboxing the int value take time, which soon adds-up when you are
+	 * playing with literally HUNDREDS OF BILLIONS of indices.
+	 * <p>
+	 * The upshot is that MyIntQueue beats MyIterator over top1465 by in the
+	 * order of 10 seconds, which is SUBSTANTIAL given that we're talking 40
+	 * seconds verses 30 seconds. So let that be a lesson to the java-guys.
+	 * Sometimes your s__t just ____ing stinks! Interator FAIL. No wuckers.
+	 * We just go around it.
+	 */
+	public static class MyIntQueue implements IntQueue {
+		private long m0; private int m1;
+		public MyIntQueue(final long m0, final int m1) {
+			this.m0 = m0;
+			this.m1 = m1;
+		}
+		@Override
+		public int poll() {
+			int x, y, n;
+			if ( m0 > 0L ) {
+				long l = m0 & -m0; // lowestOneBit
+				m0 &= ~l; // remove l
+				//return Long.numberOfTrailingZeros(l);
+				//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+				n = 63;
+				y=(int)l; if(y!=0){n-=32; x=y;} else x=(int)(l>>>32);
+				y= x<<16; if(y!=0){n-=16; x=y;}
+				y= x<< 8; if(y!=0){n-= 8; x=y;}
+				y= x<< 4; if(y!=0){n-= 4; x=y;}
+				y= x<< 2; if(y!=0){n-= 2; x=y;}
+				return n - ((x<<1)>>>31);
+			}
+			if ( m1 > 0 ) {
+				x = m1 & -m1; // lowestOneBit
+				m1 &= ~x; // remove x
+				//return FIFTY_FOUR + Integer.numberOfTrailingZeros(i);
+				//Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002).
+				n = 85; // 85 is 31 (from nOTZ) + 54 (start indice of m1)
+				y=x<<16; if(y!=0){n-=16; x=y;}
+				y=x<< 8; if(y!=0){n-= 8; x=y;}
+				y=x<< 4; if(y!=0){n-= 4; x=y;}
+				y=x<< 2; if(y!=0){n-= 2; x=y;}
+				return n - ((x<<1)>>>31);
+			}
+			return QEMPTY; // this set is empty
+		}
 	}
 
 }

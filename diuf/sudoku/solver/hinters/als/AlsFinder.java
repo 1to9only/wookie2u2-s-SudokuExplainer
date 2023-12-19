@@ -1,343 +1,235 @@
-/*
- * Project: Sudoku Explainer
- * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
- * Available under the terms of the Lesser General Public License (LGPL)
- */
 package diuf.sudoku.solver.hinters.als;
 
-import diuf.sudoku.Cells;
-import diuf.sudoku.Cells.CALease;
-import static diuf.sudoku.Cells.caLease;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.ARegion;
 import diuf.sudoku.Grid.Cell;
-import static diuf.sudoku.Grid.MAX_EMPTIES;
-import static diuf.sudoku.Grid.NUM_REGIONS;
 import static diuf.sudoku.Grid.REGION_SIZE;
 import diuf.sudoku.Idx;
 import diuf.sudoku.IdxI;
-import diuf.sudoku.IdxL;
-import diuf.sudoku.IntArrays.IALease;
 import static diuf.sudoku.Values.VSIZE;
 import static diuf.sudoku.solver.hinters.als.AAlsHinter.MAX_ALSS;
 import diuf.sudoku.utils.ArraySet;
-import diuf.sudoku.utils.Debug;
-import diuf.sudoku.utils.Permutations;
-import java.util.LinkedHashSet;
-import java.util.Set;
-import static diuf.sudoku.IntArrays.iaLease;
-import javax.naming.OperationNotSupportedException;
+import diuf.sudoku.utils.Log;
+import diuf.sudoku.utils.Permuter;
 
 /**
- * AlsFinder finds Almost Locked Sets. This code was split-out of AAlsHinter
- * because it just kept getting more-and-more complex.
- * <p>
- * NOTE: AlsFinderRecursive extends AlsFinder to override getAlss, and use my
- * protected stuff.
- * <p>
- * NOTE: Likewise, AlsFinderPlain extends AlsFinder to override getAlss.
+ * AlsFinder is the simplest-possible AlsFinder, using a plain iterative
+ * algorithm. Iterating Permutations is known slow, but its still faster
+ * than its recursive alternative. BFIIK. Maybe my recur-impl was s__t?
  * <pre>
- * KRC 2021-10-27 @stretch AlsFinder impl not used, so maybe should merge this
- * back in with AlsFinderPlain, except this setup gives us the flexibility for
- * other implementation, such as AlsFinderRecursive, which I'm loath to remove
- * now that it exists.
+ * 2021-09-14 I am about a second faster than AlsFinderRecursive.
+ * HIM 4,043,189,800 12568 321,705 2218 1,822,898 BigWings
+ * ME  3,016,482,600 12550 240,357 2186 1,379,909 BigWings
+ * 2021-09-28 Using the new AlsSetPlain2 which wraps a Als[] into a
+ * {@code Set<Als>} of which I use just the add method, but it is internal
+ *  array is public, as it is size, so instead of an Iterator I get the "raw"
+ *  array, and array-iterator over it, which is a bit faster.
+ * V02 3,265,100,400 12483 261,563 2158 1,513,021 BigWings BUGGER!
+ * V03 3,337,909,700 12483 267,396 2158 1,546,760 BigWings DOUBLE BUGGER!
+ * V04 3,129,754,500 12483 250,721 2158 1,450,303 BigWings STILL BUGGER!
+ *
+ * 2023-07-11 major surgery for speed. The maxAlsSize parameter is now used
+ * properly, I think. The case statement executes once and the permutations
+ * loops are repeated in it, maybes are no longer cached, the sized array is
+ * now indices (was Cells); exhumed sized method from Grid.ARegion because
+ * this was its only use, and clean now takes indices. A few seconds faster.
  * </pre>
  *
- * @author Keith Corlett 2021-06-04
+ * @author Keith Corlett 2021-09-14
  */
-class AlsFinder {
-//	// I'm not a hinter, so there's no point implementing IReporter.
-//	// Instead AAlsHinter implements IReporter and calls me.
-//	public void report() {
-//		diuf.sudoku.utils.Log.teeln(getClass().getName()+": COUNTS="+java.util.Arrays.toString(COUNTS)+" computFieldsTook="+Als.cfTook+" cmnBudsNewTook="+Idx.cbnTook);
-//	}
-//public final long[] COUNTS = new long[3];
-///*
-//KRC 2022-01-13 08:45
-//                    alss          rccs
-//BigWings : 2,383,096,800             0
-//ALS_XZ   : 1,646,102,500 7,395,405,800
-//ALS_Wing :       436,700       309,900
-//ALS_Chain:       274,500 9,195,447,300
-//                      Permute  computeFields    filterNSs
-//AlsFinderPlain: 1,711,977,600, 2,312,422,100, 370,460,000
-//Inline Idx ops in Als.computFields. Bees dick faster (150ms).
-//These are with timings, so they're MUCH slower!
-//AlsFinderPlain: 2,036,925,900, 4,099,530,600, 425,730,500
-//computFieldsTook               3,919,568,100
-//cmnBudsNewTook                 2,378,024,600
-//*/
+final class AlsFinder {
 
-
-//	// set in AlsFinderRecursive only, reported in BigWings
-//	protected long took;
-
-	private final AlsSet alsSet = new AlsSet();
-	private final Idx tmp1 = new Idx();
-	private final Idx tmp2 = new Idx();
-	// package visible for use in the other AlsFinders and AAlsHinter
-	final Idx[] nakedSetIdxs = new Idx[NUM_REGIONS];
-
-	AlsFinder() {
-		for ( int i=0; i<NUM_REGIONS; ++i ) {
-			nakedSetIdxs[i] = new Idx();
+	// Repopulates $indices with cells in this region
+	// where size in 2(inclusive)..ceiling(EXCLUSIVE)
+	// and returns hows many.
+	// nb: a method is slower, but its neat, so who really gives a ____.
+	// I am static to reduce invocation overheads (this injection costs).
+	// I wish each region had its own sizes array. Food for thought.
+	//
+	// @param region of source cells
+	// @param ceiling the maximum size of wanted cells exclusive (ie + 1)
+	// @param indices to repopulate
+	// @return how many
+	private static int sized(final ARegion region, final int ceiling, final int[] indices) {
+		int count = 0;
+		for ( Cell cell : region.cells ) {
+			if ( cell.size>1 && cell.size<ceiling ) {
+				indices[count++] = cell.indice;
+			}
 		}
+		return count;
 	}
 
-	// find all distinct Almost Locked Sets in this grid
-	int getAlss(final Grid grid, final Als[] alss, final boolean allowNakedSets) {
-		// KRC 2021-10-27 AlsFinderTest is the ONLY use of this implementation,
-		// everything else now uses a subtype
-		if ( !Debug.isClassNameInTheCallStack(5, "AlsFinderTest") ) {
-			throw new UnsupportedOperationException();
+	/**
+	 * Get Almost Locked Sets returning how many.
+	 * <pre>
+	 * find all distinct Almost Locked Sets in $grid sized 2..$maxAlsSize,
+	 * adding each to the $alss array, and return how many.
+	 * </pre>
+	 *
+	 * @param grid to search
+	 * @param alss to repopulate
+	 * @param maxAlsSize the maximum size of an almost locked set: 7
+	 * @return numAlss: the number of alss in the alss array
+	 */
+	int getAlss(final Grid grid, final Als[] alss, final int maxAlsSize) {
+		// single stack-frame, for no extra stack-work
+		AlsArraySet set;
+		int i // ubiqituous index
+		  , D // max degree: maximum number of cells in an ALS (NOT ceiling)
+		  , d // degree: the number of cells in each ALS
+		  , c // d - 1: floor for number of cells, for > instead of >=
+		  , e // d + 1: number of maybes in each ALS of d cells
+		  , f // d + 2: one more than e, for < instead of <=
+		  , cands // combination of maybes of these cells
+		  , n; // number of cells in region having size 2..degree+1
+		// an array of AlsSets, one for each size 2..maxAlsSize.
+		// NOTE: maxAlssSize capped at 7 coz thats as large as an ALS gets, in
+		// practice. An empty region has 9 empty cells. All empty cells in a
+		// region are by definition a locked set. 1 less than that is 8, but
+		// that produces lots of ALSs with very low useful-rate. We want useful
+		// ALSs as quickly as possible, so its absolutely capped at 7. If you
+		// are anally-retentive then bump this and AAlsHinter.MAX_ALS_SIZE upto
+		// 8. Be warned that all als hinters will take about twice as long to
+		// under 20% more eliminations. Big ALSs are really slow. BFFIK.
+		final int maxD = Math.min(maxAlsSize, 7);
+		final AlsArraySet[] sets = new AlsArraySet[maxD+1];
+		for ( i=2; i<=maxD; ++i ) {
+			sets[i] = new AlsArraySet(); // no duplicate filter
 		}
-		// find Alss
-		if ( !allowNakedSets && setNakedSetIdxs(grid) ) {
-			findAlssNoNakedSets(grid);
-		} else {
-			findAlss(grid);
+		// the permutations arrays, once, instead of per region
+		final int[][] permutationsArrays = new int[REGION_SIZE][];
+		for ( i=2; i<REGION_SIZE; ++i ) {
+			permutationsArrays[i] = new int[i];
 		}
-		// copy and computeFields
-		int cnt = 0;
-		for ( Als als : alsSet ) {
-//			System.out.println(""+cnt+TAB+als);
-			alss[cnt] = als.computeFields(grid, cnt);
-			++cnt;
-		}
-		// clear the Set, for next-time
-		alsSet.clear();
-		return cnt;
-	}
-
-	// populate nakedSetIdxs: an Idx per region. Each Idx contains indices of
-	// cells in any Naked Set in this region. This is necessary coz an actual
-	// NakedSet in an AlmostLockedSet breaks DeathBlossom (et al?).
-	// @return are there any NakedSets in this grid?
-	final boolean setNakedSetIdxs(final Grid grid) {
-		Idx nakedSets; // indices of cells in nakedSet/s in this region
-		int[] ia; // indices array: indices of ec (for speed)
-		int[] ma; // maybes array: maybes of ec (for speed)
-		int n // number of empty cells in this region
-		  , s // number of sized cells
-		  ; // this cannot be a Java method: it has no i.
-		// the regions in the grid
-		final ARegion[] regions = grid.regions;
-		// presume there are no naked sets
-		boolean result = false;
-		try ( CALease eLease = caLease(REGION_SIZE);
-			  CALease sLease = caLease(REGION_SIZE) ) {
-			// the empty cells in this region
-			final Cell[] empties = eLease.array;
-			// empties having size <= currentNakedSetSize
-			final Cell[] sized = sLease.array;
-			// foreach region with atleast 2 empty cells
-			for ( int r=0; r<NUM_REGIONS; ++r ) {
-				nakedSets = nakedSetIdxs[r].clear();
-				// a naked pair needs three empty cells in region
-				// NOTE: each size is done seperately just to put all the |'s
-				// in one line, coz it's a bit faster that way. sigh.
-				// Naked Pairs
-				if ( (n=regions[r].emptyCells(empties)) > 2 ) {
-					if ( (s=Cells.sized(3, empties, n, sized)) > 1 ) {
-						try ( IALease iaLease = iaLease(n);
-							  IALease maLease = iaLease(n);
-							  IALease paLease = iaLease(2); ) {
-							Cells.indices(empties, s, ia=iaLease.array);
-							Cells.maybes(empties, s, ma=maLease.array);
-							for ( int[] pa : new Permutations(s, paLease.array) ) {
-								if ( VSIZE[ma[pa[0]]|ma[pa[1]]] == 2 ) {
-									nakedSets.add(ia[pa[0]]);
-									nakedSets.add(ia[pa[1]]);
-									result = true;
+		// distinct combinations of $d cells in the $n empty cells in region
+		final Permuter permuter = new Permuter();
+		// sets are found by size in 2..degree-1
+		final int[] s = new int[REGION_SIZE];
+		// a bitset of the potential values of each cell in the grid by indice
+		final int[] m = grid.maybes;
+		// the grid.idxs
+		final Idx[] idxs = grid.idxs;
+		// my return value: the number of ALSs found
+		int numAlss = 0;
+		try {
+			// foreach region in the grid (boxs, rows, cols)
+			for ( ARegion region : grid.regions ) {
+				// D is ceiling for num cells in each ALS, capped at REGION_SIZE-1.
+				// A ceiling because all empty cells in a region are a LockedSet.
+				D = Math.min(region.emptyCellCount, maxD);
+				// foreach degree: the number of cells in each ALS
+				// c = floor for number of sized cells (d - 1)
+				// d = the current degree
+				// e = number of maybes in an ALS (d + 1)
+				// f = d + 2 just for < instead of <=
+				for ( c=1,d=2,e=3,f=4; d<=D; c=d,d=e,e=f++ ) { // d<=D
+					// the set of alss for this degree
+					set = sets[d];
+					// get region.cells with size in 2..d+1 inclusive, because an
+					// ALS of d cells cant contain a cell with more than d+1 maybes
+					if ( (n=sized(region, f, s)) > c ) {
+						// get the dee-array: permutations array = int[d]
+						final int[] da = permutationsArrays[d];
+						// a permutation of d cells sharing e maybes is an ALS.
+						// nb: switch once per degree (not per permutation) for
+						// efficiency: to read each permutation in ONE single
+						// statement, instead of iterating the elements, which
+						// is much slower. This lead me to Naked/Hidden Pair/
+						// Triple/Quad. It took me ages to work this out, so I
+						// belabour the point somewhat. All because Java has no
+						// macros. Flexibility at the cost of speed. Perfect if
+						// your main game is high-performance hardware. Sigh.
+						switch ( d ) {
+						case 2:
+							for ( int[] p : permuter.permute(n, da) ) {
+								if ( VSIZE[cands=m[s[p[0]]] | m[s[p[1]]]] == e ) {
+									set.justAdd(new Als(idxs, IdxI.of(s, p, d), cands, region.index));
 								}
 							}
-						}
-					}
-					// Naked Triples
-					if ( n > 3 ) {
-						if ( (s=Cells.sized(4, empties, n, sized)) > 2 ) {
-							try ( IALease iaLease = iaLease(n);
-								  IALease maLease = iaLease(n);
-								  IALease paLease = iaLease(3); ) {
-								Cells.indices(empties, s, ia=iaLease.array);
-								Cells.maybes(empties, s, ma=maLease.array);
-								for ( int[] pa : new Permutations(s, paLease.array) ) {
-									// do the first three in one line
-									if ( VSIZE[ma[pa[0]]|ma[pa[1]]|ma[pa[2]]] == 3 ) {
-										nakedSets.add(ia[pa[0]]);
-										nakedSets.add(ia[pa[1]]);
-										nakedSets.add(ia[pa[2]]);
-										result = true;
-									}
+							break;
+						case 3:
+							for ( int[] p : permuter.permute(n, da) ) {
+								if ( VSIZE[cands=m[s[p[0]]] | m[s[p[1]]] | m[s[p[2]]]] == e ) {
+									set.justAdd(new Als(idxs, IdxI.of(s, p, d), cands, region.index));
 								}
 							}
-						}
-						// Naked Quads
-						if ( n > 4
-						  && (s=Cells.sized(5, empties, n, sized)) > 3 ) {
-							try ( IALease iaLease = iaLease(n);
-								  IALease maLease = iaLease(n);
-								  IALease paLease = iaLease(4); ) {
-								Cells.indices(empties, s, ia=iaLease.array);
-								Cells.maybes(empties, s, ma=maLease.array);
-								for ( int[] pa : new Permutations(s, paLease.array) ) {
-									// do the first three in one line
-									if ( VSIZE[ma[pa[0]]|ma[pa[1]]|ma[pa[2]]|ma[pa[3]]] == 4 ) {
-										nakedSets.add(ia[pa[0]]);
-										nakedSets.add(ia[pa[1]]);
-										nakedSets.add(ia[pa[2]]);
-										nakedSets.add(ia[pa[3]]);
-										result = true;
-									}
+							break;
+						case 4:
+							for ( int[] p : permuter.permute(n, da) ) {
+								if ( VSIZE[cands=m[s[p[0]]] | m[s[p[1]]] | m[s[p[2]]] | m[s[p[3]]]] == e ) {
+									set.justAdd(new Als(idxs, IdxI.of(s, p, d), cands, region.index));
 								}
 							}
+							break;
+						case 5:
+							for ( int[] p : permuter.permute(n, da) ) {
+								if ( VSIZE[cands=m[s[p[0]]] | m[s[p[1]]] | m[s[p[2]]] | m[s[p[3]]] | m[s[p[4]]]] == e ) {
+									set.justAdd(new Als(idxs, IdxI.of(s, p, d), cands, region.index));
+								}
+							}
+							break;
+						case 6:
+							for ( int[] p : permuter.permute(n, da) ) {
+								if ( VSIZE[cands=m[s[p[0]]] | m[s[p[1]]] | m[s[p[2]]] | m[s[p[3]]] | m[s[p[4]]] | m[s[p[5]]]] == e ) {
+									set.justAdd(new Als(idxs, IdxI.of(s, p, d), cands, region.index));
+								}
+							}
+							break;
+						case 7:
+							for ( int[] p : permuter.permute(n, da) ) {
+								if ( VSIZE[cands=m[s[p[0]]] | m[s[p[1]]] | m[s[p[2]]] | m[s[p[3]]] | m[s[p[4]]] | m[s[p[5]]] | m[s[p[6]]]] == e ) {
+									set.justAdd(new Als(idxs, IdxI.of(s, p, d), cands, region.index));
+								}
+							}
+							break;
 						}
 					}
 				}
 			}
+		} catch ( ArrayIndexOutOfBoundsException ex ) {
+			Log.teeln("WARN: "+Log.me()+": "+ex);
 		}
-		return result;
-	}
-
-	// find Almost Locked Sets ignoring cells in Naked Sets
-	private void findAlssNoNakedSets(final Grid grid) {
-		int[] ma; // maybes of cells in region having size 2..d+1
-		int d // degree
-		  , n // number of cells in region having size 2..d+1
-		  , m // aggregated maybes of this comination of cells
-		  , i; // if you don't know what an i is by now you need shootin
-		final Cell[] gridCells = grid.cells;
-		final Idx empties = grid.getEmpties();
-		try ( CALease caLease = caLease(MAX_EMPTIES) ) {
-			final Cell[] ca = caLease.array; // 64 = 81 - 17
-			for ( ARegion r : grid.regions ) { // 27
-				if ( tmp1.setAndMany(r.idx, empties)
-				  && tmp2.setAndNotAny(tmp1, nakedSetIdxs[r.index])
-				  && tmp2.size() > 2 // we need 3 or more cells to form an ALS
-				) {
-					for ( d=2; d<REGION_SIZE; ++d ) { // degree: number of cells
-						// must be final and therefore local for the lambda
-						final int e=d+1, f=e+1; // number of cands, + 1
-						if ( (n=tmp2.where(gridCells, ca, (c)->c.size < f)) > d ) {
-							try ( IALease mLease = iaLease(n);
-								  IALease pLease = iaLease(d); ) {
-								Cells.maybes(ca, n, ma=mLease.array);
-								for ( int[] perm : new Permutations(n, pLease.array) )
-									if ( VSIZE[m=ma[perm[0]]|ma[perm[1]]] < f ) {
-										for ( i=2; i<d; ++i )
-											m |= ma[perm[i]];
-										if ( VSIZE[m] == e )
-											alsSet.add(new Als(IdxI.of(ca, perm), m, r));
-									}
-							}
-						}
-					}
+		// move sets to one alss array
+		try {
+			for ( d=2; d<=maxD; ++d ) {
+				final Object[] a = (set=sets[d]).array;
+				for ( i=0,n=set.size; i<n; ++i ) {
+					alss[numAlss++] = (Als)a[i];
+					a[i] = null;
 				}
+				set.size = 0;
 			}
+		} catch ( ArrayIndexOutOfBoundsException ex ) {
+			Log.teeln("WARN: "+Log.me()+": MAX_ALSS exceeded: "+ex);
+			cleanUp(sets, maxD);
 		}
+		// clean-up: a cell reference holds the whole grid in memory
+		return numAlss;
 	}
 
-	// find Almost Locked Sets (including cells in Naked Sets)
-	private void findAlss(final Grid grid) {
-		// ####################################
-		// ## This method is no longer used! ##
-		// ####################################
-		int[] ma; // maybes of cells in region having size 2..d+1
-		int d // degree
-		  , n // number of cells in region having size 2..d+1
-		  , m // aggregated maybes of this comination of cells
-		  , i; // if you don't know what an i is by now you need shootin
-		final Cell[] gridCells = grid.cells;
-		final Idx empties = grid.getEmpties();
-		// find ALS's of max 6 cells (beyond three or four are less useful)
-		final int ALS_SIZE_CEILING = REGION_SIZE - 1;
-		try ( final CALease caLease = caLease(MAX_EMPTIES) ) {
-			final Cell[] ca = caLease.array;
-			for ( ARegion r : grid.regions ) { // 27
-				if ( tmp1.setAndMany(r.idx, empties) ) {
-					for ( d=2; d<ALS_SIZE_CEILING; ++d ) { // degree: num cells
-						final int e=d+1, f=d+2; // number of cands, plus one
-						if ( (n=tmp1.where(gridCells, ca, (c)->c.size<f)) > d) {
-							try ( IALease maLease = iaLease(n);
-								  IALease paLease = iaLease(d); ) {
-								Cells.maybes(ca, n, ma=maLease.array);
-								for ( int[] perm : new Permutations(n, paLease.array) ) {
-									if ( VSIZE[m=ma[perm[0]]|ma[perm[1]]] < f ) {
-										for ( i=2; i<d; ++i )
-											m |= ma[perm[i]];
-										if ( VSIZE[m] == e )
-											alsSet.add(new Als(IdxI.of(ca, perm), m, r));
-									}
-								}
-							}
-						}
-					}
-				}
+	// clear all sets
+	private void cleanUp(final AlsArraySet[] sets, final int maxD) {
+		int j, J;
+		for ( int d=0; d<=maxD; ++d ) {
+			AlsArraySet set = sets[d];
+			Object[] a = set.array;
+			for ( j=0,J=set.size; j<J; ++j ) {
+				a[j] = null;
 			}
-		}
-		if ( !Debug.isClassNameInTheCallStack(6, "AlsFinderTest") )
-			throw new UnsupportedOperationException("This method is no longer used!");
-	}
-
-	// An AlsSet is a LinkedHashSet whose add method is an addOnly, ie ignores
-	// duplicate ALS's, where duplicate means same cells in the same region.
-	// nb: I must extend HashSet for it's faster (than Collection) contains.
-	//     I actually extend LinkedHashSet for it's natural order iteration
-	protected static class AlsSet extends LinkedHashSet<Als> implements Set<Als> {
-		private static final long serialVersionUID = 159335969601498L;
-		AlsSet() {
-			super(MAX_ALSS, 1F);
-		}
-		@Override
-		public boolean add(final Als als) {
-			return !contains(als) && super.add(als);
-		}
-		// for AlsSetPlain
-		protected final boolean justAdd(final Als als) {
-			return super.add(als);
+			set.size = 0;
 		}
 	}
 
-	// AlsSetNoNakedSets add method ignores ALS's which contain a cell that is
-	// in any NakedSet in this region. You call nakedSetIdxs(grid) to init the
-	// nakedSetIdxs array before you start adding ALS's to this set.
-	protected final class AlsSetNoNakedSets extends AlsSet {
-		private static final long serialVersionUID = 346983766784L;
-		@Override
-		public boolean add(final Als als) {
-			return als.idx.disjunct(nakedSetIdxs[als.region.index])
-				&& super.add(als);
-		}
-	}
-
-	// deactivate AlsSet's custom add for AlsFinderPlain,
-	// so an AlsSet is now just an LinkedHashSet<Als>,
-	// whose add method does nothing fancy, for speed
-	protected static final class AlsSetPlain extends AlsSet {
-		private static final long serialVersionUID = 346983766395L;
-		@Override
-		public boolean add(final Als als) {
-			return super.justAdd(als);
-		}
-	}
-
-/*
-This one busts CAPACITY = 128
-5..4..8......9..1...2..1..56..3..4...5..741....4.....83..6..7...6..4..8...8..2..1
-,13,13679,,26,367,,23679,23679,478,3478,367,25,,3567,23,,2347,479,349,,78,368,,369,34679,,,278,179,,15,589,,2579,279,28,,39,289,,,,2369,269,17,2379,,1259,256,569,2359,23579,,,12,159,,158,89,,2459,249,129,,579,159,,357,2359,,239,479,479,,579,35,,3569,3569,
-*/
-
-	// AlsArraySet is a Set<Als> with a "plain" add method (no contains check).
-	// It's used only in AlsFinderPlain, as a replacement for AlsSetPlain.
-	// The diuf.sudoku.utils.ArraySet class is genericised version of what was
-	// this class (which was specific to Als's), but there's zero motivation to
-	// not genericise it, so I've done so.
+	// AlsArraySet is a Set<Als> with a plain justAdd method (no contains
+	// check, no growth, no null check).
+	// The diuf.sudoku.utils.ArraySet class is a genericised version of what
+	// was this class, except I was Als specific.
 	protected static final class AlsArraySet extends ArraySet<Als> {
-		public static final int MY_CAPACITY = MAX_ALSS>>2; // quarter: 128
-		public static final int MY_MAX_CAPACITY = MAX_ALSS>>1; // half: 256
 		AlsArraySet() {
-			super(MY_CAPACITY, MY_MAX_CAPACITY);
+			// NOTE: 1024 (MAX_ALSS) is ArraySets notional max MAX_CAPACITY,
+			// otherwise need a fast indexOf, which is O(n) nonperformant.
+			super(MAX_ALSS, MAX_ALSS);
 		}
 	}
 

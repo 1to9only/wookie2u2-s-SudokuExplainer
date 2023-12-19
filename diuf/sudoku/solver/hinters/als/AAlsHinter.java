@@ -1,55 +1,73 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
+import static diuf.sudoku.Config.CFG;
 import diuf.sudoku.Grid;
-import diuf.sudoku.Idx;
+import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
 import diuf.sudoku.solver.LogicalSolver;
-import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
-import static diuf.sudoku.solver.hinters.Validator.INVALIDITIES;
-import static diuf.sudoku.solver.hinters.Validator.VALIDATE_DEATH_BLOSSOM;
-import static diuf.sudoku.solver.hinters.Validator.VALIDATE_ALS;
+import diuf.sudoku.utils.Debug;
 
 /**
- * AAlsHinter is the abstract Almost Locked Set (ALS) Hinter. I get the alss
- * and rccs for: BigWings, DeathBlossom, AlsXz, AlsWing, and AlsChain.
+ * AAlsHinter is the abstract Almost Locked Set (ALS) hinter. I get the alss
+ * and rccs (Restricted Common Candidates) for the BigWings, DeathBlossom,
+ * AlsXz, AlsWing, and AlsChain Sudoku solving techniques.
+ * <p>
  * To do this I implement IHinter#getHints to get the alss and rccs which I
- * pass down to my subclasses implementation of my abstract findAlsHints.
- * My subclasses: BigWings, DeathBlossom, AlsXz, AlsWing, and AlsChain all
- * override findAlsHints to find the hints. All the AlsHinters (and only the
- * AlsHinters, plus crap) reside in the als package.
+ * pass down to my subclasses implementation of my abstract findAlsHints
+ * method. My subclasses: BigWings, DeathBlossom, AlsXz, AlsWing, and AlsChain
+ * all override findAlsHints to find the actual hints. All the AlsHinters (and
+ * only the AlsHinters) reside in the als package (SueDeCoq is now in aals).
  * <p>
- * BigWings and DeathBlossom do not fetch RCCs, just ALSs. They're AlsHinters.
+ * BigWings and DeathBlossom do not fetch RCCs, just ALSs. They are AlsHinters.
  * AlsXz, AlsWing, and AlsChain might more appropriately be called RccHinters,
- * but an RCC is just a connection between two ALS's, so they're all AlsHinters
- * really; so AAlsHinter I am, Stan. Fetch the gun. I ____ing hate cats; or
- * rather I ____ing hate the fact that cats eat a million marsupials a day, and
- * rising. My planet is dieing. I feel it in my bones. Sigh.
+ * but an RCC is just a connection between two ALSs, so they are all AlsHinters
+ * really; so AAlsHinter I am, Stan. Fetch the gun. I ____ing hate cats; rather
+ * I ____ing hate the fact that cats eat a million marsupials a day and rising.
+ * Poor fella my country. I watch my planet dieing, and my heart aches. Sigh.
+ * But anyway...
  * <p>
- * The crap mentioned previously is quite voluminous. Finding alss is an O(n)
- * problem, so is straight forward, but finding rccs in O(n squared), and so
- * is decomposed along ForwardOnly/All and No/AllowOverlaps lines; using a
- * factory to select precisely the right RccFinder for the job at hand.
+ * This is big-n country. Currently MAX_ALSS = 1536. Mathematically theres upto
+ * 4k ALSs in a grid, but in practice, in MY puzzles, 1536 is sufficient, so my
+ * maths is wrong. Sigh. Currently MAX_RCCS = 12k. Its logs a WARNING if these
+ * "efficiency limits" are exceeded; it doesnt AIOOBE. Just enlarge the limits,
+ * but AlsChains takes exponentially longer to process more ALSs, to find a
+ * precipitously decreasing number of eliminations. Its a compromise I know not
+ * how to calculate. I am too dumb to work-out how to work-it-out, but my gut
+ * knows it exists; so I do what works for MY puzzles, in the hope it will work
+ * well enough for ALL puzzles. So 1536 it is. Sigh.
+ * <p>
+ * Finding alss is O(n), ie straight forward, but rccs are O(n*n) with big-n,
+ * hence RccFinder is decomposed by ForwardOnly/All for efficiency.<ul>
+ * <li>ForwardOnly means A-&gt;B. Used in AlsXz and AlsWing.
+ * <li>All lists both A-&gt;B and B-&gt;A. Used in AlsChain.
+ * <li>A factory method selects the right RccFinder for each tech, ONCE.
+ * <li>BigsWings and DeathBlossom do not use Rccs, so there RccFinder is null.
+ * </ul>
  * <pre>
  * KRC 2021-06-01 cache to speed-up ALSWing, ALSChain, and DeathBlossom.
  * Note that all caching is static, ie one copy of the cache and all associated
  * variables are shared by ALL instances of AAlsHinter, so caches are shared
- * among AlsXz, AlsWing, AlsChain, and DeathBlossom. This works well because
- * 1. AlsXz and AlsWing use SAME AAlsHinter constructor params, especially both
- *    allowNakedSets; so that
- * 2. AlsWing doesn't need to fetch it's own ALSs or RCCs; then
- * 3. AlsChain just filters-out cached ALSs containing a cell in a NakedSet.
- *    It doesn't need to fetch it's own ALSs, just filter the existing alsCache
- *    which it replaces with the fitlered version.
- *    It does fetch RCCs because allowOverlaps and forwardOnly have changed;
- * 4. DeathBlossom re-uses the ALSs, and so fetches nothing.
- * Hence caching ALSs and RCCs works-out 16 seconds faster!
+ * among BigWings, DeathBlossom, AlsXz, AlsWing, and AlsChain. This works well,
+ * hence caching ALSs and RCCs works-out about 16 seconds faster. Here is the
+ * story:
+ * -- AlsFinder
+ * 1. BigWings gets the ALSs (is doesnt use Rccs).
+ * 2. DeathBlossom re-uses the cached ALSs (it gets nothing).
+ * -- RccFinderForwardOnly
+ * 3. AlsXz gets the Rccs based-on the cached alss.
+ * 4. AlsWing re-uses the cached RCCs (another free ride).
+ * -- RccFinderAll
+ * 5. AlsChain filters cells in NakedSets from cached alss, and gets its own
+ *    RCCs coz it needs B-&gt;A as well as A-&gt;B (which I call All).
+ * ALSs are fetched once, and used in 5 hinters. Pretty bloody clever.
+ * All Retarded Colostomy Calamities are another (slow) story. Sigh.
  *
  * BEFORE (without caching 2021-05-30.14-11-32)
  * 16,381,530,900  9978 1,641,764  3949   4,148,273 ALS-XZ
@@ -61,7 +79,7 @@ import static diuf.sudoku.solver.hinters.Validator.VALIDATE_ALS;
  *  9,077,950,421  7179 1,264,514  3429   2,647,404 ALS-Wing
  *  8,678,898,336  4408 1,968,897   577  15,041,418 ALS-Chain
  *  2,933,325,664  3943   743,932   163  17,995,862 Death Blossom
- * so that's 16.321 seconds faster over top1465, a major improvement!
+ * so that is 16.321 seconds faster over top1465, a major improvement!
  * 2021-06-04.14-45-21 latest version with AlsFinder and RccFinder.
  * 13,792,733,500  9867 1,397,864  3962   3,481,255 ALS-XZ
  *  9,188,664,200  7175 1,280,650  3406   2,697,787 ALS-Wing
@@ -85,191 +103,224 @@ import static diuf.sudoku.solver.hinters.Validator.VALIDATE_ALS;
  * * BigWings is fully optimised.
  * * DeathBlossom is near my best. I tried inline Idx ops, but it was slower.
  * * ALS_XZ time is 98.8% ALS and RCC getters.
- * * ALS_Wing is fully optimised. I know not why it's slower than ALS_Chain.
- *   As far as I'm concerned it can't be, but there's wiggle room here.
+ * * ALS_Wing is fully optimised. I know not why it is slower than ALS_Chain.
+ *   As far as I am concerned it cannot be, but there is wiggle room here.
  * * ALS_Chain now takes ~twice time for ~threeTimes hints; which is not bad
  *   value, though I still wish it was faster.
- * * so I'm done here, I think.
+ * * so I am done here, I think.
  * </pre>
  *
  * @author Keith Corlett 2020 May 24
  */
-abstract class AAlsHinter extends AHinter
-//		implements diuf.sudoku.solver.hinters.IReporter
-{
-//	@Override
-//	public void report() {
-//		diuf.sudoku.utils.Log.teeln(tech.name()+": alss="+getAlssTime+" rccs="+getRccsTime);
-//		diuf.sudoku.utils.Log.teeln(tech.name()+" ALS_FINDER: ");
-//		ALS_FINDER.report();
-//	}
-//	protected long getAlssTime, getRccsTime; // DEBUG
+abstract class AAlsHinter extends AHinter {
 
-	// include single bivalue Cells in the ALSs list?
-	// nb: 1 cell with 2 potential values is by definition an ALS. I don't know
-	// what problems it causes if you set this to true. You have been warned!
-	protected static final boolean SINGLE_CELL_ALSS = false;
+	/* MAX_ALS_SIZE is the maximum number of cells in an ALS (ergo max degree).
+	 *
+	 * Your MAX_ALS_SIZE is a matter of choice.
+	 * Choose 8 for correctness. Everything below 8 is a hack.
+	 * I choose 5 for speed over correctness. A HACK!
+	 * Choose 6 or 7 for a less dirty hack.
+	 * Below 5 seems pointless, just unwant als hinters instead.
+	 *
+	 * The largest possible ALS is 8. All cells in a region (if all empty) are
+	 * allways a locked set, never an almost locked set. I think I should also
+	 * ignore regions that contain a naked/hidden-single when finding alss, for
+	 * Shft-F5 (find more hints) but I currently do not. Too hard did not try.
+	 * Its only Shft-F5 for ____s sake. Naked Sets also throw me a curveball,
+	 * and I decided to not ignore them either. It still works, sometimes. */
 
+	/*       time(ns)  calls  time/call elims  time/elim  hinter
+	 *  4,146,334,900  12562    330,069  2168  1,912,516  BigWings
+     *  5,658,477,600  11356    498,280  2758  2,051,659  DeathBlossom
+     *  9,450,131,900   9010  1,048,849  2025  4,666,731  ALS_XZ
+     * 10,634,181,200   7757  1,370,914  2773  3,834,901  ALS_Wing
+     * 19,370,235,000   5549  3,490,761  2000  9,685,117  ALS_Chain
+	 * 49,259,360,600                   11724  4,201,583  TOTAL */
+// 	public static final int MAX_ALS_SIZE = Grid.REGION_SIZE - 1;  *  8
+
+	/*       time(ns)  calls  time/call elims  time/elim  hinter
+     *  3,929,310,600  12531    313,567  2148  1,829,287  BigWings
+     *  5,085,782,600  11336    448,639  2714  1,873,906  DeathBlossom
+     *  8,374,530,000   9023    928,131  2041  4,103,150  ALS_XZ
+     *  9,551,062,700   7769  1,229,381  2751  3,471,851  ALS_Wing
+     * 17,063,493,900   5575  3,060,716  2005  8,510,470  ALS_Chain
+	 * 44,004,179,800			        11659  3,774,267  TOTAL */
+// 	public static final int MAX_ALS_SIZE = 7;
+
+	/*       time(ns)  calls  time/call elims  time/elim  hinter
+     *  3,427,154,600  12527    273,581  2113  1,621,937  BigWings
+     *  3,429,971,400  11353    302,120  2538  1,351,446  DeathBlossom
+     *  5,290,525,700   9213    574,245  2048  2,583,264  ALS_XZ
+     *  6,336,587,700   7953    796,754  2605  2,432,471  ALS_Wing
+     * 12,057,130,900   5887  2,048,094  2106  5,725,133  ALS_Chain
+	 * 30,541,370,300                   11410  2,676,720  TOTAL */
+// 	public static final int MAX_ALS_SIZE = 6;
+
+	/*       time(ns)  calls  time/call elims  time/elim  hinter
+     *  2,084,588,300  12317    169,244  1715  1,215,503  BigWings
+     *  1,300,498,300  11339    114,692  2016    645,088  DeathBlossom
+     *  1,984,920,300   9657    205,542  1736  1,143,387  ALS_XZ
+     *  2,230,500,000   8600    259,360  1727  1,291,546  ALS_Wing
+     *  5,536,687,300   7221    766,747  2149  2,576,401  ALS_Chain
+	 * 13,137,194,200                    9343  1,406,100  TOTAL */
 	/**
-	 * The maximum number of Almost Locked Sets the system can handle.
-	 * Ergo, the size of the static ALSS array: 512
+	 * The maximum number of cells in an Almost Locked Set (ergo max degree).
 	 */
-	protected static final int MAX_ALSS = 512; // Observed 283
+	public static final int MAX_ALS_SIZE = 5;
 
-	// CHANGES: INITIAL 8k based on 833#top1465.d5.mt=6764
-	// (1) KRC 2021-10-09 9k. 8k bust 428#top1465.d5.mt No BigWings or BigWing
 	/**
-	 * The maximum number of Restricted Common Candidates.
-	 * Ergo, the size of the static RCCS array: 9k.
+	 * The maximum number of Almost Locked Sets (ergo static ALSS array size).
+	 * <pre>
+	 * MAX_ALS_SIZE    5    6     7     8
+	 * MAX_ALSS      512  512  1024  1536
+	 * </pre>
+	 */
+	protected static final int MAX_ALSS = 512;
+
+	/**
+	 * The size of the RCCS array, ie max Restricted Common Candidates.
 	 * <p>
-	 * Finding RCC's is a heavy process at worst-case O(numAlss*numAlss), so
-	 * each implementation is as fast as possible, which is still too slow.
+	 * Finding RCCs is an O(numAlss*numAlss) process, so each implementation is
+	 * as fast as possible, which is still too slow.
 	 * <p>
 	 * If the RccFinder exceeds MAX_RCCS then a "WARN:"ing is printed to both
-	 * Log and stdout. Ignore generate warnings coz they're unavoidable. I do
-	 * not want to tie-up more RAM in a larger than required array just to suit
-	 * generate, but if generate is your focus, and you have heaps of RAM then
-	 * go ahead and increase MAX_RCCS, 1K at a time will do.
+	 * Log and stdout. Ignore generate warnings. I dont tie-up RAM in a larger
+	 * than required array just to suit generate, but if generate is your focus
+	 * and you have heaps of RAM then increase MAX_ALSS, 1K at a time will do.
+	 * The proportion of RCCs to ALSSs is pretty stable independent of size.
 	 * <p>
-	 * If so then consult "java -X" to give it as much RAM as you can. It might
-	 * be an idea to do this anyway, because SE is "RAM selfish". It reserves
-	 * lumps of RAM in arrays, so this RAM can't be used elsewhere, hence ~99%
-	 * of the allocated RAM is not used in the current hinter, just some other
-	 * selfish bastard hinter has eaten it. This is how NOT to write computer
-	 * systems generally. Scarce resources must be shared, especially RAM.
-	 * <p>
-	 * I get away with "selfishness" in SE because (1) it's faster to create
-	 * arrays ONCE than doing so on the fly, and (2) my JVM has 4Gig of RAM.
-	 * Have towel, will travel. What's a disilluminator?
+	 * Largest 617#C:\Users\User\Documents\NetBeansProjects\DiufSudoku\top1465.d5.mt
+	 * <pre>
+	 * MAX_ALS_SIZE   5  6  7  8
+	 * MAX_RCCS       7  ?  ?  8 K
+	 * </pre>
 	 */
-	protected static final int MAX_RCCS = 9*1024;
+	protected static final int MAX_RCCS = 7 * 1024;
 
-	// DeathBlossom uses this to mark unused params; for self-doc'ing code.
-	protected static final boolean UNUSED = false;
-
-	/** ALS_FINDER protected so my subtypes can report its COUNTS. */
-	protected static final AlsFinder ALS_FINDER = new AlsFinderPlain();
+	// DeathBlossom uses this to mark unused params; for self-doco code.
+	protected static final boolean NOTUSED = false;
 
 	// ALSS cache is static to share among all my subclasses,
 	// especially AlsXz and AlsWing, which use the same ALSS and RCCS.
-	private static final Als[] ALSS = new Als[MAX_ALSS];
-	private static int numAlss;
+	protected static final Als[] ALSS = new Als[MAX_ALSS];
+	protected static int numAlss;
 	// these control the alss-cache which effects the rccs-cache
-	private static int alssHn; // als-cache hintNumber
-	private static long alssPid; // als-cache puzzleID
-	private static boolean alssNs; // does alss-cache include Naked Sets
+	private static int alssHn; // cached-alss grid.hintNumber
+	private static long alssPid; // cached-alss grid.puzzleID
 
 	// RCCS cache is static to share among all my subclasses,
 	// especially AlsXz and AlsWing, which use the same ALSS and RCCS.
-	private static final Rcc[] RCCS = new Rcc[MAX_RCCS];
-	private static int numRccs;
-	private static boolean rccsDirty, rccsAO, rccsFO;
+	protected static final Rcc[] RCCS = new Rcc[MAX_RCCS];
+	protected static int numRccs;
+	private static boolean rccsDirty, rccsFO;
+
+	// the RccFinders are static to share between instances
+	private static RccFinder all; // singleton
+	protected static final RccFinder getRccFinderAll() {
+		if ( all == null )
+			all = new RccFinderAll();
+		return all;
+	}
+
+	// the RccFinders are static to share between instances
+	private static RccFinder fast; // singleton
+	protected static final RccFinder getRccFinderAllFast() {
+		if ( fast == null )
+			fast = new RccFinderAllFast();
+		return fast;
+	}
+
+	// the RccFinders are static to share between instances
+	private static RccFinder recycle; // singleton
+	protected static final RccFinder getRccFinderAllRecycle() {
+		if ( recycle == null )
+			recycle = new RccFinderAllRecycle();
+		return recycle;
+	}
 
 	/**
-	 * Just produce a hint for each Rcc, add it to the accu, and always return
-	 * true; so a developer can see the Rcc's that're being processed by each
-	 * subtype of AAlsHinter. Note that you can shft-right-click on the hints
-	 * tree-view to copy all hints.toString to the clipboard, and paste it into
-	 * a text-file, so it's fast and easy to produce an Rcc's list.
+	 * Returns an implementation of RccFinder suitable for the given Tech.
 	 * <p>
-	 * To use, copy-paste into the top of your subclass/s findHints: {@code
-	 * if(true) return justShowTheRccs(alss, numAlss, rccs, numRccs, accu);
-	 * }
+	 * Inheritance is used for performance. RccFinder is split on forwardOnly.
+	 * We avert repeatedly deciding how to handle each variant, by choosing an
+	 * RccFinder ONCE, during construction.
+	 * <p>
+	 * I am package visible for the test-cases. Sigh. I am final because, umm,
+	 * I dont know really, I just dont know how to over-anything static methods
+	 * hence I reckon making them final might be safer, coz I am stupid. One
+	 * embraces ones stupidity. Six times if you're Morisson. Hexowanker Man!
+	 * I wonder if we can con him into moving to Gaza? Teach him about wankers.
+	 * And private governance. It is what it is. Killing s__t loads of c__ts
+	 * won't change what it is. Deal with what it actually is. So what's the
+	 * actual problem? Too many c__ts, obviously! There is no them. There is
+	 * only us, such as we are. Sigh.
+	 * <pre>
+	 * BigWings, DeathBlossom : null
+	 * AlsXz, AlsWing         : RccFinderForwardOnly
+	 * AlsChain               : RccFinderAll
+	 * </pre>
 	 *
-	 * @param alss
-	 * @param numAlss
-	 * @param rccs
-	 * @param numRccs
-	 * @param accu
-	 * @return true
+	 * @param tech the Sudoku solving technique you need an RccFinder for
+	 * @return a new RccFinder suitable for the given tech
 	 */
-	protected boolean justShowTheRccs(final Als[] alss, final int numAlss, final Rcc[] rccs, final int numRccs, final IAccumulator accu) {
-		for ( int i=0; i<numRccs; ++i ) {
-			accu.add(new RccHint(this, rccs[i], new Als[]{alss[rccs[i].source], alss[rccs[i].related]}));
+	static final RccFinder getRccFinder(final Tech tech) {
+		switch ( tech ) {
+			case BigWings:
+			case DeathBlossom:
+				return null;
+			case ALS_XZ:
+				return new RccFinderForwardOnly();
+			// nb: AlsWing and AlsChain share an RccFinder, hence we need a
+			// static variable to hold the singleton instance, with a static
+			// getter method that creates/returns-existing singleton.
+			case ALS_Wing:
+			case ALS_Chain:
+//nieve implementation has been retained for edification. Understand it before
+//you look at RccFinderAllFast. Recycle is a total head____. Good luck.
+//				return getRccFinderAll(); // nieve
+				// Recycle only if there will be existing rccs to recycle
+				if ( CFG.getBoolean(Tech.ALS_XZ.name()) )
+					return getRccFinderAllRecycle(); // ~16secs faster than nieve
+				else
+					return getRccFinderAllFast(); // ~10secs faster than nieve
+			default: throw new IllegalArgumentException("Unknown tech: "+tech);
 		}
-		return true;
 	}
 
 	// ----------------------------- instanceland -----------------------------
 
-	/** include ALSs which overlap in my findHints method? */
-	protected final boolean allowOverlaps;
-	/** include ALSs which include cells that are part of a Naked Set? */
-	protected final boolean allowNakedSets;
-	/** should I run getRccs; false means I pass you rccs=null in findHints */
-	protected final boolean findRccs;
+	// getRccs
+	/** rccFinder finds the Restricted Common Candidates between ALSs */
+	protected final RccFinder rccFinder;
 	/** should getRccs do a fast forwardOnly search, or a full search? */
 	protected final boolean forwardOnly;
 
-	/** RCC_FINDER finds the Restricted Common Candidates between ALS's */
-	protected final RccFinder rccFinder;
-
-	// the actual constructor, which is wrapped for public presentation.
-	// Basically, you workout which rccFinder you want and then call me.
-	private AAlsHinter(final Tech tech, final boolean allowNakedSets
-			, final boolean findRccs, final RccFinder rccFinder
-			, final boolean allowOverlaps, final boolean forwardOnly) {
-		super(tech);
-		// getAlss params
-		this.allowNakedSets = allowNakedSets;
-		// getRccs params
-		this.findRccs = findRccs;
-		this.rccFinder = findRccs ? rccFinder : null;
-		this.allowOverlaps = findRccs ? allowOverlaps : UNUSED;
-		this.forwardOnly = findRccs ? forwardOnly : UNUSED;
-	}
+	/** my alsFinder finds the ALSs (Almost Locked Sets). */
+	private final AlsFinder alsFinder;
 
 	/**
 	 * Construct a new abstract Almost Locked Set (ALS) hinter, whose findHints
-	 * implementation finds the ALSs and optionally there RCCs, and passes the
-	 * whole mess down to my subclass's "custom" findHints method.
+	 * implementation finds the ALSs and optionally there RCCs, and passes them
+	 * down to my subclasses "custom" findHints method.
 	 * <pre>
-	 * Uses in order of execution           , nkd  , RCCs, olap , frwd , s&amp;e
-	 * BigWings    : super(Tech.BigWings    , true);
-	 * AlsXz       : super(Tech.ALS_XZ      , true , true, true , true , false);
-	 * AlsWing     : super(Tech.ALS_Wing    , true , true, true , true , false);
-	 * AlsChain    : super(Tech.ALS_Chain   , false, true, false, false, true);
-	 * DeathBlossom: super(Tech.DeathBlossom, false);
+	 * Tech          RccFinder
+	 * BigWings      null
+	 * DeathBlossom  null
+	 * ALS_XZ        RccFinderForwardOnly
+	 * ALS_Wing      RccFinderForwardOnly
+	 * ALS_Chain     RccFinderAll
 	 * </pre>
-	 * @param tech the Tech(nique) that we're implementing: Als*, DeathBlossom
-	 *  is passed up to my super-class, a "normal" AHinter.
-	 * @param allowNakedSets if false the getAlss method ignores cells that are
-	 *  part of an actual NakedPair/Triple/etc in this region.<br>
-	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
-	 *  HdkAlsXyChain = false because naked sets stuff it all up, and I don't
-	 *  understand why!
-	 * @param findRccs true to fetch RCCs, false to just fetch the ALSs.<br>
-	 *  When false AAlsHinter does NOT run getRccs, so findHints rccs=null, and
-	 *  the following parameters (effecting getRccs) have no effect, so there's
-	 *  an UNUSED constant for use as a self-documenting parameter-value.
-	 * @param allowOverlaps if false the getRccs method ignores two ALSs which
-	 *  physically overlap (ie have any cell in common).<br>
-	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
-	 *  HdkAlsXyChain = false because overlaps break the one-or-the-other rule
-	 * @param forwardOnly if true then getRccs does a faster "forward only"
-	 *  search that examines each distinct combination of ALSs once;<br>
-	 *  else examine all possible combinations, including duplicates.<br>
-	 *  HdkAlsXz and HdkAlsXyWing both use true<br>
-	 *  HdkAlsXyChain = false to find more chains. It's slow anyway!
+	 *
+	 * @param tech the Tech(nique) we implement: BigWings, DeathBlossom, AlsXz,
+	 *  AlsWing, or AlsChain is passed to my super, a "normal" AHinter.
 	 */
-	public AAlsHinter(final Tech tech, final boolean allowNakedSets
-			, final boolean findRccs, final boolean allowOverlaps
-			, final boolean forwardOnly) {
-		this(tech, allowNakedSets, findRccs
-		, findRccs ? RccFinderFactory.get(forwardOnly, allowOverlaps) : null
-		, allowOverlaps, forwardOnly);
-//System.out.println("DEBUG: "+tech+" "+rccFinder);
-//DEBUG: ALS_XZ diuf.sudoku.solver.hinters.als.RccFinderForwardOnlyAllowOverlaps@56017d3c
-//DEBUG: ALS_Wing diuf.sudoku.solver.hinters.als.RccFinderForwardOnlyAllowOverlaps@56017d3c
-//DEBUG: ALS_Chain diuf.sudoku.solver.hinters.als.RccFinderAllAllowOverlaps@10b90bfd
-	}
-
-	/**
-	 * A simplified constructor for BigWings and DeathBlossom,
-	 * which fetch ALSs only, not RCCs.
-	 */
-	public AAlsHinter(final Tech tech, final boolean allowNakedSets) {
-		this(tech, allowNakedSets, false, null, UNUSED, UNUSED);
+	public AAlsHinter(final Tech tech) {
+		super(tech);
+		assert tech.isAlsic();
+		this.alsFinder = new AlsFinder();
+		// getRccs
+		this.rccFinder = getRccFinder(tech);
+		this.forwardOnly = rccFinder!=null ? rccFinder.forwardOnly() : NOTUSED;
 	}
 
 	/**
@@ -280,9 +331,9 @@ abstract class AAlsHinter extends AHinter
 	 * <p>
 	 * The prepare method is called after the LogicalSolver is configured,
 	 * but before we attempt to solve each Grid. It gives the LogicalSolver
-	 * and each of it's hinters a chance to prepare to solve this new Grid;
+	 * and each of it is hinters a chance to prepare to solve this new Grid;
 	 * as distinct from getHints on probably-the-existing-grid. Note that
-	 * Grid now has an id&nbsp;field to identify the puzzle that's loaded
+	 * Grid now has an id&nbsp;field to identify the puzzle that is loaded
 	 * into this grid.
 	 * <p>
 	 * This instance re-enables this hinter, in case it has been disabled,
@@ -293,11 +344,6 @@ abstract class AAlsHinter extends AHinter
 	public void prepare(final Grid grid, final LogicalSolver logicalSolver) {
 		// re-enable me, in case I went dead-cat in the last puzzle
 		setIsEnabled(true); // use the setter!
-		// if we're eradicating bugs from Als* or DeathBlossom hints
-		if ( VALIDATE_ALS || VALIDATE_DEATH_BLOSSOM ) {
-			// clear out-dated invalidities at start of a new Grid.
-			INVALIDITIES.clear();
-		}
 	}
 
 	/**
@@ -306,119 +352,41 @@ abstract class AAlsHinter extends AHinter
 	 * nobody uses something (like grid.idxs for example) then it might be
 	 * an idea to not calculate it in the first place. Sigh.
 	 *
-	 * @param grid The Grid that we're solving
-	 * @param alss a fixed-array of the Almost Locked Sets
-	 * @param numAlss the number of ALSs in the alss array
-	 * @param rccs a fixed-array of the Restricted Common Candidates
-	 * @param numRccs the number of RCCs in the rccs array
-	 * @param accu The IAccumulator to which we add any hints
 	 * @return true if a hint was found, else false
 	 */
-	protected abstract boolean findAlsHints(final Grid grid
-			, final Als[] alss, final int numAlss
-			, final Rcc[] rccs, final int numRccs
-			, final IAccumulator accu);
+	protected abstract boolean findAlsHints();
 
 	/**
 	 * Find Almost Locked Set hints in Grid and add them to IAccumulator.
 	 * <p>
-	 * @param grid the grid to search for hints
-	 * @param accu the chosen implementation of IAccumulator
-	 * @return true if any hint/s were found. Different implementations of
-	 *  IAccumulator find one or all hints
+	 * @return were any hint/s found.
 	 */
 	@Override
-	public boolean findHints(final Grid grid, final IAccumulator accu) {
-		// LogicalSolver.solve doesn't disable hinters on da fly, only at start
-		if ( !isEnabled )
-			return false;
-		// get the Almost Locked Sets (N cells with N+1 values between them)
-//		start = System.nanoTime();
-		getAlss(grid); // repopulates alss, sets numAlss
-//		tookAlss += System.nanoTime() - start;
-
-		// if findRccs then get the Restricted Common Candidates of those ALSs
-		if ( findRccs )
-//			start = System.nanoTime();
-			// I've done my best to enspeedonate, but getRccs still TOO SLOW!
-			getRccs(); // repopulates rccs, sets numRccs
-//			tookRccs += System.nanoTime() - start;
-		else
-			numRccs = 0;
-		// call each of my subclasses findAlsHints method to search the grid
-		// for this specific als-pattern, raise hints, and add them to accu.
-		return findAlsHints(grid, ALSS, numAlss, RCCS, numRccs, accu);
+	public final boolean findHints() {
+		getAlss();
+		getRccs();
+		return findAlsHints();
 	}
-//	/** reported in {@link AlsChain} */
-//	protected long tookAlss=0L, tookRccs=0L;
-//	private long start;
 
 	/**
-	 * getAlss does the recursive ALS search at each cell in each region,
-	 * then computeFields of each result ALS (to not waste time computing
-	 * unused ALSs) and return them.
-	 * <p>
-	 * I'm only called locally, but I'm package visible for my test-case.
-	 * <p>
-	 * NOTE: This caching technique relies on the fact that both hinters that
-	 * allowNakedSets (AlsXz and AlsWing) are executed BEFORE all hinters that
-	 * suppress Naked Sets (AlsChain and DeathBlossom). I do not know what
-	 * happens with a static cache in the test-cases: I presume the cache is
-	 * always null. Caching exists to speed-up LogicalSolverTester, which is
-	 * the only place it's tested.
-	 *
-	 * @param grid
+	 * getAlss does the recursive ALS search at each cell in each region, then
+	 * computeFields of each result ALS (dont waste time computing unused ALSs)
+	 * and return them.
 	 */
-	void getAlss(final Grid grid) {
-//		final long start = System.nanoTime(); // DEBUG
-		if ( grid.hintNumber!=alssHn || grid.pid!=alssPid ) {
-			numAlss = ALS_FINDER.getAlss(grid, ALSS, allowNakedSets);
-			alssNs = allowNakedSets;
+	private void getAlss() {
+		if ( grid.hintNumber!=alssHn || grid.puzzleId!=alssPid ) {
+			numAlss = alsFinder.getAlss(grid, ALSS, MAX_ALS_SIZE);
 			alssHn = grid.hintNumber;
-			alssPid = grid.pid;
-			rccsDirty = true; // make getRccs refetch
-		} else if ( allowNakedSets != alssNs ) {
-			// if allowNakedSets has been turned ON then refetch all alss.
-			if ( allowNakedSets )
-				numAlss = ALS_FINDER.getAlss(grid, ALSS, allowNakedSets);
-			// else just remove ALSS containing a cell in a NakedSet
-			// no NakedSets means no need to filter them out
-			else {
-				if ( ALS_FINDER.setNakedSetIdxs(grid) )
-					filterOutNakedSets();
-//				ALS_FINDER.COUNTS[2] += System.nanoTime() - start;
-			}
-			alssNs = allowNakedSets;
-			rccsDirty = true; // make getRccs refetch
+			alssPid = grid.puzzleId;
+			rccsDirty = true;
 		}
-//		System.out.println(tech.name()+": allowNakedSets="+allowNakedSets+" getAlss took "+(System.nanoTime()-start)); // DEBUG
-//		getAlssTime += System.nanoTime() - start; // DEBUG
-	}
-
-	// remove ALSS which contain a cell that is in a NakedSet in the als.region
-	private static void filterOutNakedSets() {
-		Als als;
-		int cnt = 0;
-		// cells in nakedSets in each region
-		final Idx[] nakedSetIdxs = ALS_FINDER.nakedSetIdxs;
-		// newAlss holds ALSs with no cell in a NakedSet
-		final Als[] newAlss = new Als[numAlss];
-		// foreach als (as found by a previous hinter)
-		for ( int i=0; i<numAlss; ++i )
-			// if als contains no cells that're in nakedSets in its region
-			if ( (als=ALSS[i]).idx.disjunct(nakedSetIdxs[als.region.index]) )
-				// then add the bastard to the temp array, for now
-				newAlss[cnt++] = als;
-		// copy newAlss back over the fixed ALSS array
-		// and set numAlss to the possibly reduced cnt
-		System.arraycopy(newAlss, 0, ALSS, 0, numAlss=cnt);
 	}
 
 	/**
 	 * See if each distinct pair of ALSs have one or possibly two RC values.
 	 * RC is an acronym for Restricted Candidate. An RC value is one that is
 	 * common to both ALSs where all instances of that value in both ALSs see
-	 * each other (that's the restriction) so that either of these ALSs will
+	 * each other (that is the restriction) so that either of these ALSs will
 	 * contain this value, but never both.
 	 * <p>
 	 * Two ALSs can have a maximum of two RC values, which are both stored in
@@ -433,20 +401,15 @@ abstract class AAlsHinter extends AHinter
 	 * if forwardOnly then we find distinct pairs of ALSs only, else we find
 	 * all possible pairs of ALSs, producing an RCC for ALSs a-b and also b-a,
 	 * which AlsChain requires.
-	 * <p>
-	 * I'm only called locally. I'm package visible for the test-cases. sigh.
 	 */
-	void getRccs() {
-//		final long start = System.nanoTime(); // DEBUG
-		// if allowOverlaps or forwardOnly has changed then refetch
-		if ( rccsDirty || rccsAO!=allowOverlaps || rccsFO!=forwardOnly ) {
-			numRccs = rccFinder.find(ALSS, numAlss, RCCS);
+	private void getRccs() {
+		if ( rccFinder!=null && (rccsDirty || rccsFO!=forwardOnly) ) {
+			// static: subsequent test-cases fail if oldNumRccs != 0
+			final int oldNumRccs = Run.isTestCase() ? 0 : numRccs;
+			numRccs = rccFinder.find(ALSS, numAlss, RCCS, oldNumRccs);
 			rccsDirty = false;
-			rccsAO = allowOverlaps;
 			rccsFO = forwardOnly;
 		}
-//		getRccsTime += System.nanoTime() - start; // DEBUG
-//		System.out.println(tech.name()+": allowNakedSets="+allowNakedSets+" getRccs took "+(System.nanoTime()-start)); // DEBUG
 	}
 
 }

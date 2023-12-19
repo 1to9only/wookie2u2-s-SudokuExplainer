@@ -1,18 +1,16 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.accu;
 
 import diuf.sudoku.Hints;
-import diuf.sudoku.Grid;
 import diuf.sudoku.solver.AHint;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-
 
 /**
  * A SingleHintsAccumulator just holds the first added hint and interrupts
@@ -30,29 +28,29 @@ public final class SingleHintsAccumulator implements IAccumulator {
 	@Override
 	public boolean add(AHint hint) {
 		if ( hint==null || hint==theHint )
-			return false; // you can't get here if it were true
+			return false; // you cannot get here if it were true
 		theHint = hint;
 		return true; // meaning the caller should exit now, rather than continue looking for more hints.
 	}
 
 	@Override
-	public void reset() {
+	public void clear() {
 		theHint = null;
 	}
 
 	@Override
 	public boolean addAll(Collection<? extends AHint> hints) {
 		if ( hints.size() > 0 ) {
-			theHint = hints.iterator().next();
-			return true;
+			// NOTE: use add incase it overridden!
+			return add(hints.iterator().next());
 		}
 		return false;
-//		throw new UnsupportedOperationException("It's a SINGLEHintsAccumulator!");
+//		throw new UnsupportedOperationException("It is a SINGLEHintsAccumulator!");
 	}
 
 	/** @return the only accumulated hint, or <tt>null</tt> if none. */
 	@Override
-	public AHint getHint() {
+	public AHint poll() {
 		AHint result = theHint;
 		theHint = null; // making this instance multi-use
 		return result;
@@ -91,7 +89,7 @@ public final class SingleHintsAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public List<? extends AHint> getList() {
+	public List<AHint> getList() {
 		if ( theHint == null )
 			return null;
 		return Hints.list(theHint);

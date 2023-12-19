@@ -1,69 +1,45 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
 
-import static diuf.sudoku.utils.Frmt.NL;
-import java.io.PrintStream;
-import java.util.Formatter;
+import static diuf.sudoku.utils.MyStrings.SB;
 import java.util.Objects;
 
 /**
- * An Arrays helper utility class instead of repeating ourselves.
+ * Static helper methods for Object arrays.
+ * <p>
+ * Note that each primitive type: int, long, boolean, String has its own arrays
+ * class: ${type}Arrays. Strings can use these methods too, but they are a bit
+ * special, hence require there own class. Primitive-wrapper arrays are thrown
+ * in with the primitives.
+ *
  * @author Keith Corlett 2013
  */
 public final class MyArrays {
 
-	public static int[] clear(final int[] array) {
-		clear(array, array.length);
-		return array;
-	}
-	public static void clear(final int[] array, final int n) {
-		for ( int i=0; i<n; ++i )
-			array[i] = 0;
-	}
-
 	public static void clear(final Object[] array) {
 		clear(array, array.length);
 	}
+
 	public static void clear(final Object[] array, final int n) {
 		for ( int i=0; i<n; ++i )
 			array[i] = null;
 	}
 
-	public static void clear(final boolean[] array) {
+	public static void clear(final Object[][] array) {
 		for ( int i=0,n=array.length; i<n; ++i )
-			array[i] = false;
+			clear(array[i], array[i].length);
 	}
 
-	public static boolean contains(final Object[] cells, final int n, final Object target) {
-		for ( int i=0; i<n; ++i )
-			if ( cells[i] == target ) // NB: reference equals is OK
-				return true;
-		return false;
-	}
-
-	public static boolean contains(final int[] array, final int n, final int target) {
-		for ( int i=0; i<n; ++i )
-			if ( array[i] == target ) // NB: reference equals is OK
-				return true;
-		return false;
-	}
-
-	public static String[] leftShift(String[] args) {
-		String[] newArgs = new String[args.length-1];
-		System.arraycopy(args, 1, newArgs, 0, args.length-1);
-		return newArgs;
-	}
-
-	public static int[] clone(int[] src, int n) {
-		int[] copy = new int[n];
-		for ( int i=0; i<n; ++i )
-			copy[i] = src[i];
-		return copy;
+	public static boolean notNull(Object[] objects, int[] indexes) {
+		for ( int index : indexes )
+			if ( objects[index] == null )
+				return false;
+		return true;
 	}
 
 	/**
@@ -72,7 +48,7 @@ public final class MyArrays {
 	 * instance that is in the array, not another instance that equals it.
 	 * <p>
 	 * This method exists because java.util.Arrays.binarySearch assumes array
-	 * is sorted ascending, and if it isn't then it's probably faster to just
+	 * is sorted ascending, and if it is not then it is probably faster to just
 	 * search it linearly.
 	 * <p>
 	 * This method is O(n), so the larger the array the longer I take to not
@@ -83,60 +59,11 @@ public final class MyArrays {
 	 * @param target to look for
 	 * @return true if target is in array, else false
 	 */
-	static boolean in(Object[] array, Object target) {
+	public static boolean in(Object[] array, Object target) {
 		for ( Object i : array )
 			if ( i == target )
 				return true;
 		return false;
-	}
-
-	/**
-	 * Returns is any element in 'a' true?
-	 *
-	 * @param a to examine
-	 * @return Is any element in 'a' true?
-	 */
-	public static boolean any(final boolean[] a) {
-		for ( boolean b : a )
-			if ( b )
-				return true;
-		return false;
-	}
-
-	public static void hitRate(PrintStream out, int[][] hit, int[][] cnt) {
-		for ( int i=0,I=hit.length; i<I; ++i ) {
-			out.format("%3d: ", i);
-			final int J = hit[i].length;
-			if ( J > 0 ) {
-				out.format("%7.3f", ((double)hit[i][0]/cnt[i][0])*100);
-				for ( int j=1; j<J; ++j ) {
-					out.format(", %7.3f", ((double)hit[i][j]/cnt[i][j])*100);
-				}
-			}
-			out.append(NL);
-		}
-	}
-
-	public static String format(final long[] a, final String sep, final String format) {
-		return format(a, sep, sep, format);
-	}
-
-	public static String format(final long[] a, final String sep, final String lastSep, final String format) {
-		if ( a == null )
-			return "null";
-		if ( a.length == 0 )
-			return "empty";
-		final StringBuilder sb = new StringBuilder(a.length * 12); // just guess
-		final Formatter formatter = new Formatter(sb);
-		for ( int i=1,n=a.length,m=n-1; i<n; ++i ) {
-			if ( i > 0 )
-				if ( i < m )
-					sb.append(sep);
-				else
-					sb.append(lastSep);
-			formatter.format(format, a[i]);
-		}
-		return sb.toString();
 	}
 
 	/**
@@ -145,37 +72,59 @@ public final class MyArrays {
 	 * If master is empty then ALWAYS returns false; <br>
 	 * which are both correct, I guess, but look out for them anyway.
 	 *
-	 * @param master
+	 * @param master the master list to look in
 	 * @param masterSize
-	 * @param targets
+	 * @param targets the target list to look for
 	 * @param targetsSize
 	 * @return
 	 */
 	public static boolean containsAll(final Object[] master, final int masterSize, final Object[] targets, final int targetsSize) {
+		if ( targetsSize > masterSize )
+			return false;
 		OUTER: for ( int ti=0; ti<targetsSize; ++ti ) {
-			for ( int mi=0; mi<masterSize; ++mi ) {
-				if ( Objects.equals(master[mi], targets[ti]) ) {
+			for ( int mi=0; mi<masterSize; ++mi )
+				if ( Objects.equals(master[mi], targets[ti]) )
 					continue OUTER;
-				}
-			}
 			return false;
 		}
 		return true;
 	}
 
-	private static StringBuilder sbFor(final int[][] matrix) {
-		try {
-			return new StringBuilder(12*matrix.length*matrix[0].length);
-		} catch (Exception eaten) {
-			return new StringBuilder(1024);
-		}
+	public static String toString(final String sep, final Object[] array, int n) {
+		if ( array == null )
+			return Frmt.NULL_STRING;
+		if ( array.length == 0 || n < 1 )
+			return Frmt.EMPTY_STRING; // not EMPTY_ARRAY. Sigh.
+		// we need no StringBuilder for 1.
+		if ( array.length == 1 || n == 1 )
+			return String.valueOf(array[0]);
+		final StringBuilder sb = SB(n<<4); // *16
+		sb.append(String.valueOf(array[0])); // first sans sep
+		for ( int i=1; i<n; ++i ) // foreach subsequent, with sep
+			sb.append(sep).append(String.valueOf(array[i]));
+		return sb.toString();
 	}
-	public static String toString(final int[][] matrix) {
-		final StringBuilder sb = sbFor(matrix);
+
+	/**
+	 * Formats Asses in ChainerMulti.GWH (GridWatchHint)
+	 * but can ?SV any array of Object.
+	 *
+	 * @param a array of objects to format
+	 * @param sep separator printed between elements
+	 * @param nullStr printed when an element is null
+	 * @return a ?SV string
+	 */
+	public static String toString(final Object[] a, final String sep, final String nullStr) {
+		if ( a==null || sep==null || nullStr==null )
+			return "";
+		final StringBuilder sb = SB(a.length<<2);
 		boolean first = true;
-		for ( int[] line : matrix ) {
-			if(first) first=false; else sb.append(NL);
-			sb.append(java.util.Arrays.toString(line));
+		for ( Object o : a ) {
+			if ( first )
+				first = false;
+			else
+				sb.append(sep);
+			sb.append(o==null ? nullStr : o);
 		}
 		return sb.toString();
 	}

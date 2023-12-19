@@ -1,38 +1,37 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
 
 import diuf.sudoku.*;
-import diuf.sudoku.Grid.*;
 import static diuf.sudoku.Grid.*;
 import static diuf.sudoku.Values.*;
-import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.LogicalSolver;
-import diuf.sudoku.solver.accu.IAccumulator;
-import static diuf.sudoku.solver.hinters.Validator.*;
 import diuf.sudoku.utils.Log;
-import static java.lang.System.arraycopy;
-import static java.util.Arrays.fill;
 
 /**
- * DeathBlossom implements the Death Blossom Sudoku solving technique.
+ * DeathBlossom implements the {@link Tech#DeathBlossom} Sudoku solving
+ * technique. A DeathBlossom is a stem-cell having two or three maybes, with
+ * an ALS (Almost Locked Set) linked to each maybe of the stem-cell; where all
+ * ALSs also share another common value that is NOT in the stem-cell. The whole
+ * shebang forms a locked-set on all the other common maybe/s, eliminating
+ * these values from any cells seeing all instances of that value in all of the
+ * ALSs. Yep, its a head____. Read it again. Alternate explanation follows.
  * <p>
  * I extend AAlsHinter which implements IHinter.findHints to find the ALSs,
- * but in DeathBlossom only doesn't bother determining the RCCs (connections).
+ * but in DeathBlossom only does not bother determining the RCCs (connections).
  * He calls my "custom" findHints method passing along the ALSs. To be clear:
- * I determine my own RCC's!
+ * I determine my own RCCs!
  * <p>
  * Explanation from https://www.sudopedia.org/wiki/Solving_Technique
  * <p>
  * A Death Blossom consists of a stem cell and an Almost Locked Set (or ALS)
- * for each of the stem cell's candidates. The ALS associated with a particular
+ * for each of the stem cells candidates. The ALS associated with a particular
  * stem candidate has that value as one of its own candidates, and within the
  * ALS, every cell that has the value as a candidate sees the stem cell. The
- * ALSs can't overlap; ie no cell can belong to more than one ALS. Also, there
+ * ALSs cannot overlap; ie no cell can belong to more than one ALS. Also, there
  * must be at least one value that is a candidate of every ALS, but is not a
  * candidate of the stem cell; these are the value/s (usually 1) to eliminate.
  * <p>
@@ -43,412 +42,343 @@ import static java.util.Arrays.fill;
  * KRC 2021-11-02 alssByValue {@code List<Als>[]} now Als[][] avoiding Iterator
  * to save about 3 seconds over top1465, costs more code, and a bit more RAM.
  *
- * KRC 2021-12-30 enspeedonate: Explode Idx's and ops. Just pass down the built
+ * KRC 2021-12-30 enspeedonate: Explode Idxs and ops. Just pass down the built
  * up vars, instead of building and unbuilding them; that was stupid. Also use
  * a seperate abvBuds array (coincident with alssByValue) of the als.vBuds, to
  * save deferencing vBuds from als-struct 700 million times.
- * PRE: 7,042,097,300  9966  706,612  2543  2,769,208  DeathBlossom
- * PST: 5,063,695,500  9966  508,097  2543  1,991,229  DeathBlossom
+ * PRE: 7,042,097,300   9966  706,612  2543  2,769,208 DeathBlossom
+ * PST: 5,063,695,500   9966  508,097  2543  1,991,229 DeathBlossom
  * The new version is about 30% faster than the old version.
  * similarly avbIndexes array saves deferencing als.idx 68 million times
- * 4,946,477,700   9966  496,335  2543  1,945,134  DeathBlossom
+ * XXX: 4,946,477,700   9966  496,335  2543  1,945,134 DeathBlossom
  * I moved DeathBlossom up the charts, before Finned*Fish
- * 4,957,628,300  10337  479,600  2580  1,921,561  DeathBlossom
+ * XXX: 4,957,628,300  10337  479,600  2580  1,921,561 DeathBlossom
  * I relegate DB back to where it was, coz it increases calls of ALL hinters.
- * Also, it's slower per call than Finned*Fish, so promo was a false economy.
+ * Also, it is slower per call than Finned*Fish, so promo was a false economy.
  *
+ * KRC 2023-06-29 replaced abvBuddies with abvBuddiesX (Exploded Idxs)
+ * And ____ me sideways its slower! Again! WTF?!?!
+ * PRE: 6,040,552,900  11573  521,952  2567  2,353,156 DeathBlossom
+ * PST: 6,460,096,700  11573  558,204  2567  2,516,593 DeathBlossom
+ *
+ * KRC 2023-08-25 split search method out of recurse, for speed.
+ * PRE: 4,694,146,900  11639  403,311  2487  1,887,473 DeathBlossom
+ * PST: 3,872,779,800  11639  332,741  2487  1,557,209 DeathBlossom
  * </pre>
  *
  * @author Keith Corlett 2020-01-13
  */
-public class DeathBlossom extends AAlsHinter
+public final class DeathBlossom extends AAlsHinter
 		implements diuf.sudoku.solver.hinters.IPrepare
-				 , diuf.sudoku.solver.hinters.IReporter
+//				 , diuf.sudoku.solver.hinters.IReporter
 {
-	@Override
-	public void report() {
-		// enlarge the ABV_SIZE, in the code, ya putz.
-		if ( isGrower ) {
-			isGrower = false;
-			Log.teeln("WARN: "+tech.name()+": private static final int AVB_SIZE = "+maxAbvSize+";");
-		}
-	}
-	private static boolean isGrower = false;
+//	@Override
+//	public void report() {
+//		diuf.sudoku.utils.Log.teeln(""+tech+": COUNTS="+java.util.Arrays.toString(COUNTS));
+//	}
+//	private final long[] COUNTS = new long[14];
 
-	// index of cells to remove maybes from
-	private static final Idx VICTIMS = new Idx();
-
-	// re-use a single REDS, rather than create an instance every call only to
-	// remain empty 79% of times. When we hint reds are copied-off and REDS is
-	// cleared for next time.
-	private static final Pots REDS = new Pots();
-
-	// ALSS_BY_VALUE_SIZE: I suspect 255 is a many as there can be per value.
+	// ALSS_BY_VALUE_SIZE: I suspect 256 is more than big-enough, but YMMV!
+	// The starting size of the alss-array foreach value, which can grow, but
+	// thats slower, with an O(n) copy on each growth. Big-enough is faster!
 	private static final int ABV_SIZE = 256;
 
 	// an array-of-arrays of all the ALSs containing each value 1..9
-	// nb: this was a List<Als>[] but that involves an Iterator, which is about
-	// four seconds slower over top1465, but the array uses a bit more RAM:
-	// PRE: 8,953,518,000  10397  861,163  2573  3,479,797  DeathBlossom
-	// PST: 5,929,003,322  10397  570,260  2573  2,304,315  DeathBlossom
-	private final Als[][] alssByValue = new Als[VALUE_CEILING][ABV_SIZE];
-	private final int[] numAlssByValue = new int[VALUE_CEILING];
-	// FASTARDISED: use a seperate array of als.vBuds, rather than dereference
-	// it from the als struct 700 million times. Store EXACTLY what you need in
-	// a seperate array that is coincident with alssByValue.
-	private final Idx[][] abvBuddies = new Idx[VALUE_CEILING][ABV_SIZE];
-	// FASTARDISED: no deref als.idx 68 million times, coinc with alssByValue
-	// PST: 4,946,477,700  9966  496,335  2543  1,945,134  DeathBlossom
-	private final Idx[][] abvIndexes = new Idx[VALUE_CEILING][ABV_SIZE];
-	// FASTARDISED: no deref als.maybes 30 million times, coinc wit alssByValue
-	// PST: 4,780,816,000  9966  479,712  2543  1,879,990  DeathBlossom
-	// That's about half the time of the original List implementation. Yeah!
-	private final int[][] abvMaybes = new int[VALUE_CEILING][ABV_SIZE];
+	private Als[][] alssByValue;
+	// budsByValue[v][index] is alssByValue[v][index].vBudsB[v]
+	// just to save dereferencing the als and the double-v-lookup.
+	// it's about 600ms faster over top1465, coz it runs 600 million times.
+	private boolean[][][] budsByValue;
+	// number of alss per value 1..9
+	private int[] numAlssByValue;
 
-	// alss by stem.maybe in this DeathBlossom: each ALS is associated with a
-	// maybe of the stem cell. I'm no longer called dbAlssByValue in order to
-	// differentiate me from the alssByValue array, containing ALL alss, which
-	// confundissed me, so I renamed this one. Sigh. I'm built-up by recurse as
-	// we find an ALS that fits each stem.maybe.
-	final Als[] dbAbv = new Als[VALUE_CEILING];
-	private void clearDbAbv() {
-		fill(dbAbv, null);
+	// deathBlossomAlssByValue: alss in this DeathBlossom by stem.maybe.
+	// Each ALS is associated with a maybe of the stem cell.
+	// NOTE: I am knee dbAlssByValue in order to clearly differentiate from
+	// alssByValue (containing ALL alss) which got me confused hence I ____ed
+	// it all up, so I renamed this one, to make them LOOK different.
+	// recurse builds-up dbAbv when it allocates an ALS to each stem.maybe.
+	// recurse also tears-down dbAbv upon ascent. A self-cleaning algorithm.
+	private Als[] dbAbv;
+
+	@Override
+	public void setFields(final Grid grid) {
+		int v;
+		super.setFields(grid);
+		alssByValue = new Als[VALUE_CEILING][];
+		v=1; do alssByValue[v] = new Als[ABV_SIZE]; while(++v<VALUE_CEILING);
+		budsByValue = new boolean[VALUE_CEILING][][];
+		v=1; do budsByValue[v] = new boolean[ABV_SIZE][]; while(++v<VALUE_CEILING);
+		numAlssByValue = new int[VALUE_CEILING];
+		dbAbv = new Als[VALUE_CEILING];
 	}
 
-	// indices of cells which maybe value 1..9 in a complete DeathBlossom.
-	// Only this DB's commonCands are populated, other v's remain null.
-	final Idx[] dbVs = new Idx[VALUE_CEILING];
-	private void clearDbVs() {
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			dbVs[v].clear();
+	@Override
+	public void clearFields() {
+		super.clearFields();
+		alssByValue = null;
+		budsByValue = null;
+		numAlssByValue = null;
+		dbAbv = null;
 	}
-
-	// indices of the cells in this DeathBlossom
-	// this Idx is only set when we hint, from the exploded db0,db1,db2 params
-	// that are built-up by successive calls to recurse.
-	private final Idx dbIdx = new Idx();
-
-	// set at start of findHints, and finally cleared.
-	// Faster and easier to use fields, rather than pass-around everywhere,
-	// especially when we're using recursion (less stack work).
-	private Grid grid;
-	// Grid.cells.size
-	private int[] cellSize;
-	// Grid.cells
-	private Cell[] gridCells;
-	// Grid.maybes
-	private int[] gridMaybes;
-	// the cells in the grid which maybe each potential value 1..9
-	private Idx[] idxs;
-	// the IAccumulator to which I add hints
-	private IAccumulator accu;
-	// fast shorthand for accu.isSingle(), ergo is onlyOne hint wanted?
-	private boolean onlyOne;
 
 	/**
 	 * Constructor.
-	 * <pre>Super constructor parameters:
-	 * * tech = Tech.DeathBlossom
-	 * * allowNakedSets = false: cells in NakedSets are precluded by getAlss
-	 *   coz they break DeathBlossom logic, how exactly I do NOT comprehend.
-	 *   Actually, getAlss already has alss including NakedSets from BigWings,
-	 *   so just filters-out alss which contain a cell that's in a NakedSet in
-	 *   this als.region, which is a bit faster.
-	 * * findRccs = false: DeathBlossom builds it's own alssByValue instead.
-	 * * allowOverlaps = UNUSED.
-	 * * forwardOnly = UNUSED.
-	 * * useStartAndEnd = UNUSED.
-	 * </pre>
 	 */
 	public DeathBlossom() {
-		super(Tech.DeathBlossom, false);
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			dbVs[v] = new Idx();
+		super(Tech.DeathBlossom);
 	}
 
-	// prepare to solve this puzzle
-	// My super provides my prepare method, but doesn't implements IPrepare,
-	// to leave it upto each subclass whether or not it can be disabled.
-	// Every hinter that's ever gone deadcat MUST implement IPrepare, or once
-	// disabled it stays disabled, permanently, for the length of the run.
-	// DeathBlossom went deadcat many times during development, so I shot it.
-	// It's Mr Death. He's here about the reaping. None shall pass! But you're
-	// leg's off. No it isn't. Modern politics. Sigh.
-	@Override
-	public void prepare(Grid grid, LogicalSolver logicalSolver) {
-		super.prepare(grid, logicalSolver);
-	}
-
-	// Returns the maximum number of ALS in any alssByValue array.
-	private int maxAlssByValue() {
-		int max = 0;
-		// backwards coz observed 9 has more ALSs than others.
-		for ( int v=VALUE_CEILING-1; v>0; --v )
-			if ( numAlssByValue[v] > max )
-				max = numAlssByValue[v];
-		return max;
-	}
-	private int maxAbvSize;
-
-	// clean-up after the puzzle is solved
-	private void clean() {
-		// calculate max maxAlssByValue of any grid, before clearing the array.
-		// No need to bother if the bastard hasn't grown.
-		if ( isGrower )
-			maxAbvSize = Math.max(maxAbvSize, maxAlssByValue());
-		// clear alssByValue
-		fill(numAlssByValue, 0);
-		for ( int v=1; v<VALUE_CEILING; ++v ) {
-			fill(alssByValue[v], null);
-			fill(abvBuddies[v], null);
-			fill(abvIndexes[v], null);
-			fill(abvMaybes[v], 0);
-		}
-		clearDbAbv();
-		clearDbVs();
-		dbIdx.clear(); // anally non-retentive!
-		// forget all references set by findHints
-		this.grid = null;
-		this.cellSize = null;
-		this.gridCells = null;
-		this.gridMaybes = null;
-		this.idxs = null;
-		this.accu = null;
-	}
-
-	private static Als[] copy(final Als[] src, final Als[] dst, final int length) {
-		arraycopy(src, 0, dst, 0, length);
+	// copy an alssByValue array (or any other type T)
+	private static <T> T[] copy(final T[] src, final T[] dst, final int length) {
+		System.arraycopy(src, 0, dst, 0, length);
 		return dst;
 	}
 
-	private static Idx[] copy(final Idx[] src, final Idx[] dst, final int length) {
-		arraycopy(src, 0, dst, 0, length);
+	// copy a budsByValue array
+	private static boolean[][] copy(final boolean[][] src, final boolean[][] dst, final int length) {
+		System.arraycopy(src, 0, dst, 0, length);
 		return dst;
 	}
 
-	private static int[] copy(final int[] src, final int[] dst, final int length) {
-		arraycopy(src, 0, dst, 0, length);
-		return dst;
-	}
-
-	// enlarge existing by 10% + 1
-	private void grow(final int v) {
-		isGrower = true;
+	// enlarge existing array by 32. It wont need much more, coz it starts at
+	// more than large-enough to cover all known use-cases; grow handles only
+	// exceptional use-cases. If it grows twice increase ABV_SIZE, and/or the
+	// growth size, and/or the growth scheme to double as per Collections.
+	private void growByValueArrays(final int v) {
 		final int oldSize = alssByValue[v].length;
-		final int newSize = (int)(oldSize * 1.1 + 0.5); // 110% rounded up
-		Log.println(Log.me()+": "+v+": "+oldSize+" -> "+newSize);
+		final int newSize = oldSize + 32;
+		Log.println("WARN: growByValueArrays: "+v+": "+oldSize+" -> "+newSize);
 		alssByValue[v] = copy(alssByValue[v], new Als[newSize], oldSize);
-		abvBuddies[v] = copy(abvBuddies[v], new Idx[newSize], oldSize);
-		abvIndexes[v] = copy(abvIndexes[v], new Idx[newSize], oldSize);
-		abvMaybes[v] = copy(abvMaybes[v], new int[newSize], oldSize);
+		budsByValue[v] = copy(budsByValue[v], new boolean[newSize][], oldSize);
 	}
 
 	/**
-	 * Finds first/all Death Blossoms in the given Grid.
+	 * Finds DeathBlossom hints in the given Grid.
+	 * <p>
+	 * <pre>
+	 * A DeathBlossom is a stem cell and an ALS (petal) for each maybe.
+	 * * The ALS for each stem.maybe has that value, and
+	 *   each ALS.cell which maybe value sees the stem.
+	 * * The ALSs cant overlap.
+	 * * Theres atleast one maybe in every ALS but not the stem.
+	 * </pre>
 	 * <p>
 	 * This findAlsHints method is called via supers IHinter findHints method,
-	 * passing the rccs, alss, and candidates (common to all als hinters).
+	 * passing in the rccs and alss (common to all of the als hinters).
 	 * <p>
-	 * I call the recurse method for each eligible "stem" cell; recurse
-	 * associates each stem candidate with an ALS containing that value,
-	 * and searches each completed DeathBlossom for eliminations.
+	 * I call recurse for each eligible stem cell; recurse associates each stem
+	 * maybe with an ALS containing that value, and then searches each complete
+	 * DeathBlossom for eliminations.
 	 *
 	 * @return any hint/s found?
 	 */
 	@Override
-	protected boolean findAlsHints(final Grid grid
-			, final Als[] alss, final int numAlss
-			, final Rcc[] rccs, final int numRccs
-			, final IAccumulator accu) {
-		// BUG: LogicalSolver calls me after I'm disabled!
-		if ( !isEnabled )
-			return false;
+	protected boolean findAlsHints() {											//   12,101
 		Als als;
-		this.grid = grid;
-		this.cellSize = grid.size;
-		this.gridCells = grid.cells;
-		this.gridMaybes = grid.maybes;
-		this.idxs = grid.idxs;
-		this.accu = accu;
-		this.onlyOne = accu.isSingle();
-		// A DeathBlossom is a stem and an ALS for each of it's maybes.
-		// * The ALS for each stem.maybe has that value, and
-		//   each ALS.cell which maybe value sees the stem.
-		// * The ALSs can't overlap.
-		// * There's 1+ value that's a candidate of each ALS but not stem.
+		int j, i = 0;
 		boolean result = false;
-		try {
-			// build alssByValue: an index of all the ALS's by there values
-			fill(numAlssByValue, 0);
-			for ( int i=0; i<numAlss; ++i ) {
-				for ( int v : VALUESES[(als=alss[i]).maybes] ) {
-					// if there are any cells in the grid that see all v's
-					// in this ALS, then file this ALS under v.
-					if ( als.vBuds[v].any() ) {
-						final int ai = numAlssByValue[v]++;
-						if ( ai >= alssByValue[v].length )
-							grow(v);
-						alssByValue[v][ai] = als;
-						abvBuddies[v][ai] = als.vBuds[v];
-						abvIndexes[v][ai] = als.idx;
-						abvMaybes[v][ai] = als.maybes;
-					}
-				}
+		// build alssByValue: all ALSs indexed by each maybe, to expedite
+		// recurse by doing some preparation minimal times.
+		do {
+			als = ALSS[i];
+			for ( int v : VALUESES[als.buddedMaybes] ) {
+				if ( (j=numAlssByValue[v]++) == alssByValue[v].length )
+					growByValueArrays(v);
+				alssByValue[v][j] = als;
+				budsByValue[v][j] = als.vBudsB[v];
 			}
-			// stems are grid cells with 2..3 maybes: I tap-out early at 3 coz
-			// I find 0 hints on stems with 4+ maybes in top1465, but this may
-			// occur in other puzzles, I simply cannot say, so all other code
-			// handles 4; and correctness demands that we increase < 4 to < 5,
-			// until it is proven that 4 CAN NOT produce a hint.
-			//
-			// This implementation is excessively efficient, simply because I'm
-			// too stupid to prove that 4 can't hint! I simply observe that it
-			// is DOES NOT HINT, and hence impose a reasonable but entirely
-			// arbitrary (unless proven otherwise) limit, because I really like
-			// speed (the smarty-pants non-chemical kind, obviously)!
-
-			// foreach stem in grid.cells where size in 2..4
-			for ( int stem=0; stem<GRID_SIZE; ++stem )
-				if ( cellSize[stem]>1 && cellSize[stem]<4 ) {
-					// seek an ALS for each stem.maybe (each freeCand).
-					// ALS's must share a common value other than stem.maybes,
-					// so we start with all values other than stem.maybes.
-					// the stem.maybes to assign to each ALS
-					// if the DeathBlossom has any eliminations then hint
-					if ( (result|=recurse(stem, 0,0,0
-							, VALL & ~gridMaybes[stem] // commonCands are all except stem.maybes
-							, gridMaybes[stem])) // freeCands
-							&& onlyOne )
-						return result; // exit early
-				}
-		} finally {
-			clean();
-		}
+		} while (++i < numAlss);
+		// a stem is a cell with 2..3 maybes: I tap-out early at 3, coz I
+		// find 0 hints on stems with 4+ maybes in top1465, but this may
+		// occur in other puzzles, I simply cannot say, so all other code
+		// handles 4; and correctness demands that we increase < 4 to < 5,
+		// until it is proven that 4 CAN NOT produce a hint.
+		//
+		// This implementation is excessively efficient, coz I am too dumb
+		// to prove that 4maybes cannot hint. I observe it DOES NOT HINT
+		// and impose a reasonable (but arbitrary until proven otherwise)
+		// limit, because I like speed (electron, not chemical).
+		//
+		// foreach stem cell indice in the grid
+		i = 0;
+		do {
+			// if this cell has 2..3 maybes its a potential stem cell
+			if ( sizes[i]>1 && sizes[i]<4
+			  // Seek an ALS for each stem.maybe (each freeCand).
+			  // @commonCands values other than stem.maybes common to all
+			  // ALS in this DeathBlossom. Starts as all values other than
+			  // stem.maybes, then reduced to those common with each ALS as
+			  // its added to the DeathBlossom.
+			  // @freeCands: a stem.maybe links each ALS to the stem cell,
+			  // ie to the current DeathBlossom. freeCands is a bitset of
+			  // values that are yet to be associated. Starts as all maybes
+			  // of the stem cell, then we remove each value when an ALS is
+			  // linked to the stem-cell using this value.
+			  && recurse(i, BITS9 & ~maybes[i], maybes[i], 0L,0)
+			) {																//    2,134
+				result = true;
+				if ( oneHintOnly )
+					return result; // exit early
+			}
+		} while (++i < GRID_SIZE);
 		return result;
 	}
 
-	// find an ALS for each stem.maybe to form a complete DB,
-	// then search each completed DB for eliminations.
-	// @param stem: indice of a cell with 2/3 maybes, each of which I associate
-	//  with an als sharing a value where all instance of that value in the als
-	//  als see the stem, and alss cannot overlap, and all alss share a common
-	//  value other than stem.maybes, which becomes the value to eliminate
-	// @param db0,db1,db2 an exploded Idx of the cells in this DeathBlossom
-	// @param commonCands a bitset of values common to all alss in this DB
-	// @param freeCands stem cell candidates that are yet to be unassociated
-	//  with an als
-	private boolean recurse(final int stem, final int db0, final int db1
-			, final int db2, final int commonCands, final int freeCands) {
+	/**
+	 * Recurse associates each maybe of the stem-cell with every "eligible" ALS
+	 * in turn, to build a complete DeathBlossom (an ALS for each maybe of the
+	 * Stem cell), then for each completed DeathBlossom it calls eliminations
+	 * to do the eliminations.
+	 * <pre>
+	 * For an ALS (a petal) to "eligable" to be part of this DeathBlossom:
+	 * * this ALS shares a value with the stem-cell, where every instance of
+	 *   that value in this ALS sees (same box/row/col) the stem-cell;
+	 * * The ALSs in a DB do NOT physically overlap.
+	 * * All ALSs in a DB share a common value thats NOT in the stem-cell;
+	 * </pre>
+	 *
+	 * @param stem: indice of a cell with 2/3 maybes, each of which I associate
+	 *  with an ALS sharing a value where all instances of value in the ALS see
+	 *  the stem. The ALSs cannot overlap, and all ALSs share a common value,
+	 *  other than stem.maybes, which becomes the value/s to try to eliminate
+	 * @param cmnCands a bitset of values common to all ALSs in this DB
+	 * @param freeCands stem cell maybes yet to be associated with an ALS
+	 * @param db0 an exploded Idx of the cells in this DeathBlossom
+	 * @param db1 an exploded Idx of the cells in this DeathBlossom
+	 * @return any hint/s found
+	 */
+	private boolean recurse(final int stem, int cmnCands, final int freeCands
+			, final long db0, final int db1 ) {									//    8,432,076
+		// associate the next freeCands with each eligable ALS in turn
+		Als als; // the current als
+		int cmn; // common to ALSs already in DB and this ALS.
 		// presume that no hint will be found
 		boolean result = false;
-		if ( freeCands != 0 ) {
-			Idx ai; // als.idx
-			// get the next free (unassociated) stem.maybe
-			final int v = VFIRST[freeCands];
-			final Als[] abv = alssByValue[v];
-			final Idx[] abvBuds = abvBuddies[v];
-			final Idx[] abvIdxs = abvIndexes[v];
-			final int[] abvMybs = abvMaybes[v];
-			// foreach ALS having v as a candidate, find a matching Als and
-			// recurse some more, to associate the next stem.maybe, until all
-			// stem maybes are associated, so you go down else path to examine
-			// this bloody DeathBlossom.
-			for ( int i=0,n=numAlssByValue[v]; i<n; ++i ) {
-				// if each als.cell that maybe v sees the stem cell.
-				// nb: als.vBuds[v] are the buds of all als.cells that maybe v.
-				// nb: this loop runs 720 million times in top1465, so calling
-				// a method up-front is definately NOT ideal, but what else?
-				if ( abvBuds[i].has(stem) // <<<<<<< ALL METHOD CALLS ARE SLOW!
-				  // and the ALSs can't overlap
-				  // nb: this phrase is parsed only 68 million times
-				  && ( (db0 & (ai=abvIdxs[i]).a0)
-					 | (db1 & ai.a1)
-					 | (db2 & ai.a2) ) == 0
-				  // and the ALSs share a common maybe other than stem.maybes
-				  // nb: this phrase is parsed only 30 million times
-				  && (commonCands & abvMybs[i]) != 0
-				) {
-					// nb: this happens just 20-something million times. Sigh.
-					// add this ALS to db.abv, under it's value
-					dbAbv[v] = abv[i];
-					// try to find an ALS for the next freeCand, or if there
-					// are none then search this completed DB for eliminations
-					if ( (result|=recurse(stem, db0|ai.a0, db1|ai.a1, db2|ai.a2
-							, commonCands & abv[i].maybes
-							, freeCands & ~VSHFT[v])) && onlyOne ) {
+		// get the next free (unassociated) stem.maybe that I use to associate
+		// the stem-cell with each eligable ALS in turn.
+		final int v = VFIRST[freeCands];
+		// get the remaining freeStemCands
+		final int free = freeCands & ~VSHFT[v];
+		// a complete DB has no freeStemCands remaining to be ascribed an ALS.
+		// If it's incomplete we ascribe the next available ALS in turn;
+		// thus (overall) we examine every possible combination of ALSs.
+		final boolean incomplete = free > 0;
+		// get ALSs having v as one of its maybes from alssByValue
+		final Als[] alss = alssByValue[v];
+		// get buds for these alss from budsByValue, for speed
+		// nb: budsByValue[v][i] = alssByValue[i].vBudsB[v], to enable me to
+		// quickly check if stem is a common buddy of each ALS in alsByValue.
+		// It's a parallel array to avoid derefencing the ALS 638,994,086 times
+		// This saves something like 3 seconds in top1465. I'd hoped for more.
+		final boolean[][] buds = budsByValue[v];
+		// get the number of ALSs having v. If none then we are done here.
+		final int n = numAlssByValue[v];
+		// foreach ALS with v as one of its maybes, associate this ALS and call
+		// recurse again, to associate the next stem.maybe, til every maybe is
+		// associated with an ALS; then search completed DB for eliminations.
+		// NOTE WELL: pretest-loop coz (n=numAlssByValue[v]) is 0, rarely.
+		for ( int i=0; i<n; ++i ) {												//  638,994,086
+			// if all vs in this ALS see the stem cell
+			if ( buds[i][stem]													//   72,353,500
+			  // and this ALS doesnt overlap with the ALSs already in the DB
+			  && ( (db0 & (als=alss[i]).m0)
+				 | (db1 & als.m1) ) < 1L // 27bit								//   31,981,691
+			  // and this ALSs shares a maybe, other than stem.maybes,
+			  // with all the ALSs already in the DB
+			  && (cmn=cmnCands & als.maybes) > 0								//   19,406,040
+			) {
+				// add this ALS to dbAbv (deathBlossomAlssByValue), ergo
+				// associate this als with the stem-cell via this value
+				dbAbv[v] = als;
+				// if any stem.maybes remain to be associated with an ALS
+				if ( incomplete ) {												//    8,067,197
+					// try to associate an ALS with the next freeCandidate
+					// add this ALS to cells already in DeathBlossom
+					if ( recurse(stem, cmn, free, db0|als.m0, db1|als.m1) ) {
+						result = true;
+						if ( oneHintOnly )  {
+							dbAbv[v] = null; // I clean-up myself as I go
+							return result; // exit early
+						}
+					}
+				// else search this completed DB for eliminations				//   11,338,843
+				} else if ( eliminations(stem, cmn) ) {
+					result = true;
+					if ( oneHintOnly )  {
 						dbAbv[v] = null; // I clean-up myself as I go
 						return result; // exit early
 					}
 				}
-			}
-		} else {
-			// Found a DeathBlossom, but does it eliminate anything?
-			// each stem.maybe is now associated with an ALS (the petal)
-			// * The ALS for each stem.maybe has that value, and
-			//   each ALS.cell which maybe value sees the stem.
-			// * The ALSs don't overlap
-			// * The ALSs share atleast one common maybe, not in stem.maybes.
-			//   If an outside cell (not in ALSs or stem) sees all cells in all
-			//   ALSs which maybe value, then eliminate value from that cell.
-			// nb: this happens only about 20 million times (not uber-critical)
-
-			// get cells which maybe each value common to all ALSs.
-			clearDbVs();
-			for ( int v : VALUESES[gridMaybes[stem]] ) // to get each ALS
-				for ( int cv : VALUESES[commonCands] ) // common value
-					dbVs[cv].or(dbAbv[v].vs[cv]);
-			// populate theReds field with removable Cell=>Values
-			// foreach value that is common to all ALSs in this DeathBlossom
-			// which is NOT a candidate of the stem-cell. In order to get here
-			// at least one cv exists.
-			boolean any = false;
-			for ( int cv : VALUESES[commonCands] )
-				// victims are cells which:
-				if ( dbVs[cv].commonBuddies(VICTIMS) // see all cv's in the DB
-						.and(idxs[cv]) // and maybe cv itself
-						.andNot(dbIdx.set(db0,db1,db2)) // and not in any ALS
-						.any() ) // and if there's any remaining
-					any |= REDS.upsertAll(VICTIMS, grid, cv); // kill them all
-			if ( any ) {
-				// FOUND DeathBlossom, with eliminations.
-				final AHint hint = new DeathBlossomHint(this
-						, REDS.copyAndClear()
-						, gridCells[stem]
-						, getAlssNew(gridCells[stem])
-						, dbAbv.clone());
-				// validate it
-				if ( VALIDATE_DEATH_BLOSSOM ) {
-					if ( !validOffs(grid, hint.reds) ) {
-						hint.isInvalid = true;
-						reportRedPots(tech.name(), grid, hint.toFullString());
-						clearDbAbv();
-						if ( Run.type != Run.Type.GUI )
-							return false; // skip this hint
-					}
-				}
-				// and add it to the IAccumulator
-				result = true;
-				if ( accu.add(hint) )
-					return result; // exit early
+				dbAbv[v] = null; // I clean-up myself as I go
 			}
 		}
 		return result;
 	}
 
 	/**
-	 * Returns a new Als[] of the alss associated with the given stem cell.
-	 * Each ALS therein is associated with each potential value of the given
-	 * stem Cell in this DeathBlossomData.
+	 * Each maybe of the Stem cell is now associated with an ALS (the petal),
+	 * so search this completed DeathBlossom for any eliminations.
+	 * <pre>
+	 * * The ALS associated with each stem.maybes has that value; and
+	 *   every cell in this ALS which maybe value sees the stem-cell.
+	 * * The ALSs in the DB do NOT overlap.
+	 * * All ALSs in the DB share atleast one commonValue not in stem.maybes.
+	 * * The whole DB forms a Locked Set on each of its commonMaybes.
+	 *   Note well that stem.maybes are excluded from commonMaybes.
+	 * * Victims: eliminate each commonValue from external cells (not in ALSs
+	 *   or stem) that see every cell in the DB that maybe commonValue.
+	 * </pre>
 	 *
-	 * @param stem to fetch the alss of
-	 * @return a new Als[] of the alss associated with this stem cell.
+	 * @param stem the indice of the stem-cell
+	 * @param commonCands a bitset of the values common to every ALS in
+	 *  this DeathBlossom, excluding stem.maybes
+	 * @return any hint found
 	 */
-	private Als[] getAlssNew(final Cell stem) {
-		// build a list of the ALS's
-		final Als[] result = new Als[stem.size];
-		int cnt = 0;
-		for ( int v : VALUESES[stem.maybes] )
-			result[cnt++] = dbAbv[v];
+	private boolean eliminations(final int stem, final int commonCands){		//   11,338,843
+		Idx idx; // grid.idxs[commonValue]
+		// bad-name: x marks ye spots, but it does make the code fit on a line.
+		// x is dbAbv[stemValue].vBudsX[commonValue]: external cells seeing all
+		// commonValues in this ALS, thats linked to da stem-cell by stemValue.
+		// External means "except cells in this ALS", and when we and-together
+		// the vBuds of every ALS in DB we get "common buddies of the whole DB"
+		// which (as always) excludes the DB cells themselves.
+		Idx x;
+		long vc0; int vc1; // victims exploded Idx
+		boolean result = false; // presume that a hint will not be found
+		Pots reds = null; // removable (red) Cell=>Values
+		// faster to look them up ONCE, I think
+		final int[] stemValues = VALUESES[maybes[stem]];
+		// victims start as all occurrences of commonValue in the grid, and are
+		// reduced to those which see every commonValue in each ALS in the DB.
+		// When no victims remain then try the next commonValue.
+		// nb: each ALS-cell isnt a victim coz its not in its own als.vBuds and
+		// stem-cell isnt a victim coz none of its maybes are in commonMaybes,
+		// hence victims and the DB are guaranteed to be disjunct setsOf cells.
+		// foreach value common to every ALS in this DB, except stem.maybes
+		for ( int cmnValue : VALUESES[commonCands] ) {							//   14,303,549
+			vc0 = (idx=idxs[cmnValue]).m0;
+			vc1 = idx.m1;
+			// foreach stemValue, just to get da ALS dats linked via dis value
+			// nb: NON_LOOP eradicates an ok var. It's a tad faster.
+			NON_LOOP: for(;;) {
+			for ( int stemValue : stemValues )									//   21,151,416
+				// remove victims that do NOT see each commonValue in this ALS.
+				// If no victims remain then there are no elims on commonValue,
+				// but there might still be elims on a subsequent commonValue.
+				// Rarely (~2%) a DB eliminates on multiple commonValues.
+				if ( ( (vc0 &= (x=dbAbv[stemValue].vBuds[cmnValue]).m0)
+					 | (vc1 &= x.m1) ) < 1L )									//   14,301,371
+					break NON_LOOP;
+			if(reds==null) reds = new Pots();
+			result |= reds.upsertAll(vc0,vc1, maybes, VSHFT[cmnValue], DUMMY);
+			assert result;
+			break;
+			}
+		}
+		if ( result )															//        2,134
+			// FOUND a DeathBlossom!
+			accu.add(new DeathBlossomHint(grid, this, reds, cells[stem], dbAbv.clone()));
 		return result;
 	}
 

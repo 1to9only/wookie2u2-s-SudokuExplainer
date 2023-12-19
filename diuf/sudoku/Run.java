@@ -1,37 +1,34 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
 
 /**
- * Run holds some key facts about the application. Basically, I just need a way
- * to differentiate the GUI from LogicalSolverTester. This is all a bit s__t,
- * but she'll do anyway.
+ * Run holds some key facts about the application.
+ * <p>
+ * Basically, I need a way to differentiate the GUI from LogicalSolverTester.
+ * This might be a bit s__t, but it will do.
  *
  * @author Keith Corlett 2020 Mar 22
  */
 public final class Run {
 
-	// KRC 2021-06-20 When 1 puzzle is reprocessed print hint.toHtml to stdout
-	// for towel misplacement. Also read in KrakenFisherman.
-	// 2021-11-29 moved to Run from LogicalSolverTester coz main code may NEVER
-	// depend on test-anything, instead we push test-concerns into main code.
-	// Better still: test does nothing interesting. sigh.
-	public static final boolean PRINT_HINT_HTML = false; // #check false
-
+	/**
+	 * Was the -ea (-enableassertions) switch given to my JAVA.EXE.
+	 */
 	public static final boolean ASSERTS_ENABLED;
 	static {
-		boolean b;
+		boolean ae;
 		try {
 			assert false : "meh!";
-			b = false;
+			ae = false;
 		} catch (AssertionError eaten) {
-			b = true;
+			ae = true;
 		}
-		ASSERTS_ENABLED = b;
+		ASSERTS_ENABLED = ae;
 	}
 
 	/**
@@ -45,43 +42,58 @@ public final class Run {
 		, Generator		// The generator in the GUI
 		, Batch			// LogicalSolverTester
 	};
-	/**
-	 * The LogicalSolverTester sets this value to true. It's public static so
-	 * that everywhere we need to know can just find out.
-	 * <p>
-	 * Note that there's existing hacks in the GUI (SudokuExplainer) to workout
-	 * whether or not we're running in the GUI, as apposed to one of the
-	 * test-cases or the LogicalSolverTester.
-	 * <p>
-	 * A Better solution might be to have a Run.Type enum {
-	 * TestCase, GUI, LogicalSolverTester
-	 * }
-	 * which defaults to TestCase and is set by SudokuExplainer and by the
-	 * LogicalSolverTester. Sigh.
-	 */
-	public static Type type = Type.TestCase;
 
-	public static Type setRunType(Type type) {
-		Type prev = Run.type;
-		Run.type = type;
-		return prev;
+	/**
+	 * <pre>
+	 * The LogicalSolverTester sets Run.Type.Batch.
+	 * The SudokuExplainer sets Run.Type.GUI.
+	 * The Generator temporarily sets Run.Type.Generator.
+	 * The test-cases leave the default Run.type.TestCase.
+	 * So anywhere we need to know, we can find out which context we are in.
+	 * </pre>
+	 */
+	private static Type type = Type.TestCase;
+
+	public static boolean isTestCase() {
+		return type == Type.TestCase;
 	}
 
-	private static volatile boolean stopGenerate = false;
+	public static boolean isGui() {
+		return type == Type.GUI;
+	}
+
+	public static boolean isGenerator() {
+		return type == Type.Generator;
+	}
+
+	public static boolean isBatch() {
+		return type == Type.Batch;
+	}
+
+	public static Type setRunType(Type type) {
+		Type old = Run.type;
+		Run.type = type;
+		return old;
+	}
+
+	// make the generator pleaseStopNow
+	private static volatile boolean isHinterupted = false;
+
 	/**
 	 * Set true when {@link diuf.sudoku.gen.Generator#generate} is stopped
-	 * by the user. Don't forget to reset before the next generate.
-	 * @param b
+	 * by the user. Do NOT forget to reset before the next generate.
+	 *
+	 * @param pleaseStopNow
 	 */
-	public static void setStopGenerate(boolean b) {
-		stopGenerate = b;
+	public static void setHinterrupt(boolean pleaseStopNow) {
+		Run.isHinterupted = pleaseStopNow;
 	}
 	/**
 	 * @return Has {@link diuf.sudoku.gen.Generator#generate} been stopped by
 	 * the user.
 	 */
-	public static boolean stopGenerate() {
-		return stopGenerate;
+	public static boolean isHinterrupted() {
+		return isHinterupted;
 	}
 
 // templates are useless because everything passes!

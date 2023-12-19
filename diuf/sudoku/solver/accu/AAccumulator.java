@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.accu;
@@ -10,6 +10,7 @@ import diuf.sudoku.solver.AHint;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+
 
 /**
  * AAccumulator is an abstract default implementation of IAccumulator that you
@@ -33,13 +34,16 @@ public abstract class AAccumulator implements IAccumulator {
 	@Override
 	public boolean addAll(Collection<? extends AHint> hints) {
 		boolean any = false;
+		if ( hints==null || hints.size()==0 )
+			return any;
 		for ( AHint h : hints )
+			// NOTE use add in case it is overridden!
 			any |= add(h);
 		return any;
 	}
 
 	@Override
-	public AHint getHint() {
+	public AHint poll() {
 		return null;
 	}
 
@@ -64,7 +68,7 @@ public abstract class AAccumulator implements IAccumulator {
 	}
 
 	@Override
-	public void reset() {
+	public void clear() {
 	}
 
 	@Override

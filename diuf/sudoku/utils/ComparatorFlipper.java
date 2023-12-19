@@ -1,7 +1,7 @@
 ///*
 // * Project: Sudoku Explainer
 // * Copyright (C) 2006-2007 Nicolas Juillerat
-// * Copyright (C) 2013-2022 Keith Corlett
+// * Copyright (C) 2013-2023 Keith Corlett
 // * Available under the terms of the Lesser General Public License (LGPL)
 // */
 //package diuf.sudoku.utils;
@@ -13,8 +13,8 @@
 // * ie reverses of the order of the given comparator,<br>
 // * ie DESCENDING order, presuming that your comparator is in ascending order.
 // * <p>
-// * This convenience comes at the cost of negating EVERY compare, so if you're
-// * comparing large (say size > 10k) collections it'll be faster to flip your
+// * This convenience comes at the cost of negating EVERY compare, so if you are
+// * comparing large (say size > 10k) collections it will be faster to flip your
 // * comparator "natively" by reversing the arguements: a,b -> b,a.
 // * <p>
 // * This "trick" class just lets us reverse ANY Comparator, for when we need

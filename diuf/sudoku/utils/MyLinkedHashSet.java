@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
@@ -39,15 +39,14 @@ import java.util.Hashtable;
 import java.util.Set;
 import java.util.TreeSet;
 
-
 /**
  * <p><tt>java.util.</tt>{@link java.util.LinkedHashSet} copy-con doubles the
  * {@code initialCapacity} and then {@code HashMap} constructor rounds that up
  * to the next power of 2, which is a bit of a waste in the case where we know
  * exactly how big the table needs to be, so I created <b>MyLinkedHashSet</b>
- * whose copy-con doesn't double-up.
- * <p>Also, I've always wanted to debug {@link java.util.LinkedHashMap}, coz
- *  it's like troat fooking a feral cat: slightly amusing, but mostly painful.
+ * whose copy-con does not double-up.
+ * <p>Also, I have always wanted to debug {@link java.util.LinkedHashMap}, coz
+ *  it is like troat fooking a feral cat: slightly amusing, but mostly painful.
  * <p><tt>HashTable</tt> and <tt>LinkedList</tt> implementation of the
  *  <tt>Set</tt> interface, with predictable iteration order. This
  *  implementation differs from <tt>HashSet</tt> in that it maintains a doubly-
@@ -136,12 +135,25 @@ import java.util.TreeSet;
  */
 public class MyLinkedHashSet<E>
 	extends MyHashSet<E>
-	implements IMyPollSet<E>, Cloneable, java.io.Serializable {
+	implements Cloneable, java.io.Serializable {
 
 	public static final int DEFAULT_CAPACITY = 16;
 	public static final float DEFAULT_LOAD_FACTOR = 0.75F;
 
 	private static final long serialVersionUID = -2851667679971038690L;
+
+	public static MyLinkedHashSet<Integer> of(final int indice) {
+		final MyLinkedHashSet<Integer> result = new MyLinkedHashSet<>();
+		result.add(indice);
+		return result;
+	}
+
+	public static MyLinkedHashSet<Integer> of(final int[] ints) {
+		final MyLinkedHashSet<Integer> result = new MyLinkedHashSet<>(ints.length);
+		for ( int i : ints )
+			result.add(i);
+		return result;
+	}
 
 	/**
 	 * Constructs a new, empty linked hash set with the specified initial
@@ -189,8 +201,9 @@ public class MyLinkedHashSet<E>
 	public MyLinkedHashSet(Collection<? extends E> c) {
 		super(Math.max(c.size(), DEFAULT_CAPACITY), DEFAULT_LOAD_FACTOR, true);
 		//addAll(c);
-        for (E e : c)
+        for (E e : c) {
             add(e);
+		}
 		assert size() == c.size();
 	}
 
@@ -206,8 +219,9 @@ public class MyLinkedHashSet<E>
 	@SuppressWarnings("unchecked")
 	public MyLinkedHashSet(E[] a) {
 		super(Math.max(a.length, DEFAULT_CAPACITY), DEFAULT_LOAD_FACTOR, true);
-		for ( E e : a )
+		for ( E e : a ) {
 			add(e);
+		}
 	}
 
 	/**
@@ -221,23 +235,11 @@ public class MyLinkedHashSet<E>
 		add(e);
 	}
 
-	/**
-	 * Retrieves and removes the head of this MyLinkedHashSet,
-	 * or returns <tt>null</tt> if this MyLinkedHashSet is empty.
-	 *
-	 * @return the head of this MyLinkedHashSet, or <tt>null</tt>
-	 * if this MyLinkedHashSet is empty
-	 */
-	@Override
-	public E poll() { // NB: override required to expose method publicly.
-		return super.poll(); // protected in parent coz only usable when Linked
-	}
-
 	/** The Set is empty when this method returns.
 	 * Performance is O(n), better than MyHashMap.clears O(capacity). */
 	@Override
 	public void clear() {
-		while ( super.poll() != null ); // null statement is intentional
+		while ( poll() != null ); // null statement is intentional
 	}
 
 }

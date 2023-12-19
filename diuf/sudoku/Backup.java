@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku;
@@ -22,8 +22,8 @@ public class Backup {
 	public final int[] maybes = new int[GRID_SIZE];
 
 	public Backup(Grid grid) {
-		grid.values(values);
-		grid.maybes(maybes);
+		grid.getValues(values);
+		grid.getMaybes(maybes);
 	}
 
 }

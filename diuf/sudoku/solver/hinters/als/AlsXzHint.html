@@ -24,7 +24,7 @@ Therefore <r>we can remove <b>{4}</b></r>.
 The logic is: all x's in these two ALS's see each other, so that x must be in
 one of these two ALS's, which "pushes" the other common value z into the other
 ALS, because only one value can be removed from an ALS before it goes invalid.
-We don't yet know which ALS is which, but that doesn't matter because we
+We do not yet know which ALS is which, but that does not matter because we
 eliminate only from cells seeing all z's in <u>both</u> of these ALSs.
 <p>
 The "push" is the tricky bit. The rule is that each ALS can loose only <u>one</u>
@@ -41,7 +41,7 @@ locked" because it has just has one more potential value than its number of
 cells, so if any value where removed from those cells it becomes a Locked Set.
 Further, each ALS may loose only one value before it goes invalid because 
 eliminating a second value leaves it with insufficient potential values to fill
-all of it's cells.
+all of it is cells.
 <p>
 ALSs are not very useful until we chain them together in groups of 2=ALS_XZ,
 3=ALS_Wing, or more=ALS_Chain; or Death Blossom, or Big Wings, or whatever;

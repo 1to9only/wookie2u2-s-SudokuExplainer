@@ -1,53 +1,65 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
 
-// Rule: .* your own s__t. Never .* import anything you can't modify, but you
-// can .* import anything that you can modify to resolve any name-conflicts.
-import diuf.sudoku.*;
+import static diuf.sudoku.Config.CFG;
+import static diuf.sudoku.Constants.BLUE;
+import static diuf.sudoku.Constants.GREEN;
+import diuf.sudoku.Grid;
 import static diuf.sudoku.Grid.*;
+import diuf.sudoku.Grid.ARegion;
+import diuf.sudoku.Grid.Cell;
 import static diuf.sudoku.Indexes.*;
 import static diuf.sudoku.Values.*;
-import diuf.sudoku.Grid.*;
-import diuf.sudoku.IntArrays.IALease;
-import diuf.sudoku.solver.*;
-import diuf.sudoku.solver.accu.*;
-import diuf.sudoku.solver.hinters.*;
-import static diuf.sudoku.solver.hinters.Validator.*;
+import diuf.sudoku.Idx;
+import static diuf.sudoku.Idx.offCounts;
+import static diuf.sudoku.Idx.only;
+import diuf.sudoku.IdxC;
+import diuf.sudoku.Pots;
+import diuf.sudoku.Run;
+import diuf.sudoku.Tech;
+import diuf.sudoku.solver.AHint;
+import diuf.sudoku.solver.LogicalSolver;
+import diuf.sudoku.solver.accu.HintsApplicumulator;
+import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IPrepare;
 import static diuf.sudoku.solver.hinters.color.Words.*;
+import diuf.sudoku.solver.hinters.single.HiddenSingle;
+import diuf.sudoku.solver.hinters.single.NakedSingle;
 import static diuf.sudoku.utils.Frmt.*;
+import diuf.sudoku.utils.IntQueue;
 import diuf.sudoku.utils.Log;
-import static java.lang.Integer.bitCount;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-//import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 
 /**
- * GEM (Graded Equivalence Marks) partially implements the Graded Equivalence
- * Marks specification at https://www.sudopedia.org/wiki (online).
+ * GEM implements the {@link Tech#GEM} Sudoku solving technique. GEM is an
+ * acronym for Graded Equivalence Marks as defined at
+ * https://www.sudopedia.org/wiki (see ./#GEM.txt for annoted version),
+ * but I cannot understand the specification, so this implementation MAY still
+ * be incomplete, but I really dont think so any-longer.
  * <p>
- * See the text version of above article in ./#GEM.txt, but please note that I
- * can't make heads-nor-tails of it. It appears that I have a preformed picture
- * of what GEM should be that is at odds with the authors view of what GEM is,
- * such that I can't make his explanation make any bloody sense what-so-ever;
- * which should be perceived as an admission of a mental weakness on my part,
- * rather than a criticism of the publication. So in the end I gave-up trying
- * to implement the full GradedEquivalenceMarks and just did what makes sense
- * to me, which is pretty much 3DMedusa++, ergo 3DMedusa SimpleColoring with
- * cheese and pickles, so I add each trimming that makes sense to me, piece by
- * piece, but the net-result is that I'm unsure if I have implemented the whole
- * GEM spec, or there may be unresolved condiment/s remaining; like upgrading
- * your pool dunny into a shopping mall, and then going to K-Mart anyway. sigh.
- * Somebody who understands the spec may well get more eliminations by actually
- * implementing the spec. I'm too stoopid!
+ * GEM is extended extended extended coloring, ergo "ultimate" coloring.
+ * <p>
+ * It appears that I have a persistent premoulded picture of what colouring and
+ * therefore GEM is, which is at odds with the authors view of what GEM is,
+ * such that I cannot make his explanation make any bloody sense what-so-ever;
+ * which should be perceived as an admission of a mental frailty on my part,
+ * rather than a criticism of the specification. So in the end I gave-up trying
+ * to implement the full spec and just did what makes sense to me, which is
+ * pretty much 3DMedusa SimpleColoring with cheese and pickles, so I added all
+ * trimmings that makes sense to me, piece by piece, but the net-result is can
+ * not be unsure that I have implemented the whole GEM spec, so there may still
+ * be unresolved condiments; its a bit like upgrading your pool dunny into a
+ * shopping mall, then shopping at K-Mart anyway. Sigh. If you understand the
+ * spec then you may find more eliminations by actually implementing the WHOLE
+ * specification. I'm simply too stupid!
  * <p>
  * This implementation of GEM uses a different mark-up to the specification:
  * GREEN represents Parity 1, and BLUE represents Parity 2.
@@ -67,8 +79,9 @@ import java.util.Set;
  ons      +           +           set when color is true
  offs     -           -           eliminated by this color
  My markers are painted in the appropriate color to differentiate them, so
-   if you're blue/green color-blind then change green to orange (or whatever)
+   if you are blue/green color-blind then change green to orange (or whatever)
    and republish, coz what works for you will probably work for everybody.
+   * I believe red is the most common color deficet, so red looks green.
 
  NOTES:
  1. The Par mark is just the value in GREEN/BLUE, using existing colors.
@@ -77,40 +90,41 @@ import java.util.Set;
  So, parity1 is GREEN, parity2 is BLUE. + is On, - is Off. Simples!
 
  KRC 2021-03-20 08:25 When I try the full Graded Equivalence Marks spec it
- goes to hell in a hand-basket. So either I'm too stoopid to understand the
- spec (probable) or the spec is wrong (improbable). I'll hear argument either
- way, but I'm pretty-pissed-off right now, so I declare the spec to be CRAP!
+ goes to hell in a hand-basket. So either I am too stoopid to understand the
+ spec (probable) or the spec is wrong (improbable). I will hear argument either
+ way, but I am pretty-pissed-off right now, so I declare the spec to be CRAP!
  Be warned that USE_PROMOTIONS=true produces and handles MANY invalid hints
  (see batch log-file when true). This s__t is unfun!
 
  KRC 2021-03-21 07:59 I think I found my mistake. I painted the last value of
  a cell or the last place in region; now I only "On" them, and leave it up to
  the later "sibling promoters" whether or not they get full color, which is
- what the original spec says. I just didn't listen.
+ what the original spec says. I just did not listen.
 
- KRC 2021-03-22 09:58 I've found and fixed the last of my many mistakes, so I
- must eat my words: the specification is NOT crap, I'm just stupid!
+ KRC 2021-03-22 09:58 I have found and fixed the last of my many mistakes, so I
+ must eat my words: the specification is NOT crap, I am just stupid!
  1. We need to mark ONLY valid offs, not just mark all offs and then clean-up
     afterwards, because the clean-up removes more than it should. So never
-    mark an off that's colors/ons the opposite color.
+    mark an off that is colors/ons the opposite color.
  2. When we paint a cell-value we remove any off of the opposite color.
- 3. Also I put Type 4's above Type 3's to get a Type 4 to test, but Type 3
-    is simpler, so I reverted, so Type 4's are now non-existant, but can,
-    I believe, exist, even when there's no type 3 in top1465.
+ 3. Also I put Type 4s above Type 3s to get a Type 4 to test, but Type 3
+    is simpler, so I reverted, so Type 4s are now non-existant, but can, I
+    believe, exist, if there is just no type 3 found first, which does not happen
+	in top1465. My testing is deficient, leaving the proposition unchallenged.
 
  KRC 2021-03-24 08:45 I found "a few" extra hints from invalid ons which mean
  the other color must be true.
 
  KRC 2021-03-31 11:40 I built Mark 5 last night, and have spent this morning
- testing it, and tweaking a few things. I'll release it as Mark 6 tomorrow
- and that's it for GEM from me; I know not how to improve it any further.
+ testing it, and tweaking a few things. I will release it as Mark 6 tomorrow
+ and that is it for GEM from me; I know not how to improve it any further.
 
  KRC 2021-06-07 Got the s__ts with gemSolve so ripped-out consequentSingles.
  </pre>
  *
  * @author Keith Corlett 2021-03-17
  */
-public class GEM extends AHinter
+public final class GEM extends AHinter
 implements IPrepare
 //		, diuf.sudoku.solver.hinters.IReporter
 {
@@ -129,150 +143,126 @@ implements IPrepare
 	//             0            1            2            3           4          5            6            7          8
 	// 1,952,645,655, 166,440,244, 161,057,914, 551,059,499, 22,045,385, 7,177,886, 718,068,277, 197,793,402, 1,740,095, 0
 
-	// Should paintPromotions use the "shoot back" rule.
-	private static final boolean PROMOTIONS_SHOOTS_BACK = true;
+	/** Should paintPromotions use the "shoot back" rule. */
+	protected static final boolean PROMOTIONS_SHOOTS_BACK = true;
 
-	// Should confirmations look for Hidden Singles?
-	// RARE as rocking horse s__t: 0 in top1465
-	private static final boolean CONFIRMATIONS_HIDDEN_SINGLES = false;
+	/**
+	 * Should {@link #confirmations} look for Hidden Singles?
+	 * Rare as rocking horse s__t: 0 in top1465.
+	 */
+	protected static final boolean DO_CONFIRMATIONS_HIDDEN_SINGLES = false;
 
-	// Should hints be validated internally. Set me true when you ____ with the
-	// promotions method, to check for invalid hints. I'm more forgiving than
-	// the standard Validator approach.
-	// NOTE: YOU WILL ALSO NEED TO UNCOMMENT MY CODE!!!
-	// Call: cleanRedPots to throw/remove invalid eliminations, and
-	// Call: cleanSetPots to throw/remove invalid cell-values-to-set.
-	//
-	// NOTE this validation is besides the "normal" Validator, which can't
-	// just remove the little bastards to keep things going, to show you what's
-	// ____ed-up, so that you can fix it. The problem with error handlers is
-	// they PREVENT you from seeing what the problem is. So you disable them
-	// and there's a car crash. Then you try a smash-up derby, and discover how
-	// much you like rubber bumpers; so it's all good.
-	private static final boolean CHECK_HINTS = false;
-	// should we Log s__t when we CHECK_HINTS?
-	private static final boolean CHECK_NOISE = true;
+	/**
+	 * Should {@link #contradictions} look for Type 5?
+	 * Rare as rocking horse s__t: 0 in top1465.
+	 */
+	protected static final boolean DO_CONTRADICTION_TYPE_5 = false;
 
-	/** GREEN and BLUE. */
-	private static final int G=0, B=1;
-	/** The second color: blue. */
+	// NOTE: BLUE and GREEN are now defined in Constants, for use elsewhere
+	// (outside of coloring package, in the GUI) so are shared with Coloring,
+	// XColoring, Medusa3D, etc)
+
 	/** names of the colors, in an array to select from. */
 	private static final String[] COLORS = {green, blue};
 	/** The opposite color. */
-	private static final int[] OPPOSITE = {B, G};
+	private static final int[] OPPOSITE = {BLUE, GREEN};
 	/** colors ON HTML tags. */
 	private static final String[] CON = {GON, BON};
 	/** colors OFF HTML tags. */
 	private static final String[] COFF = {GOFF, BOFF};
 	/** colored color names. */
-	private static final String[] CCOLORS = {GON+green+GOFF, BON+blue+BOFF};
-//	/** opposite colored color names. */
-//	private static final String[] OCOLORS = {BON+blue+BOFF, GON+green+GOFF};
-	// The starting size of the steps StringBuilder. It'll grow if necessary.
+	private static final String[] COLOR_NAMES = {GON+green+GOFF, BON+blue+BOFF};
+	/** Initial size of steps StringBuilder. It will grow if necessary. */
 	private static final int STEPS_SIZE = 4096;
+	/** Initial size of why StringBuilder. It will grow if necessary. */
+	private static final int WHY_SIZE = 128;
 
 	// contradiction retvals:
-	private static final int SUBTYPE_2 = 2; // 2+ green v/ons's in cell
-	private static final int SUBTYPE_3 = 3; // 2+ green v/ons's in region
-	private static final int SUBTYPE_4 = 4; // All v's in region see a green v
-	private static final int SUBTYPE_5 = 5; // All v's in cell are off'd
+	private static final int SUBTYPE_NONE = 0; // no contradiction was found
+	private static final int SUBTYPE_2 = 2; // 2+ green v/ons in cell
+	private static final int SUBTYPE_3 = 3; // 2+ green v/ons in region
+	private static final int SUBTYPE_4 = 4; // All vs in region see a green v
+	private static final int SUBTYPE_5 = 5; // All vs in cell are off
 	// confirmation retvals:
 	private static final int SUBTYPE_6 = 6; // Naked Single in colors
 	private static final int SUBTYPE_7 = 7; // Hidden Single in colors
 
-	/** thrown ONLY when a Type 2 hint has been found and added to accu. */
+	/**
+	 * Thrown ONLY when a Type 2 hint has been found and added to accu.
+	 * NOTE WELL: This exception is eaten. StackTrace does not matter.
+	 */
 	private static final StopException STOP_EXCEPTION = new StopException();
 
-	// this Object is every value in my hashes map, to use a Map as a Set.
+	/** I use a Map as a Set, so PRESENT is each value in {@link #hashes}. */
 	private static final Object PRESENT = new Object();
 
 	/**
 	 * Create the array of arrays which is a colors, or supers, subs.
 	 * @param a
 	 */
-	private static void buildArray(final Idx[][] a) {
-		for ( int c=0; c<2; ++c )
-			for ( int v=1; v<VALUE_CEILING; ++v )
+	private static void buildColorsArray(final Idx[][] a) {
+		int v, c = 0;
+		do
+			for ( v=1; v<VALUE_CEILING; ++v )
 				a[c][v] = new Idx();
+		while (++c < 2);
 	}
 
 	/**
-	 * Clear all the Idx's in the given array (both colors, all values).
+	 * Clear all the Idxs in the given array (both colors, all values).
 	 */
-	private static void clear(final Idx[][] a) {
-		for ( int c=0; c<2; ++c )
+	private static void clearColorsArray(final Idx[][] a) {
+		int c = 0;
+		do
 			clear(a[c]);
+		while (++c < 2);
 	}
 
 	/**
-	 * Clear all the Idx's in the given array (all values).
+	 * Deep copy all the Idxs in the given array (both colors, all values).
 	 */
-	private static void clear(final Idx[] a) {
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			a[v].clear();
-	}
-
-	/**
-	 * Deep copy all the Idx's in the given array (both colors, all values).
-	 */
-	private static Idx[][] copy(final Idx[][] a) {
+	private static Idx[][] deepCopyColorsArray(final Idx[][] a) {
 		final Idx[][] result = new Idx[2][VALUE_CEILING];
-		for ( int c=0; c<2; ++c )
-			for ( int v=1; v<VALUE_CEILING; ++v )
+		int c = 0, v;
+		do
+			for ( v=1; v<VALUE_CEILING; ++v )
 				result[c][v] = new Idx(a[c][v]);
+		while (++c < 2);
 		return result;
 	}
 
 	/**
-	 * Used to sort ValueScore's by score descending.
+	 * Create an array of arrays of IdxPlusBuds.
+	 */
+	private static IdxC[][] buildPlusBudsArray() {
+		final IdxC[][] result = new IdxC[2][VALUE_CEILING];
+		int v;
+		v=1; do result[0][v]=new IdxC(); while(++v<VALUE_CEILING);
+		v=1; do result[1][v]=new IdxC(); while(++v<VALUE_CEILING);
+		return result;
+	}
+
+	/**
+	 * Clear all the Idxs in the given array (all values).
+	 */
+	private static void clear(final Idx[] a) {
+		int v = 1;
+		do
+			a[v].clear();
+		while (++v < VALUE_CEILING);
+	}
+
+	/**
+	 * Used to sort ValueScores by score descending.
 	 */
 	private static final Comparator<ValueScore> SCORE_DESCENDING =
 			(ValueScore a, ValueScore b) -> b.score - a.score;
 
 	/**
-	 * Used to sort ValueScore's by value ascending (ie put them back in order).
+	 * Used to sort ValueScores by value ascending (ie put them back in order).
 	 */
 	private static final Comparator<ValueScore> VALUE_ASCENDING =
 			(ValueScore a, ValueScore b) -> a.value - b.value;
-
-	/**
-	 * promotions needs to know the values that have been eliminated from each
-	 * cell in this color.
-	 */
-	private static final int[] OFF_VALS = new int[GRID_SIZE];
-
-	/**
-	 * for confirmations: an Idx of redPots (eliminations) by value 1..9
-	 */
-	private static final Idx[] REDS = new Idx[VALUE_CEILING];
-	static {
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			REDS[v] = new Idx();
-	}
-
-	/**
-	 * Helper method to avert AIOOBE when coloring a string, for use when we're
-	 * not sure that the goodColor field has been set. Note that I'm used only
-	 * when goodColor could be -1 (not found) coz creating a temp-buffer for my
-	 * 's' argument is MUCH slower than appending to an existing one; so use me
-	 * only when creating a hint, not in the why-string of the paint routines.
-	 */
-	private static String color(final int c, final String s) {
-		if ( c<0 || c>1 ) // especially -1 (goodColor not found)
-			return s;
-		return CON[c] + s + COFF[c];
-	}
-
-	/**
-	 * Clear the given arrayOfArrays by nullifying each array, so that the GC
-	 * can clean-up any arrays there-in that were created on-the-fly.
-	 *
-	 * @param as
-	 */
-	private static void clear(final int[][] as) {
-		for ( int i=0,n=as.length; i<n; ++i )
-			as[i] = null;
-	}
 
 	// ============================ instance stuff ============================
 
@@ -280,23 +270,10 @@ implements IPrepare
 	// and also to to save passing everything around. For some reason creating
 	// an Idx is pretty slow: BFIIK, no arrays here.
 
-	// The grid to process (a field so there's no need to pass around).
-	private Grid grid;
-	// The cells in grid to process
-	private Cell[] gridCells;
-	// The regions in grid to process
-	private ARegion[] gridRegions;
-	// The indices of each value in grid to process
-	private Idx[] gridIdxs;
-	// the accumulator
-	private IAccumulator accu;
-	// accu.isSingle()
-	private boolean onlyOne;
-
 	// do we steps+=why (an explanation) to go in the hint?
 	private final boolean wantWhy;
 
-	// There's 3 mark-ups in GEM:
+	// There is 3 mark-ups in GEM:
 	// 1. Par markers implemented as "colors",
 	// 2. Super markers implemented as "ons", and
 	// 3. Sub markers implemented as "offs".
@@ -306,87 +283,80 @@ implements IPrepare
 	// colors[color][value] indices
 	// the first index is GREEN=0, or BLUE=1
 	// the second index is value 1..9
-	// So colors holds the indices of GREEN 7's, or BLUE 2's, or whatever.
-	private final Idx[][] colors = new Idx[2][VALUE_CEILING];
+	// So colors holds the indices of GREEN 7s, or BLUE 2s, or whatever.
+	private IdxC[][] colors; // [color][value]
 	// An "On" is a "weak" unidirectional link that sets a cell value in this
 	// color. Eg: if C7 is 3 then A5 is also 3, which does NOT imply if A5 is 3
 	// then C7 is also 3. Supers are used to set cells if this parity turns-out
 	// to be true, but are (mostly) excluded from calculations.
-	private final Idx[][] ons = new Idx[2][VALUE_CEILING];
-	// colorsOns are colors or ons (ie both) for use in contradictions.
-	private final Idx[][] colorsOns = new Idx[2][VALUE_CEILING];
+	private IdxC[][] ons; // [color][value]
 	// An "Off" is a "weak" unidirectional link that removes a potential value
 	// in this color. Eg: if C7 is 3 then I7 is not 3, which does NOT imply if
-	// I7 is not 3 then C7 is 3, so ONE super is the end of the line: you can't
+	// I7 is not 3 then C7 is 3, so ONE super is the end of the line: you cannot
 	// "build on it" as if it was an actual color. If both parities off a
 	// candidate then that candidate is eliminated.
-	private final Idx[][] offs = new Idx[2][VALUE_CEILING];
-	// A bitset of those values which have an on
-	private final int[] onsValues = new int[2];
-	// Count the number of values off'd of each cell in the grid.
-	private final int[] countOffs = new int[GRID_SIZE];
-
+	private Idx[][] offs; // [color][value]
+	// colorsOns are colors or ons (ie both) for use in contradictions.
+	private Idx[][] colorsPlusOns; // [color][value]
 	// all values of each color; array to swap between colors.
-	private final Idx[] painted = {new Idx(), new Idx()};
+	private Idx[] painted; // [color]
 	// temporary Idxs: set, read, and forget!
-	private final Idx tmp1 = new Idx()
-					, tmp2 = new Idx()
-					, tmp3 = new Idx()
-					, tmp4 = new Idx();
-	// other places for value in region, set ONLY in paint.
-	private final Idx otherPlaces = new Idx();
+	private Idx tmp1, tmp2, tmp3, tmp4;
+	// done is an Idx of the "starting cells" tried for each value, so when an
+	// initial cellValue thats conjugate in multiple regions is painted we can
+	// avoid repeatedly checking the whole mess.
+	private Idx[] done; // [value]
+	// for confirmations: an Idx of redPots (eliminations) by value 1..9.
+	private Idx[] redIdxs; // [value]
+
+	// A bitset of those values which have an on
+	private int[] onsValues; // [color]
+	// the number of values offed from each cell in the grid.
+	private int[] offCounts; // [color][indice]
+	// values that have been offed from each cell in either color.
+	private int[][] offedValues; // [color][indice]
+	// a bitset of the GREEN and BLUE values; array to swap between colors.
+	private int[] colorValues; // [color]
+
 	// a bitset of those values which have been painted either color
 	private int paintedValues;
-	// a bitset of the GREEN and BLUE values; array to swap between colors.
-	private final int[] colorValues = new int[2];
 	// the Cell=>Values to eliminate. A field to not build for 99% failure.
-	private final Pots redPots = new Pots();
-	// kickOffs is an Idx of the "starting cells" tried for each value, so that
-	// when a cell-value that's conjugate in multiple regions is the initial
-	// cell-value painted we can avoid repeat-checking the whole mess.
-	private final Idx[] done = new Idx[VALUE_CEILING];
-	{
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			done[v] = new Idx();
-	}
+	private Pots redPots;
 
-	/** A hashCode of each painted cell-set, all values, both colors. */
-	private final HashMap<Long,Object> hashes = new HashMap<>(128, 0.75F);
-//	private final LongHashSet hashes = new LongHashSet(); // 512 capacity: no growth!
+	// A hashCode of each painted cell-set, all values, both colors.
+	private HashMap<Long,Object> hashes;
 
 	// the (presumably) "good" color to display "results" in the hint.
-	private int goodColor;
+	private int hintColor;
+
 	// Contradictions only: the cell/s which caused this hint.
-	private Set<Cell> cause;
+	private Idx hintCause;
+
 	// Type 2 only: the region containing the cells which caused this hint,
 	// to be bordered in pink, to help the user find the bastard.
-	private ARegion region;
+	private ARegion hintRegion;
 
 	// a StringBuilder of the steps required to building the coloring-chains;
 	// and also any conclusions of contradictions/eliminations/confirmations.
 	// This is a persistant buffer for speed. Faster to re-use than grow new.
-	private final StringBuilder steps = new StringBuilder(STEPS_SIZE);
+	private StringBuilder steps;
 
 	// score of values 1..9 (a field only to support reporting minScore, but it
 	// is also faster (I think) to not recreate the array for every call)
-	private final ValueScore[] scores = new ValueScore[VALUE_CEILING];
+	private ValueScore[] scores;
+
+	// why: explanation of why each cell-value is painted this color.
+	// sb: contributes bits and pieces to the why-string.
+	private StringBuilder why, sb;
 
 	/**
 	 * The constructor.
 	 */
 	public GEM() {
 		super(Tech.GEM);
-		// build the colors, supers, and subs array-of-arrays of indices.
-		buildArray(colors);
-		buildArray(ons);
-		buildArray(colorsOns);
-		buildArray(offs);
 		// We want explanation in GUI and testcases, just not in the batch.
-		// nb: building all the "why" strings slows batch down by a MINUTE!
-		this.wantWhy = Run.type != Run.Type.Batch;
-		// populate the scores array ONCE (cleared thereafter)
-		for ( int i=0; i<VALUE_CEILING; ++i ) // include zero to not upset sort
-			scores[i] = new ValueScore(i);
+		// nb: the "why" strings slow batch down a MINUTE, which is too much!
+		this.wantWhy = !Run.isBatch();
 	}
 
 	/**
@@ -400,73 +370,122 @@ implements IPrepare
 		setIsEnabled(true); // use the setter!
 	}
 
+	@Override
+	public void setFields(Grid grid) {
+		this.grid = grid;
+		cells = grid.cells;
+		sizes = grid.sizes;
+		maybes = grid.maybes;
+		regions = grid.regions;
+		boxs = grid.boxs;
+		idxs = grid.idxs;
+	}
+
+	@Override
+	public void clearFields() {
+		grid = null;
+		cells = null;
+		sizes = maybes = null;
+		regions = null;
+		boxs = null;
+		idxs = null;
+	}
+
+	// create my fields. Everything in here should also be in clearMyFields,
+	// no-biggy if you miss one, just pointless heap held between calls.
+	private void setMyFields() {
+		int v;
+		// All fields are created and cleared by findHints.
+		// BACKSTORY: These where all final, constructed inline or in the
+		// constructor, but I now want to minimise the permanent footprint
+		// of hinters, coz we are close to OOME -> GC running on overtime.
+		// So I pick-on heaviest hinters first: XColoring, Medusa3D, GEM.
+		// This WILL slow these three hinters, but hope faster overall.
+		this.overpaintCount = 0; // reset from last time
+		if ( wantWhy ) {
+			steps = SB(STEPS_SIZE);
+			why = SB(WHY_SIZE);
+			sb = SB(128);
+		} else
+			steps = why = sb = null;
+		// [colors GREEN=0 or BLUE=1][values 1..9]
+		colors = buildPlusBudsArray();
+		ons = buildPlusBudsArray();
+		buildColorsArray(offs=new Idx[2][VALUE_CEILING]);
+		buildColorsArray(colorsPlusOns=new Idx[2][VALUE_CEILING]);
+		painted = new Idx[]{new Idx(), new Idx()};
+		done = new Idx[VALUE_CEILING];
+		v=1; do done[v]=new Idx(); while(++v<VALUE_CEILING);
+		tmp1 = new Idx();
+		tmp2 = new Idx();
+		tmp3 = new Idx();
+		tmp4 = new Idx();
+		onsValues = new int[2];
+		offCounts = new int[GRID_SIZE];
+		offedValues = new int[2][GRID_SIZE];
+		colorValues = new int[2];
+		redPots = new Pots();
+		scores = new ValueScore[VALUE_CEILING];
+		// NOTE WELL: sort requires notNull 0
+		v=0; do scores[v]=new ValueScore(v); while(++v<VALUE_CEILING);
+		redIdxs = new Idx[VALUE_CEILING];
+		v=1; do redIdxs[v]=new Idx(); while(++v<VALUE_CEILING);
+		hashes = new HashMap<>(128, 0.75F);
+	}
+
+	private void clearMyFields() {
+		steps = why = sb = null;
+		colors = ons = null;
+		offs = colorsPlusOns = null;
+		painted = done = redIdxs = null;
+		tmp1 = tmp2 = tmp3 = tmp4 = null;
+		onsValues = colorValues = offCounts = null;
+		offedValues = null;
+		redPots = null;
+		scores = null;
+		hashes = null;
+		hintRegion = null;
+		hintCause = null;
+	}
+
 	/**
-	 * Called by solve to find first/all 3D Medusa hints, if any, in this grid.
-	 *
-	 * @param grid the Grid to search, containing a Sudoku puzzle
-	 * @param accu the implementation of IAccumulator to add hint/s to. If the
-	 * passed IAccumulator isSingle() then it's add method returns true to tell
-	 * me (and all other hinters) to stop searching at the first hint; else the
-	 * search continues for more hints.<br>
-	 * <br>
-	 * An ODD exception to this pattern is "3D Medusa Coloring Type 2:" hints.
-	 * If/when ONE of them is found it typically means EVERY conjugate pair in
-	 * the grid finds the SAME hint, so we ALWAYS exit-early whenever we find a
-	 * Type 2, rather than waste time on duplicates. This is NOT correct, just
-	 * expedient. Any non-duplicate hints are missed, even if they're "bigger".
-	 * Sometimes I'm overly efficophilic. But ____ it, everybody has a vice.
+	 * Find 3DMedusa hints in the grid, and add them to accu.
 	 *
 	 * @return were any hint/s found?
 	 */
 	@Override
-	public boolean findHints(final Grid grid, final IAccumulator accu) {
-		// deadCat disables a hinter DURING solve (which does disabled only
-		// BEFORE kick-off) so each hinter that's ever gone deadCat checks
-		// isEnabled itself. I'm re-enabled by the prepare method, so I'm down
-		// for this puzzle only. I'll get you next time Batman. Unfortunately
-		// when you reload the current puzzle prepare is not called. I should
-		// change the GUI to call it.
-		if ( !isEnabled )
-			return false;
-		Cell cell;
-		this.grid = grid;
-		this.gridCells = grid.cells;
-		this.gridRegions = grid.regions;
-		this.gridIdxs = grid.idxs;
-		this.accu = accu;
-		this.onlyOne = accu.isSingle();
+	public boolean findHints() {
+		int indice;
 		// presume that no hint will be found
 		boolean result = false;
 		try {
-			clear(done); // supress repeat search keys
-			hashes.clear(); // supress repeat searches (colors)
+			int n, i, v; // StartingValues: numberOf, indexOf, value
+			setMyFields();
 			// Step 1: foreach value in 2-or-more conjugate relationships,
 			//         order by num conjugates + num bivalues DESCENDING.
-			// WARNING: startingValues filters to score >= 4 because that's
+			// WARN: startingValues filters to score >= 4 because that is
 			// the lowest score that hints in top1465. THIS MAY BE WRONG!
 			// The higher this value the faster GEM is per elimination;
 			// upto ~7, where it starts missing too many eliminations.
-			for ( int i=0,n=startingValues(); i<n; ++i ) { // repopulate scores
-				final int v = scores[i].value;
-				for ( ARegion r : gridRegions ) {
+			for ( n=startingValues(),i=0; i<n; ++i ) { // repopulate scores
+				v = scores[i].value;
+				// foreach region in the grid
+				for ( ARegion r : regions ) {
 					// if v has two places in this region
-					if ( ( r.ridx[v].size == 2
-						// and we haven't already painted this cell-value.
-						&& !done[v].has((cell=r.first(v)).i)
-						// and the search finds something
-						// nb: search may disable me!
-						&& ( result |= search(cell, v) )
-						// and we want onlyOne hint
-						&& onlyOne )
-					  || !isEnabled // or I'm now disabled!
-					) {
+					if ( r.numPlaces[v] == 2
+					  // and we have not already painted v in this region
+					  && !done[v].has(indice=r.indices[IFIRST[r.places[v]]])
+					  // and the search finds something
+					  // nb: search may disable me!
+					  && ( result |= search(indice, v) )
+					  // and we want onlyOne hint
+					  && oneHintOnly )
 						return result; // all done
-					}
 				}
 			}
-		// This indicates an invalid grid so now throws UnsolvableException.
-		// To debug it change both throws to UncleanException instead!
 		} catch ( UncleanException ex ) {
+			// This indicates an invalid grid so throw UnsolvableException.
+			// To debug it change both throws to UncleanException instead!
 			// USE_PROMOTIONS -> create(Big)?Hint: bad elim or cell-value.
 			Log.teeln("WARN: "+Log.me()+": "+ex.getClass().getSimpleName()+NL
 					+ex.getMessage());
@@ -476,85 +495,76 @@ implements IPrepare
 			// thrown after a contradiction/confirmation hint is added to accu
 			result = true;
 		} finally {
-			this.grid = null;
-			this.gridCells = null;
-			this.gridRegions = null;
-			this.accu = null;
-			this.gridIdxs = null;
-			this.cause = null;
-			this.region = null;
+			clearMyFields();
 		}
 		return result;
 	}
 
 	/**
-	 * To select the best starting value, pick a value that has 2 or more
-	 * conjugate pairs, and is present in the most bivalue cells. These bivalue
-	 * cells expand the coloring clusters beyond the single digit boundary.
+	 * To select the best starting value, take the value that (is in 2 or more
+	 * conjugate pairs, which) has the most bivalue cells. These bivalue cells
+	 * expand the coloring clusters beyond the single digit boundary.
 	 * <p>
 	 * From the spec: "Seed candidates should be chosen which are hoped will
 	 * give the maximum return, and time spent considering the best choice is
 	 * worthwhile, as a complete mark-up is time consuming."
 	 * <p>
-	 * The spec implies this can be done in simple coloring, but I'm ignoring
+	 * The spec implies this can be done in simple coloring, but I am ignoring
 	 * it to keep my hinters independent of each other. This is "fast enough".
 	 *
-	 * @return the number of value with a score of 4 or more.
+	 * @return the number of values with a score of 4 or more.
 	 */
 	private int startingValues() {
-		int[] values; // cell maybes with 2+ conjugate pairs
-		int v, cands, i, n;
-		// reset scores: ordered by value ascending
+		int cands, m, n, i;
+		// make indice align with value
 		Arrays.sort(scores, VALUE_ASCENDING);
-		for ( v=1; v<VALUE_CEILING; ++v )
-			scores[v].clear();
 		// count conjugate pairs for each value
-		// also build-up a bitset of the values in 2+ conjugate pairs
+		// and build cands: values in 2+ conjugate pairs
+		// nb: a "conjugate pair" is two places for a value in a region. These
+		// two cells are conjoined (a strong link): either cellA or cellB is v,
+		// and are a complete set, hence if cellA is NOT v then cellB must be.
 		cands = 0;
-		for ( v=1; v<VALUE_CEILING; ++v )
-			for ( ARegion r : gridRegions )
-				if ( r.ridx[v].size == 2
-				  && ++scores[v].score > 1 )
-					cands |= VSHFT[v];
-		// foreach bivalue cell
-		// increment the score of each value with 2+ conjugate pairs
-		for ( Cell c : gridCells )
-			if ( c.size == 2 ) {
-				values = VALUESES[c.maybes & cands];
-				for ( i=0,n=values.length; i<n; ++i )
-					++scores[values[i]].score;
-			}
+		int value = 1;
+		do {
+			scores[value].score = 0;
+			for ( ARegion r : regions )
+				if ( r.numPlaces[value]==2 && ++scores[value].score>1 )
+					cands |= VSHFT[value];
+		} while (++value < VALUE_CEILING);
+		// foreach bivalue cell value in 2+ conjugate pairs, ++value.score
+		i = 0;
+		do
+			if ( sizes[i]==2 && (m=maybes[i] & cands)>0 )
+				for ( int x : VALUESES[m] )
+					++scores[x].score;
+		while (++i < GRID_SIZE);
 		// order by score descending
 		Arrays.sort(scores, SCORE_DESCENDING);
-		// count the number of scores with a score of atleast 4. The minimum
-		// possible minimum score is 3, but I use 4 coz it's top1465's minimum
-		// that hints. There's no theoretical basis for 4, it's just what works
-		// for me. I presume it'll work for all Sudoku puzzles but it may not!
-		for ( n=0; n<VALUE_CEILING; ++n )
-			if ( scores[n].score < 4 // see above comment
+		// count scores >= 4. Min min score is 3, but I use 4 coz its top1465s
+		// min that hints. Theres no theory for 4, its just what works for me,
+		// so I presume it will work for all Sudoku puzzles, but it may not!
+		// If its wrong it cannot be very wrong: it cannot skip many hints.
+		n = 0;
+		do
+			if ( scores[n].score < 4 // comments above
 			  || scores[n].value == 0 ) // stop at value 0 (null terminator)
 				break;
+		while (++n < VALUE_CEILING);
 		return n;
 	}
 
-//KEEP: used to get minScore to report and set the minimum score (above)
-//	// get the score for the given value
-//	private int getScore(final int value) {
-//		for ( int i=0; i<VALUE_CEILING; ++i )
-//			if ( scores[i].value == value )
-//				return scores[i].score;
-//		return -1;
-//	}
-
 	/**
-	 * search this region and value (a conjugate pair) for Medusa 3D Coloring
-	 * hints.
+	 * Search this Cell and value (which is in a conjugate pair) for GEM hints.
 	 *
-	 * @param r the region to search
+	 * @param indice of cell, with three regions to search: box, row, and col.
+	 *  Atleast one of these regions contains two instances of value, ie this
+	 *  cell is in atleast one conjugate pair on the given value, not that it
+	 *  really matters, we just avoid wasting time searching cells that cannot
+	 *  contribute to a GEM hint coz they have no conjugate/s. Sigh.
 	 * @param v the value to search for
-	 * @return were any hint/s found; noting only one Type 2 is ever found.
+	 * @return were any hint/s found. Note that only ONE Type 2 is sought.
 	 */
-	private boolean search(final Cell cell, final int v) {
+	private boolean search(final int indice, final int v) {
 		AHint hint;
 		Long hash;
 		int subtype // sub-type of this hint
@@ -564,11 +574,14 @@ implements IPrepare
 		boolean result = false;
 		// clear the paint artifacts so each search is independant of previous.
 		// done and hashes are the ONLY hangovers, by design.
-		clear(colors);
-		clear(ons);
-		clear(offs);
-		colorValues[G]=colorValues[B]=paintedValues = 0;
-		steps.setLength(0); // the painting steps, and conclusions if any
+		clearColorsArray(colors);
+		clearColorsArray(ons);
+		clearColorsArray(offs);
+		Arrays.fill(offedValues[GREEN], 0);
+		Arrays.fill(offedValues[BLUE], 0);
+		colorValues[GREEN]=colorValues[BLUE]=paintedValues = 0;
+		if ( wantWhy )
+			steps.setLength(0); // the painting steps, and conclusions if any
 		redPots.clear();
 		// Step 2: paint cells in the conjugate pair opposite colors.
 		//
@@ -580,10 +593,10 @@ implements IPrepare
 		// Step 4: Expand the cluster for newly added values.
 		// Foreach candidate added in step 3, check remaining
 		// candidates of that value.
-		// * If the candidate you're checking is part of one or
+		// * If the candidate you are checking is part of one or
 		//   more conjugate pairs containing any recently added
 		//   candidates, expand your cluster by coloring the
-		//   candidate you're checking with the opposite color
+		//   candidate you are checking with the opposite color
 		//   from that of the recently added candidate.
 		// * Continue coloring for each value until no more
 		//   candidates can be added.
@@ -593,138 +606,116 @@ implements IPrepare
 		// paintPromotions: last cell-value or place-in-region is an ons;
 		// and then any ons with colors siblings/cell-mates are painted.
 		try {
-			// paint this cell-value, and it's consequences, ...
-			paint(cell, v, G, true, "Let's assume that "+cell.id+MINUS+v
-					+IS+CCOLORS[G]+NL);
-			// on/paint consequences, and there consequences, ...
-			while ( paintMonoBoxs() | paintPromotions() ) {
-				// do nothing, just go again
-			}
-
-			// we search each value that was painted ONCE.
+			// paint this cell-value, and it is consequences, ...
+			if ( wantWhy ) {
+				why.setLength(0); // clear the StringBuilder
+				why.append("Let us assume that ").append(CELL_IDS[indice])
+				.append(MINUS).append(v).append(IS).append(COLOR_NAMES[GREEN])
+				.append(NL);
+			} else
+				why = null;
+			paint(indice, v, GREEN, true);
+			// paint/on consequences, and there consequences, and there cons...
+			while ( paintMonoBoxs() | paintPromotions() ); // intentional null statement
+			// we search each region/value ONCE only.
 			for ( int v1 : VALUESES[paintedValues] )
-				done[v1].or(colors[G][v1]).or(colors[B][v1]);
-
-			// we search each distinct both-color-sets ONCE.
+				done[v1].or(colors[GREEN][v1], colors[BLUE][v1]);
+			// we search each distinct both-color-sets ONCE only.
 			// nb: these hashes are 64 bits, to reduce collisions.
-			// nb: there's no distinction between green and blue in this hash
-			hash = hash(colors[G], VALUESES[colorValues[G]])
-				 | hash(colors[B], VALUESES[colorValues[B]]);
-			// use addOnly!
-			if ( hashes.putIfAbsent(hash, PRESENT) != null )
-//			if ( hashes.add(hash) )
+			// nb: there is no distinction between green and blue in this hash
+			hash = hash(colors[GREEN], VALUESES[colorValues[GREEN]])
+				 | hash(colors[BLUE], VALUESES[colorValues[BLUE]]);
+			if ( hashes.putIfAbsent(hash, PRESENT) != null ) // addOnly
 				return false;
-
 			// my minimum colored cells is 3.
-			// WARN: This limit is top1465 specific. It's probably too high for
-			// some puzzles. There is no theoretical basis for this, it's just
-			// what works for me. Remove this limit for correctness.
-			if ( (n = countAll(colors[G], VALUESES[colorValues[G]], painted[G])
-				    + countAll(colors[B], VALUESES[colorValues[B]], painted[B])) < 3 )
+			// WARN: This limit is top1465 specific. It is probably too high for
+			// some puzzles. There is no theoretical basis for this, it is just
+			// what works for me. Remove this limit for correctness, or come up
+			// with a theory to justify it. I am just a stupid programmer.
+			if ( (n = countAll(colors[GREEN], VALUESES[colorValues[GREEN]], painted[GREEN])
+				    + countAll(colors[BLUE], VALUESES[colorValues[BLUE]], painted[BLUE])) < 3 )
 				return false; // too few cells painted
-
 			// Step 5: Analyse the cluster.
 			// 5.1 If either color contains a contradiction
 			//     then the opposite color MUST be true.
-			// nb: minContradiction=3 so there's no filter on it
-			if ( (subtype=contradictions()) != 0
-			  // presuming that the opposite color isn't rooted too (sigh)
+			// nb: minContradiction=3 so there is no filter on it
+			if ( (subtype=contradictions()) != SUBTYPE_NONE
+			  // presuming that the opposite color is not rooted too (sigh)
 			  && (hint=createBigHint(v, subtype)) != null
-			  // validate the hint if GEM_VALIDATES
-			  && validSetPots("Contradiction", hint)
 			) {
 				result = true;
-//				if ( n < minContradiction )
-//					minContradiction = n;
 				accu.add(hint);
-				hint = null;
-				// contradiction is always the last hint I produce.
+				// big hint is always the last hint I produce.
 				throw STOP_EXCEPTION;
 			}
-			// nb: minElimination=3 so there's no filter on it
-		    // don't look if contradictions bombed (it shouldn't, in prod)
+			// nb: minElimination=3 so there is no filter on it
+		    // do not look if contradictions bombed (it should not, in prod)
 			if ( subtype == 0
 			  // 5.2 If any uncolored cell-value sees both colors
 			  //     then it can be eliminated.
-			  && (subtype=eliminations()) != 0
+			  && (subtype=eliminations()) > 0
 			) {
 				// search eliminations for confirmation that color is true.
 				hint = null;
 				// minConfirmation=11
 				if ( n > 10
-				  // 5.3 promote "little" elimination hint to a big hint
-				  && (mst=confirmations()) != 0
+				  // 5.3 promote the "little" elimination hint to a big hint
+				  && (mst=confirmations()) > SUBTYPE_NONE
 				  && (hint=createBigHint(v, mst)) != null
 				) {
-					if ( validSetPots("Confirmation", hint) ) {
-						result = true;
-//						if ( n < minConfirmation )
-//							minConfirmation = n;
-						accu.add(hint);
-						hint = null;
-						// confirmation is always the last hint I produce.
-						throw STOP_EXCEPTION;
-					} else {
-						hint = null;
-					}
-				} else {
+					result = true;
+					accu.add(hint);
+					hint = null;
+					// big hint is always the last hint I produce.
+					throw STOP_EXCEPTION;
+				} else
 					hint = createHint(v, subtype);
-					if ( hint!=null && !validEliminations(hint) )
-						hint = null;
-				}
 				if ( hint != null ) {
 					result = true;
-//					if ( n < minElimination )
-//						minElimination = n;
 					if ( accu.add(hint) )
 						return result;
-					// upgraded is always the last hint I produce.
+					// big hint is always the last hint I produce.
 					if ( hint instanceof GEMHintBig )
 						throw STOP_EXCEPTION;
 				}
 			}
 		} catch ( OverpaintException ex ) {
 			// from paint, paintMonoBoxs, or promotions.
-			// A cell was painted both colors, ergo this code is wrong.
-			// Don't get your knickers in a twist. It'd be nice if it didn't
-			// happen, but it did, so it's handled, sort of. The thing to do
-			// is ensure that cells are not overpainted. Care is required.
-			Log.println("WARN: GEM: Overpaint: "+ex.getMessage());
+			// overpaintCount to prevent spamming the ____ out of the log
+			if ( ++overpaintCount < 7 )
+				Log.teeln("WARN: GEM: Overpaint: "+ex.getMessage());
 			return false;
-// AlsChain is fixed, apparently, though I still don't understand the problem.
-//		} catch ( BadPaintException ex ) {
-//			// disable AlsChain which is da root cause of overpaints (I think).
-//			LogicalSolverFactory.get().disable(Tech.ALS_CHAIN_TECHS);
-//			Log.teeln("WARN: GEM Overpaint: Disabled ALS_Chain: "+ex.getMessage());
-//			return false;
 		}
 		return result;
 	}
+	private int overpaintCount;
 
 	/**
-	 * Paint this cell this color, and all of it's consequences, recursively.
+	 * Paint this cell this color, and all of it is consequences, recursively.
 	 * <pre>
-	 * "Recursively" means these checks are applied to every painted cell, so a
-	 * request to paint a cell actually paints it and all of it's consequences.
+	 * "Recursively" means this paint method is applied to every painted cell,
+	 * hence a request to paint a cell actually paints it and all consequences.
 	 * Those "all consequences" are two-fold:
 	 * (1) if this value has two places in any of this cells regions, then the
 	 *     other place is painted the opposite color; and
 	 * (2) if the cell has two potential values, then the other value is
 	 *     painted the other color.
+	 * If this smells a lot like static XY Forcing Chaining thats coz it is.
+	 * Coloring is faster, but less capable. Dynamic Coloring anybody? Sigh.
 	 * </pre>
-	 * WARNING: You check that the cell-value is not already painted this color
+	 * WARN: You check that the cell-value is not already painted this color
 	 * before calling paint, because building the why parameter is slow.
 	 * <p>
 	 * Paint implements Steps 2 to 4 of ./#XColoring.txt with a recursive DFS,
 	 * where the instructions imply a BFS, without saying so explicitly, which
 	 * is a warning. DFS is faster, but newbs tend towards BFS, so being an old
-	 * prick (an experienced programmer), I "fixed" it, with my secret decoder
-	 * ring (an IQ that is actually enough to blow my own hat off, thanks Bob).
+	 * prick (an experienced programmer), I "fixed" it using my secret decoder
+	 * ring (an IQ that IS enough to blow my own hat off, thanks for that Bob).
 	 * <pre>
 	 * 1. Paint the given cellValue the given color.
-	 * 2. If any of the three regions containing this cell except the given
-	 *    region (nullable) has two places for this value then paint the
-	 *    otherCell the opposite color; and recursively paint any consequences.
+	 * 2. If any of the three regions containing this cell except the "source"
+	 *    region (nullable) has two places for value then paint the otherCell
+	 *    the opposite color; and recursively paint any consequences.
 	 * 3. If biCheck is true and cell is bivalue then paint the otherValue the
 	 *    opposite color; and recursively paint any consequences.
 	 * </pre>
@@ -737,14 +728,14 @@ implements IPrepare
 	 * used in eliminations: if a cell-value is "off"ed by both colors then it
 	 * can be eliminated.
 	 * <p>
-	 * IMPROVED: The why String is now constructed ONLY in the GUI + testcases
-	 * when we might want to use it as part of the HTML to display to the user.
-	 * In the batch (LogicalSolverTester) and in generate its just a waste of
-	 * time. GEMTest compares the full HTML.
+	 * IMPROVED: why String is now constructed ONLY in the GUI when we its used
+	 * in the HTML displayed to the user, or verify why in a test-case. GEMTest
+	 * compares full HTML. In the batch (LogicalSolverTester), and in Generate,
+	 * building the why String is just a waste of quite-a-lot-of time.
 	 * <p>
 	 * IMPROVED: The why String is now constructed ONLY when used: so we always
 	 * pretest "is this value already painted this color" BEFORE building the
-	 * why String, even in the GUI, because it's slow: a MINUTE per top1465.
+	 * why String, even in the GUI, because it is slow: a MINUTE per top1465.
 	 * IMPROVED: Unsure if the slow part is building each why String, or append
 	 * to steps, so Steps is now a StringBuilder, clear with steps.setLength(0)
 	 * instead of growing a new buffer EACH AND EVERY time with steps += why.
@@ -754,7 +745,7 @@ implements IPrepare
 	 * one time in like 500; so to avoid building unused whys. Keep fast DFS
 	 * and write a new presentation BFS: If the DFS hints and wantWhy, then run
 	 * the new presentation BFS to produce a hint with an explanation. The DFS
-	 * results are sufficient for the batch, where wantWhy is false.
+	 * results will be sufficient for the batch, where wantWhy is always false.
 	 *
 	 * @param cell cell to paint, recursively
 	 * @param v value to paint
@@ -766,110 +757,107 @@ implements IPrepare
 	 * @return any cells painted (always true, else throws)
 	 * @throws OverpaintException when a cell-value is painted in both colors.
 	 */
-	private boolean paint(final Cell cell, final int v, final int c,
-			final boolean biCheck, String why)
-			throws OverpaintException
-//			, BadPaintException
-	{
-		Cell otherCell; // the only other cell in this region which maybe v
-		int otherValue; // the only other value of this bivalue cell
+	private boolean paint(final int indice, final int v, final int c
+			, final boolean biCheck) throws OverpaintException {
+//System.out.println("paint "+CELL_IDS[indice]+"-"+v+" "+COLORS[c]);
+		int other, i; // the other indice/value
 		// constants for understandability and speed (sort of).
-		final int i = cell.i; // dereference the cell indice ONCE
+		final int sv = VSHFT[v]; // shiftedValue: value as a Values bitset
 		final int o = OPPOSITE[c]; // lookup the other color index ONCE
 		final Idx[] otherColor = colors[o]; // lookup the other color ONCE
-
-		// If cell-value is already painted this color then you've broken the
+		// If cell-value is already painted this color then you have broken the
 		// pre-test requirement, which is intended to reduce the time wasted
 		// building why-strings that are never used. Note that asserts effect
 		// developers only, who run with java -ea, so bad code NEVER makes it
 		// through to prod. Well, almost never, which is not never. Sigh.
-		assert !colors[c][v].has(i);
-
+		assert !colors[c][v].has(indice);
 		// If cell-value is already painted the opposite color then throw.
 		// Intersecting colors-sets renders both invalid, so neither is usable.
-		//
-		// NEVER happens in prod, only in dev: you avert overpaint ONLY when
-		// that's valid. Where overpaint shouldn't happen ignore it so I throw.
 		//
 		// If unsure then ignore it and chase down any log WARN:s but you MUST
 		// be sure that it is valid to avert an overpaint, do NOT just lazily
 		// make the warning message go away; build a logical justification (or
 		// not) otherwise GEM produces invalid hints. The logic MUST stand-up
-		// as a whole. It's one out, all out. That's why GEM is difficult to
-		// implement. Until it's all right then none of it's right. One misstep
-		// breaks everything. So development is ONLY incremental, step by slow
-		// step; double-checking each fully before moving on.
-		if ( otherColor[v].has(i) ) {
-			throw new OverpaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
-//			throw new BadPaintException(cell.id+MINUS+v+" is already "+COLORS[o]);
-		}
-
+		// as a whole. It's one out, all out logic. That's why GEM is difficult
+		// to implement. Until its all right then none of its right. A misstep
+		// breaks everything. So development is ONLY incremental, step by step;
+		// verifying each move fully before moving on. Ergo, GEM is hard!
+		if ( otherColor[v].has(indice) )
+			throw new OverpaintException(CELL_IDS[indice]+MINUS+v+" is already "+COLORS[o]);
 		// 1. Paint the given cell-value this color.
-		colors[c][v].add(i);
-		paintedValues |= colorValues[c] |= VSHFT[v];
-		// painting full-colors replaces the "on", if any
-		ons[c][v].remove(i);
+		colors[c][v].add(indice);
+		paintedValues |= colorValues[c] |= sv;
+		// painting full-colors usurps the "on", if any
+		ons[c][v].remove(indice);
 		// remember the steps in these two coloring-set (a StringBuilder)
-		if ( why != null ) {
+		if ( wantWhy ) {
 			steps.append(why);
-			why = null;
+			why.setLength(0);
 		}
-
-		// Now we examine the consequences of painting 'cell' color 'c'.
-		// 2. Paint the other cell in each conjugate pair the opposite color
-		for ( ARegion r : cell.regions ) { // cell's box, row, col
-			if ( r.ridx[v].size == 2
+		// Now we examine the consequences of painting $cell color $c.
+		// 2. Paint the other cell in each conjugate pair the opposite color.
+		final Cell cell = cells[indice]; // dereference the cell indice ONCE
+		for ( ARegion r : cell.regions ) { // box, row, col
+			if ( r.numPlaces[v] == 2
 			  // pre-check faster than building why string pointlessly
-			  && !otherColor[v].has((otherCell=r.otherThan(cell, v)).i)
+			  && !otherColor[v].has(other=r.indices[IFIRST[r.places[v] & ~cell.placeIn[r.rti]]])
 			) {
-				if ( wantWhy )
-					why = CON[c]+cell.id+MINUS+v+COFF[c]
-						+CONJUGATE_IN+r.id+IS
-						+CON[o]+otherCell.id+MINUS+v+COFF[o]+NL;
+				if ( wantWhy ) {
+					why.append(colorMinus(c, indice, v))
+					.append(CONJUGATE_IN).append(r.label).append(IS)
+					.append(colorMinus(o, other, v))
+					.append(NL);
+				}
 				// paint otherCell-v the opposite color, recursively.
-				paint(otherCell, v, o, true, why);
+				paint(other, v, o, true);
 			}
 			// off all other places for v in r
-			offs[c][v].or(otherPlaces.setAndNot(r.idxs[v], CELL_IDXS[i]));
+			offs[c][v].or(tmp1.setAndNot(r.idxs[v], CELL_IDXS[indice]));
+			// It tested faster when IntQueue is final. BFIIK!
+			for ( final IntQueue q=tmp1.indices(); (i=q.poll())>QEMPTY; )
+				offedValues[c][i] |= sv;
 		}
-
 		// 3. Paint the other value of this bivalue cell the opposite color
-		// skip this bi-check when we're painting "the other value"
+		// skip this bi-check when we are painting "the other value"
 		if ( biCheck
 		  // if this cell has just two potential values
-		  && cell.size == 2
+		  && sizes[indice] == 2
 		  // pre-check faster than building why string pointlessly
-		  && !otherColor[otherValue=VFIRST[cell.maybes & ~VSHFT[v]]].has(i)
+		  && !otherColor[other=VFIRST[maybes[indice] & ~sv]].has(indice)
 		) {
-			if ( wantWhy )
-				why = CON[c]+cell.id+MINUS+v+COFF[c]+ONLY_OTHER_VALUE_IS
-					+CON[o]+cell.id+MINUS+otherValue+COFF[o]+NL;
+			if ( wantWhy ) {
+				why.append(colorMinus(c, indice, v))
+				.append(ONLY_OTHER_VALUE_IS)
+				.append(colorMinus(o, indice, other))
+				.append(NL);
+			}
 			// paint cell-otherValue the opposite color, skipping biCheck
-			paint(cell, otherValue, o, false, why);
+			paint(indice, other, o, false);
 		}
 		// off all other values of this cell
-		for ( int ov : VALUESES[cell.maybes & ~VSHFT[v]] )
-			offs[c][ov].add(i);
-
+		for ( int ov : VALUESES[other=maybes[indice] & ~sv] )
+			offs[c][ov].add(indice);
+		offedValues[c][indice] |= other;
 		return true;
 	}
 
 	/**
-	 * paintMonoBoxs is a KRC original. There is no other explanation, so I've
-	 * done my best.
+	 * paintMonoBoxs is a KRC original. There is no other explanation, so I have
+	 * done my best to explain it here.
 	 * <p>
-	 * A "mono-box" is a box with only one place for v (a hidden single), which
-	 * also leaves the "causal box" with one place for v, constituting a strong
-	 * bidirectional link. If the link cannot be proven bidirectional then an
-	 * "on" is created, which allows the cell value to be set in the event that
-	 * this color is proven ALL true, but is NOT used in any further logic,
-	 * with just one exception: "ons" ARE used in contradictions.
+	 * A "mono-box" is a box with only one place for v (ie a hidden single)
+	 * which may leave the "causal box" with one place for v, constituting a
+	 * strong bidirectional link, so fully "paint" the v in the "causal box".
+	 * However, if the link cannot be proven bidirectional then create an "on",
+	 * which allows the cell value to be set in the event that this color is
+	 * proven ALL true, but is NOT used in any further logic (with just one
+	 * exception: "ons" are used in contradictions).
 	 * <p>
 	 * paintMonoBoxs differs from paintPromotions in its ability to discern the
-	 * strong link between these two cells. Promotions just "ons" it, leaving
-	 * it's promotion to chance, where-as paintMonoBoxs "field promotes" it.
+	 * strong link between two cells. Promotions just "ons" it, leaving it is
+	 * promotion to chance, where-as paintMonoBoxs "field promotes" it.
 	 * <p>
-	 * The "shoot back" rule: We start with a cell in the grid that's painted
+	 * The "shoot back" rule: We start with a cell in the grid that is painted
 	 * this color, called the source cell. We examine each of the four boxs
 	 * effected by the source cell (two left/right, and two above/below).
 	 * If the effected box, minus buddies of all cells painted dis color leaves
@@ -877,107 +865,98 @@ implements IPrepare
 	 * treat it, but how: colors or ons? To determine this we "shoot back".
 	 * <p>
 	 * Shoot back: if the box containing the source cell, minus buddies of the
-	 * cell to paint (*1), leaves ONE cell in the box containing the source
-	 * cell then paint the suspect because there's a bidirectional relationship
+	 * cell to paint (Note *1), leaves ONE cell in da box containing the source
+	 * cell then paint the suspect because there is a bidirectional relationship
 	 * (a "strong" link) between da suspect and da source cell, succinctly:<br>
 	 * {@code if A is v then B is v AND CONVERSELY if B is v then A is v}<br>
-	 * so we can paint B this color, else we just "on" the little bastard.
+	 * so we can paint B this color, else we just "on" the bastard.
 	 * <p>
 	 * Note (*1) when we shoot back we cannot minus the buddies of (cells of
-	 * this color minus the source cell). I tried, and it doesn't work, but I
-	 * don't understand why it doesn't work. Mine is not to reason why, mine
-	 * is just to do or die. But why? Or maybe I just ____ed up? sigh.
+	 * this color minus the source cell). I tried, and it does not work, but I
+	 * do not understand why it does not work. Mine is not to reason why.
 	 * <p>
 	 * Possibly we could "shoot back" faster just in paintPromotions using:
-	 * if an ons buds leave ONE v in any box that's this color den paint da on.
+	 * if an ons buds leave ONE v in any box that is this color den paint da on.
 	 * So I tried that and it works (paints some) but finds less elims, so I
-	 * didn't chase it down, I just use BOTH, finding more than either alone.
-	 * It's nice to turn a ____up into a win, but I worry about paintPromotions
-	 * not doing the SAME as me. It should, AFAIK, but still haven't chased it.
+	 * did not chase it down, I just use BOTH, finding more than either alone.
+	 * It is nice to turn a ____up into a win, but I worry about paintPromotions
+	 * not doing the SAME as me. It should, AFAIK, but still have not chased it.
 	 * Even finding an example would be long tedious pernickety work.
 	 *
 	 * @return any
 	 */
 	private boolean paintMonoBoxs() {
-		Cell c1; // the source cell
-		Cell c2; // the cell to paint, if any
-		ARegion sb; // sourceBox: the box that contains the source cell
-		String why = null; // the reason we paint this cell-value this color
+		int indice; // identifies the cell to paint
+		ARegion srcBox; // the box that contains the source cell
 		boolean any = false; // any painted
 		boolean first = true; // is this the first painted or onned
 		// foreach color
-		for ( int c=0; c<2; ++c ) { // GREEN, BLUE
-			final Idx[] thisColor = colors[c];
+		int c = GREEN;
+		do { // GREEN, BLUE
 			// foreach value which has a cell painted thisColor
-			for ( int v : VALUESES[colorValues[c]] ) {
-				// foreach sourceCell whose v is painted thisColor
-				try ( final IALease ciLease = thisColor[v].toArrayLease() ) {
-					for ( int ci : ciLease.array ) { // ci is cell-indice
-						// foreach of the four boxes effected by this source cell.
-						// ebi effectedBoxIndex grid.regions index of effected box.
-						for ( int ebi : INDEXES[EFFECTED_BOXS[BOX_OF[ci]]] ) {
-							// if there's only one v remaining in the effected box,
-							// excluding this colors cells and there buddies.
-							// Call plusBuds repeatedly coz paint adds thisColor[v]
-							// underneath us; plusBuds caches for speed.
-							if ( tmp1.setAndNotAny(gridRegions[ebi].idxs[v], thisColor[v].plusBuds())
-							  && tmp1.size() == 1
+			for ( int value : VALUESES[colorValues[c]] ) {
+				// foreach sourceCell whose value is painted thisColor
+				for ( int source : colors[c][value].indicesCached() ) {
+					// foreach of four boxes effected by this source cell.
+					// ebi effectedBoxIndex is an index in grid.regions
+					for ( int ebi : INDEXES[EFFECTED_BOXS[BOX_OF[source]]] ) {
+						// if effected box vs less this colors cells+buds
+						// is one only. Repeatedly call plusBuds() because
+						// paint adds colors[c][v] beneath me; so plusBuds
+						// has a cache (updated upon change), for speed.
+						if ( tmp1.setAndNotAny(boxs[ebi].idxs[value], colors[c][value].plusBuds())
+						  && tmp1.size() == 1
+						) {
+							srcBox = boxs[BOX_OF[source]]; // contains ci.
+							indice = tmp1.peek(); // cell to paint
+							// cell to paint needs a buddy in the box that
+							// contains source cell, else forget it: c2 is
+							// a Hidden Single sans paints, making the cell
+							// to paint nondeterministic, ie NOT my problem
+							if ( srcBox.idxs[value].intersects(BUDDIES[indice])
+							  // and the "shoot back" rule
+							  && tmp2.setAndNot(srcBox.idxs[value], BUDDIES[indice]).size() == 1
 							) {
-								c2 = gridCells[tmp1.peek()]; // the cell to paint
-								c1 = gridCells[ci]; // the source cell
-								sb = c1.box; // the box containing the source cell
-								// the cell to paint needs a buddy in the box that
-								// contains the source cell, else forget it (c2 is
-								// a Hidden Single from buddies of colors, ergo the
-								// cell to paint is nondeterministic, which is NOT
-								// what we want)
-								if ( sb.idxs[v].intersects(c2.buds)
-								  // and the "shoot back" rule
-								  && tmp2.setAndNot(sb.idxs[v], c2.buds).size() == 1
-								) {
-									// a "strong" bidirectional link.
-									if ( wantWhy ) {
-										if ( first ) {
-											first = false;
-											why = MONOBOXS_LABEL;
-										} else {
-											why = "";
-										}
-										// nb: REGION_IDS are coincident with boxs
-										why += CON[c]+c1.id+MINUS+v+COFF[c]
-										+LEAVES+c2.id+ONLY+v+IN+REGION_IDS[ebi]
-										+", which leaves "+c1.id+ONLY+v+IN+sb.id
-										+PRODUCES+CON[c]+c2.id+MINUS+v+COFF[c]+NL;
+								// a "strong" bidirectional link
+								if ( wantWhy ) {
+									if ( first ) {
+										first = false;
+										why.append(MONOBOXS_LABEL);
 									}
-									// note that paint removes any pre-existing On
-									any |= paint(c2, v, c, false, why);
-								} else if ( !ons[c][v].has(c2.i) ) {
-									// a "weak" mono-directional link.
-									if ( wantWhy ) {
-										if ( first ) {
-											first = false;
-											steps.append(MONOBOXS_LABEL);
-										}
-										// nb: REGION_IDS are coincident with boxs
-										steps.append(CON[c]).append(c1.id).append(MINUS).append(v).append(COFF[c])
-										  .append(LEAVES).append(c2.id).append(ONLY).append(v).append(IN).append(REGION_IDS[ebi])
-										  .append(PRODUCES).append(ON_MARKER).append(CON[c]).append(c2.id).append(PLUS).append(v).append(COFF[c])
-										  .append(NL);
-									}
-									ons[c][v].add(c2.i);
-									onsValues[c] |= VSHFT[v];
+									// nb: REGION_LABELS is coincident with boxs
+									why.append(colorMinus(c, source, value))
+									.append(LEAVES).append(CELL_IDS[indice]).append(ONLY).append(value).append(IN).append(REGION_LABELS[ebi])
+									.append(COMMA_WHICH_LEAVES).append(CELL_IDS[source]).append(ONLY).append(value).append(IN).append(srcBox.label)
+									.append(PRODUCES).append(colorMinus(c, indice, value))
+									.append(NL);
 								}
+								// nb: paint removes any pre-existing On
+								any |= paint(indice, value, c, false);
+							} else if ( !ons[c][value].has(indice) ) {
+								// a "weak" mono-directional link.
+								if ( wantWhy ) {
+									if ( first ) {
+										first = false;
+										steps.append(MONOBOXS_LABEL);
+									}
+									steps.append(colorMinus(c, source, value))
+									.append(LEAVES).append(CELL_IDS[indice]).append(ONLY).append(value).append(IN).append(REGION_LABELS[ebi])
+									.append(PRODUCES).append(colorPlus(c, indice, value))
+									.append(NL);
+								}
+								ons[c][value].add(indice);
+								onsValues[c] |= VSHFT[value];
 							}
 						}
 					}
 				}
 			}
-		}
+		} while (++c < 2);
 		return any;
 	}
 
 	/**
-	 * Calculate an uncached hash64 of a color (of the upto 9 Idx's).
+	 * Calculate an uncached hash64 of a color (of the upto 9 Idxs).
 	 * <p>
 	 * Note that these hashes are now 64 bits, reducing collisions to 17. I use
 	 * the new hash64 method of Idx, which does NOT cache. Each hash64 contains
@@ -986,7 +965,7 @@ implements IPrepare
 	 * distinct enough" to identify a painted-set. The low-17 of a2 and the
 	 * high-17 of a1 collide (both sets of cells use the same bits), so where a
 	 * collision occurs we wrongly skip the search, about one in 500 of which
-	 * produces a hint, so we're missing ? hints here. A few but insignificant.
+	 * produces a hint, so we are missing ? hints here. A few but insignificant.
 	 * <p>
 	 * Run the batch with/without hash-suppression to find out how many: <pre>
 	 *     with HS: 1,874,477,500  13546  138,378  130711  14,340  GEM
@@ -997,7 +976,7 @@ implements IPrepare
 	 *  wrap count: 1,802,735,900  13546  133,082  130711  13,791  GEM
 	 *  inline 6.2: 1,768,956,182  13546  130,588  130711  13,533  GEM
 	 * </pre>
-	 * So it's faster WITHOUT hash-suppression, ie hash-suppression costs more
+	 * So it is faster WITHOUT hash-suppression, ie hash-suppression costs more
 	 * than it saves, so I comment-it-out for now, for future removal. The good
 	 * news is that hash-suppression misses 0 hints, despite collision problem.
 	 * So this whole cluster____ of complexity turned out to be a waste of time
@@ -1005,7 +984,7 @@ implements IPrepare
 	 * faster, but I know not how.
 	 * <pre>
 	 * 2021-11-30 09:44 "fast HS" does it all inline instead of call Idx.hash64
-	 * repeatedly, even though it's ludicrously complex, and saves just 114ms.
+	 * repeatedly, even though it is ludicrously complex, and saves just 114ms.
 	 * 2021-11-30 11:37 LongHashSet is slower, so revert to HashMap.
 	 * </pre>
 	 *
@@ -1015,381 +994,370 @@ implements IPrepare
 	private static long hash(final Idx[] thisColor, final int[] colorValues) {
 		Idx t; // temp Idx pointer to thisColor[v]
 		long result = 0L; // the hashCode
-		for ( int v : colorValues )
+		for ( int v : colorValues ) {
 			// This must be done in one line, for speed. Converting each int
 			// into a long makes it hard to follow. Suck it up princess. The
 			// technique is taken from Idx.hash64, which is now commented-out.
-			result |= (((long)(t=thisColor[v]).a2)<<37L) ^ (((long)t.a1)<<27L) ^ ((long)t.a0);
+			t = thisColor[v];
+			// 37 is 64-27, so b occupies high-order bits of result
+			result |= ( ((long)t.m1<<37) ^ t.m0 );
+		}
 		return result;
 	}
 
 	/**
-	 * Accumulate (or) the indices of all values of this color into result.
+	 * Accumulate (or) the indices of all $values of this $color into $result.
 	 *
 	 * @param c the color: GREEN or BLUE
+	 * @param values the values in this color
+	 * @param result the idx to build
 	 * @return total number of indices in painted[c]
 	 */
-	private static int countAll(final Idx[] color, final int[] vs, final Idx idx) {
-		idx.clear();
-		for ( int v : vs )
-			idx.or(color[v]);
-		return idx.size();
+	private static int countAll(final Idx[] color, final int[] values, final Idx result) {
+		result.clear();
+		for ( int v : values )
+			result.or(color[v]);
+		return result.size();
+	}
+
+	// append PROMOTIONS_LABEL to steps; and return false, for first.
+	private boolean promotionsLabel() {
+		steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
+		return false;
 	}
 
 	/**
-	 * promote all possible ons (Supers) to full colors (Pars).
+	 * Promote all possible ons (Supers) to full colors (Pars).
 	 * <pre>
 	 * Promotions
-	 *	 * 1. When all but one cell mates or siblings of a value are "off"ed then
-	 *	 *    the survivor is an "on" of that color.
-	 *	 *    a) The only un-off'ed value in a cell is an "on".
-	 *	 *    b) The only un-off'ed place for a value in a region is an "on".
-	 *	 *    Both of these rules are ALL in one color.
-	 *	 * 2. An "on" seeing an opposite color sibling or cell mate gets painted.
-	 *	 *    a) If an "on" sees opposite color (same value) then paint it.
-	 *	 *    b) If an "on" has an opposite colored cell-mate (any value) paint it.
-	 *	 * 3. If An "on" leaves any of it's effected boxs (2 lft/rght, 2 abv/blw)
-	 *	 *    with ONE v, that's this color, then paint it.
-	 *	 * </pre>
+	 * 1. When all but one cell mates or siblings of a value are "off"ed
+	 *    then the survivor is an "on" of that color.
+	 *    a) The only un-off-ed value in a cell is an "on".
+	 *    b) The only un-off-ed place for a value in a region is an "on".
+	 *    Both of these rules are ALL in one color.
+	 * 2. An "on" seeing an opposite color sibling or cell mate gets painted.
+	 *    a) If an "on" sees opposite color (same value) then paint it.
+	 *    b) If an "on" has an opposite colored cell-mate (any value) paint it.
+	 * KRC Shoot-back rule
+	 * 3. If an "on" leaves any effected box (2 left/right, 2 above/below) with
+	 *    ONE v that is this color, then paint it.
+	 * </pre>
 	 * @return any
 	 */
 	private boolean paintPromotions() {
-		Cell cell;
-		String why = null;
-		int c, o, i, v;
-		// presume that no cell-values will be promoted
-		boolean any = false, first = true;
-
-		// 1a. The only un-off'ed value in a cell is an "on".
-		for ( c=0; c<2; ++c ) {
-			getValuesOffedFromEachCell(c); // repopulate OFF_VALS
-			for ( i=0; i<GRID_SIZE; ++i )
-				if ( gridCells[i].size == VSIZE[OFF_VALS[i]] + 1 ) {
-					v = VFIRST[gridCells[i].maybes & ~OFF_VALS[i]];
-					// pre-check it's not already painted for speed
+		long m0; int m1, o, i, v;
+		boolean any = false // presume that no cell-values will be promoted
+			  , first = true; // is this the first promotion
+		// 1a. The only un-off-ed value in a cell is an "on".
+		int c = GREEN;
+		do {
+			i = 0;
+			do {
+				if ( sizes[i]-1 == VSIZE[offedValues[c][i]] ) {
+					v = VFIRST[maybes[i] & ~offedValues[c][i]];
+					// pre-check it is not already painted for speed
 					if ( !colors[c][v].has(i)
-					  // and it's not already an On
-					  && !ons[c][v].has(i) ) {
+					  // and it is not already an On
+					  && !ons[c][v].has(i)
+					) {
 						if ( wantWhy ) {
-							if ( first ) {
-								first = false;
-								steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
-							}
-							steps.append("last potential value").append(PRODUCES).append(ON_MARKER)
-							  .append(CON[c]).append(CELL_IDS[i]).append(PLUS).append(v).append(COFF[c])
-							  .append(NL);
+							if(first) first = promotionsLabel();
+							steps.append("last potential value").append(PRODUCES)
+							.append(colorPlus(c, i, v))
+							.append(NL);
 						}
 						ons[c][v].add(i);
 						onsValues[c] |= VSHFT[v];
 					}
 				}
-		}
-
-		// 1b. The only un-off'ed place for a value in a region is an "on".
-		for ( c=0; c<2; ++c )
-			for ( int v1 : VALUESES[colorValues[c]] )
-				for ( ARegion r : gridRegions )
-					if ( tmp1.setAndAny(offs[c][v1], r.idx)
-					  && tmp2.setAndNot(r.idxs[v1], tmp1).size() == 1
-					  && !colors[c][v1].has(i=tmp2.peek())
-					  // pre-check it's not already painted for speed
+			} while (++i < GRID_SIZE);
+		} while (++c < 2);
+		// 1b. The only un-off-ed place for a value in a region is an "on".
+		c = GREEN;
+		do {
+			for ( int v1 : VALUESES[colorValues[c]] ) {
+				for ( ARegion r : regions ) {
+//					if ( tmp1.setAndAny(offs[c][v1], r.idx)
+//					  && tmp2.setAndNot(r.idxs[v1], tmp1).size() == 1
+					if ( ( (m0=offs[c][v1].m0 & r.idx.m0)
+						 | (m1=offs[c][v1].m1 & r.idx.m1) ) > 0L
+					  && (i=only(r.idxs[v1].m0 & ~m0
+								,r.idxs[v1].m1 & ~m1)) > -1
+					  // and not already painted for speed
+					  && !colors[c][v1].has(i)
+					  // and not already an on for one why
 					  && !ons[c][v1].has(i)
 					) {
-						cell = gridCells[i];
 						if ( wantWhy ) {
-							if ( first ) {
-								first = false;
-								steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
-							}
-							steps.append("last place in ").append(r.id).append(PRODUCES).append(ON_MARKER)
-							  .append(CON[c]).append(cell.id).append(PLUS).append(v1).append(COFF[c])
-							  .append(NL);
+							if(first) first = promotionsLabel();
+							steps.append("last place in ").append(r.label)
+							.append(PRODUCES).append(colorPlus(c, i, v1))
+							.append(NL);
 						}
-						ons[c][v1].add(cell.i);
+						ons[c][v1].add(i);
 						onsValues[c] |= VSHFT[v1];
-					}
-
-		// 2a. If an on sees (same v, OPPOSITE color) a colors then paint it.
-		for ( c=0; c<2; ++c ) {
-			o = OPPOSITE[c];
-			for ( int v1 : VALUESES[onsValues[c]] ) {
-				try ( final IALease lease = ons[c][v1].toArrayLease() ) {
-					for ( int ii : lease.array ) {
-						if ( tmp1.setAndAny(BUDDIES[ii], colors[o][v1])
-						  // pre-check it's not already painted for speed
-						  && !colors[c][v1].has(ii) ) {
-							cell = gridCells[ii];
-							if ( wantWhy ) {
-								if ( first ) {
-									first = false;
-									steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
-								}
-								why = SEES+A+CCOLORS[o]+PRODUCES
-									+CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
-							}
-							any |= paint(cell, v1, c, T, why);
-						}
 					}
 				}
 			}
-		}
-
-		// 2b. If an on has an OPPOSITE colored cell-mate (of another value)
+		} while (++c < 2);
+		// 2a. If an on sees (same v, OPPOSITE color) a colors then paint it.
+		c = GREEN;
+		do {
+			o = OPPOSITE[c];
+			for ( int v1 : VALUESES[onsValues[c]] ) {
+				// nb: Idx's Iterator<Integer> is slow, but every time I fix it
+				// ChainerDynamic goes slow. I know not why. So just leave it!
+				// Now I use toArrayCached: ~85% hit rate, so GEM ~20% faster.
+				// This has not caused slow ChainerDynamic, yet. So I build!
+				for ( int ii : ons[c][v1].indicesCached() ) {
+					if ( tmp1.setAndAny(BUDDIES[ii], colors[o][v1])
+					  // pre-check it is not already painted for speed
+					  && !colors[c][v1].has(ii) ) {
+						if ( wantWhy ) {
+							if(first) first = promotionsLabel();
+							why.append(SEES_SP + A).append(COLOR_NAMES[o])
+							.append(PRODUCES).append(colorMinus(c, ii, v1))
+							.append(NL);
+						}
+						any |= paint(ii, v1, c, T);
+					}
+				}
+			}
+		} while (++c < 2);
+		// 2b. If an on has an OPPOSITE colored cell-mate (any other value)
 		//     then paint it.
-		countAll(colors[G], VALUESES[colorValues[G]], painted[G]);
-		countAll(colors[B], VALUESES[colorValues[B]], painted[B]);
-		for ( c=0; c<2; ++c ) {
+		countAll(colors[GREEN], VALUESES[colorValues[GREEN]], painted[GREEN]);
+		countAll(colors[BLUE], VALUESES[colorValues[BLUE]], painted[BLUE]);
+		c = GREEN;
+		do {
 			o = OPPOSITE[c];
 			for ( int v1 : VALUESES[colorValues[c]] ) {
 				if ( tmp2.setAndAny(ons[c][v1], painted[o]) ) {
-					try ( final IALease lease = tmp2.toArrayLease() ) {
-						for ( int ii : lease.array ) {
-							// cheeky way to do other color has another value:
-							// if cell-in-other-color (already done above)
-							// and not other-color-this-value.contains(cell)
-							if ( !colors[o][v1].has(ii)
-							  // pre-check it's not already painted for speed
-							  && !colors[c][v1].has(ii) ) {
-								cell = gridCells[ii];
-								if ( wantWhy ) {
-									if ( first ) {
-										first = false;
-										steps.append(NL).append(PROMOTIONS_LABEL).append(NL);
-									}
-									why = HAS+A+CCOLORS[o]+PRODUCES
-										+ CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
-								}
-								any |= paint(cell, v1, c, T, why);
+					for ( int ii : tmp2 ) {
+						// kinky way to do other color has another value:
+						// if cell-in-other-color (above) and
+						// not other-color-this-value.has(cell)
+						if ( !colors[o][v1].has(ii)
+						  // pre-check it is not already painted for speed
+						  && !colors[c][v1].has(ii) ) {
+							if ( wantWhy ) {
+								assert why != null;
+								if(first) first = promotionsLabel();
+								why.append(HAS + A).append(COLOR_NAMES[o])
+								.append(PRODUCES).append(colorMinus(c, ii, v1))
+								.append(NL);
 							}
+							any |= paint(ii, v1, c, T);
 						}
 					}
 				}
 			}
-		}
-
-		// if on.buds leave ONE v in any box that's this color den paint da on.
-		// WTF: paintMonoBoxs finds Ons that this doesn't! Why? So use both.
+		} while (++c < 2);
+		// ShootBack!
+		// if on.buds leave ONE v in any box that is dis color den paint da on.
+		// WTF: paintMonoBoxs finds Ons that this does not! Why? So use both.
 		// WEIRD: Start from the suspect On, and just shoot back.
 		if ( PROMOTIONS_SHOOTS_BACK ) {
 			// foreach color: GREEN, BLUE
-			for ( c=0; c<2; ++c ) {
+			c = GREEN;
+			do {
 				// foreach value which has an On of this color
 				for ( int v1 : VALUESES[onsValues[c]] ) {
 					// foreach indice of the "suspect" On (to be painted)
-					try ( final IALease lease = ons[c][v1].toArrayLease() ) {
-						for ( int ii : lease.array ) {
-							// foreach index of the possible source box
-							for ( int ri : INDEXES[EFFECTED_BOXS[BOX_OF[ii]]] ) {
-								// if ons buddies leave ONE v in the source box
-								if ( tmp1.setAndNotAny(gridRegions[ri].idxs[v1], BUDDIES[ii])
-								  && tmp1.size() == 1
-								  // and that source box v is this color
-								  && tmp1.intersects(colors[c][v1])
-								  // pre-check it's not already painted for speed
-								  // We need to check in here (not pre-check) incase
-								  // it's painted in this loop, otherwise we hit the
-								  // assert in paint in 63#top1465.d5.mt. sigh.
-								  && !colors[c][v1].has(ii)
-								) {
-									cell = gridCells[ii];
-									if ( wantWhy ) //      the source Cell id
-										why = "shoot back at "+CELL_IDS[tmp1.poll()]+PRODUCES
-											+ CON[c]+cell.id+MINUS+v1+COFF[c]+NL;
-									any |= paint(cell, v1, c, T, why);
-									break; // first box only
+					for ( int ii : ons[c][v1].indicesCached() ) {
+						// foreach index of the possible source box
+						for ( int ri : INDEXES[EFFECTED_BOXS[BOX_OF[ii]]] ) {
+							// if ons buddies leave ONE v in the source box
+							if ( tmp1.setAndNotAny(regions[ri].idxs[v1], BUDDIES[ii])
+							  && tmp1.size() == 1
+							  // and that source box v is this color
+							  && tmp1.intersects(colors[c][v1])
+							  // pre-check it is not already painted for speed.
+							  // We need to check in here (not pre-check) incase
+							  // it is painted in this loop, otherwise we hit the
+							  // assert in paint in 63#top1465.d5.mt. sigh.
+							  && !colors[c][v1].has(ii)
+							) {
+								if ( wantWhy ) { //shootBack at source Cell
+									assert why != null;
+									if(first) first = promotionsLabel();
+									why.append("shoot back at ").append(CELL_IDS[tmp1.poll()])
+									.append(PRODUCES).append(colorMinus(c, ii, v1))
+									.append(NL);
 								}
+								any |= paint(ii, v1, c, T);
+								break; // first box only
 							}
 						}
 					}
 				}
-			}
+			} while (++c < 2);
 		}
-
-		// clean-up any hangover on's that've been painted (should be a no-op)
-		for ( c=0; c<2; ++c )
+		// clean-up any hangover ons that have been painted (should be a no-op)
+		c = GREEN;
+		do {
 			for ( int v1 : VALUESES[onsValues[c]] ) {
-				// If you're seeing this you need to work-out how the ____ did:
-				// (a) an On get created when it's already colored; or
-				// (b) a cell get painted without removing the existing On?
-				// This is no biggy in prod (it's handled) but it's unclean!
+				// If you are seeing this you need to work-out if:
+				// (a) an On was created when it is already colored; or
+				// (b) a cell was painted without removing the existing On?
+				// This is no biggy in prod (its handled) but it is unclean!
 				// To be clear:
-				// (a) if color exists for cell-value DO NOT create an On; and
-				// (b) the paint method removes any existing On
-				// so that colors and ons remain disjunct sets, for simplicity.
-				assert Idx.disjunct(ons[c][v1], colors[c][v1])
-						: "unclean: "+Idx.ofAnd(ons[c][v1], colors[c][v1]);
+				// (a) if cell-value is already painted DO NOT create an "On".
+				//     that is: if colors[c][v].has(indice) DO NOT ons...
+				// (b) paint removes any existing "On", so that colors and ons
+				//     remain disjunct sets, for simplicity.
+				// nb: J1.8 bug in "assert clause : msg" causes msg to be
+				// evalutated when clause is false (costly), so I roll my own.
+				if ( Run.ASSERTS_ENABLED && Idx.overlaps(ons[c][v1], colors[c][v1]) )
+					throw new AssertionError("unclean: "+Idx.ofAnd(ons[c][v1], colors[c][v1]));
 				ons[c][v1].andNot(colors[c][v1]);
 			}
+		} while (++c < 2);
 		return any;
-	}
-
-	/**
-	 * Rebuild OFF_VALS: a bitset of the values eliminated by the given color
-	 * from each cell in the grid.
-	 *
-	 * @param c the color: GREEN or BLUE
-	 */
-	private void getValuesOffedFromEachCell(final int c) {
-		final Idx[] thisOffs = offs[c]; // offs of this color
-		Arrays.fill(OFF_VALS, 0);
-		for ( int v : VALUESES[colorValues[c]] ) {
-			final int sv = VSHFT[v];
-			thisOffs[v].forEach((i)->OFF_VALS[i] |= sv);
-		}
 	}
 
 	/**
 	 * Does either color contain a contradiction. First of:<pre>
 	 * * If two of any combo of greens and green-ons in a cell then blue true.
 	 * * If any combo of greens and green-ons (same value) in region then blue.
-	 * * RARE: If green off's all of a cells values then blue is true.
-	 * * RARE: If all v's in a region see a green v then blue is true.
+	 * * RARE: If green offs all of a cells values then blue is true.
+	 * * RARE: If all vs in a region see a green v then blue is true.
 	 * </pre>
 	 * The use of ons in contradictions is worthy of some explanation. The ons
 	 * are true if the color is true, right? Well that means that if any of the
 	 * ons are invalid then the whole color is false; so we can safely use the
 	 * ons in contradictions (but NOT in confirmations).
 	 * <p>
-	 * Didn't work: I tried if cell-value in both colors/ons and offs then the
+	 * Did not work: I tried if cell-value in both colors/ons and offs then the
 	 * other color is true. Finds 0 top1465 after first two rules above, and
 	 * finds less than half of the above two rules combined, so forget it.
 	 *
 	 * @return The subtype of hint to be created:<pre>
 	 * 0: meaning none.
 	 * 2: 2+ green values/ons in cell (261)
-	 * 3: 2+ green v's/ons in region (168)
-	 * 4: green off's all of a cells values (9)
-	 * 5: All v's in region see a green v (2)
+	 * 3: 2+ green vs/ons in region (168)
+	 * 4: green offs all of a cells values (9)
+	 * 5: All vs in region see a green v (2)
 	 * NOTE: 6 and 7 are confirmations (not mine)
 	 * </pre>
 	 */
 	private int contradictions() {
-		Cell cell; // cell to hint on
-		Idx t1, t2;
-		Idx buds; // buddies of thisColor[v]
-		Idx[] thisColor, thisOns, thisColorOns;
-		int c, cands, i, a0,a1,a2;
+		Idx t1, t2, color[], on[], colorPlusOns[];
+		int indice, c, cands, i;
+		long idxM0; int idxM1; // an exploded Idx (of what I know not)
 		// presume neither color is good (an invalid value)
-		goodColor = -1;
-
-		for ( c=0; c<2; ++c ) {
-
-			thisColor = colors[c];
-			thisOns = ons[c];
-			thisColorOns = colorsOns[c];
-
+		hintColor = -1;
+		// foreach color in GREEN, BLUE
+		c = 0;
+		do {
+			color = colors[c];
+			on = ons[c];
+			colorPlusOns = colorsPlusOns[c];
 			// repopulate colorsOns[c]
 			cands = colorValues[c] | onsValues[c];
 			for ( int v : VALUESES[cands] )
-				thisColorOns[v].setOr(thisColor[v], thisOns[v]);
-
+				colorPlusOns[v].setOr(color[v], on[v]);
 			// If any combo of greens and ons (different values) in cell
 			// then blue is true. (265 in top1465)
-			for ( int v1 : VALUESES[cands] )
+			for ( int v1 : VALUESES[cands] ) {
 				// foreach color/on value EXCEPT v1
-				for ( int v2 : VALUESES[cands & ~VSHFT[v1]] )
-					if ( tmp1.setAndAny(thisColorOns[v1], thisColorOns[v2]) ) {
+				for ( int v2 : VALUESES[cands & ~VSHFT[v1]] ) {
+					if ( tmp1.setAndAny(colorPlusOns[v1], colorPlusOns[v2]) ) {
 						// report first only (confusing if we show all)
-						cell = gridCells[tmp1.peek()];
-						cause = Cells.set(cell);
-						goodColor = OPPOSITE[c];
-						if ( wantWhy )
+						indice = tmp1.peek();
+						hintCause = Idx.of(indice);
+						hintColor = OPPOSITE[c];
+						if ( wantWhy ) {
 							steps.append(NL).append(CONTRADICTION_LABEL).append(NL)
-							  .append(KON).append(cell.id).append(KOFF)
-							  .append(HAS).append(CON[c]).append(COLORS[c]).append(SP).append(v1)
-							  .append(AND).append(v2).append(COFF[c])
-							  .append(COMMA_SO).append(CCOLORS[goodColor])
-							  .append(IS_TRUE).append(PERIOD).append(NL);
+							.append(KON).append(CELL_IDS[indice]).append(KOFF).append(HAS)
+							.append(CON[c]).append(COLORS[c]).append(SP).append(v1).append(AND).append(v2).append(COFF[c])
+							.append(COMMA_SO).append(COLOR_NAMES[hintColor]).append(IS_TRUE)
+							.append(NL);
+						}
 						return SUBTYPE_2;
 					}
-
+				}
+			}
 			// If any combo of greens and ons (same value) in region
 			// then blue is true. (170 in top1465)
 			for ( int v : VALUESES[cands] ) {
-				t1 = thisColorOns[v];
-				for ( ARegion r : gridRegions ) {
-					if ( r.ridx[v].size > 1
-// inlined for speed (this is the slow section, which is now just a bit faster)
-//					  && tmp2.setAndMany(thisColorOns[v], r.idx)
-					  && ( (a0 = t1.a0 & (t2=r.idx).a0)
-						 | (a1 = t1.a1 & t2.a1)
-						 | (a2 = t1.a2 & t2.a2) ) != 0
-					  && bitCount(a0)+bitCount(a1)+bitCount(a2) > 1
+				t1 = colorPlusOns[v];
+				for ( ARegion r : regions ) {
+					if ( r.numPlaces[v] > 1
+					  && ( (idxM0 = t1.m0 & (t2=r.idx).m0)
+						 | (idxM1 = t1.m1 & t2.m1) ) > 0L
+					  && Long.bitCount(idxM0) + Integer.bitCount(idxM1) > 1
 					) {
-						cause = tmp2.set(a0,a1,a2).toCellSet(gridCells);
-						goodColor = OPPOSITE[c];
-						if ( wantWhy )
+						hintCause = new Idx(idxM0,idxM1);
+						hintColor = OPPOSITE[c];
+						if ( wantWhy ) {
 							steps.append(NL)
-							  .append(CONTRADICTION_LABEL).append(NL)
-							  .append(KON).append(r.id).append(KOFF)
-							  .append(HAS).append(MULTIPLE).append(CON[c]).append(v).append("/+'s").append(COFF[c])
-							  .append(COMMA_SO).append(CCOLORS[goodColor])
-							  .append(IS_TRUE).append(PERIOD).append(NL);
+							.append(CONTRADICTION_LABEL).append(NL)
+							.append(KON).append(r.label).append(KOFF)
+							.append(HAS).append(MULTIPLE)
+							.append(CON[c]).append(v).append("/+s").append(COFF[c])
+							.append(COMMA_SO).append(COLOR_NAMES[hintColor]).append(IS_TRUE)
+							.append(NL);
+						}
 						return SUBTYPE_3;
 					}
 				}
 			}
-
-			// If green off's all of a cells values then blue is true.
+			// If green offs all of a cells values then blue is true.
 			// RARE: 10 in top1465
-			countOffsInEachCell(c); // repopulates countOffs from offs
-			for ( i=0; i<GRID_SIZE; ++i )
-				if ( countOffs[i]>0 && countOffs[i]==gridCells[i].size ) {
-					cell = gridCells[i];
-					cause = Cells.set(cell);
-					goodColor = OPPOSITE[c];
-					if ( wantWhy )
+			offCounts(offs[c], offCounts);
+			for ( i=0; i<GRID_SIZE; ++i ) {
+				if ( sizes[i]>0 && sizes[i]==offCounts[i] ) {
+					hintCause = Idx.of(i);
+					hintColor = OPPOSITE[c];
+					if ( wantWhy ) {
 						steps.append(NL)
-						  .append(CONTRADICTION_LABEL).append(NL)
-						  .append(KON).append(cell.id).append(KOFF).append(" all values are ")
-						  .append(CON[c]).append(COLORS[c]).append(SP).append(MINUS).append(COFF[c])
-						  .append(COMMA_SO).append(CCOLORS[goodColor]).append(IS_TRUE)
-						  .append(PERIOD).append(NL);
+						.append(CONTRADICTION_LABEL).append(NL)
+						.append(KON).append(CELL_IDS[i]).append(KOFF).append(" all values are ")
+						.append(CON[c]).append(COLORS[c]).append(SP).append(MINUS).append(COFF[c])
+						.append(COMMA_SO).append(COLOR_NAMES[hintColor]).append(IS_TRUE)
+						.append(NL);
+					}
 					return SUBTYPE_4;
 				}
-
-			// If all v's in a region see a green v then blue is true.
-			// RARE: 3 in top1465
-			for ( int v : VALUESES[colorValues[c]] ) {
-				buds = thisColor[v].buds(true);
-				for ( ARegion r : gridRegions ) {
-					if ( r.ridx[v].size > 1
-					  && tmp1.setAnd(buds, r.idx).equals(r.idxs[v])
-					) {
-						region = r;
-						cause = tmp1.toCellSet(gridCells);
-						goodColor = OPPOSITE[c];
-						if ( wantWhy )
-							steps.append(NL)
-							  .append(CONTRADICTION_LABEL).append(NL)
-							  .append(KON).append(r.id).append(KOFF)
-							  .append(ALL).append(v).append(APOSTROPHE_S)
-							  .append(SEE).append(CON[c]).append(v).append(APOSTROPHE_S).append(COFF[c])
-							  .append(COMMA_SO).append(CCOLORS[goodColor]).append(IS_TRUE)
-							  .append(PERIOD).append(NL);
-						return SUBTYPE_5;
+			}
+			// If all vs in a region see a green v then blue is true.
+			// RARE: 0 in top1465 (was 3 prior to 2023-10-24, hence disabled)
+			// SLOW thanks to "excessive" buds calls.
+			if ( DO_CONTRADICTION_TYPE_5 ) {
+				for ( int v : VALUESES[colorValues[c]] ) {
+					tmp2.clear();
+					for ( final IntQueue q=color[v].indices(); (i=q.poll())>QEMPTY; )
+						tmp2.or(BUDDIES[i]);
+					tmp2.andNot(color[v]);
+					for ( ARegion r : regions ) {
+						if ( r.numPlaces[v] > 1
+						  && tmp1.setAnd(tmp2, r.idx).equals(r.idxs[v])
+						) {
+							hintRegion = r;
+							hintCause = new Idx(tmp1);
+							hintColor = OPPOSITE[c];
+							if ( wantWhy ) {
+								steps.append(NL)
+								.append(CONTRADICTION_LABEL).append(NL)
+								.append(KON).append(r.label).append(KOFF)
+								.append(ALL).append(v).append(APOSTROPHE_S).append(SEE)
+								.append(CON[c]).append(v).append(APOSTROPHE_S).append(COFF[c])
+								.append(COMMA_SO).append(COLOR_NAMES[hintColor]).append(IS_TRUE)
+								.append(NL);
+							}
+							return SUBTYPE_5;
+						}
 					}
 				}
 			}
-		}
-
-		return 0;
-	}
-
-	/**
-	 * Count the number of values off'd of each cell in the grid.
-	 */
-	private void countOffsInEachCell(final int c) {
-		final Idx[] thisColorsOffs = offs[c];
-		Arrays.fill(countOffs, 0);
-		for ( int v=1; v<VALUE_CEILING; ++v )
-			if ( thisColorsOffs[v].any() )
-				thisColorsOffs[v].forEach((i)->++countOffs[i]);
+		} while (++c < 2);
+		return SUBTYPE_NONE; // 0 meaning that no contradiction was found
 	}
 
 	/**
 	 * Do a post-eliminations confirmation (opposite of contradiction) search
-	 * to promote an elimination hint to a multi hint: setting all cell values
+	 * to promote an elimination hint to a "big" hint: setting all cell values
 	 * in a color (and the ons).
 	 * <pre>
 	 * a) If all bar one value is eliminated from a cell, and the remaining
@@ -1397,20 +1365,20 @@ implements IPrepare
 	 * b) when all but one place is eliminated from a region and the surviving
 	 *    cell-value is colored then that whole color is true.
 	 * </pre>
-	 * NOTE: Don't use ons here! This is why ons are separate from colors.
+	 * NOTE: Do not use ons here! This is why ons are separate from colors.
 	 * If a color is true then all ons are also true, but NOT conversely!
 	 * <p>
 	 * I query the redPots from eliminations, and HashMap look-ups are slow, so
-	 * I am slow. The saving grace is I run only when eliminations hint found,
-	 * ie not often enough to worry about.
-	 * Tardiness reduced with redPots.toIdxs(REDS).
+	 * I am slow. The saving grace is I run only when an eliminations hint is
+	 * found, ie not often enough to worry about really. The new
+	 * {@code redPots.toIdxs(REDS)} eliminates the repeated HashMap gets.
 	 * <p>
 	 * Any contradiction or confirmation hint is now the last hint GEM finds,
 	 * regardless of what the passed accu says. A confirmation was usually the
-	 * last hint found, but now that's always: after we add a confirmation to
+	 * last hint found, but now that is always: after we add a confirmation to
 	 * accu we throw a STOP_EXCEPTION to stop search. Smelly, but works.
 	 * <p>
-	 * These are as rare as rocking horse s__t: 2 a's and 0 b's in top1465.
+	 * These are as rare as rocking horse s__t: 2 'a' and 0 'b' in top1465.
 	 *
 	 * @return 0: meaning none<br>
 	 * 4: meaning Type A<br>
@@ -1418,72 +1386,61 @@ implements IPrepare
 	 * This value is up-shifted to differentiate it from existing subtypes.
 	 */
 	private int confirmations() {
-		Cell cell;
 		Integer values;
-
 		// a) all bar one value is actually eliminated from a cell and that
 		//    cell-value is colored then ALL of this color is true
 		// RARE: 2 in top165
-		for ( int c=0; c<2; ++c ) {
-			for ( int v : VALUESES[colorValues[c]] ) {
-				try ( final IALease lease = colors[c][v].toArrayLease() ) {
-					for ( int i : lease.array ) {
-						if ( (values=redPots.get(cell=gridCells[i])) != null
-						  && VSIZE[values] == cell.size - 1
-						) {
-							if ( wantWhy )
-								steps.append(NL)
-								  .append(CONFIRMATION_LABEL).append(NL)
-								  .append(color(c, cell.id+MINUS+v))
-								  .append(" and all other values are eliminated")
-								  .append(COMMA_SO).append(CCOLORS[c])
-								  .append(IS_ALL_TRUE).append(NL);
-							goodColor = c;
-							return SUBTYPE_6; // continue on from existing subtypes
+		int c = GREEN;
+		do
+			for ( int v : VALUESES[colorValues[c]] )
+				for ( int i : colors[c][v] )
+					if ( (values=redPots.get(i)) != null
+					  && VSIZE[values] == sizes[i] - 1
+					) {
+						if ( wantWhy ) {
+							steps.append(NL)
+							.append(CONFIRMATION_LABEL).append(NL)
+							.append(colorMinus(c, i, v))
+							.append(" and all other values are eliminated")
+							.append(COMMA_SO).append(COLOR_NAMES[c])
+							.append(IS_ALL_TRUE).append(NL);
 						}
+						hintColor = c;
+						return SUBTYPE_6; // continue on from existing subtypes
 					}
-				}
-			}
-		}
-
-		// b) if all bar one cell is actually eliminated from a region
-		//    and that cell-value is colored
-		//    then ALL of this color is true
-		// RARE: 0 in top1465, so either my code is wrong or I really have none
-		// of these; So, can you see a mistake in this code?
-		if ( CONFIRMATIONS_HIDDEN_SINGLES ) {
-			redPots.toIdxs(REDS);
-			for ( int c=0; c<2; ++c ) {
-				for ( int v : VALUESES[colorValues[c]] ) {
-					// foreach indice of cell to examine
-					try ( final IALease lease = colors[c][v].toArrayLease() ) {
-						for ( int i : lease.array ) {
-							// foreach of the 3 regions which contains this cell
-							for ( ARegion r : gridCells[i].regions ) {
-								// if all bar one v in this region is a red
-								if ( tmp2.setAndAny(REDS[v], r.idx)
-								  && tmp2.size() == r.ridx[v].size - 1
-								  // and the only survivor is this cell
-								  && tmp3.setAndNot(r.idxs[v], tmp2).peek() == i
-								) {
-									if ( wantWhy )
-										steps.append(NL)
-										  .append(CONFIRMATION_LABEL).append(NL)
-										  .append(color(c, gridCells[i].id+MINUS+v))
-										  .append(" and all other ").append(v).append(APOSTROPHE_S).append(IN).append(r.id)
-										  .append(" are eliminated, so ").append(CCOLORS[c])
-										  .append(IS_ALL_TRUE).append(NL);
-									goodColor = c;
-									region = r;
-									return SUBTYPE_7;
+		while (++c < 2);
+		// b) if all bar one cell is actually eliminated from a region and that
+		//    cell-value is colored then ALL of this color is true
+		// RARE: 1 in top1465
+		if ( DO_CONFIRMATIONS_HIDDEN_SINGLES ) {
+			redPots.toIdxs(redIdxs); // repopulate REDS[1..9] for efficiency
+			c = GREEN;
+			do
+				for ( int v : VALUESES[colorValues[c]] )
+					// foreach indice of colored cell to examine
+					for ( int i : colors[c][v] )
+						// foreach of the 3 regions containing this cell
+						for ( ARegion r : cells[i].regions )
+							// if this region has reds
+							if ( tmp2.setAndAny(redIdxs[v], r.idx)
+							  // and the only non-red is cells[i]
+							  && tmp3.setAndNot(r.idxs[v], tmp2).has(i)
+							  && tmp3.size() == 1
+							) {
+								if ( wantWhy ) {
+									steps.append(NL)
+									.append(CONFIRMATION_LABEL).append(NL)
+									.append(colorMinus(c, i, v))
+									.append(" and all other ").append(v).append(APOSTROPHE_S).append(IN).append(r.label)
+									.append(" are eliminated, so ").append(COLOR_NAMES[c])
+									.append(IS_ALL_TRUE).append(NL);
 								}
+								this.hintColor = c;
+								this.hintRegion = r;
+								return SUBTYPE_7;
 							}
-						}
-					}
-				}
-			}
+			while (++c < 2);
 		}
-
 		return 0;
 	}
 
@@ -1496,48 +1453,93 @@ implements IPrepare
 	 */
 	private AHint createBigHint(final int value, final int subtype) {
 		try {
-			final Pots sets = squishSetPots(goodColor); // cell-values to set
+			// nb: the reference is final, its contents is mutated.
+			Pots sets = squishSetPots(hintColor); // cell-values to set
 			addOns(sets);
-			final AHint hint = new GEMHintBig(this, value, new Pots(redPots)
-					, subtype, cause, goodColor, steps.toString(), sets
-					, pots(G), pots(B) , region, copy(ons), copy(offs));
-			if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
-				if ( !cleanSetPots(sets, hint) )
-					return null; // none remain once invalid removed
-			}
-			cause = null;
-			region = null;
-//			int s = getScore(value);
-//			if ( s < minScore )
-//				minScore = s;
+			// bolt-on a turbo to solve faster
+			if ( CFG.getBoolean("turbo", false) )
+				sets = solveWithSingles(sets); // adds to sets
+			final AHint hint = new GEMHintBig(grid, this, value
+				, new Pots(redPots), subtype, hintCause, hintColor
+				, wantWhy ? steps.toString() : null
+				, sets, pots(GREEN), pots(BLUE), hintRegion
+				, deepCopyColorsArray(ons), deepCopyColorsArray(offs));
+			hintCause = null;
+			hintRegion = null;
 			return hint;
 		} catch ( Pots.IToldHimWeveAlreadyGotOneException ex ) {
-			return null; // attempted to set 1 cell to 2 values.
+			// tried to set a cell twice, to two different values.
+			// This should NEVER happen. Never say never.
+			Log.teeln("WARN: "+Log.me()+": "+ex+" hence null hint!");
+			return null;
 		}
+	}
+
+
+
+	/**
+	 * Attempt to solve the grid using NakedSingle and HiddenSingle,
+	 * being seriously greedy.
+	 *
+	 * @param sets a pots of setCells to which I add cells that I set.
+	 * @return result is a copy of sets with new set-cells added to it, because
+	 *  you cant add to sets while you are iterating it.
+	 */
+	public Pots solveWithSingles(final Pots sets) {
+		int i, v;
+		// HintsApplicumulator.add apply's each hint when it is added.
+		// @param isStringy=true for hint.toString's in the SummaryHint
+		final HintsApplicumulator apcu = new HintsApplicumulator(false);
+		// make the apcu remember cells it sets in a Pots
+		apcu.setSetPots(new Pots());
+		// we solve a copy of the given grid
+		final Grid copy = new Grid(grid);
+		// first apply sets to copy, and see if it solves
+		final Pots result = new Pots(sets);
+		for ( Map.Entry<Integer, Integer> e : sets.entrySet() ) {
+			// nb: the AUTOSOLVE parameter is hardcoded true!
+			copy.cells[e.getKey()].set(VFIRST[e.getValue()], 0, true, null);
+			for ( i=0; i<GRID_SIZE; ++i ) {
+				if ( (v=copy.cells[i].value)>0 && grid.cells[i].value==0 )
+					result.put(i, VSHFT[v]);
+			}
+			if(copy.numSet > 80) return result; // solved!
+		}
+		// it didn't solve automatically so search again
+		final NakedSingle nakedSingle = new NakedSingle();
+		final HiddenSingle hiddenSingle = new HiddenSingle();
+		apcu.grid = copy; // to tell Cell.apply which grid
+		int ttlElims = 0;
+		do {
+			apcu.numElims = 0;
+			if ( nakedSingle.findHints(copy, apcu)
+			   | hiddenSingle.findHints(copy, apcu) ) {
+				ttlElims += apcu.numElims;
+			}
+		} while ( apcu.numElims > 0 );
+		if ( ttlElims > 0 )
+			result.addAll(apcu.getSetPots());
+		return result;
 	}
 
 	/**
 	 * Add any ons to the given setPots, which is populated from colors.
 	 */
 	private void addOns(final Pots setPots) {
-		Cell cell;
 		Integer values;
-		for ( int v=1; v<VALUE_CEILING; ++v ) {
-			if ( ons[goodColor][v].any() ) {
-				try ( final IALease lease = ons[goodColor][v].toArrayLease() ) {
-					for ( int i : lease.array ) {
-						if ( (values=setPots.get(cell=gridCells[i])) == null )
-							setPots.put(cell, VSHFT[v]);
-						else {
-							// colors MUST contain only one value
-							assert VSIZE[values] == 1;
-							// if colors-value != on-value then throw
-							if ( (values & VSHFT[v]) != 0 )
-								throw new Pots.IToldHimWeveAlreadyGotOneException(
-									"Off on: "+cell.id+" colors:"+Values.toString(values)+" != ons:"+v);
-							// if on-value == colors-value then just ignore the on.
-							// This should never happen but if it does, meh!
-						}
+		for ( int value=1; value<VALUE_CEILING; ++value ) {
+			if ( ons[hintColor][value].any() ) {
+				for ( int indice : ons[hintColor][value] ) {
+					if ( (values=setPots.get(indice)) == null ) {
+						setPots.put(indice, VSHFT[value]);
+					} else {
+						// colors MUST contain only one value
+						assert VSIZE[values] == 1;
+						// if colors-value != on-value then throw
+						if ( (values & VSHFT[value]) > 0 )
+							throw new Pots.IToldHimWeveAlreadyGotOneException("Bad on: "+CELL_IDS[indice]+" colors:"+MAYBES_STR[values]+" != ons:"+value);
+						// if on-value==colors-value then just ignore on.
+						// This should never happen but if it does, meh!
 					}
 				}
 			}
@@ -1548,7 +1550,7 @@ implements IPrepare
 	 * Create a new Pots from the given colors by placing only one value into
 	 * each cell.
 	 *
-	 * @param c the color
+	 * @param c index of the good color (GREEN=0 or BLUE=1)
 	 * @return a new Pots of all values in this color. There must be one value
 	 *  per cell in colors[c], else I throw IllegalStateException meaning that
 	 *  colors[c] is not a valid setPots, so this hint "has gone bad".
@@ -1556,26 +1558,28 @@ implements IPrepare
 	 *  to a cell.
 	 */
 	private Pots squishSetPots(final int c) throws Pots.IToldHimWeveAlreadyGotOneException {
+		int i;
 		final Pots result = new Pots();
 		final Idx[] thisColor = colors[c];
-		for ( int v : VALUESES[colorValues[c]] )
-			thisColor[v].forEach(gridCells, (cc) ->
-				result.insert(cc, VSHFT[v]) // throws
-			);
+		for ( int value : VALUESES[colorValues[c]] )
+			for ( final IntQueue q=thisColor[value].indices(); (i=q.poll())>QEMPTY; )
+				result.insertOnly(i, VSHFT[value]); // throws IToldHimWeveAlreadyGotOneException
 		return result;
 	}
 
 	/**
-	 * Do the 3D Medusa eliminations.
+	 * Do the eliminations (mostly as per Medusa3D).
 	 * <pre>
-	 * Step 5.2: Eliminate if v sees both colors.
+	 * Step 5.2: Eliminate if v sees both colors:
+	 * AS PER Extended Coloring (XColoring)
 	 * (a) Both colors appear in a single tri+valued cell.
 	 * (b) An uncolored candidate X can see two differently colored X.
+	 * AND NEW IN Medusa3D
 	 * (c) An uncolored candidate sees a colored cell (eg green), but this
 	 *     cell has another candidate with the opposite color (eg blue).
-	 * // NEW IN GradedEquivalenceMarks
+	 * AND NEW IN GEM (Graded Equivalence Marks):
 	 * (d) Both colors have Sub marked the same cell-value so eliminate it.
-	 * NOTE: (c) is the only additional elimination over Extended Coloring.
+	 *     Bring out the Gimp!
 	 *
 	 * There can be MORE THAN ONE type of elimination, so the subtype return
 	 * value is now a bitset:
@@ -1587,144 +1591,138 @@ implements IPrepare
 	 * </pre>
 	 */
 	private int eliminations() {
-		Cell cc; // currentCell: the cell to eliminate from
-		int g // green value/s bitset
-		  , b // blue value/s bitset
-		  , pinks // bitset of "all other values" to eliminate
-		  , c // color: the current color: GREEN or BLUE
-		  , o; // opposite: the other color: BLUE or GREEN
+		int values[] // VALUESES[paintedValues]
+		, green // green value/s bitset
+		, blue // blue value/s bitset
+		, pinkos // bitset of "all other values" to eliminate
+		, c // color: the current color: GREEN or BLUE
+		, o // opposite: the other color: BLUE or GREEN
+		;
 		int subtype = 0; // presume none
 		boolean first = true; // is this the first elimination
-
 		// (a) Both colors in one cell eliminates all other values.
-		try ( final IALease lease = tmp1.setAnd(painted[G], painted[B]).toArrayLease() ) {
-			for ( int i : lease.array ) {
-				if ( gridCells[i].size > 2
-				  // get a bitset of all values of cells[i] that're green and blue.
-				  // There may be none, never multiple (contradictions pre-tested)
-				  // We need 1 green value and 1 blue value, to strip from pinks.
-				  // NOTE: VSIZE[0] == 0.
-				  && VSIZE[g=values(G, i)] == 1
-				  && VSIZE[b=values(B, i)] == 1
-				  // ensure that g and b are not equal (should NEVER be equal)
-				  && g != b
-				  // pinkos is a bitset of "all other values" to be eliminated.
-				  && (pinks=(cc=gridCells[i]).maybes & ~g & ~b) != 0
-				  // ignore already-justified eliminations (shouldn't happen here)
-				  && redPots.upsert(cc, pinks, false)
-				) {
-					if ( wantWhy ) {
-						if ( first ) {
-							first = false;
-							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
-						}
-						steps.append(cc.id).append(HAS_BOTH)
-						  .append(GON).append(Values.toString(g)).append(GOFF)
-						  .append(AND).append(BON).append(Values.toString(b)).append(BOFF)
-						  .append(COMMA).append(ELIMINATING)
-						  .append(RON).append(ALL_OTHER_VALUES).append(ROFF).append(PERIOD)
-						  .append(NL);
+		for ( int indice : tmp1.setAnd(painted[GREEN], painted[BLUE]) ) {
+			if ( sizes[indice] > 2
+			  // get a bitset of all values of cells[i] that are green and blue.
+			  // There may be none, never multiple (contradictions pre-tested)
+			  // We need 1 green value and 1 blue value, to strip from pinks.
+			  // NOTE: VSIZE[0] == 0.
+			  && VSIZE[green=values(GREEN, indice)] == 1
+			  && VSIZE[blue=values(BLUE, indice)] == 1
+			  // ensure that g and b are not equal (should NEVER be equal)
+			  && green != blue
+			  // pinkos is a bitset of "all other values" to be eliminated.
+			  && (pinkos=maybes[indice] & ~green & ~blue) > 0
+			  // ignore already-justified eliminations (should not happen here)
+			  && redPots.upsert(indice, pinkos, DUMMY)
+			) {
+				if ( wantWhy ) {
+					if ( first ) {
+						first = false;
+						steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 					}
-					subtype |= 1;
+					steps.append(CELL_IDS[indice])
+					.append(HAS_BOTH).append(GON).append(MAYBES[green]).append(GOFF)
+					.append(AND).append(BON).append(MAYBES[blue]).append(BOFF)
+					.append(COMMA).append(ELIMINATING)
+					.append(RON).append(ALL_OTHER_VALUES).append(ROFF).append(PERIOD)
+					.append(NL);
 				}
+				subtype |= 1;
 			}
 		}
-
-		// (b) An uncolored v sees both colored v's.
-		// Weird: retain the leases, and there arrays, for the next loop.
-		final IALease[] leases = new IALease[VALUE_CEILING];
-		for ( int v : VALUESES[paintedValues] ) {
-			// weird: remember uncoloredCandidates for re-use in next loop
-			tmp2.setAndNot(gridIdxs[v], tmp1.setOr(colors[G][v], colors[B][v]));
-			leases[v] = tmp2.toArrayLease();
-			for ( int ii : leases[v].array ) {
-				if ( tmp3.setAndAny(BUDDIES[ii], colors[G][v])
-				  && tmp4.setAndAny(BUDDIES[ii], colors[B][v])
-				  // ignore already-justified eliminations
-				  && redPots.upsert(gridCells[ii], v)
-				) {
-					if ( wantWhy ) {
-						cc = gridCells[ii]; // current cell
-						Cell gc = closest(tmp3, cc.x, cc.y); // green cell seen
-						Cell bc = closest(tmp4, cc.x, cc.y); // blue cell seen
-						if ( first ) {
-							first = false;
-							steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
-						}
-						steps.append(cc.id).append(MINUS).append(v)
-						  .append(SEES_BOTH).append(GON).append(gc.id).append(MINUS).append(v).append(GOFF)
-						  .append(AND).append(BON).append(bc.id).append(MINUS).append(v).append(BOFF)
-						  .append(COMMA_SO).append(cc.id).append(CANT_BE).append(RON).append(v).append(ROFF)
-						  .append(PERIOD).append(NL);
-					}
-					subtype |= 2;
-				}
-			}
-		}
-
-		// (c) v sees green, and has some other blue value.
-		for ( int v : VALUESES[paintedValues] ) {
-			// weird: leases are set-up in the previous loop
-			for ( int ii : leases[v].array ) {
-				for ( c=0; c<2; ++c ) {
-					// if cells[ii] sees a this-color v
-					if ( tmp3.setAndAny(BUDDIES[ii], colors[c][v])
-					  // and the opposite color (any value) contains ii
-					  && painted[OPPOSITE[c]].has(ii)
-					  // ignore already-justified eliminations
-					  && redPots.upsert(gridCells[ii], v)
+		// cache unpainted indices (read twice)
+		int[][] unpainted = new int[VALUE_CEILING][];
+		for ( int value : values=VALUESES[paintedValues] )
+			if ( tmp2.setAndNotAny(idxs[value], tmp1.setOr(colors[GREEN][value], colors[BLUE][value])) )
+				unpainted[value] = tmp2.toArrayNew();
+		// (b) An uncolored v sees both colored vs.
+		for ( int value : values ) {
+			if ( unpainted[value] != null ) {
+				for ( int indice : unpainted[value] ) {
+					// if indice sees both green and blue of this value
+					if ( tmp3.setAndAny(BUDDIES[indice], colors[GREEN][value])
+					  && tmp4.setAndAny(BUDDIES[indice], colors[BLUE][value])
+					  // and this elimination is new to us
+					  && redPots.upsert(indice, VSHFT[value], DUMMY)
 					) {
 						if ( wantWhy ) {
-							cc = gridCells[ii];
-							o = OPPOSITE[c];
-							Cell sib = closest(tmp3, cc.x, cc.y); // the seen cell
-							int otherV = firstValue(o, ii);
+							final int gc = closest(tmp3, COL_OF[indice], ROW_OF[indice]); // green cell seen
+							final int bc = closest(tmp4, COL_OF[indice], ROW_OF[indice]); // blue cell seen
 							if ( first ) {
 								first = false;
 								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 							}
-							steps.append(cc.id)
-							  .append(HAS).append(color(o, ""+otherV))
-							  .append(" and sees ").append(color(c, sib.id+MINUS+v))
-							  .append(COMMA_SO).append(cc.id).append(CANT_BE).append(RON).append(v).append(ROFF)
-							  .append(PERIOD).append(NL);
+							steps.append(CELL_IDS[indice]).append(MINUS).append(value)
+							.append(SEES_BOTH).append(colorMinus(GREEN, gc, value))
+							.append(AND).append(colorMinus(BLUE, bc, value))
+							.append(COMMA_SO).append(CELL_IDS[indice]).append(CANT_BE)
+							.append(RON).append(value).append(ROFF).append(PERIOD)
+							.append(NL);
 						}
-						subtype |= 4;
+						subtype |= 2;
 					}
 				}
 			}
 		}
-		// weird: release the leases
-		for ( IALease lease : leases)
-			if ( lease != null )
-				lease.close();
-		Arrays.fill(leases, null);
-
-		// (d) off'ed by both colors.
-		for ( int v=1; v<VALUE_CEILING; ++v ) {
-			if ( tmp1.setAndAny(offs[G][v], offs[B][v]) ) {
-				try ( final IALease lease = tmp1.toArrayLease() ) {
-					for ( int ii : lease.array ) {
-						// ignore already-justified eliminations
-						if ( redPots.upsert(gridCells[ii], v) ) {
+		// (c) v sees green, and has some other blue value.
+		for ( int value : values ) {
+			if ( unpainted[value] != null ) {
+				for ( int indice : unpainted[value] ) {
+					c = 0;
+					do {
+						// if cells[indice] sees a this-color value
+						if ( tmp3.setAndAny(BUDDIES[indice], colors[c][value])
+						  // and opposite color (any value) contains indice
+						  && painted[OPPOSITE[c]].has(indice)
+						  // and this elimination is new to us
+						  && redPots.upsert(indice, VSHFT[value], DUMMY)
+						) {
 							if ( wantWhy ) {
-								cc = gridCells[ii];
+								o = OPPOSITE[c];
+								final int sib = closest(tmp3, COL_OF[indice], ROW_OF[indice]); // the seen cell
+								final int otherValue = firstValue(o, indice);
 								if ( first ) {
 									first = false;
 									steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
 								}
-								steps.append(cc.id).append(MINUS).append(v)
-								  .append(" is eliminated in both ").append(CCOLORS[G]).append(AND).append(CCOLORS[B])
-								  .append(COMMA_SO).append(cc.id).append(CANT_BE).append(RON).append(v).append(ROFF)
-								  .append(PERIOD).append(NL);
+								steps.append(CELL_IDS[indice])
+								.append(HAS).append(color(o, otherValue))
+								.append(" and sees ").append(colorMinus(c, sib, value))
+								.append(COMMA_SO).append(CELL_IDS[indice]).append(CANT_BE)
+								.append(RON).append(value).append(ROFF).append(PERIOD)
+								.append(NL);
 							}
-							subtype |= 8;
+							subtype |= 4;
 						}
+					} while (++c < 2);
+				}
+			}
+		}
+		unpainted = null;
+		// (d) offed by both colors.
+		for ( int value=1; value<VALUE_CEILING; ++value ) {
+			if ( tmp1.setAndAny(offs[GREEN][value], offs[BLUE][value]) ) {
+				for ( int indice : tmp1 ) {
+					// ignore already-justified eliminations
+					if ( redPots.upsert(indice, VSHFT[value], DUMMY) ) {
+						if ( wantWhy ) {
+							if ( first ) {
+								first = false;
+								steps.append(NL).append(ELIMINATIONS_LABEL).append(NL);
+							}
+							steps.append(CELL_IDS[indice]).append(MINUS).append(value)
+							.append(" is eliminated in both ")
+							.append(COLOR_NAMES[GREEN]).append(AND).append(COLOR_NAMES[BLUE]).append(COMMA_SO)
+							.append(CELL_IDS[indice]).append(CANT_BE).append(RON).append(value).append(ROFF)
+							.append(PERIOD)
+							.append(NL);
+						}
+						subtype |= 8;
 					}
 				}
 			}
 		}
-
 		return subtype;
 	}
 
@@ -1732,14 +1730,14 @@ implements IPrepare
 	 * Get a bitset of the values that are painted color-c at indice-i.
 	 *
 	 * @param c the color index: GREEN, or BLUE
-	 * @param i the cell indice to check
+	 * @param indice the cell indice to check
 	 * @return a bitset of painted values
 	 */
-	private int values(final int c, final int i) {
+	private int values(final int c, final int indice) {
 		final Idx[] thisColor = colors[c];
 		int result = 0;  // NOTE: VSIZE[0] == 0
 		for ( int v : VALUESES[colorValues[c]] )
-			if ( thisColor[v].has(i) )
+			if ( thisColor[v].has(indice) )
 				result |= VSHFT[v];
 		return result;
 	}
@@ -1747,11 +1745,11 @@ implements IPrepare
 	/**
 	 * Return the first value in colors[o][*] which contains(ii).
 	 * <p>
-	 * NOTE: We can't use FIRST_VALUE because not-found must return 0.
+	 * NOTE: We cannot use FIRST_VALUE because not-found must return 0.
 	 *
 	 * @param o the opposite color: BLUE or GREEN
 	 * @param ii the cell index
-	 * @return the first value of ii that's painted the opposite color
+	 * @return the first value of ii that is painted the opposite color
 	 */
 	private int firstValue(final int o, final int ii) {
 		for ( int v : VALUESES[colorValues[o]] )
@@ -1764,70 +1762,68 @@ implements IPrepare
 	 * Return the cell in idx that is physically closest to the target cell.
 	 * <p>
 	 * NOTE: This method is just a "nice to have". If the target cell sees ANY
-	 * cell-of-this-color then the logic holds up; it's just nice to show the
-	 * user the closest-cell-of-this-color; that's all.
+	 * cell-of-this-color then the logic holds up; it is just nice to show the
+	 * user the closest-cell-of-this-color; that's all. closest is called ONLY
+	 * when eliminations is producing a hint, so efficiency is NOT a problem!
 	 *
 	 * @param idx {@code tmp3.setAndAny(BUDDIES[ii], colors[c][v])} the buddies
 	 * of the target cell which are painted this color.
 	 * @param x {@code cc.x} the col of target cell
 	 * @param y {@code cc.y} the row of target cell
-	 * @return the closest cell (or null if I'm rooted)
+	 * @return the closest cell (or null if I am rooted)
 	 */
-	private Cell closest(final Idx idx, final int x, final int y) {
-		int closest = -1; // the indice of the closest cell
-		int minD = Integer.MAX_VALUE; // distance to the closest cell
-		try ( final IALease lease = idx.toArrayLease() ) {
-			for ( int i : lease.array ) {
-				final int distance;
-				if ( COL_OF[i] == x )
-					distance = Math.abs(ROW_OF[i] - y);
-				else if ( ROW_OF[i] == y )
-					distance = Math.abs(COL_OF[i] - x);
-				else { // pythagoras
-					final int dx = Math.abs(COL_OF[i] - x);
-					final int dy = Math.abs(ROW_OF[i] - y);
-					distance = (int)Math.sqrt((double)(dx*dx + dy*dy));
-				}
-				if ( distance < minD ) {
-					minD = distance;
-					closest = i;
-				}
+	private int closest(final Idx idx, final int x, final int y) {
+		int dx, dy, distance;
+		int closest = -1; // the indice of the closest cell = NOT_FOUND
+		int minDistance = Integer.MAX_VALUE; // distance from closest cell
+		for ( int indice : idx ) { // Iterator fast enough here (hinting)
+			if ( COL_OF[indice] == x ) {
+				distance = ROW_OF[indice] - y;
+				if ( distance < 0 )
+					distance = -distance;
+			} else if ( ROW_OF[indice] == y ) {
+				distance = COL_OF[indice] - x;
+				if ( distance < 0 )
+					distance = -distance;
+			} else { // pythagoras
+				dx = COL_OF[indice] - x;
+				if ( dx < 0 )
+					dx = -dx;
+				dy = ROW_OF[indice] - y;
+				if ( dy < 0 )
+					dy = -dy;
+				distance = (int)Math.sqrt((double)(dx*dx + dy*dy));
+			}
+			if ( distance < minDistance ) {
+				minDistance = distance;
+				closest = indice;
 			}
 		}
-		if ( closest == -1 )
-			return null;
-		return gridCells[closest];
+		return closest;
 	}
 
 	/**
-	 * Create a new "normal" GEMHint.
+	 * Create a new "normal" GEMHint containing eliminations.
 	 * <ul>
 	 * <li>the subtype is now a bitset! 1=Type1, 2=Type2, 4=Type3. sigh.
-	 * <li>just keep the subtype param, even though it's no longer used because
+	 * <li>just keep the subtype param, even though it is no longer used because
 	 * the steps String is now populated up in eliminate, which is MUCH better.
 	 * </ul>
 	 *
 	 * @param value the value
 	 * @param subtype no longer used!
-	 * @return a new GEMHint (for eliminations), or possibly a GEMHintMulti
+	 * @return a new GEMHint (for eliminations), or possibly a "big" hint
 	 *  (upgraded) if CONSEQUENT_SINGLES_TOO and the eliminations leave a cell
 	 *  with one potential value, or a region with one place for a value.
 	 */
 	private AHint createHint(final int value, final int subtype) {
-//		int s = getScore(value);
-//		if ( s < minScore )
-//			minScore = s;
 		final Idx[] colorSet = null;
 		final Pots reds = new Pots(redPots);
-		final AHint hint = new GEMHint(this, value, reds, pots(G)
-				, pots(B), colorSet, steps.toString(), null, copy(ons)
-				, copy(offs));
-		if ( CHECK_HINTS ) { // deal with any dodgy hints minimally
-			if ( !cleanRedPots(reds, hint) )
-				return null;
-		}
-		// don't hold cell references past there use-by date; so we copy-off
-		// the fields when we create the hint (above) then clear the bastards.
+		final AHint hint = new GEMHint(grid, this, value, reds, pots(GREEN)
+				, pots(BLUE), colorSet
+				, wantWhy ? steps.toString() : null
+				, null, deepCopyColorsArray(ons), deepCopyColorsArray(offs));
+		// copy-off to reds (above) then clear the redPots field.
 		redPots.clear();
 		return hint;
 	}
@@ -1836,114 +1832,50 @@ implements IPrepare
 	 * Build a new Pots of all cells, all values in the given color.
 	 *
 	 * @param c the color: GREEN or BLUE
-	 * @return a new Pots of Cell=>value's in all values of colors[color].
+	 * @return a new Pots of Cell=>values in all values of colors[color].
 	 */
 	private Pots pots(final int c) {
 		final Idx[] thisColor = colors[c];
 		final Pots result = new Pots();
-		for ( int v : VALUESES[colorValues[c]] )
-			result.upsertAll(thisColor[v], grid, v);
+		for ( int v : VALUESES[colorValues[c]] ) {
+			result.upsertAll(thisColor[v], maybes, v);
+		}
 		return result;
 	}
 
-	/**
-	 * Is the given "normal" elimination hint valid?
-	 * <p>
-	 * This is the "normal" hint validation routine using the Validator.
-	 * CHECK_HINTS is preferable because it's more forgiving. It drops bad
-	 * eliminations/sets, instead of dumping the whole hint, optionally Log
-	 * CHECK_NOISE to identify the problem/s, so you can address it/them.
-	 * <p>
-	 * Sudoku Explainer is a comedy of errors.
-	 *
-	 * @param hint to validate
-	 * @return true is OK, false means do NOT add this hint.
-	 */
-	private boolean validEliminations(final AHint hint) {
-		if ( VALIDATE_GEM ) {
-			if ( !validOffs(grid, hint.getReds(0)) ) {
-				hint.setIsInvalid(true);
-				reportRedPots(tech.name(), grid, hint.toFullString());
-				if ( Run.type != Run.Type.GUI )
-					return false;
-			}
-		}
-		return true;
+	private StringBuilder sb() {
+		sb.setLength(0);
+		return sb;
 	}
 
 	/**
-	 * Is this given "multi" hint (a setPots) valid?
-	 * <p>
-	 * This is the "normal" hint validation routine using the Validator.
-	 * CHECK_HINTS is preferable because it's more forgiving. It drops bad
-	 * eliminations/sets, instead of dumping the whole hint, optionally Log
-	 * CHECK_NOISE to identify the problem/s, so you can address it/them.
-	 * <p>
-	 * Sudoku Explainer is a comedy of errors.
-	 *
-	 * @param identifier String to identify from whence I am called.
-	 * @param hint to validate
-	 * @return true is OK, false means do NOT add this hint.
+	 * Helper method averts AIOOBE when coloring a string, for use when we are
+	 * not sure that the goodColor field has been set. Note that I am used only
+	 * when goodColor could be -1 (not found) coz creating a temp-buffer for my
+	 * $s argument is MUCH slower than appending to an existing one; so use me
+	 * only when creating a hint, not in the why-string of the paint routines.
 	 */
-	private boolean validSetPots(final String identifier, final AHint hint) {
-		if ( VALIDATE_GEM ) {
-			if ( !validOns(grid, hint.getResults()) ) {
-				hint.setIsInvalid(true);
-				reportSetPots(tech.name()+identifier, grid, invalidity, hint.toFullString());
-				if ( Run.type != Run.Type.GUI )
-					return false;
-			}
-		}
-		return true;
+	private StringBuilder color(final int c, final Object s) {
+		if ( c>-1 && c<2 ) // ignore -1 (goodColor not found)
+			return sb().append(CON[c]).append(s).append(COFF[c]);
+		return sb();
 	}
 
-	// HACK: clean non-solution values out of setPots
-	private boolean cleanSetPots(final Pots sets, final AHint hint) {
-		final int[] solution = grid.getSolution();
-		sets.entrySet().forEach((e) -> {
-			final Cell c = e.getKey();
-			final int v = VFIRST[e.getValue()]; // hintValue
-			final int expect = solution[c.i];
-			if ( v != expect ) {
-//				throw new UncleanException(
-				throw new UnsolvableException(
-					"Invalid Set: "+c.id+PLUS+v+NOT_EQUALS+expect+NL
-					+grid+NL
-					+hint.toFullString()+NL
-				);
-			}
-		});
-		return !sets.isEmpty(); // return anything remaining?
+	// c is the color index: GREEN or BLUE
+	private StringBuilder colorMinus(final int c, final int indice, final int value) {
+		// 3 + 2 + 1 + 1 + 5 = 12 + 1 extra just in case
+		return sb().append(CON[c]).append(CELL_IDS[indice]).append(MINUS).append(value).append(COFF[c]);
 	}
 
-	// HACK: clean solution values out of redPots
-	private boolean cleanRedPots(final Pots reds, final AHint hint) {
-		final int[] solution = grid.getSolution();
-		Iterator<Map.Entry<Cell,Integer>> it = reds.entrySet().iterator();
-		while ( it.hasNext() ) {
-			Map.Entry<Cell,Integer> e = it.next();
-			Cell cell = e.getKey();
-			Integer cands = e.getValue();
-			if ( cell==null || cands==null )
-				it.remove(); // BFIIK!
-			else {
-				final int expect = solution[cell.i];
-				for ( int v : VALUESES[cands] )
-					if ( v == expect )
-						throw new UncleanException(
-//						throw new UnsolvableException(
-							"Invalid Elim: "+cell.id+MINUS+v+" is solution value!"+NL
-							+grid+NL
-							+hint.toFullString()+NL
-						);
-			}
-		}
-		return !reds.isEmpty(); // return anything remaining?
+	// c is the color index: GREEN or BLUE
+	private StringBuilder colorPlus(final int c, final int indice, final int value) {
+		// 1 + 3 + 2 + 1 + 1 + 5 = 11 + 1 extra just in case
+		return sb().append(ON_MARKER).append(CON[c]).append(CELL_IDS[indice]).append(PLUS).append(value).append(COFF[c]);
 	}
 
 	/**
 	 * ValueScore is the score for each value; only used in the startingValues
-	 * method, to keep the value WITH it's score, so that we can sort the array
+	 * method, to keep the value WITH it is score, so that we can sort the array
 	 * by score descending and keep the value. The array is unsorted back to
 	 * value order (including 0) at the start of each startingValues run.
 	 */
@@ -1957,10 +1889,6 @@ implements IPrepare
 		@Override
 		public String toString() {
 			return ""+value+": "+score;
-		}
-		/** just reset the score to 0 (value is final). */
-		private void clear() {
-			score = 0;
 		}
 	}
 
@@ -1989,14 +1917,14 @@ implements IPrepare
 	 * A distinctive subtype of RuntimeException thrown by create[Big]Hint when
 	 * a bad Elimination [or SetPot] is detected.
 	 *
-	 * This the more extreme way to handle it, for when you think you're on top
-	 * of invalid hints. If you're getting invalid hints then comment out my
-	 * throw an uncomment the "programmer friendly" handlers, but don't forget
+	 * This the more extreme way to handle it, for when you think you are on top
+	 * of invalid hints. If you are getting invalid hints then comment out my
+	 * throw an uncomment the "programmer friendly" handlers, but do not forget
 	 * to put me back. Users should NEVER see "Invalid Eliminations" in a hint
 	 * explanation, because it makes them distrust ALL of your software, not
-	 * just the small part they shouldn't trust, mainly coz they haven't got a
-	 * clue, and really don't want one; that's WHY they're using software to
-	 * get nice fat hints. Don't scare the chooks! Gobble, gobble, gobble.
+	 * just the small part they should not trust, mainly coz they have not got a
+	 * clue, and really do not want one; that is WHY they are using software to
+	 * get nice fat hints. Do not scare the chooks! Gobble, gobble, gobble.
 	 *
 	 * NOTE that GEM is disabled (for this puzzle only) whenever this exception
 	 * is thrown.

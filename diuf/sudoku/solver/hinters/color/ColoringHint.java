@@ -1,27 +1,29 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.color;
 
-import diuf.sudoku.Grid.Cell;
+import diuf.sudoku.Grid;
+import static diuf.sudoku.Grid.SEES;
+import diuf.sudoku.Idx;
+import static diuf.sudoku.Idx.FIFTY_FOUR;
+import static diuf.sudoku.Idx.MASKED;
+import static diuf.sudoku.Idx.MASKED81;
+import diuf.sudoku.IdxI;
 import diuf.sudoku.Link;
 import diuf.sudoku.Pots;
 import static diuf.sudoku.Values.VALUESES;
 import diuf.sudoku.solver.AHint;
-import diuf.sudoku.solver.hinters.AHinter;
-import diuf.sudoku.utils.Frmt;
+import diuf.sudoku.solver.hinters.IHinter;
+import static diuf.sudoku.utils.Frmt.*;
 import diuf.sudoku.utils.Html;
-import java.util.HashSet;
-import java.util.Set;
-import static diuf.sudoku.utils.Frmt.COLON_SP;
-import static diuf.sudoku.utils.Frmt.ON;
-import static diuf.sudoku.utils.Frmt.CSP;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-
+import java.util.Map;
+import java.util.Set;
 
 /**
  * ColoringHint is the DTO for coloring hints.
@@ -30,22 +32,10 @@ import java.util.LinkedHashSet;
  */
 public class ColoringHint extends AHint  {
 
-	// calculate a HashSet of the cells to highlight with an aqua background,
-	// ie all the cells with a highlighted candidate.
-	private static HashSet<Cell> calculateAquaCells(Pots[] pots) {
-		int totalSize = 0;
-		for ( Pots pot : pots ) // currently there's 5 colors
-			totalSize += pot.size();
-		HashSet<Cell> cells = new HashSet<>(totalSize, 1F);
-		for ( Pots pot : pots ) // currently there's 5 colors
-			cells.addAll(pot.keySet());
-		return cells;
-	}
-
 	// remove the redPots from all other pots, so they show-up red
-	private static Pots[] clean(Pots[] pots, Pots redPots) {
+	private static Pots[] clean(Pots[] pots, Pots reds) {
 		for ( Pots p : pots )
-			p.removeAll(redPots);
+			p.removeAll(reds);
 		return pots;
 	}
 
@@ -63,96 +53,125 @@ public class ColoringHint extends AHint  {
 	}
 
 	private final Subtype subtype; // hint type description
-	private final Pots[] pots; // an array of Pots to be highlighted
+	private final Pots[] potss; // an array of Pots to be highlighted
 	private final int valueToRemove; // the value to be eliminated
 
-	// cells to highlight with an aqua background, ie ALL cells in pots.
-	private final Set<Cell> aquaCells;
+	// cells to highlight with an aqua background, that is indices of all cells
+	// in all Coloring sets (the pots array).
+	private Idx aquaIndices;
+	private int[] aquaIndicesArray;
+	private int hc; // hashCode is cached
 
 	/**
+	 * Constructor.
 	 *
-	 * @param hinter
-	 * @param subtype
-	 * @param pots must be at-least length 2
-	 * @param valueToRemove
-	 * @param redPots
+	 * @param grid to search
+	 * @param hinter that created this hint
+	 * @param subtype which type of ColoringHint is this
+	 * @param pots an array of two Pots, one green and one blue; or possibly
+	 *  more, apparently
+	 * @param valueToRemove the plain value to remove
+	 * @param reds eliminations
 	 */
-	public ColoringHint(AHinter hinter, Subtype subtype, Pots[] pots
-			, int valueToRemove, Pots redPots) {
-		// nb: Coloring uses ONE instance of Pots, so when we create a hint we
-		// clone them, and then clear the ONE instance. Simples!
-		super(hinter, redPots.copyAndClear(), pots[0], null, pots[1], null, null);
+	public ColoringHint(final Grid grid, final IHinter hinter
+			, final Subtype subtype, final Pots[] pots
+			, final int valueToRemove, final Pots reds) {
+		super(grid, hinter, reds, pots[0], null, pots[1], null, null);
 		this.subtype = subtype;
-		this.pots = clean(pots, this.reds); // must pass the field!
+		this.potss = clean(pots, this.reds); // pots sans this.reds (the field)
 		this.valueToRemove = valueToRemove;
-		this.aquaCells = calculateAquaCells(pots);
+	}
+
+	// fetch an Idx of cells to highlight with an aqua background, that is
+	// indices of all cells in all of the Coloring sets (the pots array).
+	private Idx getAquaIndices() {
+		if ( aquaIndices == null ) {
+			long m0=0L; int m1=0; // an exploded Idx
+			for ( Pots pots : potss ) { // currently there are 5 colors max
+				for ( int indice : pots.keySet() ) {
+					if ( indice < FIFTY_FOUR )
+						m0 |= MASKED81[indice];
+					else
+						m1 |= MASKED[indice];
+				}
+			}
+			aquaIndices = new IdxI(m0, m1);
+			aquaIndicesArray = aquaIndices.toArrayNew();
+		}
+		return aquaIndices;
 	}
 
 	@Override
-	public Set<Cell> getAquaCells(int notUsed) {
-		return aquaCells;
+	public Set<Integer> getAquaBgIndices(int viewNumberNotUsed) {
+		return getAquaIndices();
 	}
 
 	/*
 	 * NOTE: I added three new candidate highlight colors: Yellow, Purple, and
 	 * Brown to the SudokuGridPanel specifically to support the display of
-	 * Coloring hints, but they may also be useful elsewhere, like ALS's.
+	 * Coloring hints, but they may also be useful elsewhere, like ALSs.
 	 */
 
 	@Override
-	public Pots getYellows() {
-		if ( pots.length > 2 )
-			return pots[2];
+	public Pots getYellowPots() {
+		if ( potss.length > 2 )
+			return potss[2];
 		return null;
 	}
 
 	@Override
-	public Pots getPurples() {
-		if ( pots.length > 3 )
-			return pots[3];
+	public Pots getPurplePots() {
+		if ( potss.length > 3 )
+			return potss[3];
 		return null;
 	}
 
 	@Override
-	public Pots getBrowns() {
-		if ( pots.length > 4 )
-			return pots[4];
+	public Pots getBrownPots() {
+		if ( potss.length > 4 )
+			return potss[4];
 		return null;
 	}
 
 	@Override
-	public Collection<Link> getLinks(int viewNum) {
+	public Collection<Link> getLinks(final int viewNum) {
+		int d, values[];
+		boolean[] sees;
 		final Collection<Link> result = new LinkedHashSet<>();
-		reds.entrySet().forEach((e) -> {
-			final int d = e.getKey().i;
-			aquaCells.stream().filter((src)->src.sees[d]).forEach((src) -> {
-				for ( int v : VALUESES[e.getValue()] ) {
-					result.add(new Link(src.i, v, d, v));
-				}
-			});
-		});
+		getAquaIndices(); // initialise aquaIndicesArray
+		for ( Map.Entry<Integer, Integer> e : reds.entrySet() ) {
+			d = e.getKey(); // destination
+			sees = SEES[d];
+			values = VALUESES[e.getValue()];
+			for ( int s : aquaIndicesArray ) // source
+				if ( sees[s] )
+					for ( int v : values )
+						result.add(new Link(s, v, d, v));
+		}
 		return result;
 	}
 
 	@Override
-	public boolean equals(Object o) {
-		if ( !(o instanceof ColoringHint) )
-			return false;
-		ColoringHint other = (ColoringHint)o;
-		if ( this.valueToRemove != other.valueToRemove )
-			return false;
-		if ( this.aquaCells.size() != other.aquaCells.size() )
-			return false;
-		return this.aquaCells.containsAll(other.aquaCells);
+	public boolean equals(final Object o) {
+		return o instanceof ColoringHint
+			&& equals((ColoringHint)o);
+	}
+
+	public boolean equals(final ColoringHint other) {
+		return valueToRemove == other.valueToRemove
+			&& getAquaIndices().equals(other.getAquaIndices());
 	}
 
 	@Override
 	public int hashCode() {
-		int result = 0;
-		for ( Cell c : aquaCells )
-			result = result<<4 ^ c.i;
-		result = result<<4 ^ valueToRemove;
-		return result;
+		if ( hc == 0 ) {
+			getAquaIndices(); // initialise aquaIndicesArray
+			int x = 0;
+			for ( int indice : aquaIndicesArray )
+				x = x<<4 ^ indice;
+			hc = x<<4 ^ valueToRemove;
+		}
+		return hc;
 	}
 
 	@Override
@@ -161,7 +180,7 @@ public class ColoringHint extends AHint  {
 	}
 
 	@Override
-	public String getClueHtmlImpl(boolean isBig) {
+	public String getClueHtmlImpl(final boolean isBig) {
 		String s = "Look for a " + getHintTypeName();
 		if ( isBig )
 			s += " on <b>"+valueToRemove+"</b>";
@@ -169,17 +188,17 @@ public class ColoringHint extends AHint  {
 	}
 
 	@Override
-	protected String toStringImpl() {
-		final StringBuilder sb = Frmt.getSB(128);
+	protected StringBuilder toStringImpl() {
+		final StringBuilder sb = SB(128);
 		sb.append(getHintTypeName()).append(COLON_SP);
 		boolean first = true;
-		for ( Pots p : pots ) {
-			if ( p!=null && !p.isEmpty() ) {
+		for ( Pots p : potss ) {
+			if ( p!=null && p.any() ) {
 				if(first) first=false; else sb.append(CSP);
 				sb.append(p.ids());
 			}
 		}
-		return sb.append(ON).append(valueToRemove).toString();
+		return sb.append(ON).append(valueToRemove);
 	}
 
 	@Override

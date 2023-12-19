@@ -1,14 +1,14 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  *
  * The algorithm for the TwoStringKite solving technique was boosted from the
- * current release (AFAIK) of hobiwan's HoDoKu by Keith Corlett in March 2020.
+ * current release (AFAIK) of hobiwans HoDoKu by Keith Corlett in March 2020.
  * Kudos hobiwans. Mistakes mine.
  *
- * Here's hobiwans standard licence statement:
+ * Here is hobiwans standard licence statement:
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -34,59 +34,46 @@ package diuf.sudoku.solver.hinters.sdp;
 import diuf.sudoku.Grid;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Grid.ARegion;
-import diuf.sudoku.Grid.Col;
 import static diuf.sudoku.Grid.REGION_SIZE;
-import diuf.sudoku.Grid.Row;
 import static diuf.sudoku.Grid.VALUE_CEILING;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.solver.accu.IAccumulator;
 import diuf.sudoku.solver.hinters.AHinter;
 import static diuf.sudoku.Grid.BY9;
+import diuf.sudoku.Grid.Col;
+import diuf.sudoku.Grid.Row;
+import static diuf.sudoku.Grid.pairs;
+import diuf.sudoku.solver.accu.IAccumulator;
 
 /**
- * TwoStringKite implements the TwoStringKite Sudoku solving technique.
+ * TwoStringKite implements the {@link Tech#TwoStringKite} Sudoku solving
+ * technique. A TwoStringKite is a box (the kite) that links two biplaced
+ * lines (the strings, a row and a col).
  * <p>
- * A TwoStringKite is a box (the kite) which is the intersections of both a row
- * and a col with two places for v (the two strings), such that no matter where
- * we put v in the box, one of the two "other ends" of the strings must be v,
- * therefore any v's that see (are in the same box, row, or col as) both "other
- * ends" of the two strings can be eliminated.
+ * More completely, a TwoStringKite is a box (the kite) with one end of
+ * both a row and a col having two places for v (the two strings), such
+ * that no matter where we put v in the box, one of the two other ends of
+ * the strings must be v, hence any vs seeing both "free ends" of my two
+ * strings are eliminated.
  * <p>
- * A TwoStringKite (TSK) is a simplified faster Unary (single digit) Chain; so
- * SE's UnaryChainer finds all TSK hints (among others), but TSK is faster to
- * find this specific pattern, and the explanation of a TSK hint is, IMHO, a
- * bit easier to follow, so one might argue that TSK is a "simpler" hint-type;
- * hence SE now includes the TSK hinter, which you can choose to use, or not.
+ * A TwoStringKite is a basic Unary Chain, so ChainerUnary finds all TSK
+ * hints, among others, but TSK is faster to find this specific pattern,
+ * and TSK hints are easier to follow (IMHO), so one could argue that TSK
+ * is a simpler hint type, hence SE has TSKs. You can choose to use them,
+ * or not.
  * <p>
- * The package name 'sdp' stands for SingleDigitPattern, which is the HoDoKu
- * class that fathered these hinters.
+ * TwoStringKite is used by BruteForce so be VERY careful when ____ing
+ * with it! Breaking TSK is a shooting offence! Performance matters here.
+ * <p>
+ * The package name "sdp" stands for SingleDigitPattern, which is the
+ * HoDoKu class that fathered this hinter.
+ * <p>
+ * Kudos to hobiwan. Mistakes are mine. KRC.
  *
- * @author Keith Corlett Mar 25
+ * @author Keith Corlett 2020-03-25
  */
 public class TwoStringKite extends AHinter {
-
-	/** N is just local shorthand for Grid.REGION_SIZE: 9. */
-	private static final int N = REGION_SIZE;
-
-	/**
-	 * Add each region with two places for v to the pairs array,
-	 * and return how many.
-	 *
-	 * @param regions to find pairs in: grid.rows or grid.cols
-	 * @param v the candidate value
-	 * @param pairs an array-of-pairs to add to
-	 * @return the number of pairs found
-	 */
-	private static int pairs(final ARegion[] regions, final int v
-			, final Cell[][] pairs) {
-		int i = 0;
-		for ( ARegion r : regions )
-			if ( r.ridx[v].size == 2 )
-				r.at(r.ridx[v].bits, pairs[i++]);
-		return i;
-	}
 
 	/**
 	 * Swap positions of pair[0] and pair[1] and return true.
@@ -101,83 +88,75 @@ public class TwoStringKite extends AHinter {
 		return true;
 	}
 
-	private final Cell[][] rowPairs = new Cell[N][2];
-	private final Cell[][] colPairs = new Cell[N][2];
-
+	/**
+	 * Constructor.
+	 */
 	public TwoStringKite() {
 		super(Tech.TwoStringKite);
 	}
 
+	/**
+	 * Search the $grid for TwoStringKiteHints to add to $accu.
+	 * <p>
+	 * TwoStringKite is used in BruteForce, so performance really matters here,
+	 * as does accuracy. Trust the test-cases on this one: if they say you are
+	 * broken then believe them!
+	 *
+	 * @return any hint/s found
+	 */
 	@Override
-	public boolean findHints(final Grid grid, final IAccumulator accu) {
-		Cell[] rp // rowPair: a pair of cells in a row
-			 , cp; // colPair: a pair of cells in a col
-		int i // the ubiqitous index
-		  , v // the current candidate value
-		  , sv // shiftedValue: the bitset representation of v: 1<<(v-1)
+	public boolean findHints(final Grid grid, final IAccumulator accu) {		//    64,271
+		Cell[] rp, cp; // two strings: row/colPair: two places for v in row/col
+		int v // the current candidate value
 		  , r, nRows // rowPair index, number of rowPairs
 		  , c, nCols; // colPair index, number of colPairs
-		// localise fields for speed. I don't deeply understand this, but it
-		// looks like each heap-reference is slower than each stack-reference,
-		// so just putting heap-stuff on the stack saves time, especially in an
-		// "all in one" method like this where each var is used many times.
-		// The cut-off seems to be 3: creating a stack-reference takes about as
-		// long as 2.5 heap-references, so the stack is ahead as long as it's
-		// referenced 3-or-more times, including (especially) in loops.
 		final Row[] rows = grid.rows;
 		final Col[] cols = grid.cols;
-		final Cell[] cells = grid.cells;
 		final int[] maybes = grid.maybes;
-		final Cell[][] rowPairs = this.rowPairs;
-		final Cell[][] colPairs = this.colPairs;
-		// presume that no hint will be found
+		final Cell[][] rowPairs = new Cell[REGION_SIZE][2];
+		final Cell[][] colPairs = new Cell[REGION_SIZE][2];
 		boolean result = false;
 		// foreach possible value in 1..9
-		for ( v=1; v<VALUE_CEILING; ++v ) {
-			sv = VSHFT[v]; // lookup once to save some time, I hope
+		for ( v=1; v<VALUE_CEILING; ++v )										//   543,177
 			// get cell-pairs from rows and cols with two places for v
-			if ( (nRows=pairs(rows, v, rowPairs)) != 0
-			  && (nCols=pairs(cols, v, colPairs)) != 0 ) {
+			if ( (nRows=pairs(rows, v, rowPairs)) > 0							//   442,950
+			  && (nCols=pairs(cols, v, colPairs)) > 0 )							//   399,373
 				// examine each combination of rowPairs and colPairs
-				for ( r=0; r<nRows; ++r ) {
-					rp = rowPairs[r];
-					for ( c=0; c<nCols; ++c ) {
-						cp = colPairs[c];
-						// we seek a rowPair and a colPair having ends in the
-						// same box, but that's 4 possible end-combos, so first
-						// put ends in the same box in ...Pair[0], so the "free
-						// ends" in go in ...Pair[1].
-						if ( (  rp[0].box==cp[0].box // no swaps
-							|| (rp[0].box==cp[1].box && swap(cp))
-							|| (rp[1].box==cp[0].box && swap(rp))
-							|| (rp[1].box==cp[1].box && (swap(rp)|swap(cp))) )
-						  // and there must be no double-ups
-						  && rp[0] != cp[0]
-						  && rp[0] != cp[1]
-						  && rp[1] != cp[0]
-						  && rp[1] != cp[1]
+				for ( r=0; r<nRows; ++r )										//   910,877
+					for ( rp=rowPairs[r],c=0; c<nCols; ++c )					// 2,430,464
+						// we seek a colPair with an end in the same box as the
+						// current rowPair, but there are 4 ends, so we first
+						// put the ends that are in the same box in 0, and the
+						// "free" ends in 1, in both the cp and rp arrays (both
+						// arrays are all mine, so are mutable).
+						// WARN: It goes tits-up if you cache rp attributes.
+						if ( (  rp[0].box==(cp=colPairs[c])[0].box // no swap coz both 0s are already in sameBox
+							|| (rp[0].box==cp[1].box && swap(cp)) // swap cps to make 0 the sameBox end
+							|| (rp[1].box==cp[0].box && swap(rp)) // swap rps to make 0 the sameBox end
+							|| (rp[1].box==cp[1].box && (swap(rp)|swap(cp))) ) // the bitwise-or always swaps both rp and cp, to make both 0s the sameBox ends
+							// so from here-down cp[0].box==rp[0].box; hence cp[1] and rp[1] are the "free ends"
+						  // and each cell is distinct (no double-ups)
+						  && rp[0] != cp[0]										// 1,231,258
+						  && rp[0] != cp[1]										//   674,629
+						  && rp[1] != cp[0]										//   482,895
 						  // found two strong links from a box, so any elims?
-						  // get the y=row of the "free end" of the colPair
-						  // and the x=col of the "free end" of the rowPair
-						  // and if the cell at there intersection maybe v
-						  && (maybes[i=BY9[cp[1].y] + rp[1].x] & sv) != 0
-						) {
-							// FOUND TwoStringKite!
-							result = true;
-							if ( accu.add(new TwoStringKiteHint(this, v
-									, new ARegion[] {rp[0].box} // bases
-									, new ARegion[] {rp[1].row, cp[0].col} // covers
-									, new Pots(rp[1], cp[1], v) // greens
-									, new Pots(rp[0], cp[0], v) // blues
-									, new Pots(cells[i], v) // reds
-									, rp.clone()
-									, cp.clone())) )
-								return result;
-						}
-					}
-				}
-			}
-		}
+						  // we calculate the indice of the victim cell by:
+						  //   y = the row of the "free end" of the colPair
+						  //   x = the col of the "free end" of the rowPair
+						  // and if that cell maybe v, then it is a victim
+						  // nb: caching indice is slower, hit-rate too low.
+						  && (maybes[BY9[cp[1].y]+rp[1].x] & VSHFT[v]) > 0		//   284,523
+						  // FOUND TwoStringKite!
+						  && (result=true)										//     8,515
+						  && accu.add(new TwoStringKiteHint(grid, this, v
+							, new ARegion[] {rp[0].box} // base (the kite)
+							, new ARegion[] {rp[1].row, cp[0].col} // covers (strings)
+							, new Pots(v, rp[1], cp[1]) // greens (hilight)
+							, new Pots(v, rp[0], cp[0]) // blues (hilight)
+							, new Pots(BY9[cp[1].y]+rp[1].x, v) // reds (elims)
+							, rp.clone() // rowPair
+							, cp.clone())) ) // colPair
+							return result;
 		return result;
 	}
 

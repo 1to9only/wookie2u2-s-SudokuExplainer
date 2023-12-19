@@ -17,9 +17,9 @@ Therefore <r>we can remove <b>{4}</b></r>.
 <u>Explanation</u>
 <p>
 The logic is: each pair of ALSs in the chain (A-B, B-C, etc) share a common
-restricted (see below) candidate. If an ALS looses one of it's values then it
+restricted (see below) candidate. If an ALS looses one of it is values then it
 becomes a Locked Set. An ALS may loose ONLY ONE value because it must retain a
-value for each of it's cells, in order for the Sudoku to remain valid.
+value for each of it is cells, in order for the Sudoku to remain valid.
 So when we chain ALSs on there RC-values, we know that each RCC will be in this
 ALS or that ALS; so another value in the receiving ALS is "pushed" into the next
 ALS in the chain, and so on around the chain. They all fall-down like dominoes

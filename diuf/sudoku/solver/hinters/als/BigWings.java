@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.als;
@@ -10,61 +10,59 @@ import diuf.sudoku.Grid;
 import static diuf.sudoku.Grid.BUDDIES;
 import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Idx;
-import static diuf.sudoku.Idx.BITS_PER_ELEMENT;
-import static diuf.sudoku.Idx.BITS_TWO_ELEMENTS;
-import static diuf.sudoku.Idx.IDX_SHFT;
-import diuf.sudoku.IntArrays.IALease;
 import diuf.sudoku.Pots;
+import diuf.sudoku.Run;
 import diuf.sudoku.Tech;
 import static diuf.sudoku.Values.VALUESES;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.solver.accu.IAccumulator;
-import static diuf.sudoku.IntArrays.iaLease;
 
 /**
- * BigWings implements WXYZ_Wing, VWXYZ_Wing, UVWXYZ_Wing, TUVWXYZ_Wing and
- * STUVWXYZ_Wing Sudoku solving techniques, all in one hit.
+ * BigWings implements the {@link Tech#BigWings} Sudoku solving technique, but
+ * my hints are called WXYZ_Wing, VWXYZ_Wing, UVWXYZ_Wing, TUVWXYZ_Wing and
+ * STUVWXYZ_Wing.
  * <p>
- * als.BigWings is a rewrite of wing.BigWing, to eradicate BitIdx's (which was
- * a {@code Set<Cell>} backed by a BitSet, and BitSet's are slow), and use the
- * cached alss array that's available by transplanting me into the als package
- * to extend AAlsHinter, so I can share the cached ALSs.
+ * BigWings owes its existence to the authors of Sukaku, but this code is pure
+ * KRC, loosely based on that in Sukaku (poor code quality), so all mistakes
+ * are mine, and kudos (if any) still belongs to Sukakus author/s, despite the
+ * utter poopyness of there published code.
+ * <p>
+ * als.BigWings is a rewrite of wing.BigWing, to eradicate BitIdxs (which was
+ * a {@code Set<Cell>} backed by a BitSet, and BitSets are slow), and use the
+ * cached ALSs array which is available by extending AAlsHinter; hence the move
+ * from the 'wing' package into the 'als' package.
  * <p>
  * So my defining feature is: I use cached alss-array from AAlsHinter where-as
- * BigWing recurses to find it's own ALSs (faster). Using the cache is faster
- * over-all presuming that you're also using AlsXz, AlsWing, and/or AlsChain,
- * but unfortunately caching the ALSs is the slow-part, so BigWings is slower
- * than all BigWing combined, but still faster over-all presuming that you also
- * want DeathBlossom, ALS_XZ, ALS_Wing, or ALS_Chain.
+ * BigWing recursed to find it is own ALSs (faster). Using the cache is faster
+ * over-all presuming that you are also using DeathBlossom, AlsXz, AlsWing,
+ * and/or AlsChain, but caching the ALSs is slow, so BigWings is slower than
+ * all BigWing combined, but still faster over-all when you use DeathBlossom,
+ * ALS_XZ, ALS_Wing, and/or ALS_Chain in addition to BigWings, which I do.
  * <p>
- * Because I don't find my own ALSs there size doesn't matter. It's more code
- * to limit each hinter to one ALS-size, so I've removed the distinction by
- * introducing Tech.BigWings which I implement, instead of running five
- * instances of BigWings, each limited to a degree.
+ * Because I do not find my own ALSs there size does not matter. Its more code
+ * to limit each hinter to one ALS-size, so I have removed the distinction by
+ * introducing Tech.BigWings which I implement, instead of running 5 instances
+ * of BigWings, each limited to a degree.
  * <p>
- * BigWings (this or individual) finds all AlignedPair, and all bar one-or-two
- * AlignedTriple and AlignedQuad, plus many other hints besides; and all-this
- * is MUCH faster than my aligned debacle. I'm pretty chuffed about it!
+ * BigWings finds all AlignedPair, and all bar one-or-two AlignedTriple and
+ * AlignedQuad, plus I-know-not-what others besides. BigWings is MUCH faster
+ * than my AlignedExclusion debacle. I am a bit chuffed about BigWings!
  * <p>
- * <b>NOTE</b> individual BigWing's are faster, but BigWings is faster overall
- * because most of my time is spent building the ALS cache shared with AlsXz,
- * AlsWing, etc. I've done my best to make it as fast as possible. sigh.
  * <pre>
- * KRC 2021-06-02 And FMS it's actually slower than the old BigWing hinter!
+ * KRC 2021-06-02 BigWings is slower than the old (now dead) BigWing.
  * BEFORE: independant S/T/U/V/WXYZ-Wing hinters
- *     386,083,800  12362   31,231   886     435,760 WXYZ-Wing
- *     516,803,600  11803   43,785   881     586,610 VWXYZ-Wing
- *     636,373,100  11346   56,087   387   1,644,374 UVWXYZ-Wing
- *     521,475,600  11151   46,764    86   6,063,669 TUVWXYZ-Wing
- *     275,114,200  11102   24,780     4  68,778,550 STUVWXYZ-Wing
- *   2,335,850,300                  2244             total
- * AFTER: BigWings finds a few more (XY_Wing's), but takes twice as long. sigh.
- *   5,011,710,900  12357  405,576  2260   2,217,571 Big-Wings
+ *   386,083,800 12362 31,231  886    435,760 WXYZ-Wing
+ *   516,803,600 11803 43,785  881    586,610 VWXYZ-Wing
+ *   636,373,100 11346 56,087  387  1,644,374 UVWXYZ-Wing
+ *   521,475,600 11151 46,764   86  6,063,669 TUVWXYZ-Wing
+ *   275,114,200 11102 24,780    4 68,778,550 STUVWXYZ-Wing
+ * 2,335,850,300              2244
+ * AFTER: BigWings finds a few more (XY_Wings), but takes twice as long. sigh.
+ * 5,011,710,900 12357 405,576 2260 2,217,571 Big-Wings
  * Note this code is (probably) fine, but getAlss in AAlsHinter is slower than
- * BigWing's iterating sets to build sets, because it skips whole sets.
+ * BigWings iterating sets to build sets, because it skips whole sets.
  *
  * KRC A BIT LATER: I replaced Collections in AAlsHinter with fixed-size arrays
- *   3,630,083,800  12354  293,838  2262   1,604,811 Big-Wings
+ * 3,630,083,800 12354 293,838 2262 1,604,811 Big-Wings
  * still slower than BigWing but improving; also speeds-up AlsXz, AlsWing, etc
  *
  * KRC 2021-06-03 Reverted getAlss to use an AlsSet, because iteration STILL
@@ -79,16 +77,16 @@ import static diuf.sudoku.IntArrays.iaLease;
  * other getAlss   =   256,016,800 and we need to cache ALSs somewhere
  *
  * KRC 2021-06-04 still speeding things up.
- *   3,706,021,200  12039  307,834  2210  1,676,932  Big-Wings
- *   3,712,255,500  12254  302,942  2210  1,679,753  Big-Wings 06-04.11-19-16
- *   3,699,850,100  12128  305,066  2195  1,685,580  Big-Wings 06-06.16-28-20
+ * 3,706,021,200 12039 307,834 2210 1,676,932 Big-Wings
+ * 3,712,255,500 12254 302,942 2210 1,679,753 Big-Wings 06-04.11-19-16
+ * 3,699,850,100 12128 305,066 2195 1,685,580 Big-Wings 06-06.16-28-20
  *
  * KRC 2021-06-17 RecursiveAlsFinder (used by AAlsHinter) now implements the
  * recursive ALS finding technique used by the BigWing class, which came from
- * Juillerat, but I think it originally came from SudokuMonster. It's about as
- * fast as the iterative AlsFinder, so I'm using it, but it's pretty close, and
- * finding ALS's is the fast part; finding the RCC's in numAlss*numAlss is the
- * expensive bit, and I've done my very best to expedite that process in the
+ * Juillerat, but I think it originally came from SudokuMonster. It is about as
+ * fast as the iterative AlsFinder, so I am using it, but its pretty close, and
+ * finding ALSs is the fast part; finding the RCCs in numAlss*numAlss is the
+ * expensive bit, and I have done my very best to expedite that process in the
  * RccFinder class, which is now "fully-optimised" until I think of something
  * else to ____around with. The hunter, endlessly seeking.
  *
@@ -96,12 +94,28 @@ import static diuf.sudoku.IntArrays.iaLease;
  * contains O(1), which is about half a second faster over top1465. Gee wow.
  *
  * KRC 2021-12-03 10:05:11 Just updating comparative timings.
- *   2,767,546,000  11471  241,264  2079  1,331,190  BigWings
+ * 2,767,546,000 11471 241,264 2079 1,331,190 BigWings
  *
  * KRC 2021-12-17 Removed eliminate and createHints methods.
  *
- * KRC 2021-12-25 Just use als.vBuds; don't reinvent the bloody wheel. Sigh.
- *   2,535,250,600  11513  220,207  2076  1,221,218  BigWings (with COUNTS)
+ * KRC 2021-12-25 Just use als.vBuds; do not reinvent the bloody wheel. Sigh.
+ * 2,535,250,600 11513 220,207 2076 1,221,218 BigWings (with COUNTS)
+ *
+ * KRC 2023-06-28 Cleaner als.vBuds[x].has(b) is slower. Dont care!
+ * 4,699,406,000 12785 367,571 2153 2,182,724 BigWings
+ * 5,543,142,400 12785 433,566 2153 2,574,613 BigWings 2023-06-29.06-40-05
+ *
+ * KRC 2023-07-01.17-22-30 Exploded als.vBudsX for speed. Turns out I do care.
+ * 3,781,051,400 12785 295,741 2153 1,756,178 BigWings
+ *
+ * KRC 2023-07-10 exploded idx ops, so no stackwork til we hint, for speed!
+ * but FMS its slower, but I keep it anyway, to let it "bed in". Sigh. I guess
+ * the extra variables take longer to create than they save in millions of ops.
+ * PRE: 4,238,029,000 12788 331,406 2154 1,967,515 BigWings
+ * PST: 4,271,741,300 12788 334,042 2154 1,983,166 BigWings
+ *
+ * KRC 2023-08-03 09:30 each elim was spuriously anding idxs[value].
+ * PST: 4,088,754,000 12572 325,227 2168 1,885,956 BigWings
  * </pre>
  *
  * @author Keith Corlett 2021-06-02
@@ -111,156 +125,188 @@ public class BigWings extends AAlsHinter
 {
 //	@Override
 //	public void report() {
-//		diuf.sudoku.utils.Log.teeln("BigWings: COUNTS="+java.util.Arrays.toString(COUNTS));
+//		diuf.sudoku.utils.Log.teeln(""+tech.name()+": COUNTS="+java.util.Arrays.toString(COUNTS));
 //	}
-	// counterintuitively, it's faster incrementing COUNTS that go unreported,
-	// which begs the question "Why?", to which I have no answer, coz I'm an
-	// idiot. Mine is not to reason why, mine is just to do it faster.
-	private static final long[] COUNTS = new long[4];
-
-	// the victims, if any
-	private static final Idx VICTIMS = new Idx();
-
-	// removable (red) potentials, if any
-	private static final Pots REDS = new Pots();
+//	private static final long[] COUNTS = new long[12];
 
 	/**
 	 * BigWings is an AAlsHinter to get access to the cached alss array.
-	 * allowNakedSets true: getAlss includes cells that're in NakedSets.
+	 * allowNakedSets true: getAlss includes cells that are in NakedSets.
 	 * BigWings does NOT getRccs (I use the alss-only).
 	 */
 	public BigWings() {
-		super(Tech.BigWings, true);
+		super(Tech.BigWings);
 	}
 
-	// this "custom" findHints is called by AAlsHinter.findHints
 	@Override
-	protected boolean findAlsHints(final Grid grid
-			, final Als[] alss, final int numAlss
-			, final Rcc[] rccs, final int numRccs
-			, final IAccumulator accu) {
-		// ANSI-C style: ALL variables are predeclared, so no more stackwork!
-		Idx[] alsVBuds; // als.vBuds: common buddies of v's in this ALS
+	public void setFields(Grid grid) {
+		this.grid = grid;
+		maybes = grid.maybes;
+		cells = grid.cells;
+	}
+
+	@Override
+	public void clearFields() {
+		grid = null;
+		maybes = null;
+		cells = null;
+	}
+
+	/**
+	 * This "custom" findHints is called by {@link AAlsHinter#findHints}.
+	 * <p>
+	 * The Abstract ALS Hinter fetches and caches the alss and rccs centrally,
+	 * then calls the findAlsHints in its subtype to find many types of hints
+	 * in those alss: BigWings, DeathBlossom, AlsXz, AlsWing, and AlsChain.
+	 * Note that the alss and rccs are cached in static permanent arrays, so
+	 * neither Als nor Rcc can hold a Cell (or any Grid artifact), just Idxs.
+	 * <p>
+	 * I find BigWings hints. A BigWing is S/T/U/V/WXYZ-Wing, by which I mean:
+	 * <pre>
+	 * WXYZ-Wing is 3 cells (4 values) in an ALS and a bivalue "stem" cell
+	 * VWXYZ-Wing is 4 cells (5 values) in an ALS ...
+	 * UVWXYZ-Wing is 5 cells (6 values) in an ALS ...
+	 * TUVWXYZ-Wing is 6 cells (7 values) in an ALS ...
+	 * STUVWXYZ-Wing is 7 cells (8 values) in an ALS ...
+	 * </pre>
+	 * BigWings are named for the values in the ALS, so WXYZ-Wing is on an ALS
+	 * of 3 cells with 4 values. Each value is ascribed a name: w, x, y, and z.
+	 * Likewise for each extra value.
+	 * <p>
+	 * Note that 7 cells is far as we can go with 9 cells in a region. I dont
+	 * really understand why. Ask a smart bastard. What I can tell you is that
+	 * 8 wastes time, rather a lot of it, to find diddly-squat. Sigh.
+	 *
+	 * @return where any hint/s found
+	 */
+	@Override
+	protected boolean findAlsHints() {											//     13,075
+		// fastard: predeclare ALL vars -> no stackwork til we hint -> speed!
+		Idx[] vBuds; // als.vBuds: common buddies of vs in this ALS
+		Idx t0,t1; // fastard: temp Idx pointers for inline idx ops-> speed!
 		Als als; // the Almost Locked Set: N cells sharing N+1 maybes
-		int i // the als index
+		boolean[][] vBudsB; // fastard: do hammered "has" operation AFAP!
+							// als.vBudsB: boolean common buddies of vs in ALS
+		long vc0; int vc1; // victims Exploded Idx
+		int wa[], wn, wi, w // weak values array, number of, index, value
+		  , i // the als index
 		  , alsMaybes // als.maybes: a bitset of the values in this ALS
 		  , j // the current index in biva/MAYBES
 		  , b // indice of the bivalue cell
+		  // WARN: I evidently do NOT understand roles of x and z values,
+		  // but hobiwans code works anyway, so I advise dont ____ with it!
 		  , x // the primary (mandatory) link value
 		  , z // the secondary (optional) link value
-		  , bivMaybes // the candidates of the current bivalue cell
-		  , tmp; // a temporary variable: set, read and forget.
-		boolean xWing // do all x's in the als see the biv?
-		  , zWing // do all z's in the als see the biv?
+		  , bivs // the candidates of the current bivalue cell
+		  , tmp // a temporary variable: set, read and forget.
+		  // fastard: inline Idx ops -> no stackwork till we hint -> speed!
+		;
+		boolean xWing // do all xs in the als see the biv?
+		  , zWing // do all zs in the als see the biv?
 		  , both // xWing & zWing, ie is this wing double-linked?
 		  , zStrong // are there any strong eliminations on z?
 		  , xStrong // are there any strong eliminations on x?
 		  , weak // are there any weak elims (from the ALS only)?
 		  , any // are there ANY eliminations?
-		  ;
-		// presume that no hints will be found
-		boolean result = false;
-		// get bivalue indices ONCE (not foreach ALS), and get a lease over an
-		// array there-of.
-		// we "use" a lease so that it's close returns the array to the pool
-		try ( final IALease iLease = grid.getBivalue().toArrayLease();
-			  final IALease mLease = iaLease(iLease.array.length) ) {
-			// a right-sized array of indices of bivalue cells
-			final int[] bivArray = iLease.array;
-			final int numBivs = bivArray.length;
-			if(numBivs==0) return false; // happens in Shft-F5 only
-			final int lastBivIndex = numBivs - 1; // the last j.
-			// a right-sized array of maybes of bivalue cells
-			final int[] maybesArray = mLease.array;
-			// read bivMaybesArray from grid.cells at bivArray
-			grid.maybes(bivArray, maybesArray);
-			// foreach ALS (Almost Locked Set: N cells sharing N+1 maybes)
-			for ( i=0; i<numAlss; ++i ) {
-				// foreach bivalue cell
-				for ( alsMaybes=(als=alss[i]).maybes,alsVBuds=als.vBuds,j=0; ; ) {
-					// bivMaybes!=0 averts VFIRST[0]->33->AIOOBE in Generator.
-					// I'll NEVER understand what's going on in the Generator.
-					if ( (bivMaybes=maybesArray[j]) != 0
-					  // and this bivalue cell shares both values with this ALS
-					  && (alsMaybes & bivMaybes) == bivMaybes ) {
-++COUNTS[0]; // 16,010,801
-					    // read x and z values from biv.maybes
-						x = VALUESES[bivMaybes][0]; // the lower
-						z = VALUESES[bivMaybes][1]; // the higher
-						// calculate xWing := als.vBuds[x].has(b)
-						//       and zWing := als.vBuds[z].has(b)
-						if ( (b=bivArray[j]) < BITS_PER_ELEMENT ) {
-							xWing = (alsVBuds[x].a0 & IDX_SHFT[b]) != 0;
-							zWing = (alsVBuds[z].a0 & IDX_SHFT[b]) != 0;
-						} else if ( b < BITS_TWO_ELEMENTS ) {
-							tmp = IDX_SHFT[b-BITS_PER_ELEMENT];
-							xWing = (alsVBuds[x].a1 & tmp) != 0;
-							zWing = (alsVBuds[z].a1 & tmp) != 0;
-						} else {
-							tmp = IDX_SHFT[b-BITS_TWO_ELEMENTS];
-							xWing = (alsVBuds[x].a2 & tmp) != 0;
-							zWing = (alsVBuds[z].a2 & tmp) != 0;
+		;
+		boolean result = false; // presume no hints will be found
+		final Pots reds = new Pots(); // eliminations if any
+		// get an array of indices of all bivalue cells in grid.
+		// nb: Generator force-fetches getBivalue (grid changes underneath).
+		final int[] bivArray = grid.getBivalue(Run.isGenerator()).toArrayNew();
+		final int bivN = bivArray.length; // number of bivAarray
+		if ( bivN < 1 )
+			return result; // Shft-F5 Sux!
+		// foreach ALS (Almost Locked Set: N cells sharing N+1 maybes)
+		i = 0;
+		do {																	//  3,044,735
+			als = ALSS[i];
+			vBuds = als.vBuds; // idx of buddies of vs in ALS
+			vBudsB = als.vBudsB; // vBuds in a boolean array for speed
+			alsMaybes = als.maybes; // bitset of potential values
+			// foreach bivalue cell (has two maybes); biv for short
+			j = 0;
+			do {																// 42,687,392
+				// get biv.maybes
+				bivs = maybes[bivArray[j]];
+				// if this biv shares both maybes with this ALS
+				if ( (alsMaybes & bivs) == bivs ) {								// 18,349,274
+					// read x (lower) and z (higher) values from biv.maybes
+					x = VALUESES[bivs][0];
+					z = VALUESES[bivs][1];
+					// get biv.indice
+					b = bivArray[j];
+					// calculate xWing := alss[i].vBuds[x].has(b)
+					//       and zWing := alss[i].vBuds[z].has(b)
+					// ie do all xs/zs in this ALS see this bivalue cell?
+					// SPEED: Als.vBudsB is just cheating! Weez likes it!
+					// if biv is a common bud of this ALS on x, z, or both
+					if ( (xWing=vBudsB[x][b]) | (zWing=vBudsB[z][b]) ) {		//  1,140,004
+						// this ALS+biv form a BigWing; but any elims?
+						// if z ONLY swap x and z, to make z primary value.
+						// WARN: Noncomprendez x and z role swapping!!!
+						if ( !xWing ) { // 273,713
+							tmp = x;
+							x = z;
+							z = tmp;
 						}
-						// if either-or-both x and z values are linked to ALS
-						if ( xWing | zWing ) {
-++COUNTS[1]; // 1,006,876
-							// this ALS+biv form a BigWing; but any elims?
-							// if zWing ONLY then z is primary
-							if ( !xWing ) {
-								tmp = x;
-								x = z;
-								z = tmp;
-							}
-							// seek strong elims on z
-							any = zStrong = VICTIMS.setAndAny(grid.idxs[z], BUDDIES[b], alsVBuds[z])
-										 && REDS.upsertAll(VICTIMS, grid, z);
-							// if both x and z are linked
-							if ( both = xWing & zWing ) {
-++COUNTS[2]; // 515,419
-								// get indices of each value 1..9 in the Grid.
-								final Idx[] idxs = grid.idxs;
-								// seek strong elims on x
-								any |= xStrong = VICTIMS.setAndAny(idxs[x], BUDDIES[b], alsVBuds[x])
-											  && REDS.upsertAll(VICTIMS, grid, x);
-								// seek weak elims on als.maybes ^ biv.maybes
-								weak = false;
-								for ( int w : VALUESES[alsMaybes ^ bivMaybes] ) {
-++COUNTS[3]; // 1,703,938
-									any |= weak |= VICTIMS.setAndAny(idxs[w], alsVBuds[w])
-												&& REDS.upsertAll(VICTIMS, grid, w);
-								}
-								// if this wing has no weak-links
-								if ( !weak ) {
-									// double linked = xStrong & zStrong
-									both = xStrong & zStrong;
-									// no z's means z is now x (primary link).
-									if ( !zStrong ) {
-										tmp = x;
-										x = z;
-										z = tmp;
-									}
+						// seek strong elims on z (the primary link)
+						// strong elims are zs seeing biv and all zs in ALS
+						// fastard: inlined all Idx ops, for speed, so the
+						// search run sans invocations til we hint (rare).
+						any = zStrong = ( (vc0=(t0=BUDDIES[b]).m0 & (t1=vBuds[z]).m0)
+										| (vc1=t0.m1 & t1.m1) ) > 0
+						  && reds.upsertAll(vc0,vc1, maybes, VSHFT[z], DUMMY);
+						// if both x and z are linked
+						if ( both = xWing & zWing ) {							//    581,893
+							// seek strong elims on x (the secondary link)
+							// fastard: t0 is already set to BUDDIES[b]
+							any |= xStrong = ( (vc0=t0.m0 & (t1=vBuds[x]).m0)
+											 | (vc1=t0.m1 & t1.m1) ) > 0
+							  && reds.upsertAll(vc0,vc1, maybes, VSHFT[x], DUMMY);
+							// seek weak elims on als.maybes ^ biv.maybes
+							//                 ie maybes only in this ALS
+							// weak elims are ws seeing all ws in ALS
+							weak = false;
+							wa = VALUESES[alsMaybes^bivs];
+							wn = wa.length;
+							wi = 0;
+							do {												// 1,951,859
+								any |= weak |= ((t1=vBuds[w=wa[wi]]).m0 | t1.m1) > 0
+								  && reds.upsertAll(vBuds[w], maybes, VSHFT[w], DUMMY);
+							} while (++wi < wn);
+							// if this wing has no weak-links
+							if ( !weak ) {										//    581,737
+								// double linked = xStrong & zStrong
+								both = xStrong & zStrong;
+								// no zs means swap x and z, to
+								// make x the primary link value.
+								if ( !zStrong ) {								//    581,719
+									tmp = x;
+									x = z;
+									z = tmp;
 								}
 							}
-							if ( any ) {
-								// FOUND a BigWing
-								result = true;
-								final Pots reds = REDS.copyAndClear();
-								final Cell biv = grid.cells[b]; // bivalue cell
-								final Cell[] alsCells = als.idx.cellsNew(grid.cells);
-								final Pots oranges = new Pots(alsCells, x);
-								oranges.put(biv, VSHFT[x]);
-								// NB: x and z are reversed. Umm. You fix it.
-								if ( accu.add(new BigWingsHint(this, reds, biv
-										, z, x, both, als, alsCells, oranges)) )
-									return result;
+						}
+						if ( any ) { // 1,213
+							// FOUND a BigWing
+							result = true;
+							final Cell[] alsCells = als.idx.cellsNew(cells);
+							final Pots oranges = new Pots(alsCells, x);
+							oranges.put(b, VSHFT[x]);
+							// WARN: x and z are reversed. You fix it!
+							// Evidently I do NOT understand there roles!
+							if ( accu.add(new BigWingsHint(grid, this
+							    , reds.copyAndClear()
+								, cells[b] // bivalue cell
+								, z, x, both, als, alsCells, oranges)) ) {
+								return result;
 							}
 						}
 					}
-					if ( ++j > lastBivIndex )
-						break;
 				}
-			}
-		}
+			} while (++j < bivN);
+		} while (++i < numAlss);
 		return result;
 	}
 

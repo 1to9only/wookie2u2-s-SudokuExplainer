@@ -1,17 +1,21 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.utils;
 
 import static diuf.sudoku.utils.Frmt.NL;
+import static diuf.sudoku.utils.MyStrings.SB;
 import java.io.PrintStream;
 import java.math.BigInteger;
 import java.util.Iterator;
 
 /**
+ * NOTE: Permuter is now SEs preferred method of Permutation (simpler).
+ * Permutations deprecated. Retain combinations method: VERY nice!
+ *
  * A generator of binary permutations, ie all distinct possible combinations.
  * <p>
  * Given a degree <tt>nOnes</tt> and a length <tt>nBits</tt>, where
@@ -26,20 +30,21 @@ import java.util.Iterator;
  * been populated with the next possible combination of 'nOnes' in 'nBits'.
  * <p>
  * <b>For example:</b>
- * {@code
- * final int nOnes = 3; // the number of elements in a combination
+ * <pre>{@code
+ * final String NL = System.lineSeparator();
+ * final StringBuilder sb = SB(256);
+ * final int nOnes = 3; // the number of elements in a permutation
  * final int nBits = 5; // the size of the master Set
  * final int[] array = new int[nOnes]; // working storage
- * // note that nOnes is taken from the array.length
- * Permutations permutations = new Permutations(nBits, array);
- * StringBuilder sb = new StringBuilder(256);
- * for ( int[] permutation : permutations )
- *     permutations.appendBinaryString(sb, permutation)
- *             .append(System.lineSeparator());
+ * // Permutations takes nOnes (size of each perm) from the array.length.
+ * // the array returned by the iterator is this one, just repopulated.
+ * final Permutations perms = new Permutations(nBits, array);
+ * for ( int[] perm : perms ) // Permutations is Iterable<int[]>
+ *     Permutations.appendBinaryString(sb, perm).append(NL);
  * System.out.println(sb);
- * }
+ * }</pre>
  * generates the following binary numbers:
- * {@code
+ * <pre>{@code
  * 00111
  * 01011
  * 01101
@@ -50,21 +55,17 @@ import java.util.Iterator;
  * 11001
  * 11010
  * 11100
- * }
- * Code adapted from "Hacker's Delight" by Henry S. Warren,
+ * }</pre>
+ * Code adapted from:
+ * Henry S Warren Jr, Hacker's Delight, (Addison Wesley, 2002)
  * ISBN 0-201-91465-4
- * <p>
- * IF YOU'RE STEALING THIS CLASS: SPLIT THE CONSTRUCTOR INTO 2. THE ORIGINAL
- * (NO LONGER USED) TOOK nOnes and nBits, I SHOULD HAVE TAKEN nBits and array,
- * BUT I WAS TOO DUMB. AND REMOVE THIS COMMENT.
- *
  */
 public final class Permutations implements Iterable<int[]> {
 
-	public final int nBits;
-	public final int nOnes;
+	public final int nBits; // size of the master set
+	public int nOnes; // size of each permutation
 	public final long mask;
-	public final int[] array;
+	public int[] array;
 
 	/** public readonly access please */
 	public boolean isLast;
@@ -102,9 +103,39 @@ public final class Permutations implements Iterable<int[]> {
 		this.isLast = (nBits == 0);
 	}
 
-	// sneeky fazeekie to use this class with the original code.
-	public Permutations(int nOnes, int nBits) {
-		this(nBits, new int[nOnes]);
+	/**
+	 * This Constructor does NOT set the array, so you cannot use the standard
+	 * iterator (unless you setArray), but you could use {@link #longIterator}
+	 * instead.
+	 *
+	 * @param sizeOfMasterSet the number of elements in the master set
+	 * @param permutationSize the number of elements in each permutation
+	 */
+	public Permutations(int sizeOfMasterSet, int permutationSize) {
+		if (sizeOfMasterSet < 0) // 0 just means the master list is empty, so do nothing
+			throw new IllegalArgumentException("nBits < 1");
+		if (sizeOfMasterSet > 64)
+			throw new IllegalArgumentException("nBits "+sizeOfMasterSet+" > 64");
+		this.nBits = sizeOfMasterSet;
+		this.nOnes = permutationSize;
+		// constant attributes
+		this.mask = (1L << (sizeOfMasterSet - permutationSize)) - 1;
+		this.array = null;
+		// mutable attributes
+		this.value = (1 << permutationSize) - 1;
+		this.isLast = (sizeOfMasterSet == 0);
+	}
+
+	/**
+	 * Reset the iterator cursor back to the first permutation.
+	 *
+	 * @return this as an {@code Iterable<int[]>}.
+	 */
+	public Permutations reset() {
+		// reset the mutable attributes
+		this.value = (1 << nOnes) - 1;
+		this.isLast = (nBits == 0);
+		return this;
 	}
 
 	/** @return Are there more permutations available? */
@@ -118,7 +149,7 @@ public final class Permutations implements Iterable<int[]> {
 	 * Returns the next possible combination of nOnes elements in nBits.
 	 *
 	 * @return the next permutation.
-	 * Use <tt>Long.toBinaryString(perms.next())</tt> to see what's going on.
+	 * Use <tt>Long.toBinaryString(perms.next())</tt> to see what is going on.
 	 */
 	public long next() {
 		if ( isLast )
@@ -135,26 +166,92 @@ public final class Permutations implements Iterable<int[]> {
 	}
 
 	/**
+	 * Returns next(); else 0L at EOF.
+	 * <p>
+	 * I am
+	 *
+	 * @return
+	 */
+	public long poll() {
+		// EXPLODE: return isLast() ? 0L : next();
+		// isLast()
+		boolean last = isLast;
+		isLast = ((value & -value) & mask) == 0;
+		if ( last )
+			return 0L;
+		// next()
+		if ( isLast )
+			return value;
+		// calculate the next value
+		// remember this value to return
+		final long v = value;
+		final long smallest = v & -v;
+		final long ripple = v + smallest;
+		final long ones = smallest==0 ? 0 : ((v ^ ripple) >>> 2) / smallest;
+		value = ripple | ones;
+		// return this value
+		return v;
+	}
+
+	/**
+	 * Read bits into result array; that is read the index of each Set (1) bit
+	 * in 'bits' into the 'result' array, stopping when 'result' is full, so
+	 * bits MUST contain atleast result.length set bits; else there is trouble.
+	 *
+	 * @param bits
+	 * @param result
+	 * @return the 0-based indexes of the bits that are set to one.
+	 */
+	public static int[] toPermArray(final long bits, final int[] result) {
+		for ( int i=0,cnt=0,size=result.length; cnt<size; ++i )
+			if ( (bits & (1L<<i)) != 0 ) // Bit 'i' is set
+				result[cnt++] = i;
+		return result;
+	}
+
+	/**
 	 * Get the next binary permutation as an array
 	 * of bit indexes.
 	 * @return the 0-based indexes of the bits that are set
 	 * to one.
 	 */
 	public int[] nextAsArray() {
-		final long bits = next();
-		for ( int i=0,cnt=0; i<nBits; ++i )
-			if ( (bits & (1L<<i)) != 0 ) // Bit 'i' is set
-				array[cnt++] = i;
+//		return toPermArray(next(), array);
+//		final long bitset = next();
+		final long bitset;
+		if ( isLast ) {
+			bitset = value;
+		} else {
+			// return this value
+			bitset = value;
+			// calculate the next value
+			final long smallest = bitset & -bitset;
+			final long ripple = bitset + smallest;
+			final long ones;
+			if ( smallest == 0 )
+				ones = 0;
+			else
+				ones = ((bitset ^ ripple) >>> 2) / smallest;
+			value = ripple | ones;
+		}
+		for ( int bit=0,i=0,n=array.length; i<n; ++bit )
+			if ( (bitset & (1L<<bit)) != 0 ) // Bit 'i' is set
+				array[i++] = bit;
 		return array;
 	}
 
-	@Override
-	public final Iterator<int[]> iterator() {
-		return new Iterator<int[]>() {
+	/**
+	 * Returns a new LongIterator over each possible combination in this
+	 * Permutations.
+	 *
+	 * @return
+	 */
+	public final LongIterator longIterator() {
+		return new LongIterator() {
 			@Override
 			public boolean hasNext() { return Permutations.this.hasNext(); }
 			@Override
-			public int[] next() { return Permutations.this.nextAsArray(); }
+			public long next() { return Permutations.this.next(); }
 			@Override
 			public void remove() { throw new UnsupportedOperationException("Permutations is an immutable set."); }
 		};
@@ -167,7 +264,7 @@ public final class Permutations implements Iterable<int[]> {
 		out.print(nBits);
 		out.print(":");
 		out.print(NL);
-		StringBuilder sb = new StringBuilder(nBits*2);
+		StringBuilder sb = SB(nBits<<1);
 		int count = 0;
 		for ( int[] perm : new Permutations(nBits, new int[nOnes]) ) {
 			sb.setLength(0);
@@ -181,7 +278,7 @@ public final class Permutations implements Iterable<int[]> {
 		return count;
 	}
 
-	// =============== main method exercises Permutations class ===============
+	// ========================================================================
 
 	public static StringBuilder appendBinaryString(StringBuilder sb, int[] perm, int nBits) {
 		// convert the perm back into long bits
@@ -201,7 +298,7 @@ public final class Permutations implements Iterable<int[]> {
 	/**
 	 * Returns factorial(i) which is 1+2+3...+i
 	 * @param i to calculate: 0 >= i &lt;= Integer.MAX_VALUE depending mainly
-	 * upon how long you're willing to wait.
+	 * upon how long you are willing to wait.
 	 * @return 1+2+3...+i
 	 */
 	public static int fak(int i) {
@@ -216,21 +313,21 @@ public final class Permutations implements Iterable<int[]> {
 	 * For 7 cells in 62 candidates nOnes is 7, nBits is 62.
 	 * <p>
 	 * The count method is private. Use combinations instead, especially in
-	 * production code. It's fast. This is slow.
+	 * production code. It is fast. This is slow.
 	 *
 	 * @param nOnes the number of elements in the permutations to produce.
 	 * @param nBits the size of the master set.
 	 * @return the number of distinct permutations of $degree in $numCandidates.
-	 * @deprecated prefer combinations(k, n) calculates n over k. It's faster.
+	 * @deprecated prefer combinations(k, n) calculates n over k. It is faster.
 	 */
 	@Deprecated
 	private static long count(int nOnes, int nBits) {
 		assert nOnes>0 && nOnes<11; // was 10, I wonder why?
 		assert nBits>=nOnes && nBits<65;
-		// This verion is a lot faster because it's doing a LOT less work, like
+		// This verion is a lot faster because it is doing a LOT less work, like
 		// not uselessly reading the values of into an array. No variables are
-		// created in the loop, and there's zero method calls. This works when
-		// nBits=64, but it's still too slow: nearly 2 hours for (10,62)
+		// created in the loop, and there is zero method calls. This works when
+		// nBits=64, but it is still too slow: nearly 2 hours for (10,62)
 		final long mask = (1L << (nBits - nOnes)) - 1;
 		long bits, smallest, ripple, ones; // were final longs declared in loop
 		long cnt = 0L; // (8,59) overflows an int!
@@ -243,7 +340,7 @@ public final class Permutations implements Iterable<int[]> {
 			ones = smallest==0 ? 0 : ((bits ^ ripple) >>> 2) / smallest;
 			value = ripple | ones;
 			++cnt;
-			// we're done when there is no next value
+			// we are done when there is no next value
 		} while (((value & -value) & mask) != 0);
 		// 1 permutation is reported as 1, but all others are 1 low.
 		// I fear that the iterator might be likewise missing a combo!
@@ -252,13 +349,13 @@ public final class Permutations implements Iterable<int[]> {
 
 	/*
 	 * LICENCE: The combinations method was boosted from HoDoKu's SudokuUtil
-	 * class. I presume it's OK to modify GNU GPL code under the LGPL licence.
+	 * class. I presume it is OK to modify GNU GPL code under the LGPL licence.
 	 * IIRC, this code originates from "The Hackers Cookbook", but the name of
-	 * it's author has coopted my towel. I have not modified it (much).
+	 * it is author has coopted my towel. I have not modified it (much).
 	 *
 	 * http://sourceforge.net/projects/hodoku/files/
 	 *
-	 * Here's hobiwans standard licence statement:
+	 * Here is hobiwans standard licence statement:
 	 *
 	 * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	 *
@@ -279,18 +376,18 @@ public final class Permutations implements Iterable<int[]> {
 	 */
 
 	/**
-	 * Calculates the number of possible combinations of k elements, in a
-	 * master-list of size n, ergo {@code fakN / (fakNMinusK * fakK)}
+	 * Calculates the number of possible combinations of k elements, in
+	 * a master-list of size n, ergo {@code fakN / (fakNMinusK * fakK)}.
+	 * Where fak means factorial (obviously, sigh).
 	 * <p>
-	 * Rodney's other party, at the faka whackers club, where fak means
-	 * factorial, obviously.
-	 * <p>
-	 * You can use this to limit k and n to the maximum time you are willing to
-	 * wait. Use combinations to estimate how long it'll take to iterate k in n
-	 * and limit k, n, or both.
+	 * You can use combinations to estimate how long it will take to iterate
+	 * k in n elements; and place limits on k, n, or both. Your limits are
+	 * totally dependant on how long your processing of each element takes.
+	 * Generally it is better to cap both factors. There is sample output of
+	 * combinations in the bottom of this file.
 	 * <pre>{@code
 	 * assert combinations(nOnes, nBits) < Integer.MAX_VALUE
-	 *         : "Permutations("+nOnes+", "+nBits+") time-out!";
+	 *         : "Permutations("+nOnes+", "+nBits+") too big!";
 	 * }</pre>
 	 * to make it throw at (10, 44) which takes 34.151 seconds, so expect
 	 * it to take atleast 100 seconds JUST to iterate them all... try it!
@@ -301,7 +398,7 @@ public final class Permutations implements Iterable<int[]> {
 	 *
 	 * @param k the number of elements in each combination (nOnes)
 	 * @param n the size of the master list (nBits), so we seek all possible
-	 *  combinations of 'k' elements in a master list of 'n' elements
+	 *  combinations of 'k' elements in a master list of 'n' size
 	 * @return {@code (int)(fakN / (fakNMinusK * fakK));} where fak means
 	 *  factorial.
 	 */
@@ -358,7 +455,7 @@ public final class Permutations implements Iterable<int[]> {
 	}
 
 	/**
-	 * Produces a line of below format, so you can see what's going on:
+	 * Produces a line of below format, so you can see what is going on:
 	 * <pre><tt>
 	 * 1111111111__________________________________
 	 * 111111111_1_________________________________
@@ -385,14 +482,14 @@ public final class Permutations implements Iterable<int[]> {
 	 * ...
 	 * <tt></pre>
 	 * <p>
-	 * Note that there's no extraneous white-space, newlines or the like.
+	 * Note that there is no extraneous white-space, newlines or the like.
 	 * @param perm the permutation to format
 	 * @param n numBits: the size of the master set
 	 * @return a String. For example:
 	 * <tt>"1_11111111_1________________________________"</tt>
 	 */
 	public static String format(int[] perm, int n) {
-		StringBuilder sb = new StringBuilder(n);
+		StringBuilder sb = SB(n);
 		// convert the perm back into long bits
 		final long bits = toLong(perm);
 		// build the string in the sb
@@ -401,13 +498,74 @@ public final class Permutations implements Iterable<int[]> {
 		return sb.toString();
 	}
 
+	@Override
+	public final Iterator<int[]> iterator() {
+		return new MyIterator();
+	}
+
+	private class MyIterator implements Iterator<int[]> {
+		@Override
+		public boolean hasNext() {
+			boolean result = !isLast;
+			isLast = ((value & -value) & mask) == 0;
+			return result;
+		}
+		@Override
+		public int[] next() {
+			final long bitset;
+			if ( isLast )
+				bitset = value;
+			else {
+				// remember this value
+				final long v = value;
+				// calculate the next value
+				final long smallest = v & -v;
+				final long ripple = v + smallest;
+				final long ones;
+				if ( smallest == 0 )
+					ones = 0;
+				else
+					ones = ((v^ripple) >>> 2) / smallest;
+				value = ripple | ones;
+				// return this value
+				bitset = v;
+			}
+			for ( int bit=0,i=0; i<nOnes; ++bit )
+				if ( (bitset & (1L<<bit)) != 0 ) // Bit 'bit' is set (1)
+					array[i++] = bit;
+			return array;
+		}
+		@Override
+		public void remove() {
+			throw new UnsupportedOperationException("Permutations is an immutable set.");
+		}
+	}
+
+	// ========================================================================
+
 	/**
-	 * this main-line is a bloody hackfest, so do whatever you like with it,
-	 * just preserve the existing please. You'll see how. And please tell us
-	 * what you were up-to in a comment.
+	 * this main-line is a hackfest, so do whatever you like with it, just
+	 * please preserve the existing. You will see how. And please tell us
+	 * what you were trying to do in a comment.
 	 */
 	public static void main(String[] args) {
 		if ( true ) {
+			System.out.format("Standard fish:\n");
+			for ( int i=2; i<5; ++i ) {
+				long n = combinations(i, 9);
+				System.out.format("%d: %,d*%,d = %,d\n", i, n, n, n*n);
+			}
+			System.out.format("Franken fish:\n");
+			for ( int i=2; i<5; ++i ) {
+				long n = combinations(i, 18);
+				System.out.format("%d: %,d*%,d = %,d\n", i, n, n, n*n);
+			}
+			System.out.format("Mutant fish:\n");
+			for ( int i=2; i<5; ++i ) {
+				long n = combinations(i, 27);
+				System.out.format("%d: %,d*%,d = %,d\n", i, n, n, n*n);
+			}
+		} else if ( false ) {
 			// Q: Time to iterate 10 elements in a Set of 44?
 			// A: took 208.732 seconds.
 			long start, finish;
@@ -418,7 +576,7 @@ public final class Permutations implements Iterable<int[]> {
 			long last100 = combinations(10, 44) - 100;
 
 			long i = 0;
-			for ( int[] perm : new Permutations(10,44) ) {
+			for ( int[] perm : new Permutations(44, 10) ) {
 				if ( ++i>100 && i<last100 ) // skip the middle
 					continue;
 				if ( i == last100 ) // first line of the last 100
@@ -427,7 +585,7 @@ public final class Permutations implements Iterable<int[]> {
 				System.out.println();
 			}
 			finish = System.currentTimeMillis();
-			System.out.printf("took %dms\n", finish - start);
+			System.out.format("took %dms\n", finish - start);
 		} else if ( false ) {
 			// Q: Is combinations faster than count.
 			// A: Yes it is.
@@ -436,7 +594,7 @@ public final class Permutations implements Iterable<int[]> {
 			final int k = 10; // %,15d guess
 			long start, finish, x;
 			// n is the size of the master set, so k must be <= n,
-			// which I've implemented as "n starts at k".
+			// which I have implemented as "n starts at k".
 			for ( int n=k; n<=64; ++n ) {
 				System.out.format("%d,%2d", k,n);
 
@@ -465,23 +623,19 @@ public final class Permutations implements Iterable<int[]> {
 			System.out.println();
 		} else if ( false ) {
 			// Q: Does .printBinaryString work?
-			new Permutations(2, 57).printBinaryString(System.out);
+			new Permutations(57, 2).printBinaryString(System.out);
 		} else if ( false ) {
 			// Q: How many combos in 2 in 61?
-			int nOnes = 2;
-			new Permutations(61, new int[nOnes])
-					.printBinaryString(System.out);
+			new Permutations(61, new int[2]).printBinaryString(System.out);
 		} else if ( false ) {
 			// Q: How many combos in 5 in 53?
-			int nOnes=5, nBits=53;
-			new Permutations(nBits, new int[nOnes])
-					.printBinaryString(System.out);
+			new Permutations(53, new int[5]).printBinaryString(System.out);
 		}
 	}
 
 }
 /*
-These are main outputs, so that I don't have to wait for them twice.
+These are main outputs, so that I do not have to wait for them twice.
 
 run:
 10,10	combinations=              1 (0ms)	count=              1 (0ms)
@@ -529,6 +683,7 @@ run:
 10,52	combinations=  2,147,483,647 (0ms)	count= 15,820,024,219 (217559ms)
 10,53	combinations=  2,147,483,647 (0ms)BUILD STOPPED (total time: 18 minutes 4 seconds)
 
-You get the picture... this little duck plucker was brought to you by hobiwan.
+You get the picture: this little duck plucker was brought to you by hobiwan,
+the master of combinatorials, and a nice guy, and a complete putz! Sigh.
 
 */

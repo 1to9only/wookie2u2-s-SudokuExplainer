@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.solver.hinters.urt;
@@ -12,7 +12,7 @@ import diuf.sudoku.Grid.Cell;
 import diuf.sudoku.Pots;
 import diuf.sudoku.Regions;
 import static diuf.sudoku.Values.VSHFT;
-import diuf.sudoku.solver.hinters.AHinter;
+import diuf.sudoku.solver.hinters.IHinter;
 import diuf.sudoku.utils.Frmu;
 import diuf.sudoku.utils.Html;
 
@@ -25,11 +25,11 @@ public final class URTHiddenHint extends AURTHint {
 
 	private final ARegion base; // the B -> D edge of the rectangle
 	private final ARegion cover; // the C -> D edge of the rectangle
-	public URTHiddenHint(final AHinter hinter, final Cell[] loop, final int n
-			, final int v1, final int v2, final Pots reds, final ARegion base
-			, final ARegion cover) {
+	public URTHiddenHint(final Grid grid, final IHinter hinter
+			, final Cell[] loop, final int n, final int v1, final int v2
+			, final Pots reds, final ARegion base, final ARegion cover) {
 		// Type 7 is a Hidden Unique Rectangle (aka Unique Rectangle Hidden)
-		super(7, hinter, loop, n, v1, v2, reds);
+		super(grid, 7, hinter, loop, n, v1, v2, reds);
 		this.base = base;
 		this.cover = cover;
 	}
@@ -45,12 +45,12 @@ public final class URTHiddenHint extends AURTHint {
 	}
 
 	@Override
-	public Pots getOranges(int viewNum) {
+	public Pots getOrangePots(final int viewNum) {
 		if ( orangePots == null ) {
 			final Pots pots = new Pots(4, 1F);
 			final int sv = VSHFT[v1]; // v1 (a) is locked into rectangle
 			for ( int i=0; i<loopSize; ++i )
-				pots.put(loop[i], sv);
+				pots.put(loop[i].indice, sv);
 			orangePots = pots;
 		}
 		return orangePots;
@@ -58,14 +58,14 @@ public final class URTHiddenHint extends AURTHint {
 	private Pots orangePots;
 
 	@Override
-	public Pots getBlues(Grid grid, int viewNum) {
+	public Pots getBluePots(final Grid grid, final int viewNum) {
 		if ( bluePots == null ) {
 			final Pots pots = new Pots(4, 1F);
 			final int sv = VSHFT[v2]; // v2 (b) is value to remove
 			for ( int i=0; i<loopSize; ++i )
-				pots.put(loop[i], sv);
+				pots.put(loop[i].indice, sv);
 			// remove the removable (red) pot so that it appears red
-			pots.removeAll(getReds(0));
+			pots.removeAll(getRedPots(0));
 			bluePots = pots;
 		}
 		return bluePots;
@@ -86,4 +86,5 @@ public final class URTHiddenHint extends AURTHint {
 			, loop[3].id				// 8 C (out of order!)
 		);
 	}
+
 }

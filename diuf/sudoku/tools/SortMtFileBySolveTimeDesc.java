@@ -1,7 +1,7 @@
 /*
  * Project: Sudoku Explainer
  * Copyright (C) 2006-2007 Nicolas Juillerat
- * Copyright (C) 2013-2022 Keith Corlett
+ * Copyright (C) 2013-2023 Keith Corlett
  * Available under the terms of the Lesser General Public License (LGPL)
  */
 package diuf.sudoku.tools;
@@ -28,8 +28,8 @@ import java.util.regex.Pattern;
  * end of the puzzle-summary-line in the logFile. Another reminder that one
  * f__ks with the logFile format at ones peril.
  * <p>
- * It shouldn't matter which Log.MODE the logFile is in, because I only look at
- * the puzzle-summary-lines which are allways there, and I've gone all the way
+ * It should not matter which Log.MODE the logFile is in, because I only look at
+ * the puzzle-summary-lines which are allways there, and I have gone all the way
  * on the puzzleSummaryLinePattern regex to select those (and only those) lines.
  * @author Keith Corlett 2019 OCT
  */
